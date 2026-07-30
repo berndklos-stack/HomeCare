@@ -1,10 +1,22 @@
 export const appVersion = {
-  version: "0.5.0",
+  version: "0.6.0",
   releaseDate: "2026-07-31",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "0.6.0",
+    date: "2026-07-31",
+    changes: [
+      "Berichtsmodul mit Kunden- und interner Sicht ergänzt",
+      "Auftragsanlage um Priorität, Fälligkeit, Zuständigkeit, Beschreibung und interne Notizen erweitert",
+      "Einsatzplanung um Filter, Kennzahlen und Zuständigkeiten ergänzt",
+      "Mobile Einsatzbearbeitung mit Start, Pause, Abschluss, Medien, Material und Arbeitszeit ausgebaut",
+      "Kundenanlage, Kundenportal-Auftragsanfrage und Abrechnungspositionen ergänzt",
+      "Supabase-Schema um Medien, Kommunikation, Abrechnung und erweiterte Rollen ergänzt",
+    ],
+  },
   {
     version: "0.5.0",
     date: "2026-07-31",

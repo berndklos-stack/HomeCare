@@ -43,10 +43,11 @@ type NavTarget =
   | "services"
   | "jobs"
   | "schedule"
+  | "reports"
   | "communication"
   | "billing"
   | "approvals";
-type ModalMode = "job" | "object" | "report" | "property" | "version" | null;
+type ModalMode = "job" | "object" | "customer" | "report" | "property" | "version" | null;
 type Theme = "light" | "dark";
 
 const languageLabels: Record<Language, string> = {
@@ -67,6 +68,7 @@ const translations = {
       "Leistungskatalog",
       "Aufträge",
       "Termine",
+      "Berichte",
       "Kommunikation",
       "Abrechnung",
       "Freigaben",
@@ -79,6 +81,7 @@ const translations = {
       "services",
       "jobs",
       "schedule",
+      "reports",
       "communication",
       "billing",
       "approvals",
@@ -134,6 +137,7 @@ const translations = {
     jobOverview: "Auftragsübersicht",
     scheduleOverview: "Einsatzplan",
     approvalOverview: "Freigabeübersicht",
+    reportOverview: "Berichtsübersicht",
     dashboardJump: "Direkt in den Bereich",
     masterDataOverview: "Stammdatenübersicht",
     customerOverview: "Kundenübersicht",
@@ -145,6 +149,7 @@ const translations = {
     servicesHint: "Katalog, Preise, Intervalle, SLA und abrechenbare Leistungen",
     jobsHint: "Aufträge, Status, Zuständigkeit und nächste Schritte",
     scheduleHint: "Termine, Teams, Einsatzfenster und mobile Ausführung",
+    reportsHint: "Kundenberichte, interne Details, Medien und Exportvorbereitung",
     communicationHint: "Kundenmails, Rückfragen und Vorlagen mit Objektbezug",
     billingHint: "Rechnungen, fällige Posten, Monatsabrechnung und Leistungslinien",
     approvalsHint: "Interne Prüfung vor Kundenversand und Abrechnung",
@@ -173,6 +178,29 @@ const translations = {
     openCustomers: "Kunden öffnen",
     openServices: "Katalog öffnen",
     openBilling: "Abrechnung öffnen",
+    openReports: "Berichte öffnen",
+    newCustomer: "Neuer Kunde",
+    createCustomer: "Kunde anlegen",
+    newCustomerAdded: "Kunde wurde lokal angelegt",
+    assigneeLabel: "Zuständig",
+    priorityLabel: "Priorität",
+    descriptionLabel: "Beschreibung",
+    internalNotesLabel: "Interne Notizen",
+    billingStatusLabel: "Abrechnung",
+    mediaLabel: "Medien",
+    workTimeLabel: "Arbeitszeit",
+    materialsLabel: "Material",
+    visibleToCustomer: "Für Kunden sichtbar",
+    internalOnly: "Nur intern",
+    startJob: "Starten",
+    pauseJob: "Pausieren",
+    completeJob: "Abschließen",
+    jobStarted: "Einsatz wurde gestartet",
+    jobPaused: "Einsatz wurde pausiert",
+    jobCompleted: "Einsatz wurde abgeschlossen und Bericht erzeugt",
+    customerRequestCreated: "Kundenauftrag wurde angelegt",
+    billableItemAdded: "Abrechnungsposition ergänzt",
+    addBillableItem: "Position ergänzen",
     startVisit: "Einsatz starten",
     approveJob: "Freigeben",
     openDetails: "Details öffnen",
@@ -265,6 +293,7 @@ const translations = {
       "Tjänstekatalog",
       "Uppdrag",
       "Tider",
+      "Rapporter",
       "Kommunikation",
       "Fakturering",
       "Godkännanden",
@@ -277,6 +306,7 @@ const translations = {
       "services",
       "jobs",
       "schedule",
+      "reports",
       "communication",
       "billing",
       "approvals",
@@ -332,6 +362,7 @@ const translations = {
     jobOverview: "Uppdragsöversikt",
     scheduleOverview: "Insatsplan",
     approvalOverview: "Godkännanden",
+    reportOverview: "Rapportöversikt",
     dashboardJump: "Gå direkt till området",
     masterDataOverview: "Grunddataöversikt",
     customerOverview: "Kundöversikt",
@@ -343,6 +374,7 @@ const translations = {
     servicesHint: "Katalog, priser, intervall, SLA och fakturerbara tjänster",
     jobsHint: "Uppdrag, status, ansvar och nästa steg",
     scheduleHint: "Tider, team, insatsfönster och mobil utförande",
+    reportsHint: "Kundrapporter, interna detaljer, media och exportförberedelse",
     communicationHint: "Kundmail, frågor och mallar kopplade till objekt",
     billingHint: "Fakturor, förfallna poster, månadsavräkning och tjänsterader",
     approvalsHint: "Intern kontroll före kundutskick och fakturering",
@@ -371,6 +403,29 @@ const translations = {
     openCustomers: "Öppna kunder",
     openServices: "Öppna katalog",
     openBilling: "Öppna fakturering",
+    openReports: "Öppna rapporter",
+    newCustomer: "Ny kund",
+    createCustomer: "Skapa kund",
+    newCustomerAdded: "Kunden skapades lokalt",
+    assigneeLabel: "Ansvarig",
+    priorityLabel: "Prioritet",
+    descriptionLabel: "Beskrivning",
+    internalNotesLabel: "Interna noteringar",
+    billingStatusLabel: "Fakturering",
+    mediaLabel: "Media",
+    workTimeLabel: "Arbetstid",
+    materialsLabel: "Material",
+    visibleToCustomer: "Synligt för kund",
+    internalOnly: "Endast internt",
+    startJob: "Starta",
+    pauseJob: "Pausa",
+    completeJob: "Avsluta",
+    jobStarted: "Insatsen startades",
+    jobPaused: "Insatsen pausades",
+    jobCompleted: "Insatsen avslutades och rapport skapades",
+    customerRequestCreated: "Kunduppdrag skapades",
+    billableItemAdded: "Fakturarad tillagd",
+    addBillableItem: "Lägg till rad",
     startVisit: "Starta insats",
     approveJob: "Godkänn",
     openDetails: "Öppna detaljer",
@@ -463,6 +518,7 @@ const translations = {
       "Service catalog",
       "Jobs",
       "Schedule",
+      "Reports",
       "Communication",
       "Billing",
       "Approvals",
@@ -475,6 +531,7 @@ const translations = {
       "services",
       "jobs",
       "schedule",
+      "reports",
       "communication",
       "billing",
       "approvals",
@@ -530,6 +587,7 @@ const translations = {
     jobOverview: "Job overview",
     scheduleOverview: "Schedule",
     approvalOverview: "Approvals",
+    reportOverview: "Report overview",
     dashboardJump: "Open workspace area",
     masterDataOverview: "Master data overview",
     customerOverview: "Customer overview",
@@ -541,6 +599,7 @@ const translations = {
     servicesHint: "Catalog, prices, intervals, SLA and billable services",
     jobsHint: "Jobs, status, responsibility and next steps",
     scheduleHint: "Appointments, teams, service windows and mobile execution",
+    reportsHint: "Customer reports, internal details, media and export preparation",
     communicationHint: "Customer email, questions and templates linked to properties",
     billingHint: "Invoices, due items, monthly billing and service lines",
     approvalsHint: "Internal review before customer email and billing",
@@ -569,6 +628,29 @@ const translations = {
     openCustomers: "Open customers",
     openServices: "Open catalog",
     openBilling: "Open billing",
+    openReports: "Open reports",
+    newCustomer: "New customer",
+    createCustomer: "Create customer",
+    newCustomerAdded: "Customer was created locally",
+    assigneeLabel: "Assignee",
+    priorityLabel: "Priority",
+    descriptionLabel: "Description",
+    internalNotesLabel: "Internal notes",
+    billingStatusLabel: "Billing",
+    mediaLabel: "Media",
+    workTimeLabel: "Work time",
+    materialsLabel: "Materials",
+    visibleToCustomer: "Visible to customer",
+    internalOnly: "Internal only",
+    startJob: "Start",
+    pauseJob: "Pause",
+    completeJob: "Complete",
+    jobStarted: "Visit was started",
+    jobPaused: "Visit was paused",
+    jobCompleted: "Visit was completed and report created",
+    customerRequestCreated: "Customer job request was created",
+    billableItemAdded: "Billing item added",
+    addBillableItem: "Add item",
     startVisit: "Start visit",
     approveJob: "Approve",
     openDetails: "Open details",
@@ -661,6 +743,7 @@ const navIcons = [
   BookOpen,
   ClipboardCheck,
   CalendarDays,
+  BookOpen,
   MessageSquare,
   ReceiptText,
   MailCheck,
@@ -674,6 +757,16 @@ type AppJob = {
   status: string;
   service: string;
   progress: number;
+  priority?: string;
+  dueDate?: string;
+  assignedTo?: string;
+  description?: string;
+  internalNotes?: string;
+  billingStatus?: "nicht abrechenbar" | "abrechenbar" | "abgerechnet";
+  workMinutes?: number;
+  materialCost?: number;
+  mediaCount?: number;
+  visitState?: "geplant" | "gestartet" | "pausiert" | "abgeschlossen";
 };
 
 type AppJobSeed = Omit<AppJob, "title" | "status" | "service"> & {
@@ -704,6 +797,13 @@ type CustomerRecord = {
   objects: string[];
   balance: string;
   nextStep: string;
+  role: "Kunde/Eigentümer";
+};
+
+type AppUser = {
+  name: string;
+  role: "Admin" | "Büro" | "Einsatzkraft" | "Kunde/Eigentümer";
+  scope: string;
 };
 
 type ServiceCatalogItem = {
@@ -731,6 +831,33 @@ type InvoiceRecord = {
   amount: string;
   status: string;
   due: string;
+};
+
+type ReportRecord = {
+  id: string;
+  jobId: string;
+  object: string;
+  customer: string;
+  title: string;
+  date: string;
+  assignee: string;
+  workTime: string;
+  checklist: string;
+  customerSummary: string;
+  internalSummary: string;
+  media: string[];
+  visibility: "Kundenansicht" | "Intern";
+};
+
+type BillableItem = {
+  id: string;
+  source: string;
+  customer: string;
+  object: string;
+  description: string;
+  amount: string;
+  status: "abrechenbar" | "abgerechnet" | "nicht abrechenbar";
+  visibility: "kundensichtbar" | "intern";
 };
 
 type LiveData = {
@@ -805,6 +932,7 @@ const customerRecords = [
     objects: ["Villa Långsjön"],
     balance: "0 SEK",
     nextStep: "Bericht nach Poolpflege freigeben",
+    role: "Kunde/Eigentümer",
   },
   {
     name: "M. Schneider",
@@ -815,6 +943,7 @@ const customerRecords = [
     objects: ["Stuga Nybro"],
     balance: "1.840 SEK",
     nextStep: "Monatsrechnung vorbereiten",
+    role: "Kunde/Eigentümer",
   },
   {
     name: "B. Klos",
@@ -825,8 +954,16 @@ const customerRecords = [
     objects: ["Haus am Wald"],
     balance: "0 SEK",
     nextStep: "Saisonkontrolle terminieren",
+    role: "Kunde/Eigentümer",
   },
 ] satisfies CustomerRecord[];
+
+const appUsers = [
+  { name: "Bernd Klos", role: "Admin", scope: "alle Bereiche" },
+  { name: "Anna Lind", role: "Büro", scope: "Aufträge, Termine, Kunden" },
+  { name: "Johan Berg", role: "Einsatzkraft", scope: "eigene Einsätze mobil" },
+  { name: "Eva Andersson", role: "Kunde/Eigentümer", scope: "eigene Objekte" },
+] satisfies AppUser[];
 
 const serviceCatalogItems = [
   {
@@ -917,6 +1054,72 @@ const invoiceRecords = [
   },
 ] satisfies InvoiceRecord[];
 
+const reportRecords = [
+  {
+    id: "BR-2026-044",
+    jobId: "KS-2407",
+    object: "Villa Långsjön",
+    customer: "Familie Andersson",
+    title: "Poolpflege und Wasserwerte",
+    date: "31.07.2026",
+    assignee: "Johan Berg",
+    workTime: "1:35 h",
+    checklist: "5/5 erledigt",
+    customerSummary: "Pool gereinigt, Wasserwerte stabilisiert, nächste Kontrolle geplant.",
+    internalSummary: "pH nachdosiert, Filterdruck beobachten, interner Hinweis bleibt verborgen.",
+    media: ["3 Fotos", "1 Voicememo"],
+    visibility: "Kundenansicht",
+  },
+  {
+    id: "BR-2026-041",
+    jobId: "KS-2408",
+    object: "Stuga Nybro",
+    customer: "M. Schneider",
+    title: "Rasen, Hecken und Sichtprüfung",
+    date: "28.07.2026",
+    assignee: "Anna Lind",
+    workTime: "2:10 h",
+    checklist: "4/5 erledigt",
+    customerSummary: "Gartenpflege ausgeführt, Hecke zurückgeschnitten, Zufahrt geprüft.",
+    internalSummary: "Zusatztermin für Dachrinne empfehlen.",
+    media: ["5 Fotos"],
+    visibility: "Kundenansicht",
+  },
+] satisfies ReportRecord[];
+
+const billableItems = [
+  {
+    id: "AP-1001",
+    source: "KS-2407",
+    customer: "Familie Andersson",
+    object: "Villa Långsjön",
+    description: "Poolpflege inkl. Material",
+    amount: "2.110 SEK",
+    status: "abrechenbar",
+    visibility: "kundensichtbar",
+  },
+  {
+    id: "AP-1002",
+    source: "KS-2408",
+    customer: "M. Schneider",
+    object: "Stuga Nybro",
+    description: "Gartenpflege und Sichtprüfung",
+    amount: "1.840 SEK",
+    status: "abgerechnet",
+    visibility: "kundensichtbar",
+  },
+  {
+    id: "AP-1003",
+    source: "KS-2409",
+    customer: "Kolaretorp Service AB",
+    object: "Kolaretorp 106",
+    description: "Interne Nacharbeit Terrassentür",
+    amount: "0 SEK",
+    status: "nicht abrechenbar",
+    visibility: "intern",
+  },
+] satisfies BillableItem[];
+
 const checklistDone = [true, true, true, false, false];
 
 function getStatusProgress(status: string) {
@@ -981,10 +1184,14 @@ export default function HomePage() {
   const [liveData, setLiveData] = useState<LiveData | null>(null);
   const [localJobs, setLocalJobs] = useState<AppJob[]>([]);
   const [localObjects, setLocalObjects] = useState<AppObject[]>([]);
+  const [localCustomers, setLocalCustomers] = useState<CustomerRecord[]>([]);
+  const [localReports, setLocalReports] = useState<ReportRecord[]>([]);
+  const [localBillableItems, setLocalBillableItems] = useState<BillableItem[]>([]);
   const [jobOverrides, setJobOverrides] = useState<Record<string, Partial<AppJob>>>({});
   const [activeJobId, setActiveJobId] = useState("KS-2407");
   const [selectedObjectName, setSelectedObjectName] = useState("Villa Långsjön");
   const [selectedService, setSelectedService] = useState<string | null>(null);
+  const [scheduleFilter, setScheduleFilter] = useState("Alle");
   const [modalMode, setModalMode] = useState<ModalMode>(null);
   const [theme, setTheme] = useState<Theme>(() => {
     if (typeof window === "undefined") {
@@ -1000,9 +1207,21 @@ export default function HomePage() {
   const [newJobTitle, setNewJobTitle] = useState("");
   const [newJobObject, setNewJobObject] = useState("Villa Långsjön");
   const [newJobService, setNewJobService] = useState("");
+  const [newJobPriority, setNewJobPriority] = useState("normal");
+  const [newJobDueDate, setNewJobDueDate] = useState("2026-08-02");
+  const [newJobAssignee, setNewJobAssignee] = useState("Johan Berg");
+  const [newJobDescription, setNewJobDescription] = useState("");
+  const [newJobInternalNotes, setNewJobInternalNotes] = useState("");
   const [newObjectName, setNewObjectName] = useState("");
   const [newObjectOwner, setNewObjectOwner] = useState("");
   const [newObjectLocation, setNewObjectLocation] = useState("");
+  const [newCustomerName, setNewCustomerName] = useState("");
+  const [newCustomerContact, setNewCustomerContact] = useState("");
+  const [newCustomerEmail, setNewCustomerEmail] = useState("");
+  const [fieldNote, setFieldNote] = useState("Filterdruck geprüft, Wasserwerte dokumentiert.");
+  const [workMinutes, setWorkMinutes] = useState(75);
+  const [materialCost, setMaterialCost] = useState(260);
+  const [mediaCounts, setMediaCounts] = useState({ photos: 2, videos: 0, voice: 1 });
   const [dataState, setDataState] = useState<DataState>(() =>
     getSupabaseBrowserClient() ? "loading" : "demo",
   );
@@ -1024,14 +1243,30 @@ export default function HomePage() {
     status: translatedList(t, "objectStatuses")[object.statusKey] ?? "",
     lastVisit: translatedList(t, "lastVisits")[object.lastVisitKey] ?? "",
   }));
-  const jobs = [
+  const jobs: AppJob[] = [
     ...localJobs,
     ...(liveData?.jobs.length ? liveData.jobs : demoJobs),
-  ].map((job) => ({ ...job, ...jobOverrides[job.id] }));
+  ].map((job, index): AppJob => ({
+    priority: index === 0 ? "hoch" : "normal",
+    dueDate: index === 0 ? "2026-07-31" : index === 1 ? "2026-08-02" : "2026-08-05",
+    assignedTo: index === 1 ? "Anna Lind" : "Johan Berg",
+    description: `${job.service} für ${job.object}`,
+    internalNotes: "Interne Kalkulation und Hinweise sind nur für Verwaltung sichtbar.",
+    billingStatus: (index === 2 ? "nicht abrechenbar" : "abrechenbar") satisfies AppJob["billingStatus"],
+    workMinutes: index === 0 ? 95 : 70,
+    materialCost: index === 0 ? 260 : 0,
+    mediaCount: index === 0 ? 4 : 2,
+    visitState: (index === 0 ? "gestartet" : "geplant") satisfies AppJob["visitState"],
+    ...job,
+    ...jobOverrides[job.id],
+  }));
   const objects = [
     ...localObjects,
     ...(liveData?.objects.length ? liveData.objects : demoObjects),
   ];
+  const customers = [...localCustomers, ...customerRecords];
+  const reports = [...localReports, ...reportRecords];
+  const billingPositions = [...localBillableItems, ...billableItems];
   const services = liveData?.services.length
     ? liveData.services
     : serviceLabels;
@@ -1040,6 +1275,14 @@ export default function HomePage() {
   const filteredJobs = activeServiceFilter
     ? jobs.filter((job) => job.service === activeServiceFilter)
     : jobs;
+  const scheduleJobs =
+    scheduleFilter === "Alle"
+      ? jobs
+      : jobs.filter((job) =>
+          [job.status, job.object, job.owner, job.assignedTo, job.service, job.dueDate]
+            .filter(Boolean)
+            .some((value) => String(value).toLowerCase().includes(scheduleFilter.toLowerCase())),
+        );
   const approvalJobs = jobs.filter((job) =>
     ["approval", "freigabe", "godkännande"].some((status) =>
       job.status.toLowerCase().includes(status),
@@ -1055,6 +1298,11 @@ export default function HomePage() {
     [checklistState],
   );
   const stats = [objects.length, jobs.length, approvalJobs.length];
+  const scheduleStats = [
+    jobs.length,
+    jobs.filter((job) => job.dueDate === "2026-07-31" || job.status.includes("Arbeit")).length,
+    jobs.filter((job) => job.dueDate && job.dueDate < "2026-07-31" && job.progress < 100).length,
+  ];
   const moduleCards = [
     {
       target: "masterData",
@@ -1073,7 +1321,7 @@ export default function HomePage() {
     {
       target: "customers",
       title: String(t.customerOverview),
-      text: `${customerRecords.length} ${String(t.records)}`,
+      text: `${customers.length} ${String(t.records)}`,
       hint: String(t.customersHint),
       icon: Users,
     },
@@ -1097,6 +1345,13 @@ export default function HomePage() {
       text: String(t.nextAppointment),
       hint: String(t.scheduleHint),
       icon: CalendarDays,
+    },
+    {
+      target: "reports",
+      title: String(t.reportOverview),
+      text: `${reports.length} ${String(t.records)}`,
+      hint: String(t.reportsHint),
+      icon: BookOpen,
     },
     {
       target: "communication",
@@ -1138,6 +1393,7 @@ export default function HomePage() {
           "services",
           "jobs",
           "schedule",
+          "reports",
           "communication",
           "billing",
           "approvals",
@@ -1169,6 +1425,11 @@ export default function HomePage() {
     setNewJobTitle("");
     setNewJobObject(objects[0]?.name ?? "");
     setNewJobService(services[0] ?? "");
+    setNewJobPriority("normal");
+    setNewJobDueDate("2026-08-02");
+    setNewJobAssignee("Johan Berg");
+    setNewJobDescription("");
+    setNewJobInternalNotes("");
     setModalMode("job");
   }
 
@@ -1177,6 +1438,33 @@ export default function HomePage() {
     setNewObjectOwner("");
     setNewObjectLocation("");
     setModalMode("object");
+  }
+
+  function openNewCustomer() {
+    setNewCustomerName("");
+    setNewCustomerContact("");
+    setNewCustomerEmail("");
+    setModalMode("customer");
+  }
+
+  function createLocalCustomer() {
+    const customerName = newCustomerName.trim() || String(t.newCustomer);
+    const createdCustomer: CustomerRecord = {
+      name: customerName,
+      contact: newCustomerContact.trim() || customerName,
+      email: newCustomerEmail.trim() || "kunde@example.com",
+      phone: "-",
+      language: "DE",
+      objects: [],
+      balance: "0 SEK",
+      nextStep: "Objekt zuordnen",
+      role: "Kunde/Eigentümer",
+    };
+
+    setLocalCustomers((currentCustomers) => [createdCustomer, ...currentCustomers]);
+    setModalMode(null);
+    setSection("customers");
+    showNotice(String(t.newCustomerAdded));
   }
 
   function createLocalObject() {
@@ -1208,6 +1496,16 @@ export default function HomePage() {
       status: translatedList(t, "jobStatuses")[1] ?? String(t.status),
       service,
       progress: 12,
+      priority: newJobPriority,
+      dueDate: newJobDueDate,
+      assignedTo: newJobAssignee,
+      description: newJobDescription.trim() || `${service} für ${object?.name ?? newJobObject}`,
+      internalNotes: newJobInternalNotes.trim() || String(t.internalOnly),
+      billingStatus: "abrechenbar",
+      workMinutes: 0,
+      materialCost: 0,
+      mediaCount: 0,
+      visitState: "geplant",
     };
 
     setLocalJobs((currentJobs) => [createdJob, ...currentJobs]);
@@ -1285,8 +1583,103 @@ export default function HomePage() {
   }
 
   function startVisit(job: AppJob) {
+    setJobOverrides((currentOverrides) => ({
+      ...currentOverrides,
+      [job.id]: {
+        status: translatedStatus(t, "in_progress"),
+        progress: Math.max(job.progress, 35),
+        visitState: "gestartet",
+      },
+    }));
     selectJob(job);
     changeView("mobile");
+    showNotice(String(t.jobStarted));
+  }
+
+  function pauseVisit(job: AppJob) {
+    setJobOverrides((currentOverrides) => ({
+      ...currentOverrides,
+      [job.id]: {
+        visitState: "pausiert",
+        progress: Math.max(job.progress, 45),
+      },
+    }));
+    showNotice(String(t.jobPaused));
+  }
+
+  function completeVisit(job: AppJob) {
+    const reportId = `BR-${Date.now().toString().slice(-5)}`;
+    const createdReport: ReportRecord = {
+      id: reportId,
+      jobId: job.id,
+      object: job.object,
+      customer: job.owner,
+      title: job.title,
+      date: "31.07.2026",
+      assignee: job.assignedTo ?? "Johan Berg",
+      workTime: `${Math.floor(workMinutes / 60)}:${String(workMinutes % 60).padStart(2, "0")} h`,
+      checklist: `${checklistState.filter(Boolean).length}/${checklistState.length} erledigt`,
+      customerSummary: fieldNote,
+      internalSummary: `${job.internalNotes ?? String(t.internalOnly)} Material: ${materialCost} SEK.`,
+      media: [`${mediaCounts.photos} Fotos`, `${mediaCounts.videos} Videos`, `${mediaCounts.voice} Voicememos`],
+      visibility: "Kundenansicht",
+    };
+    const createdBillableItem: BillableItem = {
+      id: `AP-${Date.now().toString().slice(-4)}`,
+      source: job.id,
+      customer: job.owner,
+      object: job.object,
+      description: `${job.service}: ${job.title}`,
+      amount: `${Math.max(0, Math.round((workMinutes / 60) * 690 + materialCost))} SEK`,
+      status: job.billingStatus === "nicht abrechenbar" ? "nicht abrechenbar" : "abrechenbar",
+      visibility: job.billingStatus === "nicht abrechenbar" ? "intern" : "kundensichtbar",
+    };
+
+    setLocalReports((currentReports) => [createdReport, ...currentReports]);
+    setLocalBillableItems((currentItems) => [createdBillableItem, ...currentItems]);
+    setJobOverrides((currentOverrides) => ({
+      ...currentOverrides,
+      [job.id]: {
+        status: translatedStatus(t, "completed"),
+        progress: 100,
+        visitState: "abgeschlossen",
+        workMinutes,
+        materialCost,
+        mediaCount: mediaCounts.photos + mediaCounts.videos + mediaCounts.voice,
+      },
+    }));
+    setActiveJobId(job.id);
+    setSection("reports");
+    setView("team");
+    showNotice(String(t.jobCompleted));
+  }
+
+  function createCustomerRequest() {
+    setNewJobTitle("Kundenauftrag: Sonderauftrag");
+    setNewJobObject(activeObject.name);
+    setNewJobService(services[0] ?? String(t.services));
+    setNewJobPriority("normal");
+    setNewJobDueDate("2026-08-06");
+    setNewJobDescription("Vom Eigentümer im Portal angefragter Auftrag.");
+    setNewJobInternalNotes("Eingang über Kundenportal, intern prüfen.");
+    setModalMode("job");
+    showNotice(String(t.customerRequestCreated));
+  }
+
+  function addManualBillableItem() {
+    const createdItem: BillableItem = {
+      id: `AP-${Date.now().toString().slice(-4)}`,
+      source: activeJob.id,
+      customer: activeJob.owner,
+      object: activeJob.object,
+      description: `Manuelle Zusatzleistung: ${activeJob.service}`,
+      amount: "690 SEK",
+      status: "abrechenbar",
+      visibility: "kundensichtbar",
+    };
+
+    setLocalBillableItems((currentItems) => [createdItem, ...currentItems]);
+    showNotice(String(t.billableItemAdded));
   }
 
   function toggleTheme() {
@@ -1606,6 +1999,9 @@ export default function HomePage() {
                         <span>
                           {job.object} · {job.owner}
                         </span>
+                        <small>
+                          {String(t.priorityLabel)}: {job.priority} · {String(t.assigneeLabel)}: {job.assignedTo}
+                        </small>
                       </div>
                       <p>{job.service}</p>
                       <div className="progress">
@@ -1727,6 +2123,9 @@ export default function HomePage() {
                   <button className="secondary-action" onClick={openNewObject} type="button">
                     <Plus size={18} /> {String(t.newObject)}
                   </button>
+                  <button className="secondary-action" onClick={openNewCustomer} type="button">
+                    <Users size={18} /> {String(t.newCustomer)}
+                  </button>
                   <button className="secondary-action" onClick={() => handleNav("customers")} type="button">
                     <Users size={18} /> {String(t.openCustomers)}
                   </button>
@@ -1747,7 +2146,7 @@ export default function HomePage() {
                 </div>
               </div>
               <div className="data-table customer-table">
-                {customerRecords.map((customer) => (
+                {customers.map((customer) => (
                   <article key={customer.email}>
                     <div>
                       <span>{String(t.customerLabel)}</span>
@@ -1827,13 +2226,16 @@ export default function HomePage() {
                     <div className="job-icon">
                       <ClipboardCheck size={19} />
                     </div>
-                    <div>
-                      <strong>{job.title}</strong>
-                      <span>
-                        {job.object} · {job.owner}
-                      </span>
-                    </div>
-                    <p>{job.service}</p>
+                      <div>
+                        <strong>{job.title}</strong>
+                        <span>
+                          {job.object} · {job.owner}
+                        </span>
+                        <small>
+                          {String(t.dueLabel)}: {job.dueDate} · {String(t.assigneeLabel)}: {job.assignedTo}
+                        </small>
+                      </div>
+                      <p>{job.service}</p>
                     <div className="progress">
                       <span style={{ width: `${job.progress}%` }} />
                     </div>
@@ -1890,17 +2292,91 @@ export default function HomePage() {
                   <h3>{String(t.scheduleOverview)}</h3>
                 </div>
               </div>
+              <div className="metric-grid">
+                {["offen", "heute", "überfällig"].map((label, index) => (
+                  <div key={label}>
+                    <strong>{scheduleStats[index]}</strong>
+                    <span>{label}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="filter-row" aria-label="Einsatzfilter">
+                {["Alle", "Johan", "Anna", "Poolpflege", "Gartenpflege", "Geplant", "In Arbeit"].map((filter) => (
+                  <button
+                    className={scheduleFilter === filter ? "selected" : ""}
+                    key={filter}
+                    onClick={() => setScheduleFilter(filter)}
+                    type="button"
+                  >
+                    {filter}
+                  </button>
+                ))}
+              </div>
               <div className="action-list">
-                {jobs.map((job) => (
+                {scheduleJobs.map((job) => (
                   <article key={job.id}>
                     <div>
                       <strong>{job.title}</strong>
                       <span>
-                        {job.object} · {job.service}
+                        {job.object} · {job.service} · {job.assignedTo}
                       </span>
+                      <small>
+                        {String(t.dueLabel)}: {job.dueDate} · {String(t.statusLabel)}: {job.status}
+                      </small>
                     </div>
                     <button className="secondary-action" onClick={() => startVisit(job)} type="button">
                       {String(t.startVisit)}
+                    </button>
+                  </article>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {view === "team" && section === "reports" && (
+            <section className="panel">
+              <div className="panel-heading">
+                <div>
+                  <p className="eyebrow">{String(t.visibleToCustomer)} / {String(t.internalOnly)}</p>
+                  <h3>{String(t.reportOverview)}</h3>
+                </div>
+                <button className="secondary-action" onClick={() => setModalMode("report")} type="button">
+                  {String(t.openReport)}
+                </button>
+              </div>
+              <div className="data-table report-table">
+                {reports.map((report) => (
+                  <article key={report.id}>
+                    <div>
+                      <span>{report.id}</span>
+                      <strong>{report.title}</strong>
+                      <small>{report.object} · {report.customer}</small>
+                    </div>
+                    <div>
+                      <span>{String(t.assigneeLabel)}</span>
+                      <strong>{report.assignee}</strong>
+                      <small>{report.date} · {report.workTime}</small>
+                    </div>
+                    <div>
+                      <span>{String(t.mediaLabel)}</span>
+                      <strong>{report.media.join(", ")}</strong>
+                      <small>{report.checklist}</small>
+                    </div>
+                    <div>
+                      <span>{String(t.visibleToCustomer)}</span>
+                      <strong>{report.customerSummary}</strong>
+                      <small>{String(t.internalOnly)}: {report.internalSummary}</small>
+                    </div>
+                    <button
+                      className="secondary-action"
+                      onClick={() => {
+                        setActiveJobId(report.jobId);
+                        setSelectedObjectName(report.object);
+                        setModalMode("report");
+                      }}
+                      type="button"
+                    >
+                      PDF vorbereiten
                     </button>
                   </article>
                 ))}
@@ -1952,10 +2428,33 @@ export default function HomePage() {
                   <p className="eyebrow">{String(t.billingHint)}</p>
                   <h3>{String(t.billingOverview)}</h3>
                 </div>
-                <button className="primary-action" onClick={() => handleNav("jobs")} type="button">
-                  <ClipboardCheck size={18} /> {String(t.jobOverview)}
+                <button className="primary-action" onClick={addManualBillableItem} type="button">
+                  <Plus size={18} /> {String(t.addBillableItem)}
                 </button>
               </div>
+              <div className="data-table billing-table">
+                {billingPositions.map((item) => (
+                  <article key={item.id}>
+                    <div>
+                      <span>{item.id}</span>
+                      <strong>{item.description}</strong>
+                      <small>{item.source}</small>
+                    </div>
+                    <div>
+                      <span>{String(t.customerLabel)}</span>
+                      <strong>{item.customer}</strong>
+                      <small>{item.object}</small>
+                    </div>
+                    <div>
+                      <span>{String(t.amountLabel)}</span>
+                      <strong>{item.amount}</strong>
+                      <small>{item.visibility === "intern" ? String(t.internalOnly) : String(t.visibleToCustomer)}</small>
+                    </div>
+                    <mark>{item.status}</mark>
+                  </article>
+                ))}
+              </div>
+              <div className="section-divider" />
               <div className="data-table billing-table">
                 {invoiceRecords.map((invoice) => (
                   <article key={invoice.number}>
@@ -2024,6 +2523,13 @@ export default function HomePage() {
                   </div>
                   <mark className="soft">{String(t.ownerView)}</mark>
                 </div>
+                <div className="role-strip">
+                  {appUsers.map((user) => (
+                    <span key={user.name}>
+                      <strong>{user.role}</strong> {user.scope}
+                    </span>
+                  ))}
+                </div>
                 <div className="owner-summary">
                   <div>
                     <span>{String(t.status)}</span>
@@ -2038,6 +2544,9 @@ export default function HomePage() {
                     <strong>{activeJob.title || String(t.poolToday)}</strong>
                   </div>
                 </div>
+                <button className="primary-action" onClick={createCustomerRequest} type="button">
+                  <Plus size={18} /> {String(t.newJob)}
+                </button>
               </div>
 
               <div className="panel">
@@ -2069,6 +2578,34 @@ export default function HomePage() {
                   </div>
                 </div>
               </div>
+
+              <div className="panel wide">
+                <div className="panel-heading">
+                  <div>
+                    <p className="eyebrow">{String(t.visibleToCustomer)}</p>
+                    <h3>{String(t.reportOverview)}</h3>
+                  </div>
+                </div>
+                <div className="data-table report-table">
+                  {reports
+                    .filter((report) => report.object === activeObject.name || report.customer === activeObject.owner)
+                    .map((report) => (
+                      <article key={report.id}>
+                        <div>
+                          <span>{report.date}</span>
+                          <strong>{report.title}</strong>
+                          <small>{report.customerSummary}</small>
+                        </div>
+                        <div>
+                          <span>{String(t.mediaLabel)}</span>
+                          <strong>{report.media.join(", ")}</strong>
+                          <small>{report.checklist}</small>
+                        </div>
+                        <mark>{String(t.internalOnly)} verborgen</mark>
+                      </article>
+                    ))}
+                </div>
+              </div>
             </section>
           )}
 
@@ -2088,6 +2625,7 @@ export default function HomePage() {
                   <p className="eyebrow">{String(t.currentVisit)}</p>
                   <h3>{activeJob.title}</h3>
                   <span>{activeJob.object}</span>
+                  <small>{String(t.statusLabel)}: {activeJob.visitState}</small>
                 </div>
                 <div className="checklist">
                   <div className="check-count">
@@ -2112,6 +2650,52 @@ export default function HomePage() {
                       <span>{String(item)}</span>
                     </label>
                   ))}
+                </div>
+                <div className="mobile-entry">
+                  <label>
+                    <span>{String(t.internalNotesLabel)}</span>
+                    <textarea value={fieldNote} onChange={(event) => setFieldNote(event.target.value)} />
+                  </label>
+                  <div className="compact-inputs">
+                    <label>
+                      <span>{String(t.workTimeLabel)}</span>
+                      <input
+                        type="number"
+                        value={workMinutes}
+                        onChange={(event) => setWorkMinutes(Number(event.target.value))}
+                      />
+                    </label>
+                    <label>
+                      <span>{String(t.materialsLabel)}</span>
+                      <input
+                        type="number"
+                        value={materialCost}
+                        onChange={(event) => setMaterialCost(Number(event.target.value))}
+                      />
+                    </label>
+                  </div>
+                  <div className="media-counters" aria-label={String(t.mediaLabel)}>
+                    {(["photos", "videos", "voice"] as const).map((key) => (
+                      <button
+                        key={key}
+                        onClick={() => setMediaCounts((counts) => ({ ...counts, [key]: counts[key] + 1 }))}
+                        type="button"
+                      >
+                        + {key === "photos" ? "Foto" : key === "videos" ? "Video" : "Voice"} ({mediaCounts[key]})
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="mobile-actions">
+                  <button className="secondary-action" onClick={() => startVisit(activeJob)} type="button">
+                    {String(t.startJob)}
+                  </button>
+                  <button className="secondary-action" onClick={() => pauseVisit(activeJob)} type="button">
+                    {String(t.pauseJob)}
+                  </button>
+                  <button className="primary-action" onClick={() => completeVisit(activeJob)} type="button">
+                    {String(t.completeJob)}
+                  </button>
                 </div>
                 <button className="primary-action full" onClick={sendApproval} type="button">
                   {String(t.sendApproval)} <MailCheck size={18} />
@@ -2142,6 +2726,8 @@ export default function HomePage() {
                         ? String(t.addJob)
                         : modalMode === "object"
                           ? String(t.newObject)
+                        : modalMode === "customer"
+                          ? String(t.newCustomer)
                         : modalMode === "report"
                           ? String(t.reportDetails)
                           : modalMode === "property"
@@ -2153,6 +2739,8 @@ export default function HomePage() {
                         ? String(t.newJob)
                         : modalMode === "object"
                           ? String(t.createObject)
+                        : modalMode === "customer"
+                          ? String(t.createCustomer)
                         : modalMode === "report"
                           ? activeJob.title
                           : modalMode === "property"
@@ -2206,6 +2794,51 @@ export default function HomePage() {
                         ))}
                       </select>
                     </label>
+                    <label>
+                      <span>{String(t.priorityLabel)}</span>
+                      <select value={newJobPriority} onChange={(event) => setNewJobPriority(event.target.value)}>
+                        <option value="niedrig">niedrig</option>
+                        <option value="normal">normal</option>
+                        <option value="hoch">hoch</option>
+                        <option value="dringend">dringend</option>
+                      </select>
+                    </label>
+                    <label>
+                      <span>{String(t.dueLabel)}</span>
+                      <input
+                        type="date"
+                        value={newJobDueDate}
+                        onChange={(event) => setNewJobDueDate(event.target.value)}
+                      />
+                    </label>
+                    <label>
+                      <span>{String(t.assigneeLabel)}</span>
+                      <select value={newJobAssignee} onChange={(event) => setNewJobAssignee(event.target.value)}>
+                        {appUsers
+                          .filter((user) => user.role !== "Kunde/Eigentümer")
+                          .map((user) => (
+                            <option key={user.name} value={user.name}>
+                              {user.name} · {user.role}
+                            </option>
+                          ))}
+                      </select>
+                    </label>
+                    <label>
+                      <span>{String(t.descriptionLabel)}</span>
+                      <textarea
+                        value={newJobDescription}
+                        onChange={(event) => setNewJobDescription(event.target.value)}
+                        placeholder="Was soll erledigt werden?"
+                      />
+                    </label>
+                    <label>
+                      <span>{String(t.internalNotesLabel)}</span>
+                      <textarea
+                        value={newJobInternalNotes}
+                        onChange={(event) => setNewJobInternalNotes(event.target.value)}
+                        placeholder="Nur intern sichtbar"
+                      />
+                    </label>
                     <button className="primary-action full" onClick={createLocalJob} type="button">
                       <Plus size={18} /> {String(t.createJob)}
                     </button>
@@ -2238,6 +2871,36 @@ export default function HomePage() {
                     </label>
                     <button className="primary-action full" onClick={createLocalObject} type="button">
                       <Plus size={18} /> {String(t.createObject)}
+                    </button>
+                  </div>
+                ) : modalMode === "customer" ? (
+                  <div className="job-form">
+                    <label>
+                      <span>{String(t.customerLabel)}</span>
+                      <input
+                        value={newCustomerName}
+                        onChange={(event) => setNewCustomerName(event.target.value)}
+                        placeholder="Familie Beispiel"
+                      />
+                    </label>
+                    <label>
+                      <span>{String(t.ownerLabel)}</span>
+                      <input
+                        value={newCustomerContact}
+                        onChange={(event) => setNewCustomerContact(event.target.value)}
+                        placeholder="Ansprechpartner"
+                      />
+                    </label>
+                    <label>
+                      <span>{String(t.emailLabel)}</span>
+                      <input
+                        value={newCustomerEmail}
+                        onChange={(event) => setNewCustomerEmail(event.target.value)}
+                        placeholder="kunde@example.com"
+                      />
+                    </label>
+                    <button className="primary-action full" onClick={createLocalCustomer} type="button">
+                      <Plus size={18} /> {String(t.createCustomer)}
                     </button>
                   </div>
                 ) : modalMode === "version" ? (

@@ -23,6 +23,16 @@ test("dashboard buttons navigate to the expected app areas", async ({ page }) =>
 
   await page.getByTestId("nav-masterData").click();
   await expect(page.getByRole("heading", { name: "Stammdatenübersicht" })).toBeVisible();
+  await clickButton(page, "Neuer Kunde");
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.getByLabel("Kunde").fill("Familie Demo");
+  await page.getByLabel("Eigentümer").fill("Dora Demo");
+  await page.getByLabel("E-Mail").fill("demo@example.com");
+  await clickButton(page, /Kunde anlegen/);
+  await expect(page.getByRole("heading", { name: "Kundenübersicht" })).toBeVisible();
+  await expect(page.getByText("Familie Demo")).toBeVisible();
+
+  await page.getByTestId("nav-masterData").click();
   await clickButton(page, "Katalog öffnen");
   await expect(page.getByRole("heading", { name: "Dienstleistungskatalog" })).toBeVisible();
 
@@ -38,7 +48,9 @@ test("dashboard buttons navigate to the expected app areas", async ({ page }) =>
 
   await page.getByTestId("nav-billing").click();
   await expect(page.getByRole("heading", { name: "Abrechnung" })).toBeVisible();
-  await page.locator(".billing-table article").first().getByRole("button", { name: "Details öffnen" }).click();
+  await clickButton(page, "Position ergänzen");
+  await expect(page.getByText("Abrechnungsposition ergänzt")).toBeVisible();
+  await page.getByRole("button", { name: "Details öffnen" }).last().click();
   await expect(page.getByText(/Rechnung vorbereitet/)).toBeVisible();
 
   await page.getByTestId("nav-jobs").click();
@@ -48,6 +60,9 @@ test("dashboard buttons navigate to the expected app areas", async ({ page }) =>
   await clickButton(page, /Neuer Auftrag/);
   await expect(page.getByRole("dialog")).toBeVisible();
   await page.getByLabel("Titel").fill("Test Auftrag");
+  await page.getByLabel("Priorität").selectOption("hoch");
+  await page.getByLabel("Beschreibung").fill("Fenster prüfen und Fotos im Bericht ergänzen");
+  await page.getByLabel("Interne Notizen").fill("Nur intern sichtbar");
   await clickButton(page, /Auftrag anlegen/);
   await expect(page.getByRole("button", { name: /Test Auftrag/ })).toBeVisible();
 
@@ -69,10 +84,21 @@ test("dashboard buttons navigate to the expected app areas", async ({ page }) =>
   await expect(page.getByRole("heading", { name: "Einsatzplan" })).toBeVisible();
   await clickButton(page, "Einsatz starten");
   await expect(page.getByText("Aktueller Einsatz")).toBeVisible();
+  await clickButton(page, "Pausieren");
+  await expect(page.getByText("Einsatz wurde pausiert")).toBeVisible();
+  await clickButton(page, "+ Foto");
+  await clickButton(page, "Abschließen");
+  await expect(page.getByRole("heading", { name: "Berichtsübersicht" })).toBeVisible();
+  await expect(page.locator(".report-table").getByText("Test Auftrag").first()).toBeVisible();
+
+  await clickButton(page, "Mobil vor Ort");
   await clickButton(page, /Zur Freigabe senden/);
   await expect(page.getByText("5/5")).toBeVisible();
 
   await clickButton(page, "Verwaltung");
+  await page.getByTestId("nav-reports").click();
+  await expect(page.getByRole("heading", { name: "Berichtsübersicht" })).toBeVisible();
+
   await page.getByTestId("nav-approvals").click();
   await expect(page.getByRole("heading", { name: "Freigabeübersicht" })).toBeVisible();
   await clickButton(page, "Freigeben");

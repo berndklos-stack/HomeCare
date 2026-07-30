@@ -771,6 +771,131 @@ mark.soft {
   line-height: 1.35;
 }
 
+.report-table article {
+  grid-template-columns: minmax(180px, 0.8fr) minmax(160px, 0.7fr) minmax(150px, 0.6fr) minmax(260px, 1.3fr) auto;
+}
+
+.metric-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 14px;
+}
+
+.metric-grid div {
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 4px;
+  padding: 14px;
+}
+
+.metric-grid strong {
+  color: var(--forest);
+  font-size: 26px;
+}
+
+.metric-grid span,
+.role-strip span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.filter-row,
+.role-strip,
+.mobile-actions,
+.media-counters,
+.compact-inputs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.filter-row {
+  margin-bottom: 14px;
+}
+
+.filter-row button,
+.media-counters button {
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--forest);
+  font-size: 13px;
+  font-weight: 750;
+  min-height: 36px;
+  padding: 0 11px;
+}
+
+.filter-row button.selected {
+  background: var(--forest);
+  color: var(--paper);
+}
+
+.section-divider {
+  border-top: 1px solid var(--line);
+  margin: 16px 0;
+}
+
+.role-strip {
+  margin: 0 0 14px;
+}
+
+.role-strip span {
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.role-strip strong {
+  color: var(--forest);
+}
+
+.mobile-entry {
+  display: grid;
+  gap: 10px;
+}
+
+.mobile-entry label,
+.compact-inputs label {
+  display: grid;
+  flex: 1;
+  gap: 5px;
+}
+
+.mobile-entry span,
+.compact-inputs span {
+  color: var(--hero-text);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.mobile-entry textarea,
+.mobile-entry input,
+.job-form textarea {
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--foreground);
+  min-height: 42px;
+  padding: 10px 12px;
+  width: 100%;
+}
+
+.mobile-entry textarea,
+.job-form textarea {
+  min-height: 84px;
+  resize: vertical;
+}
+
+.mobile-actions .primary-action,
+.mobile-actions .secondary-action {
+  flex: 1;
+  min-width: 104px;
+}
+
 .action-list {
   display: grid;
   gap: 10px;
@@ -1126,7 +1251,9 @@ mark.soft {
   .catalog-grid,
   .customer-table article,
   .communication-table article,
-  .billing-table article {
+  .billing-table article,
+  .report-table article,
+  .metric-grid {
     grid-template-columns: 1fr;
   }
 

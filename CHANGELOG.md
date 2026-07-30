@@ -4,6 +4,16 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 0.6.0 - 2026-07-31
+
+- Berichtsmodul mit Kunden- und interner Sicht, Medienübersicht und PDF-Vorbereitung ergänzt.
+- Auftragsanlage um Priorität, Fälligkeitsdatum, Zuständigkeit, Beschreibung und interne Notizen erweitert.
+- Einsatzplanung um Filter nach Mitarbeiter, Dienstleistung und Status sowie Kennzahlen für offen, heute und überfällig ergänzt.
+- Mobile Einsatzbearbeitung mit Start, Pause, Abschluss, Arbeitszeit, Material, Notizen und Medien-Zählern ausgebaut.
+- Kundenanlage und Kundenportal-Auftragsanfrage ergänzt.
+- Abrechnungspositionen können aus Einsätzen entstehen oder manuell ergänzt werden.
+- Supabase-Schema um Medien, Kundenkommunikation, Abrechnung, Rollen und Sichtbarkeitsfelder erweitert.
+
 ## 0.5.0 - 2026-07-31
 
 - Dashboard als Sprungbrett in Stammdaten, Objekte, Kunden, Leistungskatalog, Aufträge, Termine, Kommunikation, Abrechnung und Freigaben erweitert.
