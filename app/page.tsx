@@ -21,7 +21,8 @@ import {
   Wrench,
 } from "lucide-react";
 import Image from "next/image";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
 
 type Language = "de" | "sv" | "en";
 type View = "team" | "owner" | "mobile";
@@ -55,6 +56,10 @@ const translations = {
     propertyFile: "Objektakte",
     dayStats: "Tageskennzahlen",
     stats: ["aktive Objekte", "offene Einsätze", "Freigaben"],
+    sourceLive: "Live-Daten",
+    sourceDemo: "Demo-Daten",
+    sourceLoading: "Daten werden geladen",
+    sourceError: "Supabase nicht lesbar",
     operations: "Operations",
     jobsAndStatus: "Aufträge und Status",
     addJob: "Auftrag hinzufügen",
@@ -143,6 +148,10 @@ const translations = {
     propertyFile: "Objektakt",
     dayStats: "Dagens nyckeltal",
     stats: ["aktiva objekt", "öppna uppdrag", "godkännanden"],
+    sourceLive: "Live-data",
+    sourceDemo: "Demo-data",
+    sourceLoading: "Data laddas",
+    sourceError: "Supabase kan inte läsas",
     operations: "Drift",
     jobsAndStatus: "Uppdrag och status",
     addJob: "Lägg till uppdrag",
@@ -231,6 +240,10 @@ const translations = {
     propertyFile: "Property file",
     dayStats: "Daily metrics",
     stats: ["active properties", "open jobs", "approvals"],
+    sourceLive: "Live data",
+    sourceDemo: "Demo data",
+    sourceLoading: "Loading data",
+    sourceError: "Supabase not readable",
     operations: "Operations",
     jobsAndStatus: "Jobs and status",
     addJob: "Add job",
@@ -301,56 +314,247 @@ const translations = {
 
 const serviceIcons = [Home, Leaf, Wrench, Hammer, Waves, ShieldCheck];
 
-const jobs = [
+type AppJob = {
+  id: string;
+  title: string;
+  object: string;
+  owner: string;
+  status: string;
+  service: string;
+  progress: number;
+};
+
+type AppObject = {
+  name: string;
+  owner: string;
+  location: string;
+  status: string;
+  lastVisit: string;
+};
+
+type LiveData = {
+  jobs: AppJob[];
+  objects: AppObject[];
+  services: string[];
+};
+
+type DataState = "loading" | "live" | "demo" | "error";
+
+const demoJobs = [
   {
     id: "KS-2407",
+    title: "Poolpflege und Wasserwerte",
     object: "Villa Långsjön",
     owner: "Familie Andersson",
+    status: "In Arbeit",
+    service: "Poolpflege",
     progress: 68,
   },
   {
     id: "KS-2408",
+    title: "Rasen, Hecken und Sichtprüfung",
     object: "Stuga Nybro",
     owner: "M. Schneider",
+    status: "Geplant",
+    service: "Gartenpflege",
     progress: 22,
   },
   {
     id: "KS-2409",
+    title: "Terrassentür justieren",
     object: "Kolaretorp 106",
     owner: "Kolaretorp Service AB",
+    status: "Freigabe",
+    service: "Reparatur",
     progress: 96,
   },
-];
+] satisfies AppJob[];
 
-const objects = [
+const demoObjects = [
   {
     name: "Villa Långsjön",
     owner: "Familie Andersson",
     location: "Orrefors",
+    status: "Saisonbetrieb",
+    lastVisit: "Heute, 09:20",
   },
   {
     name: "Stuga Nybro",
     owner: "M. Schneider",
     location: "Nybro",
+    status: "Sommerklar",
+    lastVisit: "28.07., 14:10",
   },
   {
     name: "Haus am Wald",
     owner: "B. Klos",
     location: "Småland",
+    status: "Kontrolle offen",
+    lastVisit: "26.07., 11:45",
   },
-];
+] satisfies AppObject[];
 
 const checklistDone = [true, true, true, false, false];
+
+function getStatusProgress(status: string) {
+  const normalized = status.toLowerCase();
+
+  if (normalized.includes("completed") || normalized.includes("sent")) {
+    return 100;
+  }
+
+  if (normalized.includes("approved") || normalized.includes("approval")) {
+    return 92;
+  }
+
+  if (normalized.includes("progress")) {
+    return 68;
+  }
+
+  if (normalized.includes("planned")) {
+    return 24;
+  }
+
+  return 45;
+}
+
+function humanizeStatus(status: string) {
+  return status
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function nestedName(value: unknown, fallback: string) {
+  if (!isRecord(value)) {
+    return fallback;
+  }
+
+  const name = value.name ?? value.full_name;
+  return typeof name === "string" && name.trim() ? name : fallback;
+}
 
 export default function HomePage() {
   const [view, setView] = useState<View>("team");
   const [language, setLanguage] = useState<Language>("de");
+  const [liveData, setLiveData] = useState<LiveData | null>(null);
+  const [dataState, setDataState] = useState<DataState>(() =>
+    getSupabaseBrowserClient() ? "loading" : "demo",
+  );
   const t = translations[language];
+  const jobs = liveData?.jobs.length ? liveData.jobs : demoJobs;
+  const objects = liveData?.objects.length ? liveData.objects : demoObjects;
+  const services = liveData?.services.length
+    ? liveData.services
+    : (t.servicesList as string[]);
   const activeJob = jobs[0];
   const completedItems = useMemo(
     () => checklistDone.filter(Boolean).length,
     [],
   );
+  const liveApprovals = jobs.filter((job) =>
+    job.status.toLowerCase().includes("approval"),
+  ).length;
+  const stats = [objects.length, jobs.length, liveApprovals || 3];
+  const dataLabel =
+    dataState === "live"
+      ? String(t.sourceLive)
+      : dataState === "loading"
+        ? String(t.sourceLoading)
+        : dataState === "error"
+          ? String(t.sourceError)
+          : String(t.sourceDemo);
+
+  useEffect(() => {
+    let isMounted = true;
+    const client = getSupabaseBrowserClient();
+
+    if (!client) {
+      return;
+    }
+
+    const supabase = client;
+
+    async function loadData() {
+      const [propertiesResult, jobsResult, servicesResult] = await Promise.all([
+        supabase
+          .from("properties")
+          .select("id,name,address,region,profiles(full_name)")
+          .order("created_at", { ascending: false })
+          .limit(20),
+        supabase
+          .from("jobs")
+          .select(
+            "id,title,status,property_id,category_id,properties(name,profiles(full_name)),service_categories(name)",
+          )
+          .order("updated_at", { ascending: false })
+          .limit(20),
+        supabase
+          .from("service_categories")
+          .select("name")
+          .order("name", { ascending: true })
+          .limit(8),
+      ]);
+
+      if (!isMounted) {
+        return;
+      }
+
+      if (propertiesResult.error || jobsResult.error || servicesResult.error) {
+        setDataState("error");
+        return;
+      }
+
+      const mappedObjects = (propertiesResult.data ?? []).map((property) => ({
+        name: property.name ?? "Objekt",
+        owner: nestedName(property.profiles, "Eigentümer"),
+        location: property.region ?? property.address ?? "Småland",
+        status: "Aktiv",
+        lastVisit: "-",
+      }));
+
+      const mappedJobs = (jobsResult.data ?? []).map((job, index) => ({
+        id: `KS-${String(index + 1).padStart(4, "0")}`,
+        title: job.title ?? "Auftrag",
+        object: nestedName(job.properties, "Objekt"),
+        owner: isRecord(job.properties)
+          ? nestedName(job.properties.profiles, "Eigentümer")
+          : "Eigentümer",
+        status: humanizeStatus(job.status ?? "planned"),
+        service: nestedName(job.service_categories, "Service"),
+        progress: getStatusProgress(job.status ?? "planned"),
+      }));
+
+      const mappedServices = (servicesResult.data ?? [])
+        .map((service) => service.name)
+        .filter(Boolean);
+
+      if (mappedObjects.length || mappedJobs.length || mappedServices.length) {
+        setLiveData({
+          jobs: mappedJobs,
+          objects: mappedObjects,
+          services: mappedServices,
+        });
+        setDataState("live");
+      } else {
+        setDataState("demo");
+      }
+    }
+
+    loadData().catch(() => {
+      if (isMounted) {
+        setDataState("error");
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   return (
     <main className="min-h-screen bg-[#f5f2ea] text-[#18201c]">
@@ -395,6 +599,7 @@ export default function HomePage() {
               <h1>{String(t.headline)}</h1>
             </div>
             <div className="topbar-actions">
+              <span className={`data-source ${dataState}`}>{dataLabel}</span>
               <div className="language-switch" aria-label="Language">
                 <Languages size={17} />
                 {(Object.keys(languageLabels) as Language[]).map((lang) => (
@@ -430,7 +635,7 @@ export default function HomePage() {
           <section className="hero-panel">
             <div>
               <p className="eyebrow">{String(t.heroKicker)}</p>
-              <h2>{String(t.jobTitles[0])}</h2>
+              <h2>{activeJob.title}</h2>
               <p>
                 {activeJob.object} {String(t.heroText)}
               </p>
@@ -442,7 +647,7 @@ export default function HomePage() {
               </div>
             </div>
             <div className="hero-stats" aria-label={String(t.dayStats)}>
-              {[18, 7, 3].map((value, index) => (
+              {stats.map((value, index) => (
                 <div key={String(t.stats[index])}>
                   <strong>{value}</strong>
                   <span>{String(t.stats[index])}</span>
@@ -464,22 +669,22 @@ export default function HomePage() {
                   </button>
                 </div>
                 <div className="job-list">
-                  {jobs.map((job, index) => (
+                  {jobs.map((job) => (
                     <article className="job-row" key={job.id}>
                       <div className="job-icon">
                         <ClipboardCheck size={19} />
                       </div>
                       <div>
-                        <strong>{String(t.jobTitles[index])}</strong>
+                        <strong>{job.title}</strong>
                         <span>
                           {job.object} · {job.owner}
                         </span>
                       </div>
-                      <p>{String(t.jobServices[index])}</p>
+                      <p>{job.service}</p>
                       <div className="progress">
                         <span style={{ width: `${job.progress}%` }} />
                       </div>
-                      <mark>{String(t.jobStatuses[index])}</mark>
+                      <mark>{job.status}</mark>
                     </article>
                   ))}
                 </div>
@@ -493,12 +698,16 @@ export default function HomePage() {
                   </div>
                 </div>
                 <div className="service-grid">
-                  {serviceIcons.map((Icon, index) => (
-                    <button key={String(t.servicesList[index])} type="button">
+                  {services.slice(0, serviceIcons.length).map((service, index) => {
+                    const Icon = serviceIcons[index] ?? ClipboardCheck;
+
+                    return (
+                    <button key={service} type="button">
                       <Icon size={20} />
-                      <span>{String(t.servicesList[index])}</span>
+                      <span>{service}</span>
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
@@ -510,7 +719,7 @@ export default function HomePage() {
                   </div>
                 </div>
                 <div className="object-table">
-                  {objects.map((object, index) => (
+                  {objects.map((object) => (
                     <article key={object.name}>
                       <div>
                         <strong>{object.name}</strong>
@@ -519,8 +728,8 @@ export default function HomePage() {
                       <span>
                         <MapPin size={15} /> {object.location}
                       </span>
-                      <mark>{String(t.objectStatuses[index])}</mark>
-                      <small>{String(t.lastVisits[index])}</small>
+                      <mark>{object.status}</mark>
+                      <small>{object.lastVisit}</small>
                     </article>
                   ))}
                 </div>
@@ -600,7 +809,7 @@ export default function HomePage() {
                 </div>
                 <div className="field-card">
                   <p className="eyebrow">{String(t.currentVisit)}</p>
-                  <h3>{String(t.jobTitles[0])}</h3>
+                  <h3>{activeJob.title}</h3>
                   <span>{activeJob.object}</span>
                 </div>
                 <div className="checklist">

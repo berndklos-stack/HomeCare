@@ -195,6 +195,38 @@ button {
   box-shadow: 0 8px 18px rgba(36, 66, 54, 0.08);
 }
 
+.data-source {
+  align-items: center;
+  background: #fff7e8;
+  border: 1px solid #ead4ac;
+  border-radius: 999px;
+  color: #7b5426;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 800;
+  min-height: 32px;
+  padding: 0 11px;
+  white-space: nowrap;
+}
+
+.data-source.live {
+  background: #eaf1df;
+  border-color: #d2e0c6;
+  color: #395134;
+}
+
+.data-source.loading {
+  background: var(--sky);
+  border-color: #bfd4d8;
+  color: var(--forest);
+}
+
+.data-source.error {
+  background: #f6e5df;
+  border-color: #e7c8bf;
+  color: var(--danger);
+}
+
 .topbar h1,
 .hero-panel h2,
 .panel h3 {
