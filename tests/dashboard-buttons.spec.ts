@@ -1,12 +1,45 @@
 import { expect, test, type Page } from "@playwright/test";
 
 async function clickButton(page: Page, name: string | RegExp) {
-  await page.getByRole("button", { name }).first().click({ force: true });
+  await page
+    .getByRole("button", { name })
+    .first()
+    .evaluate((element) => {
+      if (element instanceof HTMLButtonElement) {
+        element.click();
+      }
+    });
 }
 
 test("dashboard buttons navigate to the expected app areas", async ({ page }) => {
   await page.goto("/");
   await expect(page.locator("main")).toHaveAttribute("data-ready", "true");
+
+  await page.getByRole("button", { name: /Kundenübersicht/ }).click();
+  await expect(page.getByRole("heading", { name: "Kundenübersicht" })).toBeVisible();
+  await clickButton(page, "Portal öffnen");
+  await expect(page.getByText("Kundenportal vorbereitet")).toBeVisible();
+  await clickButton(page, "Verwaltung");
+
+  await page.getByTestId("nav-masterData").click();
+  await expect(page.getByRole("heading", { name: "Stammdatenübersicht" })).toBeVisible();
+  await clickButton(page, "Katalog öffnen");
+  await expect(page.getByRole("heading", { name: "Dienstleistungskatalog" })).toBeVisible();
+
+  await page.getByTestId("nav-services").click();
+  await expect(page.getByRole("heading", { name: "Dienstleistungskatalog" })).toBeVisible();
+  await clickButton(page, "Poolpflege");
+  await expect(page.getByRole("heading", { name: "Auftragsübersicht" })).toBeVisible();
+
+  await page.getByTestId("nav-communication").click();
+  await expect(page.getByRole("heading", { name: "Kommunikation" })).toBeVisible();
+  await page.locator(".communication-table article").first().getByRole("button", { name: "Details öffnen" }).click();
+  await expect(page.getByText(/Nachricht vorbereitet/)).toBeVisible();
+
+  await page.getByTestId("nav-billing").click();
+  await expect(page.getByRole("heading", { name: "Abrechnung" })).toBeVisible();
+  await page.locator(".billing-table article").first().getByRole("button", { name: "Details öffnen" }).click();
+  await expect(page.getByText(/Rechnung vorbereitet/)).toBeVisible();
 
   await page.getByTestId("nav-jobs").click();
   await expect(page.getByRole("heading", { name: "Auftragsübersicht" })).toBeVisible();

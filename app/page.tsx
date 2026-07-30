@@ -1,10 +1,12 @@
 "use client";
 
 import {
+  BookOpen,
   CalendarDays,
   CheckCircle2,
   ChevronRight,
   ClipboardCheck,
+  Database,
   Hammer,
   Home,
   Languages,
@@ -12,13 +14,16 @@ import {
   MailCheck,
   MapPin,
   Menu,
+  MessageSquare,
   Moon,
   PanelLeftClose,
   Plus,
+  ReceiptText,
   ShieldCheck,
   Sparkles,
   Sun,
   Trees,
+  Users,
   Waves,
   Wrench,
   X,
@@ -30,7 +35,17 @@ import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
 
 type Language = "de" | "sv" | "en";
 type View = "team" | "owner" | "mobile";
-type NavTarget = "overview" | "objects" | "jobs" | "schedule" | "approvals";
+type NavTarget =
+  | "overview"
+  | "masterData"
+  | "objects"
+  | "customers"
+  | "services"
+  | "jobs"
+  | "schedule"
+  | "communication"
+  | "billing"
+  | "approvals";
 type ModalMode = "job" | "object" | "report" | "property" | "version" | null;
 type Theme = "light" | "dark";
 
@@ -44,8 +59,30 @@ const translations = {
   de: {
     tagline: "Ferienhausverwaltung Småland",
     navLabel: "Hauptnavigation",
-    nav: ["Überblick", "Objekte", "Aufträge", "Einsatzplan", "Freigaben"],
-    navTargets: ["overview", "objects", "jobs", "schedule", "approvals"],
+    nav: [
+      "Dashboard",
+      "Stammdaten",
+      "Objekte",
+      "Kunden",
+      "Leistungskatalog",
+      "Aufträge",
+      "Termine",
+      "Kommunikation",
+      "Abrechnung",
+      "Freigaben",
+    ],
+    navTargets: [
+      "overview",
+      "masterData",
+      "objects",
+      "customers",
+      "services",
+      "jobs",
+      "schedule",
+      "communication",
+      "billing",
+      "approvals",
+    ],
     contact: "Kontakt",
     menuOpen: "Menü öffnen",
     menuClose: "Menü schließen",
@@ -97,6 +134,45 @@ const translations = {
     jobOverview: "Auftragsübersicht",
     scheduleOverview: "Einsatzplan",
     approvalOverview: "Freigabeübersicht",
+    dashboardJump: "Direkt in den Bereich",
+    masterDataOverview: "Stammdatenübersicht",
+    customerOverview: "Kundenübersicht",
+    serviceOverview: "Leistungskatalog",
+    communicationOverview: "Kommunikation",
+    billingOverview: "Abrechnung",
+    objectsHint: "Objektakten, Zugang, Pflegepakete und Eigentümerzuordnung",
+    customersHint: "Eigentümer, Ansprechpartner, Sprache, Portal und offene Salden",
+    servicesHint: "Katalog, Preise, Intervalle, SLA und abrechenbare Leistungen",
+    jobsHint: "Aufträge, Status, Zuständigkeit und nächste Schritte",
+    scheduleHint: "Termine, Teams, Einsatzfenster und mobile Ausführung",
+    communicationHint: "Kundenmails, Rückfragen und Vorlagen mit Objektbezug",
+    billingHint: "Rechnungen, fällige Posten, Monatsabrechnung und Leistungslinien",
+    approvalsHint: "Interne Prüfung vor Kundenversand und Abrechnung",
+    records: "Datensätze",
+    customerLabel: "Kunde",
+    emailLabel: "E-Mail",
+    phoneLabel: "Telefon",
+    languageLabel: "Sprache",
+    balanceLabel: "Saldo",
+    serviceCatalog: "Dienstleistungskatalog",
+    categoryLabel: "Kategorie",
+    intervalLabel: "Intervall",
+    priceLabel: "Preis",
+    unitLabel: "Einheit",
+    slaLabel: "SLA",
+    channelLabel: "Kanal",
+    subjectLabel: "Betreff",
+    dueLabel: "Fällig",
+    amountLabel: "Betrag",
+    invoiceLabel: "Rechnung",
+    nextStepLabel: "Nächster Schritt",
+    portalOpened: "Kundenportal vorbereitet",
+    messagePrepared: "Nachricht vorbereitet",
+    invoicePrepared: "Rechnung vorbereitet",
+    catalogSelected: "Katalogposition ausgewählt",
+    openCustomers: "Kunden öffnen",
+    openServices: "Katalog öffnen",
+    openBilling: "Abrechnung öffnen",
     startVisit: "Einsatz starten",
     approveJob: "Freigeben",
     openDetails: "Details öffnen",
@@ -181,8 +257,30 @@ const translations = {
   sv: {
     tagline: "Fritidshusförvaltning i Småland",
     navLabel: "Huvudnavigation",
-    nav: ["Översikt", "Objekt", "Uppdrag", "Insatsplan", "Godkännanden"],
-    navTargets: ["overview", "objects", "jobs", "schedule", "approvals"],
+    nav: [
+      "Dashboard",
+      "Grunddata",
+      "Objekt",
+      "Kunder",
+      "Tjänstekatalog",
+      "Uppdrag",
+      "Tider",
+      "Kommunikation",
+      "Fakturering",
+      "Godkännanden",
+    ],
+    navTargets: [
+      "overview",
+      "masterData",
+      "objects",
+      "customers",
+      "services",
+      "jobs",
+      "schedule",
+      "communication",
+      "billing",
+      "approvals",
+    ],
     contact: "Kontakt",
     menuOpen: "Öppna meny",
     menuClose: "Stäng meny",
@@ -234,6 +332,45 @@ const translations = {
     jobOverview: "Uppdragsöversikt",
     scheduleOverview: "Insatsplan",
     approvalOverview: "Godkännanden",
+    dashboardJump: "Gå direkt till området",
+    masterDataOverview: "Grunddataöversikt",
+    customerOverview: "Kundöversikt",
+    serviceOverview: "Tjänstekatalog",
+    communicationOverview: "Kommunikation",
+    billingOverview: "Fakturering",
+    objectsHint: "Objektakter, åtkomst, skötselpaket och ägarkoppling",
+    customersHint: "Ägare, kontaktpersoner, språk, portal och öppna saldon",
+    servicesHint: "Katalog, priser, intervall, SLA och fakturerbara tjänster",
+    jobsHint: "Uppdrag, status, ansvar och nästa steg",
+    scheduleHint: "Tider, team, insatsfönster och mobil utförande",
+    communicationHint: "Kundmail, frågor och mallar kopplade till objekt",
+    billingHint: "Fakturor, förfallna poster, månadsavräkning och tjänsterader",
+    approvalsHint: "Intern kontroll före kundutskick och fakturering",
+    records: "Poster",
+    customerLabel: "Kund",
+    emailLabel: "E-post",
+    phoneLabel: "Telefon",
+    languageLabel: "Språk",
+    balanceLabel: "Saldo",
+    serviceCatalog: "Tjänstekatalog",
+    categoryLabel: "Kategori",
+    intervalLabel: "Intervall",
+    priceLabel: "Pris",
+    unitLabel: "Enhet",
+    slaLabel: "SLA",
+    channelLabel: "Kanal",
+    subjectLabel: "Ärende",
+    dueLabel: "Förfaller",
+    amountLabel: "Belopp",
+    invoiceLabel: "Faktura",
+    nextStepLabel: "Nästa steg",
+    portalOpened: "Kundportal förberedd",
+    messagePrepared: "Meddelande förberett",
+    invoicePrepared: "Faktura förberedd",
+    catalogSelected: "Katalogpost vald",
+    openCustomers: "Öppna kunder",
+    openServices: "Öppna katalog",
+    openBilling: "Öppna fakturering",
     startVisit: "Starta insats",
     approveJob: "Godkänn",
     openDetails: "Öppna detaljer",
@@ -318,8 +455,30 @@ const translations = {
   en: {
     tagline: "Holiday home management in Småland",
     navLabel: "Main navigation",
-    nav: ["Overview", "Properties", "Jobs", "Schedule", "Approvals"],
-    navTargets: ["overview", "objects", "jobs", "schedule", "approvals"],
+    nav: [
+      "Dashboard",
+      "Master data",
+      "Properties",
+      "Customers",
+      "Service catalog",
+      "Jobs",
+      "Schedule",
+      "Communication",
+      "Billing",
+      "Approvals",
+    ],
+    navTargets: [
+      "overview",
+      "masterData",
+      "objects",
+      "customers",
+      "services",
+      "jobs",
+      "schedule",
+      "communication",
+      "billing",
+      "approvals",
+    ],
     contact: "Contact",
     menuOpen: "Open menu",
     menuClose: "Close menu",
@@ -371,6 +530,45 @@ const translations = {
     jobOverview: "Job overview",
     scheduleOverview: "Schedule",
     approvalOverview: "Approvals",
+    dashboardJump: "Open workspace area",
+    masterDataOverview: "Master data overview",
+    customerOverview: "Customer overview",
+    serviceOverview: "Service catalog",
+    communicationOverview: "Communication",
+    billingOverview: "Billing",
+    objectsHint: "Property files, access, care packages and owner assignment",
+    customersHint: "Owners, contacts, language, portal and open balances",
+    servicesHint: "Catalog, prices, intervals, SLA and billable services",
+    jobsHint: "Jobs, status, responsibility and next steps",
+    scheduleHint: "Appointments, teams, service windows and mobile execution",
+    communicationHint: "Customer email, questions and templates linked to properties",
+    billingHint: "Invoices, due items, monthly billing and service lines",
+    approvalsHint: "Internal review before customer email and billing",
+    records: "Records",
+    customerLabel: "Customer",
+    emailLabel: "Email",
+    phoneLabel: "Phone",
+    languageLabel: "Language",
+    balanceLabel: "Balance",
+    serviceCatalog: "Service catalog",
+    categoryLabel: "Category",
+    intervalLabel: "Interval",
+    priceLabel: "Price",
+    unitLabel: "Unit",
+    slaLabel: "SLA",
+    channelLabel: "Channel",
+    subjectLabel: "Subject",
+    dueLabel: "Due",
+    amountLabel: "Amount",
+    invoiceLabel: "Invoice",
+    nextStepLabel: "Next step",
+    portalOpened: "Customer portal prepared",
+    messagePrepared: "Message prepared",
+    invoicePrepared: "Invoice prepared",
+    catalogSelected: "Catalog item selected",
+    openCustomers: "Open customers",
+    openServices: "Open catalog",
+    openBilling: "Open billing",
     startVisit: "Start visit",
     approveJob: "Approve",
     openDetails: "Open details",
@@ -455,6 +653,18 @@ const translations = {
 } satisfies Record<Language, Record<string, unknown>>;
 
 const serviceIcons = [Home, Leaf, Wrench, Hammer, Waves, ShieldCheck];
+const navIcons = [
+  PanelLeftClose,
+  Database,
+  Home,
+  Users,
+  BookOpen,
+  ClipboardCheck,
+  CalendarDays,
+  MessageSquare,
+  ReceiptText,
+  MailCheck,
+];
 
 type AppJob = {
   id: string;
@@ -483,6 +693,44 @@ type AppObject = {
 type AppObjectSeed = Omit<AppObject, "status" | "lastVisit"> & {
   statusKey: number;
   lastVisitKey: number;
+};
+
+type CustomerRecord = {
+  name: string;
+  contact: string;
+  email: string;
+  phone: string;
+  language: string;
+  objects: string[];
+  balance: string;
+  nextStep: string;
+};
+
+type ServiceCatalogItem = {
+  name: string;
+  category: string;
+  interval: string;
+  price: string;
+  unit: string;
+  sla: string;
+};
+
+type MessageRecord = {
+  customer: string;
+  channel: string;
+  subject: string;
+  status: string;
+  object: string;
+  due: string;
+};
+
+type InvoiceRecord = {
+  number: string;
+  customer: string;
+  object: string;
+  amount: string;
+  status: string;
+  due: string;
 };
 
 type LiveData = {
@@ -546,6 +794,128 @@ const demoObjectSeeds = [
     lastVisitKey: 2,
   },
 ] satisfies AppObjectSeed[];
+
+const customerRecords = [
+  {
+    name: "Familie Andersson",
+    contact: "Eva Andersson",
+    email: "eva.andersson@example.com",
+    phone: "+46 70 118 44 20",
+    language: "SV / DE",
+    objects: ["Villa Långsjön"],
+    balance: "0 SEK",
+    nextStep: "Bericht nach Poolpflege freigeben",
+  },
+  {
+    name: "M. Schneider",
+    contact: "Markus Schneider",
+    email: "markus.schneider@example.com",
+    phone: "+49 171 440 22 18",
+    language: "DE",
+    objects: ["Stuga Nybro"],
+    balance: "1.840 SEK",
+    nextStep: "Monatsrechnung vorbereiten",
+  },
+  {
+    name: "B. Klos",
+    contact: "Bernd Klos",
+    email: "bernd@example.com",
+    phone: "+46 76 101 81 86",
+    language: "DE / EN",
+    objects: ["Haus am Wald"],
+    balance: "0 SEK",
+    nextStep: "Saisonkontrolle terminieren",
+  },
+] satisfies CustomerRecord[];
+
+const serviceCatalogItems = [
+  {
+    name: "Hausverwaltung",
+    category: "Betreuung",
+    interval: "monatlich",
+    price: "1.490 SEK",
+    unit: "Pauschale",
+    sla: "48h Rückmeldung",
+  },
+  {
+    name: "Gartenpflege",
+    category: "Außenbereich",
+    interval: "14-tägig",
+    price: "540 SEK",
+    unit: "Stunde",
+    sla: "Saisonplan",
+  },
+  {
+    name: "Reparaturen",
+    category: "Technik",
+    interval: "nach Bedarf",
+    price: "690 SEK",
+    unit: "Stunde",
+    sla: "Priorität nach Schaden",
+  },
+  {
+    name: "Poolpflege",
+    category: "Außenbereich",
+    interval: "wöchentlich",
+    price: "620 SEK",
+    unit: "Termin",
+    sla: "Sommerbetrieb",
+  },
+] satisfies ServiceCatalogItem[];
+
+const messageRecords = [
+  {
+    customer: "Familie Andersson",
+    channel: "E-Mail",
+    subject: "Poolwerte und nächste Kontrolle",
+    status: "Entwurf",
+    object: "Villa Långsjön",
+    due: "heute",
+  },
+  {
+    customer: "M. Schneider",
+    channel: "Portal",
+    subject: "Rasenpflege bestätigt",
+    status: "Gesendet",
+    object: "Stuga Nybro",
+    due: "29.07.",
+  },
+  {
+    customer: "B. Klos",
+    channel: "Telefon",
+    subject: "Schlüsselcode aktualisieren",
+    status: "Rückfrage",
+    object: "Haus am Wald",
+    due: "01.08.",
+  },
+] satisfies MessageRecord[];
+
+const invoiceRecords = [
+  {
+    number: "RE-2026-071",
+    customer: "M. Schneider",
+    object: "Stuga Nybro",
+    amount: "1.840 SEK",
+    status: "fällig",
+    due: "05.08.2026",
+  },
+  {
+    number: "RE-2026-072",
+    customer: "Familie Andersson",
+    object: "Villa Långsjön",
+    amount: "2.110 SEK",
+    status: "Entwurf",
+    due: "10.08.2026",
+  },
+  {
+    number: "RE-2026-069",
+    customer: "B. Klos",
+    object: "Haus am Wald",
+    amount: "0 SEK",
+    status: "bezahlt",
+    due: "25.07.2026",
+  },
+] satisfies InvoiceRecord[];
 
 const checklistDone = [true, true, true, false, false];
 
@@ -685,6 +1055,70 @@ export default function HomePage() {
     [checklistState],
   );
   const stats = [objects.length, jobs.length, approvalJobs.length];
+  const moduleCards = [
+    {
+      target: "masterData",
+      title: String(t.masterDataOverview),
+      text: `${objects.length + customerRecords.length + serviceCatalogItems.length} ${String(t.records)}`,
+      hint: String(t.objectsHint),
+      icon: Database,
+    },
+    {
+      target: "objects",
+      title: String(t.objectOverview),
+      text: `${objects.length} ${String(t.properties)}`,
+      hint: String(t.objectsHint),
+      icon: Home,
+    },
+    {
+      target: "customers",
+      title: String(t.customerOverview),
+      text: `${customerRecords.length} ${String(t.records)}`,
+      hint: String(t.customersHint),
+      icon: Users,
+    },
+    {
+      target: "services",
+      title: String(t.serviceOverview),
+      text: `${serviceCatalogItems.length} ${String(t.records)}`,
+      hint: String(t.servicesHint),
+      icon: BookOpen,
+    },
+    {
+      target: "jobs",
+      title: String(t.jobOverview),
+      text: `${jobs.length} ${String(t.records)}`,
+      hint: String(t.jobsHint),
+      icon: ClipboardCheck,
+    },
+    {
+      target: "schedule",
+      title: String(t.scheduleOverview),
+      text: String(t.nextAppointment),
+      hint: String(t.scheduleHint),
+      icon: CalendarDays,
+    },
+    {
+      target: "communication",
+      title: String(t.communicationOverview),
+      text: `${messageRecords.length} ${String(t.records)}`,
+      hint: String(t.communicationHint),
+      icon: MessageSquare,
+    },
+    {
+      target: "billing",
+      title: String(t.billingOverview),
+      text: `${invoiceRecords.length} ${String(t.records)}`,
+      hint: String(t.billingHint),
+      icon: ReceiptText,
+    },
+  ] satisfies Array<{
+    target: NavTarget;
+    title: string;
+    text: string;
+    hint: string;
+    icon: typeof Home;
+  }>;
   const dataLabel =
     dataState === "live"
       ? String(t.sourceLive)
@@ -694,7 +1128,20 @@ export default function HomePage() {
           ? String(t.sourceError)
           : String(t.sourceDemo);
   const navTargets = (
-    Array.isArray(t.navTargets) ? t.navTargets : ["overview", "objects", "jobs", "schedule", "approvals"]
+    Array.isArray(t.navTargets)
+      ? t.navTargets
+      : [
+          "overview",
+          "masterData",
+          "objects",
+          "customers",
+          "services",
+          "jobs",
+          "schedule",
+          "communication",
+          "billing",
+          "approvals",
+        ]
   ) as NavTarget[];
   const currentVersion = versionHistory[0];
 
@@ -784,6 +1231,33 @@ export default function HomePage() {
       currentService === service ? null : service,
     );
     showNotice(`${String(t.serviceFiltered)}: ${service}`);
+  }
+
+  function openCustomer(customer: CustomerRecord) {
+    setSelectedObjectName(customer.objects[0] ?? selectedObjectName);
+    setView("owner");
+    showNotice(`${String(t.portalOpened)}: ${customer.name}`);
+  }
+
+  function prepareMessage(message: MessageRecord) {
+    setSelectedObjectName(message.object);
+    setSection("communication");
+    showNotice(`${String(t.messagePrepared)}: ${message.subject}`);
+  }
+
+  function prepareInvoice(invoice: InvoiceRecord) {
+    setSelectedObjectName(invoice.object);
+    setSection("billing");
+    showNotice(`${String(t.invoicePrepared)}: ${invoice.number}`);
+  }
+
+  function selectCatalogItem(item: ServiceCatalogItem) {
+    const translatedService =
+      services.find((service) => service.toLowerCase() === item.name.toLowerCase()) ??
+      item.name;
+    selectService(translatedService);
+    setSection("jobs");
+    showNotice(`${String(t.catalogSelected)}: ${item.name}`);
   }
 
   function sendApproval() {
@@ -931,7 +1405,7 @@ export default function HomePage() {
           </div>
 
           <nav className="nav-list" aria-label={String(t.navLabel)}>
-            {[PanelLeftClose, Home, ClipboardCheck, CalendarDays, MailCheck].map(
+            {navIcons.map(
               (Icon, index) => (
                 <button
                   className={view === "team" && navTargets[index] === section ? "active" : ""}
@@ -1070,7 +1544,37 @@ export default function HomePage() {
           </section>
 
           {view === "team" && section === "overview" && (
-            <section className="content-grid">
+            <>
+              <section className="panel">
+                <div className="panel-heading">
+                  <div>
+                    <p className="eyebrow">{String(t.dashboardJump)}</p>
+                    <h3>Dashboard</h3>
+                  </div>
+                </div>
+                <div className="module-grid">
+                  {moduleCards.map((card) => {
+                    const Icon = card.icon;
+
+                    return (
+                      <button
+                        key={card.target}
+                        onClick={() => handleNav(card.target)}
+                        type="button"
+                      >
+                        <span className="module-icon">
+                          <Icon size={20} />
+                        </span>
+                        <strong>{card.title}</strong>
+                        <small>{card.text}</small>
+                        <p>{card.hint}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+
+              <section className="content-grid">
               <div className="panel wide">
                 <div className="panel-heading">
                   <div>
@@ -1186,6 +1690,119 @@ export default function HomePage() {
                 </div>
               </div>
             </section>
+            </>
+          )}
+
+          {view === "team" && section === "masterData" && (
+            <section className="content-grid">
+              <div className="panel wide">
+                <div className="panel-heading">
+                  <div>
+                    <p className="eyebrow">{String(t.masterData)}</p>
+                    <h3>{String(t.masterDataOverview)}</h3>
+                  </div>
+                </div>
+                <div className="master-grid">
+                  {moduleCards.slice(1, 4).map((card) => {
+                    const Icon = card.icon;
+
+                    return (
+                      <button key={card.target} onClick={() => handleNav(card.target)} type="button">
+                        <Icon size={21} />
+                        <strong>{card.title}</strong>
+                        <span>{card.hint}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="panel">
+                <div className="panel-heading">
+                  <div>
+                    <p className="eyebrow">{String(t.records)}</p>
+                    <h3>{String(t.nextStepLabel)}</h3>
+                  </div>
+                </div>
+                <div className="quick-actions">
+                  <button className="secondary-action" onClick={openNewObject} type="button">
+                    <Plus size={18} /> {String(t.newObject)}
+                  </button>
+                  <button className="secondary-action" onClick={() => handleNav("customers")} type="button">
+                    <Users size={18} /> {String(t.openCustomers)}
+                  </button>
+                  <button className="secondary-action" onClick={() => handleNav("services")} type="button">
+                    <BookOpen size={18} /> {String(t.openServices)}
+                  </button>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {view === "team" && section === "customers" && (
+            <section className="panel">
+              <div className="panel-heading">
+                <div>
+                  <p className="eyebrow">{String(t.masterData)}</p>
+                  <h3>{String(t.customerOverview)}</h3>
+                </div>
+              </div>
+              <div className="data-table customer-table">
+                {customerRecords.map((customer) => (
+                  <article key={customer.email}>
+                    <div>
+                      <span>{String(t.customerLabel)}</span>
+                      <strong>{customer.name}</strong>
+                      <small>{customer.contact}</small>
+                    </div>
+                    <div>
+                      <span>{String(t.emailLabel)}</span>
+                      <strong>{customer.email}</strong>
+                      <small>{customer.phone}</small>
+                    </div>
+                    <div>
+                      <span>{String(t.properties)}</span>
+                      <strong>{customer.objects.join(", ")}</strong>
+                      <small>
+                        {String(t.languageLabel)}: {customer.language}
+                      </small>
+                    </div>
+                    <div>
+                      <span>{String(t.balanceLabel)}</span>
+                      <strong>{customer.balance}</strong>
+                      <small>{customer.nextStep}</small>
+                    </div>
+                    <button className="secondary-action" onClick={() => openCustomer(customer)} type="button">
+                      {String(t.openPortal)}
+                    </button>
+                  </article>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {view === "team" && section === "services" && (
+            <section className="panel">
+              <div className="panel-heading">
+                <div>
+                  <p className="eyebrow">{String(t.catalog)}</p>
+                  <h3>{String(t.serviceCatalog)}</h3>
+                </div>
+              </div>
+              <div className="catalog-grid">
+                {serviceCatalogItems.map((item) => (
+                  <button key={item.name} onClick={() => selectCatalogItem(item)} type="button">
+                    <strong>{item.name}</strong>
+                    <span>
+                      {String(t.categoryLabel)}: {item.category}
+                    </span>
+                    <small>
+                      {item.interval} · {item.price} / {item.unit}
+                    </small>
+                    <mark>{item.sla}</mark>
+                  </button>
+                ))}
+              </div>
+            </section>
           )}
 
           {view === "team" && section === "jobs" && (
@@ -1284,6 +1901,83 @@ export default function HomePage() {
                     </div>
                     <button className="secondary-action" onClick={() => startVisit(job)} type="button">
                       {String(t.startVisit)}
+                    </button>
+                  </article>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {view === "team" && section === "communication" && (
+            <section className="panel">
+              <div className="panel-heading">
+                <div>
+                  <p className="eyebrow">{String(t.autoMail)}</p>
+                  <h3>{String(t.communicationOverview)}</h3>
+                </div>
+              </div>
+              <div className="data-table communication-table">
+                {messageRecords.map((message) => (
+                  <article key={`${message.customer}-${message.subject}`}>
+                    <div>
+                      <span>{String(t.customerLabel)}</span>
+                      <strong>{message.customer}</strong>
+                      <small>{message.object}</small>
+                    </div>
+                    <div>
+                      <span>{String(t.channelLabel)}</span>
+                      <strong>{message.channel}</strong>
+                      <small>{message.status}</small>
+                    </div>
+                    <div>
+                      <span>{String(t.subjectLabel)}</span>
+                      <strong>{message.subject}</strong>
+                      <small>
+                        {String(t.dueLabel)}: {message.due}
+                      </small>
+                    </div>
+                    <button className="secondary-action" onClick={() => prepareMessage(message)} type="button">
+                      {String(t.openDetails)}
+                    </button>
+                  </article>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {view === "team" && section === "billing" && (
+            <section className="panel">
+              <div className="panel-heading">
+                <div>
+                  <p className="eyebrow">{String(t.billingHint)}</p>
+                  <h3>{String(t.billingOverview)}</h3>
+                </div>
+                <button className="primary-action" onClick={() => handleNav("jobs")} type="button">
+                  <ClipboardCheck size={18} /> {String(t.jobOverview)}
+                </button>
+              </div>
+              <div className="data-table billing-table">
+                {invoiceRecords.map((invoice) => (
+                  <article key={invoice.number}>
+                    <div>
+                      <span>{String(t.invoiceLabel)}</span>
+                      <strong>{invoice.number}</strong>
+                      <small>{invoice.object}</small>
+                    </div>
+                    <div>
+                      <span>{String(t.customerLabel)}</span>
+                      <strong>{invoice.customer}</strong>
+                      <small>
+                        {String(t.dueLabel)}: {invoice.due}
+                      </small>
+                    </div>
+                    <div>
+                      <span>{String(t.amountLabel)}</span>
+                      <strong>{invoice.amount}</strong>
+                      <small>{invoice.status}</small>
+                    </div>
+                    <button className="secondary-action" onClick={() => prepareInvoice(invoice)} type="button">
+                      {String(t.openDetails)}
                     </button>
                   </article>
                 ))}

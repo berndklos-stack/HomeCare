@@ -4,6 +4,16 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 0.5.0 - 2026-07-31
+
+- Dashboard als Sprungbrett in Stammdaten, Objekte, Kunden, Leistungskatalog, Aufträge, Termine, Kommunikation, Abrechnung und Freigaben erweitert.
+- Stammdatenübersicht mit logischen Schnellaktionen ergänzt.
+- Kundenübersicht mit Kontakt, Sprache, Objektbezug, Portalaktion und Saldo aufgebaut.
+- Dienstleistungskatalog mit Kategorien, Intervallen, Preisen, Einheiten und SLA ergänzt.
+- Kommunikationsübersicht und Abrechnungsmodul mit klickbaren Vorgängen ergänzt.
+- Farbsystem harmonisch überarbeitet und Darkmode beibehalten.
+- Playwright-E2E-Test um neue Modulnavigation und zentrale Aktionen erweitert.
+
 ## 0.4.0 - 2026-07-30
 
 - Hauptnavigation in fachliche Bereiche umgebaut.

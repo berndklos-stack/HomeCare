@@ -1,20 +1,20 @@
 @import "tailwindcss";
 
 :root {
-  --background: #edf4f2;
-  --foreground: #182426;
-  --forest: #17545b;
-  --forest-2: #25717a;
-  --moss: #83a66e;
-  --field: #d9e7e1;
-  --paper: #fbfdfc;
-  --paper-soft: #f2f7f4;
-  --line: #cbdad6;
-  --gold: #c76f5a;
-  --sky: #cfe7ec;
-  --danger: #c45d6a;
-  --muted: #627377;
-  --shadow: rgba(23, 84, 91, 0.12);
+  --background: #f3f1ec;
+  --foreground: #202426;
+  --forest: #355f62;
+  --forest-2: #547c76;
+  --moss: #8da463;
+  --field: #e6dfd2;
+  --paper: #fffdf8;
+  --paper-soft: #f8f4ea;
+  --line: #d8d0c2;
+  --gold: #b8734b;
+  --sky: #d6e5e0;
+  --danger: #bd5f65;
+  --muted: #6e716b;
+  --shadow: rgba(77, 74, 64, 0.12);
   --sidebar-text: #fbfdfc;
   --sidebar-muted: rgba(251, 253, 252, 0.78);
   --hero-text: rgba(251, 253, 252, 0.78);
@@ -24,19 +24,19 @@
 }
 
 [data-theme="dark"] {
-  --background: #10191c;
-  --foreground: #edf5f2;
-  --forest: #78c3c9;
-  --forest-2: #9fd7cd;
-  --moss: #aacb8a;
-  --field: #1e3034;
-  --paper: #172428;
-  --paper-soft: #1d2e32;
-  --line: #31484d;
-  --gold: #f09b83;
-  --sky: #203b42;
-  --danger: #ff9aa4;
-  --muted: #a7b8bb;
+  --background: #151715;
+  --foreground: #f3efe6;
+  --forest: #8bb7b0;
+  --forest-2: #abc9bd;
+  --moss: #b7c77d;
+  --field: #292923;
+  --paper: #1d211f;
+  --paper-soft: #252820;
+  --line: #3a3a31;
+  --gold: #eca66d;
+  --sky: #233232;
+  --danger: #f18a8f;
+  --muted: #bbb5a8;
   --shadow: rgba(0, 0, 0, 0.32);
   --sidebar-text: #edf5f2;
   --sidebar-muted: rgba(237, 245, 242, 0.72);
@@ -611,6 +611,102 @@ mark.soft {
   font-weight: 720;
 }
 
+.module-grid,
+.master-grid,
+.catalog-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.module-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.module-grid button,
+.master-grid button,
+.catalog-grid button {
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: inherit;
+  display: grid;
+  gap: 8px;
+  min-height: 144px;
+  padding: 14px;
+  text-align: left;
+}
+
+.module-grid button:hover,
+.master-grid button:hover,
+.catalog-grid button:hover {
+  background: color-mix(in srgb, var(--sky), var(--paper) 56%);
+  border-color: var(--forest-2);
+  box-shadow: 0 12px 28px rgba(36, 66, 54, 0.1);
+}
+
+.module-icon {
+  align-items: center;
+  background: var(--sky);
+  border-radius: 8px;
+  color: var(--forest);
+  display: flex;
+  height: 38px;
+  justify-content: center;
+  width: 38px;
+}
+
+.module-grid strong,
+.master-grid strong,
+.catalog-grid strong {
+  color: var(--foreground);
+  font-size: 16px;
+}
+
+.module-grid small,
+.module-grid p,
+.master-grid span,
+.catalog-grid span,
+.catalog-grid small {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.master-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.master-grid button {
+  min-height: 132px;
+}
+
+.master-grid svg {
+  color: var(--forest);
+}
+
+.catalog-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.catalog-grid button {
+  min-height: 150px;
+}
+
+.catalog-grid mark {
+  justify-self: start;
+}
+
+.quick-actions {
+  display: grid;
+  gap: 10px;
+}
+
+.quick-actions .secondary-action {
+  justify-content: flex-start;
+  width: 100%;
+}
+
 .object-table {
   display: grid;
   gap: 10px;
@@ -636,6 +732,43 @@ mark.soft {
   align-items: center;
   display: inline-flex;
   gap: 5px;
+}
+
+.data-table {
+  display: grid;
+  gap: 10px;
+}
+
+.data-table article {
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  min-height: 86px;
+  padding: 12px;
+}
+
+.customer-table article {
+  grid-template-columns: minmax(160px, 0.9fr) minmax(210px, 1fr) minmax(170px, 0.9fr) minmax(150px, 0.7fr) auto;
+}
+
+.communication-table article,
+.billing-table article {
+  grid-template-columns: minmax(180px, 1fr) minmax(150px, 0.8fr) minmax(220px, 1.2fr) auto;
+}
+
+.data-table span,
+.data-table small {
+  color: var(--muted);
+  display: block;
+  font-size: 12px;
+}
+
+.data-table strong {
+  display: block;
+  font-size: 14px;
+  line-height: 1.35;
 }
 
 .action-list {
@@ -985,6 +1118,18 @@ mark.soft {
     grid-template-columns: 1fr;
   }
 
+  .module-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .master-grid,
+  .catalog-grid,
+  .customer-table article,
+  .communication-table article,
+  .billing-table article {
+    grid-template-columns: 1fr;
+  }
+
   .job-row,
   .object-table button {
     grid-template-columns: auto minmax(0, 1fr);
@@ -1034,7 +1179,8 @@ mark.soft {
   }
 
   .owner-summary,
-  .service-grid {
+  .service-grid,
+  .module-grid {
     grid-template-columns: 1fr;
   }
 
