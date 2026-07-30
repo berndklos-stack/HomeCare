@@ -25,12 +25,13 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
+import { appVersion, versionHistory } from "@/lib/appVersion";
 import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
 
 type Language = "de" | "sv" | "en";
 type View = "team" | "owner" | "mobile";
 type NavTarget = View | "team-jobs" | "team-schedule";
-type ModalMode = "job" | "report" | "property" | null;
+type ModalMode = "job" | "report" | "property" | "version" | null;
 type Theme = "light" | "dark";
 
 const languageLabels: Record<Language, string> = {
@@ -50,6 +51,9 @@ const translations = {
     menuClose: "Menü schließen",
     lightMode: "Hellmodus",
     darkMode: "Dunkelmodus",
+    versionLabel: "Version",
+    versionHistory: "Änderungsverlauf",
+    latestChanges: "Aktuelle Änderungen",
     product: "Kolaretorp Service AB",
     headline: "Servicezentrale für Ferienhäuser",
     newJob: "Neuer Auftrag",
@@ -170,6 +174,9 @@ const translations = {
     menuClose: "Stäng meny",
     lightMode: "Ljust läge",
     darkMode: "Mörkt läge",
+    versionLabel: "Version",
+    versionHistory: "Ändringshistorik",
+    latestChanges: "Senaste ändringar",
     product: "Kolaretorp Service AB",
     headline: "Servicecentral för fritidshus",
     newJob: "Nytt uppdrag",
@@ -290,6 +297,9 @@ const translations = {
     menuClose: "Close menu",
     lightMode: "Light mode",
     darkMode: "Dark mode",
+    versionLabel: "Version",
+    versionHistory: "Change history",
+    latestChanges: "Latest changes",
     product: "Kolaretorp Service AB",
     headline: "Service hub for holiday homes",
     newJob: "New job",
@@ -631,6 +641,7 @@ export default function HomePage() {
   const navTargets = (
     Array.isArray(t.navTargets) ? t.navTargets : ["team", "owner", "team-jobs", "team-schedule", "mobile"]
   ) as NavTarget[];
+  const currentVersion = versionHistory[0];
 
   function showNotice(message: string) {
     setNotice(message);
@@ -847,6 +858,15 @@ export default function HomePage() {
             <span>info@kolaretorp.se</span>
             <span>076 - 1018186</span>
           </div>
+          <button
+            className="version-card"
+            onClick={() => setModalMode("version")}
+            type="button"
+          >
+            <span>{String(t.versionLabel)}</span>
+            <strong>v{appVersion.version}</strong>
+            <small>{appVersion.releaseDate}</small>
+          </button>
         </aside>
 
         <div className="workspace">
@@ -864,6 +884,13 @@ export default function HomePage() {
               <h1>{String(t.headline)}</h1>
             </div>
             <div className="topbar-actions">
+              <button
+                className="version-pill"
+                onClick={() => setModalMode("version")}
+                type="button"
+              >
+                v{appVersion.version}
+              </button>
               <span className={`data-source ${dataState}`}>{dataLabel}</span>
               <button
                 className="theme-toggle"
@@ -1195,14 +1222,18 @@ export default function HomePage() {
                         ? String(t.addJob)
                         : modalMode === "report"
                           ? String(t.reportDetails)
-                          : String(t.propertyDetails)}
+                          : modalMode === "property"
+                            ? String(t.propertyDetails)
+                            : String(t.versionHistory)}
                     </p>
                     <h3>
                       {modalMode === "job"
                         ? String(t.newJob)
                         : modalMode === "report"
                           ? activeJob.title
-                          : activeObject.name}
+                          : modalMode === "property"
+                            ? activeObject.name
+                            : `${appVersion.label} v${appVersion.version}`}
                     </h3>
                   </div>
                   <button
@@ -1254,6 +1285,27 @@ export default function HomePage() {
                     <button className="primary-action full" onClick={createLocalJob} type="button">
                       <Plus size={18} /> {String(t.createJob)}
                     </button>
+                  </div>
+                ) : modalMode === "version" ? (
+                  <div className="version-history">
+                    <div className="version-current">
+                      <span>{String(t.latestChanges)}</span>
+                      <strong>
+                        v{currentVersion.version} · {currentVersion.date}
+                      </strong>
+                    </div>
+                    {versionHistory.map((entry) => (
+                      <article key={entry.version}>
+                        <h4>
+                          v{entry.version} <span>{entry.date}</span>
+                        </h4>
+                        <ul>
+                          {entry.changes.map((change) => (
+                            <li key={change}>{change}</li>
+                          ))}
+                        </ul>
+                      </article>
+                    ))}
                   </div>
                 ) : (
                   <div className="detail-list">

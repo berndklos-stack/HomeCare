@@ -172,8 +172,29 @@ button {
   border-radius: 8px;
   display: grid;
   gap: 8px;
-  margin-top: auto;
   padding: 16px;
+}
+
+.version-card {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  color: var(--sidebar-text);
+  display: grid;
+  gap: 4px;
+  margin-top: auto;
+  padding: 14px 16px;
+  text-align: left;
+}
+
+.version-card span,
+.version-card small {
+  color: var(--sidebar-muted);
+  font-size: 12px;
+}
+
+.version-card strong {
+  font-size: 18px;
 }
 
 .sidebar-card p,
@@ -251,6 +272,18 @@ button {
   display: inline-flex;
   font-size: 12px;
   font-weight: 800;
+  min-height: 32px;
+  padding: 0 11px;
+  white-space: nowrap;
+}
+
+.version-pill {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--forest);
+  font-size: 12px;
+  font-weight: 850;
   min-height: 32px;
   padding: 0 11px;
   white-space: nowrap;
@@ -831,7 +864,8 @@ mark.soft {
 }
 
 .job-form,
-.detail-list {
+.detail-list,
+.version-history {
   display: grid;
   gap: 12px;
 }
@@ -864,6 +898,39 @@ mark.soft {
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 12px;
+}
+
+.version-current,
+.version-history article {
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.version-current {
+  display: grid;
+  gap: 5px;
+}
+
+.version-current span,
+.version-history h4 span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.version-history h4 {
+  font-size: 16px;
+  margin: 0 0 8px;
+}
+
+.version-history ul {
+  color: var(--muted);
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding-left: 18px;
 }
 
 @media (max-width: 1080px) {
