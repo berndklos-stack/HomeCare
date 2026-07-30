@@ -4,6 +4,17 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 0.4.0 - 2026-07-30
+
+- Hauptnavigation in fachliche Bereiche umgebaut.
+- Auftragsübersicht, Objektübersicht, Einsatzplan und Freigabeübersicht ergänzt.
+- `Aufträge` öffnet jetzt eine Übersicht statt direkt den Neuanlage-Dialog.
+- Neue Objektanlage mit eigenem Formular ergänzt.
+- Objektakte zeigt jetzt echte Objektdaten.
+- Aufträge können in die mobile Einsatzansicht gestartet und zur Freigabe markiert werden.
+- Freigaben können in der Freigabeübersicht abgeschlossen werden.
+- Playwright-E2E-Test für zentrale Button- und Navigationspfade ergänzt.
+
 ## 0.3.0 - 2026-07-30
 
 - Versionsanzeige in Sidebar und Topbar ergänzt.

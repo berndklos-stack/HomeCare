@@ -1,0 +1,59 @@
+import { expect, test, type Page } from "@playwright/test";
+
+async function clickButton(page: Page, name: string | RegExp) {
+  await page.getByRole("button", { name }).first().click({ force: true });
+}
+
+test("dashboard buttons navigate to the expected app areas", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.locator("main")).toHaveAttribute("data-ready", "true");
+
+  await page.getByTestId("nav-jobs").click();
+  await expect(page.getByRole("heading", { name: "Auftragsübersicht" })).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+
+  await clickButton(page, /Neuer Auftrag/);
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.getByLabel("Titel").fill("Test Auftrag");
+  await clickButton(page, /Auftrag anlegen/);
+  await expect(page.getByRole("button", { name: /Test Auftrag/ })).toBeVisible();
+
+  await page.getByTestId("nav-objects").click();
+  await expect(page.getByRole("heading", { name: "Objektübersicht" })).toBeVisible();
+  await clickButton(page, /Neues Objekt/);
+  await page.getByLabel("Objekt").fill("Testhaus Smaland");
+  await page.getByLabel("Eigentümer").fill("Familie Test");
+  await page.getByLabel("Ort").fill("Nybro");
+  await clickButton(page, /Objekt anlegen/);
+  await expect(page.getByRole("button", { name: /Testhaus Smaland/ })).toBeVisible();
+
+  await clickButton(page, /Testhaus Smaland/);
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await expect(page.getByRole("dialog").getByText("Familie Test")).toBeVisible();
+  await clickButton(page, "Schließen");
+
+  await page.getByTestId("nav-schedule").click();
+  await expect(page.getByRole("heading", { name: "Einsatzplan" })).toBeVisible();
+  await clickButton(page, "Einsatz starten");
+  await expect(page.getByText("Aktueller Einsatz")).toBeVisible();
+  await clickButton(page, /Zur Freigabe senden/);
+  await expect(page.getByText("5/5")).toBeVisible();
+
+  await clickButton(page, "Verwaltung");
+  await page.getByTestId("nav-approvals").click();
+  await expect(page.getByRole("heading", { name: "Freigabeübersicht" })).toBeVisible();
+  await clickButton(page, "Freigeben");
+
+  await clickButton(page, /v0\./);
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await expect(
+    page.getByRole("dialog").getByText("Änderungsverlauf", { exact: true }),
+  ).toBeVisible();
+  await clickButton(page, "Schließen");
+
+  await clickButton(page, "Dunkelmodus");
+  await expect(page.locator("main")).toHaveAttribute("data-theme", "dark");
+
+  await clickButton(page, "SV");
+  await expect(page.getByRole("heading", { name: "Servicecentral för fritidshus" })).toBeVisible();
+});

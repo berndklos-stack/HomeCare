@@ -1,10 +1,20 @@
 export const appVersion = {
-  version: "0.3.0",
+  version: "0.4.0",
   releaseDate: "2026-07-30",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "0.4.0",
+    date: "2026-07-30",
+    changes: [
+      "Hauptnavigation in fachliche Bereiche umgebaut",
+      "Auftrags-, Objekt-, Einsatzplan- und Freigabeübersichten ergänzt",
+      "Lokale Objektanlage und Objektakte verbessert",
+      "Automatischen Button-Klicktest mit Playwright ergänzt",
+    ],
+  },
   {
     version: "0.3.0",
     date: "2026-07-30",

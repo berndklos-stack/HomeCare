@@ -30,8 +30,8 @@ import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
 
 type Language = "de" | "sv" | "en";
 type View = "team" | "owner" | "mobile";
-type NavTarget = View | "team-jobs" | "team-schedule";
-type ModalMode = "job" | "report" | "property" | "version" | null;
+type NavTarget = "overview" | "objects" | "jobs" | "schedule" | "approvals";
+type ModalMode = "job" | "object" | "report" | "property" | "version" | null;
 type Theme = "light" | "dark";
 
 const languageLabels: Record<Language, string> = {
@@ -45,7 +45,7 @@ const translations = {
     tagline: "Ferienhausverwaltung Småland",
     navLabel: "Hauptnavigation",
     nav: ["Überblick", "Objekte", "Aufträge", "Einsatzplan", "Freigaben"],
-    navTargets: ["team", "owner", "team-jobs", "team-schedule", "mobile"],
+    navTargets: ["overview", "objects", "jobs", "schedule", "approvals"],
     contact: "Kontakt",
     menuOpen: "Menü öffnen",
     menuClose: "Menü schließen",
@@ -57,6 +57,7 @@ const translations = {
     product: "Kolaretorp Service AB",
     headline: "Servicezentrale für Ferienhäuser",
     newJob: "Neuer Auftrag",
+    newObject: "Neues Objekt",
     viewLabel: "Ansicht wählen",
     views: {
       team: "Verwaltung",
@@ -78,16 +79,29 @@ const translations = {
     jobsAndStatus: "Aufträge und Status",
     addJob: "Auftrag hinzufügen",
     createJob: "Auftrag anlegen",
+    createObject: "Objekt anlegen",
     close: "Schließen",
     jobTitleLabel: "Titel",
     propertyLabel: "Objekt",
+    ownerLabel: "Eigentümer",
+    locationLabel: "Ort",
     serviceLabel: "Leistung",
     statusLabel: "Status",
     newJobAdded: "Auftrag wurde lokal angelegt",
+    newObjectAdded: "Objekt wurde lokal angelegt",
     serviceFiltered: "Leistung gefiltert",
     filterAll: "Alle Leistungen",
     selectedJob: "Ausgewählter Auftrag",
     selectedProperty: "Ausgewähltes Objekt",
+    objectOverview: "Objektübersicht",
+    jobOverview: "Auftragsübersicht",
+    scheduleOverview: "Einsatzplan",
+    approvalOverview: "Freigabeübersicht",
+    startVisit: "Einsatz starten",
+    approveJob: "Freigeben",
+    openDetails: "Details öffnen",
+    openPortal: "Portal öffnen",
+    noApprovals: "Keine offenen Freigaben",
     reportDetails: "Berichtdetails",
     propertyDetails: "Objektdaten",
     noFilteredJobs: "Keine Aufträge für diese Leistung",
@@ -168,7 +182,7 @@ const translations = {
     tagline: "Fritidshusförvaltning i Småland",
     navLabel: "Huvudnavigation",
     nav: ["Översikt", "Objekt", "Uppdrag", "Insatsplan", "Godkännanden"],
-    navTargets: ["team", "owner", "team-jobs", "team-schedule", "mobile"],
+    navTargets: ["overview", "objects", "jobs", "schedule", "approvals"],
     contact: "Kontakt",
     menuOpen: "Öppna meny",
     menuClose: "Stäng meny",
@@ -180,6 +194,7 @@ const translations = {
     product: "Kolaretorp Service AB",
     headline: "Servicecentral för fritidshus",
     newJob: "Nytt uppdrag",
+    newObject: "Nytt objekt",
     viewLabel: "Välj vy",
     views: {
       team: "Förvaltning",
@@ -201,16 +216,29 @@ const translations = {
     jobsAndStatus: "Uppdrag och status",
     addJob: "Lägg till uppdrag",
     createJob: "Skapa uppdrag",
+    createObject: "Skapa objekt",
     close: "Stäng",
     jobTitleLabel: "Titel",
     propertyLabel: "Objekt",
+    ownerLabel: "Ägare",
+    locationLabel: "Ort",
     serviceLabel: "Tjänst",
     statusLabel: "Status",
     newJobAdded: "Uppdraget skapades lokalt",
+    newObjectAdded: "Objektet skapades lokalt",
     serviceFiltered: "Tjänst filtrerad",
     filterAll: "Alla tjänster",
     selectedJob: "Valt uppdrag",
     selectedProperty: "Valt objekt",
+    objectOverview: "Objektöversikt",
+    jobOverview: "Uppdragsöversikt",
+    scheduleOverview: "Insatsplan",
+    approvalOverview: "Godkännanden",
+    startVisit: "Starta insats",
+    approveJob: "Godkänn",
+    openDetails: "Öppna detaljer",
+    openPortal: "Öppna portal",
+    noApprovals: "Inga öppna godkännanden",
     reportDetails: "Rapportdetaljer",
     propertyDetails: "Objektdata",
     noFilteredJobs: "Inga uppdrag för den tjänsten",
@@ -291,7 +319,7 @@ const translations = {
     tagline: "Holiday home management in Småland",
     navLabel: "Main navigation",
     nav: ["Overview", "Properties", "Jobs", "Schedule", "Approvals"],
-    navTargets: ["team", "owner", "team-jobs", "team-schedule", "mobile"],
+    navTargets: ["overview", "objects", "jobs", "schedule", "approvals"],
     contact: "Contact",
     menuOpen: "Open menu",
     menuClose: "Close menu",
@@ -303,6 +331,7 @@ const translations = {
     product: "Kolaretorp Service AB",
     headline: "Service hub for holiday homes",
     newJob: "New job",
+    newObject: "New property",
     viewLabel: "Choose view",
     views: {
       team: "Management",
@@ -324,16 +353,29 @@ const translations = {
     jobsAndStatus: "Jobs and status",
     addJob: "Add job",
     createJob: "Create job",
+    createObject: "Create property",
     close: "Close",
     jobTitleLabel: "Title",
     propertyLabel: "Property",
+    ownerLabel: "Owner",
+    locationLabel: "Location",
     serviceLabel: "Service",
     statusLabel: "Status",
     newJobAdded: "Job was created locally",
+    newObjectAdded: "Property was created locally",
     serviceFiltered: "Service filtered",
     filterAll: "All services",
     selectedJob: "Selected job",
     selectedProperty: "Selected property",
+    objectOverview: "Property overview",
+    jobOverview: "Job overview",
+    scheduleOverview: "Schedule",
+    approvalOverview: "Approvals",
+    startVisit: "Start visit",
+    approveJob: "Approve",
+    openDetails: "Open details",
+    openPortal: "Open portal",
+    noApprovals: "No open approvals",
     reportDetails: "Report details",
     propertyDetails: "Property data",
     noFilteredJobs: "No jobs for this service",
@@ -563,9 +605,13 @@ function translatedStatus(t: Record<string, unknown>, status: string) {
 
 export default function HomePage() {
   const [view, setView] = useState<View>("team");
+  const [section, setSection] = useState<NavTarget>("overview");
+  const [isAppReady, setIsAppReady] = useState(false);
   const [language, setLanguage] = useState<Language>("de");
   const [liveData, setLiveData] = useState<LiveData | null>(null);
   const [localJobs, setLocalJobs] = useState<AppJob[]>([]);
+  const [localObjects, setLocalObjects] = useState<AppObject[]>([]);
+  const [jobOverrides, setJobOverrides] = useState<Record<string, Partial<AppJob>>>({});
   const [activeJobId, setActiveJobId] = useState("KS-2407");
   const [selectedObjectName, setSelectedObjectName] = useState("Villa Långsjön");
   const [selectedService, setSelectedService] = useState<string | null>(null);
@@ -584,6 +630,9 @@ export default function HomePage() {
   const [newJobTitle, setNewJobTitle] = useState("");
   const [newJobObject, setNewJobObject] = useState("Villa Långsjön");
   const [newJobService, setNewJobService] = useState("");
+  const [newObjectName, setNewObjectName] = useState("");
+  const [newObjectOwner, setNewObjectOwner] = useState("");
+  const [newObjectLocation, setNewObjectLocation] = useState("");
   const [dataState, setDataState] = useState<DataState>(() =>
     getSupabaseBrowserClient() ? "loading" : "demo",
   );
@@ -605,8 +654,14 @@ export default function HomePage() {
     status: translatedList(t, "objectStatuses")[object.statusKey] ?? "",
     lastVisit: translatedList(t, "lastVisits")[object.lastVisitKey] ?? "",
   }));
-  const jobs = [...localJobs, ...(liveData?.jobs.length ? liveData.jobs : demoJobs)];
-  const objects = liveData?.objects.length ? liveData.objects : demoObjects;
+  const jobs = [
+    ...localJobs,
+    ...(liveData?.jobs.length ? liveData.jobs : demoJobs),
+  ].map((job) => ({ ...job, ...jobOverrides[job.id] }));
+  const objects = [
+    ...localObjects,
+    ...(liveData?.objects.length ? liveData.objects : demoObjects),
+  ];
   const services = liveData?.services.length
     ? liveData.services
     : serviceLabels;
@@ -615,6 +670,11 @@ export default function HomePage() {
   const filteredJobs = activeServiceFilter
     ? jobs.filter((job) => job.service === activeServiceFilter)
     : jobs;
+  const approvalJobs = jobs.filter((job) =>
+    ["approval", "freigabe", "godkännande"].some((status) =>
+      job.status.toLowerCase().includes(status),
+    ),
+  );
   const activeJob = jobs.find((job) => job.id === activeJobId) ?? jobs[0];
   const activeObject =
     objects.find((object) => object.name === selectedObjectName) ??
@@ -624,12 +684,7 @@ export default function HomePage() {
     () => checklistState.filter(Boolean).length,
     [checklistState],
   );
-  const liveApprovals = jobs.filter((job) =>
-    ["approval", "freigabe", "godkännande"].some((status) =>
-      job.status.toLowerCase().includes(status),
-    ),
-  ).length;
-  const stats = [objects.length, jobs.length, liveApprovals || 3];
+  const stats = [objects.length, jobs.length, approvalJobs.length];
   const dataLabel =
     dataState === "live"
       ? String(t.sourceLive)
@@ -639,7 +694,7 @@ export default function HomePage() {
           ? String(t.sourceError)
           : String(t.sourceDemo);
   const navTargets = (
-    Array.isArray(t.navTargets) ? t.navTargets : ["team", "owner", "team-jobs", "team-schedule", "mobile"]
+    Array.isArray(t.navTargets) ? t.navTargets : ["overview", "objects", "jobs", "schedule", "approvals"]
   ) as NavTarget[];
   const currentVersion = versionHistory[0];
 
@@ -650,17 +705,17 @@ export default function HomePage() {
 
   function changeView(nextView: View) {
     setView(nextView);
+    if (nextView === "team") {
+      setSection("overview");
+    }
     setIsSidebarOpen(false);
   }
 
   function handleNav(target: NavTarget) {
-    if (target === "team-jobs" || target === "team-schedule") {
-      changeView("team");
-      setModalMode("job");
-      return;
-    }
-
-    changeView(target);
+    setView("team");
+    setSection(target);
+    setModalMode(null);
+    setIsSidebarOpen(false);
   }
 
   function openNewJob() {
@@ -668,6 +723,30 @@ export default function HomePage() {
     setNewJobObject(objects[0]?.name ?? "");
     setNewJobService(services[0] ?? "");
     setModalMode("job");
+  }
+
+  function openNewObject() {
+    setNewObjectName("");
+    setNewObjectOwner("");
+    setNewObjectLocation("");
+    setModalMode("object");
+  }
+
+  function createLocalObject() {
+    const createdObject: AppObject = {
+      name: newObjectName.trim() || String(t.newObject),
+      owner: newObjectOwner.trim() || "Kolaretorp Service AB",
+      location: newObjectLocation.trim() || "Småland",
+      status: translatedList(t, "objectStatuses")[1] ?? String(t.status),
+      lastVisit: "-",
+    };
+
+    setLocalObjects((currentObjects) => [createdObject, ...currentObjects]);
+    setSelectedObjectName(createdObject.name);
+    setNewJobObject(createdObject.name);
+    setSection("objects");
+    setModalMode(null);
+    showNotice(String(t.newObjectAdded));
   }
 
   function createLocalJob() {
@@ -689,7 +768,8 @@ export default function HomePage() {
     setSelectedObjectName(createdJob.object);
     setSelectedService(null);
     setModalMode(null);
-    changeView("team");
+    setView("team");
+    setSection("jobs");
     showNotice(String(t.newJobAdded));
   }
 
@@ -707,19 +787,32 @@ export default function HomePage() {
   }
 
   function sendApproval() {
-    setLocalJobs((currentJobs) =>
-      currentJobs.map((job) =>
-                        job.id === activeJob.id
-          ? {
-              ...job,
-              status: translatedList(t, "jobStatuses")[2] ?? String(t.status),
-              progress: Math.max(job.progress, 92),
-            }
-          : job,
-      ),
-    );
+    setJobOverrides((currentOverrides) => ({
+      ...currentOverrides,
+      [activeJob.id]: {
+        status: translatedList(t, "jobStatuses")[2] ?? String(t.status),
+        progress: Math.max(activeJob.progress, 92),
+      },
+    }));
     setChecklistState((items) => items.map(() => true));
     showNotice(String(t.approvalSent));
+  }
+
+  function approveJob(job: AppJob) {
+    setJobOverrides((currentOverrides) => ({
+      ...currentOverrides,
+      [job.id]: {
+        status: translatedStatus(t, "approved"),
+        progress: 100,
+      },
+    }));
+    setActiveJobId(job.id);
+    showNotice(`${String(t.approveJob)}: ${job.title}`);
+  }
+
+  function startVisit(job: AppJob) {
+    selectJob(job);
+    changeView("mobile");
   }
 
   function toggleTheme() {
@@ -729,6 +822,11 @@ export default function HomePage() {
       return nextTheme;
     });
   }
+
+  useEffect(() => {
+    const readyTimer = window.setTimeout(() => setIsAppReady(true), 0);
+    return () => window.clearTimeout(readyTimer);
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -770,29 +868,29 @@ export default function HomePage() {
         return;
       }
 
-      const mappedObjects = (propertiesResult.data ?? []).map((property) => ({
-        name: property.name ?? "Objekt",
+      const mappedObjects = ((propertiesResult.data ?? []) as Record<string, unknown>[]).map((property) => ({
+        name: String(property.name ?? "Objekt"),
         owner: nestedName(property.profiles, "Eigentümer"),
-        location: property.region ?? property.address ?? "Småland",
+        location: String(property.region ?? property.address ?? "Småland"),
         status: translatedStatus(t, "in_progress"),
         lastVisit: "-",
       }));
 
-      const mappedJobs = (jobsResult.data ?? []).map((job, index) => ({
+      const mappedJobs = ((jobsResult.data ?? []) as Record<string, unknown>[]).map((job, index) => ({
         id: `KS-${String(index + 1).padStart(4, "0")}`,
-        title: job.title ?? "Auftrag",
+        title: String(job.title ?? "Auftrag"),
         object: nestedName(job.properties, "Objekt"),
         owner: isRecord(job.properties)
           ? nestedName(job.properties.profiles, "Eigentümer")
           : "Eigentümer",
-        status: translatedStatus(t, job.status ?? "planned"),
+        status: translatedStatus(t, String(job.status ?? "planned")),
         service: nestedName(job.service_categories, "Service"),
-        progress: getStatusProgress(job.status ?? "planned"),
+        progress: getStatusProgress(String(job.status ?? "planned")),
       }));
 
-      const mappedServices = (servicesResult.data ?? [])
+      const mappedServices = ((servicesResult.data ?? []) as Record<string, unknown>[])
         .map((service) => service.name)
-        .filter(Boolean);
+        .filter((service): service is string => typeof service === "string");
 
       if (mappedObjects.length || mappedJobs.length || mappedServices.length) {
         setLiveData({
@@ -818,7 +916,7 @@ export default function HomePage() {
   }, [t]);
 
   return (
-    <main className="min-h-screen" data-theme={theme}>
+    <main className="min-h-screen" data-ready={isAppReady} data-theme={theme}>
       <section className="app-shell">
         <aside className={`sidebar ${isSidebarOpen ? "open" : ""}`}>
           <div className="brand-block">
@@ -836,14 +934,10 @@ export default function HomePage() {
             {[PanelLeftClose, Home, ClipboardCheck, CalendarDays, MailCheck].map(
               (Icon, index) => (
                 <button
-                  className={
-                    navTargets[index] === view ||
-                    (view === "team" && navTargets[index]?.startsWith("team"))
-                      ? "active"
-                      : ""
-                  }
+                  className={view === "team" && navTargets[index] === section ? "active" : ""}
+                  data-testid={`nav-${navTargets[index] ?? "overview"}`}
                   key={String(t.nav[index])}
-                  onClick={() => handleNav(navTargets[index] ?? "team")}
+                  onClick={() => handleNav(navTargets[index] ?? "overview")}
                   type="button"
                 >
                   <Icon size={18} /> {String(t.nav[index])}
@@ -927,7 +1021,7 @@ export default function HomePage() {
               <button
                 className={view === item ? "selected" : ""}
                 key={item}
-                onClick={() => setView(item)}
+                onClick={() => changeView(item)}
                 type="button"
               >
                 {String(t.views[item])}
@@ -975,7 +1069,7 @@ export default function HomePage() {
             </div>
           </section>
 
-          {view === "team" && (
+          {view === "team" && section === "overview" && (
             <section className="content-grid">
               <div className="panel wide">
                 <div className="panel-heading">
@@ -1090,6 +1184,138 @@ export default function HomePage() {
                     </button>
                   ))}
                 </div>
+              </div>
+            </section>
+          )}
+
+          {view === "team" && section === "jobs" && (
+            <section className="panel">
+              <div className="panel-heading">
+                <div>
+                  <p className="eyebrow">{String(t.operations)}</p>
+                  <h3>{String(t.jobOverview)}</h3>
+                </div>
+                <button className="primary-action" onClick={openNewJob} type="button">
+                  <Plus size={18} /> {String(t.newJob)}
+                </button>
+              </div>
+              <div className="job-list">
+                {filteredJobs.map((job) => (
+                  <button
+                    className={`job-row ${activeJob.id === job.id ? "selected" : ""}`}
+                    key={job.id}
+                    onClick={() => selectJob(job)}
+                    type="button"
+                  >
+                    <div className="job-icon">
+                      <ClipboardCheck size={19} />
+                    </div>
+                    <div>
+                      <strong>{job.title}</strong>
+                      <span>
+                        {job.object} · {job.owner}
+                      </span>
+                    </div>
+                    <p>{job.service}</p>
+                    <div className="progress">
+                      <span style={{ width: `${job.progress}%` }} />
+                    </div>
+                    <mark>{job.status}</mark>
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {view === "team" && section === "objects" && (
+            <section className="panel">
+              <div className="panel-heading">
+                <div>
+                  <p className="eyebrow">{String(t.masterData)}</p>
+                  <h3>{String(t.objectOverview)}</h3>
+                </div>
+                <button className="primary-action" onClick={openNewObject} type="button">
+                  <Plus size={18} /> {String(t.newObject)}
+                </button>
+              </div>
+              <div className="object-table management-table">
+                {objects.map((object) => (
+                  <button
+                    className={activeObject.name === object.name ? "selected" : ""}
+                    key={object.name}
+                    onClick={() => {
+                      setSelectedObjectName(object.name);
+                      setNewJobObject(object.name);
+                      setModalMode("property");
+                    }}
+                    type="button"
+                  >
+                    <div>
+                      <strong>{object.name}</strong>
+                      <span>{object.owner}</span>
+                    </div>
+                    <span>
+                      <MapPin size={15} /> {object.location}
+                    </span>
+                    <mark>{object.status}</mark>
+                    <small>{object.lastVisit}</small>
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {view === "team" && section === "schedule" && (
+            <section className="panel">
+              <div className="panel-heading">
+                <div>
+                  <p className="eyebrow">{String(t.operations)}</p>
+                  <h3>{String(t.scheduleOverview)}</h3>
+                </div>
+              </div>
+              <div className="action-list">
+                {jobs.map((job) => (
+                  <article key={job.id}>
+                    <div>
+                      <strong>{job.title}</strong>
+                      <span>
+                        {job.object} · {job.service}
+                      </span>
+                    </div>
+                    <button className="secondary-action" onClick={() => startVisit(job)} type="button">
+                      {String(t.startVisit)}
+                    </button>
+                  </article>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {view === "team" && section === "approvals" && (
+            <section className="panel">
+              <div className="panel-heading">
+                <div>
+                  <p className="eyebrow">{String(t.autoMail)}</p>
+                  <h3>{String(t.approvalOverview)}</h3>
+                </div>
+              </div>
+              <div className="action-list">
+                {approvalJobs.map((job) => (
+                  <article key={job.id}>
+                    <div>
+                      <strong>{job.title}</strong>
+                      <span>
+                        {job.object} · {job.owner}
+                      </span>
+                    </div>
+                    <button className="primary-action" onClick={() => approveJob(job)} type="button">
+                      {String(t.approveJob)}
+                    </button>
+                  </article>
+                ))}
+                {!approvalJobs.length && (
+                  <p className="empty-state">{String(t.noApprovals)}</p>
+                )}
               </div>
             </section>
           )}
@@ -1220,6 +1446,8 @@ export default function HomePage() {
                     <p className="eyebrow">
                       {modalMode === "job"
                         ? String(t.addJob)
+                        : modalMode === "object"
+                          ? String(t.newObject)
                         : modalMode === "report"
                           ? String(t.reportDetails)
                           : modalMode === "property"
@@ -1229,6 +1457,8 @@ export default function HomePage() {
                     <h3>
                       {modalMode === "job"
                         ? String(t.newJob)
+                        : modalMode === "object"
+                          ? String(t.createObject)
                         : modalMode === "report"
                           ? activeJob.title
                           : modalMode === "property"
@@ -1286,6 +1516,36 @@ export default function HomePage() {
                       <Plus size={18} /> {String(t.createJob)}
                     </button>
                   </div>
+                ) : modalMode === "object" ? (
+                  <div className="job-form">
+                    <label>
+                      <span>{String(t.propertyLabel)}</span>
+                      <input
+                        value={newObjectName}
+                        onChange={(event) => setNewObjectName(event.target.value)}
+                        placeholder={activeObject.name}
+                      />
+                    </label>
+                    <label>
+                      <span>{String(t.ownerLabel)}</span>
+                      <input
+                        value={newObjectOwner}
+                        onChange={(event) => setNewObjectOwner(event.target.value)}
+                        placeholder={activeObject.owner}
+                      />
+                    </label>
+                    <label>
+                      <span>{String(t.locationLabel)}</span>
+                      <input
+                        value={newObjectLocation}
+                        onChange={(event) => setNewObjectLocation(event.target.value)}
+                        placeholder={activeObject.location}
+                      />
+                    </label>
+                    <button className="primary-action full" onClick={createLocalObject} type="button">
+                      <Plus size={18} /> {String(t.createObject)}
+                    </button>
+                  </div>
                 ) : modalMode === "version" ? (
                   <div className="version-history">
                     <div className="version-current">
@@ -1306,6 +1566,25 @@ export default function HomePage() {
                         </ul>
                       </article>
                     ))}
+                  </div>
+                ) : modalMode === "property" ? (
+                  <div className="detail-list">
+                    <div>
+                      <span>{String(t.propertyLabel)}</span>
+                      <strong>{activeObject.name}</strong>
+                    </div>
+                    <div>
+                      <span>{String(t.ownerLabel)}</span>
+                      <strong>{activeObject.owner}</strong>
+                    </div>
+                    <div>
+                      <span>{String(t.locationLabel)}</span>
+                      <strong>{activeObject.location}</strong>
+                    </div>
+                    <div>
+                      <span>{String(t.statusLabel)}</span>
+                      <strong>{activeObject.status}</strong>
+                    </div>
                   </div>
                 ) : (
                   <div className="detail-list">

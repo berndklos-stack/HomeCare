@@ -638,6 +638,31 @@ mark.soft {
   gap: 5px;
 }
 
+.action-list {
+  display: grid;
+  gap: 10px;
+}
+
+.action-list article {
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 72px;
+  padding: 12px;
+}
+
+.action-list strong {
+  display: block;
+}
+
+.action-list span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
 .owner-summary {
   display: grid;
   gap: 12px;
