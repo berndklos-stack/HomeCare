@@ -19,6 +19,7 @@ import {
   Trees,
   Waves,
   Wrench,
+  X,
 } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
@@ -26,6 +27,8 @@ import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
 
 type Language = "de" | "sv" | "en";
 type View = "team" | "owner" | "mobile";
+type NavTarget = View | "team-jobs" | "team-schedule";
+type ModalMode = "job" | "report" | "property" | null;
 
 const languageLabels: Record<Language, string> = {
   de: "DE",
@@ -38,8 +41,10 @@ const translations = {
     tagline: "Ferienhausverwaltung Småland",
     navLabel: "Hauptnavigation",
     nav: ["Überblick", "Objekte", "Aufträge", "Einsatzplan", "Freigaben"],
+    navTargets: ["team", "owner", "team-jobs", "team-schedule", "mobile"],
     contact: "Kontakt",
     menuOpen: "Menü öffnen",
+    menuClose: "Menü schließen",
     product: "Kolaretorp Service AB",
     headline: "Servicezentrale für Ferienhäuser",
     newJob: "Neuer Auftrag",
@@ -63,6 +68,21 @@ const translations = {
     operations: "Operations",
     jobsAndStatus: "Aufträge und Status",
     addJob: "Auftrag hinzufügen",
+    createJob: "Auftrag anlegen",
+    close: "Schließen",
+    jobTitleLabel: "Titel",
+    propertyLabel: "Objekt",
+    serviceLabel: "Leistung",
+    statusLabel: "Status",
+    newJobAdded: "Auftrag wurde lokal angelegt",
+    serviceFiltered: "Leistung gefiltert",
+    filterAll: "Alle Leistungen",
+    selectedJob: "Ausgewählter Auftrag",
+    selectedProperty: "Ausgewähltes Objekt",
+    reportDetails: "Berichtdetails",
+    propertyDetails: "Objektdaten",
+    noFilteredJobs: "Keine Aufträge für diese Leistung",
+    approvalSent: "Auftrag wurde zur Freigabe markiert",
     services: "Leistungen",
     catalog: "Katalog",
     masterData: "Stammdaten",
@@ -125,13 +145,24 @@ const translations = {
       "Interne Prüfung",
       "Mail an Eigentümer",
     ],
+    statusLabels: {
+      planned: "Geplant",
+      in_progress: "In Arbeit",
+      waiting_for_approval: "Freigabe",
+      approved: "Freigegeben",
+      sent: "Versendet",
+      completed: "Erledigt",
+      cancelled: "Storniert",
+    },
   },
   sv: {
     tagline: "Fritidshusförvaltning i Småland",
     navLabel: "Huvudnavigation",
     nav: ["Översikt", "Objekt", "Uppdrag", "Insatsplan", "Godkännanden"],
+    navTargets: ["team", "owner", "team-jobs", "team-schedule", "mobile"],
     contact: "Kontakt",
     menuOpen: "Öppna meny",
+    menuClose: "Stäng meny",
     product: "Kolaretorp Service AB",
     headline: "Servicecentral för fritidshus",
     newJob: "Nytt uppdrag",
@@ -155,6 +186,21 @@ const translations = {
     operations: "Drift",
     jobsAndStatus: "Uppdrag och status",
     addJob: "Lägg till uppdrag",
+    createJob: "Skapa uppdrag",
+    close: "Stäng",
+    jobTitleLabel: "Titel",
+    propertyLabel: "Objekt",
+    serviceLabel: "Tjänst",
+    statusLabel: "Status",
+    newJobAdded: "Uppdraget skapades lokalt",
+    serviceFiltered: "Tjänst filtrerad",
+    filterAll: "Alla tjänster",
+    selectedJob: "Valt uppdrag",
+    selectedProperty: "Valt objekt",
+    reportDetails: "Rapportdetaljer",
+    propertyDetails: "Objektdata",
+    noFilteredJobs: "Inga uppdrag för den tjänsten",
+    approvalSent: "Uppdraget markerades för godkännande",
     services: "Tjänster",
     catalog: "Katalog",
     masterData: "Grunddata",
@@ -217,13 +263,24 @@ const translations = {
       "Intern kontroll",
       "E-post till ägare",
     ],
+    statusLabels: {
+      planned: "Planerat",
+      in_progress: "Pågår",
+      waiting_for_approval: "Godkännande",
+      approved: "Godkänt",
+      sent: "Skickat",
+      completed: "Klart",
+      cancelled: "Avbrutet",
+    },
   },
   en: {
     tagline: "Holiday home management in Småland",
     navLabel: "Main navigation",
     nav: ["Overview", "Properties", "Jobs", "Schedule", "Approvals"],
+    navTargets: ["team", "owner", "team-jobs", "team-schedule", "mobile"],
     contact: "Contact",
     menuOpen: "Open menu",
+    menuClose: "Close menu",
     product: "Kolaretorp Service AB",
     headline: "Service hub for holiday homes",
     newJob: "New job",
@@ -247,6 +304,21 @@ const translations = {
     operations: "Operations",
     jobsAndStatus: "Jobs and status",
     addJob: "Add job",
+    createJob: "Create job",
+    close: "Close",
+    jobTitleLabel: "Title",
+    propertyLabel: "Property",
+    serviceLabel: "Service",
+    statusLabel: "Status",
+    newJobAdded: "Job was created locally",
+    serviceFiltered: "Service filtered",
+    filterAll: "All services",
+    selectedJob: "Selected job",
+    selectedProperty: "Selected property",
+    reportDetails: "Report details",
+    propertyDetails: "Property data",
+    noFilteredJobs: "No jobs for this service",
+    approvalSent: "Job was marked for approval",
     services: "Services",
     catalog: "Catalog",
     masterData: "Master data",
@@ -309,6 +381,15 @@ const translations = {
       "Internal review",
       "Email to owner",
     ],
+    statusLabels: {
+      planned: "Planned",
+      in_progress: "In progress",
+      waiting_for_approval: "Approval",
+      approved: "Approved",
+      sent: "Sent",
+      completed: "Completed",
+      cancelled: "Cancelled",
+    },
   },
 } satisfies Record<Language, Record<string, unknown>>;
 
@@ -324,12 +405,23 @@ type AppJob = {
   progress: number;
 };
 
+type AppJobSeed = Omit<AppJob, "title" | "status" | "service"> & {
+  titleKey: number;
+  statusKey: number;
+  serviceKey: number;
+};
+
 type AppObject = {
   name: string;
   owner: string;
   location: string;
   status: string;
   lastVisit: string;
+};
+
+type AppObjectSeed = Omit<AppObject, "status" | "lastVisit"> & {
+  statusKey: number;
+  lastVisitKey: number;
 };
 
 type LiveData = {
@@ -340,59 +432,59 @@ type LiveData = {
 
 type DataState = "loading" | "live" | "demo" | "error";
 
-const demoJobs = [
+const demoJobSeeds = [
   {
     id: "KS-2407",
-    title: "Poolpflege und Wasserwerte",
+    titleKey: 0,
     object: "Villa Långsjön",
     owner: "Familie Andersson",
-    status: "In Arbeit",
-    service: "Poolpflege",
+    statusKey: 0,
+    serviceKey: 4,
     progress: 68,
   },
   {
     id: "KS-2408",
-    title: "Rasen, Hecken und Sichtprüfung",
+    titleKey: 1,
     object: "Stuga Nybro",
     owner: "M. Schneider",
-    status: "Geplant",
-    service: "Gartenpflege",
+    statusKey: 1,
+    serviceKey: 1,
     progress: 22,
   },
   {
     id: "KS-2409",
-    title: "Terrassentür justieren",
+    titleKey: 2,
     object: "Kolaretorp 106",
     owner: "Kolaretorp Service AB",
-    status: "Freigabe",
-    service: "Reparatur",
+    statusKey: 2,
+    serviceKey: 2,
     progress: 96,
   },
-] satisfies AppJob[];
+] satisfies AppJobSeed[];
 
-const demoObjects = [
+const demoObjectSeeds = [
   {
     name: "Villa Långsjön",
     owner: "Familie Andersson",
     location: "Orrefors",
-    status: "Saisonbetrieb",
-    lastVisit: "Heute, 09:20",
+    statusKey: 0,
+    lastVisitKey: 0,
   },
   {
     name: "Stuga Nybro",
     owner: "M. Schneider",
     location: "Nybro",
-    status: "Sommerklar",
-    lastVisit: "28.07., 14:10",
+    statusKey: 1,
+    lastVisitKey: 1,
   },
   {
     name: "Haus am Wald",
     owner: "B. Klos",
     location: "Småland",
-    status: "Kontrolle offen",
-    lastVisit: "26.07., 11:45",
+    statusKey: 2,
+    lastVisitKey: 2,
   },
-] satisfies AppObject[];
+] satisfies AppObjectSeed[];
 
 const checklistDone = [true, true, true, false, false];
 
@@ -438,26 +530,74 @@ function nestedName(value: unknown, fallback: string) {
   return typeof name === "string" && name.trim() ? name : fallback;
 }
 
+function translatedList(t: Record<string, unknown>, key: string) {
+  const value = t[key];
+  return Array.isArray(value) ? value.map(String) : [];
+}
+
+function translatedStatus(t: Record<string, unknown>, status: string) {
+  const labels = t.statusLabels;
+  return isRecord(labels) && typeof labels[status] === "string"
+    ? labels[status]
+    : humanizeStatus(status);
+}
+
 export default function HomePage() {
   const [view, setView] = useState<View>("team");
   const [language, setLanguage] = useState<Language>("de");
   const [liveData, setLiveData] = useState<LiveData | null>(null);
+  const [localJobs, setLocalJobs] = useState<AppJob[]>([]);
+  const [activeJobId, setActiveJobId] = useState("KS-2407");
+  const [selectedService, setSelectedService] = useState<string | null>(null);
+  const [modalMode, setModalMode] = useState<ModalMode>(null);
+  const [notice, setNotice] = useState("");
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [checklistState, setChecklistState] = useState(checklistDone);
+  const [newJobTitle, setNewJobTitle] = useState("");
+  const [newJobObject, setNewJobObject] = useState("Villa Långsjön");
+  const [newJobService, setNewJobService] = useState("");
   const [dataState, setDataState] = useState<DataState>(() =>
     getSupabaseBrowserClient() ? "loading" : "demo",
   );
   const t = translations[language];
-  const jobs = liveData?.jobs.length ? liveData.jobs : demoJobs;
+  const serviceLabels = translatedList(t, "servicesList");
+  const demoJobs = demoJobSeeds.map((job) => ({
+    id: job.id,
+    object: job.object,
+    owner: job.owner,
+    progress: job.progress,
+    title: translatedList(t, "jobTitles")[job.titleKey] ?? job.object,
+    status: translatedList(t, "jobStatuses")[job.statusKey] ?? "",
+    service: serviceLabels[job.serviceKey] ?? "",
+  }));
+  const demoObjects = demoObjectSeeds.map((object) => ({
+    name: object.name,
+    owner: object.owner,
+    location: object.location,
+    status: translatedList(t, "objectStatuses")[object.statusKey] ?? "",
+    lastVisit: translatedList(t, "lastVisits")[object.lastVisitKey] ?? "",
+  }));
+  const jobs = [...localJobs, ...(liveData?.jobs.length ? liveData.jobs : demoJobs)];
   const objects = liveData?.objects.length ? liveData.objects : demoObjects;
   const services = liveData?.services.length
     ? liveData.services
-    : (t.servicesList as string[]);
-  const activeJob = jobs[0];
+    : serviceLabels;
+  const activeServiceFilter =
+    selectedService && services.includes(selectedService) ? selectedService : null;
+  const filteredJobs = activeServiceFilter
+    ? jobs.filter((job) => job.service === activeServiceFilter)
+    : jobs;
+  const activeJob = jobs.find((job) => job.id === activeJobId) ?? jobs[0];
+  const activeObject =
+    objects.find((object) => object.name === activeJob.object) ?? objects[0];
   const completedItems = useMemo(
-    () => checklistDone.filter(Boolean).length,
-    [],
+    () => checklistState.filter(Boolean).length,
+    [checklistState],
   );
   const liveApprovals = jobs.filter((job) =>
-    job.status.toLowerCase().includes("approval"),
+    ["approval", "freigabe", "godkännande"].some((status) =>
+      job.status.toLowerCase().includes(status),
+    ),
   ).length;
   const stats = [objects.length, jobs.length, liveApprovals || 3];
   const dataLabel =
@@ -468,6 +608,86 @@ export default function HomePage() {
         : dataState === "error"
           ? String(t.sourceError)
           : String(t.sourceDemo);
+  const navTargets = (
+    Array.isArray(t.navTargets) ? t.navTargets : ["team", "owner", "team-jobs", "team-schedule", "mobile"]
+  ) as NavTarget[];
+
+  function showNotice(message: string) {
+    setNotice(message);
+    window.setTimeout(() => setNotice(""), 2500);
+  }
+
+  function changeView(nextView: View) {
+    setView(nextView);
+    setIsSidebarOpen(false);
+  }
+
+  function handleNav(target: NavTarget) {
+    if (target === "team-jobs" || target === "team-schedule") {
+      changeView("team");
+      setModalMode("job");
+      return;
+    }
+
+    changeView(target);
+  }
+
+  function openNewJob() {
+    setNewJobTitle("");
+    setNewJobObject(objects[0]?.name ?? "");
+    setNewJobService(services[0] ?? "");
+    setModalMode("job");
+  }
+
+  function createLocalJob() {
+    const title = newJobTitle.trim() || String(t.newJob);
+    const object = objects.find((item) => item.name === newJobObject) ?? objects[0];
+    const service = newJobService || services[0] || String(t.services);
+    const createdJob: AppJob = {
+      id: `KS-${Date.now().toString().slice(-5)}`,
+      title,
+      object: object?.name ?? newJobObject,
+      owner: object?.owner ?? "Kolaretorp Service AB",
+      status: translatedList(t, "jobStatuses")[1] ?? String(t.status),
+      service,
+      progress: 12,
+    };
+
+    setLocalJobs((currentJobs) => [createdJob, ...currentJobs]);
+    setActiveJobId(createdJob.id);
+    setSelectedService(null);
+    setModalMode(null);
+    changeView("team");
+    showNotice(String(t.newJobAdded));
+  }
+
+  function selectJob(job: AppJob) {
+    setActiveJobId(job.id);
+    showNotice(`${String(t.selectedJob)}: ${job.title}`);
+  }
+
+  function selectService(service: string) {
+    setSelectedService((currentService) =>
+      currentService === service ? null : service,
+    );
+    showNotice(`${String(t.serviceFiltered)}: ${service}`);
+  }
+
+  function sendApproval() {
+    setLocalJobs((currentJobs) =>
+      currentJobs.map((job) =>
+        job.id === activeJob.id
+          ? {
+              ...job,
+              status: translatedList(t, "jobStatuses")[2] ?? String(t.status),
+              progress: Math.max(job.progress, 92),
+            }
+          : job,
+      ),
+    );
+    setChecklistState((items) => items.map(() => true));
+    showNotice(String(t.approvalSent));
+  }
 
   useEffect(() => {
     let isMounted = true;
@@ -513,7 +733,7 @@ export default function HomePage() {
         name: property.name ?? "Objekt",
         owner: nestedName(property.profiles, "Eigentümer"),
         location: property.region ?? property.address ?? "Småland",
-        status: "Aktiv",
+        status: translatedStatus(t, "in_progress"),
         lastVisit: "-",
       }));
 
@@ -524,7 +744,7 @@ export default function HomePage() {
         owner: isRecord(job.properties)
           ? nestedName(job.properties.profiles, "Eigentümer")
           : "Eigentümer",
-        status: humanizeStatus(job.status ?? "planned"),
+        status: translatedStatus(t, job.status ?? "planned"),
         service: nestedName(job.service_categories, "Service"),
         progress: getStatusProgress(job.status ?? "planned"),
       }));
@@ -554,12 +774,12 @@ export default function HomePage() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [t]);
 
   return (
     <main className="min-h-screen bg-[#f5f2ea] text-[#18201c]">
       <section className="app-shell">
-        <aside className="sidebar">
+        <aside className={`sidebar ${isSidebarOpen ? "open" : ""}`}>
           <div className="brand-block">
             <Image
               src="/kolaretorp-logo-white.png"
@@ -574,7 +794,17 @@ export default function HomePage() {
           <nav className="nav-list" aria-label={String(t.navLabel)}>
             {[PanelLeftClose, Home, ClipboardCheck, CalendarDays, MailCheck].map(
               (Icon, index) => (
-                <button className={index === 0 ? "active" : ""} key={String(t.nav[index])}>
+                <button
+                  className={
+                    navTargets[index] === view ||
+                    (view === "team" && navTargets[index]?.startsWith("team"))
+                      ? "active"
+                      : ""
+                  }
+                  key={String(t.nav[index])}
+                  onClick={() => handleNav(navTargets[index] ?? "team")}
+                  type="button"
+                >
                   <Icon size={18} /> {String(t.nav[index])}
                 </button>
               ),
@@ -591,7 +821,12 @@ export default function HomePage() {
 
         <div className="workspace">
           <header className="topbar">
-            <button className="icon-button" aria-label={String(t.menuOpen)}>
+            <button
+              className="icon-button"
+              aria-label={String(isSidebarOpen ? t.menuClose : t.menuOpen)}
+              onClick={() => setIsSidebarOpen((open) => !open)}
+              type="button"
+            >
               <Menu size={20} />
             </button>
             <div>
@@ -613,11 +848,13 @@ export default function HomePage() {
                   </button>
                 ))}
               </div>
-              <button className="primary-action">
+              <button className="primary-action" onClick={openNewJob} type="button">
                 <Plus size={18} /> {String(t.newJob)}
               </button>
             </div>
           </header>
+
+          {notice && <div className="notice">{notice}</div>}
 
           <div className="view-switch" role="tablist" aria-label={String(t.viewLabel)}>
             {(["team", "owner", "mobile"] as View[]).map((item) => (
@@ -640,10 +877,26 @@ export default function HomePage() {
                 {activeJob.object} {String(t.heroText)}
               </p>
               <div className="hero-actions">
-                <button className="primary-action">
+                <button
+                  className="primary-action"
+                  onClick={() => {
+                    setModalMode("report");
+                    changeView("owner");
+                  }}
+                  type="button"
+                >
                   {String(t.openReport)} <ChevronRight size={18} />
                 </button>
-                <button className="secondary-action">{String(t.propertyFile)}</button>
+                <button
+                  className="secondary-action"
+                  onClick={() => {
+                    setModalMode("property");
+                    changeView("owner");
+                  }}
+                  type="button"
+                >
+                  {String(t.propertyFile)}
+                </button>
               </div>
             </div>
             <div className="hero-stats" aria-label={String(t.dayStats)}>
@@ -664,13 +917,23 @@ export default function HomePage() {
                     <p className="eyebrow">{String(t.operations)}</p>
                     <h3>{String(t.jobsAndStatus)}</h3>
                   </div>
-                  <button className="icon-button" aria-label={String(t.addJob)}>
+                  <button
+                    className="icon-button"
+                    aria-label={String(t.addJob)}
+                    onClick={openNewJob}
+                    type="button"
+                  >
                     <Plus size={18} />
                   </button>
                 </div>
                 <div className="job-list">
-                  {jobs.map((job) => (
-                    <article className="job-row" key={job.id}>
+                  {filteredJobs.map((job) => (
+                    <button
+                      className={`job-row ${activeJob.id === job.id ? "selected" : ""}`}
+                      key={job.id}
+                      onClick={() => selectJob(job)}
+                      type="button"
+                    >
                       <div className="job-icon">
                         <ClipboardCheck size={19} />
                       </div>
@@ -685,8 +948,11 @@ export default function HomePage() {
                         <span style={{ width: `${job.progress}%` }} />
                       </div>
                       <mark>{job.status}</mark>
-                    </article>
+                    </button>
                   ))}
+                  {!filteredJobs.length && (
+                    <p className="empty-state">{String(t.noFilteredJobs)}</p>
+                  )}
                 </div>
               </div>
 
@@ -702,7 +968,12 @@ export default function HomePage() {
                     const Icon = serviceIcons[index] ?? ClipboardCheck;
 
                     return (
-                    <button key={service} type="button">
+                    <button
+                      className={activeServiceFilter === service ? "selected" : ""}
+                      key={service}
+                      onClick={() => selectService(service)}
+                      type="button"
+                    >
                       <Icon size={20} />
                       <span>{service}</span>
                     </button>
@@ -720,7 +991,15 @@ export default function HomePage() {
                 </div>
                 <div className="object-table">
                   {objects.map((object) => (
-                    <article key={object.name}>
+                    <button
+                      className={activeObject.name === object.name ? "selected" : ""}
+                      key={object.name}
+                      onClick={() => {
+                        setNewJobObject(object.name);
+                        showNotice(`${String(t.selectedProperty)}: ${object.name}`);
+                      }}
+                      type="button"
+                    >
                       <div>
                         <strong>{object.name}</strong>
                         <span>{object.owner}</span>
@@ -730,7 +1009,7 @@ export default function HomePage() {
                       </span>
                       <mark>{object.status}</mark>
                       <small>{object.lastVisit}</small>
-                    </article>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -743,14 +1022,14 @@ export default function HomePage() {
                 <div className="panel-heading">
                   <div>
                     <p className="eyebrow">{String(t.ownerAccess)}</p>
-                    <h3>Villa Långsjön</h3>
+                    <h3>{activeObject.name}</h3>
                   </div>
                   <mark className="soft">{String(t.ownerView)}</mark>
                 </div>
                 <div className="owner-summary">
                   <div>
                     <span>{String(t.status)}</span>
-                    <strong>{String(t.seasonActive)}</strong>
+                    <strong>{activeObject.status || String(t.seasonActive)}</strong>
                   </div>
                   <div>
                     <span>{String(t.nextAppointment)}</span>
@@ -758,7 +1037,7 @@ export default function HomePage() {
                   </div>
                   <div>
                     <span>{String(t.lastReport)}</span>
-                    <strong>{String(t.poolToday)}</strong>
+                    <strong>{activeJob.title || String(t.poolToday)}</strong>
                   </div>
                 </div>
               </div>
@@ -771,7 +1050,7 @@ export default function HomePage() {
                   </div>
                 </div>
                 <ol className="timeline">
-                  {t.timeline.map((step, index) => (
+                  {translatedList(t, "timeline").map((step, index) => (
                     <li key={String(step)} className={index < 3 ? "done" : ""}>
                       <span />
                       {String(step)}
@@ -787,7 +1066,7 @@ export default function HomePage() {
                   </div>
                   <div>
                     <p className="eyebrow">{String(t.autoMail)}</p>
-                    <h3>{String(t.reportDraft)}</h3>
+                    <h3>{activeJob.title}</h3>
                     <p>{String(t.mailText)}</p>
                   </div>
                 </div>
@@ -819,14 +1098,24 @@ export default function HomePage() {
                     </strong>
                     <span>{String(t.checksDone)}</span>
                   </div>
-                  {t.checklist.map((item, index) => (
+                  {translatedList(t, "checklist").map((item, index) => (
                     <label key={String(item)}>
-                      <input type="checkbox" defaultChecked={checklistDone[index]} />
+                      <input
+                        type="checkbox"
+                        checked={checklistState[index]}
+                        onChange={() =>
+                          setChecklistState((items) =>
+                            items.map((isDone, itemIndex) =>
+                              itemIndex === index ? !isDone : isDone,
+                            ),
+                          )
+                        }
+                      />
                       <span>{String(item)}</span>
                     </label>
                   ))}
                 </div>
-                <button className="primary-action full">
+                <button className="primary-action full" onClick={sendApproval} type="button">
                   {String(t.sendApproval)} <MailCheck size={18} />
                 </button>
               </div>
@@ -836,13 +1125,107 @@ export default function HomePage() {
                 <p>{String(t.mobileText)}</p>
                 <div className="note-grid">
                   {[CheckCircle2, Sparkles, Trees].map((Icon, index) => (
-                    <span key={String(t.notes[index])}>
-                      <Icon size={17} /> {String(t.notes[index])}
+                    <span key={String(translatedList(t, "notes")[index])}>
+                      <Icon size={17} /> {String(translatedList(t, "notes")[index])}
                     </span>
                   ))}
                 </div>
               </div>
             </section>
+          )}
+
+          {modalMode && (
+            <div className="modal-backdrop" role="presentation">
+              <section className="modal-panel" role="dialog" aria-modal="true">
+                <div className="modal-heading">
+                  <div>
+                    <p className="eyebrow">
+                      {modalMode === "job"
+                        ? String(t.addJob)
+                        : modalMode === "report"
+                          ? String(t.reportDetails)
+                          : String(t.propertyDetails)}
+                    </p>
+                    <h3>
+                      {modalMode === "job"
+                        ? String(t.newJob)
+                        : modalMode === "report"
+                          ? activeJob.title
+                          : activeObject.name}
+                    </h3>
+                  </div>
+                  <button
+                    className="icon-button"
+                    aria-label={String(t.close)}
+                    onClick={() => setModalMode(null)}
+                    type="button"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                {modalMode === "job" ? (
+                  <div className="job-form">
+                    <label>
+                      <span>{String(t.jobTitleLabel)}</span>
+                      <input
+                        value={newJobTitle}
+                        onChange={(event) => setNewJobTitle(event.target.value)}
+                        placeholder={activeJob.title}
+                      />
+                    </label>
+                    <label>
+                      <span>{String(t.propertyLabel)}</span>
+                      <select
+                        value={newJobObject}
+                        onChange={(event) => setNewJobObject(event.target.value)}
+                      >
+                        {objects.map((object) => (
+                          <option key={object.name} value={object.name}>
+                            {object.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      <span>{String(t.serviceLabel)}</span>
+                      <select
+                        value={newJobService || services[0] || ""}
+                        onChange={(event) => setNewJobService(event.target.value)}
+                      >
+                        {services.map((service) => (
+                          <option key={service} value={service}>
+                            {service}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <button className="primary-action full" onClick={createLocalJob} type="button">
+                      <Plus size={18} /> {String(t.createJob)}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="detail-list">
+                    <div>
+                      <span>{String(t.selectedJob)}</span>
+                      <strong>{activeJob.title}</strong>
+                    </div>
+                    <div>
+                      <span>{String(t.propertyLabel)}</span>
+                      <strong>{activeObject.name}</strong>
+                    </div>
+                    <div>
+                      <span>{String(t.serviceLabel)}</span>
+                      <strong>{activeJob.service}</strong>
+                    </div>
+                    <div>
+                      <span>{String(t.statusLabel)}</span>
+                      <strong>{activeJob.status}</strong>
+                    </div>
+                  </div>
+                )}
+              </section>
+            </div>
           )}
         </div>
       </section>
