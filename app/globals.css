@@ -1,17 +1,49 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f5f2ea;
-  --foreground: #18201c;
-  --forest: #244236;
-  --forest-2: #315746;
-  --moss: #7b9364;
-  --field: #d8d0bb;
-  --paper: #fffdf8;
-  --line: #dfd7c4;
-  --gold: #c58d39;
-  --sky: #d7e6e9;
-  --danger: #b85b45;
+  --background: #edf4f2;
+  --foreground: #182426;
+  --forest: #17545b;
+  --forest-2: #25717a;
+  --moss: #83a66e;
+  --field: #d9e7e1;
+  --paper: #fbfdfc;
+  --paper-soft: #f2f7f4;
+  --line: #cbdad6;
+  --gold: #c76f5a;
+  --sky: #cfe7ec;
+  --danger: #c45d6a;
+  --muted: #627377;
+  --shadow: rgba(23, 84, 91, 0.12);
+  --sidebar-text: #fbfdfc;
+  --sidebar-muted: rgba(251, 253, 252, 0.78);
+  --hero-text: rgba(251, 253, 252, 0.78);
+  --hero-panel: rgba(251, 253, 252, 0.13);
+  --hero-line: rgba(251, 253, 252, 0.2);
+  --overlay: rgba(11, 23, 26, 0.46);
+}
+
+[data-theme="dark"] {
+  --background: #10191c;
+  --foreground: #edf5f2;
+  --forest: #78c3c9;
+  --forest-2: #9fd7cd;
+  --moss: #aacb8a;
+  --field: #1e3034;
+  --paper: #172428;
+  --paper-soft: #1d2e32;
+  --line: #31484d;
+  --gold: #f09b83;
+  --sky: #203b42;
+  --danger: #ff9aa4;
+  --muted: #a7b8bb;
+  --shadow: rgba(0, 0, 0, 0.32);
+  --sidebar-text: #edf5f2;
+  --sidebar-muted: rgba(237, 245, 242, 0.72);
+  --hero-text: rgba(237, 245, 242, 0.78);
+  --hero-panel: rgba(237, 245, 242, 0.1);
+  --hero-line: rgba(237, 245, 242, 0.16);
+  --overlay: rgba(0, 0, 0, 0.62);
 }
 
 @theme inline {
@@ -37,6 +69,16 @@ body {
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }
 
+main {
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--sky), transparent 35%), transparent 36%),
+    var(--background);
+  color: var(--foreground);
+  transition:
+    background 180ms ease,
+    color 180ms ease;
+}
+
 button,
 input {
   font: inherit;
@@ -59,7 +101,7 @@ button {
 
 .sidebar {
   background:
-    linear-gradient(180deg, rgba(36, 66, 54, 0.96), rgba(24, 32, 28, 0.98)),
+    linear-gradient(180deg, color-mix(in srgb, var(--forest-2), #000 18%), color-mix(in srgb, var(--foreground), #000 30%)),
     url("/kolaretorp-logo-white.png");
   background-position:
     center,
@@ -68,7 +110,7 @@ button {
   background-size:
     cover,
     190px auto;
-  color: #fffdf8;
+  color: var(--sidebar-text);
   display: flex;
   flex-direction: column;
   gap: 28px;
@@ -88,7 +130,7 @@ button {
 .brand-block span,
 .sidebar-card span,
 .sidebar-card strong {
-  color: rgba(255, 253, 248, 0.78);
+  color: var(--sidebar-muted);
   font-size: 13px;
 }
 
@@ -113,7 +155,7 @@ button {
 .nav-list button {
   background: transparent;
   border-radius: 8px;
-  color: rgba(255, 253, 248, 0.76);
+  color: var(--sidebar-muted);
   justify-content: flex-start;
   min-height: 44px;
   padding: 0 12px;
@@ -121,12 +163,12 @@ button {
 
 .nav-list button.active,
 .nav-list button:hover {
-  background: rgba(255, 253, 248, 0.12);
-  color: #fffdf8;
+  background: rgba(255, 255, 255, 0.14);
+  color: var(--sidebar-text);
 }
 
 .sidebar-card {
-  border: 1px solid rgba(255, 253, 248, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 8px;
   display: grid;
   gap: 8px;
@@ -168,7 +210,7 @@ button {
 
 .language-switch {
   align-items: center;
-  background: #e7dfcf;
+  background: var(--field);
   border: 1px solid var(--line);
   border-radius: 8px;
   color: var(--forest);
@@ -186,7 +228,7 @@ button {
   background: transparent;
   border: 0;
   border-radius: 6px;
-  color: #506056;
+  color: var(--muted);
   font-size: 13px;
   font-weight: 750;
   min-height: 34px;
@@ -202,10 +244,10 @@ button {
 
 .data-source {
   align-items: center;
-  background: #fff7e8;
-  border: 1px solid #ead4ac;
+  background: color-mix(in srgb, var(--gold), var(--paper) 82%);
+  border: 1px solid color-mix(in srgb, var(--gold), var(--paper) 55%);
   border-radius: 999px;
-  color: #7b5426;
+  color: color-mix(in srgb, var(--gold), var(--foreground) 35%);
   display: inline-flex;
   font-size: 12px;
   font-weight: 800;
@@ -215,28 +257,28 @@ button {
 }
 
 .data-source.live {
-  background: #eaf1df;
-  border-color: #d2e0c6;
-  color: #395134;
+  background: color-mix(in srgb, var(--moss), var(--paper) 78%);
+  border-color: color-mix(in srgb, var(--moss), var(--paper) 50%);
+  color: color-mix(in srgb, var(--moss), var(--foreground) 36%);
 }
 
 .data-source.loading {
   background: var(--sky);
-  border-color: #bfd4d8;
+  border-color: color-mix(in srgb, var(--sky), var(--foreground) 10%);
   color: var(--forest);
 }
 
 .data-source.error {
-  background: #f6e5df;
-  border-color: #e7c8bf;
+  background: color-mix(in srgb, var(--danger), var(--paper) 82%);
+  border-color: color-mix(in srgb, var(--danger), var(--paper) 55%);
   color: var(--danger);
 }
 
 .notice {
-  background: #eaf1df;
-  border: 1px solid #d2e0c6;
+  background: color-mix(in srgb, var(--moss), var(--paper) 82%);
+  border: 1px solid color-mix(in srgb, var(--moss), var(--paper) 55%);
   border-radius: 8px;
-  color: #395134;
+  color: color-mix(in srgb, var(--moss), var(--foreground) 30%);
   font-size: 13px;
   font-weight: 750;
   padding: 10px 14px;
@@ -262,6 +304,21 @@ button {
   width: 42px;
 }
 
+.theme-toggle {
+  align-items: center;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--forest);
+  display: inline-flex;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 780;
+  min-height: 44px;
+  padding: 0 12px;
+  white-space: nowrap;
+}
+
 .primary-action,
 .secondary-action {
   border-radius: 8px;
@@ -272,17 +329,17 @@ button {
 
 .primary-action {
   background: var(--forest);
-  color: #fffdf8;
+  color: var(--paper);
 }
 
 .secondary-action {
-  background: #fffdf8;
+  background: var(--paper);
   border: 1px solid var(--line);
   color: var(--forest);
 }
 
 .view-switch {
-  background: #e7dfcf;
+  background: var(--field);
   border: 1px solid var(--line);
   border-radius: 8px;
   display: grid;
@@ -294,7 +351,7 @@ button {
 .view-switch button {
   background: transparent;
   border-radius: 6px;
-  color: #506056;
+  color: var(--muted);
   min-height: 38px;
 }
 
@@ -307,10 +364,10 @@ button {
 
 .hero-panel {
   background:
-    linear-gradient(135deg, rgba(36, 66, 54, 0.96), rgba(49, 87, 70, 0.9)),
-    linear-gradient(45deg, transparent, rgba(197, 141, 57, 0.25));
+    linear-gradient(135deg, color-mix(in srgb, var(--forest), #000 18%), color-mix(in srgb, var(--forest-2), #000 8%)),
+    linear-gradient(45deg, transparent, color-mix(in srgb, var(--gold), transparent 68%));
   border-radius: 8px;
-  color: #fffdf8;
+  color: var(--paper);
   display: grid;
   gap: 20px;
   grid-template-columns: minmax(0, 1.2fr) minmax(260px, 0.8fr);
@@ -320,7 +377,7 @@ button {
 }
 
 .hero-panel p {
-  color: rgba(255, 253, 248, 0.76);
+  color: var(--hero-text);
   line-height: 1.6;
   max-width: 720px;
 }
@@ -339,14 +396,14 @@ button {
 }
 
 .hero-actions .primary-action {
-  background: #fffdf8;
+  background: var(--paper);
   color: var(--forest);
 }
 
 .hero-actions .secondary-action {
-  background: rgba(255, 253, 248, 0.1);
-  border-color: rgba(255, 253, 248, 0.24);
-  color: #fffdf8;
+  background: var(--hero-panel);
+  border-color: var(--hero-line);
+  color: var(--paper);
 }
 
 .hero-stats {
@@ -355,8 +412,8 @@ button {
 }
 
 .hero-stats div {
-  background: rgba(255, 253, 248, 0.12);
-  border: 1px solid rgba(255, 253, 248, 0.18);
+  background: var(--hero-panel);
+  border: 1px solid var(--hero-line);
   border-radius: 8px;
   display: grid;
   gap: 4px;
@@ -368,7 +425,7 @@ button {
 }
 
 .hero-stats span {
-  color: rgba(255, 253, 248, 0.72);
+  color: var(--hero-text);
 }
 
 .content-grid,
@@ -382,7 +439,7 @@ button {
   background: var(--paper);
   border: 1px solid var(--line);
   border-radius: 8px;
-  box-shadow: 0 20px 55px rgba(58, 54, 43, 0.08);
+  box-shadow: 0 20px 55px var(--shadow);
   min-width: 0;
   padding: 20px;
 }
@@ -432,6 +489,7 @@ button {
 .object-table button.selected,
 .service-grid button:hover,
 .service-grid button.selected {
+  background: var(--paper-soft);
   border-color: var(--moss);
   box-shadow: 0 12px 28px rgba(36, 66, 54, 0.1);
 }
@@ -456,18 +514,18 @@ button {
 .job-row span,
 .object-table span,
 .object-table small {
-  color: #687268;
+  color: var(--muted);
   font-size: 13px;
 }
 
 .job-row p {
-  color: #4e5a52;
+  color: var(--muted);
   font-size: 14px;
   margin: 0;
 }
 
 .progress {
-  background: #e6dfd0;
+  background: var(--field);
   border-radius: 999px;
   height: 8px;
   overflow: hidden;
@@ -480,9 +538,9 @@ button {
 }
 
 mark {
-  background: #eaf1df;
+  background: color-mix(in srgb, var(--moss), var(--paper) 76%);
   border-radius: 999px;
-  color: #395134;
+  color: color-mix(in srgb, var(--moss), var(--foreground) 35%);
   font-size: 12px;
   font-weight: 750;
   padding: 7px 10px;
@@ -490,8 +548,8 @@ mark {
 }
 
 mark.soft {
-  background: #f5e8d5;
-  color: #7b5426;
+  background: color-mix(in srgb, var(--gold), var(--paper) 82%);
+  color: color-mix(in srgb, var(--gold), var(--foreground) 35%);
 }
 
 .service-grid {
@@ -501,7 +559,7 @@ mark.soft {
 }
 
 .service-grid button {
-  background: #f7f3ea;
+  background: var(--paper-soft);
   border: 1px solid var(--line);
   border-radius: 8px;
   color: var(--forest);
@@ -512,7 +570,7 @@ mark.soft {
 }
 
 .service-grid button.selected {
-  background: #eaf1df;
+  background: color-mix(in srgb, var(--moss), var(--paper) 78%);
 }
 
 .service-grid span {
@@ -554,7 +612,7 @@ mark.soft {
 }
 
 .owner-summary div {
-  background: #f7f3ea;
+  background: var(--paper-soft);
   border: 1px solid var(--line);
   border-radius: 8px;
   display: grid;
@@ -563,7 +621,7 @@ mark.soft {
 }
 
 .owner-summary span {
-  color: #687268;
+  color: var(--muted);
   font-size: 13px;
 }
 
@@ -577,13 +635,13 @@ mark.soft {
 
 .timeline li {
   align-items: center;
-  color: #697269;
+  color: var(--muted);
   display: flex;
   gap: 10px;
 }
 
 .timeline li span {
-  background: #d9d3c2;
+  background: var(--field);
   border-radius: 999px;
   height: 12px;
   width: 12px;
@@ -606,7 +664,7 @@ mark.soft {
 
 .mail-preview p:last-child,
 .field-notes p {
-  color: #59645d;
+  color: var(--muted);
   line-height: 1.6;
   margin-bottom: 0;
 }
@@ -619,11 +677,11 @@ mark.soft {
 }
 
 .phone-frame {
-  background: #111713;
-  border: 8px solid #26382f;
+  background: color-mix(in srgb, var(--foreground), #000 55%);
+  border: 8px solid color-mix(in srgb, var(--forest), #000 40%);
   border-radius: 28px;
   box-shadow: 0 24px 70px rgba(24, 32, 28, 0.26);
-  color: #fffdf8;
+  color: var(--paper);
   display: grid;
   gap: 14px;
   max-width: 380px;
@@ -642,12 +700,12 @@ mark.soft {
 }
 
 .phone-top span {
-  color: rgba(255, 253, 248, 0.7);
+  color: var(--hero-text);
   font-size: 13px;
 }
 
 .field-card {
-  background: #fffdf8;
+  background: var(--paper);
   border-radius: 8px;
   color: var(--forest);
   padding: 16px;
@@ -660,7 +718,7 @@ mark.soft {
 }
 
 .field-card span {
-  color: #5e675f;
+  color: var(--muted);
 }
 
 .checklist {
@@ -680,14 +738,14 @@ mark.soft {
 }
 
 .check-count span {
-  color: rgba(255, 253, 248, 0.66);
+  color: var(--hero-text);
   font-size: 13px;
 }
 
 .checklist label {
   align-items: center;
-  background: rgba(255, 253, 248, 0.08);
-  border: 1px solid rgba(255, 253, 248, 0.13);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 8px;
   display: grid;
   gap: 10px;
@@ -718,7 +776,7 @@ mark.soft {
 
 .note-grid span {
   align-items: center;
-  background: #f7f3ea;
+  background: var(--paper-soft);
   border: 1px solid var(--line);
   border-radius: 8px;
   color: var(--forest);
@@ -731,14 +789,14 @@ mark.soft {
 .empty-state {
   border: 1px dashed var(--line);
   border-radius: 8px;
-  color: #687268;
+  color: var(--muted);
   margin: 0;
   padding: 18px;
 }
 
 .modal-backdrop {
   align-items: center;
-  background: rgba(24, 32, 28, 0.42);
+  background: var(--overlay);
   display: flex;
   inset: 0;
   justify-content: center;
@@ -786,14 +844,14 @@ mark.soft {
 
 .job-form label span,
 .detail-list span {
-  color: #687268;
+  color: var(--muted);
   font-size: 13px;
   font-weight: 720;
 }
 
 .job-form input,
 .job-form select {
-  background: #f7f3ea;
+  background: var(--paper-soft);
   border: 1px solid var(--line);
   border-radius: 8px;
   min-height: 44px;
@@ -802,7 +860,7 @@ mark.soft {
 }
 
 .detail-list div {
-  background: #f7f3ea;
+  background: var(--paper-soft);
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 12px;

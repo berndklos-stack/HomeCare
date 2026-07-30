@@ -12,10 +12,12 @@ import {
   MailCheck,
   MapPin,
   Menu,
+  Moon,
   PanelLeftClose,
   Plus,
   ShieldCheck,
   Sparkles,
+  Sun,
   Trees,
   Waves,
   Wrench,
@@ -29,6 +31,7 @@ type Language = "de" | "sv" | "en";
 type View = "team" | "owner" | "mobile";
 type NavTarget = View | "team-jobs" | "team-schedule";
 type ModalMode = "job" | "report" | "property" | null;
+type Theme = "light" | "dark";
 
 const languageLabels: Record<Language, string> = {
   de: "DE",
@@ -45,6 +48,8 @@ const translations = {
     contact: "Kontakt",
     menuOpen: "Menü öffnen",
     menuClose: "Menü schließen",
+    lightMode: "Hellmodus",
+    darkMode: "Dunkelmodus",
     product: "Kolaretorp Service AB",
     headline: "Servicezentrale für Ferienhäuser",
     newJob: "Neuer Auftrag",
@@ -163,6 +168,8 @@ const translations = {
     contact: "Kontakt",
     menuOpen: "Öppna meny",
     menuClose: "Stäng meny",
+    lightMode: "Ljust läge",
+    darkMode: "Mörkt läge",
     product: "Kolaretorp Service AB",
     headline: "Servicecentral för fritidshus",
     newJob: "Nytt uppdrag",
@@ -281,6 +288,8 @@ const translations = {
     contact: "Contact",
     menuOpen: "Open menu",
     menuClose: "Close menu",
+    lightMode: "Light mode",
+    darkMode: "Dark mode",
     product: "Kolaretorp Service AB",
     headline: "Service hub for holiday homes",
     newJob: "New job",
@@ -548,8 +557,17 @@ export default function HomePage() {
   const [liveData, setLiveData] = useState<LiveData | null>(null);
   const [localJobs, setLocalJobs] = useState<AppJob[]>([]);
   const [activeJobId, setActiveJobId] = useState("KS-2407");
+  const [selectedObjectName, setSelectedObjectName] = useState("Villa Långsjön");
   const [selectedService, setSelectedService] = useState<string | null>(null);
   const [modalMode, setModalMode] = useState<ModalMode>(null);
+  const [theme, setTheme] = useState<Theme>(() => {
+    if (typeof window === "undefined") {
+      return "light";
+    }
+
+    const savedTheme = window.localStorage.getItem("kolaretorp-theme");
+    return savedTheme === "dark" ? "dark" : "light";
+  });
   const [notice, setNotice] = useState("");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [checklistState, setChecklistState] = useState(checklistDone);
@@ -589,7 +607,9 @@ export default function HomePage() {
     : jobs;
   const activeJob = jobs.find((job) => job.id === activeJobId) ?? jobs[0];
   const activeObject =
-    objects.find((object) => object.name === activeJob.object) ?? objects[0];
+    objects.find((object) => object.name === selectedObjectName) ??
+    objects.find((object) => object.name === activeJob.object) ??
+    objects[0];
   const completedItems = useMemo(
     () => checklistState.filter(Boolean).length,
     [checklistState],
@@ -655,6 +675,7 @@ export default function HomePage() {
 
     setLocalJobs((currentJobs) => [createdJob, ...currentJobs]);
     setActiveJobId(createdJob.id);
+    setSelectedObjectName(createdJob.object);
     setSelectedService(null);
     setModalMode(null);
     changeView("team");
@@ -663,6 +684,7 @@ export default function HomePage() {
 
   function selectJob(job: AppJob) {
     setActiveJobId(job.id);
+    setSelectedObjectName(job.object);
     showNotice(`${String(t.selectedJob)}: ${job.title}`);
   }
 
@@ -676,7 +698,7 @@ export default function HomePage() {
   function sendApproval() {
     setLocalJobs((currentJobs) =>
       currentJobs.map((job) =>
-        job.id === activeJob.id
+                        job.id === activeJob.id
           ? {
               ...job,
               status: translatedList(t, "jobStatuses")[2] ?? String(t.status),
@@ -687,6 +709,14 @@ export default function HomePage() {
     );
     setChecklistState((items) => items.map(() => true));
     showNotice(String(t.approvalSent));
+  }
+
+  function toggleTheme() {
+    setTheme((currentTheme) => {
+      const nextTheme = currentTheme === "dark" ? "light" : "dark";
+      window.localStorage.setItem("kolaretorp-theme", nextTheme);
+      return nextTheme;
+    });
   }
 
   useEffect(() => {
@@ -777,7 +807,7 @@ export default function HomePage() {
   }, [t]);
 
   return (
-    <main className="min-h-screen bg-[#f5f2ea] text-[#18201c]">
+    <main className="min-h-screen" data-theme={theme}>
       <section className="app-shell">
         <aside className={`sidebar ${isSidebarOpen ? "open" : ""}`}>
           <div className="brand-block">
@@ -835,6 +865,15 @@ export default function HomePage() {
             </div>
             <div className="topbar-actions">
               <span className={`data-source ${dataState}`}>{dataLabel}</span>
+              <button
+                className="theme-toggle"
+                aria-label={String(theme === "dark" ? t.lightMode : t.darkMode)}
+                onClick={toggleTheme}
+                type="button"
+              >
+                {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
+                <span>{String(theme === "dark" ? t.lightMode : t.darkMode)}</span>
+              </button>
               <div className="language-switch" aria-label="Language">
                 <Languages size={17} />
                 {(Object.keys(languageLabels) as Language[]).map((lang) => (
@@ -964,6 +1003,17 @@ export default function HomePage() {
                   </div>
                 </div>
                 <div className="service-grid">
+                  <button
+                    className={!activeServiceFilter ? "selected" : ""}
+                    onClick={() => {
+                      setSelectedService(null);
+                      showNotice(String(t.filterAll));
+                    }}
+                    type="button"
+                  >
+                    <ClipboardCheck size={20} />
+                    <span>{String(t.filterAll)}</span>
+                  </button>
                   {services.slice(0, serviceIcons.length).map((service, index) => {
                     const Icon = serviceIcons[index] ?? ClipboardCheck;
 
@@ -996,6 +1046,7 @@ export default function HomePage() {
                       key={object.name}
                       onClick={() => {
                         setNewJobObject(object.name);
+                        setSelectedObjectName(object.name);
                         showNotice(`${String(t.selectedProperty)}: ${object.name}`);
                       }}
                       type="button"
