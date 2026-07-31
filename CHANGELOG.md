@@ -4,6 +4,14 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.0.0 - 2026-07-31
+
+- App-Oberfläche als ruhige, tabellenorientierte Arbeitssoftware neu aufgebaut.
+- Objektakte als zentrale Detailansicht mit Stammdaten, Eigentümer, Zugang, Technik, Ausstattung, Risiken, Medien und Protokoll umgesetzt.
+- Objektanlage fachlich neu strukturiert mit sinnvollen Feldern für Ferienhausverwaltung.
+- Auftragsanlage, Einsatzplanung, mobile Bearbeitung, Berichte, Kommunikation, Abrechnung und Stammdaten neu ausgerichtet.
+- E2E-Test auf die neuen Kernflows Objektanlage, Auftrag, Planung, mobile Bearbeitung und Stammdaten umgestellt.
+
 ## 0.9.0 - 2026-07-31
 
 - Dashboard in Richtung einer HERO-artigen Funktionszentrale weiterentwickelt.

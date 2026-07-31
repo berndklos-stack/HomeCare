@@ -1,10 +1,21 @@
 export const appVersion = {
-  version: "0.9.0",
+  version: "1.0.0",
   releaseDate: "2026-07-31",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.0.0",
+    date: "2026-07-31",
+    changes: [
+      "App-Oberfläche als ruhige Arbeitssoftware neu aufgebaut",
+      "Objektakte als zentrale Detailansicht mit Stammdaten, Zugang, Technik, Medien und Protokoll umgesetzt",
+      "Objekt- und Auftragsanlage fachlich neu strukturiert",
+      "Dashboard, Auftragsliste, Einsatzplanung, mobile Bearbeitung, Berichte, Kommunikation, Abrechnung und Stammdaten neu ausgerichtet",
+      "E2E-Test auf die neuen Kernflows umgestellt",
+    ],
+  },
   {
     version: "0.9.0",
     date: "2026-07-31",

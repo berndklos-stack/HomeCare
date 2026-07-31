@@ -1,863 +1,82 @@
 "use client";
 
 import {
-  BookOpen,
+  AlertTriangle,
   CalendarDays,
-  CheckCircle2,
-  ChevronRight,
-  ClipboardCheck,
-  Database,
-  Hammer,
+  ClipboardList,
+  Euro,
+  FileText,
   Home,
+  KeyRound,
   Languages,
-  Leaf,
-  MailCheck,
-  MapPin,
-  Menu,
-  MessageSquare,
+  MessageSquareText,
   Moon,
-  PanelLeftClose,
   Plus,
-  ReceiptText,
-  ShieldCheck,
-  Sparkles,
+  Search,
   Sun,
-  Trees,
-  Users,
-  Waves,
+  UsersRound,
   Wrench,
   X,
 } from "lucide-react";
-import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import { appVersion, versionHistory } from "@/lib/appVersion";
-import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
 
 type Language = "de" | "sv" | "en";
-type View = "team" | "owner" | "mobile";
-type NavTarget =
-  | "overview"
-  | "masterData"
+type Theme = "light" | "dark";
+type Section =
+  | "dashboard"
   | "objects"
   | "customers"
-  | "services"
   | "jobs"
-  | "schedule"
+  | "planning"
+  | "field"
   | "reports"
   | "communication"
   | "billing"
-  | "approvals";
-type ModalMode = "job" | "object" | "customer" | "service" | "report" | "property" | "version" | null;
-type Theme = "light" | "dark";
+  | "masterData";
+type Modal = "object" | "job" | "version" | null;
 
-const languageLabels: Record<Language, string> = {
-  de: "DE",
-  sv: "SV",
-  en: "EN",
-};
-
-const translations = {
-  de: {
-    tagline: "Ferienhausverwaltung Småland",
-    navLabel: "Hauptnavigation",
-    nav: [
-      "Dashboard",
-      "Stammdaten",
-      "Objekte",
-      "Kunden",
-      "Leistungskatalog",
-      "Aufträge",
-      "Termine",
-      "Berichte",
-      "Kommunikation",
-      "Abrechnung",
-      "Freigaben",
-    ],
-    navTargets: [
-      "overview",
-      "masterData",
-      "objects",
-      "customers",
-      "services",
-      "jobs",
-      "schedule",
-      "reports",
-      "communication",
-      "billing",
-      "approvals",
-    ],
-    contact: "Kontakt",
-    menuOpen: "Menü öffnen",
-    menuClose: "Menü schließen",
-    lightMode: "Hellmodus",
-    darkMode: "Dunkelmodus",
-    versionLabel: "Version",
-    versionHistory: "Änderungsverlauf",
-    latestChanges: "Aktuelle Änderungen",
-    product: "Kolaretorp Service AB",
-    headline: "Servicezentrale für Ferienhäuser",
-    newJob: "Neuer Auftrag",
-    newObject: "Neues Objekt",
-    viewLabel: "Ansicht wählen",
-    views: {
-      team: "Verwaltung",
-      owner: "Kundenportal",
-      mobile: "Mobil vor Ort",
-    },
-    heroKicker: "Heute in Bearbeitung",
-    heroText:
-      "wird aktuell betreut. Nach Abschluss wird der Bericht intern geprüft und automatisch für die Eigentümer-Mail vorbereitet.",
-    openReport: "Bericht öffnen",
-    propertyFile: "Objektakte",
-    dayStats: "Tageskennzahlen",
-    stats: ["aktive Objekte", "offene Einsätze", "Freigaben"],
-    sourceLive: "Live-Daten",
-    sourceDemo: "Demo-Daten",
-    sourceLoading: "Daten werden geladen",
-    sourceError: "Supabase nicht lesbar",
-    operations: "Operations",
-    jobsAndStatus: "Aufträge und Status",
-    addJob: "Auftrag hinzufügen",
-    createJob: "Auftrag anlegen",
-    createObject: "Objekt anlegen",
-    close: "Schließen",
-    jobTitleLabel: "Titel",
-    propertyLabel: "Objekt",
-    ownerLabel: "Eigentümer",
-    locationLabel: "Ort",
-    serviceLabel: "Leistung",
-    statusLabel: "Status",
-    newJobAdded: "Auftrag wurde lokal angelegt",
-    newObjectAdded: "Objekt wurde lokal angelegt",
-    serviceFiltered: "Leistung gefiltert",
-    filterAll: "Alle Leistungen",
-    selectedJob: "Ausgewählter Auftrag",
-    selectedProperty: "Ausgewähltes Objekt",
-    objectOverview: "Objektübersicht",
-    jobOverview: "Auftragsübersicht",
-    scheduleOverview: "Einsatzplan",
-    approvalOverview: "Freigabeübersicht",
-    reportOverview: "Berichtsübersicht",
-    dashboardJump: "Direkt in den Bereich",
-    masterDataOverview: "Stammdatenübersicht",
-    customerOverview: "Kundenübersicht",
-    serviceOverview: "Leistungskatalog",
-    communicationOverview: "Kommunikation",
-    billingOverview: "Abrechnung",
-    objectsHint: "Objektakten, Zugang, Pflegepakete und Eigentümerzuordnung",
-    customersHint: "Eigentümer, Ansprechpartner, Sprache, Portal und offene Salden",
-    servicesHint: "Katalog, Preise, Intervalle, SLA und abrechenbare Leistungen",
-    jobsHint: "Aufträge, Status, Zuständigkeit und nächste Schritte",
-    scheduleHint: "Termine, Teams, Einsatzfenster und mobile Ausführung",
-    reportsHint: "Kundenberichte, interne Details, Medien und Exportvorbereitung",
-    communicationHint: "Kundenmails, Rückfragen und Vorlagen mit Objektbezug",
-    billingHint: "Rechnungen, fällige Posten, Monatsabrechnung und Leistungslinien",
-    approvalsHint: "Interne Prüfung vor Kundenversand und Abrechnung",
-    records: "Datensätze",
-    customerLabel: "Kunde",
-    emailLabel: "E-Mail",
-    phoneLabel: "Telefon",
-    languageLabel: "Sprache",
-    balanceLabel: "Saldo",
-    serviceCatalog: "Dienstleistungskatalog",
-    categoryLabel: "Kategorie",
-    intervalLabel: "Intervall",
-    priceLabel: "Preis",
-    unitLabel: "Einheit",
-    slaLabel: "SLA",
-    channelLabel: "Kanal",
-    subjectLabel: "Betreff",
-    dueLabel: "Fällig",
-    amountLabel: "Betrag",
-    invoiceLabel: "Rechnung",
-    nextStepLabel: "Nächster Schritt",
-    portalOpened: "Kundenportal vorbereitet",
-    messagePrepared: "Nachricht vorbereitet",
-    invoicePrepared: "Rechnung vorbereitet",
-    catalogSelected: "Katalogposition ausgewählt",
-    openCustomers: "Kunden öffnen",
-    openServices: "Katalog öffnen",
-    openBilling: "Abrechnung öffnen",
-    openReports: "Berichte öffnen",
-    newService: "Neue Leistung",
-    createService: "Leistung anlegen",
-    newServiceAdded: "Leistung wurde lokal angelegt",
-    serviceTypeLabel: "Leistungstyp",
-    includedLabel: "Enthalten",
-    checksPerYearLabel: "Kontrollen pro Jahr",
-    sizeLabel: "Größe",
-    roomsLabel: "Zimmer",
-    bedsLabel: "Betten",
-    addressLabel: "Adresse",
-    accessLabel: "Zugang",
-    keySafeLabel: "Schlüsselsafe",
-    carePackageLabel: "Betreuungspaket",
-    equipmentLabel: "Ausstattung",
-    riskNotesLabel: "Hinweise",
-    objectMediaLabel: "Objektbilder",
-    objectLogLabel: "Objektprotokoll",
-    technicalDataLabel: "Technische Daten",
-    linkedRecordsLabel: "Verknüpfte Vorgänge",
-    newCustomer: "Neuer Kunde",
-    createCustomer: "Kunde anlegen",
-    newCustomerAdded: "Kunde wurde lokal angelegt",
-    assigneeLabel: "Zuständig",
-    priorityLabel: "Priorität",
-    descriptionLabel: "Beschreibung",
-    internalNotesLabel: "Interne Notizen",
-    billingStatusLabel: "Abrechnung",
-    mediaLabel: "Medien",
-    workTimeLabel: "Arbeitszeit",
-    materialsLabel: "Material",
-    visibleToCustomer: "Für Kunden sichtbar",
-    internalOnly: "Nur intern",
-    startJob: "Starten",
-    pauseJob: "Pausieren",
-    completeJob: "Abschließen",
-    jobStarted: "Einsatz wurde gestartet",
-    jobPaused: "Einsatz wurde pausiert",
-    jobCompleted: "Einsatz wurde abgeschlossen und Bericht erzeugt",
-    customerRequestCreated: "Kundenauftrag wurde angelegt",
-    billableItemAdded: "Abrechnungsposition ergänzt",
-    addBillableItem: "Position ergänzen",
-    startVisit: "Einsatz starten",
-    approveJob: "Freigeben",
-    openDetails: "Details öffnen",
-    openPortal: "Portal öffnen",
-    noApprovals: "Keine offenen Freigaben",
-    reportDetails: "Berichtdetails",
-    propertyDetails: "Objektdaten",
-    noFilteredJobs: "Keine Aufträge für diese Leistung",
-    approvalSent: "Auftrag wurde zur Freigabe markiert",
-    services: "Leistungen",
-    catalog: "Katalog",
-    masterData: "Stammdaten",
-    properties: "Objekte",
-    ownerAccess: "Eigentümerzugang",
-    ownerView: "Kundenansicht",
-    status: "Status",
-    nextAppointment: "Nächster Termin",
-    lastReport: "Letzter Bericht",
-    seasonActive: "Saisonbetrieb aktiv",
-    gardenCareDate: "31.07. Gartenpflege",
-    poolToday: "Poolpflege heute",
-    orderHistory: "Auftragsverlauf",
-    transparency: "Transparenz",
-    autoMail: "Automatische Mail nach Freigabe",
-    reportDraft: "Berichtsentwurf an Familie Andersson",
-    mailText:
-      "Enthält erledigte Arbeiten, Fotos, Material, Zeiten, Empfehlungen und nächsten Termin. Versand erfolgt erst nach interner Freigabe.",
-    onSite: "Vor Ort",
-    currentVisit: "Aktueller Einsatz",
-    checksDone: "Checkpunkte erledigt",
-    sendApproval: "Zur Freigabe senden",
-    mobileFunctions: "Mobile Funktionen",
-    mobileTitle: "Alles dabei beim Einsatz",
-    mobileText:
-      "Stammdaten, Checklisten, Fotos, Zeiten, Materialverbrauch und Berichtsentwurf sind für die Arbeit vor Ort in einer kompakten Ansicht vorbereitet.",
-    notes: [
-      "Offline-freundliche Eingabe",
-      "Bericht aus Checkliste",
-      "Saison- und Objektpflege",
-    ],
-    servicesList: [
-      "Hausverwaltung",
-      "Gartenpflege",
-      "Reparaturen",
-      "Baumassnahmen",
-      "Poolpflege",
-      "Objektkontrollen",
-    ],
-    jobTitles: [
-      "Poolpflege und Wasserwerte",
-      "Rasen, Hecken und Sichtprüfung",
-      "Terrassentür justieren",
-    ],
-    jobStatuses: ["In Arbeit", "Geplant", "Freigabe"],
-    jobServices: ["Poolpflege", "Gartenpflege", "Reparatur"],
-    objectStatuses: ["Saisonbetrieb", "Sommerklar", "Kontrolle offen"],
-    lastVisits: ["Heute, 09:20", "28.07., 14:10", "26.07., 11:45"],
-    checklist: [
-      "Anfahrt und Objektzugang dokumentiert",
-      "Fotos vor Arbeitsbeginn hinzugefügt",
-      "Wasserwerte und Verbrauchsmaterial erfasst",
-      "Abschlussfoto und Notizen ergänzen",
-      "Bericht zur Freigabe markieren",
-    ],
-    timeline: [
-      "Einsatz gestartet",
-      "Checkliste bearbeitet",
-      "Fotos angehängt",
-      "Interne Prüfung",
-      "Mail an Eigentümer",
-    ],
-    statusLabels: {
-      planned: "Geplant",
-      in_progress: "In Arbeit",
-      waiting_for_approval: "Freigabe",
-      approved: "Freigegeben",
-      sent: "Versendet",
-      completed: "Erledigt",
-      cancelled: "Storniert",
-    },
-  },
-  sv: {
-    tagline: "Fritidshusförvaltning i Småland",
-    navLabel: "Huvudnavigation",
-    nav: [
-      "Dashboard",
-      "Grunddata",
-      "Objekt",
-      "Kunder",
-      "Tjänstekatalog",
-      "Uppdrag",
-      "Tider",
-      "Rapporter",
-      "Kommunikation",
-      "Fakturering",
-      "Godkännanden",
-    ],
-    navTargets: [
-      "overview",
-      "masterData",
-      "objects",
-      "customers",
-      "services",
-      "jobs",
-      "schedule",
-      "reports",
-      "communication",
-      "billing",
-      "approvals",
-    ],
-    contact: "Kontakt",
-    menuOpen: "Öppna meny",
-    menuClose: "Stäng meny",
-    lightMode: "Ljust läge",
-    darkMode: "Mörkt läge",
-    versionLabel: "Version",
-    versionHistory: "Ändringshistorik",
-    latestChanges: "Senaste ändringar",
-    product: "Kolaretorp Service AB",
-    headline: "Servicecentral för fritidshus",
-    newJob: "Nytt uppdrag",
-    newObject: "Nytt objekt",
-    viewLabel: "Välj vy",
-    views: {
-      team: "Förvaltning",
-      owner: "Kundportal",
-      mobile: "Mobilt på plats",
-    },
-    heroKicker: "Pågår idag",
-    heroText:
-      "hanteras just nu. Efter avslut kontrolleras rapporten internt och förbereds automatiskt för e-post till ägaren.",
-    openReport: "Öppna rapport",
-    propertyFile: "Objektakt",
-    dayStats: "Dagens nyckeltal",
-    stats: ["aktiva objekt", "öppna uppdrag", "godkännanden"],
-    sourceLive: "Live-data",
-    sourceDemo: "Demo-data",
-    sourceLoading: "Data laddas",
-    sourceError: "Supabase kan inte läsas",
-    operations: "Drift",
-    jobsAndStatus: "Uppdrag och status",
-    addJob: "Lägg till uppdrag",
-    createJob: "Skapa uppdrag",
-    createObject: "Skapa objekt",
-    close: "Stäng",
-    jobTitleLabel: "Titel",
-    propertyLabel: "Objekt",
-    ownerLabel: "Ägare",
-    locationLabel: "Ort",
-    serviceLabel: "Tjänst",
-    statusLabel: "Status",
-    newJobAdded: "Uppdraget skapades lokalt",
-    newObjectAdded: "Objektet skapades lokalt",
-    serviceFiltered: "Tjänst filtrerad",
-    filterAll: "Alla tjänster",
-    selectedJob: "Valt uppdrag",
-    selectedProperty: "Valt objekt",
-    objectOverview: "Objektöversikt",
-    jobOverview: "Uppdragsöversikt",
-    scheduleOverview: "Insatsplan",
-    approvalOverview: "Godkännanden",
-    reportOverview: "Rapportöversikt",
-    dashboardJump: "Gå direkt till området",
-    masterDataOverview: "Grunddataöversikt",
-    customerOverview: "Kundöversikt",
-    serviceOverview: "Tjänstekatalog",
-    communicationOverview: "Kommunikation",
-    billingOverview: "Fakturering",
-    objectsHint: "Objektakter, åtkomst, skötselpaket och ägarkoppling",
-    customersHint: "Ägare, kontaktpersoner, språk, portal och öppna saldon",
-    servicesHint: "Katalog, priser, intervall, SLA och fakturerbara tjänster",
-    jobsHint: "Uppdrag, status, ansvar och nästa steg",
-    scheduleHint: "Tider, team, insatsfönster och mobil utförande",
-    reportsHint: "Kundrapporter, interna detaljer, media och exportförberedelse",
-    communicationHint: "Kundmail, frågor och mallar kopplade till objekt",
-    billingHint: "Fakturor, förfallna poster, månadsavräkning och tjänsterader",
-    approvalsHint: "Intern kontroll före kundutskick och fakturering",
-    records: "Poster",
-    customerLabel: "Kund",
-    emailLabel: "E-post",
-    phoneLabel: "Telefon",
-    languageLabel: "Språk",
-    balanceLabel: "Saldo",
-    serviceCatalog: "Tjänstekatalog",
-    categoryLabel: "Kategori",
-    intervalLabel: "Intervall",
-    priceLabel: "Pris",
-    unitLabel: "Enhet",
-    slaLabel: "SLA",
-    channelLabel: "Kanal",
-    subjectLabel: "Ärende",
-    dueLabel: "Förfaller",
-    amountLabel: "Belopp",
-    invoiceLabel: "Faktura",
-    nextStepLabel: "Nästa steg",
-    portalOpened: "Kundportal förberedd",
-    messagePrepared: "Meddelande förberett",
-    invoicePrepared: "Faktura förberedd",
-    catalogSelected: "Katalogpost vald",
-    openCustomers: "Öppna kunder",
-    openServices: "Öppna katalog",
-    openBilling: "Öppna fakturering",
-    openReports: "Öppna rapporter",
-    newService: "Ny tjänst",
-    createService: "Skapa tjänst",
-    newServiceAdded: "Tjänsten skapades lokalt",
-    serviceTypeLabel: "Tjänstetyp",
-    includedLabel: "Ingår",
-    checksPerYearLabel: "Kontroller per år",
-    sizeLabel: "Storlek",
-    roomsLabel: "Rum",
-    bedsLabel: "Sängar",
-    addressLabel: "Adress",
-    accessLabel: "Tillgång",
-    keySafeLabel: "Nyckelskåp",
-    carePackageLabel: "Skötselpaket",
-    equipmentLabel: "Utrustning",
-    riskNotesLabel: "Noteringar",
-    objectMediaLabel: "Objektbilder",
-    objectLogLabel: "Objektlogg",
-    technicalDataLabel: "Tekniska data",
-    linkedRecordsLabel: "Kopplade ärenden",
-    newCustomer: "Ny kund",
-    createCustomer: "Skapa kund",
-    newCustomerAdded: "Kunden skapades lokalt",
-    assigneeLabel: "Ansvarig",
-    priorityLabel: "Prioritet",
-    descriptionLabel: "Beskrivning",
-    internalNotesLabel: "Interna noteringar",
-    billingStatusLabel: "Fakturering",
-    mediaLabel: "Media",
-    workTimeLabel: "Arbetstid",
-    materialsLabel: "Material",
-    visibleToCustomer: "Synligt för kund",
-    internalOnly: "Endast internt",
-    startJob: "Starta",
-    pauseJob: "Pausa",
-    completeJob: "Avsluta",
-    jobStarted: "Insatsen startades",
-    jobPaused: "Insatsen pausades",
-    jobCompleted: "Insatsen avslutades och rapport skapades",
-    customerRequestCreated: "Kunduppdrag skapades",
-    billableItemAdded: "Fakturarad tillagd",
-    addBillableItem: "Lägg till rad",
-    startVisit: "Starta insats",
-    approveJob: "Godkänn",
-    openDetails: "Öppna detaljer",
-    openPortal: "Öppna portal",
-    noApprovals: "Inga öppna godkännanden",
-    reportDetails: "Rapportdetaljer",
-    propertyDetails: "Objektdata",
-    noFilteredJobs: "Inga uppdrag för den tjänsten",
-    approvalSent: "Uppdraget markerades för godkännande",
-    services: "Tjänster",
-    catalog: "Katalog",
-    masterData: "Grunddata",
-    properties: "Objekt",
-    ownerAccess: "Ägaråtkomst",
-    ownerView: "Kundvy",
-    status: "Status",
-    nextAppointment: "Nästa tid",
-    lastReport: "Senaste rapport",
-    seasonActive: "Säsongsdrift aktiv",
-    gardenCareDate: "31.07. Trädgårdsskötsel",
-    poolToday: "Poolskötsel idag",
-    orderHistory: "Uppdragshistorik",
-    transparency: "Transparens",
-    autoMail: "Automatiskt e-post efter godkännande",
-    reportDraft: "Rapportutkast till familjen Andersson",
-    mailText:
-      "Innehåller utfört arbete, foton, material, tider, rekommendationer och nästa tid. Utskick sker först efter intern godkänning.",
-    onSite: "På plats",
-    currentVisit: "Aktuell insats",
-    checksDone: "kontrollpunkter klara",
-    sendApproval: "Skicka för godkännande",
-    mobileFunctions: "Mobila funktioner",
-    mobileTitle: "Allt med vid insatsen",
-    mobileText:
-      "Grunddata, checklistor, foton, tider, materialförbrukning och rapportutkast är förberedda för arbetet på plats i en kompakt vy.",
-    notes: [
-      "Offline-vänlig registrering",
-      "Rapport från checklista",
-      "Säsongs- och objektskötsel",
-    ],
-    servicesList: [
-      "Husförvaltning",
-      "Trädgårdsskötsel",
-      "Reparationer",
-      "Byggåtgärder",
-      "Poolskötsel",
-      "Objektkontroller",
-    ],
-    jobTitles: [
-      "Poolskötsel och vattenvärden",
-      "Gräsmatta, häckar och kontroll",
-      "Justera altandörr",
-    ],
-    jobStatuses: ["Pågår", "Planerat", "Godkännande"],
-    jobServices: ["Poolskötsel", "Trädgårdsskötsel", "Reparation"],
-    objectStatuses: ["Säsongsdrift", "Sommarklart", "Kontroll öppen"],
-    lastVisits: ["Idag, 09:20", "28.07., 14:10", "26.07., 11:45"],
-    checklist: [
-      "Ankomst och objekttillgång dokumenterad",
-      "Foton före arbetsstart tillagda",
-      "Vattenvärden och förbrukningsmaterial registrerade",
-      "Lägg till slutfoto och noteringar",
-      "Markera rapport för godkännande",
-    ],
-    timeline: [
-      "Insats startad",
-      "Checklista bearbetad",
-      "Foton bifogade",
-      "Intern kontroll",
-      "E-post till ägare",
-    ],
-    statusLabels: {
-      planned: "Planerat",
-      in_progress: "Pågår",
-      waiting_for_approval: "Godkännande",
-      approved: "Godkänt",
-      sent: "Skickat",
-      completed: "Klart",
-      cancelled: "Avbrutet",
-    },
-  },
-  en: {
-    tagline: "Holiday home management in Småland",
-    navLabel: "Main navigation",
-    nav: [
-      "Dashboard",
-      "Master data",
-      "Properties",
-      "Customers",
-      "Service catalog",
-      "Jobs",
-      "Schedule",
-      "Reports",
-      "Communication",
-      "Billing",
-      "Approvals",
-    ],
-    navTargets: [
-      "overview",
-      "masterData",
-      "objects",
-      "customers",
-      "services",
-      "jobs",
-      "schedule",
-      "reports",
-      "communication",
-      "billing",
-      "approvals",
-    ],
-    contact: "Contact",
-    menuOpen: "Open menu",
-    menuClose: "Close menu",
-    lightMode: "Light mode",
-    darkMode: "Dark mode",
-    versionLabel: "Version",
-    versionHistory: "Change history",
-    latestChanges: "Latest changes",
-    product: "Kolaretorp Service AB",
-    headline: "Service hub for holiday homes",
-    newJob: "New job",
-    newObject: "New property",
-    viewLabel: "Choose view",
-    views: {
-      team: "Management",
-      owner: "Customer portal",
-      mobile: "Mobile on site",
-    },
-    heroKicker: "In progress today",
-    heroText:
-      "is currently being serviced. After completion, the report is reviewed internally and prepared automatically for the owner email.",
-    openReport: "Open report",
-    propertyFile: "Property file",
-    dayStats: "Daily metrics",
-    stats: ["active properties", "open jobs", "approvals"],
-    sourceLive: "Live data",
-    sourceDemo: "Demo data",
-    sourceLoading: "Loading data",
-    sourceError: "Supabase not readable",
-    operations: "Operations",
-    jobsAndStatus: "Jobs and status",
-    addJob: "Add job",
-    createJob: "Create job",
-    createObject: "Create property",
-    close: "Close",
-    jobTitleLabel: "Title",
-    propertyLabel: "Property",
-    ownerLabel: "Owner",
-    locationLabel: "Location",
-    serviceLabel: "Service",
-    statusLabel: "Status",
-    newJobAdded: "Job was created locally",
-    newObjectAdded: "Property was created locally",
-    serviceFiltered: "Service filtered",
-    filterAll: "All services",
-    selectedJob: "Selected job",
-    selectedProperty: "Selected property",
-    objectOverview: "Property overview",
-    jobOverview: "Job overview",
-    scheduleOverview: "Schedule",
-    approvalOverview: "Approvals",
-    reportOverview: "Report overview",
-    dashboardJump: "Open workspace area",
-    masterDataOverview: "Master data overview",
-    customerOverview: "Customer overview",
-    serviceOverview: "Service catalog",
-    communicationOverview: "Communication",
-    billingOverview: "Billing",
-    objectsHint: "Property files, access, care packages and owner assignment",
-    customersHint: "Owners, contacts, language, portal and open balances",
-    servicesHint: "Catalog, prices, intervals, SLA and billable services",
-    jobsHint: "Jobs, status, responsibility and next steps",
-    scheduleHint: "Appointments, teams, service windows and mobile execution",
-    reportsHint: "Customer reports, internal details, media and export preparation",
-    communicationHint: "Customer email, questions and templates linked to properties",
-    billingHint: "Invoices, due items, monthly billing and service lines",
-    approvalsHint: "Internal review before customer email and billing",
-    records: "Records",
-    customerLabel: "Customer",
-    emailLabel: "Email",
-    phoneLabel: "Phone",
-    languageLabel: "Language",
-    balanceLabel: "Balance",
-    serviceCatalog: "Service catalog",
-    categoryLabel: "Category",
-    intervalLabel: "Interval",
-    priceLabel: "Price",
-    unitLabel: "Unit",
-    slaLabel: "SLA",
-    channelLabel: "Channel",
-    subjectLabel: "Subject",
-    dueLabel: "Due",
-    amountLabel: "Amount",
-    invoiceLabel: "Invoice",
-    nextStepLabel: "Next step",
-    portalOpened: "Customer portal prepared",
-    messagePrepared: "Message prepared",
-    invoicePrepared: "Invoice prepared",
-    catalogSelected: "Catalog item selected",
-    openCustomers: "Open customers",
-    openServices: "Open catalog",
-    openBilling: "Open billing",
-    openReports: "Open reports",
-    newService: "New service",
-    createService: "Create service",
-    newServiceAdded: "Service was created locally",
-    serviceTypeLabel: "Service type",
-    includedLabel: "Included",
-    checksPerYearLabel: "Checks per year",
-    sizeLabel: "Size",
-    roomsLabel: "Rooms",
-    bedsLabel: "Beds",
-    addressLabel: "Address",
-    accessLabel: "Access",
-    keySafeLabel: "Key safe",
-    carePackageLabel: "Care package",
-    equipmentLabel: "Equipment",
-    riskNotesLabel: "Notes",
-    objectMediaLabel: "Property images",
-    objectLogLabel: "Property log",
-    technicalDataLabel: "Technical data",
-    linkedRecordsLabel: "Linked records",
-    newCustomer: "New customer",
-    createCustomer: "Create customer",
-    newCustomerAdded: "Customer was created locally",
-    assigneeLabel: "Assignee",
-    priorityLabel: "Priority",
-    descriptionLabel: "Description",
-    internalNotesLabel: "Internal notes",
-    billingStatusLabel: "Billing",
-    mediaLabel: "Media",
-    workTimeLabel: "Work time",
-    materialsLabel: "Materials",
-    visibleToCustomer: "Visible to customer",
-    internalOnly: "Internal only",
-    startJob: "Start",
-    pauseJob: "Pause",
-    completeJob: "Complete",
-    jobStarted: "Visit was started",
-    jobPaused: "Visit was paused",
-    jobCompleted: "Visit was completed and report created",
-    customerRequestCreated: "Customer job request was created",
-    billableItemAdded: "Billing item added",
-    addBillableItem: "Add item",
-    startVisit: "Start visit",
-    approveJob: "Approve",
-    openDetails: "Open details",
-    openPortal: "Open portal",
-    noApprovals: "No open approvals",
-    reportDetails: "Report details",
-    propertyDetails: "Property data",
-    noFilteredJobs: "No jobs for this service",
-    approvalSent: "Job was marked for approval",
-    services: "Services",
-    catalog: "Catalog",
-    masterData: "Master data",
-    properties: "Properties",
-    ownerAccess: "Owner access",
-    ownerView: "Customer view",
-    status: "Status",
-    nextAppointment: "Next appointment",
-    lastReport: "Last report",
-    seasonActive: "Season operation active",
-    gardenCareDate: "31.07. Garden care",
-    poolToday: "Pool care today",
-    orderHistory: "Job history",
-    transparency: "Transparency",
-    autoMail: "Automatic email after approval",
-    reportDraft: "Report draft to the Andersson family",
-    mailText:
-      "Includes completed work, photos, materials, times, recommendations and the next appointment. Email is sent only after internal approval.",
-    onSite: "On site",
-    currentVisit: "Current visit",
-    checksDone: "checks completed",
-    sendApproval: "Send for approval",
-    mobileFunctions: "Mobile functions",
-    mobileTitle: "Everything ready on site",
-    mobileText:
-      "Master data, checklists, photos, time entries, material usage and the report draft are prepared for on-site work in a compact view.",
-    notes: [
-      "Offline-friendly entry",
-      "Report from checklist",
-      "Season and property care",
-    ],
-    servicesList: [
-      "House management",
-      "Garden care",
-      "Repairs",
-      "Construction work",
-      "Pool care",
-      "Property checks",
-    ],
-    jobTitles: [
-      "Pool care and water values",
-      "Lawn, hedges and visual check",
-      "Adjust patio door",
-    ],
-    jobStatuses: ["In progress", "Planned", "Approval"],
-    jobServices: ["Pool care", "Garden care", "Repair"],
-    objectStatuses: ["Season operation", "Summer ready", "Check open"],
-    lastVisits: ["Today, 09:20", "28.07., 14:10", "26.07., 11:45"],
-    checklist: [
-      "Arrival and property access documented",
-      "Photos before work start added",
-      "Water values and consumables recorded",
-      "Add final photo and notes",
-      "Mark report for approval",
-    ],
-    timeline: [
-      "Visit started",
-      "Checklist updated",
-      "Photos attached",
-      "Internal review",
-      "Email to owner",
-    ],
-    statusLabels: {
-      planned: "Planned",
-      in_progress: "In progress",
-      waiting_for_approval: "Approval",
-      approved: "Approved",
-      sent: "Sent",
-      completed: "Completed",
-      cancelled: "Cancelled",
-    },
-  },
-} satisfies Record<Language, Record<string, unknown>>;
-
-const serviceIcons = [Home, Leaf, Wrench, Hammer, Waves, ShieldCheck];
-const navIcons = [
-  PanelLeftClose,
-  Database,
-  Home,
-  Users,
-  BookOpen,
-  ClipboardCheck,
-  CalendarDays,
-  BookOpen,
-  MessageSquare,
-  ReceiptText,
-  MailCheck,
-];
-
-type AppJob = {
+type ObjectRecord = {
   id: string;
-  title: string;
-  object: string;
-  owner: string;
-  status: string;
-  service: string;
-  progress: number;
-  priority?: string;
-  dueDate?: string;
-  assignedTo?: string;
-  description?: string;
-  internalNotes?: string;
-  billingStatus?: "nicht abrechenbar" | "abrechenbar" | "abgerechnet";
-  workMinutes?: number;
-  materialCost?: number;
-  mediaCount?: number;
-  visitState?: "geplant" | "gestartet" | "pausiert" | "abgeschlossen";
-};
-
-type AppJobSeed = Omit<AppJob, "title" | "status" | "service"> & {
-  titleKey: number;
-  statusKey: number;
-  serviceKey: number;
-};
-
-type AppObject = {
   name: string;
   owner: string;
-  location: string;
-  status: string;
+  ownerEmail: string;
+  ownerPhone: string;
+  address: string;
+  region: string;
+  sizeSqm: number;
+  plotSqm: number;
+  rooms: number;
+  beds: number;
+  bathrooms: number;
+  buildYear: number;
+  carePackage: "Basis" | "Plus" | "Komfort" | "Premium";
+  status: "Saison aktiv" | "Kontrolle offen" | "Winterruhe";
+  access: {
+    keySafe: string;
+    alarm: string;
+    parking: string;
+    notes: string;
+  };
+  equipment: string[];
+  utilities: {
+    heating: string;
+    water: string;
+    septic: string;
+    internet: string;
+  };
+  risks: string[];
+  media: {
+    images: number;
+    documents: number;
+    floorPlans: number;
+  };
+  nextVisit: string;
   lastVisit: string;
-  address?: string;
-  sizeSqm?: number;
-  rooms?: number;
-  beds?: number;
-  bathrooms?: number;
-  carePackage?: string;
-  accessNotes?: string;
-  keySafe?: string;
-  equipment?: string[];
-  riskNotes?: string;
-  imageCount?: number;
-  documentCount?: number;
-};
-
-type AppObjectSeed = Omit<AppObject, "status" | "lastVisit"> & {
-  statusKey: number;
-  lastVisitKey: number;
 };
 
 type CustomerRecord = {
+  id: string;
   name: string;
   contact: string;
   email: string;
@@ -865,2714 +84,1219 @@ type CustomerRecord = {
   language: string;
   objects: string[];
   balance: string;
-  nextStep: string;
-  role: "Kunde/Eigentümer";
+  portalStatus: "aktiv" | "einladen" | "gesperrt";
 };
 
-type AppUser = {
-  name: string;
-  role: "Admin" | "Büro" | "Einsatzkraft" | "Kunde/Eigentümer";
-  scope: string;
-};
-
-type ServiceCatalogItem = {
-  name: string;
-  type: "Betreuungspaket" | "Zusatzleistung";
-  category: string;
-  interval: string;
-  price: string;
-  unit: string;
-  sla: string;
-  checksPerYear?: number;
-  included: string[];
-};
-
-type MessageRecord = {
-  customer: string;
-  channel: string;
-  subject: string;
-  status: string;
-  object: string;
-  due: string;
-};
-
-type InvoiceRecord = {
-  number: string;
-  customer: string;
-  object: string;
-  amount: string;
-  status: string;
-  due: string;
+type JobRecord = {
+  id: string;
+  title: string;
+  objectId: string;
+  customerId: string;
+  type: string;
+  status: "geplant" | "in Arbeit" | "pausiert" | "erledigt" | "abgerechnet";
+  priority: "niedrig" | "normal" | "hoch" | "dringend";
+  dueDate: string;
+  assignedTo: string;
+  description: string;
+  internalNotes: string;
+  checklist: string[];
+  billable: boolean;
+  material: string;
+  workMinutes: number;
 };
 
 type ReportRecord = {
   id: string;
   jobId: string;
-  object: string;
-  customer: string;
+  objectId: string;
   title: string;
   date: string;
-  assignee: string;
-  workTime: string;
-  checklist: string;
-  customerSummary: string;
-  internalSummary: string;
+  visibleToCustomer: boolean;
+  summary: string;
+  internalNotes: string;
   media: string[];
-  visibility: "Kundenansicht" | "Intern";
 };
 
-type BillableItem = {
+type MessageRecord = {
   id: string;
+  objectId: string;
+  customerId: string;
+  channel: "E-Mail" | "Telefon" | "Portal";
+  subject: string;
+  status: "Entwurf" | "Gesendet" | "Gelesen" | "Rückfrage";
+  date: string;
+};
+
+type BillingRecord = {
+  id: string;
+  objectId: string;
+  customerId: string;
   source: string;
-  customer: string;
-  object: string;
-  description: string;
+  label: string;
   amount: string;
-  status: "abrechenbar" | "abgerechnet" | "nicht abrechenbar";
-  visibility: "kundensichtbar" | "intern";
+  status: "abrechenbar" | "abgerechnet" | "intern";
 };
 
-type LiveData = {
-  jobs: AppJob[];
-  objects: AppObject[];
-  services: string[];
+type NewObjectFormState = {
+  name: string;
+  owner: string;
+  address: string;
+  region: string;
+  sizeSqm: string;
+  plotSqm: string;
+  rooms: string;
+  beds: string;
+  bathrooms: string;
+  carePackage: ObjectRecord["carePackage"];
+  keySafe: string;
+  equipment: string;
+  risks: string;
 };
 
-type DataState = "loading" | "live" | "demo" | "error";
+type NewJobFormState = {
+  title: string;
+  type: string;
+  priority: JobRecord["priority"];
+  dueDate: string;
+  assignedTo: string;
+  description: string;
+  internalNotes: string;
+};
 
-const demoJobSeeds = [
-  {
-    id: "KS-2407",
-    titleKey: 0,
-    object: "Villa Långsjön",
-    owner: "Familie Andersson",
-    statusKey: 0,
-    serviceKey: 4,
-    progress: 68,
+const labels = {
+  de: {
+    appTitle: "Ferienhausverwaltung",
+    subtitle: "Objekte, Einsätze, Berichte und Abrechnung in einer Arbeitszentrale.",
+    search: "Suchen",
+    newObject: "Neues Objekt",
+    newJob: "Neuer Auftrag",
+    createObject: "Objekt anlegen",
+    createJob: "Auftrag anlegen",
+    close: "Schließen",
+    language: "Sprache",
+    dark: "Dunkelmodus",
+    light: "Hellmodus",
+    demo: "Demo-Daten",
   },
-  {
-    id: "KS-2408",
-    titleKey: 1,
-    object: "Stuga Nybro",
-    owner: "M. Schneider",
-    statusKey: 1,
-    serviceKey: 1,
-    progress: 22,
+  sv: {
+    appTitle: "Fritidshusförvaltning",
+    subtitle: "Objekt, uppdrag, rapporter och fakturering i en arbetsyta.",
+    search: "Sök",
+    newObject: "Nytt objekt",
+    newJob: "Nytt uppdrag",
+    createObject: "Skapa objekt",
+    createJob: "Skapa uppdrag",
+    close: "Stäng",
+    language: "Språk",
+    dark: "Mörkt läge",
+    light: "Ljust läge",
+    demo: "Demo-data",
   },
-  {
-    id: "KS-2409",
-    titleKey: 2,
-    object: "Kolaretorp 106",
-    owner: "Kolaretorp Service AB",
-    statusKey: 2,
-    serviceKey: 2,
-    progress: 96,
+  en: {
+    appTitle: "Holiday Home Operations",
+    subtitle: "Properties, visits, reports and billing in one workspace.",
+    search: "Search",
+    newObject: "New property",
+    newJob: "New job",
+    createObject: "Create property",
+    createJob: "Create job",
+    close: "Close",
+    language: "Language",
+    dark: "Dark mode",
+    light: "Light mode",
+    demo: "Demo data",
   },
-] satisfies AppJobSeed[];
+} satisfies Record<Language, Record<string, string>>;
 
-const demoObjectSeeds = [
+const navItems: Array<{ id: Section; label: string; icon: typeof Home }> = [
+  { id: "dashboard", label: "Dashboard", icon: Home },
+  { id: "objects", label: "Objekte", icon: Home },
+  { id: "customers", label: "Kunden", icon: UsersRound },
+  { id: "jobs", label: "Aufträge", icon: ClipboardList },
+  { id: "planning", label: "Einsatzplanung", icon: CalendarDays },
+  { id: "field", label: "Mobil vor Ort", icon: Wrench },
+  { id: "reports", label: "Berichte", icon: FileText },
+  { id: "communication", label: "Kommunikation", icon: MessageSquareText },
+  { id: "billing", label: "Abrechnung", icon: Euro },
+  { id: "masterData", label: "Stammdaten", icon: KeyRound },
+];
+
+const seedObjects: ObjectRecord[] = [
   {
+    id: "OBJ-1001",
     name: "Villa Långsjön",
     owner: "Familie Andersson",
-    location: "Orrefors",
+    ownerEmail: "eva.andersson@example.com",
+    ownerPhone: "+46 70 118 44 20",
     address: "Långsjövägen 18, 382 92 Orrefors",
+    region: "Orrefors",
     sizeSqm: 126,
+    plotSqm: 2800,
     rooms: 5,
     beds: 8,
     bathrooms: 2,
+    buildYear: 1998,
     carePackage: "Komfort",
-    accessNotes: "Schlüsselsafe am Nebeneingang, Alarm vor Betreten deaktivieren.",
-    keySafe: "Code intern hinterlegt",
-    equipment: ["Pool", "Sauna", "Kamin", "Glasfaser", "Bootssteg"],
-    riskNotes: "Filterdruck Pool beobachten, Terrasse nach Sturm prüfen.",
-    imageCount: 18,
-    documentCount: 6,
-    statusKey: 0,
-    lastVisitKey: 0,
+    status: "Saison aktiv",
+    access: {
+      keySafe: "Schlüsselsafe Nebeneingang",
+      alarm: "Alarm vor Betreten deaktivieren",
+      parking: "Zufahrt links am Bootssteg",
+      notes: "Pooltechnik im Nebenraum, Filterdruck dokumentieren.",
+    },
+    equipment: ["Pool", "Sauna", "Kamin", "Bootssteg", "Glasfaser", "Wärmepumpe"],
+    utilities: {
+      heating: "Luftwärmepumpe + Kamin",
+      water: "kommunal",
+      septic: "kommunal",
+      internet: "Fiber 250/250",
+    },
+    risks: ["Poolwerte wöchentlich prüfen", "Terrasse nach Sturm kontrollieren"],
+    media: { images: 18, documents: 6, floorPlans: 1 },
+    nextVisit: "31.07.2026",
+    lastVisit: "Heute, 09:20",
   },
   {
+    id: "OBJ-1002",
     name: "Stuga Nybro",
     owner: "M. Schneider",
-    location: "Nybro",
+    ownerEmail: "markus.schneider@example.com",
+    ownerPhone: "+49 171 440 22 18",
     address: "Skogsstigen 7, 382 34 Nybro",
+    region: "Nybro",
     sizeSqm: 84,
+    plotSqm: 1600,
     rooms: 4,
     beds: 6,
     bathrooms: 1,
+    buildYear: 1982,
     carePackage: "Plus",
-    accessNotes: "Schlüsselübergabe über Nachbar, Briefkasten wöchentlich prüfen.",
-    keySafe: "Nachbar Frau Lind",
-    equipment: ["Wärmepumpe", "Kamin", "Waschmaschine", "Gartenhaus"],
-    riskNotes: "Dachrinne hinten links nach starkem Regen kontrollieren.",
-    imageCount: 11,
-    documentCount: 4,
-    statusKey: 1,
-    lastVisitKey: 1,
+    status: "Kontrolle offen",
+    access: {
+      keySafe: "Schlüssel bei Nachbarin Frau Lind",
+      alarm: "kein Alarm",
+      parking: "Carport direkt am Haus",
+      notes: "Briefkasten und Dachrinne hinten links prüfen.",
+    },
+    equipment: ["Kamin", "Waschmaschine", "Gartenhaus", "Wärmepumpe"],
+    utilities: {
+      heating: "Wärmepumpe",
+      water: "Brunnen",
+      septic: "Dreikammergrube",
+      internet: "4G Router",
+    },
+    risks: ["Dachrinne bei Starkregen", "Brunnenpumpe im Winter sichern"],
+    media: { images: 11, documents: 4, floorPlans: 1 },
+    nextVisit: "02.08.2026",
+    lastVisit: "28.07.2026",
   },
   {
+    id: "OBJ-1003",
     name: "Haus am Wald",
     owner: "B. Klos",
-    location: "Småland",
+    ownerEmail: "bernd@example.com",
+    ownerPhone: "+46 76 101 81 86",
     address: "Kolaretorp 106, 382 93 Nybro",
+    region: "Småland",
     sizeSqm: 102,
+    plotSqm: 5200,
     rooms: 5,
     beds: 7,
     bathrooms: 1,
+    buildYear: 1976,
     carePackage: "Basis",
-    accessNotes: "Eigener Zugang, Werkstatt separat verschlossen.",
-    keySafe: "intern",
-    equipment: ["Werkstatt", "Waldgrundstück", "Glasfaser", "Carport"],
-    riskNotes: "Terrassentür regelmäßig nachjustieren.",
-    imageCount: 9,
-    documentCount: 5,
-    statusKey: 2,
-    lastVisitKey: 2,
+    status: "Winterruhe",
+    access: {
+      keySafe: "intern",
+      alarm: "Werkstatt separat",
+      parking: "Hof vorne",
+      notes: "Werkstatt bleibt bei Kundenansicht verborgen.",
+    },
+    equipment: ["Werkstatt", "Carport", "Kamin", "Waldgrundstück"],
+    utilities: {
+      heating: "Holz + Direktstrom",
+      water: "Brunnen",
+      septic: "Einzelanlage",
+      internet: "Fiber",
+    },
+    risks: ["Terrassentür justieren", "Wildschäden am Zaun prüfen"],
+    media: { images: 9, documents: 5, floorPlans: 0 },
+    nextVisit: "05.08.2026",
+    lastVisit: "26.07.2026",
   },
-] satisfies AppObjectSeed[];
+];
 
-const customerRecords = [
+const seedCustomers: CustomerRecord[] = [
   {
+    id: "CUS-1",
     name: "Familie Andersson",
     contact: "Eva Andersson",
     email: "eva.andersson@example.com",
     phone: "+46 70 118 44 20",
     language: "SV / DE",
-    objects: ["Villa Långsjön"],
+    objects: ["OBJ-1001"],
     balance: "0 SEK",
-    nextStep: "Bericht nach Poolpflege freigeben",
-    role: "Kunde/Eigentümer",
+    portalStatus: "aktiv",
   },
   {
+    id: "CUS-2",
     name: "M. Schneider",
     contact: "Markus Schneider",
     email: "markus.schneider@example.com",
     phone: "+49 171 440 22 18",
     language: "DE",
-    objects: ["Stuga Nybro"],
+    objects: ["OBJ-1002"],
     balance: "1.840 SEK",
-    nextStep: "Monatsrechnung vorbereiten",
-    role: "Kunde/Eigentümer",
+    portalStatus: "aktiv",
   },
   {
+    id: "CUS-3",
     name: "B. Klos",
     contact: "Bernd Klos",
     email: "bernd@example.com",
     phone: "+46 76 101 81 86",
     language: "DE / EN",
-    objects: ["Haus am Wald"],
+    objects: ["OBJ-1003"],
     balance: "0 SEK",
-    nextStep: "Saisonkontrolle terminieren",
-    role: "Kunde/Eigentümer",
+    portalStatus: "einladen",
   },
-] satisfies CustomerRecord[];
+];
 
-const appUsers = [
-  { name: "Bernd Klos", role: "Admin", scope: "alle Bereiche" },
-  { name: "Anna Lind", role: "Büro", scope: "Aufträge, Termine, Kunden" },
-  { name: "Johan Berg", role: "Einsatzkraft", scope: "eigene Einsätze mobil" },
-  { name: "Eva Andersson", role: "Kunde/Eigentümer", scope: "eigene Objekte" },
-] satisfies AppUser[];
+const seedJobs: JobRecord[] = [
+  {
+    id: "JOB-2407",
+    title: "Poolpflege und Wasserwerte",
+    objectId: "OBJ-1001",
+    customerId: "CUS-1",
+    type: "Poolpflege",
+    status: "in Arbeit",
+    priority: "hoch",
+    dueDate: "31.07.2026",
+    assignedTo: "Johan Berg",
+    description: "Pool reinigen, Wasserwerte messen, Filterdruck dokumentieren.",
+    internalNotes: "pH-Mittel nur intern kalkulieren.",
+    checklist: ["Zugang dokumentieren", "Vorher-Fotos", "Wasserwerte", "Material", "Bericht"],
+    billable: true,
+    material: "pH-Minus, Teststreifen",
+    workMinutes: 95,
+  },
+  {
+    id: "JOB-2408",
+    title: "Gartenpflege und Sichtprüfung",
+    objectId: "OBJ-1002",
+    customerId: "CUS-2",
+    type: "Gartenpflege",
+    status: "geplant",
+    priority: "normal",
+    dueDate: "02.08.2026",
+    assignedTo: "Anna Lind",
+    description: "Rasen, Hecken, Zufahrt, Dachrinne hinten links prüfen.",
+    internalNotes: "Dachrinne eventuell als Zusatzauftrag anbieten.",
+    checklist: ["Außenrunde", "Rasen", "Hecken", "Fotos", "Rückmeldung"],
+    billable: true,
+    material: "-",
+    workMinutes: 120,
+  },
+  {
+    id: "JOB-2409",
+    title: "Terrassentür justieren",
+    objectId: "OBJ-1003",
+    customerId: "CUS-3",
+    type: "Reparatur",
+    status: "erledigt",
+    priority: "normal",
+    dueDate: "29.07.2026",
+    assignedTo: "Bernd Klos",
+    description: "Beschlag prüfen und Tür einstellen.",
+    internalNotes: "Interne Nacharbeit.",
+    checklist: ["Werkzeug", "Beschlag", "Test", "Notiz"],
+    billable: false,
+    material: "Schrauben",
+    workMinutes: 45,
+  },
+];
 
-const serviceCatalogItems = [
+const seedReports: ReportRecord[] = [
   {
-    name: "Basis",
-    type: "Betreuungspaket",
-    category: "Ferienhausbetreuung",
-    interval: "jährlich",
-    price: "2.990 SEK",
-    unit: "Jahr",
-    sla: "4 Kontrollen pro Jahr",
-    checksPerYear: 4,
-    included: ["Hauskontrolle", "Fotobericht", "E-Mail nach jedem Besuch"],
+    id: "REP-044",
+    jobId: "JOB-2407",
+    objectId: "OBJ-1001",
+    title: "Poolpflege und Wasserwerte",
+    date: "31.07.2026",
+    visibleToCustomer: true,
+    summary: "Pool gereinigt, Werte stabilisiert, nächste Kontrolle geplant.",
+    internalNotes: "Filterdruck beobachten. Interner Hinweis nicht im Kundenportal.",
+    media: ["3 Fotos", "1 Voicememo"],
   },
   {
-    name: "Plus",
-    type: "Betreuungspaket",
-    category: "Ferienhausbetreuung",
-    interval: "jährlich",
-    price: "5.490 SEK",
-    unit: "Jahr",
-    sla: "8 Kontrollen pro Jahr",
-    checksPerYear: 8,
-    included: ["Hauskontrolle", "Fotobericht", "Briefkastenservice", "E-Mail nach jedem Besuch"],
+    id: "REP-041",
+    jobId: "JOB-2408",
+    objectId: "OBJ-1002",
+    title: "Gartenpflege",
+    date: "28.07.2026",
+    visibleToCustomer: true,
+    summary: "Gartenpflege ausgeführt und Zufahrt geprüft.",
+    internalNotes: "Zusatztermin Dachrinne empfehlen.",
+    media: ["5 Fotos"],
   },
-  {
-    name: "Komfort",
-    type: "Betreuungspaket",
-    category: "Ferienhausbetreuung",
-    interval: "jährlich",
-    price: "7.990 SEK",
-    unit: "Jahr",
-    sla: "beliebtestes Paket",
-    checksPerYear: 12,
-    included: [
-      "12 Kontrollen pro Jahr",
-      "Hauskontrolle",
-      "Fotobericht",
-      "Briefkastenservice",
-      "kleine Handwerkerdienste",
-      "E-Mail und Telefon nach jedem Besuch",
-    ],
-  },
-  {
-    name: "Premium",
-    type: "Betreuungspaket",
-    category: "Ferienhausbetreuung",
-    interval: "jährlich",
-    price: "9.990 SEK",
-    unit: "Jahr",
-    sla: "Alles inklusive",
-    checksPerYear: 12,
-    included: [
-      "12 Hauskontrollen pro Jahr",
-      "Fotodokumentation",
-      "Briefkastenservice",
-      "Notfallservice priorisiert",
-      "Handwerkerkoordination bis 3 Std./Jahr",
-    ],
-  },
-  {
-    name: "Hauskontrolle",
-    type: "Zusatzleistung",
-    category: "Kontrolle",
-    interval: "nach Bedarf",
-    price: "795 SEK",
-    unit: "Besuch",
-    sla: "inkl. Fotobericht möglich",
-    included: ["Sichtprüfung innen/außen", "Statusnotiz", "optional Fotobericht"],
-  },
-  {
-    name: "Gartenpflege",
-    type: "Zusatzleistung",
-    category: "Außenbereich",
-    interval: "nach Bedarf",
-    price: "595 SEK",
-    unit: "Stunde",
-    sla: "oder Pauschalpreis möglich",
-    included: ["Rasen", "Hecken", "Saisonpflege"],
-  },
-  {
-    name: "Schlüsselservice",
-    type: "Zusatzleistung",
-    category: "Zugang",
-    interval: "pro Einsatz",
-    price: "495 SEK",
-    unit: "Einsatz",
-    sla: "Schlüsselübergabe und Zugang",
-    included: ["Schlüsselübergabe", "Zugangsdokumentation"],
-  },
-  {
-    name: "Hausmeisterservice",
-    type: "Zusatzleistung",
-    category: "Technik",
-    interval: "nach Bedarf",
-    price: "550 SEK",
-    unit: "Stunde",
-    sla: "kleine Arbeiten vor Ort",
-    included: ["kleine Reparaturen", "Koordination", "Objektservice"],
-  },
-  {
-    name: "Reinigung",
-    type: "Zusatzleistung",
-    category: "Innenbereich",
-    interval: "nach Bedarf",
-    price: "495 SEK",
-    unit: "Stunde",
-    sla: "vor/nach Aufenthalt",
-    included: ["Innenreinigung", "Vorbereitung", "Abschlusskontrolle"],
-  },
-  {
-    name: "Notdienst",
-    type: "Zusatzleistung",
-    category: "Notfall",
-    interval: "24/7",
-    price: "990 SEK",
-    unit: "Pauschalpreis",
-    sla: "oder nach Aufwand",
-    included: ["Notfallannahme", "Schnelle Hilfe", "Koordination"],
-  },
-] satisfies ServiceCatalogItem[];
+];
 
-const messageRecords = [
+const seedMessages: MessageRecord[] = [
   {
-    customer: "Familie Andersson",
+    id: "MSG-1",
+    objectId: "OBJ-1001",
+    customerId: "CUS-1",
     channel: "E-Mail",
     subject: "Poolwerte und nächste Kontrolle",
     status: "Entwurf",
-    object: "Villa Långsjön",
-    due: "heute",
+    date: "31.07.2026",
   },
   {
-    customer: "M. Schneider",
+    id: "MSG-2",
+    objectId: "OBJ-1002",
+    customerId: "CUS-2",
     channel: "Portal",
     subject: "Rasenpflege bestätigt",
-    status: "Gesendet",
-    object: "Stuga Nybro",
-    due: "29.07.",
-  },
-  {
-    customer: "B. Klos",
-    channel: "Telefon",
-    subject: "Schlüsselcode aktualisieren",
-    status: "Rückfrage",
-    object: "Haus am Wald",
-    due: "01.08.",
-  },
-] satisfies MessageRecord[];
-
-const invoiceRecords = [
-  {
-    number: "RE-2026-071",
-    customer: "M. Schneider",
-    object: "Stuga Nybro",
-    amount: "1.840 SEK",
-    status: "fällig",
-    due: "05.08.2026",
-  },
-  {
-    number: "RE-2026-072",
-    customer: "Familie Andersson",
-    object: "Villa Långsjön",
-    amount: "2.110 SEK",
-    status: "Entwurf",
-    due: "10.08.2026",
-  },
-  {
-    number: "RE-2026-069",
-    customer: "B. Klos",
-    object: "Haus am Wald",
-    amount: "0 SEK",
-    status: "bezahlt",
-    due: "25.07.2026",
-  },
-] satisfies InvoiceRecord[];
-
-const reportRecords = [
-  {
-    id: "BR-2026-044",
-    jobId: "KS-2407",
-    object: "Villa Långsjön",
-    customer: "Familie Andersson",
-    title: "Poolpflege und Wasserwerte",
-    date: "31.07.2026",
-    assignee: "Johan Berg",
-    workTime: "1:35 h",
-    checklist: "5/5 erledigt",
-    customerSummary: "Pool gereinigt, Wasserwerte stabilisiert, nächste Kontrolle geplant.",
-    internalSummary: "pH nachdosiert, Filterdruck beobachten, interner Hinweis bleibt verborgen.",
-    media: ["3 Fotos", "1 Voicememo"],
-    visibility: "Kundenansicht",
-  },
-  {
-    id: "BR-2026-041",
-    jobId: "KS-2408",
-    object: "Stuga Nybro",
-    customer: "M. Schneider",
-    title: "Rasen, Hecken und Sichtprüfung",
+    status: "Gelesen",
     date: "28.07.2026",
-    assignee: "Anna Lind",
-    workTime: "2:10 h",
-    checklist: "4/5 erledigt",
-    customerSummary: "Gartenpflege ausgeführt, Hecke zurückgeschnitten, Zufahrt geprüft.",
-    internalSummary: "Zusatztermin für Dachrinne empfehlen.",
-    media: ["5 Fotos"],
-    visibility: "Kundenansicht",
   },
-] satisfies ReportRecord[];
+];
 
-const billableItems = [
+const seedBilling: BillingRecord[] = [
   {
-    id: "AP-1001",
-    source: "KS-2407",
-    customer: "Familie Andersson",
-    object: "Villa Långsjön",
-    description: "Poolpflege inkl. Material",
+    id: "BIL-1001",
+    objectId: "OBJ-1001",
+    customerId: "CUS-1",
+    source: "JOB-2407",
+    label: "Poolpflege inkl. Material",
     amount: "2.110 SEK",
     status: "abrechenbar",
-    visibility: "kundensichtbar",
   },
   {
-    id: "AP-1002",
-    source: "KS-2408",
-    customer: "M. Schneider",
-    object: "Stuga Nybro",
-    description: "Gartenpflege und Sichtprüfung",
+    id: "BIL-1002",
+    objectId: "OBJ-1002",
+    customerId: "CUS-2",
+    source: "JOB-2408",
+    label: "Gartenpflege und Sichtprüfung",
     amount: "1.840 SEK",
     status: "abgerechnet",
-    visibility: "kundensichtbar",
   },
-  {
-    id: "AP-1003",
-    source: "KS-2409",
-    customer: "Kolaretorp Service AB",
-    object: "Kolaretorp 106",
-    description: "Interne Nacharbeit Terrassentür",
-    amount: "0 SEK",
-    status: "nicht abrechenbar",
-    visibility: "intern",
-  },
-] satisfies BillableItem[];
+];
 
-const checklistDone = [true, true, true, false, false];
+const serviceCatalog = [
+  { name: "Basis", type: "Paket", price: "2.990 SEK/Jahr", detail: "4 Kontrollen, Fotobericht, E-Mail" },
+  { name: "Plus", type: "Paket", price: "5.490 SEK/Jahr", detail: "8 Kontrollen, Briefkastenservice" },
+  { name: "Komfort", type: "Paket", price: "7.990 SEK/Jahr", detail: "12 Kontrollen, kleine Handwerkerdienste" },
+  { name: "Premium", type: "Paket", price: "9.990 SEK/Jahr", detail: "Priorisierter Notfallservice" },
+  { name: "Hauskontrolle", type: "Zusatzleistung", price: "795 SEK/Besuch", detail: "Sichtprüfung und Bericht" },
+  { name: "Gartenpflege", type: "Zusatzleistung", price: "595 SEK/Stunde", detail: "Rasen, Hecken, Saisonpflege" },
+  { name: "Schlüsselservice", type: "Zusatzleistung", price: "495 SEK/Einsatz", detail: "Übergabe und Zugang" },
+  { name: "Reinigung", type: "Zusatzleistung", price: "495 SEK/Stunde", detail: "Innenreinigung und Vorbereitung" },
+  { name: "Notdienst", type: "Zusatzleistung", price: "990 SEK", detail: "24/7 nach Aufwand" },
+];
 
-function getStatusProgress(status: string) {
-  const normalized = status.toLowerCase();
-
-  if (normalized.includes("completed") || normalized.includes("sent")) {
-    return 100;
-  }
-
-  if (normalized.includes("approved") || normalized.includes("approval")) {
-    return 92;
-  }
-
-  if (normalized.includes("progress")) {
-    return 68;
-  }
-
-  if (normalized.includes("planned")) {
-    return 24;
-  }
-
-  return 45;
-}
-
-function humanizeStatus(status: string) {
-  return status
-    .split("_")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-function nestedName(value: unknown, fallback: string) {
-  if (!isRecord(value)) {
-    return fallback;
-  }
-
-  const name = value.name ?? value.full_name;
-  return typeof name === "string" && name.trim() ? name : fallback;
-}
-
-function translatedList(t: Record<string, unknown>, key: string) {
-  const value = t[key];
-  return Array.isArray(value) ? value.map(String) : [];
-}
-
-function translatedStatus(t: Record<string, unknown>, status: string) {
-  const labels = t.statusLabels;
-  return isRecord(labels) && typeof labels[status] === "string"
-    ? labels[status]
-    : humanizeStatus(status);
+function statusTone(status: string) {
+  if (["in Arbeit", "Entwurf", "abrechenbar"].includes(status)) return "warning";
+  if (["erledigt", "abgerechnet", "aktiv", "Gelesen"].includes(status)) return "good";
+  if (["dringend", "gesperrt"].includes(status)) return "danger";
+  return "neutral";
 }
 
 export default function HomePage() {
-  const [view, setView] = useState<View>("team");
-  const [section, setSection] = useState<NavTarget>("overview");
-  const [isAppReady, setIsAppReady] = useState(false);
+  const [section, setSection] = useState<Section>("dashboard");
   const [language, setLanguage] = useState<Language>("de");
-  const [liveData, setLiveData] = useState<LiveData | null>(null);
-  const [localJobs, setLocalJobs] = useState<AppJob[]>([]);
-  const [localObjects, setLocalObjects] = useState<AppObject[]>([]);
-  const [localCustomers, setLocalCustomers] = useState<CustomerRecord[]>([]);
-  const [localServices, setLocalServices] = useState<ServiceCatalogItem[]>([]);
-  const [localReports, setLocalReports] = useState<ReportRecord[]>([]);
-  const [localBillableItems, setLocalBillableItems] = useState<BillableItem[]>([]);
-  const [localSequence, setLocalSequence] = useState(2410);
-  const [jobOverrides, setJobOverrides] = useState<Record<string, Partial<AppJob>>>({});
-  const [activeJobId, setActiveJobId] = useState("KS-2407");
-  const [selectedObjectName, setSelectedObjectName] = useState("Villa Långsjön");
-  const [selectedService, setSelectedService] = useState<string | null>(null);
-  const [scheduleFilter, setScheduleFilter] = useState("Alle");
-  const [modalMode, setModalMode] = useState<ModalMode>(null);
-  const [theme, setTheme] = useState<Theme>(() => {
-    if (typeof window === "undefined") {
-      return "light";
-    }
-
-    const savedTheme = window.localStorage.getItem("kolaretorp-theme");
-    return savedTheme === "dark" ? "dark" : "light";
+  const [theme, setTheme] = useState<Theme>("light");
+  const [query, setQuery] = useState("");
+  const [selectedObjectId, setSelectedObjectId] = useState("OBJ-1001");
+  const [objects, setObjects] = useState(seedObjects);
+  const [customers] = useState(seedCustomers);
+  const [jobs, setJobs] = useState(seedJobs);
+  const [reports] = useState(seedReports);
+  const [messages] = useState(seedMessages);
+  const [billing] = useState(seedBilling);
+  const [modal, setModal] = useState<Modal>(null);
+  const [newObject, setNewObject] = useState<NewObjectFormState>({
+    name: "",
+    owner: "",
+    address: "",
+    region: "Nybro",
+    sizeSqm: "95",
+    plotSqm: "1800",
+    rooms: "4",
+    beds: "6",
+    bathrooms: "1",
+    carePackage: "Basis" as ObjectRecord["carePackage"],
+    keySafe: "",
+    equipment: "",
+    risks: "",
   });
-  const [notice, setNotice] = useState("");
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [checklistState, setChecklistState] = useState(checklistDone);
-  const [newJobTitle, setNewJobTitle] = useState("");
-  const [newJobObject, setNewJobObject] = useState("Villa Långsjön");
-  const [newJobService, setNewJobService] = useState("");
-  const [newJobPriority, setNewJobPriority] = useState("normal");
-  const [newJobDueDate, setNewJobDueDate] = useState("2026-08-02");
-  const [newJobAssignee, setNewJobAssignee] = useState("Johan Berg");
-  const [newJobDescription, setNewJobDescription] = useState("");
-  const [newJobInternalNotes, setNewJobInternalNotes] = useState("");
-  const [newObjectName, setNewObjectName] = useState("");
-  const [newObjectOwner, setNewObjectOwner] = useState("");
-  const [newObjectLocation, setNewObjectLocation] = useState("");
-  const [newObjectAddress, setNewObjectAddress] = useState("");
-  const [newObjectSize, setNewObjectSize] = useState("95");
-  const [newObjectRooms, setNewObjectRooms] = useState("4");
-  const [newObjectBeds, setNewObjectBeds] = useState("6");
-  const [newObjectCarePackage, setNewObjectCarePackage] = useState("Basis");
-  const [newObjectAccess, setNewObjectAccess] = useState("");
-  const [newObjectEquipment, setNewObjectEquipment] = useState("");
-  const [newObjectRiskNotes, setNewObjectRiskNotes] = useState("");
-  const [newCustomerName, setNewCustomerName] = useState("");
-  const [newCustomerContact, setNewCustomerContact] = useState("");
-  const [newCustomerEmail, setNewCustomerEmail] = useState("");
-  const [newServiceName, setNewServiceName] = useState("");
-  const [newServiceType, setNewServiceType] = useState<ServiceCatalogItem["type"]>("Zusatzleistung");
-  const [newServiceCategory, setNewServiceCategory] = useState("Kontrolle");
-  const [newServicePrice, setNewServicePrice] = useState("");
-  const [newServiceUnit, setNewServiceUnit] = useState("Stunde");
-  const [newServiceInterval, setNewServiceInterval] = useState("nach Bedarf");
-  const [newServiceSla, setNewServiceSla] = useState("");
-  const [newServiceIncluded, setNewServiceIncluded] = useState("");
-  const [fieldNote, setFieldNote] = useState("Filterdruck geprüft, Wasserwerte dokumentiert.");
-  const [workMinutes, setWorkMinutes] = useState(75);
-  const [materialCost, setMaterialCost] = useState(260);
-  const [mediaCounts, setMediaCounts] = useState({ photos: 2, videos: 0, voice: 1 });
-  const [dataState, setDataState] = useState<DataState>(() =>
-    getSupabaseBrowserClient() ? "loading" : "demo",
+  const [newJob, setNewJob] = useState<NewJobFormState>({
+    title: "",
+    type: "Hauskontrolle",
+    priority: "normal" as JobRecord["priority"],
+    dueDate: "2026-08-05",
+    assignedTo: "Johan Berg",
+    description: "",
+    internalNotes: "",
+  });
+
+  const t = labels[language];
+  const selectedObject = objects.find((object) => object.id === selectedObjectId) ?? objects[0];
+  const objectJobs = jobs.filter((job) => job.objectId === selectedObject.id);
+  const objectReports = reports.filter((report) => report.objectId === selectedObject.id);
+  const objectMessages = messages.filter((message) => message.objectId === selectedObject.id);
+  const objectBilling = billing.filter((item) => item.objectId === selectedObject.id);
+  const filteredObjects = objects.filter((object) =>
+    [object.name, object.owner, object.address, object.region, object.carePackage]
+      .join(" ")
+      .toLowerCase()
+      .includes(query.toLowerCase()),
   );
-  const t = translations[language];
-  const serviceLabels = translatedList(t, "servicesList");
-  const demoJobs = demoJobSeeds.map((job) => ({
-    id: job.id,
-    object: job.object,
-    owner: job.owner,
-    progress: job.progress,
-    title: translatedList(t, "jobTitles")[job.titleKey] ?? job.object,
-    status: translatedList(t, "jobStatuses")[job.statusKey] ?? "",
-    service: serviceLabels[job.serviceKey] ?? "",
-  }));
-  const demoObjects: AppObject[] = demoObjectSeeds.map((object) => ({
-    name: object.name,
-    owner: object.owner,
-    location: object.location,
-    status: translatedList(t, "objectStatuses")[object.statusKey] ?? "",
-    lastVisit: translatedList(t, "lastVisits")[object.lastVisitKey] ?? "",
-  }));
-  const jobs: AppJob[] = [
-    ...localJobs,
-    ...(liveData?.jobs.length ? liveData.jobs : demoJobs),
-  ].map((job, index): AppJob => ({
-    priority: index === 0 ? "hoch" : "normal",
-    dueDate: index === 0 ? "2026-07-31" : index === 1 ? "2026-08-02" : "2026-08-05",
-    assignedTo: index === 1 ? "Anna Lind" : "Johan Berg",
-    description: `${job.service} für ${job.object}`,
-    internalNotes: "Interne Kalkulation und Hinweise sind nur für Verwaltung sichtbar.",
-    billingStatus: (index === 2 ? "nicht abrechenbar" : "abrechenbar") satisfies AppJob["billingStatus"],
-    workMinutes: index === 0 ? 95 : 70,
-    materialCost: index === 0 ? 260 : 0,
-    mediaCount: index === 0 ? 4 : 2,
-    visitState: (index === 0 ? "gestartet" : "geplant") satisfies AppJob["visitState"],
-    ...job,
-    ...jobOverrides[job.id],
-  }));
-  const objects: AppObject[] = [
-    ...localObjects,
-    ...(liveData?.objects.length ? liveData.objects : demoObjects),
+  const dashboardStats = [
+    { label: "aktive Objekte", value: objects.length },
+    { label: "offene Einsätze", value: jobs.filter((job) => job.status !== "erledigt" && job.status !== "abgerechnet").length },
+    { label: "Berichte", value: reports.length },
+    { label: "abrechenbar", value: billing.filter((item) => item.status === "abrechenbar").length },
   ];
-  const customers = [...localCustomers, ...customerRecords];
-  const catalogItems = [...localServices, ...serviceCatalogItems];
-  const reports = [...localReports, ...reportRecords];
-  const billingPositions = [...localBillableItems, ...billableItems];
-  const services = liveData?.services.length
-    ? liveData.services
-    : catalogItems.map((item) => item.name);
-  const activeServiceFilter =
-    selectedService && services.includes(selectedService) ? selectedService : null;
-  const filteredJobs = activeServiceFilter
-    ? jobs.filter((job) => job.service === activeServiceFilter)
-    : jobs;
-  const scheduleJobs =
-    scheduleFilter === "Alle"
-      ? jobs
-      : jobs.filter((job) =>
-          [job.status, job.object, job.owner, job.assignedTo, job.service, job.dueDate]
-            .filter(Boolean)
-            .some((value) => String(value).toLowerCase().includes(scheduleFilter.toLowerCase())),
-        );
-  const approvalJobs = jobs.filter((job) =>
-    ["approval", "freigabe", "godkännande"].some((status) =>
-      job.status.toLowerCase().includes(status),
-    ),
-  );
-  const activeJob = jobs.find((job) => job.id === activeJobId) ?? jobs[0];
-  const activeObject =
-    objects.find((object) => object.name === selectedObjectName) ??
-    objects.find((object) => object.name === activeJob.object) ??
-    objects[0];
-  const activeObjectJobs = jobs.filter((job) => job.object === activeObject.name);
-  const activeObjectReports = reports.filter((report) => report.object === activeObject.name);
-  const activeObjectMessages = messageRecords.filter((message) => message.object === activeObject.name);
-  const activeObjectBillingItems = billingPositions.filter((item) => item.object === activeObject.name);
-  const completedItems = useMemo(
-    () => checklistState.filter(Boolean).length,
-    [checklistState],
-  );
-  const stats = [objects.length, jobs.length, approvalJobs.length];
-  const scheduleStats = [
-    jobs.length,
-    jobs.filter((job) => job.dueDate === "2026-07-31" || job.status.includes("Arbeit")).length,
-    jobs.filter((job) => job.dueDate && job.dueDate < "2026-07-31" && job.progress < 100).length,
-  ];
-  const moduleCards = [
-    {
-      target: "masterData",
-      title: String(t.masterDataOverview),
-      text: `${objects.length + customers.length + catalogItems.length} ${String(t.records)}`,
-      hint: String(t.objectsHint),
-      icon: Database,
-    },
-    {
-      target: "objects",
-      title: String(t.objectOverview),
-      text: `${objects.length} ${String(t.properties)}`,
-      hint: String(t.objectsHint),
-      icon: Home,
-    },
-    {
-      target: "customers",
-      title: String(t.customerOverview),
-      text: `${customers.length} ${String(t.records)}`,
-      hint: String(t.customersHint),
-      icon: Users,
-    },
-    {
-      target: "services",
-      title: String(t.serviceOverview),
-      text: `${catalogItems.length} ${String(t.records)}`,
-      hint: String(t.servicesHint),
-      icon: BookOpen,
-    },
-    {
-      target: "jobs",
-      title: String(t.jobOverview),
-      text: `${jobs.length} ${String(t.records)}`,
-      hint: String(t.jobsHint),
-      icon: ClipboardCheck,
-    },
-    {
-      target: "schedule",
-      title: String(t.scheduleOverview),
-      text: String(t.nextAppointment),
-      hint: String(t.scheduleHint),
-      icon: CalendarDays,
-    },
-    {
-      target: "reports",
-      title: String(t.reportOverview),
-      text: `${reports.length} ${String(t.records)}`,
-      hint: String(t.reportsHint),
-      icon: BookOpen,
-    },
-    {
-      target: "communication",
-      title: String(t.communicationOverview),
-      text: `${messageRecords.length} ${String(t.records)}`,
-      hint: String(t.communicationHint),
-      icon: MessageSquare,
-    },
-    {
-      target: "billing",
-      title: String(t.billingOverview),
-      text: `${invoiceRecords.length} ${String(t.records)}`,
-      hint: String(t.billingHint),
-      icon: ReceiptText,
-    },
-  ] satisfies Array<{
-    target: NavTarget;
-    title: string;
-    text: string;
-    hint: string;
-    icon: typeof Home;
-  }>;
-  const featureSpotlights = [
-    {
-      title: "Service Voice",
-      text: "Anrufe, Rückfragen und Eigentümerwünsche als Aufgabe mit Objektbezug erfassen.",
-      target: "communication",
-      icon: MessageSquare,
-    },
-    {
-      title: "Service Wallet",
-      text: "Abrechenbare Einsätze, Material und offene Posten in einem Zahlungs- und Rechnungsfluss bündeln.",
-      target: "billing",
-      icon: ReceiptText,
-    },
-    {
-      title: "Service Copilot",
-      text: "Termine, Freigaben, Kundenmails und mobile Einsatzberichte als Automationskette vorbereiten.",
-      target: "schedule",
-      icon: Sparkles,
-    },
-  ] satisfies Array<{
-    title: string;
-    text: string;
-    target: NavTarget;
-    icon: typeof Home;
-  }>;
-  const featureGroups = [
-    {
-      label: "Dein Büro",
-      items: ["Auftragsanlage", "Kundenverwaltung", "Dokumente", "Abrechnung"],
-      target: "jobs",
-    },
-    {
-      label: "Vor Ort arbeiten",
-      items: ["Mobile App", "Checklisten", "Fotos & Voice", "Zeiterfassung"],
-      target: "schedule",
-    },
-    {
-      label: "Dein Team",
-      items: ["Einsatzplanung", "Zuweisung", "Status", "Freigaben"],
-      target: "schedule",
-    },
-    {
-      label: "Objekte & Kunden",
-      items: ["Objektakten", "Eigentümerportal", "Kommunikation", "Berichte"],
-      target: "objects",
-    },
-    {
-      label: "Finanzen",
-      items: ["Positionen", "Rechnungen", "Pauschalen", "Exportvorbereitung"],
-      target: "billing",
-    },
-  ] satisfies Array<{
-    label: string;
-    items: string[];
-    target: NavTarget;
-  }>;
-  const dataLabel =
-    dataState === "live"
-      ? String(t.sourceLive)
-      : dataState === "loading"
-        ? String(t.sourceLoading)
-        : dataState === "error"
-          ? String(t.sourceError)
-          : String(t.sourceDemo);
-  const navTargets = (
-    Array.isArray(t.navTargets)
-      ? t.navTargets
-      : [
-          "overview",
-          "masterData",
-          "objects",
-          "customers",
-          "services",
-          "jobs",
-          "schedule",
-          "reports",
-          "communication",
-          "billing",
-          "approvals",
-        ]
-  ) as NavTarget[];
-  const currentVersion = versionHistory[0];
 
-  function showNotice(message: string) {
-    setNotice(message);
-    window.setTimeout(() => setNotice(""), 2500);
-  }
-
-  function changeView(nextView: View) {
-    setView(nextView);
-    if (nextView === "team") {
-      setSection("overview");
-    }
-    setIsSidebarOpen(false);
-  }
-
-  function handleNav(target: NavTarget) {
-    setView("team");
-    setSection(target);
-    setModalMode(null);
-    setIsSidebarOpen(false);
-  }
-
-  function openNewJob() {
-    setNewJobTitle("");
-    setNewJobObject(objects[0]?.name ?? "");
-    setNewJobService(services[0] ?? "");
-    setNewJobPriority("normal");
-    setNewJobDueDate("2026-08-02");
-    setNewJobAssignee("Johan Berg");
-    setNewJobDescription("");
-    setNewJobInternalNotes("");
-    setModalMode("job");
-  }
-
-  function openNewObject() {
-    setNewObjectName("");
-    setNewObjectOwner("");
-    setNewObjectLocation("");
-    setNewObjectAddress("");
-    setNewObjectSize("95");
-    setNewObjectRooms("4");
-    setNewObjectBeds("6");
-    setNewObjectCarePackage("Basis");
-    setNewObjectAccess("");
-    setNewObjectEquipment("");
-    setNewObjectRiskNotes("");
-    setModalMode("object");
-  }
-
-  function openNewCustomer() {
-    setNewCustomerName("");
-    setNewCustomerContact("");
-    setNewCustomerEmail("");
-    setModalMode("customer");
-  }
-
-  function openNewService() {
-    setNewServiceName("");
-    setNewServiceType("Zusatzleistung");
-    setNewServiceCategory("Kontrolle");
-    setNewServicePrice("");
-    setNewServiceUnit("Stunde");
-    setNewServiceInterval("nach Bedarf");
-    setNewServiceSla("");
-    setNewServiceIncluded("");
-    setModalMode("service");
-  }
-
-  function createLocalCustomer() {
-    const customerName = newCustomerName.trim() || String(t.newCustomer);
-    const createdCustomer: CustomerRecord = {
-      name: customerName,
-      contact: newCustomerContact.trim() || customerName,
-      email: newCustomerEmail.trim() || "kunde@example.com",
-      phone: "-",
-      language: "DE",
-      objects: [],
-      balance: "0 SEK",
-      nextStep: "Objekt zuordnen",
-      role: "Kunde/Eigentümer",
-    };
-
-    setLocalCustomers((currentCustomers) => [createdCustomer, ...currentCustomers]);
-    setModalMode(null);
-    setSection("customers");
-    showNotice(String(t.newCustomerAdded));
-  }
-
-  function createLocalService() {
-    const createdService: ServiceCatalogItem = {
-      name: newServiceName.trim() || String(t.newService),
-      type: newServiceType,
-      category: newServiceCategory.trim() || "Service",
-      interval: newServiceInterval.trim() || "nach Bedarf",
-      price: newServicePrice.trim() || "0 SEK",
-      unit: newServiceUnit.trim() || "Stunde",
-      sla: newServiceSla.trim() || "nach Vereinbarung",
-      included: newServiceIncluded
-        .split(",")
-        .map((item) => item.trim())
-        .filter(Boolean),
-    };
-
-    setLocalServices((currentServices) => [createdService, ...currentServices]);
-    setNewJobService(createdService.name);
-    setSelectedService(null);
-    setModalMode(null);
-    setSection("services");
-    showNotice(String(t.newServiceAdded));
-  }
-
-  function createLocalObject() {
-    const createdObject: AppObject = {
-      name: newObjectName.trim() || String(t.newObject),
-      owner: newObjectOwner.trim() || "Kolaretorp Service AB",
-      location: newObjectLocation.trim() || "Småland",
-      address: newObjectAddress.trim() || newObjectLocation.trim() || "Småland",
-      sizeSqm: Number(newObjectSize) || 0,
-      rooms: Number(newObjectRooms) || 0,
-      beds: Number(newObjectBeds) || 0,
-      bathrooms: 1,
-      carePackage: newObjectCarePackage,
-      accessNotes: newObjectAccess.trim() || "Zugang muss noch gepflegt werden.",
-      keySafe: "noch offen",
-      equipment: newObjectEquipment
-        .split(",")
-        .map((item) => item.trim())
-        .filter(Boolean),
-      riskNotes: newObjectRiskNotes.trim() || "Keine besonderen Hinweise erfasst.",
-      imageCount: 0,
-      documentCount: 0,
-      status: translatedList(t, "objectStatuses")[1] ?? String(t.status),
+  function createObject() {
+    const id = `OBJ-${1000 + objects.length + 1}`;
+    const created: ObjectRecord = {
+      id,
+      name: newObject.name.trim() || "Neues Ferienhaus",
+      owner: newObject.owner.trim() || "Neuer Eigentümer",
+      ownerEmail: "kunde@example.com",
+      ownerPhone: "-",
+      address: newObject.address.trim() || "Adresse offen",
+      region: newObject.region,
+      sizeSqm: Number(newObject.sizeSqm) || 0,
+      plotSqm: Number(newObject.plotSqm) || 0,
+      rooms: Number(newObject.rooms) || 0,
+      beds: Number(newObject.beds) || 0,
+      bathrooms: Number(newObject.bathrooms) || 0,
+      buildYear: 1990,
+      carePackage: newObject.carePackage,
+      status: "Kontrolle offen",
+      access: {
+        keySafe: newObject.keySafe.trim() || "noch zu pflegen",
+        alarm: "noch zu pflegen",
+        parking: "noch zu pflegen",
+        notes: "Zugang und Besonderheiten ergänzen.",
+      },
+      equipment: newObject.equipment.split(",").map((item) => item.trim()).filter(Boolean),
+      utilities: {
+        heating: "noch zu pflegen",
+        water: "noch zu pflegen",
+        septic: "noch zu pflegen",
+        internet: "noch zu pflegen",
+      },
+      risks: newObject.risks.split(",").map((item) => item.trim()).filter(Boolean),
+      media: { images: 0, documents: 0, floorPlans: 0 },
+      nextVisit: "noch planen",
       lastVisit: "-",
     };
 
-    setLocalObjects((currentObjects) => [createdObject, ...currentObjects]);
-    setSelectedObjectName(createdObject.name);
-    setNewJobObject(createdObject.name);
+    setObjects((current) => [created, ...current]);
+    setSelectedObjectId(id);
     setSection("objects");
-    setModalMode(null);
-    showNotice(String(t.newObjectAdded));
+    setModal(null);
   }
 
-  function createLocalJob() {
-    const title = newJobTitle.trim() || String(t.newJob);
-    const object = objects.find((item) => item.name === newJobObject) ?? objects[0];
-    const service = newJobService || services[0] || String(t.services);
-    const nextSequence = localSequence + 1;
-    const createdJob: AppJob = {
-      id: `KS-${nextSequence}`,
-      title,
-      object: object?.name ?? newJobObject,
-      owner: object?.owner ?? "Kolaretorp Service AB",
-      status: translatedList(t, "jobStatuses")[1] ?? String(t.status),
-      service,
-      progress: 12,
-      priority: newJobPriority,
-      dueDate: newJobDueDate,
-      assignedTo: newJobAssignee,
-      description: newJobDescription.trim() || `${service} für ${object?.name ?? newJobObject}`,
-      internalNotes: newJobInternalNotes.trim() || String(t.internalOnly),
-      billingStatus: "abrechenbar",
+  function createJob() {
+    const created: JobRecord = {
+      id: `JOB-${2410 + jobs.length}`,
+      title: newJob.title.trim() || "Neuer Auftrag",
+      objectId: selectedObject.id,
+      customerId: customers.find((customer) => customer.name === selectedObject.owner)?.id ?? "CUS-1",
+      type: newJob.type,
+      status: "geplant",
+      priority: newJob.priority,
+      dueDate: newJob.dueDate,
+      assignedTo: newJob.assignedTo,
+      description: newJob.description.trim() || "Beschreibung ergänzen.",
+      internalNotes: newJob.internalNotes.trim() || "Keine internen Notizen.",
+      checklist: ["Zugang prüfen", "Fotos erfassen", "Arbeit dokumentieren", "Bericht vorbereiten"],
+      billable: true,
+      material: "-",
       workMinutes: 0,
-      materialCost: 0,
-      mediaCount: 0,
-      visitState: "geplant",
     };
 
-    setLocalSequence(nextSequence);
-    setLocalJobs((currentJobs) => [createdJob, ...currentJobs]);
-    setActiveJobId(createdJob.id);
-    setSelectedObjectName(createdJob.object);
-    setSelectedService(null);
-    setModalMode(null);
-    setView("team");
+    setJobs((current) => [created, ...current]);
     setSection("jobs");
-    showNotice(String(t.newJobAdded));
+    setModal(null);
   }
 
-  function selectJob(job: AppJob) {
-    setActiveJobId(job.id);
-    setSelectedObjectName(job.object);
-    showNotice(`${String(t.selectedJob)}: ${job.title}`);
-  }
-
-  function selectService(service: string) {
-    setSelectedService((currentService) =>
-      currentService === service ? null : service,
+  function startJob(job: JobRecord) {
+    setJobs((current) =>
+      current.map((item) => (item.id === job.id ? { ...item, status: "in Arbeit" } : item)),
     );
-    showNotice(`${String(t.serviceFiltered)}: ${service}`);
+    setSection("field");
   }
 
-  function openCustomer(customer: CustomerRecord) {
-    setSelectedObjectName(customer.objects[0] ?? selectedObjectName);
-    setView("owner");
-    showNotice(`${String(t.portalOpened)}: ${customer.name}`);
-  }
-
-  function prepareMessage(message: MessageRecord) {
-    setSelectedObjectName(message.object);
-    setSection("communication");
-    showNotice(`${String(t.messagePrepared)}: ${message.subject}`);
-  }
-
-  function prepareInvoice(invoice: InvoiceRecord) {
-    setSelectedObjectName(invoice.object);
-    setSection("billing");
-    showNotice(`${String(t.invoicePrepared)}: ${invoice.number}`);
-  }
-
-  function selectCatalogItem(item: ServiceCatalogItem) {
-    const translatedService =
-      services.find((service) => service.toLowerCase() === item.name.toLowerCase()) ??
-      item.name;
-    selectService(translatedService);
-    setSection("jobs");
-    showNotice(`${String(t.catalogSelected)}: ${item.name}`);
-  }
-
-  function sendApproval() {
-    setJobOverrides((currentOverrides) => ({
-      ...currentOverrides,
-      [activeJob.id]: {
-        status: translatedList(t, "jobStatuses")[2] ?? String(t.status),
-        progress: Math.max(activeJob.progress, 92),
-      },
-    }));
-    setChecklistState((items) => items.map(() => true));
-    showNotice(String(t.approvalSent));
-  }
-
-  function approveJob(job: AppJob) {
-    setJobOverrides((currentOverrides) => ({
-      ...currentOverrides,
-      [job.id]: {
-        status: translatedStatus(t, "approved"),
-        progress: 100,
-      },
-    }));
-    setActiveJobId(job.id);
-    showNotice(`${String(t.approveJob)}: ${job.title}`);
-  }
-
-  function startVisit(job: AppJob) {
-    setJobOverrides((currentOverrides) => ({
-      ...currentOverrides,
-      [job.id]: {
-        status: translatedStatus(t, "in_progress"),
-        progress: Math.max(job.progress, 35),
-        visitState: "gestartet",
-      },
-    }));
-    selectJob(job);
-    changeView("mobile");
-    showNotice(String(t.jobStarted));
-  }
-
-  function pauseVisit(job: AppJob) {
-    setJobOverrides((currentOverrides) => ({
-      ...currentOverrides,
-      [job.id]: {
-        visitState: "pausiert",
-        progress: Math.max(job.progress, 45),
-      },
-    }));
-    showNotice(String(t.jobPaused));
-  }
-
-  function completeVisit(job: AppJob) {
-    const nextSequence = localSequence + 1;
-    const reportId = `BR-${nextSequence}`;
-    const createdReport: ReportRecord = {
-      id: reportId,
-      jobId: job.id,
-      object: job.object,
-      customer: job.owner,
-      title: job.title,
-      date: "31.07.2026",
-      assignee: job.assignedTo ?? "Johan Berg",
-      workTime: `${Math.floor(workMinutes / 60)}:${String(workMinutes % 60).padStart(2, "0")} h`,
-      checklist: `${checklistState.filter(Boolean).length}/${checklistState.length} erledigt`,
-      customerSummary: fieldNote,
-      internalSummary: `${job.internalNotes ?? String(t.internalOnly)} Material: ${materialCost} SEK.`,
-      media: [`${mediaCounts.photos} Fotos`, `${mediaCounts.videos} Videos`, `${mediaCounts.voice} Voicememos`],
-      visibility: "Kundenansicht",
-    };
-    const createdBillableItem: BillableItem = {
-      id: `AP-${nextSequence}`,
-      source: job.id,
-      customer: job.owner,
-      object: job.object,
-      description: `${job.service}: ${job.title}`,
-      amount: `${Math.max(0, Math.round((workMinutes / 60) * 690 + materialCost))} SEK`,
-      status: job.billingStatus === "nicht abrechenbar" ? "nicht abrechenbar" : "abrechenbar",
-      visibility: job.billingStatus === "nicht abrechenbar" ? "intern" : "kundensichtbar",
-    };
-
-    setLocalSequence(nextSequence);
-    setLocalReports((currentReports) => [createdReport, ...currentReports]);
-    setLocalBillableItems((currentItems) => [createdBillableItem, ...currentItems]);
-    setJobOverrides((currentOverrides) => ({
-      ...currentOverrides,
-      [job.id]: {
-        status: translatedStatus(t, "completed"),
-        progress: 100,
-        visitState: "abgeschlossen",
-        workMinutes,
-        materialCost,
-        mediaCount: mediaCounts.photos + mediaCounts.videos + mediaCounts.voice,
-      },
-    }));
-    setActiveJobId(job.id);
+  function completeJob(job: JobRecord) {
+    setJobs((current) =>
+      current.map((item) => (item.id === job.id ? { ...item, status: "erledigt", workMinutes: 90 } : item)),
+    );
     setSection("reports");
-    setView("team");
-    showNotice(String(t.jobCompleted));
   }
-
-  function createCustomerRequest() {
-    setNewJobTitle("Kundenauftrag: Sonderauftrag");
-    setNewJobObject(activeObject.name);
-    setNewJobService(services[0] ?? String(t.services));
-    setNewJobPriority("normal");
-    setNewJobDueDate("2026-08-06");
-    setNewJobDescription("Vom Eigentümer im Portal angefragter Auftrag.");
-    setNewJobInternalNotes("Eingang über Kundenportal, intern prüfen.");
-    setModalMode("job");
-    showNotice(String(t.customerRequestCreated));
-  }
-
-  function addManualBillableItem() {
-    const nextSequence = localSequence + 1;
-    const createdItem: BillableItem = {
-      id: `AP-${nextSequence}`,
-      source: activeJob.id,
-      customer: activeJob.owner,
-      object: activeJob.object,
-      description: `Manuelle Zusatzleistung: ${activeJob.service}`,
-      amount: "690 SEK",
-      status: "abrechenbar",
-      visibility: "kundensichtbar",
-    };
-
-    setLocalSequence(nextSequence);
-    setLocalBillableItems((currentItems) => [createdItem, ...currentItems]);
-    showNotice(String(t.billableItemAdded));
-  }
-
-  function toggleTheme() {
-    setTheme((currentTheme) => {
-      const nextTheme = currentTheme === "dark" ? "light" : "dark";
-      window.localStorage.setItem("kolaretorp-theme", nextTheme);
-      return nextTheme;
-    });
-  }
-
-  useEffect(() => {
-    const readyTimer = window.setTimeout(() => setIsAppReady(true), 0);
-    return () => window.clearTimeout(readyTimer);
-  }, []);
-
-  useEffect(() => {
-    let isMounted = true;
-    const client = getSupabaseBrowserClient();
-
-    if (!client) {
-      return;
-    }
-
-    const supabase = client;
-
-    async function loadData() {
-      const [propertiesResult, jobsResult, servicesResult] = await Promise.all([
-        supabase
-          .from("properties")
-          .select("id,name,address,region,size_sqm,rooms,beds,bathrooms,care_package,key_safe,equipment,risk_notes,image_urls,document_urls,access_notes,profiles(full_name)")
-          .order("created_at", { ascending: false })
-          .limit(20),
-        supabase
-          .from("jobs")
-          .select(
-            "id,title,status,property_id,category_id,properties(name,profiles(full_name)),service_categories(name)",
-          )
-          .order("updated_at", { ascending: false })
-          .limit(20),
-        supabase
-          .from("service_categories")
-          .select("name")
-          .order("name", { ascending: true })
-          .limit(8),
-      ]);
-
-      if (!isMounted) {
-        return;
-      }
-
-      if (propertiesResult.error || jobsResult.error || servicesResult.error) {
-        setDataState("error");
-        return;
-      }
-
-      const mappedObjects = ((propertiesResult.data ?? []) as Record<string, unknown>[]).map((property) => ({
-        name: String(property.name ?? "Objekt"),
-        owner: nestedName(property.profiles, "Eigentümer"),
-        location: String(property.region ?? property.address ?? "Småland"),
-        address: String(property.address ?? "Småland"),
-        sizeSqm: Number(property.size_sqm ?? 0),
-        rooms: Number(property.rooms ?? 0),
-        beds: Number(property.beds ?? 0),
-        bathrooms: Number(property.bathrooms ?? 0),
-        carePackage: String(property.care_package ?? "Basis"),
-        accessNotes: String(property.access_notes ?? "-"),
-        keySafe: String(property.key_safe ?? "-"),
-        equipment: Array.isArray(property.equipment) ? property.equipment.map(String) : [],
-        riskNotes: String(property.risk_notes ?? "-"),
-        imageCount: Array.isArray(property.image_urls) ? property.image_urls.length : 0,
-        documentCount: Array.isArray(property.document_urls) ? property.document_urls.length : 0,
-        status: translatedStatus(t, "in_progress"),
-        lastVisit: "-",
-      }));
-
-      const mappedJobs = ((jobsResult.data ?? []) as Record<string, unknown>[]).map((job, index) => ({
-        id: `KS-${String(index + 1).padStart(4, "0")}`,
-        title: String(job.title ?? "Auftrag"),
-        object: nestedName(job.properties, "Objekt"),
-        owner: isRecord(job.properties)
-          ? nestedName(job.properties.profiles, "Eigentümer")
-          : "Eigentümer",
-        status: translatedStatus(t, String(job.status ?? "planned")),
-        service: nestedName(job.service_categories, "Service"),
-        progress: getStatusProgress(String(job.status ?? "planned")),
-      }));
-
-      const mappedServices = ((servicesResult.data ?? []) as Record<string, unknown>[])
-        .map((service) => service.name)
-        .filter((service): service is string => typeof service === "string");
-
-      if (mappedObjects.length || mappedJobs.length || mappedServices.length) {
-        setLiveData({
-          jobs: mappedJobs,
-          objects: mappedObjects,
-          services: mappedServices,
-        });
-        setDataState("live");
-      } else {
-        setDataState("demo");
-      }
-    }
-
-    loadData().catch(() => {
-      if (isMounted) {
-        setDataState("error");
-      }
-    });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [t]);
 
   return (
-    <main className="min-h-screen" data-ready={isAppReady} data-theme={theme}>
-      <section className="app-shell">
-        <aside className={`sidebar ${isSidebarOpen ? "open" : ""}`}>
-          <div className="brand-block">
-            <Image
-              src="/kolaretorp-logo-white.png"
-              width={320}
-              height={134}
-              alt="Kolaretorp Service AB"
-              priority
-            />
-            <span>{String(t.tagline)}</span>
+    <main className="app" data-ready="true" data-theme={theme}>
+      <aside className="sidebar">
+        <div className="brand">
+          <Home size={28} />
+          <div>
+            <strong>Kolaretorp</strong>
+            <span>Service AB</span>
           </div>
+        </div>
+        <nav aria-label="Hauptnavigation">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <button
+                className={section === item.id ? "active" : ""}
+                data-testid={`nav-${item.id}`}
+                key={item.id}
+                onClick={() => setSection(item.id)}
+                type="button"
+              >
+                <Icon size={17} />
+                {item.label}
+              </button>
+            );
+          })}
+        </nav>
+        <button className="version" onClick={() => setModal("version")} type="button">
+          <span>Version</span>
+          <strong>v{appVersion.version}</strong>
+        </button>
+      </aside>
 
-          <nav className="nav-list" aria-label={String(t.navLabel)}>
-            {navIcons.map(
-              (Icon, index) => (
-                <button
-                  className={view === "team" && navTargets[index] === section ? "active" : ""}
-                  data-testid={`nav-${navTargets[index] ?? "overview"}`}
-                  key={String(t.nav[index])}
-                  onClick={() => handleNav(navTargets[index] ?? "overview")}
-                  type="button"
-                >
-                  <Icon size={18} /> {String(t.nav[index])}
-                </button>
-              ),
+      <section className="workspace">
+        <header className="topbar">
+          <div>
+            <p>Kolaretorp Service AB</p>
+            <h1>{t.appTitle}</h1>
+            <span>{t.subtitle}</span>
+          </div>
+          <div className="toolbar">
+            <label className="search">
+              <Search size={16} />
+              <input
+                aria-label={t.search}
+                placeholder={`${t.search}...`}
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+              />
+            </label>
+            <label className="select-field">
+              <Languages size={16} />
+              <select
+                aria-label={t.language}
+                value={language}
+                onChange={(event) => setLanguage(event.target.value as Language)}
+              >
+                <option value="de">DE</option>
+                <option value="sv">SV</option>
+                <option value="en">EN</option>
+              </select>
+            </label>
+            <button className="ghost-button" onClick={() => setTheme(theme === "dark" ? "light" : "dark")} type="button">
+              {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+              {theme === "dark" ? t.light : t.dark}
+            </button>
+            <button className="primary-button" onClick={() => setModal("job")} type="button">
+              <Plus size={16} />
+              {t.newJob}
+            </button>
+          </div>
+        </header>
+
+        <div className="quickbar">
+          {dashboardStats.map((item) => (
+            <article key={item.label}>
+              <strong>{item.value}</strong>
+              <span>{item.label}</span>
+            </article>
+          ))}
+        </div>
+
+        <section className="layout">
+          <div className="main-panel">
+            {section === "dashboard" && (
+              <Dashboard
+                jobs={jobs}
+                objects={objects}
+                reports={reports}
+                setSection={setSection}
+              />
             )}
-          </nav>
-
-          <div className="sidebar-card">
-            <p>{String(t.contact)}</p>
-            <strong>Kolaretorp 106, 38293 Nybro</strong>
-            <span>info@kolaretorp.se</span>
-            <span>076 - 1018186</span>
+            {section === "objects" && (
+              <ObjectsView
+                objects={filteredObjects}
+                selectedObjectId={selectedObject.id}
+                onCreate={() => setModal("object")}
+                onSelect={(id) => setSelectedObjectId(id)}
+              />
+            )}
+            {section === "customers" && <CustomersView customers={customers} objects={objects} />}
+            {section === "jobs" && (
+              <JobsView jobs={jobs} objects={objects} onCreate={() => setModal("job")} onStart={startJob} />
+            )}
+            {section === "planning" && <PlanningView jobs={jobs} objects={objects} onStart={startJob} />}
+            {section === "field" && <FieldView jobs={jobs} selectedObject={selectedObject} onComplete={completeJob} />}
+            {section === "reports" && <ReportsView reports={reports} objects={objects} />}
+            {section === "communication" && <CommunicationView messages={messages} objects={objects} customers={customers} />}
+            {section === "billing" && <BillingView billing={billing} objects={objects} />}
+            {section === "masterData" && <MasterDataView services={serviceCatalog} />}
           </div>
+
+          <ObjectFile
+            billing={objectBilling}
+            jobs={objectJobs}
+            messages={objectMessages}
+            object={selectedObject}
+            reports={objectReports}
+          />
+        </section>
+      </section>
+
+      {modal && (
+        <div className="modal-backdrop">
+          <section className="modal" role="dialog" aria-modal="true">
+            <header>
+              <div>
+                <p>{modal === "object" ? "Objektstammdaten" : modal === "job" ? "Auftrag" : "Änderungsverlauf"}</p>
+                <h2>{modal === "object" ? t.newObject : modal === "job" ? t.newJob : `v${appVersion.version}`}</h2>
+              </div>
+              <button aria-label={t.close} onClick={() => setModal(null)} type="button">
+                <X size={18} />
+              </button>
+            </header>
+            {modal === "object" && (
+              <ObjectForm
+                newObject={newObject}
+                setNewObject={setNewObject}
+                onSubmit={createObject}
+                submitLabel={t.createObject}
+              />
+            )}
+            {modal === "job" && (
+              <JobForm
+                newJob={newJob}
+                objects={objects}
+                selectedObject={selectedObject}
+                setNewJob={setNewJob}
+                setSelectedObjectId={setSelectedObjectId}
+                onSubmit={createJob}
+                submitLabel={t.createJob}
+              />
+            )}
+            {modal === "version" && (
+              <div className="version-list">
+                {versionHistory.slice(0, 5).map((entry) => (
+                  <article key={entry.version}>
+                    <strong>v{entry.version}</strong>
+                    <span>{entry.date}</span>
+                    <ul>
+                      {entry.changes.map((change) => (
+                        <li key={change}>{change}</li>
+                      ))}
+                    </ul>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+        </div>
+      )}
+    </main>
+  );
+}
+
+function Dashboard({
+  jobs,
+  objects,
+  reports,
+  setSection,
+}: {
+  jobs: JobRecord[];
+  objects: ObjectRecord[];
+  reports: ReportRecord[];
+  setSection: (section: Section) => void;
+}) {
+  const workBlocks = [
+    { label: "Heute steuern", value: jobs.filter((job) => job.status === "in Arbeit").length, text: "laufende Einsätze", section: "planning" as Section },
+    { label: "Objekte pflegen", value: objects.length, text: "vollständige Objektakten", section: "objects" as Section },
+    { label: "Berichte freigeben", value: reports.length, text: "Dokumentationen", section: "reports" as Section },
+  ];
+
+  return (
+    <div className="stack">
+      <section className="workboard">
+        {workBlocks.map((block) => (
+          <button key={block.label} onClick={() => setSection(block.section)} type="button">
+            <span>{block.label}</span>
+            <strong>{block.value}</strong>
+            <small>{block.text}</small>
+          </button>
+        ))}
+      </section>
+      <section className="panel">
+        <div className="panel-title">
+          <div>
+            <p>Arbeitsliste</p>
+            <h2>Nächste Einsätze</h2>
+          </div>
+        </div>
+        <div className="table-list">
+          {jobs.map((job) => (
+            <article key={job.id}>
+              <div>
+                <strong>{job.title}</strong>
+                <span>{job.type} · {job.assignedTo}</span>
+              </div>
+              <span>{job.dueDate}</span>
+              <Badge value={job.status} />
+            </article>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function ObjectsView({
+  objects,
+  selectedObjectId,
+  onCreate,
+  onSelect,
+}: {
+  objects: ObjectRecord[];
+  selectedObjectId: string;
+  onCreate: () => void;
+  onSelect: (id: string) => void;
+}) {
+  return (
+    <section className="panel">
+      <div className="panel-title">
+        <div>
+          <p>Stammdaten</p>
+          <h2>Objektübersicht</h2>
+        </div>
+        <button className="primary-button" onClick={onCreate} type="button">
+          <Plus size={16} />
+          Neues Objekt
+        </button>
+      </div>
+      <div className="object-list">
+        {objects.map((object) => (
           <button
-            className="version-card"
-            onClick={() => setModalMode("version")}
+            className={selectedObjectId === object.id ? "selected" : ""}
+            key={object.id}
+            onClick={() => onSelect(object.id)}
             type="button"
           >
-            <span>{String(t.versionLabel)}</span>
-            <strong>v{appVersion.version}</strong>
-            <small>{appVersion.releaseDate}</small>
-          </button>
-        </aside>
-
-        <div className="workspace">
-          <header className="topbar">
-            <button
-              className="icon-button"
-              aria-label={String(isSidebarOpen ? t.menuClose : t.menuOpen)}
-              onClick={() => setIsSidebarOpen((open) => !open)}
-              type="button"
-            >
-              <Menu size={20} />
-            </button>
             <div>
-              <p className="eyebrow">{String(t.product)}</p>
-              <h1>{String(t.headline)}</h1>
+              <strong>{object.name}</strong>
+              <span>{object.owner}</span>
             </div>
-            <div className="topbar-actions">
-              <span className={`data-source ${dataState}`}>{dataLabel}</span>
-              <button
-                className="theme-toggle"
-                aria-label={String(theme === "dark" ? t.lightMode : t.darkMode)}
-                onClick={toggleTheme}
-                type="button"
-              >
-                {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
-                <span>{String(theme === "dark" ? t.lightMode : t.darkMode)}</span>
-              </button>
-              <label className="language-switch">
-                <Languages size={17} />
-                <span className="sr-only">Language</span>
-                <select
-                  aria-label="Language"
-                  value={language}
-                  onChange={(event) => setLanguage(event.target.value as Language)}
-                >
-                  {(Object.keys(languageLabels) as Language[]).map((lang) => (
-                    <option key={lang} value={lang}>
-                      {languageLabels[lang]}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <button className="primary-action" onClick={openNewJob} type="button">
-                <Plus size={18} /> {String(t.newJob)}
-              </button>
+            <span>{object.region}</span>
+            <span>{object.sizeSqm} m² · {object.rooms} Zi. · {object.beds} Betten</span>
+            <span>{object.carePackage}</span>
+            <Badge value={object.status} />
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function CustomersView({ customers, objects }: { customers: CustomerRecord[]; objects: ObjectRecord[] }) {
+  return (
+    <section className="panel">
+      <div className="panel-title">
+        <div>
+          <p>Eigentümer</p>
+          <h2>Kundenübersicht</h2>
+        </div>
+      </div>
+      <div className="table-list">
+        {customers.map((customer) => (
+          <article key={customer.id}>
+            <div>
+              <strong>{customer.name}</strong>
+              <span>{customer.contact} · {customer.language}</span>
             </div>
-          </header>
+            <span>{objects.filter((object) => customer.objects.includes(object.id)).map((object) => object.name).join(", ")}</span>
+            <span>{customer.balance}</span>
+            <Badge value={customer.portalStatus} />
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
 
-          {notice && <div className="notice">{notice}</div>}
+function JobsView({
+  jobs,
+  objects,
+  onCreate,
+  onStart,
+}: {
+  jobs: JobRecord[];
+  objects: ObjectRecord[];
+  onCreate: () => void;
+  onStart: (job: JobRecord) => void;
+}) {
+  return (
+    <section className="panel">
+      <div className="panel-title">
+        <div>
+          <p>Auftragsabwicklung</p>
+          <h2>Auftragsübersicht</h2>
+        </div>
+        <button className="primary-button" onClick={onCreate} type="button">
+          <Plus size={16} />
+          Neuer Auftrag
+        </button>
+      </div>
+      <div className="table-list">
+        {jobs.map((job) => (
+          <article key={job.id}>
+            <div>
+              <strong>{job.title}</strong>
+              <span>{objects.find((object) => object.id === job.objectId)?.name} · {job.description}</span>
+            </div>
+            <span>{job.priority}</span>
+            <span>{job.dueDate}</span>
+            <Badge value={job.status} />
+            <button className="row-action" onClick={() => onStart(job)} type="button">Starten</button>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
 
-          <div className="view-switch" role="tablist" aria-label={String(t.viewLabel)}>
-            {(["team", "owner", "mobile"] as View[]).map((item) => (
-              <button
-                className={view === item ? "selected" : ""}
-                key={item}
-                onClick={() => changeView(item)}
-                type="button"
-              >
-                {String(t.views[item])}
+function PlanningView({ jobs, objects, onStart }: { jobs: JobRecord[]; objects: ObjectRecord[]; onStart: (job: JobRecord) => void }) {
+  return (
+    <section className="panel">
+      <div className="panel-title">
+        <div>
+          <p>Disposition</p>
+          <h2>Einsatzplanung</h2>
+        </div>
+      </div>
+      <div className="planning-grid">
+        {["geplant", "in Arbeit", "erledigt", "abgerechnet"].map((status) => (
+          <div key={status}>
+            <h3>{status}</h3>
+            {jobs.filter((job) => job.status === status).map((job) => (
+              <button key={job.id} onClick={() => onStart(job)} type="button">
+                <strong>{job.title}</strong>
+                <span>{objects.find((object) => object.id === job.objectId)?.name}</span>
+                <small>{job.assignedTo} · {job.dueDate}</small>
               </button>
             ))}
           </div>
+        ))}
+      </div>
+    </section>
+  );
+}
 
-          <section className="hero-panel">
+function FieldView({ jobs, selectedObject, onComplete }: { jobs: JobRecord[]; selectedObject: ObjectRecord; onComplete: (job: JobRecord) => void }) {
+  const active = jobs.find((job) => job.status === "in Arbeit") ?? jobs[0];
+  return (
+    <section className="field-shell">
+      <div className="phone-card">
+        <p>Mobil vor Ort</p>
+        <h2>{active.title}</h2>
+        <span>{selectedObject.name}</span>
+        <div className="checklist">
+          {active.checklist.map((item, index) => (
+            <label key={item}>
+              <input type="checkbox" defaultChecked={index < 2} />
+              <span>{item}</span>
+            </label>
+          ))}
+        </div>
+        <textarea defaultValue="Notiz: Zugang geprüft, Fotos ergänzt." aria-label="Einsatznotiz" />
+        <button className="primary-button" onClick={() => onComplete(active)} type="button">
+          Einsatz abschließen
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function ReportsView({ reports, objects }: { reports: ReportRecord[]; objects: ObjectRecord[] }) {
+  return (
+    <section className="panel">
+      <div className="panel-title">
+        <div>
+          <p>Dokumentation</p>
+          <h2>Berichtsübersicht</h2>
+        </div>
+      </div>
+      <div className="table-list">
+        {reports.map((report) => (
+          <article key={report.id}>
             <div>
-              <p className="eyebrow">{String(t.heroKicker)}</p>
-              <h2>{activeJob.title}</h2>
-              <p>
-                {activeJob.object} {String(t.heroText)}
-              </p>
-              <div className="hero-actions">
-                <button
-                  className="primary-action"
-                  onClick={() => {
-                    setModalMode("report");
-                    changeView("owner");
-                  }}
-                  type="button"
-                >
-                  {String(t.openReport)} <ChevronRight size={18} />
-                </button>
-                <button
-                  className="secondary-action"
-                  onClick={() => {
-                    setModalMode("property");
-                    changeView("owner");
-                  }}
-                  type="button"
-                >
-                  {String(t.propertyFile)}
-                </button>
-              </div>
+              <strong>{report.title}</strong>
+              <span>{report.summary}</span>
             </div>
-            <div className="hero-stats" aria-label={String(t.dayStats)}>
-              {stats.map((value, index) => (
-                <div key={String(t.stats[index])}>
-                  <strong>{value}</strong>
-                  <span>{String(t.stats[index])}</span>
-                </div>
-              ))}
+            <span>{objects.find((object) => object.id === report.objectId)?.name}</span>
+            <span>{report.media.join(", ")}</span>
+            <Badge value={report.visibleToCustomer ? "Kunde sichtbar" : "intern"} />
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function CommunicationView({ messages, objects, customers }: { messages: MessageRecord[]; objects: ObjectRecord[]; customers: CustomerRecord[] }) {
+  return (
+    <section className="panel">
+      <div className="panel-title">
+        <div>
+          <p>Kundenkontakt</p>
+          <h2>Kommunikation</h2>
+        </div>
+      </div>
+      <div className="table-list">
+        {messages.map((message) => (
+          <article key={message.id}>
+            <div>
+              <strong>{message.subject}</strong>
+              <span>{customers.find((customer) => customer.id === message.customerId)?.name}</span>
             </div>
-          </section>
+            <span>{objects.find((object) => object.id === message.objectId)?.name}</span>
+            <span>{message.channel}</span>
+            <Badge value={message.status} />
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
 
-          {view === "team" && section === "overview" && (
-            <>
-              <section className="panel">
-                <div className="panel-heading">
-                  <div>
-                    <p className="eyebrow">{String(t.dashboardJump)}</p>
-                    <h3>Dashboard</h3>
-                  </div>
-                </div>
-                <div className="feature-system">
-                  <div className="feature-system-heading">
-                    <p className="eyebrow">Funktionszentrale</p>
-                    <h3>Betriebssystem für Ferienhausverwaltung</h3>
-                    <span>
-                      Büro, Außendienst, Objektakte, Kundenportal und Abrechnung arbeiten in einem Prozess zusammen.
-                    </span>
-                  </div>
-                  <div className="feature-spotlight">
-                    {featureSpotlights.map((feature) => {
-                      const Icon = feature.icon;
-
-                      return (
-                        <button key={feature.title} onClick={() => handleNav(feature.target)} type="button">
-                          <Icon size={20} />
-                          <strong>{feature.title}</strong>
-                          <span>{feature.text}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <div className="feature-group-grid">
-                    {featureGroups.map((group) => (
-                      <button key={group.label} onClick={() => handleNav(group.target)} type="button">
-                        <strong>{group.label}</strong>
-                        <span>{group.items.join(" · ")}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="module-grid">
-                  {moduleCards.map((card) => {
-                    const Icon = card.icon;
-
-                    return (
-                      <button
-                        key={card.target}
-                        onClick={() => handleNav(card.target)}
-                        type="button"
-                      >
-                        <span className="module-icon">
-                          <Icon size={20} />
-                        </span>
-                        <strong>{card.title}</strong>
-                        <small>{card.text}</small>
-                        <p>{card.hint}</p>
-                      </button>
-                    );
-                  })}
-                </div>
-              </section>
-
-              <section className="content-grid">
-              <div className="panel wide">
-                <div className="panel-heading">
-                  <div>
-                    <p className="eyebrow">{String(t.operations)}</p>
-                    <h3>{String(t.jobsAndStatus)}</h3>
-                  </div>
-                  <button
-                    className="icon-button"
-                    aria-label={String(t.addJob)}
-                    onClick={openNewJob}
-                    type="button"
-                  >
-                    <Plus size={18} />
-                  </button>
-                </div>
-                <div className="job-list">
-                  {filteredJobs.map((job) => (
-                    <button
-                      className={`job-row ${activeJob.id === job.id ? "selected" : ""}`}
-                      key={job.id}
-                      onClick={() => selectJob(job)}
-                      type="button"
-                    >
-                      <div className="job-icon">
-                        <ClipboardCheck size={19} />
-                      </div>
-                      <div>
-                        <strong>{job.title}</strong>
-                        <span>
-                          {job.object} · {job.owner}
-                        </span>
-                        <small>
-                          {String(t.priorityLabel)}: {job.priority} · {String(t.assigneeLabel)}: {job.assignedTo}
-                        </small>
-                      </div>
-                      <p>{job.service}</p>
-                      <div className="progress">
-                        <span style={{ width: `${job.progress}%` }} />
-                      </div>
-                      <mark>{job.status}</mark>
-                    </button>
-                  ))}
-                  {!filteredJobs.length && (
-                    <p className="empty-state">{String(t.noFilteredJobs)}</p>
-                  )}
-                </div>
-              </div>
-
-              <div className="panel">
-                <div className="panel-heading">
-                  <div>
-                    <p className="eyebrow">{String(t.services)}</p>
-                    <h3>{String(t.catalog)}</h3>
-                  </div>
-                </div>
-                <div className="service-grid">
-                  <button
-                    className={!activeServiceFilter ? "selected" : ""}
-                    onClick={() => {
-                      setSelectedService(null);
-                      showNotice(String(t.filterAll));
-                    }}
-                    type="button"
-                  >
-                    <ClipboardCheck size={20} />
-                    <span>{String(t.filterAll)}</span>
-                  </button>
-                  {services.slice(0, serviceIcons.length).map((service, index) => {
-                    const Icon = serviceIcons[index] ?? ClipboardCheck;
-
-                    return (
-                    <button
-                      className={activeServiceFilter === service ? "selected" : ""}
-                      key={service}
-                      onClick={() => selectService(service)}
-                      type="button"
-                    >
-                      <Icon size={20} />
-                      <span>{service}</span>
-                    </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="panel wide">
-                <div className="panel-heading">
-                  <div>
-                    <p className="eyebrow">{String(t.masterData)}</p>
-                    <h3>{String(t.properties)}</h3>
-                  </div>
-                </div>
-                <div className="object-table">
-                  {objects.map((object) => (
-                    <button
-                      className={activeObject.name === object.name ? "selected" : ""}
-                      key={object.name}
-                      onClick={() => {
-                        setNewJobObject(object.name);
-                        setSelectedObjectName(object.name);
-                        showNotice(`${String(t.selectedProperty)}: ${object.name}`);
-                      }}
-                      type="button"
-                    >
-                      <div>
-                        <strong>{object.name}</strong>
-                        <span>{object.owner}</span>
-                        <small>
-                          {object.sizeSqm ?? "-"} m² · {object.rooms ?? "-"} {String(t.roomsLabel)} · {object.beds ?? "-"} {String(t.bedsLabel)}
-                        </small>
-                      </div>
-                      <span>
-                        <MapPin size={15} /> {object.location}
-                      </span>
-                      <mark>{object.status}</mark>
-                      <small>{object.lastVisit}</small>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </section>
-            </>
-          )}
-
-          {view === "team" && section === "masterData" && (
-            <section className="content-grid">
-              <div className="panel wide">
-                <div className="panel-heading">
-                  <div>
-                    <p className="eyebrow">{String(t.masterData)}</p>
-                    <h3>{String(t.masterDataOverview)}</h3>
-                  </div>
-                </div>
-                <div className="master-grid">
-                  {moduleCards.slice(1, 4).map((card) => {
-                    const Icon = card.icon;
-
-                    return (
-                      <button key={card.target} onClick={() => handleNav(card.target)} type="button">
-                        <Icon size={21} />
-                        <strong>{card.title}</strong>
-                        <span>{card.hint}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-              <div className="panel">
-                <div className="panel-heading">
-                  <div>
-                    <p className="eyebrow">{String(t.records)}</p>
-                    <h3>{String(t.nextStepLabel)}</h3>
-                  </div>
-                </div>
-                <div className="quick-actions">
-                  <button className="secondary-action" onClick={openNewObject} type="button">
-                    <Plus size={18} /> {String(t.newObject)}
-                  </button>
-                  <button className="secondary-action" onClick={openNewCustomer} type="button">
-                    <Users size={18} /> {String(t.newCustomer)}
-                  </button>
-                  <button className="secondary-action" onClick={() => handleNav("customers")} type="button">
-                    <Users size={18} /> {String(t.openCustomers)}
-                  </button>
-                  <button className="secondary-action" onClick={() => handleNav("services")} type="button">
-                    <BookOpen size={18} /> {String(t.openServices)}
-                  </button>
-                  <button className="secondary-action" onClick={openNewService} type="button">
-                    <Plus size={18} /> {String(t.newService)}
-                  </button>
-                </div>
-              </div>
-            </section>
-          )}
-
-          {view === "team" && section === "customers" && (
-            <section className="panel">
-              <div className="panel-heading">
-                <div>
-                  <p className="eyebrow">{String(t.masterData)}</p>
-                  <h3>{String(t.customerOverview)}</h3>
-                </div>
-              </div>
-              <div className="data-table customer-table">
-                {customers.map((customer) => (
-                  <article key={customer.email}>
-                    <div>
-                      <span>{String(t.customerLabel)}</span>
-                      <strong>{customer.name}</strong>
-                      <small>{customer.contact}</small>
-                    </div>
-                    <div>
-                      <span>{String(t.emailLabel)}</span>
-                      <strong>{customer.email}</strong>
-                      <small>{customer.phone}</small>
-                    </div>
-                    <div>
-                      <span>{String(t.properties)}</span>
-                      <strong>{customer.objects.join(", ")}</strong>
-                      <small>
-                        {String(t.languageLabel)}: {customer.language}
-                      </small>
-                    </div>
-                    <div>
-                      <span>{String(t.balanceLabel)}</span>
-                      <strong>{customer.balance}</strong>
-                      <small>{customer.nextStep}</small>
-                    </div>
-                    <button className="secondary-action" onClick={() => openCustomer(customer)} type="button">
-                      {String(t.openPortal)}
-                    </button>
-                  </article>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {view === "team" && section === "services" && (
-            <section className="panel">
-              <div className="panel-heading">
-                <div>
-                  <p className="eyebrow">{String(t.catalog)}</p>
-                  <h3>{String(t.serviceCatalog)}</h3>
-                </div>
-                <button className="primary-action" onClick={openNewService} type="button">
-                  <Plus size={18} /> {String(t.newService)}
-                </button>
-              </div>
-              <div className="catalog-grid">
-                {catalogItems.map((item) => (
-                  <button key={item.name} onClick={() => selectCatalogItem(item)} type="button">
-                    <small>{item.type}</small>
-                    <strong>{item.name}</strong>
-                    <span>
-                      {String(t.categoryLabel)}: {item.category}
-                    </span>
-                    <small>
-                      {item.interval} · {item.price} / {item.unit}
-                    </small>
-                    {typeof item.checksPerYear === "number" && (
-                      <small>
-                        {String(t.checksPerYearLabel)}: {item.checksPerYear}
-                      </small>
-                    )}
-                    <ul>
-                      {item.included.slice(0, 4).map((included) => (
-                        <li key={included}>{included}</li>
-                      ))}
-                    </ul>
-                    <mark>{item.sla}</mark>
-                  </button>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {view === "team" && section === "jobs" && (
-            <section className="panel">
-              <div className="panel-heading">
-                <div>
-                  <p className="eyebrow">{String(t.operations)}</p>
-                  <h3>{String(t.jobOverview)}</h3>
-                </div>
-                <button className="primary-action" onClick={openNewJob} type="button">
-                  <Plus size={18} /> {String(t.newJob)}
-                </button>
-              </div>
-              <div className="job-list">
-                {filteredJobs.map((job) => (
-                  <button
-                    className={`job-row ${activeJob.id === job.id ? "selected" : ""}`}
-                    key={job.id}
-                    onClick={() => selectJob(job)}
-                    type="button"
-                  >
-                    <div className="job-icon">
-                      <ClipboardCheck size={19} />
-                    </div>
-                      <div>
-                        <strong>{job.title}</strong>
-                        <span>
-                          {job.object} · {job.owner}
-                        </span>
-                        <small>
-                          {String(t.dueLabel)}: {job.dueDate} · {String(t.assigneeLabel)}: {job.assignedTo}
-                        </small>
-                      </div>
-                      <p>{job.service}</p>
-                    <div className="progress">
-                      <span style={{ width: `${job.progress}%` }} />
-                    </div>
-                    <mark>{job.status}</mark>
-                  </button>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {view === "team" && section === "objects" && (
-            <section className="panel">
-              <div className="panel-heading">
-                <div>
-                  <p className="eyebrow">{String(t.masterData)}</p>
-                  <h3>{String(t.objectOverview)}</h3>
-                </div>
-                <button className="primary-action" onClick={openNewObject} type="button">
-                  <Plus size={18} /> {String(t.newObject)}
-                </button>
-              </div>
-              <div className="object-table management-table">
-                {objects.map((object) => (
-                  <button
-                    className={activeObject.name === object.name ? "selected" : ""}
-                    key={object.name}
-                    onClick={() => {
-                      setSelectedObjectName(object.name);
-                      setNewJobObject(object.name);
-                      setModalMode("property");
-                    }}
-                    type="button"
-                  >
-                    <div>
-                      <strong>{object.name}</strong>
-                      <span>{object.owner}</span>
-                      <small>
-                        {object.carePackage ?? "-"} · {object.sizeSqm ?? "-"} m² · {object.imageCount ?? 0} {String(t.objectMediaLabel)}
-                      </small>
-                    </div>
-                    <span>
-                      <MapPin size={15} /> {object.location}
-                    </span>
-                    <mark>{object.status}</mark>
-                    <small>{object.lastVisit}</small>
-                  </button>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {view === "team" && section === "schedule" && (
-            <section className="panel">
-              <div className="panel-heading">
-                <div>
-                  <p className="eyebrow">{String(t.operations)}</p>
-                  <h3>{String(t.scheduleOverview)}</h3>
-                </div>
-              </div>
-              <div className="metric-grid">
-                {["offen", "heute", "überfällig"].map((label, index) => (
-                  <div key={label}>
-                    <strong>{scheduleStats[index]}</strong>
-                    <span>{label}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="filter-row" aria-label="Einsatzfilter">
-                {["Alle", "Johan", "Anna", "Poolpflege", "Gartenpflege", "Geplant", "In Arbeit"].map((filter) => (
-                  <button
-                    className={scheduleFilter === filter ? "selected" : ""}
-                    key={filter}
-                    onClick={() => setScheduleFilter(filter)}
-                    type="button"
-                  >
-                    {filter}
-                  </button>
-                ))}
-              </div>
-              <div className="action-list">
-                {scheduleJobs.map((job) => (
-                  <article key={job.id}>
-                    <div>
-                      <strong>{job.title}</strong>
-                      <span>
-                        {job.object} · {job.service} · {job.assignedTo}
-                      </span>
-                      <small>
-                        {String(t.dueLabel)}: {job.dueDate} · {String(t.statusLabel)}: {job.status}
-                      </small>
-                    </div>
-                    <button className="secondary-action" onClick={() => startVisit(job)} type="button">
-                      {String(t.startVisit)}
-                    </button>
-                  </article>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {view === "team" && section === "reports" && (
-            <section className="panel">
-              <div className="panel-heading">
-                <div>
-                  <p className="eyebrow">{String(t.visibleToCustomer)} / {String(t.internalOnly)}</p>
-                  <h3>{String(t.reportOverview)}</h3>
-                </div>
-                <button className="secondary-action" onClick={() => setModalMode("report")} type="button">
-                  {String(t.openReport)}
-                </button>
-              </div>
-              <div className="data-table report-table">
-                {reports.map((report) => (
-                  <article key={report.id}>
-                    <div>
-                      <span>{report.id}</span>
-                      <strong>{report.title}</strong>
-                      <small>{report.object} · {report.customer}</small>
-                    </div>
-                    <div>
-                      <span>{String(t.assigneeLabel)}</span>
-                      <strong>{report.assignee}</strong>
-                      <small>{report.date} · {report.workTime}</small>
-                    </div>
-                    <div>
-                      <span>{String(t.mediaLabel)}</span>
-                      <strong>{report.media.join(", ")}</strong>
-                      <small>{report.checklist}</small>
-                    </div>
-                    <div>
-                      <span>{String(t.visibleToCustomer)}</span>
-                      <strong>{report.customerSummary}</strong>
-                      <small>{String(t.internalOnly)}: {report.internalSummary}</small>
-                    </div>
-                    <button
-                      className="secondary-action"
-                      onClick={() => {
-                        setActiveJobId(report.jobId);
-                        setSelectedObjectName(report.object);
-                        setModalMode("report");
-                      }}
-                      type="button"
-                    >
-                      PDF vorbereiten
-                    </button>
-                  </article>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {view === "team" && section === "communication" && (
-            <section className="panel">
-              <div className="panel-heading">
-                <div>
-                  <p className="eyebrow">{String(t.autoMail)}</p>
-                  <h3>{String(t.communicationOverview)}</h3>
-                </div>
-              </div>
-              <div className="data-table communication-table">
-                {messageRecords.map((message) => (
-                  <article key={`${message.customer}-${message.subject}`}>
-                    <div>
-                      <span>{String(t.customerLabel)}</span>
-                      <strong>{message.customer}</strong>
-                      <small>{message.object}</small>
-                    </div>
-                    <div>
-                      <span>{String(t.channelLabel)}</span>
-                      <strong>{message.channel}</strong>
-                      <small>{message.status}</small>
-                    </div>
-                    <div>
-                      <span>{String(t.subjectLabel)}</span>
-                      <strong>{message.subject}</strong>
-                      <small>
-                        {String(t.dueLabel)}: {message.due}
-                      </small>
-                    </div>
-                    <button className="secondary-action" onClick={() => prepareMessage(message)} type="button">
-                      {String(t.openDetails)}
-                    </button>
-                  </article>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {view === "team" && section === "billing" && (
-            <section className="panel">
-              <div className="panel-heading">
-                <div>
-                  <p className="eyebrow">{String(t.billingHint)}</p>
-                  <h3>{String(t.billingOverview)}</h3>
-                </div>
-                <button className="primary-action" onClick={addManualBillableItem} type="button">
-                  <Plus size={18} /> {String(t.addBillableItem)}
-                </button>
-              </div>
-              <div className="data-table billing-table">
-                {billingPositions.map((item) => (
-                  <article key={item.id}>
-                    <div>
-                      <span>{item.id}</span>
-                      <strong>{item.description}</strong>
-                      <small>{item.source}</small>
-                    </div>
-                    <div>
-                      <span>{String(t.customerLabel)}</span>
-                      <strong>{item.customer}</strong>
-                      <small>{item.object}</small>
-                    </div>
-                    <div>
-                      <span>{String(t.amountLabel)}</span>
-                      <strong>{item.amount}</strong>
-                      <small>{item.visibility === "intern" ? String(t.internalOnly) : String(t.visibleToCustomer)}</small>
-                    </div>
-                    <mark>{item.status}</mark>
-                  </article>
-                ))}
-              </div>
-              <div className="section-divider" />
-              <div className="data-table billing-table">
-                {invoiceRecords.map((invoice) => (
-                  <article key={invoice.number}>
-                    <div>
-                      <span>{String(t.invoiceLabel)}</span>
-                      <strong>{invoice.number}</strong>
-                      <small>{invoice.object}</small>
-                    </div>
-                    <div>
-                      <span>{String(t.customerLabel)}</span>
-                      <strong>{invoice.customer}</strong>
-                      <small>
-                        {String(t.dueLabel)}: {invoice.due}
-                      </small>
-                    </div>
-                    <div>
-                      <span>{String(t.amountLabel)}</span>
-                      <strong>{invoice.amount}</strong>
-                      <small>{invoice.status}</small>
-                    </div>
-                    <button className="secondary-action" onClick={() => prepareInvoice(invoice)} type="button">
-                      {String(t.openDetails)}
-                    </button>
-                  </article>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {view === "team" && section === "approvals" && (
-            <section className="panel">
-              <div className="panel-heading">
-                <div>
-                  <p className="eyebrow">{String(t.autoMail)}</p>
-                  <h3>{String(t.approvalOverview)}</h3>
-                </div>
-              </div>
-              <div className="action-list">
-                {approvalJobs.map((job) => (
-                  <article key={job.id}>
-                    <div>
-                      <strong>{job.title}</strong>
-                      <span>
-                        {job.object} · {job.owner}
-                      </span>
-                    </div>
-                    <button className="primary-action" onClick={() => approveJob(job)} type="button">
-                      {String(t.approveJob)}
-                    </button>
-                  </article>
-                ))}
-                {!approvalJobs.length && (
-                  <p className="empty-state">{String(t.noApprovals)}</p>
-                )}
-              </div>
-            </section>
-          )}
-
-          {view === "owner" && (
-            <section className="owner-view">
-              <div className="panel wide">
-                <div className="panel-heading">
-                  <div>
-                    <p className="eyebrow">{String(t.ownerAccess)}</p>
-                    <h3>{activeObject.name}</h3>
-                  </div>
-                  <mark className="soft">{String(t.ownerView)}</mark>
-                </div>
-                <div className="role-strip">
-                  {appUsers.map((user) => (
-                    <span key={user.name}>
-                      <strong>{user.role}</strong> {user.scope}
-                    </span>
-                  ))}
-                </div>
-                <div className="owner-summary">
-                  <div>
-                    <span>{String(t.status)}</span>
-                    <strong>{activeObject.status || String(t.seasonActive)}</strong>
-                  </div>
-                  <div>
-                    <span>{String(t.nextAppointment)}</span>
-                    <strong>{String(t.gardenCareDate)}</strong>
-                  </div>
-                  <div>
-                    <span>{String(t.lastReport)}</span>
-                    <strong>{activeJob.title || String(t.poolToday)}</strong>
-                  </div>
-                </div>
-                <button className="primary-action" onClick={createCustomerRequest} type="button">
-                  <Plus size={18} /> {String(t.newJob)}
-                </button>
-              </div>
-
-              <div className="panel">
-                <div className="panel-heading">
-                  <div>
-                    <p className="eyebrow">{String(t.orderHistory)}</p>
-                    <h3>{String(t.transparency)}</h3>
-                  </div>
-                </div>
-                <ol className="timeline">
-                  {translatedList(t, "timeline").map((step, index) => (
-                    <li key={String(step)} className={index < 3 ? "done" : ""}>
-                      <span />
-                      {String(step)}
-                    </li>
-                  ))}
-                </ol>
-              </div>
-
-              <div className="panel wide">
-                <div className="mail-preview">
-                  <div className="mail-icon">
-                    <MailCheck size={26} />
-                  </div>
-                  <div>
-                    <p className="eyebrow">{String(t.autoMail)}</p>
-                    <h3>{activeJob.title}</h3>
-                    <p>{String(t.mailText)}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="panel wide">
-                <div className="panel-heading">
-                  <div>
-                    <p className="eyebrow">{String(t.visibleToCustomer)}</p>
-                    <h3>{String(t.reportOverview)}</h3>
-                  </div>
-                </div>
-                <div className="data-table report-table">
-                  {reports
-                    .filter((report) => report.object === activeObject.name || report.customer === activeObject.owner)
-                    .map((report) => (
-                      <article key={report.id}>
-                        <div>
-                          <span>{report.date}</span>
-                          <strong>{report.title}</strong>
-                          <small>{report.customerSummary}</small>
-                        </div>
-                        <div>
-                          <span>{String(t.mediaLabel)}</span>
-                          <strong>{report.media.join(", ")}</strong>
-                          <small>{report.checklist}</small>
-                        </div>
-                        <mark>{String(t.internalOnly)} verborgen</mark>
-                      </article>
-                    ))}
-                </div>
-              </div>
-            </section>
-          )}
-
-          {view === "mobile" && (
-            <section className="mobile-work">
-              <div className="phone-frame">
-                <div className="phone-top">
-                  <Image
-                    src="/kolaretorp-logo.png"
-                    width={134}
-                    height={46}
-                    alt="Kolaretorp"
-                  />
-                  <span>{String(t.onSite)}</span>
-                </div>
-                <div className="field-card">
-                  <p className="eyebrow">{String(t.currentVisit)}</p>
-                  <h3>{activeJob.title}</h3>
-                  <span>{activeJob.object}</span>
-                  <small>{String(t.statusLabel)}: {activeJob.visitState}</small>
-                </div>
-                <div className="checklist">
-                  <div className="check-count">
-                    <strong>
-                      {completedItems}/{checklistDone.length}
-                    </strong>
-                    <span>{String(t.checksDone)}</span>
-                  </div>
-                  {translatedList(t, "checklist").map((item, index) => (
-                    <label key={String(item)}>
-                      <input
-                        type="checkbox"
-                        checked={checklistState[index]}
-                        onChange={() =>
-                          setChecklistState((items) =>
-                            items.map((isDone, itemIndex) =>
-                              itemIndex === index ? !isDone : isDone,
-                            ),
-                          )
-                        }
-                      />
-                      <span>{String(item)}</span>
-                    </label>
-                  ))}
-                </div>
-                <div className="mobile-entry">
-                  <label>
-                    <span>{String(t.internalNotesLabel)}</span>
-                    <textarea value={fieldNote} onChange={(event) => setFieldNote(event.target.value)} />
-                  </label>
-                  <div className="compact-inputs">
-                    <label>
-                      <span>{String(t.workTimeLabel)}</span>
-                      <input
-                        type="number"
-                        value={workMinutes}
-                        onChange={(event) => setWorkMinutes(Number(event.target.value))}
-                      />
-                    </label>
-                    <label>
-                      <span>{String(t.materialsLabel)}</span>
-                      <input
-                        type="number"
-                        value={materialCost}
-                        onChange={(event) => setMaterialCost(Number(event.target.value))}
-                      />
-                    </label>
-                  </div>
-                  <div className="media-counters" aria-label={String(t.mediaLabel)}>
-                    {(["photos", "videos", "voice"] as const).map((key) => (
-                      <button
-                        key={key}
-                        onClick={() => setMediaCounts((counts) => ({ ...counts, [key]: counts[key] + 1 }))}
-                        type="button"
-                      >
-                        + {key === "photos" ? "Foto" : key === "videos" ? "Video" : "Voice"} ({mediaCounts[key]})
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="mobile-actions">
-                  <button className="secondary-action" onClick={() => startVisit(activeJob)} type="button">
-                    {String(t.startJob)}
-                  </button>
-                  <button className="secondary-action" onClick={() => pauseVisit(activeJob)} type="button">
-                    {String(t.pauseJob)}
-                  </button>
-                  <button className="primary-action" onClick={() => completeVisit(activeJob)} type="button">
-                    {String(t.completeJob)}
-                  </button>
-                </div>
-                <button className="primary-action full" onClick={sendApproval} type="button">
-                  {String(t.sendApproval)} <MailCheck size={18} />
-                </button>
-              </div>
-              <div className="panel field-notes">
-                <p className="eyebrow">{String(t.mobileFunctions)}</p>
-                <h3>{String(t.mobileTitle)}</h3>
-                <p>{String(t.mobileText)}</p>
-                <div className="note-grid">
-                  {[CheckCircle2, Sparkles, Trees].map((Icon, index) => (
-                    <span key={String(translatedList(t, "notes")[index])}>
-                      <Icon size={17} /> {String(translatedList(t, "notes")[index])}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </section>
-          )}
-
-          {modalMode && (
-            <div className="modal-backdrop" role="presentation">
-              <section className="modal-panel" role="dialog" aria-modal="true">
-                <div className="modal-heading">
-                  <div>
-                    <p className="eyebrow">
-                      {modalMode === "job"
-                        ? String(t.addJob)
-                        : modalMode === "object"
-                          ? String(t.newObject)
-                        : modalMode === "customer"
-                          ? String(t.newCustomer)
-                        : modalMode === "service"
-                          ? String(t.newService)
-                        : modalMode === "report"
-                          ? String(t.reportDetails)
-                          : modalMode === "property"
-                            ? String(t.propertyDetails)
-                            : String(t.versionHistory)}
-                    </p>
-                    <h3>
-                      {modalMode === "job"
-                        ? String(t.newJob)
-                        : modalMode === "object"
-                          ? String(t.createObject)
-                        : modalMode === "customer"
-                          ? String(t.createCustomer)
-                        : modalMode === "service"
-                          ? String(t.createService)
-                        : modalMode === "report"
-                          ? activeJob.title
-                          : modalMode === "property"
-                            ? activeObject.name
-                            : `${appVersion.label} v${appVersion.version}`}
-                    </h3>
-                  </div>
-                  <button
-                    className="icon-button"
-                    aria-label={String(t.close)}
-                    onClick={() => setModalMode(null)}
-                    type="button"
-                  >
-                    <X size={18} />
-                  </button>
-                </div>
-
-                {modalMode === "job" ? (
-                  <div className="job-form">
-                    <label>
-                      <span>{String(t.jobTitleLabel)}</span>
-                      <input
-                        value={newJobTitle}
-                        onChange={(event) => setNewJobTitle(event.target.value)}
-                        placeholder={activeJob.title}
-                      />
-                    </label>
-                    <label>
-                      <span>{String(t.propertyLabel)}</span>
-                      <select
-                        value={newJobObject}
-                        onChange={(event) => setNewJobObject(event.target.value)}
-                      >
-                        {objects.map((object) => (
-                          <option key={object.name} value={object.name}>
-                            {object.name}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label>
-                      <span>{String(t.serviceLabel)}</span>
-                      <select
-                        value={newJobService || services[0] || ""}
-                        onChange={(event) => setNewJobService(event.target.value)}
-                      >
-                        {services.map((service) => (
-                          <option key={service} value={service}>
-                            {service}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label>
-                      <span>{String(t.priorityLabel)}</span>
-                      <select value={newJobPriority} onChange={(event) => setNewJobPriority(event.target.value)}>
-                        <option value="niedrig">niedrig</option>
-                        <option value="normal">normal</option>
-                        <option value="hoch">hoch</option>
-                        <option value="dringend">dringend</option>
-                      </select>
-                    </label>
-                    <label>
-                      <span>{String(t.dueLabel)}</span>
-                      <input
-                        type="date"
-                        value={newJobDueDate}
-                        onChange={(event) => setNewJobDueDate(event.target.value)}
-                      />
-                    </label>
-                    <label>
-                      <span>{String(t.assigneeLabel)}</span>
-                      <select value={newJobAssignee} onChange={(event) => setNewJobAssignee(event.target.value)}>
-                        {appUsers
-                          .filter((user) => user.role !== "Kunde/Eigentümer")
-                          .map((user) => (
-                            <option key={user.name} value={user.name}>
-                              {user.name} · {user.role}
-                            </option>
-                          ))}
-                      </select>
-                    </label>
-                    <label>
-                      <span>{String(t.descriptionLabel)}</span>
-                      <textarea
-                        value={newJobDescription}
-                        onChange={(event) => setNewJobDescription(event.target.value)}
-                        placeholder="Was soll erledigt werden?"
-                      />
-                    </label>
-                    <label>
-                      <span>{String(t.internalNotesLabel)}</span>
-                      <textarea
-                        value={newJobInternalNotes}
-                        onChange={(event) => setNewJobInternalNotes(event.target.value)}
-                        placeholder="Nur intern sichtbar"
-                      />
-                    </label>
-                    <button className="primary-action full" onClick={createLocalJob} type="button">
-                      <Plus size={18} /> {String(t.createJob)}
-                    </button>
-                  </div>
-                ) : modalMode === "object" ? (
-                  <div className="job-form">
-                    <label>
-                      <span>{String(t.propertyLabel)}</span>
-                      <input
-                        value={newObjectName}
-                        onChange={(event) => setNewObjectName(event.target.value)}
-                        placeholder={activeObject.name}
-                      />
-                    </label>
-                    <label>
-                      <span>{String(t.ownerLabel)}</span>
-                      <input
-                        value={newObjectOwner}
-                        onChange={(event) => setNewObjectOwner(event.target.value)}
-                        placeholder={activeObject.owner}
-                      />
-                    </label>
-                    <label>
-                      <span>{String(t.locationLabel)}</span>
-                      <input
-                        value={newObjectLocation}
-                        onChange={(event) => setNewObjectLocation(event.target.value)}
-                        placeholder={activeObject.location}
-                      />
-                    </label>
-                    <label>
-                      <span>{String(t.addressLabel)}</span>
-                      <input
-                        value={newObjectAddress}
-                        onChange={(event) => setNewObjectAddress(event.target.value)}
-                        placeholder={activeObject.address ?? "Straße, PLZ Ort"}
-                      />
-                    </label>
-                    <label>
-                      <span>{String(t.sizeLabel)}</span>
-                      <input
-                        type="number"
-                        value={newObjectSize}
-                        onChange={(event) => setNewObjectSize(event.target.value)}
-                      />
-                    </label>
-                    <label>
-                      <span>{String(t.roomsLabel)}</span>
-                      <input
-                        type="number"
-                        value={newObjectRooms}
-                        onChange={(event) => setNewObjectRooms(event.target.value)}
-                      />
-                    </label>
-                    <label>
-                      <span>{String(t.bedsLabel)}</span>
-                      <input
-                        type="number"
-                        value={newObjectBeds}
-                        onChange={(event) => setNewObjectBeds(event.target.value)}
-                      />
-                    </label>
-                    <label>
-                      <span>{String(t.carePackageLabel)}</span>
-                      <select
-                        value={newObjectCarePackage}
-                        onChange={(event) => setNewObjectCarePackage(event.target.value)}
-                      >
-                        {catalogItems
-                          .filter((item) => item.type === "Betreuungspaket")
-                          .map((item) => (
-                            <option key={item.name} value={item.name}>
-                              {item.name}
-                            </option>
-                          ))}
-                      </select>
-                    </label>
-                    <label>
-                      <span>{String(t.accessLabel)}</span>
-                      <textarea
-                        value={newObjectAccess}
-                        onChange={(event) => setNewObjectAccess(event.target.value)}
-                        placeholder="Schlüsselsafe, Alarm, Zufahrt"
-                      />
-                    </label>
-                    <label>
-                      <span>{String(t.equipmentLabel)}</span>
-                      <textarea
-                        value={newObjectEquipment}
-                        onChange={(event) => setNewObjectEquipment(event.target.value)}
-                        placeholder="Pool, Kamin, Sauna, Glasfaser"
-                      />
-                    </label>
-                    <label>
-                      <span>{String(t.riskNotesLabel)}</span>
-                      <textarea
-                        value={newObjectRiskNotes}
-                        onChange={(event) => setNewObjectRiskNotes(event.target.value)}
-                        placeholder="Besondere Hinweise, Risiken, Wartung"
-                      />
-                    </label>
-                    <button className="primary-action full" onClick={createLocalObject} type="button">
-                      <Plus size={18} /> {String(t.createObject)}
-                    </button>
-                  </div>
-                ) : modalMode === "customer" ? (
-                  <div className="job-form">
-                    <label>
-                      <span>{String(t.customerLabel)}</span>
-                      <input
-                        value={newCustomerName}
-                        onChange={(event) => setNewCustomerName(event.target.value)}
-                        placeholder="Familie Beispiel"
-                      />
-                    </label>
-                    <label>
-                      <span>{String(t.ownerLabel)}</span>
-                      <input
-                        value={newCustomerContact}
-                        onChange={(event) => setNewCustomerContact(event.target.value)}
-                        placeholder="Ansprechpartner"
-                      />
-                    </label>
-                    <label>
-                      <span>{String(t.emailLabel)}</span>
-                      <input
-                        value={newCustomerEmail}
-                        onChange={(event) => setNewCustomerEmail(event.target.value)}
-                        placeholder="kunde@example.com"
-                      />
-                    </label>
-                    <button className="primary-action full" onClick={createLocalCustomer} type="button">
-                      <Plus size={18} /> {String(t.createCustomer)}
-                    </button>
-                  </div>
-                ) : modalMode === "service" ? (
-                  <div className="job-form">
-                    <label>
-                      <span>{String(t.serviceLabel)}</span>
-                      <input
-                        value={newServiceName}
-                        onChange={(event) => setNewServiceName(event.target.value)}
-                        placeholder="Fensterreinigung"
-                      />
-                    </label>
-                    <label>
-                      <span>{String(t.serviceTypeLabel)}</span>
-                      <select
-                        value={newServiceType}
-                        onChange={(event) => setNewServiceType(event.target.value as ServiceCatalogItem["type"])}
-                      >
-                        <option value="Betreuungspaket">Betreuungspaket</option>
-                        <option value="Zusatzleistung">Zusatzleistung</option>
-                      </select>
-                    </label>
-                    <label>
-                      <span>{String(t.categoryLabel)}</span>
-                      <input
-                        value={newServiceCategory}
-                        onChange={(event) => setNewServiceCategory(event.target.value)}
-                        placeholder="Innenbereich"
-                      />
-                    </label>
-                    <label>
-                      <span>{String(t.priceLabel)}</span>
-                      <input
-                        value={newServicePrice}
-                        onChange={(event) => setNewServicePrice(event.target.value)}
-                        placeholder="495 SEK"
-                      />
-                    </label>
-                    <label>
-                      <span>{String(t.unitLabel)}</span>
-                      <input
-                        value={newServiceUnit}
-                        onChange={(event) => setNewServiceUnit(event.target.value)}
-                        placeholder="Stunde"
-                      />
-                    </label>
-                    <label>
-                      <span>{String(t.intervalLabel)}</span>
-                      <input
-                        value={newServiceInterval}
-                        onChange={(event) => setNewServiceInterval(event.target.value)}
-                        placeholder="nach Bedarf"
-                      />
-                    </label>
-                    <label>
-                      <span>{String(t.slaLabel)}</span>
-                      <input
-                        value={newServiceSla}
-                        onChange={(event) => setNewServiceSla(event.target.value)}
-                        placeholder="nach Vereinbarung"
-                      />
-                    </label>
-                    <label>
-                      <span>{String(t.includedLabel)}</span>
-                      <textarea
-                        value={newServiceIncluded}
-                        onChange={(event) => setNewServiceIncluded(event.target.value)}
-                        placeholder="Leistung 1, Leistung 2, Leistung 3"
-                      />
-                    </label>
-                    <button className="primary-action full" onClick={createLocalService} type="button">
-                      <Plus size={18} /> {String(t.createService)}
-                    </button>
-                  </div>
-                ) : modalMode === "version" ? (
-                  <div className="version-history">
-                    <div className="version-current">
-                      <span>{String(t.latestChanges)}</span>
-                      <strong>
-                        v{currentVersion.version} · {currentVersion.date}
-                      </strong>
-                    </div>
-                    {versionHistory.map((entry) => (
-                      <article key={entry.version}>
-                        <h4>
-                          v{entry.version} <span>{entry.date}</span>
-                        </h4>
-                        <ul>
-                          {entry.changes.map((change) => (
-                            <li key={change}>{change}</li>
-                          ))}
-                        </ul>
-                      </article>
-                    ))}
-                  </div>
-                ) : modalMode === "property" ? (
-                  <div className="object-file">
-                    <div className="detail-list">
-                      <div>
-                        <span>{String(t.propertyLabel)}</span>
-                        <strong>{activeObject.name}</strong>
-                      </div>
-                      <div>
-                        <span>{String(t.ownerLabel)}</span>
-                        <strong>{activeObject.owner}</strong>
-                      </div>
-                      <div>
-                        <span>{String(t.addressLabel)}</span>
-                        <strong>{activeObject.address ?? activeObject.location}</strong>
-                      </div>
-                      <div>
-                        <span>{String(t.statusLabel)}</span>
-                        <strong>{activeObject.status}</strong>
-                      </div>
-                    </div>
-                    <div className="object-file-grid">
-                      <article>
-                        <span>{String(t.technicalDataLabel)}</span>
-                        <strong>
-                          {activeObject.sizeSqm ?? "-"} m² · {activeObject.rooms ?? "-"} {String(t.roomsLabel)} · {activeObject.beds ?? "-"} {String(t.bedsLabel)}
-                        </strong>
-                        <small>{String(t.carePackageLabel)}: {activeObject.carePackage ?? "-"}</small>
-                      </article>
-                      <article>
-                        <span>{String(t.accessLabel)}</span>
-                        <strong>{activeObject.keySafe ?? "-"}</strong>
-                        <small>{activeObject.accessNotes ?? "-"}</small>
-                      </article>
-                      <article>
-                        <span>{String(t.objectMediaLabel)}</span>
-                        <strong>{activeObject.imageCount ?? 0} Bilder · {activeObject.documentCount ?? 0} Dokumente</strong>
-                        <small>Vorher-/Nachher-Fotos und Objektunterlagen</small>
-                      </article>
-                      <article>
-                        <span>{String(t.riskNotesLabel)}</span>
-                        <strong>{activeObject.riskNotes ?? "-"}</strong>
-                        <small>{String(t.internalOnly)}</small>
-                      </article>
-                    </div>
-                    <div className="object-tags">
-                      {(activeObject.equipment?.length ? activeObject.equipment : ["Ausstattung noch pflegen"]).map((item) => (
-                        <span key={item}>{item}</span>
-                      ))}
-                    </div>
-                    <div className="object-log">
-                      <h4>{String(t.linkedRecordsLabel)}</h4>
-                      <article>
-                        <strong>{String(t.scheduleOverview)}</strong>
-                        <span>{activeObjectJobs.length} Einsätze</span>
-                        {activeObjectJobs.slice(0, 3).map((job) => (
-                          <small key={job.id}>{job.id}: {job.title} · {job.status}</small>
-                        ))}
-                      </article>
-                      <article>
-                        <strong>{String(t.reportOverview)}</strong>
-                        <span>{activeObjectReports.length} Berichte</span>
-                        {activeObjectReports.slice(0, 3).map((report) => (
-                          <small key={report.id}>{report.id}: {report.title}</small>
-                        ))}
-                      </article>
-                      <article>
-                        <strong>{String(t.communicationOverview)}</strong>
-                        <span>{activeObjectMessages.length} Nachrichten</span>
-                        {activeObjectMessages.slice(0, 3).map((message) => (
-                          <small key={message.subject}>{message.channel}: {message.subject}</small>
-                        ))}
-                      </article>
-                      <article>
-                        <strong>{String(t.billingOverview)}</strong>
-                        <span>{activeObjectBillingItems.length} Positionen</span>
-                        {activeObjectBillingItems.slice(0, 3).map((item) => (
-                          <small key={item.id}>{item.id}: {item.description} · {item.amount}</small>
-                        ))}
-                      </article>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="detail-list">
-                    <div>
-                      <span>{String(t.selectedJob)}</span>
-                      <strong>{activeJob.title}</strong>
-                    </div>
-                    <div>
-                      <span>{String(t.propertyLabel)}</span>
-                      <strong>{activeObject.name}</strong>
-                    </div>
-                    <div>
-                      <span>{String(t.serviceLabel)}</span>
-                      <strong>{activeJob.service}</strong>
-                    </div>
-                    <div>
-                      <span>{String(t.statusLabel)}</span>
-                      <strong>{activeJob.status}</strong>
-                    </div>
-                  </div>
-                )}
-              </section>
+function BillingView({ billing, objects }: { billing: BillingRecord[]; objects: ObjectRecord[] }) {
+  return (
+    <section className="panel">
+      <div className="panel-title">
+        <div>
+          <p>Finanzen</p>
+          <h2>Abrechnung</h2>
+        </div>
+      </div>
+      <div className="table-list">
+        {billing.map((item) => (
+          <article key={item.id}>
+            <div>
+              <strong>{item.label}</strong>
+              <span>{item.source}</span>
             </div>
-          )}
+            <span>{objects.find((object) => object.id === item.objectId)?.name}</span>
+            <strong>{item.amount}</strong>
+            <Badge value={item.status} />
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function MasterDataView({ services }: { services: typeof serviceCatalog }) {
+  return (
+    <section className="panel">
+      <div className="panel-title">
+        <div>
+          <p>Stammdaten</p>
+          <h2>Leistungen und Pakete</h2>
+        </div>
+      </div>
+      <div className="service-catalog">
+        {services.map((service) => (
+          <article key={service.name}>
+            <span>{service.type}</span>
+            <strong>{service.name}</strong>
+            <small>{service.detail}</small>
+            <mark>{service.price}</mark>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ObjectFile({
+  object,
+  jobs,
+  reports,
+  messages,
+  billing,
+}: {
+  object: ObjectRecord;
+  jobs: JobRecord[];
+  reports: ReportRecord[];
+  messages: MessageRecord[];
+  billing: BillingRecord[];
+}) {
+  return (
+    <aside className="object-file">
+      <div className="object-file-head">
+        <p>Objektakte</p>
+        <h2>{object.name}</h2>
+        <Badge value={object.status} />
+      </div>
+      <section>
+        <h3>Stammdaten</h3>
+        <dl>
+          <div><dt>Eigentümer</dt><dd>{object.owner}</dd></div>
+          <div><dt>Adresse</dt><dd>{object.address}</dd></div>
+          <div><dt>Größe</dt><dd>{object.sizeSqm} m² · {object.plotSqm} m² Grundstück</dd></div>
+          <div><dt>Zimmer</dt><dd>{object.rooms} Zimmer · {object.beds} Betten · {object.bathrooms} Bad</dd></div>
+          <div><dt>Paket</dt><dd>{object.carePackage}</dd></div>
+        </dl>
+      </section>
+      <section>
+        <h3>Zugang & Technik</h3>
+        <dl>
+          <div><dt>Schlüssel</dt><dd>{object.access.keySafe}</dd></div>
+          <div><dt>Alarm</dt><dd>{object.access.alarm}</dd></div>
+          <div><dt>Heizung</dt><dd>{object.utilities.heating}</dd></div>
+          <div><dt>Wasser</dt><dd>{object.utilities.water}</dd></div>
+        </dl>
+      </section>
+      <section>
+        <h3>Ausstattung</h3>
+        <div className="tags">
+          {object.equipment.map((item) => <span key={item}>{item}</span>)}
         </div>
       </section>
-    </main>
+      <section>
+        <h3>Hinweise</h3>
+        {object.risks.map((risk) => (
+          <p className="warning-line" key={risk}><AlertTriangle size={14} /> {risk}</p>
+        ))}
+      </section>
+      <section>
+        <h3>Medien</h3>
+        <div className="mini-stats">
+          <span>{object.media.images} Bilder</span>
+          <span>{object.media.documents} Dokumente</span>
+          <span>{object.media.floorPlans} Grundrisse</span>
+        </div>
+      </section>
+      <section>
+        <h3>Protokoll</h3>
+        <div className="activity-list">
+          <span>{jobs.length} Einsätze</span>
+          <span>{reports.length} Berichte</span>
+          <span>{messages.length} Nachrichten</span>
+          <span>{billing.length} Abrechnungspositionen</span>
+        </div>
+      </section>
+    </aside>
   );
+}
+
+function ObjectForm({
+  newObject,
+  setNewObject,
+  onSubmit,
+  submitLabel,
+}: {
+  newObject: NewObjectFormState;
+  setNewObject: (value: NewObjectFormState) => void;
+  onSubmit: () => void;
+  submitLabel: string;
+}) {
+  function update(key: keyof typeof newObject, value: string) {
+    setNewObject({ ...newObject, [key]: value });
+  }
+
+  return (
+    <div className="form-grid">
+      <label><span>Objekt</span><input value={newObject.name} onChange={(event) => update("name", event.target.value)} /></label>
+      <label><span>Eigentümer</span><input value={newObject.owner} onChange={(event) => update("owner", event.target.value)} /></label>
+      <label className="wide"><span>Adresse</span><input value={newObject.address} onChange={(event) => update("address", event.target.value)} /></label>
+      <label><span>Ort/Region</span><input value={newObject.region} onChange={(event) => update("region", event.target.value)} /></label>
+      <label><span>Größe m²</span><input type="number" value={newObject.sizeSqm} onChange={(event) => update("sizeSqm", event.target.value)} /></label>
+      <label><span>Grundstück m²</span><input type="number" value={newObject.plotSqm} onChange={(event) => update("plotSqm", event.target.value)} /></label>
+      <label><span>Zimmer</span><input type="number" value={newObject.rooms} onChange={(event) => update("rooms", event.target.value)} /></label>
+      <label><span>Betten</span><input type="number" value={newObject.beds} onChange={(event) => update("beds", event.target.value)} /></label>
+      <label><span>Bäder</span><input type="number" value={newObject.bathrooms} onChange={(event) => update("bathrooms", event.target.value)} /></label>
+      <label>
+        <span>Betreuungspaket</span>
+        <select value={newObject.carePackage} onChange={(event) => update("carePackage", event.target.value)}>
+          <option>Basis</option>
+          <option>Plus</option>
+          <option>Komfort</option>
+          <option>Premium</option>
+        </select>
+      </label>
+      <label className="wide"><span>Zugang / Schlüssel</span><textarea value={newObject.keySafe} onChange={(event) => update("keySafe", event.target.value)} /></label>
+      <label className="wide"><span>Ausstattung</span><textarea value={newObject.equipment} onChange={(event) => update("equipment", event.target.value)} placeholder="Pool, Sauna, Kamin" /></label>
+      <label className="wide"><span>Hinweise / Risiken</span><textarea value={newObject.risks} onChange={(event) => update("risks", event.target.value)} /></label>
+      <button className="primary-button wide" onClick={onSubmit} type="button">{submitLabel}</button>
+    </div>
+  );
+}
+
+function JobForm({
+  newJob,
+  setNewJob,
+  objects,
+  selectedObject,
+  setSelectedObjectId,
+  onSubmit,
+  submitLabel,
+}: {
+  newJob: NewJobFormState;
+  setNewJob: (value: NewJobFormState) => void;
+  objects: ObjectRecord[];
+  selectedObject: ObjectRecord;
+  setSelectedObjectId: (id: string) => void;
+  onSubmit: () => void;
+  submitLabel: string;
+}) {
+  function update(key: keyof typeof newJob, value: string) {
+    setNewJob({ ...newJob, [key]: value });
+  }
+
+  return (
+    <div className="form-grid">
+      <label className="wide"><span>Titel</span><input value={newJob.title} onChange={(event) => update("title", event.target.value)} /></label>
+      <label>
+        <span>Objekt</span>
+        <select value={selectedObject.id} onChange={(event) => setSelectedObjectId(event.target.value)}>
+          {objects.map((object) => <option key={object.id} value={object.id}>{object.name}</option>)}
+        </select>
+      </label>
+      <label><span>Typ</span><input value={newJob.type} onChange={(event) => update("type", event.target.value)} /></label>
+      <label>
+        <span>Priorität</span>
+        <select value={newJob.priority} onChange={(event) => update("priority", event.target.value)}>
+          <option>niedrig</option>
+          <option>normal</option>
+          <option>hoch</option>
+          <option>dringend</option>
+        </select>
+      </label>
+      <label><span>Fällig</span><input type="date" value={newJob.dueDate} onChange={(event) => update("dueDate", event.target.value)} /></label>
+      <label><span>Zuständig</span><input value={newJob.assignedTo} onChange={(event) => update("assignedTo", event.target.value)} /></label>
+      <label className="wide"><span>Beschreibung</span><textarea value={newJob.description} onChange={(event) => update("description", event.target.value)} /></label>
+      <label className="wide"><span>Interne Notizen</span><textarea value={newJob.internalNotes} onChange={(event) => update("internalNotes", event.target.value)} /></label>
+      <button className="primary-button wide" onClick={onSubmit} type="button">{submitLabel}</button>
+    </div>
+  );
+}
+
+function Badge({ value }: { value: string }) {
+  return <mark className={statusTone(value)}>{value}</mark>;
 }
