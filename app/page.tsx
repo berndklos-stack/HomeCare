@@ -47,7 +47,7 @@ type NavTarget =
   | "communication"
   | "billing"
   | "approvals";
-type ModalMode = "job" | "object" | "customer" | "report" | "property" | "version" | null;
+type ModalMode = "job" | "object" | "customer" | "service" | "report" | "property" | "version" | null;
 type Theme = "light" | "dark";
 
 const languageLabels: Record<Language, string> = {
@@ -179,6 +179,25 @@ const translations = {
     openServices: "Katalog öffnen",
     openBilling: "Abrechnung öffnen",
     openReports: "Berichte öffnen",
+    newService: "Neue Leistung",
+    createService: "Leistung anlegen",
+    newServiceAdded: "Leistung wurde lokal angelegt",
+    serviceTypeLabel: "Leistungstyp",
+    includedLabel: "Enthalten",
+    checksPerYearLabel: "Kontrollen pro Jahr",
+    sizeLabel: "Größe",
+    roomsLabel: "Zimmer",
+    bedsLabel: "Betten",
+    addressLabel: "Adresse",
+    accessLabel: "Zugang",
+    keySafeLabel: "Schlüsselsafe",
+    carePackageLabel: "Betreuungspaket",
+    equipmentLabel: "Ausstattung",
+    riskNotesLabel: "Hinweise",
+    objectMediaLabel: "Objektbilder",
+    objectLogLabel: "Objektprotokoll",
+    technicalDataLabel: "Technische Daten",
+    linkedRecordsLabel: "Verknüpfte Vorgänge",
     newCustomer: "Neuer Kunde",
     createCustomer: "Kunde anlegen",
     newCustomerAdded: "Kunde wurde lokal angelegt",
@@ -404,6 +423,25 @@ const translations = {
     openServices: "Öppna katalog",
     openBilling: "Öppna fakturering",
     openReports: "Öppna rapporter",
+    newService: "Ny tjänst",
+    createService: "Skapa tjänst",
+    newServiceAdded: "Tjänsten skapades lokalt",
+    serviceTypeLabel: "Tjänstetyp",
+    includedLabel: "Ingår",
+    checksPerYearLabel: "Kontroller per år",
+    sizeLabel: "Storlek",
+    roomsLabel: "Rum",
+    bedsLabel: "Sängar",
+    addressLabel: "Adress",
+    accessLabel: "Tillgång",
+    keySafeLabel: "Nyckelskåp",
+    carePackageLabel: "Skötselpaket",
+    equipmentLabel: "Utrustning",
+    riskNotesLabel: "Noteringar",
+    objectMediaLabel: "Objektbilder",
+    objectLogLabel: "Objektlogg",
+    technicalDataLabel: "Tekniska data",
+    linkedRecordsLabel: "Kopplade ärenden",
     newCustomer: "Ny kund",
     createCustomer: "Skapa kund",
     newCustomerAdded: "Kunden skapades lokalt",
@@ -629,6 +667,25 @@ const translations = {
     openServices: "Open catalog",
     openBilling: "Open billing",
     openReports: "Open reports",
+    newService: "New service",
+    createService: "Create service",
+    newServiceAdded: "Service was created locally",
+    serviceTypeLabel: "Service type",
+    includedLabel: "Included",
+    checksPerYearLabel: "Checks per year",
+    sizeLabel: "Size",
+    roomsLabel: "Rooms",
+    bedsLabel: "Beds",
+    addressLabel: "Address",
+    accessLabel: "Access",
+    keySafeLabel: "Key safe",
+    carePackageLabel: "Care package",
+    equipmentLabel: "Equipment",
+    riskNotesLabel: "Notes",
+    objectMediaLabel: "Property images",
+    objectLogLabel: "Property log",
+    technicalDataLabel: "Technical data",
+    linkedRecordsLabel: "Linked records",
     newCustomer: "New customer",
     createCustomer: "Create customer",
     newCustomerAdded: "Customer was created locally",
@@ -781,6 +838,18 @@ type AppObject = {
   location: string;
   status: string;
   lastVisit: string;
+  address?: string;
+  sizeSqm?: number;
+  rooms?: number;
+  beds?: number;
+  bathrooms?: number;
+  carePackage?: string;
+  accessNotes?: string;
+  keySafe?: string;
+  equipment?: string[];
+  riskNotes?: string;
+  imageCount?: number;
+  documentCount?: number;
 };
 
 type AppObjectSeed = Omit<AppObject, "status" | "lastVisit"> & {
@@ -808,11 +877,14 @@ type AppUser = {
 
 type ServiceCatalogItem = {
   name: string;
+  type: "Betreuungspaket" | "Zusatzleistung";
   category: string;
   interval: string;
   price: string;
   unit: string;
   sla: string;
+  checksPerYear?: number;
+  included: string[];
 };
 
 type MessageRecord = {
@@ -903,6 +975,18 @@ const demoObjectSeeds = [
     name: "Villa Långsjön",
     owner: "Familie Andersson",
     location: "Orrefors",
+    address: "Långsjövägen 18, 382 92 Orrefors",
+    sizeSqm: 126,
+    rooms: 5,
+    beds: 8,
+    bathrooms: 2,
+    carePackage: "Komfort",
+    accessNotes: "Schlüsselsafe am Nebeneingang, Alarm vor Betreten deaktivieren.",
+    keySafe: "Code intern hinterlegt",
+    equipment: ["Pool", "Sauna", "Kamin", "Glasfaser", "Bootssteg"],
+    riskNotes: "Filterdruck Pool beobachten, Terrasse nach Sturm prüfen.",
+    imageCount: 18,
+    documentCount: 6,
     statusKey: 0,
     lastVisitKey: 0,
   },
@@ -910,6 +994,18 @@ const demoObjectSeeds = [
     name: "Stuga Nybro",
     owner: "M. Schneider",
     location: "Nybro",
+    address: "Skogsstigen 7, 382 34 Nybro",
+    sizeSqm: 84,
+    rooms: 4,
+    beds: 6,
+    bathrooms: 1,
+    carePackage: "Plus",
+    accessNotes: "Schlüsselübergabe über Nachbar, Briefkasten wöchentlich prüfen.",
+    keySafe: "Nachbar Frau Lind",
+    equipment: ["Wärmepumpe", "Kamin", "Waschmaschine", "Gartenhaus"],
+    riskNotes: "Dachrinne hinten links nach starkem Regen kontrollieren.",
+    imageCount: 11,
+    documentCount: 4,
     statusKey: 1,
     lastVisitKey: 1,
   },
@@ -917,6 +1013,18 @@ const demoObjectSeeds = [
     name: "Haus am Wald",
     owner: "B. Klos",
     location: "Småland",
+    address: "Kolaretorp 106, 382 93 Nybro",
+    sizeSqm: 102,
+    rooms: 5,
+    beds: 7,
+    bathrooms: 1,
+    carePackage: "Basis",
+    accessNotes: "Eigener Zugang, Werkstatt separat verschlossen.",
+    keySafe: "intern",
+    equipment: ["Werkstatt", "Waldgrundstück", "Glasfaser", "Carport"],
+    riskNotes: "Terrassentür regelmäßig nachjustieren.",
+    imageCount: 9,
+    documentCount: 5,
     statusKey: 2,
     lastVisitKey: 2,
   },
@@ -967,36 +1075,121 @@ const appUsers = [
 
 const serviceCatalogItems = [
   {
-    name: "Hausverwaltung",
-    category: "Betreuung",
-    interval: "monatlich",
-    price: "1.490 SEK",
-    unit: "Pauschale",
-    sla: "48h Rückmeldung",
+    name: "Basis",
+    type: "Betreuungspaket",
+    category: "Ferienhausbetreuung",
+    interval: "jährlich",
+    price: "2.990 SEK",
+    unit: "Jahr",
+    sla: "4 Kontrollen pro Jahr",
+    checksPerYear: 4,
+    included: ["Hauskontrolle", "Fotobericht", "E-Mail nach jedem Besuch"],
+  },
+  {
+    name: "Plus",
+    type: "Betreuungspaket",
+    category: "Ferienhausbetreuung",
+    interval: "jährlich",
+    price: "5.490 SEK",
+    unit: "Jahr",
+    sla: "8 Kontrollen pro Jahr",
+    checksPerYear: 8,
+    included: ["Hauskontrolle", "Fotobericht", "Briefkastenservice", "E-Mail nach jedem Besuch"],
+  },
+  {
+    name: "Komfort",
+    type: "Betreuungspaket",
+    category: "Ferienhausbetreuung",
+    interval: "jährlich",
+    price: "7.990 SEK",
+    unit: "Jahr",
+    sla: "beliebtestes Paket",
+    checksPerYear: 12,
+    included: [
+      "12 Kontrollen pro Jahr",
+      "Hauskontrolle",
+      "Fotobericht",
+      "Briefkastenservice",
+      "kleine Handwerkerdienste",
+      "E-Mail und Telefon nach jedem Besuch",
+    ],
+  },
+  {
+    name: "Premium",
+    type: "Betreuungspaket",
+    category: "Ferienhausbetreuung",
+    interval: "jährlich",
+    price: "9.990 SEK",
+    unit: "Jahr",
+    sla: "Alles inklusive",
+    checksPerYear: 12,
+    included: [
+      "12 Hauskontrollen pro Jahr",
+      "Fotodokumentation",
+      "Briefkastenservice",
+      "Notfallservice priorisiert",
+      "Handwerkerkoordination bis 3 Std./Jahr",
+    ],
+  },
+  {
+    name: "Hauskontrolle",
+    type: "Zusatzleistung",
+    category: "Kontrolle",
+    interval: "nach Bedarf",
+    price: "795 SEK",
+    unit: "Besuch",
+    sla: "inkl. Fotobericht möglich",
+    included: ["Sichtprüfung innen/außen", "Statusnotiz", "optional Fotobericht"],
   },
   {
     name: "Gartenpflege",
+    type: "Zusatzleistung",
     category: "Außenbereich",
-    interval: "14-tägig",
-    price: "540 SEK",
+    interval: "nach Bedarf",
+    price: "595 SEK",
     unit: "Stunde",
-    sla: "Saisonplan",
+    sla: "oder Pauschalpreis möglich",
+    included: ["Rasen", "Hecken", "Saisonpflege"],
   },
   {
-    name: "Reparaturen",
+    name: "Schlüsselservice",
+    type: "Zusatzleistung",
+    category: "Zugang",
+    interval: "pro Einsatz",
+    price: "495 SEK",
+    unit: "Einsatz",
+    sla: "Schlüsselübergabe und Zugang",
+    included: ["Schlüsselübergabe", "Zugangsdokumentation"],
+  },
+  {
+    name: "Hausmeisterservice",
+    type: "Zusatzleistung",
     category: "Technik",
     interval: "nach Bedarf",
-    price: "690 SEK",
+    price: "550 SEK",
     unit: "Stunde",
-    sla: "Priorität nach Schaden",
+    sla: "kleine Arbeiten vor Ort",
+    included: ["kleine Reparaturen", "Koordination", "Objektservice"],
   },
   {
-    name: "Poolpflege",
-    category: "Außenbereich",
-    interval: "wöchentlich",
-    price: "620 SEK",
-    unit: "Termin",
-    sla: "Sommerbetrieb",
+    name: "Reinigung",
+    type: "Zusatzleistung",
+    category: "Innenbereich",
+    interval: "nach Bedarf",
+    price: "495 SEK",
+    unit: "Stunde",
+    sla: "vor/nach Aufenthalt",
+    included: ["Innenreinigung", "Vorbereitung", "Abschlusskontrolle"],
+  },
+  {
+    name: "Notdienst",
+    type: "Zusatzleistung",
+    category: "Notfall",
+    interval: "24/7",
+    price: "990 SEK",
+    unit: "Pauschalpreis",
+    sla: "oder nach Aufwand",
+    included: ["Notfallannahme", "Schnelle Hilfe", "Koordination"],
   },
 ] satisfies ServiceCatalogItem[];
 
@@ -1185,8 +1378,10 @@ export default function HomePage() {
   const [localJobs, setLocalJobs] = useState<AppJob[]>([]);
   const [localObjects, setLocalObjects] = useState<AppObject[]>([]);
   const [localCustomers, setLocalCustomers] = useState<CustomerRecord[]>([]);
+  const [localServices, setLocalServices] = useState<ServiceCatalogItem[]>([]);
   const [localReports, setLocalReports] = useState<ReportRecord[]>([]);
   const [localBillableItems, setLocalBillableItems] = useState<BillableItem[]>([]);
+  const [localSequence, setLocalSequence] = useState(2410);
   const [jobOverrides, setJobOverrides] = useState<Record<string, Partial<AppJob>>>({});
   const [activeJobId, setActiveJobId] = useState("KS-2407");
   const [selectedObjectName, setSelectedObjectName] = useState("Villa Långsjön");
@@ -1215,9 +1410,25 @@ export default function HomePage() {
   const [newObjectName, setNewObjectName] = useState("");
   const [newObjectOwner, setNewObjectOwner] = useState("");
   const [newObjectLocation, setNewObjectLocation] = useState("");
+  const [newObjectAddress, setNewObjectAddress] = useState("");
+  const [newObjectSize, setNewObjectSize] = useState("95");
+  const [newObjectRooms, setNewObjectRooms] = useState("4");
+  const [newObjectBeds, setNewObjectBeds] = useState("6");
+  const [newObjectCarePackage, setNewObjectCarePackage] = useState("Basis");
+  const [newObjectAccess, setNewObjectAccess] = useState("");
+  const [newObjectEquipment, setNewObjectEquipment] = useState("");
+  const [newObjectRiskNotes, setNewObjectRiskNotes] = useState("");
   const [newCustomerName, setNewCustomerName] = useState("");
   const [newCustomerContact, setNewCustomerContact] = useState("");
   const [newCustomerEmail, setNewCustomerEmail] = useState("");
+  const [newServiceName, setNewServiceName] = useState("");
+  const [newServiceType, setNewServiceType] = useState<ServiceCatalogItem["type"]>("Zusatzleistung");
+  const [newServiceCategory, setNewServiceCategory] = useState("Kontrolle");
+  const [newServicePrice, setNewServicePrice] = useState("");
+  const [newServiceUnit, setNewServiceUnit] = useState("Stunde");
+  const [newServiceInterval, setNewServiceInterval] = useState("nach Bedarf");
+  const [newServiceSla, setNewServiceSla] = useState("");
+  const [newServiceIncluded, setNewServiceIncluded] = useState("");
   const [fieldNote, setFieldNote] = useState("Filterdruck geprüft, Wasserwerte dokumentiert.");
   const [workMinutes, setWorkMinutes] = useState(75);
   const [materialCost, setMaterialCost] = useState(260);
@@ -1236,7 +1447,7 @@ export default function HomePage() {
     status: translatedList(t, "jobStatuses")[job.statusKey] ?? "",
     service: serviceLabels[job.serviceKey] ?? "",
   }));
-  const demoObjects = demoObjectSeeds.map((object) => ({
+  const demoObjects: AppObject[] = demoObjectSeeds.map((object) => ({
     name: object.name,
     owner: object.owner,
     location: object.location,
@@ -1260,16 +1471,17 @@ export default function HomePage() {
     ...job,
     ...jobOverrides[job.id],
   }));
-  const objects = [
+  const objects: AppObject[] = [
     ...localObjects,
     ...(liveData?.objects.length ? liveData.objects : demoObjects),
   ];
   const customers = [...localCustomers, ...customerRecords];
+  const catalogItems = [...localServices, ...serviceCatalogItems];
   const reports = [...localReports, ...reportRecords];
   const billingPositions = [...localBillableItems, ...billableItems];
   const services = liveData?.services.length
     ? liveData.services
-    : serviceLabels;
+    : catalogItems.map((item) => item.name);
   const activeServiceFilter =
     selectedService && services.includes(selectedService) ? selectedService : null;
   const filteredJobs = activeServiceFilter
@@ -1293,6 +1505,10 @@ export default function HomePage() {
     objects.find((object) => object.name === selectedObjectName) ??
     objects.find((object) => object.name === activeJob.object) ??
     objects[0];
+  const activeObjectJobs = jobs.filter((job) => job.object === activeObject.name);
+  const activeObjectReports = reports.filter((report) => report.object === activeObject.name);
+  const activeObjectMessages = messageRecords.filter((message) => message.object === activeObject.name);
+  const activeObjectBillingItems = billingPositions.filter((item) => item.object === activeObject.name);
   const completedItems = useMemo(
     () => checklistState.filter(Boolean).length,
     [checklistState],
@@ -1307,7 +1523,7 @@ export default function HomePage() {
     {
       target: "masterData",
       title: String(t.masterDataOverview),
-      text: `${objects.length + customerRecords.length + serviceCatalogItems.length} ${String(t.records)}`,
+      text: `${objects.length + customers.length + catalogItems.length} ${String(t.records)}`,
       hint: String(t.objectsHint),
       icon: Database,
     },
@@ -1328,7 +1544,7 @@ export default function HomePage() {
     {
       target: "services",
       title: String(t.serviceOverview),
-      text: `${serviceCatalogItems.length} ${String(t.records)}`,
+      text: `${catalogItems.length} ${String(t.records)}`,
       hint: String(t.servicesHint),
       icon: BookOpen,
     },
@@ -1437,6 +1653,14 @@ export default function HomePage() {
     setNewObjectName("");
     setNewObjectOwner("");
     setNewObjectLocation("");
+    setNewObjectAddress("");
+    setNewObjectSize("95");
+    setNewObjectRooms("4");
+    setNewObjectBeds("6");
+    setNewObjectCarePackage("Basis");
+    setNewObjectAccess("");
+    setNewObjectEquipment("");
+    setNewObjectRiskNotes("");
     setModalMode("object");
   }
 
@@ -1445,6 +1669,18 @@ export default function HomePage() {
     setNewCustomerContact("");
     setNewCustomerEmail("");
     setModalMode("customer");
+  }
+
+  function openNewService() {
+    setNewServiceName("");
+    setNewServiceType("Zusatzleistung");
+    setNewServiceCategory("Kontrolle");
+    setNewServicePrice("");
+    setNewServiceUnit("Stunde");
+    setNewServiceInterval("nach Bedarf");
+    setNewServiceSla("");
+    setNewServiceIncluded("");
+    setModalMode("service");
   }
 
   function createLocalCustomer() {
@@ -1467,11 +1703,49 @@ export default function HomePage() {
     showNotice(String(t.newCustomerAdded));
   }
 
+  function createLocalService() {
+    const createdService: ServiceCatalogItem = {
+      name: newServiceName.trim() || String(t.newService),
+      type: newServiceType,
+      category: newServiceCategory.trim() || "Service",
+      interval: newServiceInterval.trim() || "nach Bedarf",
+      price: newServicePrice.trim() || "0 SEK",
+      unit: newServiceUnit.trim() || "Stunde",
+      sla: newServiceSla.trim() || "nach Vereinbarung",
+      included: newServiceIncluded
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean),
+    };
+
+    setLocalServices((currentServices) => [createdService, ...currentServices]);
+    setNewJobService(createdService.name);
+    setSelectedService(null);
+    setModalMode(null);
+    setSection("services");
+    showNotice(String(t.newServiceAdded));
+  }
+
   function createLocalObject() {
     const createdObject: AppObject = {
       name: newObjectName.trim() || String(t.newObject),
       owner: newObjectOwner.trim() || "Kolaretorp Service AB",
       location: newObjectLocation.trim() || "Småland",
+      address: newObjectAddress.trim() || newObjectLocation.trim() || "Småland",
+      sizeSqm: Number(newObjectSize) || 0,
+      rooms: Number(newObjectRooms) || 0,
+      beds: Number(newObjectBeds) || 0,
+      bathrooms: 1,
+      carePackage: newObjectCarePackage,
+      accessNotes: newObjectAccess.trim() || "Zugang muss noch gepflegt werden.",
+      keySafe: "noch offen",
+      equipment: newObjectEquipment
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean),
+      riskNotes: newObjectRiskNotes.trim() || "Keine besonderen Hinweise erfasst.",
+      imageCount: 0,
+      documentCount: 0,
       status: translatedList(t, "objectStatuses")[1] ?? String(t.status),
       lastVisit: "-",
     };
@@ -1488,8 +1762,9 @@ export default function HomePage() {
     const title = newJobTitle.trim() || String(t.newJob);
     const object = objects.find((item) => item.name === newJobObject) ?? objects[0];
     const service = newJobService || services[0] || String(t.services);
+    const nextSequence = localSequence + 1;
     const createdJob: AppJob = {
-      id: `KS-${Date.now().toString().slice(-5)}`,
+      id: `KS-${nextSequence}`,
       title,
       object: object?.name ?? newJobObject,
       owner: object?.owner ?? "Kolaretorp Service AB",
@@ -1508,6 +1783,7 @@ export default function HomePage() {
       visitState: "geplant",
     };
 
+    setLocalSequence(nextSequence);
     setLocalJobs((currentJobs) => [createdJob, ...currentJobs]);
     setActiveJobId(createdJob.id);
     setSelectedObjectName(createdJob.object);
@@ -1608,7 +1884,8 @@ export default function HomePage() {
   }
 
   function completeVisit(job: AppJob) {
-    const reportId = `BR-${Date.now().toString().slice(-5)}`;
+    const nextSequence = localSequence + 1;
+    const reportId = `BR-${nextSequence}`;
     const createdReport: ReportRecord = {
       id: reportId,
       jobId: job.id,
@@ -1625,7 +1902,7 @@ export default function HomePage() {
       visibility: "Kundenansicht",
     };
     const createdBillableItem: BillableItem = {
-      id: `AP-${Date.now().toString().slice(-4)}`,
+      id: `AP-${nextSequence}`,
       source: job.id,
       customer: job.owner,
       object: job.object,
@@ -1635,6 +1912,7 @@ export default function HomePage() {
       visibility: job.billingStatus === "nicht abrechenbar" ? "intern" : "kundensichtbar",
     };
 
+    setLocalSequence(nextSequence);
     setLocalReports((currentReports) => [createdReport, ...currentReports]);
     setLocalBillableItems((currentItems) => [createdBillableItem, ...currentItems]);
     setJobOverrides((currentOverrides) => ({
@@ -1667,8 +1945,9 @@ export default function HomePage() {
   }
 
   function addManualBillableItem() {
+    const nextSequence = localSequence + 1;
     const createdItem: BillableItem = {
-      id: `AP-${Date.now().toString().slice(-4)}`,
+      id: `AP-${nextSequence}`,
       source: activeJob.id,
       customer: activeJob.owner,
       object: activeJob.object,
@@ -1678,6 +1957,7 @@ export default function HomePage() {
       visibility: "kundensichtbar",
     };
 
+    setLocalSequence(nextSequence);
     setLocalBillableItems((currentItems) => [createdItem, ...currentItems]);
     showNotice(String(t.billableItemAdded));
   }
@@ -1709,7 +1989,7 @@ export default function HomePage() {
       const [propertiesResult, jobsResult, servicesResult] = await Promise.all([
         supabase
           .from("properties")
-          .select("id,name,address,region,profiles(full_name)")
+          .select("id,name,address,region,size_sqm,rooms,beds,bathrooms,care_package,key_safe,equipment,risk_notes,image_urls,document_urls,access_notes,profiles(full_name)")
           .order("created_at", { ascending: false })
           .limit(20),
         supabase
@@ -1739,6 +2019,18 @@ export default function HomePage() {
         name: String(property.name ?? "Objekt"),
         owner: nestedName(property.profiles, "Eigentümer"),
         location: String(property.region ?? property.address ?? "Småland"),
+        address: String(property.address ?? "Småland"),
+        sizeSqm: Number(property.size_sqm ?? 0),
+        rooms: Number(property.rooms ?? 0),
+        beds: Number(property.beds ?? 0),
+        bathrooms: Number(property.bathrooms ?? 0),
+        carePackage: String(property.care_package ?? "Basis"),
+        accessNotes: String(property.access_notes ?? "-"),
+        keySafe: String(property.key_safe ?? "-"),
+        equipment: Array.isArray(property.equipment) ? property.equipment.map(String) : [],
+        riskNotes: String(property.risk_notes ?? "-"),
+        imageCount: Array.isArray(property.image_urls) ? property.image_urls.length : 0,
+        documentCount: Array.isArray(property.document_urls) ? property.document_urls.length : 0,
         status: translatedStatus(t, "in_progress"),
         lastVisit: "-",
       }));
@@ -2075,6 +2367,9 @@ export default function HomePage() {
                       <div>
                         <strong>{object.name}</strong>
                         <span>{object.owner}</span>
+                        <small>
+                          {object.sizeSqm ?? "-"} m² · {object.rooms ?? "-"} {String(t.roomsLabel)} · {object.beds ?? "-"} {String(t.bedsLabel)}
+                        </small>
                       </div>
                       <span>
                         <MapPin size={15} /> {object.location}
@@ -2132,6 +2427,9 @@ export default function HomePage() {
                   <button className="secondary-action" onClick={() => handleNav("services")} type="button">
                     <BookOpen size={18} /> {String(t.openServices)}
                   </button>
+                  <button className="secondary-action" onClick={openNewService} type="button">
+                    <Plus size={18} /> {String(t.newService)}
+                  </button>
                 </div>
               </div>
             </section>
@@ -2186,10 +2484,14 @@ export default function HomePage() {
                   <p className="eyebrow">{String(t.catalog)}</p>
                   <h3>{String(t.serviceCatalog)}</h3>
                 </div>
+                <button className="primary-action" onClick={openNewService} type="button">
+                  <Plus size={18} /> {String(t.newService)}
+                </button>
               </div>
               <div className="catalog-grid">
-                {serviceCatalogItems.map((item) => (
+                {catalogItems.map((item) => (
                   <button key={item.name} onClick={() => selectCatalogItem(item)} type="button">
+                    <small>{item.type}</small>
                     <strong>{item.name}</strong>
                     <span>
                       {String(t.categoryLabel)}: {item.category}
@@ -2197,6 +2499,16 @@ export default function HomePage() {
                     <small>
                       {item.interval} · {item.price} / {item.unit}
                     </small>
+                    {typeof item.checksPerYear === "number" && (
+                      <small>
+                        {String(t.checksPerYearLabel)}: {item.checksPerYear}
+                      </small>
+                    )}
+                    <ul>
+                      {item.included.slice(0, 4).map((included) => (
+                        <li key={included}>{included}</li>
+                      ))}
+                    </ul>
                     <mark>{item.sla}</mark>
                   </button>
                 ))}
@@ -2272,6 +2584,9 @@ export default function HomePage() {
                     <div>
                       <strong>{object.name}</strong>
                       <span>{object.owner}</span>
+                      <small>
+                        {object.carePackage ?? "-"} · {object.sizeSqm ?? "-"} m² · {object.imageCount ?? 0} {String(t.objectMediaLabel)}
+                      </small>
                     </div>
                     <span>
                       <MapPin size={15} /> {object.location}
@@ -2728,6 +3043,8 @@ export default function HomePage() {
                           ? String(t.newObject)
                         : modalMode === "customer"
                           ? String(t.newCustomer)
+                        : modalMode === "service"
+                          ? String(t.newService)
                         : modalMode === "report"
                           ? String(t.reportDetails)
                           : modalMode === "property"
@@ -2741,6 +3058,8 @@ export default function HomePage() {
                           ? String(t.createObject)
                         : modalMode === "customer"
                           ? String(t.createCustomer)
+                        : modalMode === "service"
+                          ? String(t.createService)
                         : modalMode === "report"
                           ? activeJob.title
                           : modalMode === "property"
@@ -2869,6 +3188,77 @@ export default function HomePage() {
                         placeholder={activeObject.location}
                       />
                     </label>
+                    <label>
+                      <span>{String(t.addressLabel)}</span>
+                      <input
+                        value={newObjectAddress}
+                        onChange={(event) => setNewObjectAddress(event.target.value)}
+                        placeholder={activeObject.address ?? "Straße, PLZ Ort"}
+                      />
+                    </label>
+                    <label>
+                      <span>{String(t.sizeLabel)}</span>
+                      <input
+                        type="number"
+                        value={newObjectSize}
+                        onChange={(event) => setNewObjectSize(event.target.value)}
+                      />
+                    </label>
+                    <label>
+                      <span>{String(t.roomsLabel)}</span>
+                      <input
+                        type="number"
+                        value={newObjectRooms}
+                        onChange={(event) => setNewObjectRooms(event.target.value)}
+                      />
+                    </label>
+                    <label>
+                      <span>{String(t.bedsLabel)}</span>
+                      <input
+                        type="number"
+                        value={newObjectBeds}
+                        onChange={(event) => setNewObjectBeds(event.target.value)}
+                      />
+                    </label>
+                    <label>
+                      <span>{String(t.carePackageLabel)}</span>
+                      <select
+                        value={newObjectCarePackage}
+                        onChange={(event) => setNewObjectCarePackage(event.target.value)}
+                      >
+                        {catalogItems
+                          .filter((item) => item.type === "Betreuungspaket")
+                          .map((item) => (
+                            <option key={item.name} value={item.name}>
+                              {item.name}
+                            </option>
+                          ))}
+                      </select>
+                    </label>
+                    <label>
+                      <span>{String(t.accessLabel)}</span>
+                      <textarea
+                        value={newObjectAccess}
+                        onChange={(event) => setNewObjectAccess(event.target.value)}
+                        placeholder="Schlüsselsafe, Alarm, Zufahrt"
+                      />
+                    </label>
+                    <label>
+                      <span>{String(t.equipmentLabel)}</span>
+                      <textarea
+                        value={newObjectEquipment}
+                        onChange={(event) => setNewObjectEquipment(event.target.value)}
+                        placeholder="Pool, Kamin, Sauna, Glasfaser"
+                      />
+                    </label>
+                    <label>
+                      <span>{String(t.riskNotesLabel)}</span>
+                      <textarea
+                        value={newObjectRiskNotes}
+                        onChange={(event) => setNewObjectRiskNotes(event.target.value)}
+                        placeholder="Besondere Hinweise, Risiken, Wartung"
+                      />
+                    </label>
                     <button className="primary-action full" onClick={createLocalObject} type="button">
                       <Plus size={18} /> {String(t.createObject)}
                     </button>
@@ -2903,6 +3293,78 @@ export default function HomePage() {
                       <Plus size={18} /> {String(t.createCustomer)}
                     </button>
                   </div>
+                ) : modalMode === "service" ? (
+                  <div className="job-form">
+                    <label>
+                      <span>{String(t.serviceLabel)}</span>
+                      <input
+                        value={newServiceName}
+                        onChange={(event) => setNewServiceName(event.target.value)}
+                        placeholder="Fensterreinigung"
+                      />
+                    </label>
+                    <label>
+                      <span>{String(t.serviceTypeLabel)}</span>
+                      <select
+                        value={newServiceType}
+                        onChange={(event) => setNewServiceType(event.target.value as ServiceCatalogItem["type"])}
+                      >
+                        <option value="Betreuungspaket">Betreuungspaket</option>
+                        <option value="Zusatzleistung">Zusatzleistung</option>
+                      </select>
+                    </label>
+                    <label>
+                      <span>{String(t.categoryLabel)}</span>
+                      <input
+                        value={newServiceCategory}
+                        onChange={(event) => setNewServiceCategory(event.target.value)}
+                        placeholder="Innenbereich"
+                      />
+                    </label>
+                    <label>
+                      <span>{String(t.priceLabel)}</span>
+                      <input
+                        value={newServicePrice}
+                        onChange={(event) => setNewServicePrice(event.target.value)}
+                        placeholder="495 SEK"
+                      />
+                    </label>
+                    <label>
+                      <span>{String(t.unitLabel)}</span>
+                      <input
+                        value={newServiceUnit}
+                        onChange={(event) => setNewServiceUnit(event.target.value)}
+                        placeholder="Stunde"
+                      />
+                    </label>
+                    <label>
+                      <span>{String(t.intervalLabel)}</span>
+                      <input
+                        value={newServiceInterval}
+                        onChange={(event) => setNewServiceInterval(event.target.value)}
+                        placeholder="nach Bedarf"
+                      />
+                    </label>
+                    <label>
+                      <span>{String(t.slaLabel)}</span>
+                      <input
+                        value={newServiceSla}
+                        onChange={(event) => setNewServiceSla(event.target.value)}
+                        placeholder="nach Vereinbarung"
+                      />
+                    </label>
+                    <label>
+                      <span>{String(t.includedLabel)}</span>
+                      <textarea
+                        value={newServiceIncluded}
+                        onChange={(event) => setNewServiceIncluded(event.target.value)}
+                        placeholder="Leistung 1, Leistung 2, Leistung 3"
+                      />
+                    </label>
+                    <button className="primary-action full" onClick={createLocalService} type="button">
+                      <Plus size={18} /> {String(t.createService)}
+                    </button>
+                  </div>
                 ) : modalMode === "version" ? (
                   <div className="version-history">
                     <div className="version-current">
@@ -2925,22 +3387,84 @@ export default function HomePage() {
                     ))}
                   </div>
                 ) : modalMode === "property" ? (
-                  <div className="detail-list">
-                    <div>
-                      <span>{String(t.propertyLabel)}</span>
-                      <strong>{activeObject.name}</strong>
+                  <div className="object-file">
+                    <div className="detail-list">
+                      <div>
+                        <span>{String(t.propertyLabel)}</span>
+                        <strong>{activeObject.name}</strong>
+                      </div>
+                      <div>
+                        <span>{String(t.ownerLabel)}</span>
+                        <strong>{activeObject.owner}</strong>
+                      </div>
+                      <div>
+                        <span>{String(t.addressLabel)}</span>
+                        <strong>{activeObject.address ?? activeObject.location}</strong>
+                      </div>
+                      <div>
+                        <span>{String(t.statusLabel)}</span>
+                        <strong>{activeObject.status}</strong>
+                      </div>
                     </div>
-                    <div>
-                      <span>{String(t.ownerLabel)}</span>
-                      <strong>{activeObject.owner}</strong>
+                    <div className="object-file-grid">
+                      <article>
+                        <span>{String(t.technicalDataLabel)}</span>
+                        <strong>
+                          {activeObject.sizeSqm ?? "-"} m² · {activeObject.rooms ?? "-"} {String(t.roomsLabel)} · {activeObject.beds ?? "-"} {String(t.bedsLabel)}
+                        </strong>
+                        <small>{String(t.carePackageLabel)}: {activeObject.carePackage ?? "-"}</small>
+                      </article>
+                      <article>
+                        <span>{String(t.accessLabel)}</span>
+                        <strong>{activeObject.keySafe ?? "-"}</strong>
+                        <small>{activeObject.accessNotes ?? "-"}</small>
+                      </article>
+                      <article>
+                        <span>{String(t.objectMediaLabel)}</span>
+                        <strong>{activeObject.imageCount ?? 0} Bilder · {activeObject.documentCount ?? 0} Dokumente</strong>
+                        <small>Vorher-/Nachher-Fotos und Objektunterlagen</small>
+                      </article>
+                      <article>
+                        <span>{String(t.riskNotesLabel)}</span>
+                        <strong>{activeObject.riskNotes ?? "-"}</strong>
+                        <small>{String(t.internalOnly)}</small>
+                      </article>
                     </div>
-                    <div>
-                      <span>{String(t.locationLabel)}</span>
-                      <strong>{activeObject.location}</strong>
+                    <div className="object-tags">
+                      {(activeObject.equipment?.length ? activeObject.equipment : ["Ausstattung noch pflegen"]).map((item) => (
+                        <span key={item}>{item}</span>
+                      ))}
                     </div>
-                    <div>
-                      <span>{String(t.statusLabel)}</span>
-                      <strong>{activeObject.status}</strong>
+                    <div className="object-log">
+                      <h4>{String(t.linkedRecordsLabel)}</h4>
+                      <article>
+                        <strong>{String(t.scheduleOverview)}</strong>
+                        <span>{activeObjectJobs.length} Einsätze</span>
+                        {activeObjectJobs.slice(0, 3).map((job) => (
+                          <small key={job.id}>{job.id}: {job.title} · {job.status}</small>
+                        ))}
+                      </article>
+                      <article>
+                        <strong>{String(t.reportOverview)}</strong>
+                        <span>{activeObjectReports.length} Berichte</span>
+                        {activeObjectReports.slice(0, 3).map((report) => (
+                          <small key={report.id}>{report.id}: {report.title}</small>
+                        ))}
+                      </article>
+                      <article>
+                        <strong>{String(t.communicationOverview)}</strong>
+                        <span>{activeObjectMessages.length} Nachrichten</span>
+                        {activeObjectMessages.slice(0, 3).map((message) => (
+                          <small key={message.subject}>{message.channel}: {message.subject}</small>
+                        ))}
+                      </article>
+                      <article>
+                        <strong>{String(t.billingOverview)}</strong>
+                        <span>{activeObjectBillingItems.length} Positionen</span>
+                        {activeObjectBillingItems.slice(0, 3).map((item) => (
+                          <small key={item.id}>{item.id}: {item.description} · {item.amount}</small>
+                        ))}
+                      </article>
                     </div>
                   </div>
                 ) : (

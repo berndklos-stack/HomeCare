@@ -4,6 +4,18 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 0.8.0 - 2026-07-31
+
+- Leistungskatalog aus der Kolaretorp-Broschüre als Stammdaten ergänzt.
+- Betreuungspakete Basis, Plus, Komfort und Premium mit Preisen, Kontrollanzahl und Leistungsumfang angelegt.
+- Zusatzleistungen Hauskontrolle, Gartenpflege, Schlüsselservice, Hausmeisterservice, Reinigung und Notdienst ergänzt.
+- Neue Leistungen können im Katalog lokal angelegt und danach für Aufträge genutzt werden.
+- Objektstammdaten um Eigentümer, Adresse, Größe, Räume, Betten, Betreuungspaket, Zugang, Ausstattung, Hinweise, Bilder und Dokumente erweitert.
+- Objektakte zeigt verknüpfte Einsätze, Berichte, Kommunikation und Abrechnungspositionen.
+- Supabase-Objekttabelle um technische Stammdaten, Medien- und Hinweisfelder erweitert.
+- Supabase-Servicekategorien um Paket-, Preis-, Intervall-, SLA- und Leistungsumfangfelder erweitert.
+- Playwright-Test prüft Sichtbarkeit der Broschürenleistungen, Neuanlage einer Leistung und umfangreiche Objektanlage.
+
 ## 0.6.0 - 2026-07-31
 
 - Berichtsmodul mit Kunden- und interner Sicht, Medienübersicht und PDF-Vorbereitung ergänzt.

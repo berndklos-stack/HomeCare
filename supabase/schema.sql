@@ -29,6 +29,16 @@ create table public.properties (
   name text not null,
   address text not null,
   region text not null default 'Småland',
+  size_sqm integer,
+  rooms integer,
+  beds integer,
+  bathrooms integer,
+  care_package text,
+  key_safe text,
+  equipment text[] not null default '{}',
+  risk_notes text,
+  image_urls text[] not null default '{}',
+  document_urls text[] not null default '{}',
   access_notes text,
   care_notes text,
   owner_id uuid not null references public.profiles(id),
@@ -38,7 +48,17 @@ create table public.properties (
 create table public.service_categories (
   id uuid primary key default gen_random_uuid(),
   name text not null unique,
-  description text
+  description text,
+  service_type text not null default 'additional_service',
+  category text,
+  interval_label text,
+  price_amount numeric(10,2),
+  price_currency text not null default 'SEK',
+  billing_unit text,
+  checks_per_year integer,
+  included_items text[] not null default '{}',
+  sla text,
+  is_active boolean not null default true
 );
 
 create table public.jobs (

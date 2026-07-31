@@ -38,7 +38,22 @@ test("dashboard buttons navigate to the expected app areas", async ({ page }) =>
 
   await page.getByTestId("nav-services").click();
   await expect(page.getByRole("heading", { name: "Dienstleistungskatalog" })).toBeVisible();
-  await clickButton(page, "Poolpflege");
+  await expect(page.getByText("Basis")).toBeVisible();
+  await expect(page.getByText("2.990 SEK")).toBeVisible();
+  await clickButton(page, "Neue Leistung");
+  await expect(page.getByRole("dialog")).toBeVisible();
+  const serviceDialog = page.getByRole("dialog");
+  await serviceDialog.getByLabel("Leistung", { exact: true }).fill("Fensterreinigung");
+  await serviceDialog.locator("select").first().selectOption("Zusatzleistung");
+  await serviceDialog.getByLabel("Kategorie", { exact: true }).fill("Innenbereich");
+  await serviceDialog.getByLabel("Preis", { exact: true }).fill("650 SEK");
+  await serviceDialog.getByLabel("Einheit", { exact: true }).fill("Stunde");
+  await serviceDialog.getByLabel("Intervall", { exact: true }).fill("nach Bedarf");
+  await serviceDialog.getByLabel("SLA", { exact: true }).fill("nach Vereinbarung");
+  await serviceDialog.getByLabel("Enthalten", { exact: true }).fill("Fenster innen, Fenster außen, Fotodokumentation");
+  await clickButton(page, /Leistung anlegen/);
+  await expect(page.getByText("Fensterreinigung")).toBeVisible();
+  await clickButton(page, "Gartenpflege");
   await expect(page.getByRole("heading", { name: "Auftragsübersicht" })).toBeVisible();
 
   await page.getByTestId("nav-communication").click();
@@ -69,15 +84,27 @@ test("dashboard buttons navigate to the expected app areas", async ({ page }) =>
   await page.getByTestId("nav-objects").click();
   await expect(page.getByRole("heading", { name: "Objektübersicht" })).toBeVisible();
   await clickButton(page, /Neues Objekt/);
-  await page.getByLabel("Objekt").fill("Testhaus Smaland");
-  await page.getByLabel("Eigentümer").fill("Familie Test");
-  await page.getByLabel("Ort").fill("Nybro");
+  await page.getByLabel("Objekt", { exact: true }).fill("Testhaus Smaland");
+  await page.getByLabel("Eigentümer", { exact: true }).fill("Familie Test");
+  await page.getByLabel("Ort", { exact: true }).fill("Nybro");
+  await page.getByLabel("Adresse", { exact: true }).fill("Testvägen 12, Nybro");
+  await page.getByLabel("Größe", { exact: true }).fill("145");
+  await page.getByLabel("Zimmer", { exact: true }).fill("6");
+  await page.getByLabel("Betten", { exact: true }).fill("9");
+  await page.getByRole("dialog").locator("select").last().selectOption("Premium");
+  await page.getByLabel("Zugang", { exact: true }).fill("Schlüsselsafe am Carport");
+  await page.getByLabel("Ausstattung", { exact: true }).fill("Pool, Sauna, Kamin");
+  await page.getByLabel("Hinweise", { exact: true }).fill("Poolpumpe regelmäßig prüfen");
   await clickButton(page, /Objekt anlegen/);
   await expect(page.getByRole("button", { name: /Testhaus Smaland/ })).toBeVisible();
 
   await clickButton(page, /Testhaus Smaland/);
   await expect(page.getByRole("dialog")).toBeVisible();
   await expect(page.getByRole("dialog").getByText("Familie Test")).toBeVisible();
+  await expect(page.getByRole("dialog").getByText("145 m²")).toBeVisible();
+  await expect(page.getByRole("dialog").getByText("Premium")).toBeVisible();
+  await expect(page.getByRole("dialog").getByText("Schlüsselsafe am Carport")).toBeVisible();
+  await expect(page.getByRole("dialog").getByText("Poolpumpe regelmäßig prüfen")).toBeVisible();
   await clickButton(page, "Schließen");
 
   await page.getByTestId("nav-schedule").click();

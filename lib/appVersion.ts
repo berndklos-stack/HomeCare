@@ -1,10 +1,23 @@
 export const appVersion = {
-  version: "0.6.0",
+  version: "0.8.0",
   releaseDate: "2026-07-31",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "0.8.0",
+    date: "2026-07-31",
+    changes: [
+      "Leistungskatalog aus der Kolaretorp-Broschüre als Stammdaten ergänzt",
+      "Betreuungspakete Basis, Plus, Komfort und Premium mit Preisen und Leistungsumfang angelegt",
+      "Zusatzleistungen wie Hauskontrolle, Gartenpflege, Schlüsselservice, Hausmeisterservice, Reinigung und Notdienst ergänzt",
+      "Neue Leistungen können in den Stammdaten lokal angelegt und danach für Aufträge genutzt werden",
+      "Objektstammdaten um Eigentümer, Adresse, Größe, Räume, Betten, Zugang, Ausstattung, Hinweise und Medien erweitert",
+      "Objektakte zeigt verknüpfte Einsätze, Berichte, Kommunikation und Abrechnungspositionen",
+      "Supabase-Servicekategorien um Paket-, Preis-, Intervall- und Leistungsumfangfelder erweitert",
+    ],
+  },
   {
     version: "0.6.0",
     date: "2026-07-31",
