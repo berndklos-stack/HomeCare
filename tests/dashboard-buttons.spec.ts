@@ -14,6 +14,10 @@ async function clickButton(page: Page, name: string | RegExp) {
 test("dashboard buttons navigate to the expected app areas", async ({ page }) => {
   await page.goto("/");
   await expect(page.locator("main")).toHaveAttribute("data-ready", "true");
+  await expect(page.getByText("Betriebssystem für Ferienhausverwaltung")).toBeVisible();
+  await expect(page.getByText("Dein Büro")).toBeVisible();
+  await expect(page.getByText("Vor Ort arbeiten")).toBeVisible();
+  await expect(page.getByText("Finanzen")).toBeVisible();
 
   await page.getByRole("button", { name: /Kundenübersicht/ }).click();
   await expect(page.getByRole("heading", { name: "Kundenübersicht" })).toBeVisible();

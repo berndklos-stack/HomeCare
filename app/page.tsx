@@ -1590,6 +1590,62 @@ export default function HomePage() {
     hint: string;
     icon: typeof Home;
   }>;
+  const featureSpotlights = [
+    {
+      title: "Service Voice",
+      text: "Anrufe, Rückfragen und Eigentümerwünsche als Aufgabe mit Objektbezug erfassen.",
+      target: "communication",
+      icon: MessageSquare,
+    },
+    {
+      title: "Service Wallet",
+      text: "Abrechenbare Einsätze, Material und offene Posten in einem Zahlungs- und Rechnungsfluss bündeln.",
+      target: "billing",
+      icon: ReceiptText,
+    },
+    {
+      title: "Service Copilot",
+      text: "Termine, Freigaben, Kundenmails und mobile Einsatzberichte als Automationskette vorbereiten.",
+      target: "schedule",
+      icon: Sparkles,
+    },
+  ] satisfies Array<{
+    title: string;
+    text: string;
+    target: NavTarget;
+    icon: typeof Home;
+  }>;
+  const featureGroups = [
+    {
+      label: "Dein Büro",
+      items: ["Auftragsanlage", "Kundenverwaltung", "Dokumente", "Abrechnung"],
+      target: "jobs",
+    },
+    {
+      label: "Vor Ort arbeiten",
+      items: ["Mobile App", "Checklisten", "Fotos & Voice", "Zeiterfassung"],
+      target: "schedule",
+    },
+    {
+      label: "Dein Team",
+      items: ["Einsatzplanung", "Zuweisung", "Status", "Freigaben"],
+      target: "schedule",
+    },
+    {
+      label: "Objekte & Kunden",
+      items: ["Objektakten", "Eigentümerportal", "Kommunikation", "Berichte"],
+      target: "objects",
+    },
+    {
+      label: "Finanzen",
+      items: ["Positionen", "Rechnungen", "Pauschalen", "Exportvorbereitung"],
+      target: "billing",
+    },
+  ] satisfies Array<{
+    label: string;
+    items: string[];
+    target: NavTarget;
+  }>;
   const dataLabel =
     dataState === "live"
       ? String(t.sourceLive)
@@ -2230,6 +2286,36 @@ export default function HomePage() {
                   <div>
                     <p className="eyebrow">{String(t.dashboardJump)}</p>
                     <h3>Dashboard</h3>
+                  </div>
+                </div>
+                <div className="feature-system">
+                  <div className="feature-system-heading">
+                    <p className="eyebrow">Funktionszentrale</p>
+                    <h3>Betriebssystem für Ferienhausverwaltung</h3>
+                    <span>
+                      Büro, Außendienst, Objektakte, Kundenportal und Abrechnung arbeiten in einem Prozess zusammen.
+                    </span>
+                  </div>
+                  <div className="feature-spotlight">
+                    {featureSpotlights.map((feature) => {
+                      const Icon = feature.icon;
+
+                      return (
+                        <button key={feature.title} onClick={() => handleNav(feature.target)} type="button">
+                          <Icon size={20} />
+                          <strong>{feature.title}</strong>
+                          <span>{feature.text}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="feature-group-grid">
+                    {featureGroups.map((group) => (
+                      <button key={group.label} onClick={() => handleNav(group.target)} type="button">
+                        <strong>{group.label}</strong>
+                        <span>{group.items.join(" · ")}</span>
+                      </button>
+                    ))}
                   </div>
                 </div>
                 <div className="module-grid">

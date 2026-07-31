@@ -1,10 +1,20 @@
 export const appVersion = {
-  version: "0.8.1",
+  version: "0.9.0",
   releaseDate: "2026-07-31",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "0.9.0",
+    date: "2026-07-31",
+    changes: [
+      "Dashboard in Richtung einer HERO-artigen Funktionszentrale weiterentwickelt",
+      "Drei Kernmodule für Kommunikation, Finanzen und Automatisierung ergänzt",
+      "Feature-Gruppen für Büro, Vor-Ort-Arbeit, Team, Objekte/Kunden und Finanzen ergänzt",
+      "Schnittstellen bewusst nicht als eigener Bereich aufgenommen",
+    ],
+  },
   {
     version: "0.8.1",
     date: "2026-07-31",

@@ -639,6 +639,83 @@ mark.soft {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.feature-system {
+  border-bottom: 1px solid var(--line);
+  display: grid;
+  gap: 14px;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+}
+
+.feature-system-heading {
+  display: grid;
+  gap: 5px;
+}
+
+.feature-system-heading h3 {
+  font-size: 24px;
+}
+
+.feature-system-heading span {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.feature-spotlight,
+.feature-group-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.feature-spotlight {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.feature-group-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.feature-spotlight button,
+.feature-group-grid button {
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: inherit;
+  display: grid;
+  gap: 8px;
+  min-height: 112px;
+  padding: 14px;
+  text-align: left;
+}
+
+.feature-group-grid button {
+  min-height: 92px;
+}
+
+.feature-spotlight button:hover,
+.feature-group-grid button:hover {
+  background: color-mix(in srgb, var(--sky), var(--paper) 56%);
+  border-color: var(--forest-2);
+}
+
+.feature-spotlight svg {
+  color: var(--forest);
+}
+
+.feature-spotlight strong,
+.feature-group-grid strong {
+  color: var(--foreground);
+  font-size: 15px;
+}
+
+.feature-spotlight span,
+.feature-group-grid span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .module-grid button,
 .master-grid button,
 .catalog-grid button {
@@ -1338,6 +1415,11 @@ mark.soft {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .feature-spotlight,
+  .feature-group-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .master-grid,
   .catalog-grid,
   .customer-table article,
@@ -1401,6 +1483,8 @@ mark.soft {
   .owner-summary,
   .service-grid,
   .module-grid,
+  .feature-spotlight,
+  .feature-group-grid,
   .hero-stats {
     grid-template-columns: 1fr;
   }

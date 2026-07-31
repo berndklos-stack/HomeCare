@@ -4,6 +4,14 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 0.9.0 - 2026-07-31
+
+- Dashboard in Richtung einer HERO-artigen Funktionszentrale weiterentwickelt.
+- Drei Kernmodule für Kommunikation, Finanzen und Automatisierung ergänzt.
+- Feature-Gruppen für Büro, Vor-Ort-Arbeit, Team, Objekte/Kunden und Finanzen ergänzt.
+- Schnittstellen bewusst nicht als eigener Bereich aufgenommen.
+- Playwright-Test prüft die neue Funktionszentrale.
+
 ## 0.8.1 - 2026-07-31
 
 - Kopfbereich kompakter gestaltet und Überschrift auf maximal zwei Zeilen begrenzt.
