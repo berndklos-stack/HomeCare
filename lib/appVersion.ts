@@ -1,10 +1,20 @@
 export const appVersion = {
-  version: "0.8.0",
+  version: "0.8.1",
   releaseDate: "2026-07-31",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "0.8.1",
+    date: "2026-07-31",
+    changes: [
+      "Kopfbereich kompakter gestaltet",
+      "Sprachumschaltung von Segment-Buttons auf Dropdown umgestellt",
+      "Versionschip aus der Topbar entfernt, da Version bereits in der Sidebar steht",
+      "Dashboard-Hero und Übersichtsdaten platzsparender dargestellt",
+    ],
+  },
   {
     version: "0.8.0",
     date: "2026-07-31",

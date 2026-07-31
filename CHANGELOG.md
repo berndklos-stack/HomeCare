@@ -4,6 +4,13 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 0.8.1 - 2026-07-31
+
+- Kopfbereich kompakter gestaltet und Überschrift auf maximal zwei Zeilen begrenzt.
+- Sprachumschaltung von einzelnen Buttons auf ein Dropdownfeld umgestellt.
+- Versionschip aus der Topbar entfernt, weil die Version bereits in der Sidebar verfügbar ist.
+- Dashboard-Hero und Übersichtsdaten deutlich kompakter dargestellt.
+
 ## 0.8.0 - 2026-07-31
 
 - Leistungskatalog aus der Kolaretorp-Broschüre als Stammdaten ergänzt.

@@ -140,6 +140,6 @@ test("dashboard buttons navigate to the expected app areas", async ({ page }) =>
   await clickButton(page, "Dunkelmodus");
   await expect(page.locator("main")).toHaveAttribute("data-theme", "dark");
 
-  await clickButton(page, "SV");
+  await page.getByLabel("Language").selectOption("sv");
   await expect(page.getByRole("heading", { name: "Servicecentral för fritidshus" })).toBeVisible();
 });

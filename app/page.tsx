@@ -2137,13 +2137,6 @@ export default function HomePage() {
               <h1>{String(t.headline)}</h1>
             </div>
             <div className="topbar-actions">
-              <button
-                className="version-pill"
-                onClick={() => setModalMode("version")}
-                type="button"
-              >
-                v{appVersion.version}
-              </button>
               <span className={`data-source ${dataState}`}>{dataLabel}</span>
               <button
                 className="theme-toggle"
@@ -2154,19 +2147,21 @@ export default function HomePage() {
                 {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
                 <span>{String(theme === "dark" ? t.lightMode : t.darkMode)}</span>
               </button>
-              <div className="language-switch" aria-label="Language">
+              <label className="language-switch">
                 <Languages size={17} />
-                {(Object.keys(languageLabels) as Language[]).map((lang) => (
-                  <button
-                    className={language === lang ? "selected" : ""}
-                    key={lang}
-                    onClick={() => setLanguage(lang)}
-                    type="button"
-                  >
-                    {languageLabels[lang]}
-                  </button>
-                ))}
-              </div>
+                <span className="sr-only">Language</span>
+                <select
+                  aria-label="Language"
+                  value={language}
+                  onChange={(event) => setLanguage(event.target.value as Language)}
+                >
+                  {(Object.keys(languageLabels) as Language[]).map((lang) => (
+                    <option key={lang} value={lang}>
+                      {languageLabels[lang]}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <button className="primary-action" onClick={openNewJob} type="button">
                 <Plus size={18} /> {String(t.newJob)}
               </button>
