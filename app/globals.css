@@ -816,7 +816,17 @@ mark.neutral {
 .service-checklist-form {
   display: grid;
   gap: 10px;
-  grid-template-columns: minmax(0, 1fr) 140px;
+  grid-template-columns: minmax(0, 1fr) 96px;
+}
+
+.service-checklist-form label {
+  min-width: 0;
+}
+
+.service-checklist-form input,
+.service-checklist-form textarea {
+  box-sizing: border-box;
+  width: 100%;
 }
 
 .checklist-preview {

@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.14.0",
+  version: "1.15.0",
   releaseDate: "2026-08-09",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.15.0",
+    date: "2026-08-09",
+    changes: [
+      "Standardzeit-Feld im Leistungs-Checklisten-Editor kompakter gestaltet",
+      "Checklistenformular verhindert horizontales Überlaufen der Eingabefelder",
+    ],
+  },
   {
     version: "1.14.0",
     date: "2026-08-09",

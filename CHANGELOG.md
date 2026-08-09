@@ -4,6 +4,11 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.15.0 - 2026-08-09
+
+- Standardzeit-Feld im Leistungs-Checklisten-Editor kompakter gestaltet.
+- Checklistenformular verhindert horizontales Überlaufen der Eingabefelder.
+
 ## 1.14.0 - 2026-08-09
 
 - Aufträge können als einmaliger Auftrag oder Serienauftrag angelegt werden.
