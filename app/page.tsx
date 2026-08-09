@@ -435,13 +435,38 @@ function primaryObjectImage(object: ObjectRecord) {
     ?? object.media.items.find((item) => item.type === "Bild" && item.previewUrl);
 }
 
-function fileToDataUrl(file: File) {
+function readFileAsDataUrl(file: File) {
   return new Promise<string>((resolve) => {
     const reader = new FileReader();
     reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
     reader.onerror = () => resolve("");
     reader.readAsDataURL(file);
   });
+}
+
+function loadImage(dataUrl: string) {
+  return new Promise<HTMLImageElement | null>((resolve) => {
+    const image = new window.Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => resolve(null);
+    image.src = dataUrl;
+  });
+}
+
+async function fileToImagePreview(file: File) {
+  const dataUrl = await readFileAsDataUrl(file);
+  const image = await loadImage(dataUrl);
+  if (!image) return dataUrl;
+
+  const maxSize = 1280;
+  const scale = Math.min(1, maxSize / Math.max(image.naturalWidth, image.naturalHeight));
+  const width = Math.max(1, Math.round(image.naturalWidth * scale));
+  const height = Math.max(1, Math.round(image.naturalHeight * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  canvas.getContext("2d")?.drawImage(image, 0, 0, width, height);
+  return canvas.toDataURL("image/jpeg", 0.72);
 }
 
 function formToObject(form: NewObjectFormState, id: string): ObjectRecord {
@@ -989,7 +1014,11 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!objectsStorageReady) return;
-    window.localStorage.setItem("kolaretorp-objects", JSON.stringify(objects));
+    try {
+      window.localStorage.setItem("kolaretorp-objects", JSON.stringify(objects));
+    } catch (error) {
+      console.warn("Objektdaten konnten nicht lokal gespeichert werden.", error);
+    }
   }, [objects, objectsStorageReady]);
 
   const t = labels[language];
@@ -2646,7 +2675,7 @@ function ObjectForm({
       name: file.name,
       description: type === "Dokument" ? newObject.documentDescription.trim() : "",
       source,
-      previewUrl: type === "Bild" ? await fileToDataUrl(file) : undefined,
+      previewUrl: type === "Bild" ? await fileToImagePreview(file) : undefined,
       isPrimary: type === "Bild" && !hasPrimaryImage && index === 0,
     })));
     const mediaItems = [...newObject.mediaItems, ...added];

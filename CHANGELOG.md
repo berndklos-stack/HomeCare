@@ -4,6 +4,12 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.23.0 - 2026-08-09
+
+- Objektbilder werden vor dem lokalen Speichern automatisch verkleinert.
+- Lokales Speichern fängt Speicherlimit-Fehler ab, damit die App nicht mehr abstürzt.
+- Test prüft jetzt auch das Speichern eines Objektbildes an einem zweiten Objekt.
+
 ## 1.22.0 - 2026-08-09
 
 - Objekte werden beim Bearbeiten jetzt als eigene Seite statt als Popup geöffnet.

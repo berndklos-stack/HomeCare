@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.22.0",
+  version: "1.23.0",
   releaseDate: "2026-08-09",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.23.0",
+    date: "2026-08-09",
+    changes: [
+      "Objektbilder werden vor dem lokalen Speichern automatisch verkleinert",
+      "Lokales Speichern fängt Speicherlimit-Fehler ab, damit die App nicht mehr abstürzt",
+      "Test prüft jetzt auch das Speichern eines Objektbildes an einem zweiten Objekt",
+    ],
+  },
   {
     version: "1.22.0",
     date: "2026-08-09",
