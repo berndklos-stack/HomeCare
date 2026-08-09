@@ -4,6 +4,26 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.27.0 - 2026-08-10
+
+- Kundendaten enthalten jetzt einen individuell anpassbaren Mailtext für Einsatzberichte.
+- Der Berichtversand ersetzt den Platzhalter `{Vorname}` automatisch durch den Ansprechpartner des Kunden.
+- Objektberichte verwenden Empfänger und Mailtext aus den zugeordneten Kundenstammdaten.
+
+## 1.26.0 - 2026-08-10
+
+- Kundenbericht zeigt eine professionellere Einsatzbericht-Karte mit Objekt, Auftrag, Zeiten, Material, Checkliste und Medien.
+- Berichtversand protokolliert Zeitstempel, Betreff, Empfänger, Kopie und PDF-Anhang.
+- E-Mail-Betreff folgt dem Format Einsatzbericht - Kolaretorp Service AB - Objektbezeichnung.
+- Beim Berichtversand wird info@kolaretorp.se als Kopie ausgewiesen.
+- E-Mail-Body enthält eine persönliche Anrede mit Berichtshinweis und Rückfragen-Satz.
+
+## 1.25.0 - 2026-08-10
+
+- Fotos zum Objekt enthalten den Button Neues Foto hinzufügen direkt im Abschnitt.
+- Dokumente zum Objekt haben einen eigenen Abschnitt mit Büroklammer-Upload.
+- Separate Upload-Kacheln oberhalb der Foto- und Dokumentbereiche wurden entfernt.
+
 ## 1.24.0 - 2026-08-09
 
 - Objektbild wird in der Objektbearbeitung rechts oben ohne Dateinamen angezeigt.

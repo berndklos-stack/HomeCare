@@ -1323,6 +1323,46 @@ mark.neutral {
   padding-left: 10px;
 }
 
+.customer-report-card {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.customer-report-head {
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  padding-bottom: 10px;
+}
+
+.customer-report-head h3 {
+  font-size: 20px;
+  margin: 0;
+}
+
+.customer-report-head span {
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.report-checklist {
+  display: grid;
+  gap: 6px;
+}
+
+.report-checklist ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
 .history-media {
   display: flex;
   flex-wrap: wrap;
@@ -1340,8 +1380,20 @@ mark.neutral {
 }
 
 .send-status {
+  background: color-mix(in srgb, var(--brand), var(--paper) 90%);
+  border: 1px solid color-mix(in srgb, var(--brand), var(--line) 70%);
+  border-radius: 8px;
+  display: grid;
+  gap: 4px;
   font-weight: 800;
   margin: 0;
+  padding: 10px 12px;
+}
+
+.send-status span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .tags,
@@ -1481,7 +1533,7 @@ mark.neutral {
   padding: 7px 10px;
 }
 
-.object-photo-section {
+.object-attachment-section {
   border: 1px solid var(--line);
   border-radius: 8px;
   display: grid;
@@ -1489,8 +1541,34 @@ mark.neutral {
   padding: 12px;
 }
 
-.object-photo-section h3 {
+.attachment-section-head {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.attachment-section-head > div {
+  display: grid;
+  gap: 2px;
+}
+
+.attachment-section-head h3 {
   margin: 0;
+}
+
+.attachment-section-head span,
+.empty-attachment {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.attachment-upload {
+  cursor: pointer;
+}
+
+.attachment-upload input {
+  display: none;
 }
 
 .object-photo-gallery {
@@ -1522,24 +1600,8 @@ mark.neutral {
   border-radius: 8px;
 }
 
-.upload-grid {
-  display: grid;
-  gap: 10px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.upload-card {
-  background: var(--paper-soft);
-  border: 1px dashed var(--brand-2);
-  border-radius: 8px;
-  min-height: 92px;
-  padding: 12px;
-}
-
-.upload-card input {
-  background: transparent;
-  border: 0;
-  padding: 0;
+.document-description-field {
+  grid-column: auto;
 }
 
 .media-list {
@@ -1643,9 +1705,13 @@ mark.neutral {
   .workboard,
   .planning-grid,
   .service-catalog,
-  .upload-grid,
   .form-grid {
     grid-template-columns: 1fr;
+  }
+
+  .attachment-section-head {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .toolbar {

@@ -1,10 +1,39 @@
 export const appVersion = {
-  version: "1.24.0",
-  releaseDate: "2026-08-09",
+  version: "1.27.0",
+  releaseDate: "2026-08-10",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.27.0",
+    date: "2026-08-10",
+    changes: [
+      "Kundendaten enthalten jetzt einen individuell anpassbaren Mailtext für Einsatzberichte",
+      "Der Berichtversand ersetzt den Platzhalter {Vorname} automatisch durch den Ansprechpartner des Kunden",
+      "Objektberichte verwenden Empfänger und Mailtext aus den zugeordneten Kundenstammdaten",
+    ],
+  },
+  {
+    version: "1.26.0",
+    date: "2026-08-10",
+    changes: [
+      "Kundenbericht zeigt eine professionellere Einsatzbericht-Karte mit Objekt, Auftrag, Zeiten, Material, Checkliste und Medien",
+      "Berichtversand protokolliert Zeitstempel, Betreff, Empfänger, Kopie und PDF-Anhang",
+      "E-Mail-Betreff folgt dem Format Einsatzbericht - Kolaretorp Service AB - Objektbezeichnung",
+      "Beim Berichtversand wird info@kolaretorp.se als Kopie ausgewiesen",
+      "E-Mail-Body enthält eine persönliche Anrede mit Berichtshinweis und Rückfragen-Satz",
+    ],
+  },
+  {
+    version: "1.25.0",
+    date: "2026-08-10",
+    changes: [
+      "Fotos zum Objekt enthalten den Button Neues Foto hinzufügen direkt im Abschnitt",
+      "Dokumente zum Objekt haben einen eigenen Abschnitt mit Büroklammer-Upload",
+      "Separate Upload-Kacheln oberhalb der Foto- und Dokumentbereiche wurden entfernt",
+    ],
+  },
   {
     version: "1.24.0",
     date: "2026-08-09",

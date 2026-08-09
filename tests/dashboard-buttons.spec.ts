@@ -21,8 +21,14 @@ test("new operations workspace supports core property and job flows", async ({ p
   await expect(page.getByText("Pool gereinigt, Werte stabilisiert, nächste Kontrolle geplant.")).toBeVisible();
   await expect(page.getByText("Filterdruck beobachten. Interner Hinweis nicht im Kundenportal.")).toBeVisible();
   await expect(page.getByRole("button", { name: "PDF für Poolpflege und Wasserwerte ausgeben" })).toBeVisible();
+  await expect(page.getByText("Einsatzbericht", { exact: true })).toBeVisible();
+  await expect(page.getByText("Betreff: Einsatzbericht - Kolaretorp Service AB - Villa Långsjön")).toBeVisible();
+  await expect(page.getByText("Kopie: info@kolaretorp.se")).toBeVisible();
+  await expect(page.getByText("Anhang: Einsatzbericht-Villa Långsjön-Poolpflege und Wasserwerte.pdf")).toBeVisible();
+  await expect(page.getByText("Body: Hallo Eva, anbei der Bericht vom aktuellen Einsatz. Für Rückfragen stehen wir gerne zur Verfügung.")).toBeVisible();
   await page.getByRole("button", { name: "Bericht Poolpflege und Wasserwerte an Kunden senden" }).click();
-  await expect(page.getByText("An eva.andersson@example.com gesendet")).toBeVisible();
+  await expect(page.getByText("Gesendet")).toBeVisible();
+  await expect(page.getByText(/Zeitstempel:/)).toBeVisible();
   await page.getByRole("button", { name: "Zurück zur Objektübersicht" }).click();
   await expect(
     page.locator(".object-list article").filter({ hasText: "Villa Långsjön" }).getByRole("button", { name: "Objekt Villa Långsjön bearbeiten" }),
@@ -38,13 +44,13 @@ test("new operations workspace supports core property and job flows", async ({ p
   await field("Betten").fill("9");
   await field("Betreuungspaket").selectOption("Premium");
   await field("Zugang / Schlüssel").fill("Schlüsselsafe am Carport");
-  await field("Dokument-Kurzbeschreibung").fill("Versicherungspolice Objekt");
-  await page.getByLabel("Bilder hochladen").setInputFiles({
+  await field("Kurzbeschreibung zum nächsten Dokument").fill("Versicherungspolice Objekt");
+  await page.getByLabel("Neues Foto hinzufügen").setInputFiles({
     name: "objektfoto.jpg",
     mimeType: "image/jpeg",
     buffer: Buffer.from("demo"),
   });
-  await page.getByLabel("Dokumente hochladen").setInputFiles({
+  await page.getByLabel("Dokument hinzufügen").setInputFiles({
     name: "versicherung.pdf",
     mimeType: "application/pdf",
     buffer: Buffer.from("demo"),
@@ -76,7 +82,7 @@ test("new operations workspace supports core property and job flows", async ({ p
   await expect(page.getByRole("img", { name: "Foto objektfoto.jpg" })).toBeVisible();
   await page.getByRole("button", { name: "Zurück zur Objektübersicht" }).click();
   await page.locator(".object-list article").filter({ hasText: "Stuga Nybro" }).getByRole("button", { name: "Objekt Stuga Nybro bearbeiten" }).click();
-  await page.getByLabel("Bilder hochladen").setInputFiles({
+  await page.getByLabel("Neues Foto hinzufügen").setInputFiles({
     name: "zweites-objekt.jpg",
     mimeType: "image/jpeg",
     buffer: Buffer.from("demo"),
@@ -127,6 +133,7 @@ test("new operations workspace supports core property and job flows", async ({ p
   await field("Telefon").fill("+46 70 998877");
   await field("Eigentümeradresse / Rechnungsadresse").fill("Beispielweg 4, 12345 Berlin");
   await field("Notizen / interne Info").fill("Bevorzugt E-Mail, keine Telefonate am Wochenende");
+  await field("Mailtext Einsatzbericht").fill("Hallo {Vorname}, der Einsatzbericht ist beigefügt. Viele Grüße von Kolaretorp Service AB.");
   await page.getByRole("button", { name: "Kunde anlegen" }).click();
   await expect(page.getByText("Familie Beispiel")).toBeVisible();
   await page.locator(".table-list article").filter({ hasText: "M. Schneider" }).getByRole("button", { name: "Kunde M. Schneider bearbeiten" }).click();

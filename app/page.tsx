@@ -16,6 +16,7 @@ import {
   KeyRound,
   Languages,
   Moon,
+  Paperclip,
   Pencil,
   PlayCircle,
   Plus,
@@ -113,6 +114,7 @@ type CustomerRecord = {
   balance: string;
   portalStatus: "aktiv" | "einladen" | "gesperrt";
   notes: string;
+  reportMailBody: string;
   archived?: boolean;
 };
 
@@ -267,6 +269,7 @@ type CustomerFormState = {
   portalStatus: CustomerRecord["portalStatus"];
   objects: string[];
   notes: string;
+  reportMailBody: string;
 };
 
 const labels = {
@@ -435,6 +438,19 @@ function primaryObjectImage(object: ObjectRecord) {
     ?? object.media.items.find((item) => item.type === "Bild" && item.previewUrl);
 }
 
+function firstNameFromName(name: string) {
+  const cleaned = name.replace(/^Familie\s+/i, "").trim();
+  return cleaned.split(/\s+/)[0] || "zusammen";
+}
+
+const defaultReportMailBody = "Hallo {Vorname}, anbei der Bericht vom aktuellen Einsatz. Für Rückfragen stehen wir gerne zur Verfügung.";
+
+function customerReportMailBody(customer: CustomerRecord | undefined) {
+  const firstName = firstNameFromName(customer?.contact || customer?.name || "");
+  const template = customer?.reportMailBody?.trim() || defaultReportMailBody;
+  return template.replaceAll("{Vorname}", firstName);
+}
+
 function readFileAsDataUrl(file: File) {
   return new Promise<string>((resolve) => {
     const reader = new FileReader();
@@ -539,6 +555,7 @@ function emptyCustomerForm(): CustomerFormState {
     portalStatus: "einladen",
     objects: [],
     notes: "",
+    reportMailBody: defaultReportMailBody,
   };
 }
 
@@ -554,6 +571,7 @@ function customerToForm(customer: CustomerRecord): CustomerFormState {
     portalStatus: customer.portalStatus,
     objects: customer.objects,
     notes: customer.notes,
+    reportMailBody: customer.reportMailBody || defaultReportMailBody,
   };
 }
 
@@ -570,6 +588,7 @@ function formToCustomer(form: CustomerFormState, id: string): CustomerRecord {
     balance: form.balance.trim() || "0 SEK",
     portalStatus: form.portalStatus,
     notes: form.notes.trim(),
+    reportMailBody: form.reportMailBody.trim() || defaultReportMailBody,
   };
 }
 
@@ -727,6 +746,7 @@ const seedCustomers: CustomerRecord[] = [
     balance: "0 SEK",
     portalStatus: "aktiv",
     notes: "Bevorzugt Kommunikation per E-Mail, Fotos nach jeder Poolpflege mitschicken.",
+    reportMailBody: defaultReportMailBody,
   },
   {
     id: "CUS-2",
@@ -740,6 +760,7 @@ const seedCustomers: CustomerRecord[] = [
     balance: "1.840 SEK",
     portalStatus: "aktiv",
     notes: "Rechnungsadresse in Deutschland, Rückfragen bitte auf Deutsch.",
+    reportMailBody: defaultReportMailBody,
   },
   {
     id: "CUS-3",
@@ -753,6 +774,7 @@ const seedCustomers: CustomerRecord[] = [
     balance: "0 SEK",
     portalStatus: "einladen",
     notes: "Interner Eigentümer, Werkstattinformationen nicht im Kundenportal anzeigen.",
+    reportMailBody: defaultReportMailBody,
   },
 ];
 
@@ -2482,16 +2504,18 @@ function ObjectEditorPage({
           submitLabel={submitLabel}
         />
       </section>
-      {object && <ObjectHistory jobs={jobs} object={object} reports={reports} />}
+      {object && <ObjectHistory customers={customers} jobs={jobs} object={object} reports={reports} />}
     </div>
   );
 }
 
 function ObjectHistory({
+  customers,
   jobs,
   object,
   reports,
 }: {
+  customers: CustomerRecord[];
   jobs: JobRecord[];
   object: ObjectRecord;
   reports: ReportRecord[];
@@ -2519,10 +2543,25 @@ function ObjectHistory({
       })),
   ].sort((first, second) => second.date.localeCompare(first.date));
   const [selectedHistoryId, setSelectedHistoryId] = useState(history[0]?.id ?? "");
-  const [sentReports, setSentReports] = useState<string[]>([]);
+  const [sentReports, setSentReports] = useState<Record<string, string>>({});
   const selectedHistory = history.find((item) => item.id === selectedHistoryId) ?? history[0];
   const selectedReport = selectedHistory?.report;
   const selectedJob = selectedHistory?.job;
+  const reportCustomer = customers.find((customer) => customer.id === object.ownerCustomerId || customer.name === object.owner);
+  const reportSubject = selectedHistory ? `Einsatzbericht - Kolaretorp Service AB - ${object.name}` : "";
+  const reportPdfName = selectedHistory ? `Einsatzbericht-${object.name}-${selectedHistory.title}.pdf` : "";
+  const mailBody = customerReportMailBody(reportCustomer);
+
+  function sendCustomerReport() {
+    if (!selectedReport) return;
+    setSentReports({
+      ...sentReports,
+      [selectedReport.id]: new Date().toLocaleString("de-DE", {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }),
+    });
+  }
 
   return (
     <section className="panel object-history">
@@ -2562,7 +2601,7 @@ function ObjectHistory({
               <IconAction label={`PDF für ${selectedHistory.title} ausgeben`} onClick={() => window.print()}><FileDown size={16} /></IconAction>
               <IconAction
                 label={`Bericht ${selectedHistory.title} an Kunden senden`}
-                onClick={() => selectedReport && setSentReports([...sentReports.filter((id) => id !== selectedReport.id), selectedReport.id])}
+                onClick={sendCustomerReport}
               >
                 <Send size={16} />
               </IconAction>
@@ -2584,22 +2623,53 @@ function ObjectHistory({
           )}
           {selectedReport ? (
             <>
-              <div className="history-block">
-                <strong>Kundenbericht</strong>
-                <p>{selectedReport.summary}</p>
-              </div>
+              <article className="customer-report-card">
+                <div className="customer-report-head">
+                  <div>
+                    <span>Kolaretorp Service AB</span>
+                    <h3>Einsatzbericht</h3>
+                  </div>
+                  <Badge value={selectedJob?.status ?? "Bericht"} />
+                </div>
+                <dl>
+                  <div><dt>Objekt</dt><dd>{object.name}</dd></div>
+                  <div><dt>Eigentümer</dt><dd>{object.owner}</dd></div>
+                  <div><dt>Objektadresse</dt><dd>{object.address}</dd></div>
+                  <div><dt>Auftrag</dt><dd>{selectedHistory.title}</dd></div>
+                  <div><dt>Datum</dt><dd>{selectedHistory.date}</dd></div>
+                  {selectedJob && <div><dt>Bearbeiter</dt><dd>{selectedJob.assignedTo}</dd></div>}
+                  {selectedJob && <div><dt>Arbeitszeit</dt><dd>{selectedJob.workMinutes} min.</dd></div>}
+                  {selectedJob && <div><dt>Material</dt><dd>{selectedJob.material}</dd></div>}
+                </dl>
+                <div className="history-block">
+                  <strong>Zusammenfassung für den Kunden</strong>
+                  <p>{selectedReport.summary}</p>
+                </div>
+                {selectedJob && selectedJob.checklist.length > 0 && (
+                  <div className="report-checklist">
+                    <strong>Durchgeführte Punkte</strong>
+                    <ul>
+                      {selectedJob.checklist.map((item) => <li key={item}>{item}</li>)}
+                    </ul>
+                  </div>
+                )}
+                <div className="history-media">
+                  {selectedReport.media.map((item) => <span key={item}>{item}</span>)}
+                </div>
+              </article>
               <div className="history-block internal">
                 <strong>Interne Notizen</strong>
                 <p>{selectedReport.internalNotes}</p>
               </div>
-              <div className="history-media">
-                {selectedReport.media.map((item) => <span key={item}>{item}</span>)}
+              <div className="send-status">
+                <strong>{sentReports[selectedReport.id] ? "Gesendet" : "Noch nicht an Kunden gesendet"}</strong>
+                <span>Betreff: {reportSubject}</span>
+                <span>An: {reportCustomer?.email ?? object.ownerEmail}</span>
+                <span>Kopie: info@kolaretorp.se</span>
+                <span>Anhang: {reportPdfName}</span>
+                <span>Body: {mailBody}</span>
+                {sentReports[selectedReport.id] && <span>Zeitstempel: {sentReports[selectedReport.id]}</span>}
               </div>
-              <p className="send-status">
-                {sentReports.includes(selectedReport.id)
-                  ? `An ${object.ownerEmail} gesendet`
-                  : "Noch nicht an Kunden gesendet"}
-              </p>
             </>
           ) : (
             <div className="history-block">
@@ -2800,36 +2870,19 @@ function ObjectForm({
       <label><span>Abwasser</span><input value={newObject.septic} onChange={(event) => update("septic", event.target.value)} /></label>
       <label><span>Internet</span><input value={newObject.internet} onChange={(event) => update("internet", event.target.value)} /></label>
       <h3>Dokumentation & Planung</h3>
-      <div className="wide media-summary">
-        <span>{newObject.images} Bilder</span>
-        <span>{newObject.documents} Dokumente</span>
-        <span>{newObject.floorPlans} Grundrisse</span>
-      </div>
-      <div className="wide upload-grid">
-        <label className="upload-card">
-          <span>Bilder hochladen</span>
-          <input aria-label="Bilder hochladen" accept="image/*" multiple type="file" onChange={(event) => void addMedia(event.target.files, "Bild", "Upload")} />
-        </label>
-        <label className="upload-card">
-          <span>Foto mit Handy aufnehmen</span>
-          <input aria-label="Foto mit Handy aufnehmen" accept="image/*" capture="environment" type="file" onChange={(event) => void addMedia(event.target.files, "Bild", "Kamera")} />
-        </label>
-        <label>
-          <span>Dokument-Kurzbeschreibung</span>
-          <input value={newObject.documentDescription} onChange={(event) => update("documentDescription", event.target.value)} placeholder="z.B. Energieausweis, Versicherung, Schlüsselprotokoll" />
-        </label>
-        <label className="upload-card">
-          <span>Dokumente hochladen</span>
-          <input aria-label="Dokumente hochladen" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,image/*" multiple type="file" onChange={(event) => void addMedia(event.target.files, "Dokument", "Upload")} />
-        </label>
-        <label className="upload-card">
-          <span>Grundrisse hochladen</span>
-          <input aria-label="Grundrisse hochladen" accept=".pdf,image/*" multiple type="file" onChange={(event) => void addMedia(event.target.files, "Grundriss", "Upload")} />
-        </label>
-      </div>
-      {photoItems.length > 0 && (
-        <section className="wide object-photo-section">
-          <h3>Fotos zum Objekt</h3>
+      <section className="wide object-attachment-section">
+        <div className="attachment-section-head">
+          <div>
+            <h3>Fotos zum Objekt</h3>
+            <span>{photoItems.length} Fotos</span>
+          </div>
+          <label className="ghost-button attachment-upload">
+            <Camera size={16} />
+            Neues Foto hinzufügen
+            <input aria-label="Neues Foto hinzufügen" accept="image/*" capture="environment" multiple type="file" onChange={(event) => void addMedia(event.target.files, "Bild", "Kamera")} />
+          </label>
+        </div>
+        {photoItems.length > 0 ? (
           <div className="object-photo-gallery">
             {photoItems.map((item) => (
               <article className={item.isPrimary ? "primary" : ""} key={item.id}>
@@ -2854,10 +2907,28 @@ function ObjectForm({
               </article>
             ))}
           </div>
-        </section>
-      )}
-      {fileItems.length > 0 && (
-        <div className="wide media-list">
+        ) : (
+          <p className="empty-attachment">Noch keine Fotos zum Objekt vorhanden.</p>
+        )}
+      </section>
+      <section className="wide object-attachment-section">
+        <div className="attachment-section-head">
+          <div>
+            <h3>Dokumente zum Objekt</h3>
+            <span>{fileItems.length} Dokumente und Grundrisse</span>
+          </div>
+          <label className="ghost-button attachment-upload">
+            <Paperclip size={16} />
+            Dokument hinzufügen
+            <input aria-label="Dokument hinzufügen" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,image/*" multiple type="file" onChange={(event) => void addMedia(event.target.files, "Dokument", "Upload")} />
+          </label>
+        </div>
+        <label className="wide document-description-field">
+          <span>Kurzbeschreibung zum nächsten Dokument</span>
+          <input value={newObject.documentDescription} onChange={(event) => update("documentDescription", event.target.value)} placeholder="z.B. Energieausweis, Versicherung, Schlüsselprotokoll" />
+        </label>
+        {fileItems.length > 0 ? (
+          <div className="media-list">
           {fileItems.map((item) => (
             <article key={item.id}>
               <span className="media-thumb media-thumb-empty">
@@ -2880,8 +2951,11 @@ function ObjectForm({
               <IconAction danger label={`Datei ${item.name} entfernen`} onClick={() => removeMedia(item.id)}><Trash2 size={16} /></IconAction>
             </article>
           ))}
-        </div>
-      )}
+          </div>
+        ) : (
+          <p className="empty-attachment">Noch keine Dokumente zum Objekt vorhanden.</p>
+        )}
+      </section>
       <label><span>Letzter Besuch</span><input value={newObject.lastVisit} onChange={(event) => update("lastVisit", event.target.value)} /></label>
       <label><span>Nächster Besuch</span><input value={newObject.nextVisit} onChange={(event) => update("nextVisit", event.target.value)} /></label>
       <label className="wide"><span>Ausstattung</span><textarea value={newObject.equipment} onChange={(event) => update("equipment", event.target.value)} placeholder="Pool, Sauna, Kamin" /></label>
@@ -2939,6 +3013,14 @@ function CustomerForm({
       </label>
       <label><span>Saldo</span><input value={customer.balance} onChange={(event) => update("balance", event.target.value)} /></label>
       <label className="wide"><span>Notizen / interne Info</span><textarea value={customer.notes} onChange={(event) => update("notes", event.target.value)} /></label>
+      <label className="wide">
+        <span>Mailtext Einsatzbericht</span>
+        <textarea
+          value={customer.reportMailBody}
+          onChange={(event) => update("reportMailBody", event.target.value)}
+          placeholder={defaultReportMailBody}
+        />
+      </label>
       <label className="wide">
         <span>Objekt zuordnen</span>
         <select value="" onChange={(event) => assignObject(event.target.value)}>
