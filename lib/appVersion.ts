@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.28.0",
+  version: "1.29.0",
   releaseDate: "2026-08-10",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.29.0",
+    date: "2026-08-10",
+    changes: [
+      "Mobil-vor-Ort-Ansicht verwendet jetzt die normalen App-Farben statt einer separaten dunklen Geräteoptik",
+      "Checklisten, Eingabefelder, Foto-Buttons und Foto-Bestätigung passen sich nun sauber an Hell- und Dunkelmodus an",
+    ],
+  },
   {
     version: "1.28.0",
     date: "2026-08-10",

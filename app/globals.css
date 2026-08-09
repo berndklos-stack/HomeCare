@@ -686,9 +686,11 @@ mark.neutral {
 }
 
 .phone-card {
-  background: #111111;
-  border: 8px solid #000000;
-  color: #fff;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  color: var(--ink);
   display: grid;
   gap: 12px;
   max-width: 430px;
@@ -703,7 +705,8 @@ mark.neutral {
 
 .checklist label {
   align-items: center;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
   border-radius: 8px;
   display: grid;
   gap: 8px;
@@ -713,17 +716,17 @@ mark.neutral {
 }
 
 .phone-card textarea {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
   border-radius: 8px;
-  color: #fff;
+  color: var(--ink);
   min-height: 90px;
   padding: 10px;
 }
 
 .field-summary {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
   border-radius: 8px;
   display: grid;
   gap: 3px;
@@ -732,7 +735,7 @@ mark.neutral {
 
 .field-summary small,
 .service-task-list small {
-  color: rgba(255, 255, 255, 0.68);
+  color: var(--muted);
 }
 
 .service-task-list {
@@ -741,8 +744,8 @@ mark.neutral {
 }
 
 .service-task-list article {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
   border-radius: 8px;
   display: grid;
   gap: 10px;
@@ -777,10 +780,10 @@ mark.neutral {
 
 .task-photo-button {
   align-items: center;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: var(--paper);
+  border: 1px solid var(--line);
   border-radius: 8px;
-  color: #fff;
+  color: var(--brand);
   cursor: pointer;
   display: inline-flex;
   height: 38px;
@@ -794,10 +797,10 @@ mark.neutral {
 }
 
 .task-photo-button[data-tooltip]::after {
-  background: #fff;
+  background: var(--ink);
   border-radius: 7px;
   bottom: calc(100% + 8px);
-  color: #111;
+  color: var(--paper);
   content: attr(data-tooltip);
   font-size: 12px;
   font-weight: 700;
@@ -828,7 +831,7 @@ mark.neutral {
 }
 
 .service-task-list p {
-  color: rgba(255, 255, 255, 0.78);
+  color: var(--muted);
   font-size: 13px;
   margin: 0;
 }
@@ -846,18 +849,18 @@ mark.neutral {
 }
 
 .field-task-inputs span {
-  color: rgba(255, 255, 255, 0.66);
+  color: var(--muted);
   font-size: 12px;
   font-weight: 800;
 }
 
 .field-task-inputs input,
 .field-task-inputs textarea {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: var(--paper);
+  border: 1px solid var(--line);
   border-radius: 8px;
   box-sizing: border-box;
-  color: #fff;
+  color: var(--ink);
   min-height: 42px;
   padding: 9px;
   width: 100%;
@@ -878,8 +881,8 @@ mark.neutral {
 }
 
 .captured-photo-card {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: var(--paper);
+  border: 1px solid var(--line);
   border-radius: 8px;
   display: grid;
   gap: 8px;
@@ -887,7 +890,7 @@ mark.neutral {
 }
 
 .captured-photo-card span {
-  color: rgba(255, 255, 255, 0.68);
+  color: var(--muted);
   font-size: 13px;
 }
 
