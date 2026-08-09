@@ -4,6 +4,13 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.9.0 - 2026-08-09
+
+- Leistungen im Paket werden über einen Plus-Button in einem Auswahl-Popup gepflegt.
+- Leistungsauswahl ist nach Kategorie gruppiert und alphabetisch sortiert.
+- Paketformular zeigt nur noch eine kompakte Zusammenfassung der ausgewählten Leistungen.
+- Playwright-Test prüft den neuen Paket-Leistungswähler.
+
 ## 1.8.0 - 2026-08-09
 
 - Doppelten Firmennamen aus dem Kopfbereich entfernt.

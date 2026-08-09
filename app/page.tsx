@@ -1580,6 +1580,7 @@ function MasterDataView({
 }) {
   const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
   const [editingPackageId, setEditingPackageId] = useState<string | null>(null);
+  const [servicePickerOpen, setServicePickerOpen] = useState(false);
   const [archiveNotice, setArchiveNotice] = useState("");
   const [serviceForm, setServiceForm] = useState({
     name: "",
@@ -1598,7 +1599,17 @@ function MasterDataView({
   const archivedServices = services.filter((service) => service.archived);
   const activePackages = packages.filter((servicePackage) => !servicePackage.archived);
   const archivedPackages = packages.filter((servicePackage) => servicePackage.archived);
-  const categories = Array.from(new Set(activeServices.map((service) => service.category).filter(Boolean))).sort();
+  const categories = Array.from(new Set(activeServices.map((service) => service.category).filter(Boolean)))
+    .sort((first, second) => first.localeCompare(second, "de"));
+  const groupedServices = categories.map((category) => ({
+    category,
+    services: activeServices
+      .filter((service) => service.category === category)
+      .sort((first, second) => first.name.localeCompare(second.name, "de")),
+  }));
+  const selectedPackageServices = packageForm.serviceIds
+    .map((id) => activeServices.find((service) => service.id === id))
+    .filter(Boolean) as ServiceItem[];
 
   function resetServiceForm() {
     setEditingServiceId(null);
@@ -1682,6 +1693,7 @@ function MasterDataView({
 
   function resetPackageForm() {
     setEditingPackageId(null);
+    setServicePickerOpen(false);
     setPackageForm({ name: "", price: "", description: "", serviceIds: [] });
   }
 
@@ -1799,14 +1811,17 @@ function MasterDataView({
           <label><span>Paketname</span><input value={packageForm.name} onChange={(event) => setPackageForm({ ...packageForm, name: event.target.value })} /></label>
           <label><span>Paketpreis</span><input value={packageForm.price} onChange={(event) => setPackageForm({ ...packageForm, price: event.target.value })} placeholder="z.B. 7.990 SEK/Jahr" /></label>
           <label className="wide"><span>Paketbeschreibung</span><textarea value={packageForm.description} onChange={(event) => setPackageForm({ ...packageForm, description: event.target.value })} /></label>
-          <div className="wide check-list service-picker">
-            <span>Leistungen im Paket</span>
-            {activeServices.map((service) => (
-              <label key={service.id}>
-                <input checked={packageForm.serviceIds.includes(service.id)} onChange={() => togglePackageService(service.id)} type="checkbox" />
-                <span>{service.name} · {service.price}/{service.unit}</span>
-              </label>
-            ))}
+          <div className="wide package-service-summary">
+            <div>
+              <span>Leistungen im Paket</span>
+              <strong>{selectedPackageServices.length || "Keine"} ausgewählt</strong>
+              <small>
+                {selectedPackageServices.length > 0
+                  ? selectedPackageServices.map((service) => service.name).sort((first, second) => first.localeCompare(second, "de")).join(", ")
+                  : "Über Plus Leistungen aus dem Katalog auswählen"}
+              </small>
+            </div>
+            <button aria-label="Leistungen auswählen" className="icon-button" onClick={() => setServicePickerOpen(true)} type="button"><Plus size={18} /></button>
           </div>
           <button className="primary-button wide" onClick={savePackage} type="button">{editingPackageId ? "Paket speichern" : "Paket anlegen"}</button>
           {editingPackageId && <button className="ghost-button wide" onClick={resetPackageForm} type="button">Bearbeitung abbrechen</button>}
@@ -1849,6 +1864,39 @@ function MasterDataView({
           </div>
         )}
       </section>
+      {servicePickerOpen && (
+        <div className="modal-backdrop nested-backdrop">
+          <section aria-labelledby="service-picker-title" aria-modal="true" className="modal service-picker-modal" role="dialog">
+            <header>
+              <div>
+                <p>Leistungskatalog</p>
+                <h2 id="service-picker-title">Leistungen auswählen</h2>
+              </div>
+              <button aria-label="Leistungsauswahl schließen" onClick={() => setServicePickerOpen(false)} type="button">
+                <X size={18} />
+              </button>
+            </header>
+            <div className="service-selection-list">
+              {groupedServices.map((group) => (
+                <section key={group.category}>
+                  <h3>{group.category}</h3>
+                  {group.services.map((service) => (
+                    <label key={service.id}>
+                      <input checked={packageForm.serviceIds.includes(service.id)} onChange={() => togglePackageService(service.id)} type="checkbox" />
+                      <span>
+                        <strong>{service.name}</strong>
+                        <small>{service.description}</small>
+                      </span>
+                      <mark>{service.price}/{service.unit}</mark>
+                    </label>
+                  ))}
+                </section>
+              ))}
+            </div>
+            <button className="primary-button" onClick={() => setServicePickerOpen(false)} type="button">Auswahl übernehmen</button>
+          </section>
+        </div>
+      )}
     </div>
   );
 }

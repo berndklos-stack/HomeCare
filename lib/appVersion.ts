@@ -1,10 +1,20 @@
 export const appVersion = {
-  version: "1.8.0",
+  version: "1.9.0",
   releaseDate: "2026-08-09",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.9.0",
+    date: "2026-08-09",
+    changes: [
+      "Leistungen im Paket werden über einen Plus-Button in einem Auswahl-Popup gepflegt",
+      "Leistungsauswahl ist nach Kategorie gruppiert und alphabetisch sortiert",
+      "Paketformular zeigt nur noch eine kompakte Zusammenfassung der ausgewählten Leistungen",
+      "E2E-Test prüft den neuen Paket-Leistungswähler",
+    ],
+  },
   {
     version: "1.8.0",
     date: "2026-08-09",

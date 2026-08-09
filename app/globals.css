@@ -620,15 +620,88 @@ mark.neutral {
   padding: 12px;
 }
 
-.service-picker {
-  max-height: 250px;
-  overflow: auto;
-}
-
 .service-catalog span {
   color: var(--accent);
   font-size: 12px;
   font-weight: 800;
+}
+
+.package-service-summary {
+  align-items: center;
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 12px;
+}
+
+.package-service-summary > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.package-service-summary strong {
+  font-size: 18px;
+}
+
+.package-service-summary small {
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nested-backdrop {
+  z-index: 30;
+}
+
+.service-picker-modal {
+  max-width: 880px;
+  width: min(100%, 880px);
+}
+
+.service-selection-list {
+  display: grid;
+  gap: 14px;
+}
+
+.service-selection-list section {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  overflow: hidden;
+}
+
+.service-selection-list h3 {
+  background: var(--paper-soft);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+  margin: 0;
+  padding: 10px 12px;
+  text-transform: uppercase;
+}
+
+.service-selection-list label {
+  align-items: center;
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 12px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  padding: 12px;
+}
+
+.service-selection-list label span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.service-selection-list label small {
+  color: var(--muted);
 }
 
 .archive-section {
