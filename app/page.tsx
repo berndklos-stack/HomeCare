@@ -141,6 +141,23 @@ type BillingRecord = {
   status: "abrechenbar" | "abgerechnet" | "intern";
 };
 
+type ServiceItem = {
+  id: string;
+  name: string;
+  category: string;
+  unit: string;
+  price: string;
+  description: string;
+};
+
+type ServicePackage = {
+  id: string;
+  name: string;
+  price: string;
+  description: string;
+  serviceIds: string[];
+};
+
 type NewObjectFormState = {
   name: string;
   ownerCustomerId: string;
@@ -750,16 +767,22 @@ const seedBilling: BillingRecord[] = [
   },
 ];
 
-const serviceCatalog = [
-  { name: "Basis", type: "Paket", price: "2.990 SEK/Jahr", detail: "4 Kontrollen, Fotobericht, E-Mail" },
-  { name: "Plus", type: "Paket", price: "5.490 SEK/Jahr", detail: "8 Kontrollen, Briefkastenservice" },
-  { name: "Komfort", type: "Paket", price: "7.990 SEK/Jahr", detail: "12 Kontrollen, kleine Handwerkerdienste" },
-  { name: "Premium", type: "Paket", price: "9.990 SEK/Jahr", detail: "Priorisierter Notfallservice" },
-  { name: "Hauskontrolle", type: "Zusatzleistung", price: "795 SEK/Besuch", detail: "Sichtprüfung und Bericht" },
-  { name: "Gartenpflege", type: "Zusatzleistung", price: "595 SEK/Stunde", detail: "Rasen, Hecken, Saisonpflege" },
-  { name: "Schlüsselservice", type: "Zusatzleistung", price: "495 SEK/Einsatz", detail: "Übergabe und Zugang" },
-  { name: "Reinigung", type: "Zusatzleistung", price: "495 SEK/Stunde", detail: "Innenreinigung und Vorbereitung" },
-  { name: "Notdienst", type: "Zusatzleistung", price: "990 SEK", detail: "24/7 nach Aufwand" },
+const seedServices: ServiceItem[] = [
+  { id: "SVC-1", name: "Hauskontrolle", category: "Kontrolle", unit: "Besuch", price: "795 SEK", description: "Sichtprüfung von Haus, Grundstück und Zugang mit Kurzbericht" },
+  { id: "SVC-2", name: "Fotobericht", category: "Dokumentation", unit: "Bericht", price: "inklusive", description: "Strukturierte Fotos und kurze Zusammenfassung nach dem Einsatz" },
+  { id: "SVC-3", name: "E-Mail Rückmeldung", category: "Kommunikation", unit: "Nachricht", price: "inklusive", description: "Statusmeldung an Eigentümer nach Besuch oder Einsatz" },
+  { id: "SVC-4", name: "Briefkastenservice", category: "Betreuung", unit: "Besuch", price: "inklusive", description: "Briefkasten leeren, relevante Post fotografieren und melden" },
+  { id: "SVC-5", name: "Gartenpflege", category: "Außenanlage", unit: "Stunde", price: "595 SEK", description: "Rasen, Hecken, Saisonpflege und Sichtkontrolle außen" },
+  { id: "SVC-6", name: "Schlüsselservice", category: "Zugang", unit: "Einsatz", price: "495 SEK", description: "Schlüsselübergabe, Zugangsdokumentation und Schlüsselverwaltung" },
+  { id: "SVC-7", name: "Reinigung", category: "Innenbereich", unit: "Stunde", price: "495 SEK", description: "Innenreinigung und Vorbereitung für Eigentümer oder Gäste" },
+  { id: "SVC-8", name: "Notdienst", category: "Sonderleistung", unit: "Einsatz", price: "990 SEK", description: "Priorisierte Hilfe bei akuten Problemen nach Aufwand" },
+];
+
+const seedPackages: ServicePackage[] = [
+  { id: "PKG-1", name: "Basis", price: "2.990 SEK/Jahr", description: "Grundbetreuung mit 4 Kontrollen pro Jahr", serviceIds: ["SVC-1", "SVC-2", "SVC-3"] },
+  { id: "PKG-2", name: "Plus", price: "5.490 SEK/Jahr", description: "Erweiterte Betreuung mit 8 Kontrollen und Briefkastenservice", serviceIds: ["SVC-1", "SVC-2", "SVC-3", "SVC-4"] },
+  { id: "PKG-3", name: "Komfort", price: "7.990 SEK/Jahr", description: "Regelmäßige Betreuung mit 12 Kontrollen und kleinen Zusatzdiensten", serviceIds: ["SVC-1", "SVC-2", "SVC-3", "SVC-4", "SVC-5", "SVC-6"] },
+  { id: "PKG-4", name: "Premium", price: "9.990 SEK/Jahr", description: "Alles inklusive mit priorisiertem Notfallservice", serviceIds: ["SVC-1", "SVC-2", "SVC-3", "SVC-4", "SVC-5", "SVC-6", "SVC-7", "SVC-8"] },
 ];
 
 function statusTone(status: string) {
@@ -780,6 +803,8 @@ export default function HomePage() {
   const [jobs, setJobs] = useState(seedJobs);
   const [reports] = useState(seedReports);
   const [billing] = useState(seedBilling);
+  const [services, setServices] = useState(seedServices);
+  const [servicePackages, setServicePackages] = useState(seedPackages);
   const [modal, setModal] = useState<Modal>(null);
   const [editingObjectId, setEditingObjectId] = useState<string | null>(null);
   const [editingCustomerId, setEditingCustomerId] = useState<string | null>(null);
@@ -1055,7 +1080,14 @@ export default function HomePage() {
             {section === "planning" && <PlanningView jobs={jobs} objects={objects} onStart={startJob} />}
             {section === "field" && <FieldView jobs={jobs} selectedObject={selectedObject} onComplete={completeJob} />}
             {section === "billing" && <BillingView billing={billing} objects={objects} />}
-            {section === "masterData" && <MasterDataView services={serviceCatalog} />}
+            {section === "masterData" && (
+              <MasterDataView
+                packages={servicePackages}
+                services={services}
+                setPackages={setServicePackages}
+                setServices={setServices}
+              />
+            )}
           </div>
 
           {showObjectFile && (
@@ -1393,26 +1425,136 @@ function BillingView({ billing, objects }: { billing: BillingRecord[]; objects: 
   );
 }
 
-function MasterDataView({ services }: { services: typeof serviceCatalog }) {
+function MasterDataView({
+  services,
+  setServices,
+  packages,
+  setPackages,
+}: {
+  services: ServiceItem[];
+  setServices: (services: ServiceItem[]) => void;
+  packages: ServicePackage[];
+  setPackages: (packages: ServicePackage[]) => void;
+}) {
+  const [serviceForm, setServiceForm] = useState({
+    name: "",
+    category: "Zusatzleistung",
+    unit: "Einsatz",
+    price: "",
+    description: "",
+  });
+  const [packageForm, setPackageForm] = useState({
+    name: "",
+    price: "",
+    description: "",
+    serviceIds: [] as string[],
+  });
+
+  function createService() {
+    const created: ServiceItem = {
+      id: `SVC-${Date.now()}`,
+      name: serviceForm.name.trim() || "Neue Leistung",
+      category: serviceForm.category.trim() || "Zusatzleistung",
+      unit: serviceForm.unit.trim() || "Einsatz",
+      price: serviceForm.price.trim() || "0 SEK",
+      description: serviceForm.description.trim() || "Beschreibung ergänzen.",
+    };
+
+    setServices([created, ...services]);
+    setServiceForm({ name: "", category: "Zusatzleistung", unit: "Einsatz", price: "", description: "" });
+  }
+
+  function togglePackageService(id: string) {
+    setPackageForm({
+      ...packageForm,
+      serviceIds: packageForm.serviceIds.includes(id)
+        ? packageForm.serviceIds.filter((serviceId) => serviceId !== id)
+        : [...packageForm.serviceIds, id],
+    });
+  }
+
+  function createPackage() {
+    const created: ServicePackage = {
+      id: `PKG-${Date.now()}`,
+      name: packageForm.name.trim() || "Neues Paket",
+      price: packageForm.price.trim() || "0 SEK/Jahr",
+      description: packageForm.description.trim() || "Paketbeschreibung ergänzen.",
+      serviceIds: packageForm.serviceIds,
+    };
+
+    setPackages([created, ...packages]);
+    setPackageForm({ name: "", price: "", description: "", serviceIds: [] });
+  }
+
   return (
-    <section className="panel">
-      <div className="panel-title">
-        <div>
-          <p>Stammdaten</p>
-          <h2>Leistungen und Pakete</h2>
+    <div className="stack">
+      <section className="panel">
+        <div className="panel-title">
+          <div>
+            <p>Stammdaten</p>
+            <h2>Leistungen einzeln erfassen</h2>
+          </div>
         </div>
-      </div>
-      <div className="service-catalog">
-        {services.map((service) => (
-          <article key={service.name}>
-            <span>{service.type}</span>
-            <strong>{service.name}</strong>
-            <small>{service.detail}</small>
-            <mark>{service.price}</mark>
-          </article>
-        ))}
-      </div>
-    </section>
+        <div className="form-grid compact-form">
+          <label><span>Leistung</span><input value={serviceForm.name} onChange={(event) => setServiceForm({ ...serviceForm, name: event.target.value })} /></label>
+          <label><span>Kategorie</span><input value={serviceForm.category} onChange={(event) => setServiceForm({ ...serviceForm, category: event.target.value })} /></label>
+          <label><span>Einheit</span><input value={serviceForm.unit} onChange={(event) => setServiceForm({ ...serviceForm, unit: event.target.value })} /></label>
+          <label><span>Preis</span><input value={serviceForm.price} onChange={(event) => setServiceForm({ ...serviceForm, price: event.target.value })} placeholder="z.B. 595 SEK/Stunde" /></label>
+          <label className="wide"><span>Beschreibung</span><textarea value={serviceForm.description} onChange={(event) => setServiceForm({ ...serviceForm, description: event.target.value })} /></label>
+          <button className="primary-button wide" onClick={createService} type="button">Leistung anlegen</button>
+        </div>
+        <div className="service-catalog">
+          {services.map((service) => (
+            <article key={service.id}>
+              <span>{service.category}</span>
+              <strong>{service.name}</strong>
+              <small>{service.description}</small>
+              <mark>{service.price}/{service.unit}</mark>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="panel-title">
+          <div>
+            <p>Pakete</p>
+            <h2>Mehrere Leistungen bündeln</h2>
+          </div>
+        </div>
+        <div className="form-grid compact-form">
+          <label><span>Paketname</span><input value={packageForm.name} onChange={(event) => setPackageForm({ ...packageForm, name: event.target.value })} /></label>
+          <label><span>Paketpreis</span><input value={packageForm.price} onChange={(event) => setPackageForm({ ...packageForm, price: event.target.value })} placeholder="z.B. 7.990 SEK/Jahr" /></label>
+          <label className="wide"><span>Paketbeschreibung</span><textarea value={packageForm.description} onChange={(event) => setPackageForm({ ...packageForm, description: event.target.value })} /></label>
+          <div className="wide check-list service-picker">
+            <span>Leistungen im Paket</span>
+            {services.map((service) => (
+              <label key={service.id}>
+                <input checked={packageForm.serviceIds.includes(service.id)} onChange={() => togglePackageService(service.id)} type="checkbox" />
+                <span>{service.name} · {service.price}/{service.unit}</span>
+              </label>
+            ))}
+          </div>
+          <button className="primary-button wide" onClick={createPackage} type="button">Paket anlegen</button>
+        </div>
+        <div className="service-catalog package-catalog">
+          {packages.map((servicePackage) => (
+            <article key={servicePackage.id}>
+              <span>Paket</span>
+              <strong>{servicePackage.name}</strong>
+              <small>{servicePackage.description}</small>
+              <div className="tags">
+                {servicePackage.serviceIds.map((id) => {
+                  const service = services.find((item) => item.id === id);
+                  return service ? <span key={id}>{service.name}</span> : null;
+                })}
+              </div>
+              <mark>{servicePackage.price}</mark>
+            </article>
+          ))}
+        </div>
+      </section>
+    </div>
   );
 }
 

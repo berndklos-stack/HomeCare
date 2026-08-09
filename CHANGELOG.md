@@ -4,6 +4,14 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.4.0 - 2026-08-09
+
+- Stammdatenmodul in einzelne Leistungen und Leistungspakete aufgeteilt.
+- Neue Leistungen können mit Kategorie, Einheit, Preis und Beschreibung angelegt werden.
+- Pakete können aus mehreren vorhandenen Leistungen zusammengestellt werden.
+- Paketkarten zeigen die enthaltenen Leistungen als Tags.
+- Playwright-Test prüft Leistungserfassung und Paketbildung.
+
 ## 1.3.0 - 2026-08-09
 
 - Objektübersicht zeigt je Objektzeile einen eigenen Bearbeiten-Button.

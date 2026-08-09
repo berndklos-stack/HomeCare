@@ -107,10 +107,25 @@ test("new operations workspace supports core property and job flows", async ({ p
   await expect(page.getByRole("heading", { name: "Objektübersicht" })).toBeVisible();
 
   await page.getByTestId("nav-masterData").click();
-  await expect(page.getByRole("heading", { name: "Leistungen und Pakete" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Leistungen einzeln erfassen" })).toBeVisible();
   await expect(page.getByText("Objektakte", { exact: true })).toHaveCount(0);
-  await expect(page.locator(".service-catalog").getByText("Premium")).toBeVisible();
-  await expect(page.locator(".service-catalog").getByText("Notdienst")).toBeVisible();
+  await expect(page.locator(".package-catalog").getByText("Premium")).toBeVisible();
+  await expect(page.locator(".service-catalog article").filter({ hasText: "Sonderleistung" }).getByText("Notdienst")).toBeVisible();
+  await field("Leistung").fill("Fensterkontrolle");
+  await field("Kategorie").fill("Kontrolle");
+  await field("Einheit").fill("Einsatz");
+  await field("Preis").fill("350 SEK");
+  await field("Beschreibung").fill("Fenster schließen, Griffe prüfen und Auffälligkeiten dokumentieren");
+  await page.getByRole("button", { name: "Leistung anlegen" }).click();
+  await expect(page.locator(".service-catalog").getByText("Fensterkontrolle")).toBeVisible();
+  await field("Paketname").fill("Winterpaket");
+  await field("Paketpreis").fill("3.990 SEK/Jahr");
+  await field("Paketbeschreibung").fill("Winterkontrollen und schnelle Rückmeldung bei Schäden");
+  await page.locator(".service-picker").getByLabel(/Fensterkontrolle/).check();
+  await page.locator(".service-picker").getByLabel(/Hauskontrolle/).check();
+  await page.getByRole("button", { name: "Paket anlegen" }).click();
+  await expect(page.locator(".package-catalog").getByText("Winterpaket")).toBeVisible();
+  await expect(page.locator(".package-catalog").getByText("Fensterkontrolle")).toBeVisible();
 
   await page.getByLabel("Sprache").selectOption("sv");
   await expect(page.getByRole("heading", { name: "Fritidshusförvaltning" })).toBeVisible();

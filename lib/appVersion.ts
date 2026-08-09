@@ -1,10 +1,21 @@
 export const appVersion = {
-  version: "1.3.0",
+  version: "1.4.0",
   releaseDate: "2026-08-09",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.4.0",
+    date: "2026-08-09",
+    changes: [
+      "Stammdatenmodul in einzelne Leistungen und Leistungspakete aufgeteilt",
+      "Neue Leistungen können mit Kategorie, Einheit, Preis und Beschreibung angelegt werden",
+      "Pakete können aus mehreren vorhandenen Leistungen zusammengestellt werden",
+      "Paketkarten zeigen die enthaltenen Leistungen als Tags",
+      "E2E-Test prüft Leistungserfassung und Paketbildung",
+    ],
+  },
   {
     version: "1.3.0",
     date: "2026-08-09",
