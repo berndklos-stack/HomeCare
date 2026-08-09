@@ -80,7 +80,7 @@ test("new operations workspace supports core property and job flows", async ({ p
   await field("Priorität").selectOption("hoch");
   await page.getByRole("button", { name: "Serienauftrag" }).click();
   await field("Wiederholen").selectOption("wöchentlich");
-  await field("Alle").fill("2");
+  await field("Intervall").fill("2");
   await page.getByRole("button", { name: "Mo", exact: true }).click();
   await page.getByRole("button", { name: "Fr", exact: true }).click();
   await field("Ende").selectOption("nach");

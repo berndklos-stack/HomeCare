@@ -2743,6 +2743,17 @@ function JobForm({
   submitLabel: string;
 }) {
   const weekdays = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
+  const recurrenceSummary = newJob.scheduleType === "einmalig"
+    ? `Einmaliger Auftrag am ${newJob.dueDate || "gewählten Fälligkeitsdatum"}`
+    : scheduleLabel({
+        type: "serie",
+        frequency: newJob.scheduleFrequency,
+        interval: Math.max(Number(newJob.scheduleInterval) || 1, 1),
+        weekdays: newJob.scheduleFrequency === "wöchentlich" ? newJob.scheduleWeekdays : [],
+        end: newJob.scheduleEnd,
+        endDate: newJob.scheduleEnd === "am" ? newJob.scheduleEndDate : "",
+        occurrences: newJob.scheduleEnd === "nach" ? Math.max(Number(newJob.scheduleOccurrences) || 1, 1) : 0,
+      });
 
   function update(key: keyof typeof newJob, value: string | string[]) {
     setNewJob({ ...newJob, [key]: value });
@@ -2779,7 +2790,13 @@ function JobForm({
       <label><span>Fällig</span><input type="date" value={newJob.dueDate} onChange={(event) => update("dueDate", event.target.value)} /></label>
       <label><span>Zuständig</span><input value={newJob.assignedTo} onChange={(event) => update("assignedTo", event.target.value)} /></label>
       <div className="wide recurrence-editor">
-        <span>Auftragsart</span>
+        <div className="recurrence-head">
+          <CalendarDays size={18} />
+          <div>
+            <span>Auftragsart</span>
+            <strong>{recurrenceSummary}</strong>
+          </div>
+        </div>
         <div className="segmented-control">
           <button className={newJob.scheduleType === "einmalig" ? "active" : ""} onClick={() => update("scheduleType", "einmalig")} type="button">Einmalig</button>
           <button className={newJob.scheduleType === "serie" ? "active" : ""} onClick={() => update("scheduleType", "serie")} type="button">Serienauftrag</button>
@@ -2796,11 +2813,11 @@ function JobForm({
               </select>
             </label>
             <label>
-              <span>Alle</span>
+              <span>Intervall</span>
               <input min="1" type="number" value={newJob.scheduleInterval} onChange={(event) => update("scheduleInterval", event.target.value)} />
             </label>
             {newJob.scheduleFrequency === "wöchentlich" && (
-              <div className="wide weekday-picker">
+              <div className="wide weekday-picker" aria-label="Wochentage auswählen">
                 {weekdays.map((day) => (
                   <button className={newJob.scheduleWeekdays.includes(day) ? "active" : ""} key={day} onClick={() => toggleWeekday(day)} type="button">{day}</button>
                 ))}

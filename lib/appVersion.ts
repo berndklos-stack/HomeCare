@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.18.0",
+  version: "1.19.0",
   releaseDate: "2026-08-09",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.19.0",
+    date: "2026-08-09",
+    changes: [
+      "Auftragsanlage zeigt Einmalauftrag oder Serienauftrag jetzt klar als Kalenderblock",
+      "Serienauftrag erhält eine sofort sichtbare Zusammenfassung aus Rhythmus, Intervall, Wochentagen und Ende",
+      "Intervallfeld wurde für die wiederkehrende Planung eindeutiger beschriftet",
+    ],
+  },
   {
     version: "1.18.0",
     date: "2026-08-09",

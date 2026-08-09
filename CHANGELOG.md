@@ -4,6 +4,12 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.19.0 - 2026-08-09
+
+- Auftragsanlage zeigt Einmalauftrag oder Serienauftrag jetzt klar als Kalenderblock.
+- Serienauftrag erhält eine sofort sichtbare Zusammenfassung aus Rhythmus, Intervall, Wochentagen und Ende.
+- Intervallfeld wurde für die wiederkehrende Planung eindeutiger beschriftet.
+
 ## 1.18.0 - 2026-08-09
 
 - Objektakte zeigt jetzt eine Historie aus Aufträgen und Berichten.

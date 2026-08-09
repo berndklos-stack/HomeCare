@@ -959,6 +959,30 @@ mark.neutral {
   padding: 12px;
 }
 
+.recurrence-head {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.recurrence-head > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.recurrence-head svg {
+  color: var(--brand);
+}
+
+.recurrence-head strong {
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .segmented-control {
   background: var(--paper);
   border: 1px solid var(--line);
