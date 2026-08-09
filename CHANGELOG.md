@@ -4,6 +4,12 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.28.0 - 2026-08-10
+
+- PDF-Ausgabe nutzt jetzt einen professionell gestalteten Kundenbericht statt der normalen App-Ansicht.
+- Einsatzbericht enthält Berichtsnummer, Kunde, Objekt, Auftrag, Termin, Priorität, Abrechnung, Checkliste, Medien und Bilder.
+- Drucklayout blendet Navigation und Bearbeitungsflächen aus und fokussiert auf den PDF-Bericht.
+
 ## 1.27.0 - 2026-08-10
 
 - Kundendaten enthalten jetzt einen individuell anpassbaren Mailtext für Einsatzberichte.

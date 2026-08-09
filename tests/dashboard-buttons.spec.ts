@@ -21,7 +21,15 @@ test("new operations workspace supports core property and job flows", async ({ p
   await expect(page.getByText("Pool gereinigt, Werte stabilisiert, nächste Kontrolle geplant.")).toBeVisible();
   await expect(page.getByText("Filterdruck beobachten. Interner Hinweis nicht im Kundenportal.")).toBeVisible();
   await expect(page.getByRole("button", { name: "PDF für Poolpflege und Wasserwerte ausgeben" })).toBeVisible();
-  await expect(page.getByText("Einsatzbericht", { exact: true })).toBeVisible();
+  const reportCard = page.locator(".customer-report-card");
+  await expect(reportCard.getByText("Einsatzbericht", { exact: true })).toBeVisible();
+  await expect(reportCard.getByText(/Berichtsnummer REP-044/)).toBeVisible();
+  await expect(reportCard.locator("dt", { hasText: "Kunde" })).toBeVisible();
+  await expect(reportCard.locator("dd", { hasText: "Familie Andersson" }).first()).toBeVisible();
+  await expect(reportCard.locator("dt", { hasText: "Auftragsart" })).toBeVisible();
+  await expect(reportCard.locator("dt", { hasText: "Priorität" })).toBeVisible();
+  await expect(reportCard.locator("dt", { hasText: "Abrechnung" })).toBeVisible();
+  await expect(reportCard.getByText("Bilder zum Objekt / Einsatz")).toBeVisible();
   await expect(page.getByText("Betreff: Einsatzbericht - Kolaretorp Service AB - Villa Långsjön")).toBeVisible();
   await expect(page.getByText("Kopie: info@kolaretorp.se")).toBeVisible();
   await expect(page.getByText("Anhang: Einsatzbericht-Villa Långsjön-Poolpflege und Wasserwerte.pdf")).toBeVisible();

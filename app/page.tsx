@@ -2551,6 +2551,10 @@ function ObjectHistory({
   const reportSubject = selectedHistory ? `Einsatzbericht - Kolaretorp Service AB - ${object.name}` : "";
   const reportPdfName = selectedHistory ? `Einsatzbericht-${object.name}-${selectedHistory.title}.pdf` : "";
   const mailBody = customerReportMailBody(reportCustomer);
+  const reportImages = object.media.items.filter((item) => item.type === "Bild");
+  const reportDocuments = object.media.items.filter((item) => item.type !== "Bild");
+  const reportId = selectedReport ? selectedReport.id : selectedHistory?.id ?? "";
+  const sentAt = selectedReport ? sentReports[selectedReport.id] : "";
 
   function sendCustomerReport() {
     if (!selectedReport) return;
@@ -2623,20 +2627,47 @@ function ObjectHistory({
           )}
           {selectedReport ? (
             <>
-              <article className="customer-report-card">
+              <article className="customer-report-card printable-report">
                 <div className="customer-report-head">
                   <div>
                     <span>Kolaretorp Service AB</span>
                     <h3>Einsatzbericht</h3>
+                    <small>Berichtsnummer {reportId} · erstellt am {new Date().toLocaleDateString("de-DE")}</small>
                   </div>
                   <Badge value={selectedJob?.status ?? "Bericht"} />
                 </div>
+                <div className="report-hero">
+                  {primaryObjectImage(object)?.previewUrl ? (
+                    <div
+                      aria-label={`Objektbild ${object.name}`}
+                      className="report-hero-image"
+                      role="img"
+                      style={{ backgroundImage: `url(${primaryObjectImage(object)?.previewUrl})` }}
+                    />
+                  ) : (
+                    <div className="report-hero-image report-hero-image-empty">
+                      <Home size={26} />
+                      <span>{object.name}</span>
+                    </div>
+                  )}
+                  <div>
+                    <strong>{object.name}</strong>
+                    <span>{object.address}</span>
+                    <span>Eigentümer: {object.owner}</span>
+                    <span>Kontakt: {reportCustomer?.contact ?? object.owner} · {reportCustomer?.email ?? object.ownerEmail}</span>
+                  </div>
+                </div>
                 <dl>
+                  <div><dt>Kunde</dt><dd>{reportCustomer?.name ?? object.owner}</dd></div>
                   <div><dt>Objekt</dt><dd>{object.name}</dd></div>
                   <div><dt>Eigentümer</dt><dd>{object.owner}</dd></div>
                   <div><dt>Objektadresse</dt><dd>{object.address}</dd></div>
                   <div><dt>Auftrag</dt><dd>{selectedHistory.title}</dd></div>
                   <div><dt>Datum</dt><dd>{selectedHistory.date}</dd></div>
+                  {selectedJob && <div><dt>Auftragsart</dt><dd>{scheduleLabel(selectedJob.schedule)}</dd></div>}
+                  {selectedJob && <div><dt>Priorität</dt><dd>{selectedJob.priority}</dd></div>}
+                  {selectedJob && <div><dt>Fällig am</dt><dd>{selectedJob.dueDate}</dd></div>}
+                  {selectedJob && <div><dt>Abrechnung</dt><dd>{selectedJob.billable ? "abrechenbar" : "nicht abrechenbar"}</dd></div>}
                   {selectedJob && <div><dt>Bearbeiter</dt><dd>{selectedJob.assignedTo}</dd></div>}
                   {selectedJob && <div><dt>Arbeitszeit</dt><dd>{selectedJob.workMinutes} min.</dd></div>}
                   {selectedJob && <div><dt>Material</dt><dd>{selectedJob.material}</dd></div>}
@@ -2656,6 +2687,43 @@ function ObjectHistory({
                 <div className="history-media">
                   {selectedReport.media.map((item) => <span key={item}>{item}</span>)}
                 </div>
+                {reportImages.length > 0 && (
+                  <div className="report-gallery">
+                    <strong>Bilder zum Objekt / Einsatz</strong>
+                    <div>
+                      {reportImages.map((item) => (
+                        <figure key={item.id}>
+                          {item.previewUrl ? (
+                            <div
+                              aria-label={`Berichtsbild ${item.name}`}
+                              role="img"
+                              style={{ backgroundImage: `url(${item.previewUrl})` }}
+                            />
+                          ) : (
+                            <div className="report-gallery-placeholder">
+                              <Camera size={18} />
+                              <span>Bild dokumentiert</span>
+                            </div>
+                          )}
+                          <figcaption>{item.description || item.name}</figcaption>
+                        </figure>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {reportDocuments.length > 0 && (
+                  <div className="report-documents">
+                    <strong>Dokumente in der Objektakte</strong>
+                    {reportDocuments.map((item) => (
+                      <span key={item.id}>{item.type}: {item.description || item.name}</span>
+                    ))}
+                  </div>
+                )}
+                <footer className="report-footer">
+                  <span>Kolaretorp Service AB</span>
+                  <span>info@kolaretorp.se</span>
+                  {sentAt && <span>Versendet am {sentAt}</span>}
+                </footer>
               </article>
               <div className="history-block internal">
                 <strong>Interne Notizen</strong>
