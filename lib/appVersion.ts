@@ -1,10 +1,30 @@
 export const appVersion = {
-  version: "1.10.0",
+  version: "1.12.0",
   releaseDate: "2026-08-09",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.12.0",
+    date: "2026-08-09",
+    changes: [
+      "Aktionsbuttons werden in Listen und Stammdaten konsistent als Iconbuttons dargestellt",
+      "Iconbuttons zeigen beim Hover und Tastaturfokus einen Tooltip mit der jeweiligen Funktion",
+      "Auftragsaktionen nutzen jetzt ebenfalls Iconbuttons für Bearbeiten und Starten",
+      "Entfernen-Aktionen in Objekt- und Kundenformularen nutzen die gleiche Buttonlogik",
+    ],
+  },
+  {
+    version: "1.11.0",
+    date: "2026-08-09",
+    changes: [
+      "Neue Leistungen starten ohne vorbelegte Kategorie und Einheit",
+      "Leistung, Kategorie und Einheit sind Pflichtfelder ohne automatische Fallback-Werte",
+      "Einheit ist jetzt ebenfalls ein lernendes Dropdownfeld aus vorhandenen Einheiten",
+      "Kategorie- und Einheitsvorschläge öffnen beim Fokus, wenn der Browser dies unterstützt",
+    ],
+  },
   {
     version: "1.10.0",
     date: "2026-08-09",

@@ -14,6 +14,9 @@ test("new operations workspace supports core property and job flows", async ({ p
   await expect(page.getByRole("heading", { name: "Objektübersicht" })).toBeVisible();
   await expect(page.getByText("Objektakte", { exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Villa Långsjön" })).toBeVisible();
+  await expect(
+    page.locator(".object-list article").filter({ hasText: "Villa Långsjön" }).getByRole("button", { name: "Objekt Villa Långsjön bearbeiten" }),
+  ).toHaveAttribute("data-tooltip", "Objekt Villa Långsjön bearbeiten");
   await page.getByRole("button", { name: "Neues Objekt" }).click();
   await field("Objekt").fill("Testhaus Smaland");
   await field("Eigentümer aus Kunden").selectOption("CUS-2");
@@ -74,7 +77,7 @@ test("new operations workspace supports core property and job flows", async ({ p
 
   await expect(page.getByRole("heading", { name: "Auftragsübersicht" })).toBeVisible();
   await expect(page.getByText("Testauftrag Objektkontrolle")).toBeVisible();
-  await page.getByRole("button", { name: "Bearbeiten" }).first().click();
+  await page.getByRole("button", { name: "Auftrag Testauftrag Objektkontrolle bearbeiten" }).click();
   await expect(page.getByRole("heading", { name: "Auftrag bearbeiten" })).toBeVisible();
   await field("Titel").fill("Bearbeiteter Testauftrag");
   await page.getByRole("button", { name: "Auftrag speichern" }).click();
@@ -144,9 +147,11 @@ test("new operations workspace supports core property and job flows", async ({ p
   await expect(page.getByText("Objektakte", { exact: true })).toHaveCount(0);
   await expect(page.locator(".package-catalog").getByText("Premium")).toBeVisible();
   await expect(page.locator(".service-catalog article").filter({ hasText: "Sonderleistung" }).getByText("Notdienst")).toBeVisible();
+  await expect(field("Kategorie")).toHaveValue("");
+  await expect(field("Einheit")).toHaveValue("");
   await field("Leistung").fill("Fensterkontrolle");
   await field("Kategorie").fill("Kontrolle");
-  await field("Einheit").fill("Einsatz");
+  await field("Einheit").fill("Kontrollgang");
   await field("Preis").fill("350 SEK");
   await field("Beschreibung").fill("Fenster schließen, Griffe prüfen und Auffälligkeiten dokumentieren");
   await page.getByRole("button", { name: "Leistung anlegen" }).click();
@@ -156,7 +161,8 @@ test("new operations workspace supports core property and job flows", async ({ p
   await field("Preis").fill("375 SEK");
   await page.getByRole("button", { name: "Leistung speichern" }).click();
   await expect(page.locator("datalist#service-categories option[value='Winterservice']")).toHaveCount(1);
-  await expect(page.locator(".service-catalog article").filter({ hasText: "Fensterkontrolle" }).getByText("375 SEK/Einsatz")).toBeVisible();
+  await expect(page.locator("datalist#service-units option[value='Kontrollgang']")).toHaveCount(1);
+  await expect(page.locator(".service-catalog article").filter({ hasText: "Fensterkontrolle" }).getByText("375 SEK/Kontrollgang")).toBeVisible();
   await field("Paketname").fill("Winterpaket");
   await field("Paketpreis").fill("3.990 SEK/Jahr");
   await field("Paketbeschreibung").fill("Winterkontrollen und schnelle Rückmeldung bei Schäden");
@@ -183,7 +189,7 @@ test("new operations workspace supports core property and job flows", async ({ p
   await page.getByRole("button", { name: "Archivierte Leistung Fensterkontrolle bearbeiten" }).click();
   await field("Preis").fill("390 SEK");
   await page.getByRole("button", { name: "Leistung speichern" }).click();
-  await expect(page.getByText("390 SEK/Einsatz")).toBeVisible();
+  await expect(page.getByText("390 SEK/Kontrollgang")).toBeVisible();
   await page.getByRole("button", { name: "Archivierte Leistung Fensterkontrolle reaktivieren" }).click();
   await expect(page.getByText('Leistung "Fensterkontrolle" wurde wieder aktiviert.')).toBeVisible();
   await page.getByRole("button", { name: "Leistung Fensterkontrolle archivieren" }).click();

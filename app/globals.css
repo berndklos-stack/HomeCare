@@ -264,11 +264,42 @@ button {
   display: inline-flex;
   height: 36px;
   justify-content: center;
+  position: relative;
   width: 36px;
 }
 
 .icon-button.danger {
   color: var(--danger);
+}
+
+.icon-button[data-tooltip]::after {
+  background: var(--foreground);
+  border-radius: 7px;
+  bottom: calc(100% + 8px);
+  color: var(--paper);
+  content: attr(data-tooltip);
+  font-size: 12px;
+  font-weight: 700;
+  left: 50%;
+  line-height: 1.2;
+  max-width: 240px;
+  opacity: 0;
+  padding: 7px 9px;
+  pointer-events: none;
+  position: absolute;
+  text-align: center;
+  transform: translate(-50%, 4px);
+  transition: opacity 0.14s ease, transform 0.14s ease;
+  visibility: hidden;
+  white-space: nowrap;
+  z-index: 40;
+}
+
+.icon-button[data-tooltip]:hover::after,
+.icon-button[data-tooltip]:focus-visible::after {
+  opacity: 1;
+  transform: translate(-50%, 0);
+  visibility: visible;
 }
 
 .card-actions {

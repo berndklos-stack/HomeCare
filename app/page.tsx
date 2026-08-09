@@ -11,6 +11,7 @@ import {
   Languages,
   Moon,
   Pencil,
+  PlayCircle,
   Plus,
   RotateCcw,
   Search,
@@ -20,7 +21,7 @@ import {
   Wrench,
   X,
 } from "lucide-react";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { appVersion, versionHistory } from "@/lib/appVersion";
 
 type Language = "de" | "sv" | "en";
@@ -1367,8 +1368,8 @@ function ObjectsView({
               <Badge value={object.status} />
             </button>
             <div className="row-actions">
-              <button aria-label={`Objekt ${object.name} bearbeiten`} className="icon-button" onClick={() => onEdit(object)} type="button"><Pencil size={16} /></button>
-              <button aria-label={`Objekt ${object.name} archivieren`} className="icon-button danger" onClick={() => onArchive(object)} type="button"><Archive size={16} /></button>
+              <IconAction label={`Objekt ${object.name} bearbeiten`} onClick={() => onEdit(object)}><Pencil size={16} /></IconAction>
+              <IconAction danger label={`Objekt ${object.name} archivieren`} onClick={() => onArchive(object)}><Archive size={16} /></IconAction>
             </div>
           </article>
         ))}
@@ -1385,10 +1386,10 @@ function ObjectsView({
                 </div>
                 <Badge value="archiviert" />
                 <div className="row-actions">
-                  <button aria-label={`Archiviertes Objekt ${object.name} bearbeiten`} className="icon-button" onClick={() => onEdit(object)} type="button"><Pencil size={16} /></button>
-                  <button aria-label={`Archiviertes Objekt ${object.name} reaktivieren`} className="icon-button" onClick={() => onRestore(object)} type="button"><RotateCcw size={16} /></button>
+                  <IconAction label={`Archiviertes Objekt ${object.name} bearbeiten`} onClick={() => onEdit(object)}><Pencil size={16} /></IconAction>
+                  <IconAction label={`Archiviertes Objekt ${object.name} reaktivieren`} onClick={() => onRestore(object)}><RotateCcw size={16} /></IconAction>
                 </div>
-                <button aria-label={`Archiviertes Objekt ${object.name} löschen`} className="icon-button danger" onClick={() => onDelete(object)} type="button"><Trash2 size={16} /></button>
+                <IconAction danger label={`Archiviertes Objekt ${object.name} löschen`} onClick={() => onDelete(object)}><Trash2 size={16} /></IconAction>
               </article>
             ))}
           </div>
@@ -1445,8 +1446,8 @@ function CustomersView({
               <Badge value={customer.portalStatus} />
             </div>
             <div className="row-actions">
-              <button aria-label={`Kunde ${customer.name} bearbeiten`} className="icon-button" onClick={() => onEdit(customer)} type="button"><Pencil size={16} /></button>
-              <button aria-label={`Kunde ${customer.name} archivieren`} className="icon-button danger" onClick={() => onArchive(customer)} type="button"><Archive size={16} /></button>
+              <IconAction label={`Kunde ${customer.name} bearbeiten`} onClick={() => onEdit(customer)}><Pencil size={16} /></IconAction>
+              <IconAction danger label={`Kunde ${customer.name} archivieren`} onClick={() => onArchive(customer)}><Archive size={16} /></IconAction>
             </div>
           </article>
         ))}
@@ -1463,10 +1464,10 @@ function CustomersView({
                 </div>
                 <Badge value="archiviert" />
                 <div className="row-actions">
-                  <button aria-label={`Archivierten Kunden ${customer.name} bearbeiten`} className="icon-button" onClick={() => onEdit(customer)} type="button"><Pencil size={16} /></button>
-                  <button aria-label={`Archivierten Kunden ${customer.name} reaktivieren`} className="icon-button" onClick={() => onRestore(customer)} type="button"><RotateCcw size={16} /></button>
+                  <IconAction label={`Archivierten Kunden ${customer.name} bearbeiten`} onClick={() => onEdit(customer)}><Pencil size={16} /></IconAction>
+                  <IconAction label={`Archivierten Kunden ${customer.name} reaktivieren`} onClick={() => onRestore(customer)}><RotateCcw size={16} /></IconAction>
                 </div>
-                <button aria-label={`Archivierten Kunden ${customer.name} löschen`} className="icon-button danger" onClick={() => onDelete(customer)} type="button"><Trash2 size={16} /></button>
+                <IconAction danger label={`Archivierten Kunden ${customer.name} löschen`} onClick={() => onDelete(customer)}><Trash2 size={16} /></IconAction>
               </article>
             ))}
           </div>
@@ -1511,8 +1512,8 @@ function JobsView({
             <span>{job.priority}</span>
             <span>{job.dueDate}</span>
             <Badge value={job.status} />
-            <button className="row-action" onClick={() => onEdit(job)} type="button">Bearbeiten</button>
-            <button className="row-action" onClick={() => onStart(job)} type="button">Starten</button>
+            <IconAction label={`Auftrag ${job.title} bearbeiten`} onClick={() => onEdit(job)}><Pencil size={16} /></IconAction>
+            <IconAction label={`Auftrag ${job.title} starten`} onClick={() => onStart(job)}><PlayCircle size={16} /></IconAction>
           </article>
         ))}
       </div>
@@ -1619,8 +1620,8 @@ function MasterDataView({
   const [archiveNotice, setArchiveNotice] = useState("");
   const [serviceForm, setServiceForm] = useState({
     name: "",
-    category: "Zusatzleistung",
-    unit: "Einsatz",
+    category: "",
+    unit: "",
     price: "",
     description: "",
   });
@@ -1636,6 +1637,8 @@ function MasterDataView({
   const archivedPackages = packages.filter((servicePackage) => servicePackage.archived);
   const categories = Array.from(new Set(activeServices.map((service) => service.category).filter(Boolean)))
     .sort((first, second) => first.localeCompare(second, "de"));
+  const serviceUnits = Array.from(new Set(activeServices.map((service) => service.unit).filter(Boolean)))
+    .sort((first, second) => first.localeCompare(second, "de"));
   const groupedServices = categories.map((category) => ({
     category,
     services: activeServices
@@ -1648,7 +1651,7 @@ function MasterDataView({
 
   function resetServiceForm() {
     setEditingServiceId(null);
-    setServiceForm({ name: "", category: "Zusatzleistung", unit: "Einsatz", price: "", description: "" });
+    setServiceForm({ name: "", category: "", unit: "", price: "", description: "" });
   }
 
   function editService(service: ServiceItem) {
@@ -1663,12 +1666,17 @@ function MasterDataView({
   }
 
   function saveService() {
+    if (!serviceForm.name.trim() || !serviceForm.category.trim() || !serviceForm.unit.trim()) {
+      setArchiveNotice("Bitte Leistung, Kategorie und Einheit ausfüllen. Diese Felder sind Pflichtfelder.");
+      return;
+    }
+
     const existingService = services.find((service) => service.id === editingServiceId);
     const saved: ServiceItem = {
       id: editingServiceId ?? `SVC-${Date.now()}`,
-      name: serviceForm.name.trim() || "Neue Leistung",
-      category: serviceForm.category.trim() || "Zusatzleistung",
-      unit: serviceForm.unit.trim() || "Einsatz",
+      name: serviceForm.name.trim(),
+      category: serviceForm.category.trim(),
+      unit: serviceForm.unit.trim(),
       price: serviceForm.price.trim() || "0 SEK",
       description: serviceForm.description.trim() || "Beschreibung ergänzen.",
       archived: existingService?.archived ?? false,
@@ -1803,12 +1811,15 @@ function MasterDataView({
         </div>
         {archiveNotice && <p className="archive-notice">{archiveNotice}</p>}
         <div className="form-grid compact-form">
-          <label><span>Leistung</span><input value={serviceForm.name} onChange={(event) => setServiceForm({ ...serviceForm, name: event.target.value })} /></label>
-          <label><span>Kategorie</span><input list="service-categories" value={serviceForm.category} onChange={(event) => setServiceForm({ ...serviceForm, category: event.target.value })} /></label>
+          <label><span>Leistung</span><input required value={serviceForm.name} onChange={(event) => setServiceForm({ ...serviceForm, name: event.target.value })} /></label>
+          <label><span>Kategorie</span><input list="service-categories" onClick={(event) => event.currentTarget.showPicker?.()} onFocus={(event) => event.currentTarget.showPicker?.()} required value={serviceForm.category} onChange={(event) => setServiceForm({ ...serviceForm, category: event.target.value })} /></label>
           <datalist id="service-categories">
             {categories.map((category) => <option key={category} value={category} />)}
           </datalist>
-          <label><span>Einheit</span><input value={serviceForm.unit} onChange={(event) => setServiceForm({ ...serviceForm, unit: event.target.value })} /></label>
+          <label><span>Einheit</span><input list="service-units" onClick={(event) => event.currentTarget.showPicker?.()} onFocus={(event) => event.currentTarget.showPicker?.()} required value={serviceForm.unit} onChange={(event) => setServiceForm({ ...serviceForm, unit: event.target.value })} /></label>
+          <datalist id="service-units">
+            {serviceUnits.map((unit) => <option key={unit} value={unit} />)}
+          </datalist>
           <label><span>Preis</span><input value={serviceForm.price} onChange={(event) => setServiceForm({ ...serviceForm, price: event.target.value })} placeholder="z.B. 595 SEK/Stunde" /></label>
           <label className="wide"><span>Beschreibung</span><textarea value={serviceForm.description} onChange={(event) => setServiceForm({ ...serviceForm, description: event.target.value })} /></label>
           <button className="primary-button wide" onClick={saveService} type="button">{editingServiceId ? "Leistung speichern" : "Leistung anlegen"}</button>
@@ -1822,8 +1833,8 @@ function MasterDataView({
               <small>{service.description}</small>
               <mark>{service.price}/{service.unit}</mark>
               <div className="card-actions">
-                <button aria-label={`Leistung ${service.name} bearbeiten`} className="icon-button" onClick={() => editService(service)} type="button"><Pencil size={16} /></button>
-                <button aria-label={`Leistung ${service.name} archivieren`} className="icon-button danger" onClick={() => archiveService(service)} type="button"><Archive size={16} /></button>
+                <IconAction label={`Leistung ${service.name} bearbeiten`} onClick={() => editService(service)}><Pencil size={16} /></IconAction>
+                <IconAction danger label={`Leistung ${service.name} archivieren`} onClick={() => archiveService(service)}><Archive size={16} /></IconAction>
               </div>
             </article>
           ))}
@@ -1840,10 +1851,10 @@ function MasterDataView({
                   </div>
                   <Badge value="archiviert" />
                   <div className="row-actions">
-                    <button aria-label={`Archivierte Leistung ${service.name} bearbeiten`} className="icon-button" onClick={() => editService(service)} type="button"><Pencil size={16} /></button>
-                    <button aria-label={`Archivierte Leistung ${service.name} reaktivieren`} className="icon-button" onClick={() => restoreService(service)} type="button"><RotateCcw size={16} /></button>
+                    <IconAction label={`Archivierte Leistung ${service.name} bearbeiten`} onClick={() => editService(service)}><Pencil size={16} /></IconAction>
+                    <IconAction label={`Archivierte Leistung ${service.name} reaktivieren`} onClick={() => restoreService(service)}><RotateCcw size={16} /></IconAction>
                   </div>
-                  <button aria-label={`Archivierte Leistung ${service.name} löschen`} className="icon-button danger" onClick={() => deleteArchivedService(service)} type="button"><Trash2 size={16} /></button>
+                  <IconAction danger label={`Archivierte Leistung ${service.name} löschen`} onClick={() => deleteArchivedService(service)}><Trash2 size={16} /></IconAction>
                 </article>
               ))}
             </div>
@@ -1872,7 +1883,7 @@ function MasterDataView({
                   : "Über Plus Leistungen aus dem Katalog auswählen"}
               </small>
             </div>
-            <button aria-label="Leistungen auswählen" className="icon-button" onClick={() => setServicePickerOpen(true)} type="button"><Plus size={18} /></button>
+            <IconAction label="Leistungen auswählen" onClick={() => setServicePickerOpen(true)}><Plus size={18} /></IconAction>
           </div>
           <button className="primary-button wide" onClick={savePackage} type="button">{editingPackageId ? "Paket speichern" : "Paket anlegen"}</button>
           {editingPackageId && <button className="ghost-button wide" onClick={resetPackageForm} type="button">Bearbeitung abbrechen</button>}
@@ -1891,8 +1902,8 @@ function MasterDataView({
               </div>
               <mark>{servicePackage.price}</mark>
               <div className="card-actions">
-                <button aria-label={`Paket ${servicePackage.name} bearbeiten`} className="icon-button" onClick={() => editPackage(servicePackage)} type="button"><Pencil size={16} /></button>
-                <button aria-label={`Paket ${servicePackage.name} archivieren`} className="icon-button danger" onClick={() => archivePackage(servicePackage)} type="button"><Archive size={16} /></button>
+                <IconAction label={`Paket ${servicePackage.name} bearbeiten`} onClick={() => editPackage(servicePackage)}><Pencil size={16} /></IconAction>
+                <IconAction danger label={`Paket ${servicePackage.name} archivieren`} onClick={() => archivePackage(servicePackage)}><Archive size={16} /></IconAction>
               </div>
             </article>
           ))}
@@ -1909,10 +1920,10 @@ function MasterDataView({
                   </div>
                   <Badge value="archiviert" />
                   <div className="row-actions">
-                    <button aria-label={`Archiviertes Paket ${servicePackage.name} bearbeiten`} className="icon-button" onClick={() => editPackage(servicePackage)} type="button"><Pencil size={16} /></button>
-                    <button aria-label={`Archiviertes Paket ${servicePackage.name} reaktivieren`} className="icon-button" onClick={() => restorePackage(servicePackage)} type="button"><RotateCcw size={16} /></button>
+                    <IconAction label={`Archiviertes Paket ${servicePackage.name} bearbeiten`} onClick={() => editPackage(servicePackage)}><Pencil size={16} /></IconAction>
+                    <IconAction label={`Archiviertes Paket ${servicePackage.name} reaktivieren`} onClick={() => restorePackage(servicePackage)}><RotateCcw size={16} /></IconAction>
                   </div>
-                  <button aria-label={`Archiviertes Paket ${servicePackage.name} löschen`} className="icon-button danger" onClick={() => deleteArchivedPackage(servicePackage)} type="button"><Trash2 size={16} /></button>
+                  <IconAction danger label={`Archiviertes Paket ${servicePackage.name} löschen`} onClick={() => deleteArchivedPackage(servicePackage)}><Trash2 size={16} /></IconAction>
                 </article>
               ))}
             </div>
@@ -2198,7 +2209,7 @@ function ObjectForm({
                 value={item.description}
                 onChange={(event) => updateMediaDescription(item.id, event.target.value)}
               />
-              <button className="row-action" onClick={() => removeMedia(item.id)} type="button">Entfernen</button>
+              <IconAction danger label={`Datei ${item.name} entfernen`} onClick={() => removeMedia(item.id)}><Trash2 size={16} /></IconAction>
             </article>
           ))}
         </div>
@@ -2274,7 +2285,7 @@ function CustomerForm({
         {assignedObjects.map((object) => (
           <div className="assigned-row" key={object.id}>
             <p>{object.name} · {object.address}</p>
-            <button className="row-action" onClick={() => removeObject(object.id)} type="button">Entfernen</button>
+            <IconAction danger label={`Objekt ${object.name} entfernen`} onClick={() => removeObject(object.id)}><Trash2 size={16} /></IconAction>
           </div>
         ))}
         {customer.objects.length === 0 && <p>Noch keine Objekte zugeordnet.</p>}
@@ -2330,6 +2341,31 @@ function JobForm({
       <label className="wide"><span>Interne Notizen</span><textarea value={newJob.internalNotes} onChange={(event) => update("internalNotes", event.target.value)} /></label>
       <button className="primary-button wide" onClick={onSubmit} type="button">{submitLabel}</button>
     </div>
+  );
+}
+
+function IconAction({
+  children,
+  danger = false,
+  label,
+  onClick,
+}: {
+  children: ReactNode;
+  danger?: boolean;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      aria-label={label}
+      className={danger ? "icon-button danger" : "icon-button"}
+      data-tooltip={label}
+      onClick={onClick}
+      title={label}
+      type="button"
+    >
+      {children}
+    </button>
   );
 }
 

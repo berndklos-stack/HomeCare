@@ -4,6 +4,20 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.12.0 - 2026-08-09
+
+- Aktionsbuttons werden in Listen und Stammdaten konsistent als Iconbuttons dargestellt.
+- Iconbuttons zeigen beim Hover und Tastaturfokus einen Tooltip mit der jeweiligen Funktion.
+- Auftragsaktionen nutzen jetzt ebenfalls Iconbuttons für Bearbeiten und Starten.
+- Entfernen-Aktionen in Objekt- und Kundenformularen nutzen die gleiche Buttonlogik.
+
+## 1.11.0 - 2026-08-09
+
+- Neue Leistungen starten ohne vorbelegte Kategorie und Einheit.
+- Leistung, Kategorie und Einheit sind Pflichtfelder ohne automatische Fallback-Werte.
+- Einheit ist jetzt ebenfalls ein lernendes Dropdownfeld aus vorhandenen Einheiten.
+- Kategorie- und Einheitsvorschläge öffnen beim Fokus, wenn der Browser dies unterstützt.
+
 ## 1.10.0 - 2026-08-09
 
 - Archivierte Objekte, Kunden, Leistungen und Pakete können weiterhin bearbeitet werden.
