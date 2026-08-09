@@ -2833,34 +2833,55 @@ function ObjectHistory({
                     </div>
                   )}
                   <div>
+                    <span>Einsatzbericht</span>
                     <strong>{object.name}</strong>
                     <span>{object.address}</span>
-                    <span>Eigentümer: {object.owner}</span>
-                    <span>Kontakt: {reportCustomer?.contact ?? object.owner} · {reportCustomer?.email ?? object.ownerEmail}</span>
+                    <small>{selectedHistory.title} · {selectedHistory.date}</small>
                   </div>
                 </div>
-                <dl>
-                  <div><dt>Kunde</dt><dd>{reportCustomer?.name ?? object.owner}</dd></div>
-                  <div><dt>Objekt</dt><dd>{object.name}</dd></div>
-                  <div><dt>Eigentümer</dt><dd>{object.owner}</dd></div>
-                  <div><dt>Objektadresse</dt><dd>{object.address}</dd></div>
-                  <div><dt>Auftrag</dt><dd>{selectedHistory.title}</dd></div>
-                  <div><dt>Datum</dt><dd>{selectedHistory.date}</dd></div>
-                  {selectedJob && <div><dt>Auftragsart</dt><dd>{scheduleLabel(selectedJob.schedule)}</dd></div>}
-                  {selectedJob && <div><dt>Priorität</dt><dd>{selectedJob.priority}</dd></div>}
-                  {selectedJob && <div><dt>Fällig am</dt><dd>{selectedJob.dueDate}</dd></div>}
-                  {selectedJob && <div><dt>Abrechnung</dt><dd>{selectedJob.billable ? "abrechenbar" : "nicht abrechenbar"}</dd></div>}
-                  {selectedJob && <div><dt>Bearbeiter</dt><dd>{selectedJob.assignedTo}</dd></div>}
-                  {selectedJob && <div><dt>Arbeitszeit</dt><dd>{selectedJob.workMinutes} min.</dd></div>}
-                  {selectedJob && <div><dt>Material</dt><dd>{selectedJob.material}</dd></div>}
-                </dl>
-                <div className="history-block">
-                  <strong>Zusammenfassung für den Kunden</strong>
-                  <p>{selectedReport.summary}</p>
+                <div className="report-info-grid">
+                  <section>
+                    <strong>Objekt</strong>
+                    <dl>
+                      <div><dt>Objekt</dt><dd>{object.name}</dd></div>
+                      <div><dt>Adresse</dt><dd>{object.address}</dd></div>
+                      <div><dt>Eigentümer</dt><dd>{object.owner}</dd></div>
+                    </dl>
+                  </section>
+                  <section>
+                    <strong>Kunde</strong>
+                    <dl>
+                      <div><dt>Kunde</dt><dd>{reportCustomer?.name ?? object.owner}</dd></div>
+                      <div><dt>Ansprechpartner</dt><dd>{reportCustomer?.contact ?? object.owner}</dd></div>
+                      <div><dt>E-Mail</dt><dd>{reportCustomer?.email ?? object.ownerEmail}</dd></div>
+                    </dl>
+                  </section>
+                  <section>
+                    <strong>Auftrag</strong>
+                    <dl>
+                      <div><dt>Auftrag</dt><dd>{selectedHistory.title}</dd></div>
+                      <div><dt>Datum</dt><dd>{selectedHistory.date}</dd></div>
+                      {selectedJob && <div><dt>Rhythmus</dt><dd>{scheduleLabel(selectedJob.schedule)}</dd></div>}
+                    </dl>
+                  </section>
+                  <section>
+                    <strong>Leistung</strong>
+                    <dl>
+                      {selectedJob && <div><dt>Priorität</dt><dd>{selectedJob.priority}</dd></div>}
+                      {selectedJob && <div><dt>Bearbeiter</dt><dd>{selectedJob.assignedTo}</dd></div>}
+                      {selectedJob && <div><dt>Zeit / Material</dt><dd>{selectedJob.workMinutes} min. · {selectedJob.material}</dd></div>}
+                    </dl>
+                  </section>
                 </div>
-                <div className="history-block">
-                  <strong>Kommentar an den Kunden</strong>
-                  <p>{selectedReport.customerComment || "Noch kein Kundenkommentar hinterlegt."}</p>
+                <div className="report-summary-grid">
+                  <section>
+                    <strong>Zusammenfassung</strong>
+                    <p>{selectedReport.summary}</p>
+                  </section>
+                  <section>
+                    <strong>Kommentar an den Kunden</strong>
+                    <p>{selectedReport.customerComment || "Noch kein Kundenkommentar hinterlegt."}</p>
+                  </section>
                 </div>
                 {selectedReport.checklistResults.length > 0 ? (
                   <div className="report-checklist">
@@ -2879,6 +2900,19 @@ function ObjectHistory({
                             <div><dt>Hinweis / Info</dt><dd>{item.note || "Keine zusätzliche Info erfasst."}</dd></div>
                             <div><dt>Bilder</dt><dd>{item.photos.length > 0 ? item.photos.map((photo) => photo.name).join(", ") : "Keine Bilder erfasst."}</dd></div>
                           </dl>
+                          {item.photos.some((photo) => photo.previewUrl) && (
+                            <div className="report-point-photos">
+                              {item.photos
+                                .filter((photo) => photo.previewUrl)
+                                .map((photo) => (
+                                  <figure key={`${item.id}-${photo.name}-inline`}>
+                                    {/* eslint-disable-next-line @next/next/no-img-element -- Berichtsfotos müssen in Chrome-PDFs als echte Bilder erscheinen. */}
+                                    <img alt={`Kontrollfoto ${photo.name}`} src={photo.previewUrl} />
+                                    <figcaption>{photo.name}</figcaption>
+                                  </figure>
+                                ))}
+                            </div>
+                          )}
                         </article>
                       ))}
                     </div>
@@ -2905,32 +2939,6 @@ function ObjectHistory({
                     </div>
                   </div>
                 ) : null}
-                {selectedReport.checklistResults.some((item) => item.photos.length > 0) && (
-                  <div className="report-documents">
-                    <strong>Bilder aus einzelnen Checklistenpunkten</strong>
-                    {selectedReport.checklistResults.flatMap((item) =>
-                      item.photos.map((photo) => <span key={`${item.id}-${photo.name}`}>{item.title}: {photo.name}</span>),
-                    )}
-                  </div>
-                )}
-                {selectedReport.checklistResults.some((item) => item.photos.some((photo) => photo.previewUrl)) && (
-                  <div className="report-gallery">
-                    <strong>Aufnahmen aus der Kontrolle</strong>
-                    <div>
-                      {selectedReport.checklistResults.flatMap((item) =>
-                        item.photos
-                          .filter((photo) => photo.previewUrl)
-                          .map((photo) => (
-                            <figure key={`${item.id}-${photo.name}-preview`}>
-                              {/* eslint-disable-next-line @next/next/no-img-element -- Berichtsfotos müssen in Chrome-PDFs als echte Bilder erscheinen. */}
-                              <img alt={`Kontrollfoto ${photo.name}`} src={photo.previewUrl} />
-                              <figcaption>{item.title}: {photo.name}</figcaption>
-                            </figure>
-                          )),
-                      )}
-                    </div>
-                  </div>
-                )}
                 <div className="history-media">
                   {selectedReport.media.map((item) => <span key={item}>{item}</span>)}
                 </div>

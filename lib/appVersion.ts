@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.32.0",
+  version: "1.33.0",
   releaseDate: "2026-08-10",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.33.0",
+    date: "2026-08-10",
+    changes: [
+      "Fotos aus Kontrollpunkten werden jetzt direkt beim jeweiligen Punkt im Bericht angezeigt",
+      "Berichtskopf zeigt das Objektbild oben mit klarer Objekt- und Auftragskennung",
+      "Berichtsinformationen wurden in kompakte professionelle Karten für Objekt, Kunde, Auftrag und Leistung aufgeteilt",
+    ],
+  },
   {
     version: "1.32.0",
     date: "2026-08-10",

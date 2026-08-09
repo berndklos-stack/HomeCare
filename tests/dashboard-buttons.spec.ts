@@ -22,13 +22,15 @@ test("new operations workspace supports core property and job flows", async ({ p
   await expect(page.getByText("Filterdruck beobachten. Interner Hinweis nicht im Kundenportal.")).toBeVisible();
   await expect(page.getByRole("button", { name: "PDF für Poolpflege und Wasserwerte ausgeben" })).toBeVisible();
   const reportCard = page.locator(".customer-report-card");
-  await expect(reportCard.getByText("Einsatzbericht", { exact: true })).toBeVisible();
+  await expect(reportCard.getByRole("heading", { name: "Einsatzbericht" })).toBeVisible();
   await expect(reportCard.getByText(/Berichtsnummer REP-044/)).toBeVisible();
   await expect(reportCard.locator("dt", { hasText: "Kunde" })).toBeVisible();
   await expect(reportCard.locator("dd", { hasText: "Familie Andersson" }).first()).toBeVisible();
-  await expect(reportCard.locator("dt", { hasText: "Auftragsart" })).toBeVisible();
+  await expect(reportCard.getByText("Objekt", { exact: true }).first()).toBeVisible();
+  await expect(reportCard.getByText("Auftrag", { exact: true }).first()).toBeVisible();
+  await expect(reportCard.locator("dt", { hasText: "Rhythmus" })).toBeVisible();
   await expect(reportCard.locator("dt", { hasText: "Priorität" })).toBeVisible();
-  await expect(reportCard.locator("dt", { hasText: "Abrechnung" })).toBeVisible();
+  await expect(reportCard.getByText("Leistung", { exact: true })).toBeVisible();
   await expect(reportCard.getByText("Bilder zum Objekt / Einsatz")).toBeVisible();
   await expect(page.getByText("Betreff: Einsatzbericht - Kolaretorp Service AB - Villa Långsjön")).toBeVisible();
   await expect(page.getByText("Kopie: info@kolaretorp.se")).toBeVisible();
@@ -204,7 +206,7 @@ test("new operations workspace supports core property and job flows", async ({ p
   await expect(page.locator(".customer-report-card").getByText("Kontrolle vor Ort")).toBeVisible();
   await expect(page.locator(".customer-report-card").getByText("Schlüsselsafe geprüft, Zugang ohne Problem.")).toBeVisible();
   await expect(page.locator(".customer-report-card").getByText("Außenrunde geprüft, keine Auffälligkeiten.")).toBeVisible();
-  await expect(page.locator(".customer-report-card span").filter({ hasText: "Zugang prüfen: einsatzfoto.jpg" })).toBeVisible();
+  await expect(page.locator(".customer-report-card").getByRole("figure", { name: /einsatzfoto.jpg/ })).toBeVisible();
   await expect(page.locator(".customer-report-card").getByText("nicht ausgeführt").first()).toBeVisible();
   await field("Kommentar vor dem Senden").fill("Bitte beachten: Zugang wurde geprüft, Folgetermin bleibt bestehen.");
   await expect(page.locator(".customer-report-card").getByText("Bitte beachten: Zugang wurde geprüft, Folgetermin bleibt bestehen.")).toBeVisible();

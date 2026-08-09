@@ -4,6 +4,12 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.33.0 - 2026-08-10
+
+- Fotos aus Kontrollpunkten werden jetzt direkt beim jeweiligen Punkt im Bericht angezeigt.
+- Berichtskopf zeigt das Objektbild oben mit klarer Objekt- und Auftragskennung.
+- Berichtsinformationen wurden in kompakte professionelle Karten für Objekt, Kunde, Auftrag und Leistung aufgeteilt.
+
 ## 1.32.0 - 2026-08-10
 
 - PDF-Bericht verwendet echte Bild-Elemente, damit Fotos im Chrome-PDF zuverlässig erscheinen.
