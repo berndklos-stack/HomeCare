@@ -1010,13 +1010,23 @@ mark.neutral {
 .recurrence-grid {
   display: grid;
   gap: 10px;
-  grid-template-columns: minmax(0, 1fr) 120px;
+  grid-template-columns: minmax(0, 1fr) 92px;
 }
 
 .weekday-picker {
   display: grid;
   gap: 6px;
   grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.season-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 132px;
+}
+
+.year-interval-field input {
+  text-align: center;
 }
 
 .nested-backdrop {
@@ -1537,5 +1547,10 @@ mark.neutral {
   .job-row-meta {
     grid-column: 1 / -1;
     justify-items: start;
+  }
+
+  .recurrence-grid,
+  .season-grid {
+    grid-template-columns: 1fr;
   }
 }

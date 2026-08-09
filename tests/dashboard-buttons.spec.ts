@@ -83,6 +83,9 @@ test("new operations workspace supports core property and job flows", async ({ p
   await field("Intervall").fill("2");
   await page.getByRole("button", { name: "Mo", exact: true }).click();
   await page.getByRole("button", { name: "Fr", exact: true }).click();
+  await field("Gültig von").selectOption("5");
+  await field("Gültig bis").selectOption("9");
+  await field("Jahresrhythmus").fill("2");
   await field("Ende").selectOption("nach");
   await field("Anzahl Termine").fill("6");
   await field("Beschreibung").fill("Innen, außen und Zugang dokumentieren");
@@ -91,7 +94,7 @@ test("new operations workspace supports core property and job flows", async ({ p
 
   await expect(page.getByRole("heading", { name: "Auftragsübersicht" })).toBeVisible();
   await expect(page.getByText("Testauftrag Objektkontrolle")).toBeVisible();
-  await expect(page.getByText(/Serie: alle 2 Wochen · Mo, Fr · 6 Termine/)).toBeVisible();
+  await expect(page.getByText(/Serie: alle 2 Wochen · Mo, Fr · gültig Mai bis September · alle 2 Jahre · 6 Termine/)).toBeVisible();
   await page.getByRole("button", { name: "Auftrag Testauftrag Objektkontrolle bearbeiten" }).click();
   await expect(page.getByRole("heading", { name: "Auftrag bearbeiten" })).toBeVisible();
   await field("Titel").fill("Bearbeiteter Testauftrag");

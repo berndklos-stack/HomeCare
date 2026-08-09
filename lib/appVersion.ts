@@ -1,10 +1,20 @@
 export const appVersion = {
-  version: "1.19.0",
+  version: "1.20.0",
   releaseDate: "2026-08-09",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.20.0",
+    date: "2026-08-09",
+    changes: [
+      "Serienaufträge können jetzt auf einen saisonalen Zeitraum begrenzt werden",
+      "Gültigkeit wie Mai bis September wird in der Auftragsübersicht mit angezeigt",
+      "Jahresrhythmus unterstützt jedes Jahr oder alle x Jahre",
+      "Intervallfeld im Serienblock wurde schmaler gestaltet",
+    ],
+  },
   {
     version: "1.19.0",
     date: "2026-08-09",

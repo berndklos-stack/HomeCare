@@ -4,6 +4,13 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.20.0 - 2026-08-09
+
+- Serienaufträge können jetzt auf einen saisonalen Zeitraum begrenzt werden.
+- Gültigkeit wie Mai bis September wird in der Auftragsübersicht mit angezeigt.
+- Jahresrhythmus unterstützt jedes Jahr oder alle x Jahre.
+- Intervallfeld im Serienblock wurde schmaler gestaltet.
+
 ## 1.19.0 - 2026-08-09
 
 - Auftragsanlage zeigt Einmalauftrag oder Serienauftrag jetzt klar als Kalenderblock.

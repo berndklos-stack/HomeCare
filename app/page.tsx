@@ -139,6 +139,9 @@ type JobSchedule = {
   end: "nie" | "am" | "nach";
   endDate: string;
   occurrences: number;
+  activeFromMonth?: number;
+  activeToMonth?: number;
+  yearInterval?: number;
 };
 
 type ReportRecord = {
@@ -244,6 +247,9 @@ type NewJobFormState = {
   scheduleEnd: JobSchedule["end"];
   scheduleEndDate: string;
   scheduleOccurrences: string;
+  scheduleActiveFromMonth: string;
+  scheduleActiveToMonth: string;
+  scheduleYearInterval: string;
 };
 
 type CustomerFormState = {
@@ -724,7 +730,7 @@ const seedJobs: JobRecord[] = [
     billable: true,
     material: "pH-Minus, Teststreifen",
     workMinutes: 95,
-    schedule: { type: "serie", frequency: "wöchentlich", interval: 1, weekdays: ["Mo"], end: "nie", endDate: "", occurrences: 0 },
+    schedule: { type: "serie", frequency: "wöchentlich", interval: 1, weekdays: ["Mo"], end: "nie", endDate: "", occurrences: 0, activeFromMonth: 5, activeToMonth: 9, yearInterval: 1 },
   },
   {
     id: "JOB-2408",
@@ -742,7 +748,7 @@ const seedJobs: JobRecord[] = [
     billable: true,
     material: "-",
     workMinutes: 120,
-    schedule: { type: "serie", frequency: "monatlich", interval: 1, weekdays: [], end: "am", endDate: "2026-10-31", occurrences: 0 },
+    schedule: { type: "serie", frequency: "monatlich", interval: 1, weekdays: [], end: "am", endDate: "2026-10-31", occurrences: 0, activeFromMonth: 4, activeToMonth: 10, yearInterval: 1 },
   },
   {
     id: "JOB-2409",
@@ -862,6 +868,21 @@ function serviceRate(service: ServiceItem) {
   return `${amount}/${service.unit}`;
 }
 
+const monthNames = [
+  "Januar",
+  "Februar",
+  "März",
+  "April",
+  "Mai",
+  "Juni",
+  "Juli",
+  "August",
+  "September",
+  "Oktober",
+  "November",
+  "Dezember",
+];
+
 function scheduleLabel(schedule: JobSchedule) {
   if (schedule.type === "einmalig") return "einmalig";
 
@@ -879,8 +900,16 @@ function scheduleLabel(schedule: JobSchedule) {
     : schedule.end === "nach" && schedule.occurrences > 0
       ? ` · ${schedule.occurrences} Termine`
       : "";
+  const season = schedule.activeFromMonth && schedule.activeToMonth
+    ? ` · gültig ${monthNames[schedule.activeFromMonth - 1]} bis ${monthNames[schedule.activeToMonth - 1]}`
+    : "";
+  const years = schedule.yearInterval && schedule.yearInterval > 1
+    ? ` · alle ${schedule.yearInterval} Jahre`
+    : schedule.activeFromMonth && schedule.activeToMonth
+      ? " · jedes Jahr"
+      : "";
 
-  return `Serie: ${cadence}${days}${end}`;
+  return `Serie: ${cadence}${days}${season}${years}${end}`;
 }
 
 export default function HomePage() {
@@ -919,6 +948,9 @@ export default function HomePage() {
     scheduleEnd: "nie",
     scheduleEndDate: "",
     scheduleOccurrences: "10",
+    scheduleActiveFromMonth: "",
+    scheduleActiveToMonth: "",
+    scheduleYearInterval: "1",
   });
 
   const t = labels[language];
@@ -1096,6 +1128,9 @@ export default function HomePage() {
       scheduleEnd: "nie",
       scheduleEndDate: "",
       scheduleOccurrences: "10",
+      scheduleActiveFromMonth: "",
+      scheduleActiveToMonth: "",
+      scheduleYearInterval: "1",
     });
     setModal("job");
   }
@@ -1118,6 +1153,9 @@ export default function HomePage() {
       scheduleEnd: job.schedule.end,
       scheduleEndDate: job.schedule.endDate,
       scheduleOccurrences: String(job.schedule.occurrences || 10),
+      scheduleActiveFromMonth: job.schedule.activeFromMonth ? String(job.schedule.activeFromMonth) : "",
+      scheduleActiveToMonth: job.schedule.activeToMonth ? String(job.schedule.activeToMonth) : "",
+      scheduleYearInterval: String(job.schedule.yearInterval || 1),
     });
     setModal("job");
   }
@@ -1148,6 +1186,9 @@ export default function HomePage() {
         end: newJob.scheduleEnd,
         endDate: newJob.scheduleEnd === "am" ? newJob.scheduleEndDate : "",
         occurrences: newJob.scheduleEnd === "nach" ? Math.max(Number(newJob.scheduleOccurrences) || 1, 1) : 0,
+        activeFromMonth: newJob.scheduleActiveFromMonth ? Number(newJob.scheduleActiveFromMonth) : undefined,
+        activeToMonth: newJob.scheduleActiveToMonth ? Number(newJob.scheduleActiveToMonth) : undefined,
+        yearInterval: Math.max(Number(newJob.scheduleYearInterval) || 1, 1),
       },
     };
 
@@ -2753,6 +2794,9 @@ function JobForm({
         end: newJob.scheduleEnd,
         endDate: newJob.scheduleEnd === "am" ? newJob.scheduleEndDate : "",
         occurrences: newJob.scheduleEnd === "nach" ? Math.max(Number(newJob.scheduleOccurrences) || 1, 1) : 0,
+        activeFromMonth: newJob.scheduleActiveFromMonth ? Number(newJob.scheduleActiveFromMonth) : undefined,
+        activeToMonth: newJob.scheduleActiveToMonth ? Number(newJob.scheduleActiveToMonth) : undefined,
+        yearInterval: Math.max(Number(newJob.scheduleYearInterval) || 1, 1),
       });
 
   function update(key: keyof typeof newJob, value: string | string[]) {
@@ -2823,6 +2867,26 @@ function JobForm({
                 ))}
               </div>
             )}
+            <div className="wide season-grid">
+              <label>
+                <span>Gültig von</span>
+                <select value={newJob.scheduleActiveFromMonth} onChange={(event) => update("scheduleActiveFromMonth", event.target.value)}>
+                  <option value="">ganzjährig</option>
+                  {monthNames.map((month, index) => <option key={month} value={index + 1}>{month}</option>)}
+                </select>
+              </label>
+              <label>
+                <span>Gültig bis</span>
+                <select value={newJob.scheduleActiveToMonth} onChange={(event) => update("scheduleActiveToMonth", event.target.value)}>
+                  <option value="">ganzjährig</option>
+                  {monthNames.map((month, index) => <option key={month} value={index + 1}>{month}</option>)}
+                </select>
+              </label>
+              <label className="year-interval-field">
+                <span>Jahresrhythmus</span>
+                <input min="1" type="number" value={newJob.scheduleYearInterval} onChange={(event) => update("scheduleYearInterval", event.target.value)} />
+              </label>
+            </div>
             <label>
               <span>Ende</span>
               <select value={newJob.scheduleEnd} onChange={(event) => update("scheduleEnd", event.target.value)}>
