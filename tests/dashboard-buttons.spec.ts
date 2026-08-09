@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
 
 test("new operations workspace supports core property and job flows", async ({ page }) => {
+  const field = (name: string) => page.locator("label").filter({ hasText: name }).locator("input, textarea, select").first();
+
   await page.goto("/");
   await expect(page.locator("main")).toHaveAttribute("data-ready", "true");
 
@@ -11,17 +13,17 @@ test("new operations workspace supports core property and job flows", async ({ p
   await page.getByTestId("nav-objects").click();
   await expect(page.getByRole("heading", { name: "Objektübersicht" })).toBeVisible();
   await page.getByRole("button", { name: "Neues Objekt" }).click();
-  await page.getByLabel("Objekt").fill("Testhaus Smaland");
-  await page.getByLabel("Eigentümer").fill("Familie Test");
-  await page.getByLabel("Adresse").fill("Testvägen 12, Nybro");
-  await page.getByLabel("Größe m²").fill("145");
-  await page.getByLabel("Grundstück m²").fill("2300");
-  await page.getByLabel("Zimmer").fill("6");
-  await page.getByLabel("Betten").fill("9");
-  await page.getByLabel("Betreuungspaket").selectOption("Premium");
-  await page.getByLabel("Zugang / Schlüssel").fill("Schlüsselsafe am Carport");
-  await page.getByLabel("Ausstattung").fill("Pool, Sauna, Kamin");
-  await page.getByLabel("Hinweise / Risiken").fill("Poolpumpe regelmäßig prüfen");
+  await field("Objekt").fill("Testhaus Smaland");
+  await field("Eigentümer").fill("Familie Test");
+  await field("Adresse").fill("Testvägen 12, Nybro");
+  await field("Größe m²").fill("145");
+  await field("Grundstück m²").fill("2300");
+  await field("Zimmer").fill("6");
+  await field("Betten").fill("9");
+  await field("Betreuungspaket").selectOption("Premium");
+  await field("Zugang / Schlüssel").fill("Schlüsselsafe am Carport");
+  await field("Ausstattung").fill("Pool, Sauna, Kamin");
+  await field("Hinweise / Risiken").fill("Poolpumpe regelmäßig prüfen");
   await page.getByRole("button", { name: "Objekt anlegen" }).click();
 
   await expect(page.getByRole("heading", { name: "Testhaus Smaland" })).toBeVisible();
@@ -29,26 +31,64 @@ test("new operations workspace supports core property and job flows", async ({ p
   await expect(page.getByText("Schlüsselsafe am Carport")).toBeVisible();
   await expect(page.getByText("Poolpumpe regelmäßig prüfen")).toBeVisible();
 
+  await page.getByRole("button", { name: "Objekt bearbeiten" }).click();
+  await expect(page.getByRole("heading", { name: "Objekt bearbeiten" })).toBeVisible();
+  await field("Telefon Eigentümer").fill("+46 70 123456");
+  await field("Adresse").fill("Geänderter Weg 5, Nybro");
+  await field("Alarmanlage").fill("Code im internen Tresor hinterlegt");
+  await field("Internet").fill("Glasfaser, Router im Technikraum");
+  await field("Nächster Besuch").fill("2026-08-12");
+  await page.getByRole("button", { name: "Objekt speichern" }).click();
+
+  await expect(page.getByText("Geänderter Weg 5, Nybro")).toBeVisible();
+  await expect(page.getByText(/\+46 70 123456/)).toBeVisible();
+  await expect(page.getByText("Glasfaser, Router im Technikraum")).toBeVisible();
+
+  await page.getByRole("button", { name: /\d+\s*Berichte/ }).click();
+  await expect(page.getByRole("heading", { name: "Objektübersicht" })).toBeVisible();
+  await page.getByRole("button", { name: /\d+\s*abrechenbar/ }).click();
+  await expect(page.getByRole("heading", { name: "Abrechnung" })).toBeVisible();
+
   await page.getByRole("button", { name: "Neuer Auftrag" }).first().click();
-  await page.getByLabel("Titel").fill("Testauftrag Objektkontrolle");
-  await page.getByLabel("Typ").fill("Hauskontrolle");
-  await page.getByLabel("Priorität").selectOption("hoch");
-  await page.getByLabel("Beschreibung").fill("Innen, außen und Zugang dokumentieren");
-  await page.getByLabel("Interne Notizen").fill("Nur intern sichtbar");
+  await field("Titel").fill("Testauftrag Objektkontrolle");
+  await field("Typ").fill("Hauskontrolle");
+  await field("Priorität").selectOption("hoch");
+  await field("Beschreibung").fill("Innen, außen und Zugang dokumentieren");
+  await field("Interne Notizen").fill("Nur intern sichtbar");
   await page.getByRole("button", { name: "Auftrag anlegen" }).click();
 
   await expect(page.getByRole("heading", { name: "Auftragsübersicht" })).toBeVisible();
   await expect(page.getByText("Testauftrag Objektkontrolle")).toBeVisible();
+  await page.getByRole("button", { name: "Bearbeiten" }).first().click();
+  await expect(page.getByRole("heading", { name: "Auftrag bearbeiten" })).toBeVisible();
+  await field("Titel").fill("Bearbeiteter Testauftrag");
+  await page.getByRole("button", { name: "Auftrag speichern" }).click();
+  await expect(page.getByText("Bearbeiteter Testauftrag")).toBeVisible();
+
+  await page.getByTestId("nav-customers").click();
+  await expect(page.getByRole("heading", { name: "Kundenübersicht" })).toBeVisible();
+  await page.getByRole("button", { name: "Neuer Kunde" }).click();
+  await field("Kunde").fill("Familie Beispiel");
+  await field("Ansprechpartner").fill("Anna Beispiel");
+  await field("E-Mail").fill("anna@example.com");
+  await field("Telefon").fill("+46 70 998877");
+  await page.getByRole("button", { name: "Kunde anlegen" }).click();
+  await expect(page.getByText("Familie Beispiel")).toBeVisible();
+  await page.getByRole("button", { name: "Bearbeiten" }).first().click();
+  await field("Telefon").fill("+46 70 112233");
+  await page.getByRole("button", { name: "Kunde speichern" }).click();
+  await expect(page.getByText("+46 70 112233")).toBeVisible();
 
   await page.getByTestId("nav-planning").click();
   await expect(page.getByRole("heading", { name: "Einsatzplanung" })).toBeVisible();
-  await page.getByRole("button", { name: /Testauftrag Objektkontrolle/ }).click();
+  await page.getByRole("button", { name: /Bearbeiteter Testauftrag/ }).click();
   await expect(page.getByRole("button", { name: "Einsatz abschließen" })).toBeVisible();
   await page.getByRole("button", { name: "Einsatz abschließen" }).click();
-  await expect(page.getByRole("heading", { name: "Berichtsübersicht" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Objektübersicht" })).toBeVisible();
 
   await page.getByTestId("nav-masterData").click();
   await expect(page.getByRole("heading", { name: "Leistungen und Pakete" })).toBeVisible();
+  await expect(page.getByText("Objektakte", { exact: true })).toHaveCount(0);
   await expect(page.locator(".service-catalog").getByText("Premium")).toBeVisible();
   await expect(page.locator(".service-catalog").getByText("Notdienst")).toBeVisible();
 

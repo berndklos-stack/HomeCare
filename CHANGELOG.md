@@ -4,6 +4,19 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.1.0 - 2026-08-09
+
+- Objekte können direkt aus der Objektakte heraus bearbeitet und gespeichert werden.
+- Objektformular um Eigentümerkontakt, Status, Baujahr, Zugang, Technik, Medienzahlen und Besuchsplanung erweitert.
+- Stammdatenänderungen aktualisieren die bestehende Objektakte statt ein neues Objekt anzulegen.
+- Kunden können angelegt und bearbeitet werden, inklusive Kontakt, Portalstatus und Objektzuordnung.
+- Aufträge können angelegt und bearbeitet werden.
+- Berichte und Kommunikation hängen nun objektbezogen in der Objektakte und sind nicht mehr als eigene Hauptmenüpunkte sichtbar.
+- Die Objektakte wird nur noch in Bereichen mit echtem Objektkontext angezeigt, nicht mehr in Stammdaten, Kunden, Aufträgen oder Abrechnung.
+- Übersichtskacheln im Kopfbereich sind jetzt klickbare, zentrierte Sprungbuttons zu Objekten, Einsatzplanung, Berichten und Abrechnung.
+- Versionsanzeige in der unteren Menüspalte deutlicher dargestellt.
+- Playwright-Test prüft Objekt-, Kunden- und Auftragsanlage inklusive Bearbeitung und Quickbar-Navigation.
+
 ## 1.0.0 - 2026-07-31
 
 - App-Oberfläche als ruhige, tabellenorientierte Arbeitssoftware neu aufgebaut.

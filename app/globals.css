@@ -131,17 +131,29 @@ button {
 }
 
 .version {
+  background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.18);
   display: grid;
   gap: 3px;
   margin-top: auto;
   min-height: auto;
   padding: 12px;
+  width: 100%;
 }
 
 .version span {
   color: rgba(248, 251, 246, 0.72);
   font-size: 12px;
+}
+
+.version strong {
+  color: #fff;
+  font-size: 18px;
+}
+
+.version small {
+  color: rgba(248, 251, 246, 0.62);
+  font-size: 11px;
 }
 
 .workspace {
@@ -239,6 +251,11 @@ button {
   font-weight: 700;
 }
 
+.ghost-button.compact {
+  min-height: 38px;
+  padding: 9px 12px;
+}
+
 .row-action {
   background: var(--paper-soft);
   border: 1px solid var(--line);
@@ -252,7 +269,7 @@ button {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
-.quickbar article,
+.quickbar button,
 .panel,
 .object-file,
 .phone-card {
@@ -262,11 +279,25 @@ button {
   box-shadow: 0 18px 45px var(--shadow);
 }
 
-.quickbar article {
-  display: grid;
-  gap: 2px;
+.quickbar button {
+  align-items: center;
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  justify-content: center;
   min-height: 70px;
   padding: 14px;
+  text-align: center;
+}
+
+.quickbar button:hover,
+.quickbar button:focus-visible {
+  border-color: var(--brand-2);
+  box-shadow: 0 18px 45px var(--shadow), 0 0 0 3px color-mix(in srgb, var(--brand-2), transparent 78%);
+  outline: none;
+  transform: translateY(-1px);
 }
 
 .quickbar strong {
@@ -291,6 +322,10 @@ button {
   display: grid;
   gap: 16px;
   grid-template-columns: minmax(0, 1fr) minmax(340px, 420px);
+}
+
+.layout.full {
+  grid-template-columns: 1fr;
 }
 
 .main-panel,
@@ -519,6 +554,13 @@ mark.neutral {
   top: 16px;
 }
 
+.object-file-head {
+  align-items: flex-start;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
 .object-file section {
   border-top: 1px solid var(--line);
   display: grid;
@@ -648,6 +690,13 @@ mark.neutral {
   font-weight: 800;
 }
 
+.form-grid h3 {
+  color: var(--brand);
+  font-size: 14px;
+  grid-column: 1 / -1;
+  margin: 6px 0 0;
+}
+
 .form-grid input,
 .form-grid select,
 .form-grid textarea {
@@ -662,6 +711,21 @@ mark.neutral {
 .form-grid textarea {
   min-height: 86px;
   resize: vertical;
+}
+
+.check-list {
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+}
+
+.check-list label {
+  align-items: center;
+  display: flex;
+  gap: 8px;
 }
 
 .version-list {

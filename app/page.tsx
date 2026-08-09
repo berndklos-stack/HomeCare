@@ -5,11 +5,9 @@ import {
   CalendarDays,
   ClipboardList,
   Euro,
-  FileText,
   Home,
   KeyRound,
   Languages,
-  MessageSquareText,
   Moon,
   Plus,
   Search,
@@ -34,7 +32,7 @@ type Section =
   | "communication"
   | "billing"
   | "masterData";
-type Modal = "object" | "job" | "version" | null;
+type Modal = "object" | "customer" | "job" | "version" | null;
 
 type ObjectRecord = {
   id: string;
@@ -140,6 +138,8 @@ type BillingRecord = {
 type NewObjectFormState = {
   name: string;
   owner: string;
+  ownerEmail: string;
+  ownerPhone: string;
   address: string;
   region: string;
   sizeSqm: string;
@@ -147,10 +147,24 @@ type NewObjectFormState = {
   rooms: string;
   beds: string;
   bathrooms: string;
+  buildYear: string;
   carePackage: ObjectRecord["carePackage"];
+  status: ObjectRecord["status"];
   keySafe: string;
+  alarm: string;
+  parking: string;
+  accessNotes: string;
+  heating: string;
+  water: string;
+  septic: string;
+  internet: string;
   equipment: string;
   risks: string;
+  images: string;
+  documents: string;
+  floorPlans: string;
+  nextVisit: string;
+  lastVisit: string;
 };
 
 type NewJobFormState = {
@@ -163,15 +177,33 @@ type NewJobFormState = {
   internalNotes: string;
 };
 
+type CustomerFormState = {
+  name: string;
+  contact: string;
+  email: string;
+  phone: string;
+  language: string;
+  balance: string;
+  portalStatus: CustomerRecord["portalStatus"];
+  objects: string[];
+};
+
 const labels = {
   de: {
     appTitle: "Ferienhausverwaltung",
     subtitle: "Objekte, Einsätze, Berichte und Abrechnung in einer Arbeitszentrale.",
     search: "Suchen",
     newObject: "Neues Objekt",
+    editObject: "Objekt bearbeiten",
+    newCustomer: "Neuer Kunde",
+    editCustomer: "Kunde bearbeiten",
     newJob: "Neuer Auftrag",
     createObject: "Objekt anlegen",
+    saveObject: "Objekt speichern",
+    createCustomer: "Kunde anlegen",
+    saveCustomer: "Kunde speichern",
     createJob: "Auftrag anlegen",
+    saveJob: "Auftrag speichern",
     close: "Schließen",
     language: "Sprache",
     dark: "Dunkelmodus",
@@ -183,9 +215,16 @@ const labels = {
     subtitle: "Objekt, uppdrag, rapporter och fakturering i en arbetsyta.",
     search: "Sök",
     newObject: "Nytt objekt",
+    editObject: "Redigera objekt",
+    newCustomer: "Ny kund",
+    editCustomer: "Redigera kund",
     newJob: "Nytt uppdrag",
     createObject: "Skapa objekt",
+    saveObject: "Spara objekt",
+    createCustomer: "Skapa kund",
+    saveCustomer: "Spara kund",
     createJob: "Skapa uppdrag",
+    saveJob: "Spara uppdrag",
     close: "Stäng",
     language: "Språk",
     dark: "Mörkt läge",
@@ -197,9 +236,16 @@ const labels = {
     subtitle: "Properties, visits, reports and billing in one workspace.",
     search: "Search",
     newObject: "New property",
+    editObject: "Edit property",
+    newCustomer: "New customer",
+    editCustomer: "Edit customer",
     newJob: "New job",
     createObject: "Create property",
+    saveObject: "Save property",
+    createCustomer: "Create customer",
+    saveCustomer: "Save customer",
     createJob: "Create job",
+    saveJob: "Save job",
     close: "Close",
     language: "Language",
     dark: "Dark mode",
@@ -215,11 +261,162 @@ const navItems: Array<{ id: Section; label: string; icon: typeof Home }> = [
   { id: "jobs", label: "Aufträge", icon: ClipboardList },
   { id: "planning", label: "Einsatzplanung", icon: CalendarDays },
   { id: "field", label: "Mobil vor Ort", icon: Wrench },
-  { id: "reports", label: "Berichte", icon: FileText },
-  { id: "communication", label: "Kommunikation", icon: MessageSquareText },
   { id: "billing", label: "Abrechnung", icon: Euro },
   { id: "masterData", label: "Stammdaten", icon: KeyRound },
 ];
+
+function emptyObjectForm(): NewObjectFormState {
+  return {
+    name: "",
+    owner: "",
+    ownerEmail: "",
+    ownerPhone: "",
+    address: "",
+    region: "Nybro",
+    sizeSqm: "95",
+    plotSqm: "1800",
+    rooms: "4",
+    beds: "6",
+    bathrooms: "1",
+    buildYear: "1990",
+    carePackage: "Basis",
+    status: "Kontrolle offen",
+    keySafe: "",
+    alarm: "",
+    parking: "",
+    accessNotes: "",
+    heating: "",
+    water: "",
+    septic: "",
+    internet: "",
+    equipment: "",
+    risks: "",
+    images: "0",
+    documents: "0",
+    floorPlans: "0",
+    nextVisit: "",
+    lastVisit: "",
+  };
+}
+
+function objectToForm(object: ObjectRecord): NewObjectFormState {
+  return {
+    name: object.name,
+    owner: object.owner,
+    ownerEmail: object.ownerEmail,
+    ownerPhone: object.ownerPhone,
+    address: object.address,
+    region: object.region,
+    sizeSqm: String(object.sizeSqm),
+    plotSqm: String(object.plotSqm),
+    rooms: String(object.rooms),
+    beds: String(object.beds),
+    bathrooms: String(object.bathrooms),
+    buildYear: String(object.buildYear),
+    carePackage: object.carePackage,
+    status: object.status,
+    keySafe: object.access.keySafe,
+    alarm: object.access.alarm,
+    parking: object.access.parking,
+    accessNotes: object.access.notes,
+    heating: object.utilities.heating,
+    water: object.utilities.water,
+    septic: object.utilities.septic,
+    internet: object.utilities.internet,
+    equipment: object.equipment.join(", "),
+    risks: object.risks.join(", "),
+    images: String(object.media.images),
+    documents: String(object.media.documents),
+    floorPlans: String(object.media.floorPlans),
+    nextVisit: object.nextVisit,
+    lastVisit: object.lastVisit,
+  };
+}
+
+function splitList(value: string) {
+  return value.split(",").map((item) => item.trim()).filter(Boolean);
+}
+
+function formToObject(form: NewObjectFormState, id: string): ObjectRecord {
+  return {
+    id,
+    name: form.name.trim() || "Neues Ferienhaus",
+    owner: form.owner.trim() || "Neuer Eigentümer",
+    ownerEmail: form.ownerEmail.trim() || "kunde@example.com",
+    ownerPhone: form.ownerPhone.trim() || "-",
+    address: form.address.trim() || "Adresse offen",
+    region: form.region.trim() || "Nybro",
+    sizeSqm: Number(form.sizeSqm) || 0,
+    plotSqm: Number(form.plotSqm) || 0,
+    rooms: Number(form.rooms) || 0,
+    beds: Number(form.beds) || 0,
+    bathrooms: Number(form.bathrooms) || 0,
+    buildYear: Number(form.buildYear) || 0,
+    carePackage: form.carePackage,
+    status: form.status,
+    access: {
+      keySafe: form.keySafe.trim() || "noch zu pflegen",
+      alarm: form.alarm.trim() || "noch zu pflegen",
+      parking: form.parking.trim() || "noch zu pflegen",
+      notes: form.accessNotes.trim() || "Zugang und Besonderheiten ergänzen.",
+    },
+    equipment: splitList(form.equipment),
+    utilities: {
+      heating: form.heating.trim() || "noch zu pflegen",
+      water: form.water.trim() || "noch zu pflegen",
+      septic: form.septic.trim() || "noch zu pflegen",
+      internet: form.internet.trim() || "noch zu pflegen",
+    },
+    risks: splitList(form.risks),
+    media: {
+      images: Number(form.images) || 0,
+      documents: Number(form.documents) || 0,
+      floorPlans: Number(form.floorPlans) || 0,
+    },
+    nextVisit: form.nextVisit.trim() || "noch planen",
+    lastVisit: form.lastVisit.trim() || "-",
+  };
+}
+
+function emptyCustomerForm(objects: ObjectRecord[] = []): CustomerFormState {
+  return {
+    name: "",
+    contact: "",
+    email: "",
+    phone: "",
+    language: "Deutsch",
+    balance: "0 SEK",
+    portalStatus: "einladen",
+    objects: objects[0] ? [objects[0].id] : [],
+  };
+}
+
+function customerToForm(customer: CustomerRecord): CustomerFormState {
+  return {
+    name: customer.name,
+    contact: customer.contact,
+    email: customer.email,
+    phone: customer.phone,
+    language: customer.language,
+    balance: customer.balance,
+    portalStatus: customer.portalStatus,
+    objects: customer.objects,
+  };
+}
+
+function formToCustomer(form: CustomerFormState, id: string): CustomerRecord {
+  return {
+    id,
+    name: form.name.trim() || "Neuer Kunde",
+    contact: form.contact.trim() || "Kontakt ergänzen",
+    email: form.email.trim() || "kunde@example.com",
+    phone: form.phone.trim() || "-",
+    language: form.language.trim() || "Deutsch",
+    objects: form.objects,
+    balance: form.balance.trim() || "0 SEK",
+    portalStatus: form.portalStatus,
+  };
+}
 
 const seedObjects: ObjectRecord[] = [
   {
@@ -509,27 +706,17 @@ export default function HomePage() {
   const [query, setQuery] = useState("");
   const [selectedObjectId, setSelectedObjectId] = useState("OBJ-1001");
   const [objects, setObjects] = useState(seedObjects);
-  const [customers] = useState(seedCustomers);
+  const [customers, setCustomers] = useState(seedCustomers);
   const [jobs, setJobs] = useState(seedJobs);
   const [reports] = useState(seedReports);
   const [messages] = useState(seedMessages);
   const [billing] = useState(seedBilling);
   const [modal, setModal] = useState<Modal>(null);
-  const [newObject, setNewObject] = useState<NewObjectFormState>({
-    name: "",
-    owner: "",
-    address: "",
-    region: "Nybro",
-    sizeSqm: "95",
-    plotSqm: "1800",
-    rooms: "4",
-    beds: "6",
-    bathrooms: "1",
-    carePackage: "Basis" as ObjectRecord["carePackage"],
-    keySafe: "",
-    equipment: "",
-    risks: "",
-  });
+  const [editingObjectId, setEditingObjectId] = useState<string | null>(null);
+  const [editingCustomerId, setEditingCustomerId] = useState<string | null>(null);
+  const [editingJobId, setEditingJobId] = useState<string | null>(null);
+  const [newObject, setNewObject] = useState<NewObjectFormState>(emptyObjectForm());
+  const [newCustomer, setNewCustomer] = useState<CustomerFormState>(emptyCustomerForm(seedObjects));
   const [newJob, setNewJob] = useState<NewJobFormState>({
     title: "",
     type: "Hauskontrolle",
@@ -546,82 +733,128 @@ export default function HomePage() {
   const objectReports = reports.filter((report) => report.objectId === selectedObject.id);
   const objectMessages = messages.filter((message) => message.objectId === selectedObject.id);
   const objectBilling = billing.filter((item) => item.objectId === selectedObject.id);
+  const showObjectFile = ["dashboard", "objects", "planning", "field"].includes(section);
   const filteredObjects = objects.filter((object) =>
     [object.name, object.owner, object.address, object.region, object.carePackage]
       .join(" ")
       .toLowerCase()
       .includes(query.toLowerCase()),
   );
-  const dashboardStats = [
-    { label: "aktive Objekte", value: objects.length },
-    { label: "offene Einsätze", value: jobs.filter((job) => job.status !== "erledigt" && job.status !== "abgerechnet").length },
-    { label: "Berichte", value: reports.length },
-    { label: "abrechenbar", value: billing.filter((item) => item.status === "abrechenbar").length },
+  const dashboardStats: Array<{ label: string; value: number; section: Section }> = [
+    { label: "aktive Objekte", value: objects.length, section: "objects" },
+    { label: "offene Einsätze", value: jobs.filter((job) => job.status !== "erledigt" && job.status !== "abgerechnet").length, section: "planning" },
+    { label: "Berichte", value: reports.length, section: "objects" },
+    { label: "abrechenbar", value: billing.filter((item) => item.status === "abrechenbar").length, section: "billing" },
   ];
 
-  function createObject() {
-    const id = `OBJ-${1000 + objects.length + 1}`;
-    const created: ObjectRecord = {
-      id,
-      name: newObject.name.trim() || "Neues Ferienhaus",
-      owner: newObject.owner.trim() || "Neuer Eigentümer",
-      ownerEmail: "kunde@example.com",
-      ownerPhone: "-",
-      address: newObject.address.trim() || "Adresse offen",
-      region: newObject.region,
-      sizeSqm: Number(newObject.sizeSqm) || 0,
-      plotSqm: Number(newObject.plotSqm) || 0,
-      rooms: Number(newObject.rooms) || 0,
-      beds: Number(newObject.beds) || 0,
-      bathrooms: Number(newObject.bathrooms) || 0,
-      buildYear: 1990,
-      carePackage: newObject.carePackage,
-      status: "Kontrolle offen",
-      access: {
-        keySafe: newObject.keySafe.trim() || "noch zu pflegen",
-        alarm: "noch zu pflegen",
-        parking: "noch zu pflegen",
-        notes: "Zugang und Besonderheiten ergänzen.",
-      },
-      equipment: newObject.equipment.split(",").map((item) => item.trim()).filter(Boolean),
-      utilities: {
-        heating: "noch zu pflegen",
-        water: "noch zu pflegen",
-        septic: "noch zu pflegen",
-        internet: "noch zu pflegen",
-      },
-      risks: newObject.risks.split(",").map((item) => item.trim()).filter(Boolean),
-      media: { images: 0, documents: 0, floorPlans: 0 },
-      nextVisit: "noch planen",
-      lastVisit: "-",
-    };
+  function openCreateObject() {
+    setEditingObjectId(null);
+    setNewObject(emptyObjectForm());
+    setModal("object");
+  }
 
-    setObjects((current) => [created, ...current]);
+  function openEditObject(object: ObjectRecord) {
+    setEditingObjectId(object.id);
+    setNewObject(objectToForm(object));
+    setModal("object");
+  }
+
+  function saveObject() {
+    const id = editingObjectId ?? `OBJ-${1000 + objects.length + 1}`;
+    const saved = formToObject(newObject, id);
+
+    setObjects((current) =>
+      editingObjectId
+        ? current.map((object) => (object.id === editingObjectId ? saved : object))
+        : [saved, ...current],
+    );
     setSelectedObjectId(id);
     setSection("objects");
+    setEditingObjectId(null);
     setModal(null);
   }
 
-  function createJob() {
-    const created: JobRecord = {
-      id: `JOB-${2410 + jobs.length}`,
+  function openCreateCustomer() {
+    setEditingCustomerId(null);
+    setNewCustomer(emptyCustomerForm(objects));
+    setModal("customer");
+  }
+
+  function openEditCustomer(customer: CustomerRecord) {
+    setEditingCustomerId(customer.id);
+    setNewCustomer(customerToForm(customer));
+    setModal("customer");
+  }
+
+  function saveCustomer() {
+    const id = editingCustomerId ?? `CUS-${customers.length + 1}`;
+    const saved = formToCustomer(newCustomer, id);
+
+    setCustomers((current) =>
+      editingCustomerId
+        ? current.map((customer) => (customer.id === editingCustomerId ? saved : customer))
+        : [saved, ...current],
+    );
+    setEditingCustomerId(null);
+    setSection("customers");
+    setModal(null);
+  }
+
+  function openCreateJob() {
+    setEditingJobId(null);
+    setNewJob({
+      title: "",
+      type: "Hauskontrolle",
+      priority: "normal",
+      dueDate: "2026-08-05",
+      assignedTo: "Johan Berg",
+      description: "",
+      internalNotes: "",
+    });
+    setModal("job");
+  }
+
+  function openEditJob(job: JobRecord) {
+    setEditingJobId(job.id);
+    setSelectedObjectId(job.objectId);
+    setNewJob({
+      title: job.title,
+      type: job.type,
+      priority: job.priority,
+      dueDate: job.dueDate,
+      assignedTo: job.assignedTo,
+      description: job.description,
+      internalNotes: job.internalNotes,
+    });
+    setModal("job");
+  }
+
+  function saveJob() {
+    const id = editingJobId ?? `JOB-${2410 + jobs.length}`;
+    const saved: JobRecord = {
+      id,
       title: newJob.title.trim() || "Neuer Auftrag",
       objectId: selectedObject.id,
       customerId: customers.find((customer) => customer.name === selectedObject.owner)?.id ?? "CUS-1",
-      type: newJob.type,
-      status: "geplant",
+      type: newJob.type.trim() || "Hauskontrolle",
+      status: jobs.find((job) => job.id === editingJobId)?.status ?? "geplant",
       priority: newJob.priority,
       dueDate: newJob.dueDate,
-      assignedTo: newJob.assignedTo,
+      assignedTo: newJob.assignedTo.trim() || "nicht zugewiesen",
       description: newJob.description.trim() || "Beschreibung ergänzen.",
       internalNotes: newJob.internalNotes.trim() || "Keine internen Notizen.",
-      checklist: ["Zugang prüfen", "Fotos erfassen", "Arbeit dokumentieren", "Bericht vorbereiten"],
-      billable: true,
-      material: "-",
-      workMinutes: 0,
+      checklist: jobs.find((job) => job.id === editingJobId)?.checklist ?? ["Zugang prüfen", "Fotos erfassen", "Arbeit dokumentieren", "Bericht vorbereiten"],
+      billable: jobs.find((job) => job.id === editingJobId)?.billable ?? true,
+      material: jobs.find((job) => job.id === editingJobId)?.material ?? "-",
+      workMinutes: jobs.find((job) => job.id === editingJobId)?.workMinutes ?? 0,
     };
 
-    setJobs((current) => [created, ...current]);
+    setJobs((current) =>
+      editingJobId
+        ? current.map((job) => (job.id === editingJobId ? saved : job))
+        : [saved, ...current],
+    );
+    setEditingJobId(null);
     setSection("jobs");
     setModal(null);
   }
@@ -637,7 +870,8 @@ export default function HomePage() {
     setJobs((current) =>
       current.map((item) => (item.id === job.id ? { ...item, status: "erledigt", workMinutes: 90 } : item)),
     );
-    setSection("reports");
+    setSelectedObjectId(job.objectId);
+    setSection("objects");
   }
 
   return (
@@ -668,8 +902,9 @@ export default function HomePage() {
           })}
         </nav>
         <button className="version" onClick={() => setModal("version")} type="button">
-          <span>Version</span>
+          <span>Aktuelle Version</span>
           <strong>v{appVersion.version}</strong>
+          <small>{appVersion.releaseDate}</small>
         </button>
       </aside>
 
@@ -706,7 +941,7 @@ export default function HomePage() {
               {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
               {theme === "dark" ? t.light : t.dark}
             </button>
-            <button className="primary-button" onClick={() => setModal("job")} type="button">
+            <button className="primary-button" onClick={openCreateJob} type="button">
               <Plus size={16} />
               {t.newJob}
             </button>
@@ -715,14 +950,14 @@ export default function HomePage() {
 
         <div className="quickbar">
           {dashboardStats.map((item) => (
-            <article key={item.label}>
+            <button key={item.label} onClick={() => setSection(item.section)} type="button">
               <strong>{item.value}</strong>
               <span>{item.label}</span>
-            </article>
+            </button>
           ))}
         </div>
 
-        <section className="layout">
+        <section className={showObjectFile ? "layout" : "layout full"}>
           <div className="main-panel">
             {section === "dashboard" && (
               <Dashboard
@@ -736,29 +971,37 @@ export default function HomePage() {
               <ObjectsView
                 objects={filteredObjects}
                 selectedObjectId={selectedObject.id}
-                onCreate={() => setModal("object")}
+                onCreate={openCreateObject}
                 onSelect={(id) => setSelectedObjectId(id)}
               />
             )}
-            {section === "customers" && <CustomersView customers={customers} objects={objects} />}
+            {section === "customers" && (
+              <CustomersView
+                customers={customers}
+                objects={objects}
+                onCreate={openCreateCustomer}
+                onEdit={openEditCustomer}
+              />
+            )}
             {section === "jobs" && (
-              <JobsView jobs={jobs} objects={objects} onCreate={() => setModal("job")} onStart={startJob} />
+              <JobsView jobs={jobs} objects={objects} onCreate={openCreateJob} onEdit={openEditJob} onStart={startJob} />
             )}
             {section === "planning" && <PlanningView jobs={jobs} objects={objects} onStart={startJob} />}
             {section === "field" && <FieldView jobs={jobs} selectedObject={selectedObject} onComplete={completeJob} />}
-            {section === "reports" && <ReportsView reports={reports} objects={objects} />}
-            {section === "communication" && <CommunicationView messages={messages} objects={objects} customers={customers} />}
             {section === "billing" && <BillingView billing={billing} objects={objects} />}
             {section === "masterData" && <MasterDataView services={serviceCatalog} />}
           </div>
 
-          <ObjectFile
-            billing={objectBilling}
-            jobs={objectJobs}
-            messages={objectMessages}
-            object={selectedObject}
-            reports={objectReports}
-          />
+          {showObjectFile && (
+            <ObjectFile
+              billing={objectBilling}
+              jobs={objectJobs}
+              messages={objectMessages}
+              object={selectedObject}
+              onEdit={openEditObject}
+              reports={objectReports}
+            />
+          )}
         </section>
       </section>
 
@@ -767,8 +1010,8 @@ export default function HomePage() {
           <section className="modal" role="dialog" aria-modal="true">
             <header>
               <div>
-                <p>{modal === "object" ? "Objektstammdaten" : modal === "job" ? "Auftrag" : "Änderungsverlauf"}</p>
-                <h2>{modal === "object" ? t.newObject : modal === "job" ? t.newJob : `v${appVersion.version}`}</h2>
+                <p>{modal === "object" ? "Objektstammdaten" : modal === "customer" ? "Kundenstammdaten" : modal === "job" ? "Auftrag" : "Änderungsverlauf"}</p>
+                <h2>{modal === "object" ? (editingObjectId ? t.editObject : t.newObject) : modal === "customer" ? (editingCustomerId ? t.editCustomer : t.newCustomer) : modal === "job" ? (editingJobId ? "Auftrag bearbeiten" : t.newJob) : `v${appVersion.version}`}</h2>
               </div>
               <button aria-label={t.close} onClick={() => setModal(null)} type="button">
                 <X size={18} />
@@ -778,8 +1021,8 @@ export default function HomePage() {
               <ObjectForm
                 newObject={newObject}
                 setNewObject={setNewObject}
-                onSubmit={createObject}
-                submitLabel={t.createObject}
+                onSubmit={saveObject}
+                submitLabel={editingObjectId ? t.saveObject : t.createObject}
               />
             )}
             {modal === "job" && (
@@ -789,8 +1032,17 @@ export default function HomePage() {
                 selectedObject={selectedObject}
                 setNewJob={setNewJob}
                 setSelectedObjectId={setSelectedObjectId}
-                onSubmit={createJob}
-                submitLabel={t.createJob}
+                onSubmit={saveJob}
+                submitLabel={editingJobId ? t.saveJob : t.createJob}
+              />
+            )}
+            {modal === "customer" && (
+              <CustomerForm
+                customer={newCustomer}
+                objects={objects}
+                setCustomer={setNewCustomer}
+                onSubmit={saveCustomer}
+                submitLabel={editingCustomerId ? t.saveCustomer : t.createCustomer}
               />
             )}
             {modal === "version" && (
@@ -829,7 +1081,7 @@ function Dashboard({
   const workBlocks = [
     { label: "Heute steuern", value: jobs.filter((job) => job.status === "in Arbeit").length, text: "laufende Einsätze", section: "planning" as Section },
     { label: "Objekte pflegen", value: objects.length, text: "vollständige Objektakten", section: "objects" as Section },
-    { label: "Berichte freigeben", value: reports.length, text: "Dokumentationen", section: "reports" as Section },
+    { label: "Berichte prüfen", value: reports.length, text: "in Objektakten", section: "objects" as Section },
   ];
 
   return (
@@ -913,7 +1165,17 @@ function ObjectsView({
   );
 }
 
-function CustomersView({ customers, objects }: { customers: CustomerRecord[]; objects: ObjectRecord[] }) {
+function CustomersView({
+  customers,
+  objects,
+  onCreate,
+  onEdit,
+}: {
+  customers: CustomerRecord[];
+  objects: ObjectRecord[];
+  onCreate: () => void;
+  onEdit: (customer: CustomerRecord) => void;
+}) {
   return (
     <section className="panel">
       <div className="panel-title">
@@ -921,17 +1183,22 @@ function CustomersView({ customers, objects }: { customers: CustomerRecord[]; ob
           <p>Eigentümer</p>
           <h2>Kundenübersicht</h2>
         </div>
+        <button className="primary-button" onClick={onCreate} type="button">
+          <Plus size={16} />
+          Neuer Kunde
+        </button>
       </div>
       <div className="table-list">
         {customers.map((customer) => (
           <article key={customer.id}>
             <div>
               <strong>{customer.name}</strong>
-              <span>{customer.contact} · {customer.language}</span>
+              <span>{customer.contact} · {customer.email} · {customer.phone} · {customer.language}</span>
             </div>
             <span>{objects.filter((object) => customer.objects.includes(object.id)).map((object) => object.name).join(", ")}</span>
             <span>{customer.balance}</span>
             <Badge value={customer.portalStatus} />
+            <button className="row-action" onClick={() => onEdit(customer)} type="button">Bearbeiten</button>
           </article>
         ))}
       </div>
@@ -943,11 +1210,13 @@ function JobsView({
   jobs,
   objects,
   onCreate,
+  onEdit,
   onStart,
 }: {
   jobs: JobRecord[];
   objects: ObjectRecord[];
   onCreate: () => void;
+  onEdit: (job: JobRecord) => void;
   onStart: (job: JobRecord) => void;
 }) {
   return (
@@ -972,6 +1241,7 @@ function JobsView({
             <span>{job.priority}</span>
             <span>{job.dueDate}</span>
             <Badge value={job.status} />
+            <button className="row-action" onClick={() => onEdit(job)} type="button">Bearbeiten</button>
             <button className="row-action" onClick={() => onStart(job)} type="button">Starten</button>
           </article>
         ))}
@@ -1032,58 +1302,6 @@ function FieldView({ jobs, selectedObject, onComplete }: { jobs: JobRecord[]; se
   );
 }
 
-function ReportsView({ reports, objects }: { reports: ReportRecord[]; objects: ObjectRecord[] }) {
-  return (
-    <section className="panel">
-      <div className="panel-title">
-        <div>
-          <p>Dokumentation</p>
-          <h2>Berichtsübersicht</h2>
-        </div>
-      </div>
-      <div className="table-list">
-        {reports.map((report) => (
-          <article key={report.id}>
-            <div>
-              <strong>{report.title}</strong>
-              <span>{report.summary}</span>
-            </div>
-            <span>{objects.find((object) => object.id === report.objectId)?.name}</span>
-            <span>{report.media.join(", ")}</span>
-            <Badge value={report.visibleToCustomer ? "Kunde sichtbar" : "intern"} />
-          </article>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function CommunicationView({ messages, objects, customers }: { messages: MessageRecord[]; objects: ObjectRecord[]; customers: CustomerRecord[] }) {
-  return (
-    <section className="panel">
-      <div className="panel-title">
-        <div>
-          <p>Kundenkontakt</p>
-          <h2>Kommunikation</h2>
-        </div>
-      </div>
-      <div className="table-list">
-        {messages.map((message) => (
-          <article key={message.id}>
-            <div>
-              <strong>{message.subject}</strong>
-              <span>{customers.find((customer) => customer.id === message.customerId)?.name}</span>
-            </div>
-            <span>{objects.find((object) => object.id === message.objectId)?.name}</span>
-            <span>{message.channel}</span>
-            <Badge value={message.status} />
-          </article>
-        ))}
-      </div>
-    </section>
-  );
-}
-
 function BillingView({ billing, objects }: { billing: BillingRecord[]; objects: ObjectRecord[] }) {
   return (
     <section className="panel">
@@ -1139,28 +1357,37 @@ function ObjectFile({
   reports,
   messages,
   billing,
+  onEdit,
 }: {
   object: ObjectRecord;
   jobs: JobRecord[];
   reports: ReportRecord[];
   messages: MessageRecord[];
   billing: BillingRecord[];
+  onEdit: (object: ObjectRecord) => void;
 }) {
   return (
     <aside className="object-file">
       <div className="object-file-head">
-        <p>Objektakte</p>
-        <h2>{object.name}</h2>
-        <Badge value={object.status} />
+        <div>
+          <p>Objektakte</p>
+          <h2>{object.name}</h2>
+          <Badge value={object.status} />
+        </div>
+        <button className="ghost-button compact" onClick={() => onEdit(object)} type="button">
+          Objekt bearbeiten
+        </button>
       </div>
       <section>
         <h3>Stammdaten</h3>
         <dl>
           <div><dt>Eigentümer</dt><dd>{object.owner}</dd></div>
+          <div><dt>Kontakt</dt><dd>{object.ownerEmail} · {object.ownerPhone}</dd></div>
           <div><dt>Adresse</dt><dd>{object.address}</dd></div>
           <div><dt>Größe</dt><dd>{object.sizeSqm} m² · {object.plotSqm} m² Grundstück</dd></div>
-          <div><dt>Zimmer</dt><dd>{object.rooms} Zimmer · {object.beds} Betten · {object.bathrooms} Bad</dd></div>
+          <div><dt>Zimmer</dt><dd>{object.rooms} Zimmer · {object.beds} Betten · {object.bathrooms} Bad · Baujahr {object.buildYear}</dd></div>
           <div><dt>Paket</dt><dd>{object.carePackage}</dd></div>
+          <div><dt>Besuche</dt><dd>Zuletzt {object.lastVisit} · nächster Termin {object.nextVisit}</dd></div>
         </dl>
       </section>
       <section>
@@ -1168,8 +1395,12 @@ function ObjectFile({
         <dl>
           <div><dt>Schlüssel</dt><dd>{object.access.keySafe}</dd></div>
           <div><dt>Alarm</dt><dd>{object.access.alarm}</dd></div>
+          <div><dt>Parken</dt><dd>{object.access.parking}</dd></div>
+          <div><dt>Hinweise</dt><dd>{object.access.notes}</dd></div>
           <div><dt>Heizung</dt><dd>{object.utilities.heating}</dd></div>
           <div><dt>Wasser</dt><dd>{object.utilities.water}</dd></div>
+          <div><dt>Abwasser</dt><dd>{object.utilities.septic}</dd></div>
+          <div><dt>Internet</dt><dd>{object.utilities.internet}</dd></div>
         </dl>
       </section>
       <section>
@@ -1190,6 +1421,24 @@ function ObjectFile({
           <span>{object.media.images} Bilder</span>
           <span>{object.media.documents} Dokumente</span>
           <span>{object.media.floorPlans} Grundrisse</span>
+        </div>
+      </section>
+      <section>
+        <h3>Berichte</h3>
+        <div className="activity-list">
+          {reports.length === 0 && <span>Keine Berichte vorhanden</span>}
+          {reports.slice(0, 3).map((report) => (
+            <span key={report.id}>{report.date} · {report.title}</span>
+          ))}
+        </div>
+      </section>
+      <section>
+        <h3>Kommunikation</h3>
+        <div className="activity-list">
+          {messages.length === 0 && <span>Keine Kommunikation protokolliert</span>}
+          {messages.slice(0, 3).map((message) => (
+            <span key={message.id}>{message.date} · {message.channel} · {message.subject}</span>
+          ))}
         </div>
       </section>
       <section>
@@ -1222,12 +1471,24 @@ function ObjectForm({
 
   return (
     <div className="form-grid">
+      <h3>Basisdaten</h3>
       <label><span>Objekt</span><input value={newObject.name} onChange={(event) => update("name", event.target.value)} /></label>
+      <label><span>Status</span>
+        <select value={newObject.status} onChange={(event) => update("status", event.target.value)}>
+          <option>Saison aktiv</option>
+          <option>Kontrolle offen</option>
+          <option>Winterruhe</option>
+        </select>
+      </label>
       <label><span>Eigentümer</span><input value={newObject.owner} onChange={(event) => update("owner", event.target.value)} /></label>
-      <label className="wide"><span>Adresse</span><input value={newObject.address} onChange={(event) => update("address", event.target.value)} /></label>
+      <label><span>E-Mail Eigentümer</span><input type="email" value={newObject.ownerEmail} onChange={(event) => update("ownerEmail", event.target.value)} /></label>
+      <label><span>Telefon Eigentümer</span><input value={newObject.ownerPhone} onChange={(event) => update("ownerPhone", event.target.value)} /></label>
       <label><span>Ort/Region</span><input value={newObject.region} onChange={(event) => update("region", event.target.value)} /></label>
+      <label className="wide"><span>Adresse</span><input value={newObject.address} onChange={(event) => update("address", event.target.value)} /></label>
+      <h3>Objektmerkmale</h3>
       <label><span>Größe m²</span><input type="number" value={newObject.sizeSqm} onChange={(event) => update("sizeSqm", event.target.value)} /></label>
       <label><span>Grundstück m²</span><input type="number" value={newObject.plotSqm} onChange={(event) => update("plotSqm", event.target.value)} /></label>
+      <label><span>Baujahr</span><input type="number" value={newObject.buildYear} onChange={(event) => update("buildYear", event.target.value)} /></label>
       <label><span>Zimmer</span><input type="number" value={newObject.rooms} onChange={(event) => update("rooms", event.target.value)} /></label>
       <label><span>Betten</span><input type="number" value={newObject.beds} onChange={(event) => update("beds", event.target.value)} /></label>
       <label><span>Bäder</span><input type="number" value={newObject.bathrooms} onChange={(event) => update("bathrooms", event.target.value)} /></label>
@@ -1240,9 +1501,80 @@ function ObjectForm({
           <option>Premium</option>
         </select>
       </label>
-      <label className="wide"><span>Zugang / Schlüssel</span><textarea value={newObject.keySafe} onChange={(event) => update("keySafe", event.target.value)} /></label>
+      <h3>Zugang & Technik</h3>
+      <label><span>Zugang / Schlüssel</span><textarea value={newObject.keySafe} onChange={(event) => update("keySafe", event.target.value)} /></label>
+      <label><span>Alarmanlage</span><textarea value={newObject.alarm} onChange={(event) => update("alarm", event.target.value)} /></label>
+      <label><span>Parken</span><textarea value={newObject.parking} onChange={(event) => update("parking", event.target.value)} /></label>
+      <label><span>Zugangshinweise</span><textarea value={newObject.accessNotes} onChange={(event) => update("accessNotes", event.target.value)} /></label>
+      <label><span>Heizung</span><input value={newObject.heating} onChange={(event) => update("heating", event.target.value)} /></label>
+      <label><span>Wasser</span><input value={newObject.water} onChange={(event) => update("water", event.target.value)} /></label>
+      <label><span>Abwasser</span><input value={newObject.septic} onChange={(event) => update("septic", event.target.value)} /></label>
+      <label><span>Internet</span><input value={newObject.internet} onChange={(event) => update("internet", event.target.value)} /></label>
+      <h3>Dokumentation & Planung</h3>
+      <label><span>Bilder</span><input type="number" value={newObject.images} onChange={(event) => update("images", event.target.value)} /></label>
+      <label><span>Dokumente</span><input type="number" value={newObject.documents} onChange={(event) => update("documents", event.target.value)} /></label>
+      <label><span>Grundrisse</span><input type="number" value={newObject.floorPlans} onChange={(event) => update("floorPlans", event.target.value)} /></label>
+      <label><span>Letzter Besuch</span><input value={newObject.lastVisit} onChange={(event) => update("lastVisit", event.target.value)} /></label>
+      <label><span>Nächster Besuch</span><input value={newObject.nextVisit} onChange={(event) => update("nextVisit", event.target.value)} /></label>
       <label className="wide"><span>Ausstattung</span><textarea value={newObject.equipment} onChange={(event) => update("equipment", event.target.value)} placeholder="Pool, Sauna, Kamin" /></label>
       <label className="wide"><span>Hinweise / Risiken</span><textarea value={newObject.risks} onChange={(event) => update("risks", event.target.value)} /></label>
+      <button className="primary-button wide" onClick={onSubmit} type="button">{submitLabel}</button>
+    </div>
+  );
+}
+
+function CustomerForm({
+  customer,
+  setCustomer,
+  objects,
+  onSubmit,
+  submitLabel,
+}: {
+  customer: CustomerFormState;
+  setCustomer: (value: CustomerFormState) => void;
+  objects: ObjectRecord[];
+  onSubmit: () => void;
+  submitLabel: string;
+}) {
+  function update(key: keyof CustomerFormState, value: string | string[]) {
+    setCustomer({ ...customer, [key]: value } as CustomerFormState);
+  }
+
+  function toggleObject(id: string) {
+    update(
+      "objects",
+      customer.objects.includes(id)
+        ? customer.objects.filter((objectId) => objectId !== id)
+        : [...customer.objects, id],
+    );
+  }
+
+  return (
+    <div className="form-grid">
+      <h3>Kundendaten</h3>
+      <label><span>Kunde</span><input value={customer.name} onChange={(event) => update("name", event.target.value)} /></label>
+      <label><span>Ansprechpartner</span><input value={customer.contact} onChange={(event) => update("contact", event.target.value)} /></label>
+      <label><span>E-Mail</span><input type="email" value={customer.email} onChange={(event) => update("email", event.target.value)} /></label>
+      <label><span>Telefon</span><input value={customer.phone} onChange={(event) => update("phone", event.target.value)} /></label>
+      <label><span>Sprache</span><input value={customer.language} onChange={(event) => update("language", event.target.value)} /></label>
+      <label>
+        <span>Portalstatus</span>
+        <select value={customer.portalStatus} onChange={(event) => update("portalStatus", event.target.value)}>
+          <option>aktiv</option>
+          <option>einladen</option>
+          <option>gesperrt</option>
+        </select>
+      </label>
+      <label><span>Saldo</span><input value={customer.balance} onChange={(event) => update("balance", event.target.value)} /></label>
+      <div className="wide check-list">
+        <span>Objekte</span>
+        {objects.map((object) => (
+          <label key={object.id}>
+            <input checked={customer.objects.includes(object.id)} onChange={() => toggleObject(object.id)} type="checkbox" />
+            <span>{object.name}</span>
+          </label>
+        ))}
+      </div>
       <button className="primary-button wide" onClick={onSubmit} type="button">{submitLabel}</button>
     </div>
   );

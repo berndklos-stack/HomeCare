@@ -1,10 +1,23 @@
 export const appVersion = {
-  version: "1.0.0",
-  releaseDate: "2026-07-31",
+  version: "1.1.0",
+  releaseDate: "2026-08-09",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.1.0",
+    date: "2026-08-09",
+    changes: [
+      "Objekte können aus der Objektakte heraus vollständig bearbeitet und gespeichert werden",
+      "Objektformular um Eigentümerkontakt, Status, Baujahr, Zugang, Technik, Medien und Besuchsplanung erweitert",
+      "Kunden und Aufträge können angelegt und bearbeitet werden",
+      "Berichte und Kommunikation werden objektbezogen in der Objektakte angezeigt statt als eigene Hauptmenüpunkte",
+      "Übersichtskacheln im Kopfbereich als zentrierte, klickbare Sprungbuttons umgesetzt",
+      "Versionsanzeige in der unteren Menüspalte deutlicher dargestellt",
+      "E2E-Test prüft Objekt-, Kunden- und Auftragsanlage inklusive Bearbeitung",
+    ],
+  },
   {
     version: "1.0.0",
     date: "2026-07-31",
