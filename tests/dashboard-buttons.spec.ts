@@ -44,7 +44,7 @@ test("new operations workspace supports core property and job flows", async ({ p
   await expect(page.getByText("Testvägen 12, Nybro")).toBeVisible();
   await expect(page.getByText("145 m² · 2300 m² Grundstück")).toHaveCount(0);
 
-  await page.locator(".object-list article").filter({ hasText: "Testhaus Smaland" }).getByRole("button", { name: "Bearbeiten" }).click();
+  await page.locator(".object-list article").filter({ hasText: "Testhaus Smaland" }).getByRole("button", { name: "Objekt Testhaus Smaland bearbeiten" }).click();
   await expect(page.getByRole("heading", { name: "Objekt bearbeiten" })).toBeVisible();
   await expect(page.getByText("Dokument: versicherung.pdf")).toBeVisible();
   await expect(field("Größe m²")).toHaveValue("145");
@@ -91,21 +91,27 @@ test("new operations workspace supports core property and job flows", async ({ p
   await field("Notizen / interne Info").fill("Bevorzugt E-Mail, keine Telefonate am Wochenende");
   await page.getByRole("button", { name: "Kunde anlegen" }).click();
   await expect(page.getByText("Familie Beispiel")).toBeVisible();
-  await page.locator(".table-list article").filter({ hasText: "M. Schneider" }).getByRole("button", { name: "Bearbeiten" }).click();
+  await page.locator(".table-list article").filter({ hasText: "M. Schneider" }).getByRole("button", { name: "Kunde M. Schneider bearbeiten" }).click();
   await expect(page.getByRole("dialog").getByText("Stuga Nybro")).toBeVisible();
   await expect(page.getByRole("dialog").getByText("Testhaus Smaland")).toBeVisible();
   await field("Objekt zuordnen").selectOption("OBJ-1001");
   await expect(page.locator(".assigned-row").filter({ hasText: "Villa Långsjön" })).toBeVisible();
   await page.getByRole("button", { name: "Kunde speichern" }).click();
   await page.getByTestId("nav-objects").click();
-  await page.locator(".object-list article").filter({ hasText: "Villa Långsjön" }).getByRole("button", { name: "Bearbeiten" }).click();
+  await page.locator(".object-list article").filter({ hasText: "Villa Långsjön" }).getByRole("button", { name: "Objekt Villa Långsjön bearbeiten" }).click();
   await expect(exactField("Eigentümer")).toHaveValue("M. Schneider");
   await page.getByRole("button", { name: "Schließen" }).click();
   await page.getByTestId("nav-customers").click();
-  await page.locator(".table-list article").filter({ hasText: "Familie Beispiel" }).getByRole("button", { name: "Bearbeiten" }).click();
+  await page.locator(".table-list article").filter({ hasText: "Familie Beispiel" }).getByRole("button", { name: "Kunde Familie Beispiel bearbeiten" }).click();
   await field("Telefon").fill("+46 70 112233");
   await page.getByRole("button", { name: "Kunde speichern" }).click();
   await expect(page.getByText("+46 70 112233")).toBeVisible();
+  await page.locator(".table-list article").filter({ hasText: "M. Schneider" }).getByRole("button", { name: "Kunde M. Schneider archivieren" }).click();
+  await expect(page.getByText(/Kunde "M. Schneider" kann nicht archiviert werden:/)).toBeVisible();
+  await page.locator(".table-list article").filter({ hasText: "Familie Beispiel" }).getByRole("button", { name: "Kunde Familie Beispiel archivieren" }).click();
+  await expect(page.getByText('Kunde "Familie Beispiel" wurde archiviert.')).toBeVisible();
+  await page.getByRole("button", { name: "Archivierten Kunden Familie Beispiel löschen" }).click();
+  await expect(page.getByText('Archivierter Kunde "Familie Beispiel" wurde endgültig gelöscht.')).toBeVisible();
 
   await page.getByTestId("nav-planning").click();
   await expect(page.getByRole("heading", { name: "Einsatzplanung" })).toBeVisible();
@@ -113,6 +119,8 @@ test("new operations workspace supports core property and job flows", async ({ p
   await expect(page.getByRole("button", { name: "Einsatz abschließen" })).toBeVisible();
   await page.getByRole("button", { name: "Einsatz abschließen" }).click();
   await expect(page.getByRole("heading", { name: "Objektübersicht" })).toBeVisible();
+  await page.locator(".object-list article").filter({ hasText: "Villa Långsjön" }).getByRole("button", { name: "Objekt Villa Långsjön archivieren" }).click();
+  await expect(page.getByText(/Objekt "Villa Långsjön" kann nicht archiviert werden:/)).toBeVisible();
 
   await page.getByTestId("nav-masterData").click();
   await expect(page.getByRole("heading", { name: "Leistungen einzeln erfassen" })).toBeVisible();
@@ -126,7 +134,7 @@ test("new operations workspace supports core property and job flows", async ({ p
   await field("Beschreibung").fill("Fenster schließen, Griffe prüfen und Auffälligkeiten dokumentieren");
   await page.getByRole("button", { name: "Leistung anlegen" }).click();
   await expect(page.locator(".service-catalog").getByText("Fensterkontrolle")).toBeVisible();
-  await page.locator(".service-catalog article").filter({ hasText: "Fensterkontrolle" }).getByRole("button", { name: "Bearbeiten" }).click();
+  await page.locator(".service-catalog article").filter({ hasText: "Fensterkontrolle" }).getByRole("button", { name: "Leistung Fensterkontrolle bearbeiten" }).click();
   await field("Kategorie").fill("Winterservice");
   await field("Preis").fill("375 SEK");
   await page.getByRole("button", { name: "Leistung speichern" }).click();
@@ -140,12 +148,24 @@ test("new operations workspace supports core property and job flows", async ({ p
   await page.getByRole("button", { name: "Paket anlegen" }).click();
   await expect(page.locator(".package-catalog").getByText("Winterpaket")).toBeVisible();
   await expect(page.locator(".package-catalog").getByText("Fensterkontrolle")).toBeVisible();
-  await page.locator(".package-catalog article").filter({ hasText: "Winterpaket" }).getByRole("button", { name: "Bearbeiten" }).click();
+  await page.locator(".package-catalog article").filter({ hasText: "Winterpaket" }).getByRole("button", { name: "Paket Winterpaket bearbeiten" }).click();
   await field("Paketpreis").fill("4.290 SEK/Jahr");
   await page.locator(".service-picker").getByLabel(/Notdienst/).check();
   await page.getByRole("button", { name: "Paket speichern" }).click();
   await expect(page.locator(".package-catalog article").filter({ hasText: "Winterpaket" }).getByText("4.290 SEK/Jahr")).toBeVisible();
   await expect(page.locator(".package-catalog article").filter({ hasText: "Winterpaket" }).getByText("Notdienst")).toBeVisible();
+  await page.getByRole("button", { name: "Leistung Hauskontrolle archivieren" }).click();
+  await expect(page.getByText(/Leistung "Hauskontrolle" ist noch aktiv bei:/)).toBeVisible();
+  await page.getByRole("button", { name: "Leistung Fensterkontrolle archivieren" }).click();
+  await expect(page.getByText('Leistung "Fensterkontrolle" wurde archiviert.')).toBeVisible();
+  await page.getByRole("button", { name: "Archivierte Leistung Fensterkontrolle löschen" }).click();
+  await expect(page.getByText('Archivierte Leistung "Fensterkontrolle" wurde endgültig gelöscht.')).toBeVisible();
+  await page.getByRole("button", { name: "Paket Komfort archivieren" }).click();
+  await expect(page.getByText(/Paket "Komfort" ist noch aktiv bei:/)).toBeVisible();
+  await page.getByRole("button", { name: "Paket Winterpaket archivieren" }).click();
+  await expect(page.getByText('Paket "Winterpaket" wurde archiviert.')).toBeVisible();
+  await page.getByRole("button", { name: "Archiviertes Paket Winterpaket löschen" }).click();
+  await expect(page.getByText('Archiviertes Paket "Winterpaket" wurde endgültig gelöscht.')).toBeVisible();
 
   await page.getByLabel("Sprache").selectOption("sv");
   await expect(page.getByRole("heading", { name: "Fritidshusförvaltning" })).toBeVisible();

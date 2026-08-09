@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import {
+  Archive,
   CalendarDays,
   ClipboardList,
   Euro,
@@ -9,9 +10,11 @@ import {
   KeyRound,
   Languages,
   Moon,
+  Pencil,
   Plus,
   Search,
   Sun,
+  Trash2,
   UsersRound,
   Wrench,
   X,
@@ -76,6 +79,7 @@ type ObjectRecord = {
   };
   nextVisit: string;
   lastVisit: string;
+  archived?: boolean;
 };
 
 type MediaItem = {
@@ -99,6 +103,7 @@ type CustomerRecord = {
   balance: string;
   portalStatus: "aktiv" | "einladen" | "gesperrt";
   notes: string;
+  archived?: boolean;
 };
 
 type JobRecord = {
@@ -148,6 +153,7 @@ type ServiceItem = {
   unit: string;
   price: string;
   description: string;
+  archived?: boolean;
 };
 
 type ServicePackage = {
@@ -156,6 +162,7 @@ type ServicePackage = {
   price: string;
   description: string;
   serviceIds: string[];
+  archived?: boolean;
 };
 
 type NewObjectFormState = {
@@ -809,6 +816,7 @@ export default function HomePage() {
   const [editingObjectId, setEditingObjectId] = useState<string | null>(null);
   const [editingCustomerId, setEditingCustomerId] = useState<string | null>(null);
   const [editingJobId, setEditingJobId] = useState<string | null>(null);
+  const [recordNotice, setRecordNotice] = useState("");
   const [newObject, setNewObject] = useState<NewObjectFormState>(emptyObjectForm());
   const [newCustomer, setNewCustomer] = useState<CustomerFormState>(emptyCustomerForm());
   const [newJob, setNewJob] = useState<NewJobFormState>({
@@ -822,16 +830,20 @@ export default function HomePage() {
   });
 
   const t = labels[language];
-  const selectedObject = objects.find((object) => object.id === selectedObjectId) ?? objects[0];
+  const activeObjects = objects.filter((object) => !object.archived);
+  const archivedObjects = objects.filter((object) => object.archived);
+  const activeCustomers = customers.filter((customer) => !customer.archived);
+  const archivedCustomers = customers.filter((customer) => customer.archived);
+  const selectedObject = activeObjects.find((object) => object.id === selectedObjectId) ?? activeObjects[0] ?? objects[0];
   const showObjectFile = section === "objects";
-  const filteredObjects = objects.filter((object) =>
+  const filteredObjects = activeObjects.filter((object) =>
     [object.name, object.owner, object.address, object.region, object.carePackage]
       .join(" ")
       .toLowerCase()
       .includes(query.toLowerCase()),
   );
   const dashboardStats: Array<{ label: string; value: number; section: Section }> = [
-    { label: "aktive Objekte", value: objects.length, section: "objects" },
+    { label: "aktive Objekte", value: activeObjects.length, section: "objects" },
     { label: "offene Einsätze", value: jobs.filter((job) => job.status !== "erledigt" && job.status !== "abgerechnet").length, section: "planning" },
     { label: "Berichte", value: reports.length, section: "objects" },
     { label: "abrechenbar", value: billing.filter((item) => item.status === "abrechenbar").length, section: "billing" },
@@ -870,6 +882,26 @@ export default function HomePage() {
     setSection("objects");
     setEditingObjectId(null);
     setModal(null);
+  }
+
+  function archiveObject(object: ObjectRecord) {
+    const openJobs = jobs.filter((job) => job.objectId === object.id && !["erledigt", "abgerechnet"].includes(job.status));
+    if (openJobs.length > 0) {
+      setRecordNotice(`Objekt "${object.name}" kann nicht archiviert werden: offene Einsätze ${openJobs.map((job) => job.title).join(", ")}.`);
+      return;
+    }
+
+    setObjects((current) => current.map((item) => (item.id === object.id ? { ...item, archived: true } : item)));
+    setCustomers((current) => current.map((customer) => ({ ...customer, objects: customer.objects.filter((id) => id !== object.id) })));
+    setSelectedObjectId(activeObjects.find((item) => item.id !== object.id)?.id ?? "");
+    setRecordNotice(`Objekt "${object.name}" wurde archiviert.`);
+  }
+
+  function deleteObject(object: ObjectRecord) {
+    if (!object.archived) return;
+    setObjects((current) => current.filter((item) => item.id !== object.id));
+    setCustomers((current) => current.map((customer) => ({ ...customer, objects: customer.objects.filter((id) => id !== object.id) })));
+    setRecordNotice(`Archiviertes Objekt "${object.name}" wurde endgültig gelöscht.`);
   }
 
   function openCreateCustomer() {
@@ -915,6 +947,24 @@ export default function HomePage() {
     setEditingCustomerId(null);
     setSection("customers");
     setModal(null);
+  }
+
+  function archiveCustomer(customer: CustomerRecord) {
+    const assignedObjects = activeObjects.filter((object) => customer.objects.includes(object.id));
+    if (assignedObjects.length > 0) {
+      setRecordNotice(`Kunde "${customer.name}" kann nicht archiviert werden: noch zugeordnete Objekte ${assignedObjects.map((object) => object.name).join(", ")}.`);
+      return;
+    }
+
+    setCustomers((current) => current.map((item) => (item.id === customer.id ? { ...item, archived: true } : item)));
+    setRecordNotice(`Kunde "${customer.name}" wurde archiviert.`);
+  }
+
+  function deleteCustomer(customer: CustomerRecord) {
+    if (!customer.archived) return;
+    setCustomers((current) => current.filter((item) => item.id !== customer.id));
+    setObjects((current) => current.map((object) => (object.ownerCustomerId === customer.id ? { ...object, ownerCustomerId: "" } : object)));
+    setRecordNotice(`Archivierter Kunde "${customer.name}" wurde endgültig gelöscht.`);
   }
 
   function openCreateJob() {
@@ -1024,7 +1074,6 @@ export default function HomePage() {
       <section className="workspace">
         <header className="topbar">
           <div>
-            <p>Kolaretorp Service AB</p>
             <h1>{t.appTitle}</h1>
             <span>{t.subtitle}</span>
           </div>
@@ -1071,36 +1120,46 @@ export default function HomePage() {
             {section === "dashboard" && (
               <Dashboard
                 jobs={jobs}
-                objects={objects}
+                objects={activeObjects}
                 reports={reports}
                 setSection={setSection}
               />
             )}
             {section === "objects" && (
               <ObjectsView
+                archivedObjects={archivedObjects}
                 objects={filteredObjects}
+                notice={recordNotice}
+                onArchive={archiveObject}
                 selectedObjectId={selectedObject.id}
                 onCreate={openCreateObject}
+                onDelete={deleteObject}
                 onEdit={openEditObject}
                 onSelect={(id) => setSelectedObjectId(id)}
               />
             )}
             {section === "customers" && (
               <CustomersView
-                customers={customers}
-                objects={objects}
+                archivedCustomers={archivedCustomers}
+                customers={activeCustomers}
+                notice={recordNotice}
+                objects={activeObjects}
+                onArchive={archiveCustomer}
                 onCreate={openCreateCustomer}
+                onDelete={deleteCustomer}
                 onEdit={openEditCustomer}
               />
             )}
             {section === "jobs" && (
-              <JobsView jobs={jobs} objects={objects} onCreate={openCreateJob} onEdit={openEditJob} onStart={startJob} />
+              <JobsView jobs={jobs} objects={activeObjects} onCreate={openCreateJob} onEdit={openEditJob} onStart={startJob} />
             )}
-            {section === "planning" && <PlanningView jobs={jobs} objects={objects} onStart={startJob} />}
+            {section === "planning" && <PlanningView jobs={jobs} objects={activeObjects} onStart={startJob} />}
             {section === "field" && <FieldView jobs={jobs} selectedObject={selectedObject} onComplete={completeJob} />}
-            {section === "billing" && <BillingView billing={billing} objects={objects} />}
+            {section === "billing" && <BillingView billing={billing} objects={activeObjects} />}
             {section === "masterData" && (
               <MasterDataView
+                customers={activeCustomers}
+                objects={activeObjects}
                 packages={servicePackages}
                 services={services}
                 setPackages={setServicePackages}
@@ -1131,7 +1190,7 @@ export default function HomePage() {
             </header>
             {modal === "object" && (
               <ObjectForm
-                customers={customers}
+                customers={activeCustomers}
                 newObject={newObject}
                 setNewObject={setNewObject}
                 onSubmit={saveObject}
@@ -1141,7 +1200,7 @@ export default function HomePage() {
             {modal === "job" && (
               <JobForm
                 newJob={newJob}
-                objects={objects}
+                objects={activeObjects}
                 selectedObject={selectedObject}
                 setNewJob={setNewJob}
                 setSelectedObjectId={setSelectedObjectId}
@@ -1152,7 +1211,7 @@ export default function HomePage() {
             {modal === "customer" && (
               <CustomerForm
                 customer={newCustomer}
-                objects={objects}
+                objects={activeObjects}
                 setCustomer={setNewCustomer}
                 onSubmit={saveCustomer}
                 submitLabel={editingCustomerId ? t.saveCustomer : t.createCustomer}
@@ -1233,15 +1292,23 @@ function Dashboard({
 }
 
 function ObjectsView({
+  archivedObjects,
   objects,
+  notice,
+  onArchive,
   selectedObjectId,
   onCreate,
+  onDelete,
   onEdit,
   onSelect,
 }: {
+  archivedObjects: ObjectRecord[];
   objects: ObjectRecord[];
+  notice: string;
+  onArchive: (object: ObjectRecord) => void;
   selectedObjectId: string;
   onCreate: () => void;
+  onDelete: (object: ObjectRecord) => void;
   onEdit: (object: ObjectRecord) => void;
   onSelect: (id: string) => void;
 }) {
@@ -1257,6 +1324,7 @@ function ObjectsView({
           Neues Objekt
         </button>
       </div>
+      {notice && <p className="archive-notice">{notice}</p>}
       <div className="object-list">
         {objects.map((object) => (
           <article
@@ -1273,23 +1341,51 @@ function ObjectsView({
               <span>{object.carePackage}</span>
               <Badge value={object.status} />
             </button>
-            <button className="row-action" onClick={() => onEdit(object)} type="button">Bearbeiten</button>
+            <div className="row-actions">
+              <button aria-label={`Objekt ${object.name} bearbeiten`} className="icon-button" onClick={() => onEdit(object)} type="button"><Pencil size={16} /></button>
+              <button aria-label={`Objekt ${object.name} archivieren`} className="icon-button danger" onClick={() => onArchive(object)} type="button"><Archive size={16} /></button>
+            </div>
           </article>
         ))}
       </div>
+      {archivedObjects.length > 0 && (
+        <div className="archive-section">
+          <h3>Archivierte Objekte</h3>
+          <div className="table-list compact-list">
+            {archivedObjects.map((object) => (
+              <article key={object.id}>
+                <div>
+                  <strong>{object.name}</strong>
+                  <span>{object.address}</span>
+                </div>
+                <Badge value="archiviert" />
+                <button aria-label={`Archiviertes Objekt ${object.name} löschen`} className="icon-button danger" onClick={() => onDelete(object)} type="button"><Trash2 size={16} /></button>
+              </article>
+            ))}
+          </div>
+        </div>
+      )}
     </section>
   );
 }
 
 function CustomersView({
+  archivedCustomers,
   customers,
+  notice,
   objects,
+  onArchive,
   onCreate,
+  onDelete,
   onEdit,
 }: {
+  archivedCustomers: CustomerRecord[];
   customers: CustomerRecord[];
+  notice: string;
   objects: ObjectRecord[];
+  onArchive: (customer: CustomerRecord) => void;
   onCreate: () => void;
+  onDelete: (customer: CustomerRecord) => void;
   onEdit: (customer: CustomerRecord) => void;
 }) {
   return (
@@ -1304,6 +1400,7 @@ function CustomersView({
           Neuer Kunde
         </button>
       </div>
+      {notice && <p className="archive-notice">{notice}</p>}
       <div className="table-list">
         {customers.map((customer) => (
           <article className="customer-row" key={customer.id}>
@@ -1316,10 +1413,30 @@ function CustomersView({
               <span>{customer.balance}</span>
               <Badge value={customer.portalStatus} />
             </div>
-            <button className="row-action" onClick={() => onEdit(customer)} type="button">Bearbeiten</button>
+            <div className="row-actions">
+              <button aria-label={`Kunde ${customer.name} bearbeiten`} className="icon-button" onClick={() => onEdit(customer)} type="button"><Pencil size={16} /></button>
+              <button aria-label={`Kunde ${customer.name} archivieren`} className="icon-button danger" onClick={() => onArchive(customer)} type="button"><Archive size={16} /></button>
+            </div>
           </article>
         ))}
       </div>
+      {archivedCustomers.length > 0 && (
+        <div className="archive-section">
+          <h3>Archivierte Kunden</h3>
+          <div className="table-list compact-list">
+            {archivedCustomers.map((customer) => (
+              <article key={customer.id}>
+                <div>
+                  <strong>{customer.name}</strong>
+                  <span>{customer.contact} · {customer.email}</span>
+                </div>
+                <Badge value="archiviert" />
+                <button aria-label={`Archivierten Kunden ${customer.name} löschen`} className="icon-button danger" onClick={() => onDelete(customer)} type="button"><Trash2 size={16} /></button>
+              </article>
+            ))}
+          </div>
+        </div>
+      )}
     </section>
   );
 }
@@ -1447,11 +1564,15 @@ function BillingView({ billing, objects }: { billing: BillingRecord[]; objects: 
 }
 
 function MasterDataView({
+  customers,
+  objects,
   services,
   setServices,
   packages,
   setPackages,
 }: {
+  customers: CustomerRecord[];
+  objects: ObjectRecord[];
   services: ServiceItem[];
   setServices: (services: ServiceItem[]) => void;
   packages: ServicePackage[];
@@ -1459,6 +1580,7 @@ function MasterDataView({
 }) {
   const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
   const [editingPackageId, setEditingPackageId] = useState<string | null>(null);
+  const [archiveNotice, setArchiveNotice] = useState("");
   const [serviceForm, setServiceForm] = useState({
     name: "",
     category: "Zusatzleistung",
@@ -1472,7 +1594,11 @@ function MasterDataView({
     description: "",
     serviceIds: [] as string[],
   });
-  const categories = Array.from(new Set(services.map((service) => service.category).filter(Boolean))).sort();
+  const activeServices = services.filter((service) => !service.archived);
+  const archivedServices = services.filter((service) => service.archived);
+  const activePackages = packages.filter((servicePackage) => !servicePackage.archived);
+  const archivedPackages = packages.filter((servicePackage) => servicePackage.archived);
+  const categories = Array.from(new Set(activeServices.map((service) => service.category).filter(Boolean))).sort();
 
   function resetServiceForm() {
     setEditingServiceId(null);
@@ -1498,10 +1624,51 @@ function MasterDataView({
       unit: serviceForm.unit.trim() || "Einsatz",
       price: serviceForm.price.trim() || "0 SEK",
       description: serviceForm.description.trim() || "Beschreibung ergänzen.",
+      archived: false,
     };
 
     setServices(editingServiceId ? services.map((service) => (service.id === editingServiceId ? saved : service)) : [saved, ...services]);
     resetServiceForm();
+  }
+
+  function serviceUsage(serviceId: string) {
+    const linkedPackages = activePackages.filter((servicePackage) => servicePackage.serviceIds.includes(serviceId));
+
+    return objects
+      .map((object) => {
+        const activePackage = linkedPackages.find((servicePackage) => servicePackage.name === object.carePackage);
+        if (!activePackage) return null;
+
+        const customer = customers.find((item) => item.id === object.ownerCustomerId || item.name === object.owner);
+        return `${customer?.name ?? object.owner} · ${object.name} · Paket ${activePackage.name}`;
+      })
+      .filter(Boolean) as string[];
+  }
+
+  function archiveService(service: ServiceItem) {
+    const usage = serviceUsage(service.id);
+    if (usage.length > 0) {
+      setArchiveNotice(`Leistung "${service.name}" ist noch aktiv bei: ${usage.join("; ")}. Bitte zuerst beim Kunden/Objekt entkoppeln.`);
+      return;
+    }
+
+    setServices(services.map((item) => (item.id === service.id ? { ...item, archived: true } : item)));
+    setPackages(packages.map((servicePackage) => ({
+      ...servicePackage,
+      serviceIds: servicePackage.serviceIds.filter((id) => id !== service.id),
+    })));
+    setArchiveNotice(`Leistung "${service.name}" wurde archiviert.`);
+    if (editingServiceId === service.id) resetServiceForm();
+  }
+
+  function deleteArchivedService(service: ServiceItem) {
+    if (!service.archived) return;
+    setServices(services.filter((item) => item.id !== service.id));
+    setPackages(packages.map((servicePackage) => ({
+      ...servicePackage,
+      serviceIds: servicePackage.serviceIds.filter((id) => id !== service.id),
+    })));
+    setArchiveNotice(`Archivierte Leistung "${service.name}" wurde endgültig gelöscht.`);
   }
 
   function togglePackageService(id: string) {
@@ -1535,10 +1702,35 @@ function MasterDataView({
       price: packageForm.price.trim() || "0 SEK/Jahr",
       description: packageForm.description.trim() || "Paketbeschreibung ergänzen.",
       serviceIds: packageForm.serviceIds,
+      archived: false,
     };
 
     setPackages(editingPackageId ? packages.map((servicePackage) => (servicePackage.id === editingPackageId ? saved : servicePackage)) : [saved, ...packages]);
     resetPackageForm();
+  }
+
+  function archivePackage(servicePackage: ServicePackage) {
+    const usage = objects
+      .filter((object) => object.carePackage === servicePackage.name)
+      .map((object) => {
+        const customer = customers.find((item) => item.id === object.ownerCustomerId || item.name === object.owner);
+        return `${customer?.name ?? object.owner} · ${object.name}`;
+      });
+
+    if (usage.length > 0) {
+      setArchiveNotice(`Paket "${servicePackage.name}" ist noch aktiv bei: ${usage.join("; ")}. Bitte zuerst beim Kunden/Objekt entkoppeln.`);
+      return;
+    }
+
+    setPackages(packages.map((item) => (item.id === servicePackage.id ? { ...item, archived: true } : item)));
+    setArchiveNotice(`Paket "${servicePackage.name}" wurde archiviert.`);
+    if (editingPackageId === servicePackage.id) resetPackageForm();
+  }
+
+  function deleteArchivedPackage(servicePackage: ServicePackage) {
+    if (!servicePackage.archived) return;
+    setPackages(packages.filter((item) => item.id !== servicePackage.id));
+    setArchiveNotice(`Archiviertes Paket "${servicePackage.name}" wurde endgültig gelöscht.`);
   }
 
   return (
@@ -1550,6 +1742,7 @@ function MasterDataView({
             <h2>Leistungen einzeln erfassen</h2>
           </div>
         </div>
+        {archiveNotice && <p className="archive-notice">{archiveNotice}</p>}
         <div className="form-grid compact-form">
           <label><span>Leistung</span><input value={serviceForm.name} onChange={(event) => setServiceForm({ ...serviceForm, name: event.target.value })} /></label>
           <label><span>Kategorie</span><input list="service-categories" value={serviceForm.category} onChange={(event) => setServiceForm({ ...serviceForm, category: event.target.value })} /></label>
@@ -1563,16 +1756,36 @@ function MasterDataView({
           {editingServiceId && <button className="ghost-button wide" onClick={resetServiceForm} type="button">Bearbeitung abbrechen</button>}
         </div>
         <div className="service-catalog">
-          {services.map((service) => (
+          {activeServices.map((service) => (
             <article key={service.id}>
               <span>{service.category}</span>
               <strong>{service.name}</strong>
               <small>{service.description}</small>
               <mark>{service.price}/{service.unit}</mark>
-              <button className="row-action" onClick={() => editService(service)} type="button">Bearbeiten</button>
+              <div className="card-actions">
+                <button aria-label={`Leistung ${service.name} bearbeiten`} className="icon-button" onClick={() => editService(service)} type="button"><Pencil size={16} /></button>
+                <button aria-label={`Leistung ${service.name} archivieren`} className="icon-button danger" onClick={() => archiveService(service)} type="button"><Archive size={16} /></button>
+              </div>
             </article>
           ))}
         </div>
+        {archivedServices.length > 0 && (
+          <div className="archive-section">
+            <h3>Archivierte Leistungen</h3>
+            <div className="table-list compact-list">
+              {archivedServices.map((service) => (
+                <article key={service.id}>
+                  <div>
+                    <strong>{service.name}</strong>
+                    <span>{service.category} · {service.price}/{service.unit}</span>
+                  </div>
+                  <Badge value="archiviert" />
+                  <button aria-label={`Archivierte Leistung ${service.name} löschen`} className="icon-button danger" onClick={() => deleteArchivedService(service)} type="button"><Trash2 size={16} /></button>
+                </article>
+              ))}
+            </div>
+          </div>
+        )}
       </section>
 
       <section className="panel">
@@ -1588,7 +1801,7 @@ function MasterDataView({
           <label className="wide"><span>Paketbeschreibung</span><textarea value={packageForm.description} onChange={(event) => setPackageForm({ ...packageForm, description: event.target.value })} /></label>
           <div className="wide check-list service-picker">
             <span>Leistungen im Paket</span>
-            {services.map((service) => (
+            {activeServices.map((service) => (
               <label key={service.id}>
                 <input checked={packageForm.serviceIds.includes(service.id)} onChange={() => togglePackageService(service.id)} type="checkbox" />
                 <span>{service.name} · {service.price}/{service.unit}</span>
@@ -1599,22 +1812,42 @@ function MasterDataView({
           {editingPackageId && <button className="ghost-button wide" onClick={resetPackageForm} type="button">Bearbeitung abbrechen</button>}
         </div>
         <div className="service-catalog package-catalog">
-          {packages.map((servicePackage) => (
+          {activePackages.map((servicePackage) => (
             <article key={servicePackage.id}>
               <span>Paket</span>
               <strong>{servicePackage.name}</strong>
               <small>{servicePackage.description}</small>
               <div className="tags">
                 {servicePackage.serviceIds.map((id) => {
-                  const service = services.find((item) => item.id === id);
+                  const service = activeServices.find((item) => item.id === id);
                   return service ? <span key={id}>{service.name}</span> : null;
                 })}
               </div>
               <mark>{servicePackage.price}</mark>
-              <button className="row-action" onClick={() => editPackage(servicePackage)} type="button">Bearbeiten</button>
+              <div className="card-actions">
+                <button aria-label={`Paket ${servicePackage.name} bearbeiten`} className="icon-button" onClick={() => editPackage(servicePackage)} type="button"><Pencil size={16} /></button>
+                <button aria-label={`Paket ${servicePackage.name} archivieren`} className="icon-button danger" onClick={() => archivePackage(servicePackage)} type="button"><Archive size={16} /></button>
+              </div>
             </article>
           ))}
         </div>
+        {archivedPackages.length > 0 && (
+          <div className="archive-section">
+            <h3>Archivierte Pakete</h3>
+            <div className="table-list compact-list">
+              {archivedPackages.map((servicePackage) => (
+                <article key={servicePackage.id}>
+                  <div>
+                    <strong>{servicePackage.name}</strong>
+                    <span>{servicePackage.price} · {servicePackage.description}</span>
+                  </div>
+                  <Badge value="archiviert" />
+                  <button aria-label={`Archiviertes Paket ${servicePackage.name} löschen`} className="icon-button danger" onClick={() => deleteArchivedPackage(servicePackage)} type="button"><Trash2 size={16} /></button>
+                </article>
+              ))}
+            </div>
+          </div>
+        )}
       </section>
     </div>
   );

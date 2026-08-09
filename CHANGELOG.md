@@ -4,6 +4,14 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.8.0 - 2026-08-09
+
+- Doppelten Firmennamen aus dem Kopfbereich entfernt.
+- Dashboard-Arbeitskacheln zentrieren ihre Inhalte.
+- Leistungen und Pakete nutzen Icon-Buttons zum Bearbeiten und Archivieren.
+- Archivierung prüft aktive Nutzung bei Kunden, Objekten und Paketen.
+- Archivierte Leistungen, Pakete, Kunden und Objekte können endgültig gelöscht werden.
+
 ## 1.7.0 - 2026-08-09
 
 - Objektakte wird nur noch im Menüpunkt Objekte angezeigt.
