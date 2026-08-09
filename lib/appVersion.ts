@@ -1,10 +1,20 @@
 export const appVersion = {
-  version: "1.2.0",
+  version: "1.3.0",
   releaseDate: "2026-08-09",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.3.0",
+    date: "2026-08-09",
+    changes: [
+      "Objektübersicht zeigt je Objektzeile einen eigenen Bearbeiten-Button",
+      "Objekt-Bearbeitung öffnet in einem deutlich größeren Dialog",
+      "Rechte Objektakte wurde auf Hauptstammdaten bis einschließlich Objektadresse gekürzt",
+      "Globaler Neuer-Auftrag-Button aus der Kopfzeile entfernt",
+    ],
+  },
   {
     version: "1.2.0",
     date: "2026-08-09",

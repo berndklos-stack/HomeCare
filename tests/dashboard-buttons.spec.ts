@@ -39,13 +39,13 @@ test("new operations workspace supports core property and job flows", async ({ p
   await page.getByRole("button", { name: "Objekt anlegen" }).click();
 
   await expect(page.getByRole("heading", { name: "Testhaus Smaland" })).toBeVisible();
-  await expect(page.getByText("145 m² · 2300 m² Grundstück")).toBeVisible();
-  await expect(page.getByText("Schlüsselsafe am Carport")).toBeVisible();
-  await expect(page.getByText("Dokument · versicherung.pdf · Versicherungspolice Objekt")).toBeVisible();
-  await expect(page.getByText("Poolpumpe regelmäßig prüfen")).toBeVisible();
+  await expect(page.getByText("Testvägen 12, Nybro")).toBeVisible();
+  await expect(page.getByText("145 m² · 2300 m² Grundstück")).toHaveCount(0);
 
-  await page.getByRole("button", { name: "Objekt bearbeiten" }).click();
+  await page.locator(".object-list article").filter({ hasText: "Testhaus Smaland" }).getByRole("button", { name: "Bearbeiten" }).click();
   await expect(page.getByRole("heading", { name: "Objekt bearbeiten" })).toBeVisible();
+  await expect(page.getByText("Dokument: versicherung.pdf")).toBeVisible();
+  await expect(field("Größe m²")).toHaveValue("145");
   await field("Telefon Eigentümer").fill("+46 70 123456");
   await field("Objektadresse").fill("Geänderter Weg 5, Nybro");
   await field("Alarmanlage").fill("Code im internen Tresor hinterlegt");
@@ -55,14 +55,14 @@ test("new operations workspace supports core property and job flows", async ({ p
 
   await expect(page.getByText("Geänderter Weg 5, Nybro")).toBeVisible();
   await expect(page.getByText(/\+46 70 123456/)).toBeVisible();
-  await expect(page.getByText("Glasfaser, Router im Technikraum")).toBeVisible();
 
   await page.getByRole("button", { name: /\d+\s*Berichte/ }).click();
   await expect(page.getByRole("heading", { name: "Objektübersicht" })).toBeVisible();
   await page.getByRole("button", { name: /\d+\s*abrechenbar/ }).click();
   await expect(page.getByRole("heading", { name: "Abrechnung" })).toBeVisible();
 
-  await page.getByRole("button", { name: "Neuer Auftrag" }).first().click();
+  await page.getByTestId("nav-jobs").click();
+  await page.getByRole("button", { name: "Neuer Auftrag" }).click();
   await field("Titel").fill("Testauftrag Objektkontrolle");
   await field("Typ").fill("Hauskontrolle");
   await field("Priorität").selectOption("hoch");

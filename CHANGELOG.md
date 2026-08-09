@@ -4,6 +4,13 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.3.0 - 2026-08-09
+
+- Objektübersicht zeigt je Objektzeile einen eigenen Bearbeiten-Button.
+- Objekt-Bearbeitung öffnet in einem deutlich größeren Dialog.
+- Rechte Objektakte wurde auf Hauptstammdaten bis einschließlich Objektadresse gekürzt.
+- Globaler Neuer-Auftrag-Button aus der Kopfzeile entfernt; Aufträge werden im Auftragsbereich angelegt.
+
 ## 1.2.0 - 2026-08-09
 
 - Objekte können einem Eigentümer aus den Kundenstammdaten zugeordnet werden.

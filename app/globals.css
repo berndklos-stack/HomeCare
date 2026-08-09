@@ -381,7 +381,7 @@ button {
 }
 
 .table-list article,
-.object-list button {
+.object-list article {
   align-items: center;
   background: transparent;
   border: 1px solid var(--line);
@@ -389,19 +389,29 @@ button {
   color: inherit;
   display: grid;
   gap: 10px;
-  grid-template-columns: minmax(220px, 1fr) minmax(120px, 0.5fr) minmax(120px, 0.5fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   min-height: 66px;
   padding: 11px 12px;
   text-align: left;
   width: 100%;
 }
 
-.object-list button {
+.object-row-main {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  display: grid;
+  gap: 10px;
   grid-template-columns: minmax(180px, 1fr) minmax(90px, 0.35fr) minmax(170px, 0.7fr) minmax(90px, 0.35fr) auto;
+  min-height: 48px;
+  padding: 0;
+  text-align: left;
+  width: 100%;
 }
 
-.object-list button:hover,
-.object-list button.selected,
+.object-list article:hover,
+.object-list article.selected,
 .table-list article:hover {
   background: var(--paper-soft);
   border-color: var(--brand-2);
@@ -666,6 +676,11 @@ mark.neutral {
   width: min(100%, 780px);
 }
 
+.modal-large {
+  max-width: 1120px;
+  width: min(100%, 1120px);
+}
+
 .modal header {
   align-items: center;
   display: flex;
@@ -857,7 +872,8 @@ mark.neutral {
   }
 
   .table-list article,
-  .object-list button,
+  .object-list article,
+  .object-row-main,
   .media-list article {
     grid-template-columns: 1fr;
   }

@@ -2,7 +2,6 @@
 
 import Image from "next/image";
 import {
-  AlertTriangle,
   CalendarDays,
   ClipboardList,
   Euro,
@@ -130,16 +129,6 @@ type ReportRecord = {
   summary: string;
   internalNotes: string;
   media: string[];
-};
-
-type MessageRecord = {
-  id: string;
-  objectId: string;
-  customerId: string;
-  channel: "E-Mail" | "Telefon" | "Portal";
-  subject: string;
-  status: "Entwurf" | "Gesendet" | "Gelesen" | "Rückfrage";
-  date: string;
 };
 
 type BillingRecord = {
@@ -740,27 +729,6 @@ const seedReports: ReportRecord[] = [
   },
 ];
 
-const seedMessages: MessageRecord[] = [
-  {
-    id: "MSG-1",
-    objectId: "OBJ-1001",
-    customerId: "CUS-1",
-    channel: "E-Mail",
-    subject: "Poolwerte und nächste Kontrolle",
-    status: "Entwurf",
-    date: "31.07.2026",
-  },
-  {
-    id: "MSG-2",
-    objectId: "OBJ-1002",
-    customerId: "CUS-2",
-    channel: "Portal",
-    subject: "Rasenpflege bestätigt",
-    status: "Gelesen",
-    date: "28.07.2026",
-  },
-];
-
 const seedBilling: BillingRecord[] = [
   {
     id: "BIL-1001",
@@ -811,7 +779,6 @@ export default function HomePage() {
   const [customers, setCustomers] = useState(seedCustomers);
   const [jobs, setJobs] = useState(seedJobs);
   const [reports] = useState(seedReports);
-  const [messages] = useState(seedMessages);
   const [billing] = useState(seedBilling);
   const [modal, setModal] = useState<Modal>(null);
   const [editingObjectId, setEditingObjectId] = useState<string | null>(null);
@@ -831,10 +798,6 @@ export default function HomePage() {
 
   const t = labels[language];
   const selectedObject = objects.find((object) => object.id === selectedObjectId) ?? objects[0];
-  const objectJobs = jobs.filter((job) => job.objectId === selectedObject.id);
-  const objectReports = reports.filter((report) => report.objectId === selectedObject.id);
-  const objectMessages = messages.filter((message) => message.objectId === selectedObject.id);
-  const objectBilling = billing.filter((item) => item.objectId === selectedObject.id);
   const showObjectFile = ["dashboard", "objects", "planning", "field"].includes(section);
   const filteredObjects = objects.filter((object) =>
     [object.name, object.owner, object.address, object.region, object.carePackage]
@@ -1047,10 +1010,6 @@ export default function HomePage() {
               {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
               {theme === "dark" ? t.light : t.dark}
             </button>
-            <button className="primary-button" onClick={openCreateJob} type="button">
-              <Plus size={16} />
-              {t.newJob}
-            </button>
           </div>
         </header>
 
@@ -1078,6 +1037,7 @@ export default function HomePage() {
                 objects={filteredObjects}
                 selectedObjectId={selectedObject.id}
                 onCreate={openCreateObject}
+                onEdit={openEditObject}
                 onSelect={(id) => setSelectedObjectId(id)}
               />
             )}
@@ -1100,12 +1060,7 @@ export default function HomePage() {
 
           {showObjectFile && (
             <ObjectFile
-              billing={objectBilling}
-              jobs={objectJobs}
-              messages={objectMessages}
               object={selectedObject}
-              onEdit={openEditObject}
-              reports={objectReports}
             />
           )}
         </section>
@@ -1113,7 +1068,7 @@ export default function HomePage() {
 
       {modal && (
         <div className="modal-backdrop">
-          <section className="modal" role="dialog" aria-modal="true">
+          <section className={modal === "object" ? "modal modal-large" : "modal"} role="dialog" aria-modal="true">
             <header>
               <div>
                 <p>{modal === "object" ? "Objektstammdaten" : modal === "customer" ? "Kundenstammdaten" : modal === "job" ? "Auftrag" : "Änderungsverlauf"}</p>
@@ -1230,11 +1185,13 @@ function ObjectsView({
   objects,
   selectedObjectId,
   onCreate,
+  onEdit,
   onSelect,
 }: {
   objects: ObjectRecord[];
   selectedObjectId: string;
   onCreate: () => void;
+  onEdit: (object: ObjectRecord) => void;
   onSelect: (id: string) => void;
 }) {
   return (
@@ -1251,21 +1208,22 @@ function ObjectsView({
       </div>
       <div className="object-list">
         {objects.map((object) => (
-          <button
+          <article
             className={selectedObjectId === object.id ? "selected" : ""}
             key={object.id}
-            onClick={() => onSelect(object.id)}
-            type="button"
           >
-            <div>
-              <strong>{object.name}</strong>
-              <span>{object.owner}</span>
-            </div>
-            <span>{object.region}</span>
-            <span>{object.sizeSqm} m² · {object.rooms} Zi. · {object.beds} Betten</span>
-            <span>{object.carePackage}</span>
-            <Badge value={object.status} />
-          </button>
+            <button className="object-row-main" onClick={() => onSelect(object.id)} type="button">
+              <div>
+                <strong>{object.name}</strong>
+                <span>{object.owner}</span>
+              </div>
+              <span>{object.region}</span>
+              <span>{object.sizeSqm} m² · {object.rooms} Zi. · {object.beds} Betten</span>
+              <span>{object.carePackage}</span>
+              <Badge value={object.status} />
+            </button>
+            <button className="row-action" onClick={() => onEdit(object)} type="button">Bearbeiten</button>
+          </article>
         ))}
       </div>
     </section>
@@ -1460,34 +1418,10 @@ function MasterDataView({ services }: { services: typeof serviceCatalog }) {
 
 function ObjectFile({
   object,
-  jobs,
-  reports,
-  messages,
-  billing,
-  onEdit,
 }: {
   object: ObjectRecord;
-  jobs: JobRecord[];
-  reports: ReportRecord[];
-  messages: MessageRecord[];
-  billing: BillingRecord[];
-  onEdit: (object: ObjectRecord) => void;
 }) {
   const previewImage = object.media.items.find((item) => item.type === "Bild" && item.previewUrl);
-  const correspondence = [
-    ...messages.map((message) => ({
-      id: message.id,
-      date: message.date,
-      label: `${message.channel}: ${message.subject}`,
-      status: message.status,
-    })),
-    ...reports.filter((report) => report.visibleToCustomer).map((report) => ({
-      id: report.id,
-      date: report.date,
-      label: `Einsatzbericht gesendet: ${report.title}`,
-      status: "Gesendet",
-    })),
-  ];
 
   return (
     <aside className="object-file">
@@ -1512,9 +1446,6 @@ function ObjectFile({
           <h2>{object.name}</h2>
           <Badge value={object.status} />
         </div>
-        <button className="ghost-button compact" onClick={() => onEdit(object)} type="button">
-          Objekt bearbeiten
-        </button>
       </div>
       <section>
         <h3>Stammdaten</h3>
@@ -1522,89 +1453,7 @@ function ObjectFile({
           <div><dt>Eigentümer</dt><dd>{object.owner}</dd></div>
           <div><dt>Kontakt</dt><dd>{object.ownerEmail} · {object.ownerPhone}</dd></div>
           <div><dt>Objektadresse</dt><dd>{object.address}</dd></div>
-          <div><dt>Eigentümeradresse</dt><dd>{object.ownerAddress}</dd></div>
-          <div><dt>Rechnungsadresse</dt><dd>{object.billingAddressMode}: {object.billingAddress}</dd></div>
-          <div><dt>Größe</dt><dd>{object.sizeSqm} m² · {object.plotSqm} m² Grundstück</dd></div>
-          <div><dt>Zimmer</dt><dd>{object.rooms} Zimmer · {object.beds} Betten · {object.bathrooms} Bad · Baujahr {object.buildYear}</dd></div>
-          <div><dt>Paket</dt><dd>{object.carePackage}</dd></div>
-          <div><dt>Besuche</dt><dd>Zuletzt {object.lastVisit} · nächster Termin {object.nextVisit}</dd></div>
         </dl>
-      </section>
-      <section>
-        <h3>Zugang & Technik</h3>
-        <dl>
-          <div><dt>Schlüssel</dt><dd>{object.access.keySafe}</dd></div>
-          <div><dt>Alarm</dt><dd>{object.access.alarm}</dd></div>
-          <div><dt>Parken</dt><dd>{object.access.parking}</dd></div>
-          <div><dt>Hinweise</dt><dd>{object.access.notes}</dd></div>
-          <div><dt>Heizung</dt><dd>{object.utilities.heating}</dd></div>
-          <div><dt>Wasser</dt><dd>{object.utilities.water}</dd></div>
-          <div><dt>Abwasser</dt><dd>{object.utilities.septic}</dd></div>
-          <div><dt>Internet</dt><dd>{object.utilities.internet}</dd></div>
-        </dl>
-      </section>
-      <section>
-        <h3>Ausstattung</h3>
-        <div className="tags">
-          {object.equipment.map((item) => <span key={item}>{item}</span>)}
-        </div>
-      </section>
-      <section>
-        <h3>Hinweise</h3>
-        {object.risks.map((risk) => (
-          <p className="warning-line" key={risk}><AlertTriangle size={14} /> {risk}</p>
-        ))}
-      </section>
-      <section>
-        <h3>Medien</h3>
-        <div className="mini-stats">
-          <span>{object.media.images} Bilder</span>
-          <span>{object.media.documents} Dokumente</span>
-          <span>{object.media.floorPlans} Grundrisse</span>
-        </div>
-        {object.media.items.length > 0 && (
-          <div className="activity-list">
-            {object.media.items.slice(0, 5).map((item) => (
-              <span key={item.id}>{item.type} · {item.name}{item.description ? ` · ${item.description}` : ""}</span>
-            ))}
-          </div>
-        )}
-      </section>
-      <section>
-        <h3>Berichte</h3>
-        <div className="activity-list">
-          {reports.length === 0 && <span>Keine Berichte vorhanden</span>}
-          {reports.slice(0, 3).map((report) => (
-            <span key={report.id}>{report.date} · {report.title}</span>
-          ))}
-        </div>
-      </section>
-      <section>
-        <h3>Kommunikation</h3>
-        <div className="activity-list">
-          {messages.length === 0 && <span>Keine Kommunikation protokolliert</span>}
-          {messages.slice(0, 3).map((message) => (
-            <span key={message.id}>{message.date} · {message.channel} · {message.subject}</span>
-          ))}
-        </div>
-      </section>
-      <section>
-        <h3>Korrespondenzverlauf</h3>
-        <div className="activity-list">
-          {correspondence.length === 0 && <span>Noch keine Korrespondenz vorhanden</span>}
-          {correspondence.map((entry) => (
-            <span key={entry.id}>{entry.date} · {entry.label} · {entry.status}</span>
-          ))}
-        </div>
-      </section>
-      <section>
-        <h3>Protokoll</h3>
-        <div className="activity-list">
-          <span>{jobs.length} Einsätze</span>
-          <span>{reports.length} Berichte</span>
-          <span>{messages.length} Nachrichten</span>
-          <span>{billing.length} Abrechnungspositionen</span>
-        </div>
       </section>
     </aside>
   );
