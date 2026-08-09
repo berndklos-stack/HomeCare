@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.23.0",
+  version: "1.24.0",
   releaseDate: "2026-08-09",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.24.0",
+    date: "2026-08-09",
+    changes: [
+      "Objektbild wird in der Objektbearbeitung rechts oben ohne Dateinamen angezeigt",
+      "Fotos zum Objekt werden als eigene Galerie dargestellt",
+      "Dokumente und Grundrisse bleiben getrennt in der Medienakte",
+    ],
+  },
   {
     version: "1.23.0",
     date: "2026-08-09",

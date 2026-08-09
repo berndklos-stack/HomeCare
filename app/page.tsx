@@ -2450,16 +2450,16 @@ function ObjectEditorPage({
     <div className="object-editor-page">
       <section className="panel">
         <div className="editor-title">
-          <button className="ghost-button" onClick={onBack} type="button">
-            <ArrowLeft size={16} />
-            Zurück zur Objektübersicht
-          </button>
-          <div>
-            <p>Objektstammdaten</p>
-            <h2>{title}</h2>
+          <div className="editor-title-main">
+            <button className="ghost-button" onClick={onBack} type="button">
+              <ArrowLeft size={16} />
+              Zurück zur Objektübersicht
+            </button>
+            <div>
+              <p>Objektstammdaten</p>
+              <h2>{title}</h2>
+            </div>
           </div>
-        </div>
-        <div className="object-editor-preview">
           {primaryImage?.previewUrl ? (
             <div
               aria-label="Aktuelles Objektbild"
@@ -2473,10 +2473,6 @@ function ObjectEditorPage({
               <span>Noch kein Objektbild definiert</span>
             </div>
           )}
-          <div>
-            <strong>{newObject.name || "Neues Objekt"}</strong>
-            <span>{primaryImage ? `Objektbild: ${primaryImage.name}` : "In der Medienliste kann ein Bild als Objektbild gesetzt werden."}</span>
-          </div>
         </div>
         <ObjectForm
           customers={customers}
@@ -2630,6 +2626,9 @@ function ObjectForm({
   onSubmit: () => void;
   submitLabel: string;
 }) {
+  const photoItems = newObject.mediaItems.filter((item) => item.type === "Bild");
+  const fileItems = newObject.mediaItems.filter((item) => item.type !== "Bild");
+
   function update(key: keyof typeof newObject, value: string) {
     setNewObject({ ...newObject, [key]: value });
   }
@@ -2828,24 +2827,44 @@ function ObjectForm({
           <input aria-label="Grundrisse hochladen" accept=".pdf,image/*" multiple type="file" onChange={(event) => void addMedia(event.target.files, "Grundriss", "Upload")} />
         </label>
       </div>
-      {newObject.mediaItems.length > 0 && (
-        <div className="wide media-list">
-          {newObject.mediaItems.map((item) => (
-            <article key={item.id}>
-              {item.type === "Bild" && item.previewUrl ? (
-                <span
-                  aria-label={`Vorschau ${item.name}`}
-                  className="media-thumb"
+      {photoItems.length > 0 && (
+        <section className="wide object-photo-section">
+          <h3>Fotos zum Objekt</h3>
+          <div className="object-photo-gallery">
+            {photoItems.map((item) => (
+              <article className={item.isPrimary ? "primary" : ""} key={item.id}>
+                <div
+                  aria-label={`Foto ${item.name}`}
+                  className="object-photo-tile"
                   role="img"
                   style={{ backgroundImage: `url(${item.previewUrl})` }}
                 />
-              ) : (
-                <span className="media-thumb media-thumb-empty">
-                  <FileText size={16} />
-                </span>
-              )}
+                <input
+                  aria-label={`Kurzbeschreibung ${item.name}`}
+                  placeholder="Kurzbeschreibung zum Foto"
+                  value={item.description}
+                  onChange={(event) => updateMediaDescription(item.id, event.target.value)}
+                />
+                <div className="row-actions">
+                  <IconAction label={`${item.name} nach oben verschieben`} onClick={() => moveMedia(item.id, -1)}><ArrowUp size={16} /></IconAction>
+                  <IconAction label={`${item.name} nach unten verschieben`} onClick={() => moveMedia(item.id, 1)}><ArrowDown size={16} /></IconAction>
+                  <IconAction label={`${item.name} als Objektbild verwenden`} onClick={() => setPrimaryImage(item.id)}><Home size={16} /></IconAction>
+                  <IconAction danger label={`Datei ${item.name} entfernen`} onClick={() => removeMedia(item.id)}><Trash2 size={16} /></IconAction>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+      {fileItems.length > 0 && (
+        <div className="wide media-list">
+          {fileItems.map((item) => (
+            <article key={item.id}>
+              <span className="media-thumb media-thumb-empty">
+                <FileText size={16} />
+              </span>
               <div>
-                <strong>{item.type}: {item.name}{item.isPrimary ? " · Objektbild" : ""}</strong>
+                <strong>{item.type}: {item.name}</strong>
                 <span>{item.source}</span>
               </div>
               <input
@@ -2857,7 +2876,6 @@ function ObjectForm({
               <div className="row-actions">
                 <IconAction label={`${item.name} nach oben verschieben`} onClick={() => moveMedia(item.id, -1)}><ArrowUp size={16} /></IconAction>
                 <IconAction label={`${item.name} nach unten verschieben`} onClick={() => moveMedia(item.id, 1)}><ArrowDown size={16} /></IconAction>
-                {item.type === "Bild" && <IconAction label={`${item.name} als Objektbild verwenden`} onClick={() => setPrimaryImage(item.id)}><Home size={16} /></IconAction>}
               </div>
               <IconAction danger label={`Datei ${item.name} entfernen`} onClick={() => removeMedia(item.id)}><Trash2 size={16} /></IconAction>
             </article>

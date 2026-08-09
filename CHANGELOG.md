@@ -4,6 +4,12 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.24.0 - 2026-08-09
+
+- Objektbild wird in der Objektbearbeitung rechts oben ohne Dateinamen angezeigt.
+- Fotos zum Objekt werden als eigene Galerie dargestellt.
+- Dokumente und Grundrisse bleiben getrennt in der Medienakte.
+
 ## 1.23.0 - 2026-08-09
 
 - Objektbilder werden vor dem lokalen Speichern automatisch verkleinert.

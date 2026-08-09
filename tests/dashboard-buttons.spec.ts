@@ -71,7 +71,9 @@ test("new operations workspace supports core property and job flows", async ({ p
   await page.locator(".object-list article").filter({ hasText: "Testhaus Smaland" }).getByRole("button", { name: "Objekt Testhaus Smaland bearbeiten" }).click();
   await expect(field("Objektadresse")).toHaveValue("Geänderter Weg 5, Nybro");
   await expect(field("Telefon Eigentümer")).toHaveValue("+46 70 123456");
-  await expect(page.getByText("Objektbild: objektfoto.jpg")).toBeVisible();
+  await expect(page.getByRole("img", { name: "Aktuelles Objektbild" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Fotos zum Objekt" })).toBeVisible();
+  await expect(page.getByRole("img", { name: "Foto objektfoto.jpg" })).toBeVisible();
   await page.getByRole("button", { name: "Zurück zur Objektübersicht" }).click();
   await page.locator(".object-list article").filter({ hasText: "Stuga Nybro" }).getByRole("button", { name: "Objekt Stuga Nybro bearbeiten" }).click();
   await page.getByLabel("Bilder hochladen").setInputFiles({
@@ -79,7 +81,8 @@ test("new operations workspace supports core property and job flows", async ({ p
     mimeType: "image/jpeg",
     buffer: Buffer.from("demo"),
   });
-  await expect(page.getByText("Objektbild: zweites-objekt.jpg")).toBeVisible();
+  await expect(page.getByRole("img", { name: "Aktuelles Objektbild" })).toBeVisible();
+  await expect(page.getByRole("img", { name: "Foto zweites-objekt.jpg" })).toBeVisible();
   await page.getByRole("button", { name: "Objekt speichern" }).click();
 
   await page.getByRole("button", { name: /\d+\s*Berichte/ }).click();
