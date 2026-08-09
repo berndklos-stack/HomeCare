@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.20.0",
+  version: "1.21.0",
   releaseDate: "2026-08-09",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.21.0",
+    date: "2026-08-09",
+    changes: [
+      "Intervall- und Jahresrhythmusfelder im Serienauftrag sind jetzt kompakt",
+      "Zahlenfelder im Serienblock werden nicht mehr auf volle Spaltenbreite gestreckt",
+    ],
+  },
   {
     version: "1.20.0",
     date: "2026-08-09",

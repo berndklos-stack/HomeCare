@@ -1010,7 +1010,18 @@ mark.neutral {
 .recurrence-grid {
   display: grid;
   gap: 10px;
-  grid-template-columns: minmax(0, 1fr) 92px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.interval-field,
+.year-interval-field {
+  justify-self: end;
+  width: 86px;
+}
+
+.interval-field input,
+.year-interval-field input {
+  text-align: center;
 }
 
 .weekday-picker {
@@ -1022,11 +1033,7 @@ mark.neutral {
 .season-grid {
   display: grid;
   gap: 10px;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 132px;
-}
-
-.year-interval-field input {
-  text-align: center;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
 }
 
 .nested-backdrop {

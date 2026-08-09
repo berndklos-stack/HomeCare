@@ -2856,7 +2856,7 @@ function JobForm({
                 <option>jährlich</option>
               </select>
             </label>
-            <label>
+            <label className="interval-field">
               <span>Intervall</span>
               <input min="1" type="number" value={newJob.scheduleInterval} onChange={(event) => update("scheduleInterval", event.target.value)} />
             </label>

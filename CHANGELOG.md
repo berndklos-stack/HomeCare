@@ -4,6 +4,11 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.21.0 - 2026-08-09
+
+- Intervall- und Jahresrhythmusfelder im Serienauftrag sind jetzt kompakt.
+- Zahlenfelder im Serienblock werden nicht mehr auf volle Spaltenbreite gestreckt.
+
 ## 1.20.0 - 2026-08-09
 
 - Serienaufträge können jetzt auf einen saisonalen Zeitraum begrenzt werden.
