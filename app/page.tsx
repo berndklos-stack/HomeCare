@@ -4,6 +4,7 @@ import Image from "next/image";
 import {
   Archive,
   CalendarDays,
+  Camera,
   ClipboardList,
   Euro,
   Home,
@@ -1683,7 +1684,7 @@ function FieldView({
   services: ServiceItem[];
   onComplete: (job: JobRecord) => void;
 }) {
-  const [capturedPhoto, setCapturedPhoto] = useState<{ name: string; accepted: boolean } | null>(null);
+  const [capturedPhotos, setCapturedPhotos] = useState<Record<string, { name: string; accepted: boolean }>>({});
   const active = jobs.find((job) => job.id === activeJobId) ?? jobs.find((job) => job.status === "in Arbeit") ?? jobs[0];
   const object = objects.find((item) => item.id === active.objectId) ?? objects[0];
   const activePackage = packages.find((servicePackage) => !servicePackage.archived && servicePackage.name === object.carePackage);
@@ -1733,13 +1734,30 @@ function FieldView({
         <div className="service-task-list">
           {fieldTasks.map((task, index) => (
             <article key={task.id}>
-              <label>
-                <input type="checkbox" defaultChecked={index < 1} />
-                <span>
-                  <strong>{task.title}</strong>
-                  <small>{task.meta}</small>
-                </span>
-              </label>
+              <div className="field-task-head">
+                <label>
+                  <input type="checkbox" defaultChecked={index < 1} />
+                  <span>
+                    <strong>{task.title}</strong>
+                    <small>{task.meta}</small>
+                  </span>
+                </label>
+                <label className="task-photo-button" data-tooltip={`Bild zu ${task.title} erfassen`}>
+                  <Camera size={16} />
+                  <input
+                    aria-label={`Bild zu ${task.title} erfassen`}
+                    accept="image/*"
+                    capture="environment"
+                    type="file"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (!file) return;
+                      setCapturedPhotos({ ...capturedPhotos, [task.id]: { name: file.name, accepted: false } });
+                      event.currentTarget.value = "";
+                    }}
+                  />
+                </label>
+              </div>
               <p>{task.description}</p>
               <div className="field-task-inputs">
                 <label>
@@ -1751,37 +1769,36 @@ function FieldView({
                   <textarea aria-label={`Hinweis ${task.title}`} placeholder="Kurznotiz, Besonderheit oder Rückmeldung" />
                 </label>
               </div>
+              {capturedPhotos[task.id] && (
+                <div className="captured-photo-card">
+                  <strong>{capturedPhotos[task.id].accepted ? "Foto übernommen" : "Neues Foto erfasst"}</strong>
+                  <span>{capturedPhotos[task.id].name}</span>
+                  <div className="row-actions">
+                    <button
+                      className="ghost-button compact"
+                      onClick={() => setCapturedPhotos({ ...capturedPhotos, [task.id]: { ...capturedPhotos[task.id], accepted: true } })}
+                      type="button"
+                    >
+                      Foto benutzen
+                    </button>
+                    <button
+                      className="ghost-button compact"
+                      onClick={() => {
+                        const nextPhotos = { ...capturedPhotos };
+                        delete nextPhotos[task.id];
+                        setCapturedPhotos(nextPhotos);
+                      }}
+                      type="button"
+                    >
+                      Neues Foto
+                    </button>
+                  </div>
+                </div>
+              )}
             </article>
           ))}
         </div>
         <textarea defaultValue="Notiz: Zugang geprüft, Fotos ergänzt." aria-label="Einsatznotiz" />
-        <div className="field-photo-capture">
-          <label className="primary-button">
-            <span>Bild erfassen</span>
-            <input
-              aria-label="Bild erfassen"
-              accept="image/*"
-              capture="environment"
-              type="file"
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (!file) return;
-                setCapturedPhoto({ name: file.name, accepted: false });
-                event.currentTarget.value = "";
-              }}
-            />
-          </label>
-          {capturedPhoto && (
-            <div className="captured-photo-card">
-              <strong>{capturedPhoto.accepted ? "Foto übernommen" : "Neues Foto erfasst"}</strong>
-              <span>{capturedPhoto.name}</span>
-              <div className="row-actions">
-                <button className="ghost-button compact" onClick={() => setCapturedPhoto({ ...capturedPhoto, accepted: true })} type="button">Foto benutzen</button>
-                <button className="ghost-button compact" onClick={() => setCapturedPhoto(null)} type="button">Neues Foto</button>
-              </div>
-            </div>
-          )}
-        </div>
         <button className="primary-button" onClick={() => onComplete(active)} type="button">
           Einsatz abschließen
         </button>

@@ -653,23 +653,76 @@ mark.neutral {
   padding: 12px;
 }
 
-.service-task-list article > label {
+.field-task-head {
+  align-items: start;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.field-task-head > label:first-child {
   align-items: start;
   display: grid;
   gap: 10px;
   grid-template-columns: auto minmax(0, 1fr);
 }
 
-.service-task-list article > label > span {
+.field-task-head > label:first-child > span {
   display: grid;
   gap: 3px;
   min-width: 0;
 }
 
-.service-task-list article > label strong,
-.service-task-list article > label small {
+.field-task-head strong,
+.field-task-head small {
   line-height: 1.25;
   overflow-wrap: anywhere;
+}
+
+.task-photo-button {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  height: 38px;
+  justify-content: center;
+  position: relative;
+  width: 38px;
+}
+
+.task-photo-button input {
+  display: none;
+}
+
+.task-photo-button[data-tooltip]::after {
+  background: #fff;
+  border-radius: 7px;
+  bottom: calc(100% + 8px);
+  color: #111;
+  content: attr(data-tooltip);
+  font-size: 12px;
+  font-weight: 700;
+  max-width: 220px;
+  opacity: 0;
+  padding: 7px 9px;
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+  transform: translateY(4px);
+  transition: opacity 0.14s ease, transform 0.14s ease;
+  visibility: hidden;
+  width: max-content;
+  z-index: 40;
+}
+
+.task-photo-button:hover::after,
+.task-photo-button:focus-within::after {
+  opacity: 1;
+  transform: translateY(0);
+  visibility: visible;
 }
 
 .service-task-list input[type="checkbox"] {

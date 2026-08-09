@@ -139,7 +139,7 @@ test("new operations workspace supports core property and job flows", async ({ p
   await expect(page.getByRole("article").filter({ hasText: "Zugang prüfen" }).getByText("Hauskontrolle · Kontrolle · 795 SEK/Besuch")).toBeVisible();
   await page.getByLabel("Zeit Zugang prüfen").fill("22");
   await page.getByLabel("Hinweis Zugang prüfen").fill("Schlüsselsafe geprüft, Zugang ohne Problem.");
-  await page.getByLabel("Bild erfassen").setInputFiles({
+  await page.getByLabel("Bild zu Zugang prüfen erfassen").setInputFiles({
     name: "einsatzfoto.jpg",
     mimeType: "image/jpeg",
     buffer: Buffer.from("demo"),

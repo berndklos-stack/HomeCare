@@ -4,6 +4,12 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.17.0 - 2026-08-09
+
+- Bild erfassen ist jetzt pro Checklistenpunkt als Kamera-Icon verfügbar.
+- Aufgenommene Fotos werden direkt am jeweiligen Checklistenpunkt bestätigt oder neu erfasst.
+- Allgemeiner Foto-Button am Ende der mobilen Einsatzkarte wurde entfernt.
+
 ## 1.16.0 - 2026-08-09
 
 - Preis und Währung im Leistungsformular stehen jetzt kompakt in einer Zeile.

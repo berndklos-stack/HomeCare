@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.16.0",
+  version: "1.17.0",
   releaseDate: "2026-08-09",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.17.0",
+    date: "2026-08-09",
+    changes: [
+      "Bild erfassen ist jetzt pro Checklistenpunkt als Kamera-Icon verfügbar",
+      "Aufgenommene Fotos werden direkt am jeweiligen Checklistenpunkt bestätigt oder neu erfasst",
+      "Allgemeiner Foto-Button am Ende der mobilen Einsatzkarte wurde entfernt",
+    ],
+  },
   {
     version: "1.16.0",
     date: "2026-08-09",
