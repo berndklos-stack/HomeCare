@@ -12,6 +12,7 @@ import {
   Moon,
   Pencil,
   Plus,
+  RotateCcw,
   Search,
   Sun,
   Trash2,
@@ -863,7 +864,8 @@ export default function HomePage() {
 
   function saveObject() {
     const id = editingObjectId ?? `OBJ-${1000 + objects.length + 1}`;
-    const saved = formToObject(newObject, id);
+    const existingObject = objects.find((object) => object.id === editingObjectId);
+    const saved = { ...formToObject(newObject, id), archived: existingObject?.archived };
 
     setObjects((current) =>
       editingObjectId
@@ -904,6 +906,19 @@ export default function HomePage() {
     setRecordNotice(`Archiviertes Objekt "${object.name}" wurde endgültig gelöscht.`);
   }
 
+  function restoreObject(object: ObjectRecord) {
+    setObjects((current) => current.map((item) => (item.id === object.id ? { ...item, archived: false } : item)));
+    setCustomers((current) =>
+      current.map((customer) =>
+        customer.id === object.ownerCustomerId && !customer.archived && !customer.objects.includes(object.id)
+          ? { ...customer, objects: [...customer.objects, object.id] }
+          : customer,
+      ),
+    );
+    setSelectedObjectId(object.id);
+    setRecordNotice(`Objekt "${object.name}" wurde wieder aktiviert.`);
+  }
+
   function openCreateCustomer() {
     setEditingCustomerId(null);
     setNewCustomer(emptyCustomerForm());
@@ -918,7 +933,8 @@ export default function HomePage() {
 
   function saveCustomer() {
     const id = editingCustomerId ?? `CUS-${customers.length + 1}`;
-    const saved = formToCustomer(newCustomer, id);
+    const existingCustomer = customers.find((customer) => customer.id === editingCustomerId);
+    const saved = { ...formToCustomer(newCustomer, id), archived: existingCustomer?.archived };
 
     setCustomers((current) =>
       editingCustomerId
@@ -965,6 +981,11 @@ export default function HomePage() {
     setCustomers((current) => current.filter((item) => item.id !== customer.id));
     setObjects((current) => current.map((object) => (object.ownerCustomerId === customer.id ? { ...object, ownerCustomerId: "" } : object)));
     setRecordNotice(`Archivierter Kunde "${customer.name}" wurde endgültig gelöscht.`);
+  }
+
+  function restoreCustomer(customer: CustomerRecord) {
+    setCustomers((current) => current.map((item) => (item.id === customer.id ? { ...item, archived: false } : item)));
+    setRecordNotice(`Kunde "${customer.name}" wurde wieder aktiviert.`);
   }
 
   function openCreateJob() {
@@ -1131,6 +1152,7 @@ export default function HomePage() {
                 objects={filteredObjects}
                 notice={recordNotice}
                 onArchive={archiveObject}
+                onRestore={restoreObject}
                 selectedObjectId={selectedObject.id}
                 onCreate={openCreateObject}
                 onDelete={deleteObject}
@@ -1145,6 +1167,7 @@ export default function HomePage() {
                 notice={recordNotice}
                 objects={activeObjects}
                 onArchive={archiveCustomer}
+                onRestore={restoreCustomer}
                 onCreate={openCreateCustomer}
                 onDelete={deleteCustomer}
                 onEdit={openEditCustomer}
@@ -1296,6 +1319,7 @@ function ObjectsView({
   objects,
   notice,
   onArchive,
+  onRestore,
   selectedObjectId,
   onCreate,
   onDelete,
@@ -1306,6 +1330,7 @@ function ObjectsView({
   objects: ObjectRecord[];
   notice: string;
   onArchive: (object: ObjectRecord) => void;
+  onRestore: (object: ObjectRecord) => void;
   selectedObjectId: string;
   onCreate: () => void;
   onDelete: (object: ObjectRecord) => void;
@@ -1359,6 +1384,10 @@ function ObjectsView({
                   <span>{object.address}</span>
                 </div>
                 <Badge value="archiviert" />
+                <div className="row-actions">
+                  <button aria-label={`Archiviertes Objekt ${object.name} bearbeiten`} className="icon-button" onClick={() => onEdit(object)} type="button"><Pencil size={16} /></button>
+                  <button aria-label={`Archiviertes Objekt ${object.name} reaktivieren`} className="icon-button" onClick={() => onRestore(object)} type="button"><RotateCcw size={16} /></button>
+                </div>
                 <button aria-label={`Archiviertes Objekt ${object.name} löschen`} className="icon-button danger" onClick={() => onDelete(object)} type="button"><Trash2 size={16} /></button>
               </article>
             ))}
@@ -1375,6 +1404,7 @@ function CustomersView({
   notice,
   objects,
   onArchive,
+  onRestore,
   onCreate,
   onDelete,
   onEdit,
@@ -1384,6 +1414,7 @@ function CustomersView({
   notice: string;
   objects: ObjectRecord[];
   onArchive: (customer: CustomerRecord) => void;
+  onRestore: (customer: CustomerRecord) => void;
   onCreate: () => void;
   onDelete: (customer: CustomerRecord) => void;
   onEdit: (customer: CustomerRecord) => void;
@@ -1431,6 +1462,10 @@ function CustomersView({
                   <span>{customer.contact} · {customer.email}</span>
                 </div>
                 <Badge value="archiviert" />
+                <div className="row-actions">
+                  <button aria-label={`Archivierten Kunden ${customer.name} bearbeiten`} className="icon-button" onClick={() => onEdit(customer)} type="button"><Pencil size={16} /></button>
+                  <button aria-label={`Archivierten Kunden ${customer.name} reaktivieren`} className="icon-button" onClick={() => onRestore(customer)} type="button"><RotateCcw size={16} /></button>
+                </div>
                 <button aria-label={`Archivierten Kunden ${customer.name} löschen`} className="icon-button danger" onClick={() => onDelete(customer)} type="button"><Trash2 size={16} /></button>
               </article>
             ))}
@@ -1628,6 +1663,7 @@ function MasterDataView({
   }
 
   function saveService() {
+    const existingService = services.find((service) => service.id === editingServiceId);
     const saved: ServiceItem = {
       id: editingServiceId ?? `SVC-${Date.now()}`,
       name: serviceForm.name.trim() || "Neue Leistung",
@@ -1635,7 +1671,7 @@ function MasterDataView({
       unit: serviceForm.unit.trim() || "Einsatz",
       price: serviceForm.price.trim() || "0 SEK",
       description: serviceForm.description.trim() || "Beschreibung ergänzen.",
-      archived: false,
+      archived: existingService?.archived ?? false,
     };
 
     setServices(editingServiceId ? services.map((service) => (service.id === editingServiceId ? saved : service)) : [saved, ...services]);
@@ -1682,6 +1718,11 @@ function MasterDataView({
     setArchiveNotice(`Archivierte Leistung "${service.name}" wurde endgültig gelöscht.`);
   }
 
+  function restoreService(service: ServiceItem) {
+    setServices(services.map((item) => (item.id === service.id ? { ...item, archived: false } : item)));
+    setArchiveNotice(`Leistung "${service.name}" wurde wieder aktiviert.`);
+  }
+
   function togglePackageService(id: string) {
     setPackageForm({
       ...packageForm,
@@ -1708,13 +1749,14 @@ function MasterDataView({
   }
 
   function savePackage() {
+    const existingPackage = packages.find((servicePackage) => servicePackage.id === editingPackageId);
     const saved: ServicePackage = {
       id: editingPackageId ?? `PKG-${Date.now()}`,
       name: packageForm.name.trim() || "Neues Paket",
       price: packageForm.price.trim() || "0 SEK/Jahr",
       description: packageForm.description.trim() || "Paketbeschreibung ergänzen.",
       serviceIds: packageForm.serviceIds,
-      archived: false,
+      archived: existingPackage?.archived ?? false,
     };
 
     setPackages(editingPackageId ? packages.map((servicePackage) => (servicePackage.id === editingPackageId ? saved : servicePackage)) : [saved, ...packages]);
@@ -1743,6 +1785,11 @@ function MasterDataView({
     if (!servicePackage.archived) return;
     setPackages(packages.filter((item) => item.id !== servicePackage.id));
     setArchiveNotice(`Archiviertes Paket "${servicePackage.name}" wurde endgültig gelöscht.`);
+  }
+
+  function restorePackage(servicePackage: ServicePackage) {
+    setPackages(packages.map((item) => (item.id === servicePackage.id ? { ...item, archived: false } : item)));
+    setArchiveNotice(`Paket "${servicePackage.name}" wurde wieder aktiviert.`);
   }
 
   return (
@@ -1792,6 +1839,10 @@ function MasterDataView({
                     <span>{service.category} · {service.price}/{service.unit}</span>
                   </div>
                   <Badge value="archiviert" />
+                  <div className="row-actions">
+                    <button aria-label={`Archivierte Leistung ${service.name} bearbeiten`} className="icon-button" onClick={() => editService(service)} type="button"><Pencil size={16} /></button>
+                    <button aria-label={`Archivierte Leistung ${service.name} reaktivieren`} className="icon-button" onClick={() => restoreService(service)} type="button"><RotateCcw size={16} /></button>
+                  </div>
                   <button aria-label={`Archivierte Leistung ${service.name} löschen`} className="icon-button danger" onClick={() => deleteArchivedService(service)} type="button"><Trash2 size={16} /></button>
                 </article>
               ))}
@@ -1857,6 +1908,10 @@ function MasterDataView({
                     <span>{servicePackage.price} · {servicePackage.description}</span>
                   </div>
                   <Badge value="archiviert" />
+                  <div className="row-actions">
+                    <button aria-label={`Archiviertes Paket ${servicePackage.name} bearbeiten`} className="icon-button" onClick={() => editPackage(servicePackage)} type="button"><Pencil size={16} /></button>
+                    <button aria-label={`Archiviertes Paket ${servicePackage.name} reaktivieren`} className="icon-button" onClick={() => restorePackage(servicePackage)} type="button"><RotateCcw size={16} /></button>
+                  </div>
                   <button aria-label={`Archiviertes Paket ${servicePackage.name} löschen`} className="icon-button danger" onClick={() => deleteArchivedPackage(servicePackage)} type="button"><Trash2 size={16} /></button>
                 </article>
               ))}

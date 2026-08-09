@@ -1,10 +1,20 @@
 export const appVersion = {
-  version: "1.9.0",
+  version: "1.10.0",
   releaseDate: "2026-08-09",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.10.0",
+    date: "2026-08-09",
+    changes: [
+      "Archivierte Objekte, Kunden, Leistungen und Pakete können weiterhin bearbeitet werden",
+      "Archivierte Datensätze lassen sich per Reaktivieren-Button wieder in die aktiven Übersichten zurückholen",
+      "Speichern archivierter Datensätze erhält den Archivstatus bis zur bewussten Reaktivierung",
+      "E2E-Test prüft Bearbeiten und Reaktivieren archivierter Stammdaten",
+    ],
+  },
   {
     version: "1.9.0",
     date: "2026-08-09",

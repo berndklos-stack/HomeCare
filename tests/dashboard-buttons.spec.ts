@@ -110,6 +110,14 @@ test("new operations workspace supports core property and job flows", async ({ p
   await expect(page.getByText(/Kunde "M. Schneider" kann nicht archiviert werden:/)).toBeVisible();
   await page.locator(".table-list article").filter({ hasText: "Familie Beispiel" }).getByRole("button", { name: "Kunde Familie Beispiel archivieren" }).click();
   await expect(page.getByText('Kunde "Familie Beispiel" wurde archiviert.')).toBeVisible();
+  await page.getByRole("button", { name: "Archivierten Kunden Familie Beispiel bearbeiten" }).click();
+  await expect(page.getByRole("heading", { name: "Kunde bearbeiten" })).toBeVisible();
+  await field("Notizen / interne Info").fill("Archiviert geprüft, kann reaktiviert werden");
+  await page.getByRole("button", { name: "Kunde speichern" }).click();
+  await expect(page.getByRole("button", { name: "Archivierten Kunden Familie Beispiel reaktivieren" })).toBeVisible();
+  await page.getByRole("button", { name: "Archivierten Kunden Familie Beispiel reaktivieren" }).click();
+  await expect(page.getByText('Kunde "Familie Beispiel" wurde wieder aktiviert.')).toBeVisible();
+  await page.locator(".table-list article").filter({ hasText: "Familie Beispiel" }).getByRole("button", { name: "Kunde Familie Beispiel archivieren" }).click();
   await page.getByRole("button", { name: "Archivierten Kunden Familie Beispiel löschen" }).click();
   await expect(page.getByText('Archivierter Kunde "Familie Beispiel" wurde endgültig gelöscht.')).toBeVisible();
 
@@ -121,6 +129,15 @@ test("new operations workspace supports core property and job flows", async ({ p
   await expect(page.getByRole("heading", { name: "Objektübersicht" })).toBeVisible();
   await page.locator(".object-list article").filter({ hasText: "Villa Långsjön" }).getByRole("button", { name: "Objekt Villa Långsjön archivieren" }).click();
   await expect(page.getByText(/Objekt "Villa Långsjön" kann nicht archiviert werden:/)).toBeVisible();
+  await page.locator(".object-list article").filter({ hasText: "Testhaus Smaland" }).getByRole("button", { name: "Objekt Testhaus Smaland archivieren" }).click();
+  await expect(page.getByText('Objekt "Testhaus Smaland" wurde archiviert.')).toBeVisible();
+  await page.getByRole("button", { name: "Archiviertes Objekt Testhaus Smaland bearbeiten" }).click();
+  await expect(page.getByRole("heading", { name: "Objekt bearbeiten" })).toBeVisible();
+  await field("Nächster Besuch").fill("2026-08-20");
+  await page.getByRole("button", { name: "Objekt speichern" }).click();
+  await expect(page.getByText('Objekt "Testhaus Smaland" wurde archiviert.')).toBeVisible();
+  await page.getByRole("button", { name: "Archiviertes Objekt Testhaus Smaland reaktivieren" }).click();
+  await expect(page.getByText('Objekt "Testhaus Smaland" wurde wieder aktiviert.')).toBeVisible();
 
   await page.getByTestId("nav-masterData").click();
   await expect(page.getByRole("heading", { name: "Leistungen einzeln erfassen" })).toBeVisible();
@@ -163,12 +180,26 @@ test("new operations workspace supports core property and job flows", async ({ p
   await expect(page.getByText(/Leistung "Hauskontrolle" ist noch aktiv bei:/)).toBeVisible();
   await page.getByRole("button", { name: "Leistung Fensterkontrolle archivieren" }).click();
   await expect(page.getByText('Leistung "Fensterkontrolle" wurde archiviert.')).toBeVisible();
+  await page.getByRole("button", { name: "Archivierte Leistung Fensterkontrolle bearbeiten" }).click();
+  await field("Preis").fill("390 SEK");
+  await page.getByRole("button", { name: "Leistung speichern" }).click();
+  await expect(page.getByText("390 SEK/Einsatz")).toBeVisible();
+  await page.getByRole("button", { name: "Archivierte Leistung Fensterkontrolle reaktivieren" }).click();
+  await expect(page.getByText('Leistung "Fensterkontrolle" wurde wieder aktiviert.')).toBeVisible();
+  await page.getByRole("button", { name: "Leistung Fensterkontrolle archivieren" }).click();
   await page.getByRole("button", { name: "Archivierte Leistung Fensterkontrolle löschen" }).click();
   await expect(page.getByText('Archivierte Leistung "Fensterkontrolle" wurde endgültig gelöscht.')).toBeVisible();
   await page.getByRole("button", { name: "Paket Komfort archivieren" }).click();
   await expect(page.getByText(/Paket "Komfort" ist noch aktiv bei:/)).toBeVisible();
   await page.getByRole("button", { name: "Paket Winterpaket archivieren" }).click();
   await expect(page.getByText('Paket "Winterpaket" wurde archiviert.')).toBeVisible();
+  await page.getByRole("button", { name: "Archiviertes Paket Winterpaket bearbeiten" }).click();
+  await field("Paketpreis").fill("4.490 SEK/Jahr");
+  await page.getByRole("button", { name: "Paket speichern" }).click();
+  await expect(page.getByText("4.490 SEK/Jahr")).toBeVisible();
+  await page.getByRole("button", { name: "Archiviertes Paket Winterpaket reaktivieren" }).click();
+  await expect(page.getByText('Paket "Winterpaket" wurde wieder aktiviert.')).toBeVisible();
+  await page.getByRole("button", { name: "Paket Winterpaket archivieren" }).click();
   await page.getByRole("button", { name: "Archiviertes Paket Winterpaket löschen" }).click();
   await expect(page.getByText('Archiviertes Paket "Winterpaket" wurde endgültig gelöscht.')).toBeVisible();
 

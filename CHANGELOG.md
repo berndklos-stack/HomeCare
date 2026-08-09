@@ -4,6 +4,13 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.10.0 - 2026-08-09
+
+- Archivierte Objekte, Kunden, Leistungen und Pakete können weiterhin bearbeitet werden.
+- Archivierte Datensätze lassen sich per Reaktivieren-Button wieder in die aktiven Übersichten zurückholen.
+- Speichern archivierter Datensätze erhält den Archivstatus bis zur bewussten Reaktivierung.
+- Playwright-Test prüft Bearbeiten und Reaktivieren archivierter Stammdaten.
+
 ## 1.9.0 - 2026-08-09
 
 - Leistungen im Paket werden über einen Plus-Button in einem Auswahl-Popup gepflegt.
