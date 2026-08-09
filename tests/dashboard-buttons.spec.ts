@@ -14,6 +14,13 @@ test("new operations workspace supports core property and job flows", async ({ p
   await expect(page.getByRole("heading", { name: "Objektübersicht" })).toBeVisible();
   await expect(page.getByText("Objektakte", { exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Villa Långsjön" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Historie / Verlauf" })).toBeVisible();
+  await page.locator(".history-list").getByRole("button", { name: /Poolpflege und Wasserwerte/ }).click();
+  await expect(page.getByText("Pool gereinigt, Werte stabilisiert, nächste Kontrolle geplant.")).toBeVisible();
+  await expect(page.getByText("Filterdruck beobachten. Interner Hinweis nicht im Kundenportal.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "PDF für Poolpflege und Wasserwerte ausgeben" })).toBeVisible();
+  await page.getByRole("button", { name: "Bericht Poolpflege und Wasserwerte an Kunden senden" }).click();
+  await expect(page.getByText("An eva.andersson@example.com gesendet")).toBeVisible();
   await expect(
     page.locator(".object-list article").filter({ hasText: "Villa Långsjön" }).getByRole("button", { name: "Objekt Villa Långsjön bearbeiten" }),
   ).toHaveAttribute("data-tooltip", "Objekt Villa Långsjön bearbeiten");

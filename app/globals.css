@@ -522,6 +522,42 @@ button {
   display: block;
 }
 
+.job-list {
+  gap: 7px;
+}
+
+.job-row {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  min-height: 58px;
+  padding: 9px 10px;
+}
+
+.job-row-main {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.job-row-main strong,
+.job-row-main span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.job-row-meta {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: auto auto auto;
+  justify-items: end;
+  white-space: nowrap;
+}
+
+.job-row .row-actions {
+  justify-content: end;
+}
+
 mark {
   border-radius: 999px;
   font-size: 12px;
@@ -1105,6 +1141,103 @@ mark.neutral {
   margin: 0;
 }
 
+.history-list {
+  display: grid;
+  gap: 8px;
+}
+
+.history-list button {
+  align-items: center;
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: inherit;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  padding: 10px;
+  text-align: left;
+}
+
+.history-list button.active,
+.history-list button:hover {
+  border-color: var(--brand);
+}
+
+.history-list button span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.history-list small,
+.history-detail span,
+.send-status {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.history-list p {
+  color: var(--muted);
+  margin: 0;
+}
+
+.history-detail {
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+}
+
+.history-detail-head {
+  align-items: start;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.history-detail-head h3 {
+  font-size: 16px;
+  margin: 0;
+}
+
+.history-block {
+  display: grid;
+  gap: 4px;
+}
+
+.history-block p {
+  margin: 0;
+}
+
+.history-block.internal {
+  border-left: 3px solid var(--warning);
+  padding-left: 10px;
+}
+
+.history-media {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.history-media span {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 9px;
+}
+
+.send-status {
+  font-weight: 800;
+  margin: 0;
+}
+
 .tags,
 .mini-stats,
 .activity-list {
@@ -1371,5 +1504,14 @@ mark.neutral {
   .object-row-main,
   .media-list article {
     grid-template-columns: 1fr;
+  }
+
+  .job-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .job-row-meta {
+    grid-column: 1 / -1;
+    justify-items: start;
   }
 }

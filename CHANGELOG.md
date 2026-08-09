@@ -4,6 +4,13 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.18.0 - 2026-08-09
+
+- Objektakte zeigt jetzt eine Historie aus Aufträgen und Berichten.
+- Verlaufseinträge öffnen alle relevanten Details inklusive Auftragsdaten, Bericht, internen Notizen und Medien.
+- Berichte können aus der Objektakte per PDF-Ausgabe vorbereitet und als an Kunden gesendet markiert werden.
+- Auftragsübersicht wurde auf kompakte zweizeilige Zeilen mit Aktionsicons verdichtet.
+
 ## 1.17.0 - 2026-08-09
 
 - Bild erfassen ist jetzt pro Checklistenpunkt als Kamera-Icon verfügbar.

@@ -1,10 +1,20 @@
 export const appVersion = {
-  version: "1.17.0",
+  version: "1.18.0",
   releaseDate: "2026-08-09",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.18.0",
+    date: "2026-08-09",
+    changes: [
+      "Objektakte zeigt eine Historie aus Aufträgen und Berichten",
+      "Verlaufseinträge öffnen Detailansicht mit Auftragsdaten, Bericht, internen Notizen und Medien",
+      "Berichte können aus der Objektakte per PDF-Ausgabe vorbereitet und als an Kunden gesendet markiert werden",
+      "Auftragsübersicht wurde auf kompakte zweizeilige Zeilen mit Aktionsicons verdichtet",
+    ],
+  },
   {
     version: "1.17.0",
     date: "2026-08-09",

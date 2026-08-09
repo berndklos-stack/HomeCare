@@ -7,6 +7,8 @@ import {
   Camera,
   ClipboardList,
   Euro,
+  FileDown,
+  FileText,
   Home,
   KeyRound,
   Languages,
@@ -16,6 +18,7 @@ import {
   Plus,
   RotateCcw,
   Search,
+  Send,
   Sun,
   Trash2,
   UsersRound,
@@ -1315,7 +1318,9 @@ export default function HomePage() {
 
           {showObjectFile && (
             <ObjectFile
+              jobs={jobs}
               object={selectedObject}
+              reports={reports}
             />
           )}
         </section>
@@ -1623,18 +1628,22 @@ function JobsView({
           Neuer Auftrag
         </button>
       </div>
-      <div className="table-list">
+      <div className="table-list job-list">
         {jobs.map((job) => (
-          <article key={job.id}>
-            <div>
+          <article className="job-row" key={job.id}>
+            <div className="job-row-main">
               <strong>{job.title}</strong>
               <span>{objects.find((object) => object.id === job.objectId)?.name} · {scheduleLabel(job.schedule)} · {job.description}</span>
             </div>
-            <span>{job.priority}</span>
-            <span>{job.dueDate}</span>
-            <Badge value={job.status} />
-            <IconAction label={`Auftrag ${job.title} bearbeiten`} onClick={() => onEdit(job)}><Pencil size={16} /></IconAction>
-            <IconAction label={`Auftrag ${job.title} starten`} onClick={() => onStart(job)}><PlayCircle size={16} /></IconAction>
+            <div className="job-row-meta">
+              <span>{job.dueDate}</span>
+              <span>{job.priority}</span>
+              <Badge value={job.status} />
+            </div>
+            <div className="row-actions">
+              <IconAction label={`Auftrag ${job.title} bearbeiten`} onClick={() => onEdit(job)}><Pencil size={16} /></IconAction>
+              <IconAction label={`Auftrag ${job.title} starten`} onClick={() => onStart(job)}><PlayCircle size={16} /></IconAction>
+            </div>
           </article>
         ))}
       </div>
@@ -2279,11 +2288,42 @@ function MasterDataView({
 }
 
 function ObjectFile({
+  jobs,
   object,
+  reports,
 }: {
+  jobs: JobRecord[];
   object: ObjectRecord;
+  reports: ReportRecord[];
 }) {
+  const objectJobs = jobs.filter((job) => job.objectId === object.id);
+  const objectReports = reports.filter((report) => report.objectId === object.id);
+  const history = [
+    ...objectJobs.map((job) => ({
+      id: `job-${job.id}`,
+      date: job.dueDate,
+      title: job.title,
+      type: "Auftrag" as const,
+      job,
+      report: objectReports.find((report) => report.jobId === job.id),
+    })),
+    ...objectReports
+      .filter((report) => !objectJobs.some((job) => job.id === report.jobId))
+      .map((report) => ({
+        id: `report-${report.id}`,
+        date: report.date,
+        title: report.title,
+        type: "Bericht" as const,
+        job: undefined,
+        report,
+      })),
+  ].sort((first, second) => second.date.localeCompare(first.date));
+  const [selectedHistoryId, setSelectedHistoryId] = useState(history[0]?.id ?? "");
+  const [sentReports, setSentReports] = useState<string[]>([]);
+  const selectedHistory = history.find((item) => item.id === selectedHistoryId) ?? history[0];
   const previewImage = object.media.items.find((item) => item.type === "Bild" && item.previewUrl);
+  const selectedReport = selectedHistory?.report;
+  const selectedJob = selectedHistory?.job;
 
   return (
     <aside className="object-file">
@@ -2317,6 +2357,85 @@ function ObjectFile({
           <div><dt>Objektadresse</dt><dd>{object.address}</dd></div>
         </dl>
       </section>
+      <section>
+        <h3>Historie / Verlauf</h3>
+        <div className="history-list">
+          {history.map((item) => (
+            <button
+              className={selectedHistory?.id === item.id ? "active" : ""}
+              key={item.id}
+              onClick={() => setSelectedHistoryId(item.id)}
+              type="button"
+            >
+              <FileText size={15} />
+              <span>
+                <strong>{item.title}</strong>
+                <small>{item.date} · {item.type}{item.report ? " · Bericht vorhanden" : " · ohne Bericht"}</small>
+              </span>
+              <Badge value={item.job?.status ?? "Bericht"} />
+            </button>
+          ))}
+          {history.length === 0 && <p>Noch keine Aufträge oder Berichte vorhanden.</p>}
+        </div>
+      </section>
+      {selectedHistory && (
+        <section className="history-detail">
+          <div className="history-detail-head">
+            <div>
+              <h3>{selectedHistory.title}</h3>
+              <span>{selectedHistory.date} · {object.name}</span>
+            </div>
+            <div className="row-actions">
+              <IconAction label={`PDF für ${selectedHistory.title} ausgeben`} onClick={() => window.print()}><FileDown size={16} /></IconAction>
+              <IconAction
+                label={`Bericht ${selectedHistory.title} an Kunden senden`}
+                onClick={() => selectedReport && setSentReports([...sentReports.filter((id) => id !== selectedReport.id), selectedReport.id])}
+              >
+                <Send size={16} />
+              </IconAction>
+            </div>
+          </div>
+          <dl>
+            {selectedJob && <div><dt>Auftragstyp</dt><dd>{selectedJob.type}</dd></div>}
+            {selectedJob && <div><dt>Status</dt><dd>{selectedJob.status}</dd></div>}
+            {selectedJob && <div><dt>Bearbeiter</dt><dd>{selectedJob.assignedTo}</dd></div>}
+            {selectedJob && <div><dt>Zeit</dt><dd>{selectedJob.workMinutes} min.</dd></div>}
+            {selectedJob && <div><dt>Material</dt><dd>{selectedJob.material}</dd></div>}
+            {selectedReport && <div><dt>Kundensichtbar</dt><dd>{selectedReport.visibleToCustomer ? "Ja" : "Nein"}</dd></div>}
+          </dl>
+          {selectedJob && (
+            <div className="history-block">
+              <strong>Auftragsbeschreibung</strong>
+              <p>{selectedJob.description}</p>
+            </div>
+          )}
+          {selectedReport ? (
+            <>
+              <div className="history-block">
+                <strong>Kundenbericht</strong>
+                <p>{selectedReport.summary}</p>
+              </div>
+              <div className="history-block internal">
+                <strong>Interne Notizen</strong>
+                <p>{selectedReport.internalNotes}</p>
+              </div>
+              <div className="history-media">
+                {selectedReport.media.map((item) => <span key={item}>{item}</span>)}
+              </div>
+              <p className="send-status">
+                {sentReports.includes(selectedReport.id)
+                  ? `An ${object.ownerEmail} gesendet`
+                  : "Noch nicht an Kunden gesendet"}
+              </p>
+            </>
+          ) : (
+            <div className="history-block">
+              <strong>Bericht</strong>
+              <p>Für diesen Auftrag wurde noch kein Bericht erzeugt.</p>
+            </div>
+          )}
+        </section>
+      )}
     </aside>
   );
 }
