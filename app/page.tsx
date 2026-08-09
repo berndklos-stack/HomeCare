@@ -2077,17 +2077,19 @@ function MasterDataView({
           <datalist id="service-units">
             {serviceUnits.map((unit) => <option key={unit} value={unit} />)}
           </datalist>
-          <label><span>Preis</span><input value={serviceForm.price} onChange={(event) => setServiceForm({ ...serviceForm, price: event.target.value })} placeholder="z.B. 595" /></label>
-          <label>
-            <span>Währung</span>
-            <select value={serviceForm.currency} onChange={(event) => setServiceForm({ ...serviceForm, currency: event.target.value })}>
-              <option>SEK</option>
-              <option>EUR</option>
-              <option>USD</option>
-              <option>NOK</option>
-              <option>DKK</option>
-            </select>
-          </label>
+          <div className="price-currency-row">
+            <label><span>Preis</span><input value={serviceForm.price} onChange={(event) => setServiceForm({ ...serviceForm, price: event.target.value })} placeholder="z.B. 595" /></label>
+            <label>
+              <span>Währung</span>
+              <select value={serviceForm.currency} onChange={(event) => setServiceForm({ ...serviceForm, currency: event.target.value })}>
+                <option>SEK</option>
+                <option>EUR</option>
+                <option>USD</option>
+                <option>NOK</option>
+                <option>DKK</option>
+              </select>
+            </label>
+          </div>
           <label className="wide"><span>Beschreibung</span><textarea value={serviceForm.description} onChange={(event) => setServiceForm({ ...serviceForm, description: event.target.value })} /></label>
           <div className="wide service-checklist-editor">
             <span>Checkliste für Einsatz</span>

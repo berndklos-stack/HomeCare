@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.15.0",
+  version: "1.16.0",
   releaseDate: "2026-08-09",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.16.0",
+    date: "2026-08-09",
+    changes: [
+      "Preis und Währung im Leistungsformular stehen jetzt kompakt in einer Zeile",
+      "Währungsfeld wurde auf eine schmale Auswahl neben dem Preis reduziert",
+    ],
+  },
   {
     version: "1.15.0",
     date: "2026-08-09",

@@ -770,6 +770,17 @@ mark.neutral {
   padding: 12px;
 }
 
+.price-currency-row {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) 108px;
+  min-width: 0;
+}
+
+.price-currency-row label {
+  min-width: 0;
+}
+
 .service-catalog span {
   color: var(--accent);
   font-size: 12px;
