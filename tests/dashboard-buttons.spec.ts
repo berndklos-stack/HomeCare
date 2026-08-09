@@ -181,17 +181,34 @@ test("new operations workspace supports core property and job flows", async ({ p
   await expect(page.getByRole("article").filter({ hasText: "Zugang prüfen" }).getByText("Hauskontrolle · Kontrolle · 795 SEK/Besuch")).toBeVisible();
   await page.getByLabel("Zeit Zugang prüfen").fill("22");
   await page.getByLabel("Hinweis Zugang prüfen").fill("Schlüsselsafe geprüft, Zugang ohne Problem.");
+  await page.getByRole("article").filter({ hasText: "Außenrunde durchführen" }).locator("input[type='checkbox']").check();
+  await page.getByLabel("Zeit Außenrunde durchführen").fill("18");
+  await page.getByLabel("Hinweis Außenrunde durchführen").fill("Außenrunde geprüft, keine Auffälligkeiten.");
   await page.getByLabel("Bild zu Zugang prüfen erfassen").setInputFiles({
     name: "einsatzfoto.jpg",
     mimeType: "image/jpeg",
     buffer: Buffer.from("demo"),
   });
-  await expect(page.getByText("Neues Foto erfasst")).toBeVisible();
-  await page.getByRole("button", { name: "Foto benutzen" }).click();
   await expect(page.getByText("Foto übernommen")).toBeVisible();
+  await page.getByTestId("nav-planning").click();
+  await page.getByRole("button", { name: /Bearbeiteter Testauftrag/ }).click();
+  await expect(page.getByLabel("Zeit Zugang prüfen")).toHaveValue("22");
+  await expect(page.getByLabel("Hinweis Zugang prüfen")).toHaveValue("Schlüsselsafe geprüft, Zugang ohne Problem.");
+  await expect(page.getByRole("article").filter({ hasText: "Außenrunde durchführen" }).locator("input[type='checkbox']")).toBeChecked();
+  await expect(page.getByText("einsatzfoto.jpg")).toBeVisible();
   await expect(page.getByRole("button", { name: "Einsatz abschließen" })).toBeVisible();
   await page.getByRole("button", { name: "Einsatz abschließen" }).click();
   await expect(page.getByRole("heading", { name: "Objektübersicht" })).toBeVisible();
+  await page.locator(".object-list article").filter({ hasText: "Stuga Nybro" }).getByRole("button", { name: "Objekt Stuga Nybro bearbeiten" }).click();
+  await page.locator(".history-list").getByRole("button", { name: /Bearbeiteter Testauftrag/ }).click();
+  await expect(page.locator(".customer-report-card").getByText("Kontrolle vor Ort")).toBeVisible();
+  await expect(page.locator(".customer-report-card").getByText("Schlüsselsafe geprüft, Zugang ohne Problem.")).toBeVisible();
+  await expect(page.locator(".customer-report-card").getByText("Außenrunde geprüft, keine Auffälligkeiten.")).toBeVisible();
+  await expect(page.locator(".customer-report-card span").filter({ hasText: "Zugang prüfen: einsatzfoto.jpg" })).toBeVisible();
+  await expect(page.locator(".customer-report-card").getByText("nicht ausgeführt").first()).toBeVisible();
+  await field("Kommentar vor dem Senden").fill("Bitte beachten: Zugang wurde geprüft, Folgetermin bleibt bestehen.");
+  await expect(page.locator(".customer-report-card").getByText("Bitte beachten: Zugang wurde geprüft, Folgetermin bleibt bestehen.")).toBeVisible();
+  await page.getByRole("button", { name: "Zurück zur Objektübersicht" }).click();
   await page.locator(".object-list article").filter({ hasText: "Villa Långsjön" }).getByRole("button", { name: "Objekt Villa Långsjön archivieren" }).click();
   await expect(page.getByText(/Objekt "Villa Långsjön" kann nicht archiviert werden:/)).toBeVisible();
   await page.locator(".object-list article").filter({ hasText: "Testhaus Smaland" }).getByRole("button", { name: "Objekt Testhaus Smaland archivieren" }).click();

@@ -160,6 +160,41 @@ type ReportRecord = {
   summary: string;
   internalNotes: string;
   media: string[];
+  checklistResults: FieldTaskResult[];
+  customerComment: string;
+  sentAt?: string;
+};
+
+type FieldTaskResult = {
+  id: string;
+  title: string;
+  meta: string;
+  description: string;
+  completed: boolean;
+  minutes: number;
+  note: string;
+  photos: FieldPhoto[];
+};
+
+type FieldTask = {
+  id: string;
+  title: string;
+  meta: string;
+  description: string;
+  defaultMinutes: number;
+};
+
+type FieldPhoto = {
+  name: string;
+  accepted: boolean;
+  previewUrl?: string;
+};
+
+type FieldTaskProgress = {
+  completed: boolean;
+  minutes: string;
+  note: string;
+  photos: FieldPhoto[];
 };
 
 type BillingRecord = {
@@ -846,6 +881,39 @@ const seedReports: ReportRecord[] = [
     summary: "Pool gereinigt, Werte stabilisiert, nächste Kontrolle geplant.",
     internalNotes: "Filterdruck beobachten. Interner Hinweis nicht im Kundenportal.",
     media: ["3 Fotos", "1 Voicememo"],
+    checklistResults: [
+      {
+        id: "REP-044-1",
+        title: "Zugang prüfen",
+        meta: "Hauskontrolle · Kontrolle · 795 SEK/Besuch",
+        description: "Schlüsselsafe, Türen, Fenster und Alarmstatus dokumentieren.",
+        completed: true,
+        minutes: 10,
+        note: "Zugang geprüft, Fotos ergänzt.",
+        photos: [{ name: "zugang-villa-langsjon.jpg", accepted: true }],
+      },
+      {
+        id: "REP-044-2",
+        title: "Außenrunde durchführen",
+        meta: "Hauskontrolle · Kontrolle · 795 SEK/Besuch",
+        description: "Fassade, Dach, Terrasse, Zufahrt und sichtbare Schäden prüfen.",
+        completed: true,
+        minutes: 20,
+        note: "Keine Auffälligkeiten außen.",
+        photos: [{ name: "terrasse-villa-langsjon.jpg", accepted: true }],
+      },
+      {
+        id: "REP-044-3",
+        title: "Innenkontrolle abschließen",
+        meta: "Hauskontrolle · Kontrolle · 795 SEK/Besuch",
+        description: "Wasser, Heizung, Strom, Gerüche und Auffälligkeiten erfassen.",
+        completed: false,
+        minutes: 0,
+        note: "Innenkontrolle beim Folgetermin nachholen.",
+        photos: [],
+      },
+    ],
+    customerComment: "Pool gereinigt und Wasserwerte geprüft. Nächste Kontrolle wie geplant.",
   },
   {
     id: "REP-041",
@@ -857,6 +925,19 @@ const seedReports: ReportRecord[] = [
     summary: "Gartenpflege ausgeführt und Zufahrt geprüft.",
     internalNotes: "Zusatztermin Dachrinne empfehlen.",
     media: ["5 Fotos"],
+    checklistResults: [
+      {
+        id: "REP-041-1",
+        title: "Rasen und Wege prüfen",
+        meta: "Gartenpflege · Außenanlage · 595 SEK/Stunde",
+        description: "Pflegebedarf, Hindernisse und Wetterlage notieren.",
+        completed: true,
+        minutes: 15,
+        note: "Zufahrt frei, Wege geprüft.",
+        photos: [{ name: "gartenpflege-nybro.jpg", accepted: true }],
+      },
+    ],
+    customerComment: "Gartenpflege wurde ausgeführt, die Zufahrt ist frei.",
   },
 ];
 
@@ -987,10 +1068,11 @@ export default function HomePage() {
   const [objectsStorageReady, setObjectsStorageReady] = useState(false);
   const [customers, setCustomers] = useState(seedCustomers);
   const [jobs, setJobs] = useState(seedJobs);
-  const [reports] = useState(seedReports);
+  const [reports, setReports] = useState(seedReports);
   const [billing] = useState(seedBilling);
   const [services, setServices] = useState(seedServices);
   const [servicePackages, setServicePackages] = useState(seedPackages);
+  const [fieldProgress, setFieldProgress] = useState<Record<string, Record<string, FieldTaskProgress>>>({});
   const [modal, setModal] = useState<Modal>(null);
   const [editingObjectId, setEditingObjectId] = useState<string | null>(null);
   const [objectEditorOpen, setObjectEditorOpen] = useState(false);
@@ -1310,10 +1392,40 @@ export default function HomePage() {
     setSection("field");
   }
 
-  function completeJob(job: JobRecord) {
+  function completeJob(job: JobRecord, checklistResults: FieldTaskResult[], fieldNote: string) {
+    const workMinutes = checklistResults.reduce((sum, item) => sum + item.minutes, 0);
+    const completedCount = checklistResults.filter((item) => item.completed).length;
+    const photoCount = checklistResults.reduce((sum, item) => sum + item.photos.length, 0);
+    const reportId = `REP-${Date.now()}`;
+    const summary = `${completedCount} von ${checklistResults.length} Checklistenpunkten ausgeführt.${fieldNote.trim() ? ` ${fieldNote.trim()}` : ""}`;
+
     setJobs((current) =>
-      current.map((item) => (item.id === job.id ? { ...item, status: "erledigt", workMinutes: 90 } : item)),
+      current.map((item) => (item.id === job.id ? { ...item, status: "erledigt", workMinutes } : item)),
     );
+    setReports((current) => [
+      {
+        id: reportId,
+        jobId: job.id,
+        objectId: job.objectId,
+        title: job.title,
+        date: job.dueDate,
+        visibleToCustomer: true,
+        summary,
+        internalNotes: job.internalNotes,
+        media: [`${photoCount} Fotos`, `${workMinutes} Minuten dokumentiert`],
+        checklistResults,
+        customerComment: "",
+      },
+      ...current.filter((report) => report.jobId !== job.id),
+    ]);
+    setObjects((current) =>
+      current.map((object) => (object.id === job.objectId ? { ...object, lastVisit: job.dueDate } : object)),
+    );
+    setFieldProgress((current) => {
+      const next = { ...current };
+      delete next[job.id];
+      return next;
+    });
     setSelectedObjectId(job.objectId);
     setSection("objects");
   }
@@ -1409,6 +1521,7 @@ export default function HomePage() {
                 object={editingObject}
                 onBack={closeObjectEditor}
                 onSubmit={saveObject}
+                onUpdateReport={(report) => setReports((current) => current.map((item) => (item.id === report.id ? report : item)))}
                 reports={reports}
                 newObject={newObject}
                 setNewObject={setNewObject}
@@ -1454,6 +1567,8 @@ export default function HomePage() {
                 objects={activeObjects}
                 packages={servicePackages}
                 services={services}
+                progress={activeJobId ? fieldProgress[activeJobId] ?? {} : {}}
+                onProgressChange={(jobId, progress) => setFieldProgress((current) => ({ ...current, [jobId]: progress }))}
                 onComplete={completeJob}
               />
             )}
@@ -1839,6 +1954,8 @@ function FieldView({
   objects,
   packages,
   services,
+  progress,
+  onProgressChange,
   onComplete,
 }: {
   activeJobId: string | null;
@@ -1846,9 +1963,11 @@ function FieldView({
   objects: ObjectRecord[];
   packages: ServicePackage[];
   services: ServiceItem[];
-  onComplete: (job: JobRecord) => void;
+  progress: Record<string, FieldTaskProgress>;
+  onProgressChange: (jobId: string, progress: Record<string, FieldTaskProgress>) => void;
+  onComplete: (job: JobRecord, checklistResults: FieldTaskResult[], fieldNote: string) => void;
 }) {
-  const [capturedPhotos, setCapturedPhotos] = useState<Record<string, { name: string; accepted: boolean }>>({});
+  const [fieldNote, setFieldNote] = useState("Notiz: Zugang geprüft, Fotos ergänzt.");
   const active = jobs.find((job) => job.id === activeJobId) ?? jobs.find((job) => job.status === "in Arbeit") ?? jobs[0];
   const object = objects.find((item) => item.id === active.objectId) ?? objects[0];
   const activePackage = packages.find((servicePackage) => !servicePackage.archived && servicePackage.name === object.carePackage);
@@ -1885,6 +2004,41 @@ function FieldView({
         defaultMinutes: 0,
       }));
 
+  function valueForTask(task: FieldTask, index: number) {
+    return progress[task.id] ?? {
+      completed: index < 1,
+      minutes: task.defaultMinutes ? String(task.defaultMinutes) : "",
+      note: "",
+      photos: [],
+    };
+  }
+
+  function updateTask(
+    id: string,
+    patch: Partial<FieldTaskProgress>,
+    currentTask: FieldTaskProgress,
+  ) {
+    onProgressChange(active.id, { ...progress, [id]: { ...currentTask, ...patch } });
+  }
+
+  function completeActiveJob() {
+    const results = fieldTasks.map((task, index) => {
+      const currentTask = valueForTask(task, index);
+      return {
+        id: task.id,
+        title: task.title,
+        meta: task.meta,
+        description: task.description,
+        completed: currentTask.completed,
+        minutes: Number(currentTask.minutes) || 0,
+        note: currentTask.note.trim(),
+        photos: currentTask.photos,
+      };
+    });
+
+    onComplete(active, results, fieldNote);
+  }
+
   return (
     <section className="field-shell">
       <div className="phone-card">
@@ -1896,11 +2050,18 @@ function FieldView({
           <small>{active.dueDate} · {object.carePackage}</small>
         </div>
         <div className="service-task-list">
-          {fieldTasks.map((task, index) => (
+          {fieldTasks.map((task, index) => {
+            const currentTask = valueForTask(task, index);
+
+            return (
             <article key={task.id}>
               <div className="field-task-head">
                 <label>
-                  <input type="checkbox" defaultChecked={index < 1} />
+                  <input
+                    type="checkbox"
+                    checked={currentTask.completed}
+                    onChange={(event) => updateTask(task.id, { completed: event.target.checked }, currentTask)}
+                  />
                   <span>
                     <strong>{task.title}</strong>
                     <small>{task.meta}</small>
@@ -1916,7 +2077,9 @@ function FieldView({
                     onChange={(event) => {
                       const file = event.target.files?.[0];
                       if (!file) return;
-                      setCapturedPhotos({ ...capturedPhotos, [task.id]: { name: file.name, accepted: false } });
+                      void fileToImagePreview(file).then((previewUrl) => {
+                        updateTask(task.id, { photos: [...currentTask.photos, { name: file.name, accepted: true, previewUrl }] }, currentTask);
+                      });
                       event.currentTarget.value = "";
                     }}
                   />
@@ -1926,44 +2089,57 @@ function FieldView({
               <div className="field-task-inputs">
                 <label>
                   <span>Zeit min.</span>
-                  <input aria-label={`Zeit ${task.title}`} defaultValue={task.defaultMinutes || ""} inputMode="numeric" min="0" type="number" />
+                  <input
+                    aria-label={`Zeit ${task.title}`}
+                    value={currentTask.minutes}
+                    inputMode="numeric"
+                    min="0"
+                    type="number"
+                    onChange={(event) => updateTask(task.id, { minutes: event.target.value }, currentTask)}
+                  />
                 </label>
                 <label>
                   <span>Hinweis / Info</span>
-                  <textarea aria-label={`Hinweis ${task.title}`} placeholder="Kurznotiz, Besonderheit oder Rückmeldung" />
+                  <textarea
+                    aria-label={`Hinweis ${task.title}`}
+                    placeholder="Kurznotiz, Besonderheit oder Rückmeldung"
+                    value={currentTask.note}
+                    onChange={(event) => updateTask(task.id, { note: event.target.value }, currentTask)}
+                  />
                 </label>
               </div>
-              {capturedPhotos[task.id] && (
-                <div className="captured-photo-card">
-                  <strong>{capturedPhotos[task.id].accepted ? "Foto übernommen" : "Neues Foto erfasst"}</strong>
-                  <span>{capturedPhotos[task.id].name}</span>
+              {currentTask.photos.map((photo, photoIndex) => (
+                <div className="captured-photo-card" key={`${task.id}-${photo.name}-${photoIndex}`}>
+                  <strong>{photo.accepted ? "Foto übernommen" : "Neues Foto erfasst"}</strong>
+                  <span>{photo.name}</span>
                   <div className="row-actions">
                     <button
                       className="ghost-button compact"
-                      onClick={() => setCapturedPhotos({ ...capturedPhotos, [task.id]: { ...capturedPhotos[task.id], accepted: true } })}
+                      onClick={() => updateTask(task.id, {
+                        photos: currentTask.photos.map((item, index) => (index === photoIndex ? { ...item, accepted: true } : item)),
+                      }, currentTask)}
                       type="button"
                     >
                       Foto benutzen
                     </button>
                     <button
                       className="ghost-button compact"
-                      onClick={() => {
-                        const nextPhotos = { ...capturedPhotos };
-                        delete nextPhotos[task.id];
-                        setCapturedPhotos(nextPhotos);
-                      }}
+                      onClick={() => updateTask(task.id, {
+                        photos: currentTask.photos.filter((_, index) => index !== photoIndex),
+                      }, currentTask)}
                       type="button"
                     >
                       Neues Foto
                     </button>
                   </div>
                 </div>
-              )}
+              ))}
             </article>
-          ))}
+            );
+          })}
         </div>
-        <textarea defaultValue="Notiz: Zugang geprüft, Fotos ergänzt." aria-label="Einsatznotiz" />
-        <button className="primary-button" onClick={() => onComplete(active)} type="button">
+        <textarea value={fieldNote} onChange={(event) => setFieldNote(event.target.value)} aria-label="Einsatznotiz" />
+        <button className="primary-button" onClick={completeActiveJob} type="button">
           Einsatz abschließen
         </button>
       </div>
@@ -2448,6 +2624,7 @@ function ObjectEditorPage({
   object,
   onBack,
   onSubmit,
+  onUpdateReport,
   reports,
   newObject,
   setNewObject,
@@ -2459,6 +2636,7 @@ function ObjectEditorPage({
   object?: ObjectRecord;
   onBack: () => void;
   onSubmit: () => void;
+  onUpdateReport: (report: ReportRecord) => void;
   reports: ReportRecord[];
   newObject: NewObjectFormState;
   setNewObject: (value: NewObjectFormState) => void;
@@ -2504,7 +2682,7 @@ function ObjectEditorPage({
           submitLabel={submitLabel}
         />
       </section>
-      {object && <ObjectHistory customers={customers} jobs={jobs} object={object} reports={reports} />}
+      {object && <ObjectHistory customers={customers} jobs={jobs} object={object} onUpdateReport={onUpdateReport} reports={reports} />}
     </div>
   );
 }
@@ -2513,11 +2691,13 @@ function ObjectHistory({
   customers,
   jobs,
   object,
+  onUpdateReport,
   reports,
 }: {
   customers: CustomerRecord[];
   jobs: JobRecord[];
   object: ObjectRecord;
+  onUpdateReport: (report: ReportRecord) => void;
   reports: ReportRecord[];
 }) {
   const objectJobs = jobs.filter((job) => job.objectId === object.id);
@@ -2554,17 +2734,19 @@ function ObjectHistory({
   const reportImages = object.media.items.filter((item) => item.type === "Bild");
   const reportDocuments = object.media.items.filter((item) => item.type !== "Bild");
   const reportId = selectedReport ? selectedReport.id : selectedHistory?.id ?? "";
-  const sentAt = selectedReport ? sentReports[selectedReport.id] : "";
+  const sentAt = selectedReport ? selectedReport.sentAt || sentReports[selectedReport.id] : "";
 
   function sendCustomerReport() {
     if (!selectedReport) return;
+    const timestamp = new Date().toLocaleString("de-DE", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
     setSentReports({
       ...sentReports,
-      [selectedReport.id]: new Date().toLocaleString("de-DE", {
-        dateStyle: "medium",
-        timeStyle: "short",
-      }),
+      [selectedReport.id]: timestamp,
     });
+    onUpdateReport({ ...selectedReport, sentAt: timestamp });
   }
 
   return (
@@ -2676,12 +2858,80 @@ function ObjectHistory({
                   <strong>Zusammenfassung für den Kunden</strong>
                   <p>{selectedReport.summary}</p>
                 </div>
-                {selectedJob && selectedJob.checklist.length > 0 && (
+                <div className="history-block">
+                  <strong>Kommentar an den Kunden</strong>
+                  <p>{selectedReport.customerComment || "Noch kein Kundenkommentar hinterlegt."}</p>
+                </div>
+                {selectedReport.checklistResults.length > 0 ? (
                   <div className="report-checklist">
-                    <strong>Durchgeführte Punkte</strong>
-                    <ul>
-                      {selectedJob.checklist.map((item) => <li key={item}>{item}</li>)}
-                    </ul>
+                    <strong>Kontrolle vor Ort</strong>
+                    <div className="report-task-list">
+                      {selectedReport.checklistResults.map((item) => (
+                        <article key={item.id}>
+                          <div>
+                            <Badge value={item.completed ? "ausgeführt" : "nicht ausgeführt"} />
+                            <strong>{item.title}</strong>
+                            <span>{item.meta}</span>
+                          </div>
+                          <p>{item.description}</p>
+                          <dl>
+                            <div><dt>Zeit</dt><dd>{item.minutes} min.</dd></div>
+                            <div><dt>Hinweis / Info</dt><dd>{item.note || "Keine zusätzliche Info erfasst."}</dd></div>
+                            <div><dt>Bilder</dt><dd>{item.photos.length > 0 ? item.photos.map((photo) => photo.name).join(", ") : "Keine Bilder erfasst."}</dd></div>
+                          </dl>
+                        </article>
+                      ))}
+                    </div>
+                  </div>
+                ) : selectedJob && selectedJob.checklist.length > 0 ? (
+                  <div className="report-checklist">
+                    <strong>Kontrolle vor Ort</strong>
+                    <div className="report-task-list">
+                      {selectedJob.checklist.map((item) => (
+                        <article key={item}>
+                          <div>
+                            <Badge value="offen" />
+                            <strong>{item}</strong>
+                            <span>{selectedJob.type}</span>
+                          </div>
+                          <p>Noch nicht im Einsatzbericht dokumentiert.</p>
+                          <dl>
+                            <div><dt>Zeit</dt><dd>0 min.</dd></div>
+                            <div><dt>Hinweis / Info</dt><dd>Keine zusätzliche Info erfasst.</dd></div>
+                            <div><dt>Bilder</dt><dd>Keine Bilder erfasst.</dd></div>
+                          </dl>
+                        </article>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+                {selectedReport.checklistResults.some((item) => item.photos.length > 0) && (
+                  <div className="report-documents">
+                    <strong>Bilder aus einzelnen Checklistenpunkten</strong>
+                    {selectedReport.checklistResults.flatMap((item) =>
+                      item.photos.map((photo) => <span key={`${item.id}-${photo.name}`}>{item.title}: {photo.name}</span>),
+                    )}
+                  </div>
+                )}
+                {selectedReport.checklistResults.some((item) => item.photos.some((photo) => photo.previewUrl)) && (
+                  <div className="report-gallery">
+                    <strong>Aufnahmen aus der Kontrolle</strong>
+                    <div>
+                      {selectedReport.checklistResults.flatMap((item) =>
+                        item.photos
+                          .filter((photo) => photo.previewUrl)
+                          .map((photo) => (
+                            <figure key={`${item.id}-${photo.name}-preview`}>
+                              <div
+                                aria-label={`Kontrollfoto ${photo.name}`}
+                                role="img"
+                                style={{ backgroundImage: `url(${photo.previewUrl})` }}
+                              />
+                              <figcaption>{item.title}: {photo.name}</figcaption>
+                            </figure>
+                          )),
+                      )}
+                    </div>
                   </div>
                 )}
                 <div className="history-media">
@@ -2729,14 +2979,22 @@ function ObjectHistory({
                 <strong>Interne Notizen</strong>
                 <p>{selectedReport.internalNotes}</p>
               </div>
+              <label className="report-comment-editor">
+                <span>Kommentar vor dem Senden</span>
+                <textarea
+                  value={selectedReport.customerComment}
+                  onChange={(event) => onUpdateReport({ ...selectedReport, customerComment: event.target.value })}
+                  placeholder="Kommentar ergänzen, der im Kundenbericht erscheinen soll."
+                />
+              </label>
               <div className="send-status">
-                <strong>{sentReports[selectedReport.id] ? "Gesendet" : "Noch nicht an Kunden gesendet"}</strong>
+                <strong>{sentAt ? "Gesendet" : "Noch nicht an Kunden gesendet"}</strong>
                 <span>Betreff: {reportSubject}</span>
                 <span>An: {reportCustomer?.email ?? object.ownerEmail}</span>
                 <span>Kopie: info@kolaretorp.se</span>
                 <span>Anhang: {reportPdfName}</span>
                 <span>Body: {mailBody}</span>
-                {sentReports[selectedReport.id] && <span>Zeitstempel: {sentReports[selectedReport.id]}</span>}
+                {sentAt && <span>Zeitstempel: {sentAt}</span>}
               </div>
             </>
           ) : (

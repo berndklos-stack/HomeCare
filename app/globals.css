@@ -1422,6 +1422,44 @@ mark.neutral {
   margin-bottom: 4px;
 }
 
+.report-task-list {
+  display: grid;
+  gap: 10px;
+}
+
+.report-task-list article {
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+}
+
+.report-task-list article > div:first-child {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.report-task-list article > div:first-child span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  grid-column: 2;
+}
+
+.report-task-list p {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 0;
+}
+
+.report-task-list dl {
+  margin: 0;
+}
+
 .history-media {
   display: flex;
   flex-wrap: wrap;
@@ -1513,6 +1551,26 @@ mark.neutral {
   color: var(--muted);
   font-size: 12px;
   font-weight: 700;
+}
+
+.report-comment-editor {
+  display: grid;
+  gap: 6px;
+}
+
+.report-comment-editor span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.report-comment-editor textarea {
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  min-height: 82px;
+  padding: 10px;
 }
 
 .tags,

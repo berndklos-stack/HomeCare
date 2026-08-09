@@ -1,10 +1,28 @@
 export const appVersion = {
-  version: "1.29.0",
+  version: "1.31.0",
   releaseDate: "2026-08-10",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.31.0",
+    date: "2026-08-10",
+    changes: [
+      "Mobil-vor-Ort-Eingaben werden jetzt pro Auftrag gespeichert, auch beim Wechsel zwischen Menüpunkten",
+      "Abhakungen, Zeiten, Hinweise und Fotos werden vollständig in den Einsatzbericht übernommen",
+      "Fotos aus Checklistenpunkten werden im Kundenbericht mit Dateiname und Vorschau angezeigt",
+    ],
+  },
+  {
+    version: "1.30.0",
+    date: "2026-08-10",
+    changes: [
+      "Einsatzabschluss erzeugt jetzt einen strukturierten Bericht aus allen Checklistenpunkten",
+      "Bericht zeigt pro Punkt Status, Zeit, Hinweis und erfasste Bilder, auch wenn ein Punkt nicht ausgeführt wurde",
+      "Zu jedem Bericht kann vor dem Senden ein Kundenkommentar gepflegt werden",
+    ],
+  },
   {
     version: "1.29.0",
     date: "2026-08-10",

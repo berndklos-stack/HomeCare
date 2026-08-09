@@ -4,6 +4,18 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.31.0 - 2026-08-10
+
+- Mobil-vor-Ort-Eingaben werden jetzt pro Auftrag gespeichert, auch beim Wechsel zwischen Menüpunkten.
+- Abhakungen, Zeiten, Hinweise und Fotos werden vollständig in den Einsatzbericht übernommen.
+- Fotos aus Checklistenpunkten werden im Kundenbericht mit Dateiname und Vorschau angezeigt.
+
+## 1.30.0 - 2026-08-10
+
+- Einsatzabschluss erzeugt jetzt einen strukturierten Bericht aus allen Checklistenpunkten.
+- Bericht zeigt pro Punkt Status, Zeit, Hinweis und erfasste Bilder, auch wenn ein Punkt nicht ausgeführt wurde.
+- Zu jedem Bericht kann vor dem Senden ein Kundenkommentar gepflegt werden.
+
 ## 1.29.0 - 2026-08-10
 
 - Mobil-vor-Ort-Ansicht verwendet jetzt die normalen App-Farben statt einer separaten dunklen Geräteoptik.
