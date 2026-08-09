@@ -4,6 +4,14 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.13.0 - 2026-08-09
+
+- Leistungen enthalten jetzt detaillierte Checklistenpunkte mit Hinweis und Standardzeit.
+- Leistungspreise haben ein separates Währungsfeld.
+- Mobile Auftragsbearbeitung zeigt beim Start die Checklistenpunkte aus dem Objektpaket.
+- Einsatzkräfte können pro Punkt abhaken, Zeit erfassen und Hinweise notieren.
+- Gestartete Aufträge öffnen zuverlässig den ausgewählten Auftrag statt den ersten laufenden Einsatz.
+
 ## 1.12.0 - 2026-08-09
 
 - Aktionsbuttons werden in Listen und Stammdaten konsistent als Iconbuttons dargestellt.

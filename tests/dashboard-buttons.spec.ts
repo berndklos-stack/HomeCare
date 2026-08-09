@@ -127,6 +127,10 @@ test("new operations workspace supports core property and job flows", async ({ p
   await page.getByTestId("nav-planning").click();
   await expect(page.getByRole("heading", { name: "Einsatzplanung" })).toBeVisible();
   await page.getByRole("button", { name: /Bearbeiteter Testauftrag/ }).click();
+  await expect(page.getByRole("heading", { name: "Bearbeiteter Testauftrag" })).toBeVisible();
+  await expect(page.getByRole("article").filter({ hasText: "Zugang prüfen" }).getByText("Hauskontrolle · Kontrolle · 795 SEK/Besuch")).toBeVisible();
+  await page.getByLabel("Zeit Zugang prüfen").fill("22");
+  await page.getByLabel("Hinweis Zugang prüfen").fill("Schlüsselsafe geprüft, Zugang ohne Problem.");
   await expect(page.getByRole("button", { name: "Einsatz abschließen" })).toBeVisible();
   await page.getByRole("button", { name: "Einsatz abschließen" }).click();
   await expect(page.getByRole("heading", { name: "Objektübersicht" })).toBeVisible();
@@ -152,10 +156,17 @@ test("new operations workspace supports core property and job flows", async ({ p
   await field("Leistung").fill("Fensterkontrolle");
   await field("Kategorie").fill("Kontrolle");
   await field("Einheit").fill("Kontrollgang");
-  await field("Preis").fill("350 SEK");
+  await field("Preis").fill("350");
+  await field("Währung").selectOption("SEK");
   await field("Beschreibung").fill("Fenster schließen, Griffe prüfen und Auffälligkeiten dokumentieren");
+  await field("Punkt").fill("Fensterstatus prüfen");
+  await field("Standardzeit min.").fill("12");
+  await field("Hinweis / Info").fill("Fenster schließen, Griffe prüfen und Schäden dokumentieren.");
+  await page.getByRole("button", { name: "Checklistenpunkt hinzufügen" }).click();
+  await expect(page.getByText("Fensterstatus prüfen")).toBeVisible();
   await page.getByRole("button", { name: "Leistung anlegen" }).click();
   await expect(page.locator(".service-catalog").getByText("Fensterkontrolle")).toBeVisible();
+  await expect(page.locator(".service-catalog article").filter({ hasText: "Fensterkontrolle" }).getByText("1 Checklistenpunkte")).toBeVisible();
   await page.locator(".service-catalog article").filter({ hasText: "Fensterkontrolle" }).getByRole("button", { name: "Leistung Fensterkontrolle bearbeiten" }).click();
   await field("Kategorie").fill("Winterservice");
   await field("Preis").fill("375 SEK");
@@ -187,7 +198,7 @@ test("new operations workspace supports core property and job flows", async ({ p
   await page.getByRole("button", { name: "Leistung Fensterkontrolle archivieren" }).click();
   await expect(page.getByText('Leistung "Fensterkontrolle" wurde archiviert.')).toBeVisible();
   await page.getByRole("button", { name: "Archivierte Leistung Fensterkontrolle bearbeiten" }).click();
-  await field("Preis").fill("390 SEK");
+  await field("Preis").fill("390");
   await page.getByRole("button", { name: "Leistung speichern" }).click();
   await expect(page.getByText("390 SEK/Kontrollgang")).toBeVisible();
   await page.getByRole("button", { name: "Archivierte Leistung Fensterkontrolle reaktivieren" }).click();

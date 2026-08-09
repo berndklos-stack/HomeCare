@@ -1,10 +1,21 @@
 export const appVersion = {
-  version: "1.12.0",
+  version: "1.13.0",
   releaseDate: "2026-08-09",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.13.0",
+    date: "2026-08-09",
+    changes: [
+      "Leistungen enthalten jetzt detaillierte Checklistenpunkte mit Hinweis und Standardzeit",
+      "Leistungspreise haben ein separates Währungsfeld",
+      "Mobile Auftragsbearbeitung zeigt beim Start die Checklistenpunkte aus dem Objektpaket",
+      "Einsatzkräfte können pro Punkt abhaken, Zeit erfassen und Hinweise notieren",
+      "Gestartete Aufträge öffnen zuverlässig den ausgewählten Auftrag statt den ersten laufenden Einsatz",
+    ],
+  },
   {
     version: "1.12.0",
     date: "2026-08-09",

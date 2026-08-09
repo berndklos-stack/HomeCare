@@ -154,8 +154,17 @@ type ServiceItem = {
   category: string;
   unit: string;
   price: string;
+  currency: string;
   description: string;
+  checklist: ServiceChecklistItem[];
   archived?: boolean;
+};
+
+type ServiceChecklistItem = {
+  id: string;
+  title: string;
+  note: string;
+  defaultMinutes: number;
 };
 
 type ServicePackage = {
@@ -777,14 +786,34 @@ const seedBilling: BillingRecord[] = [
 ];
 
 const seedServices: ServiceItem[] = [
-  { id: "SVC-1", name: "Hauskontrolle", category: "Kontrolle", unit: "Besuch", price: "795 SEK", description: "Sichtprüfung von Haus, Grundstück und Zugang mit Kurzbericht" },
-  { id: "SVC-2", name: "Fotobericht", category: "Dokumentation", unit: "Bericht", price: "inklusive", description: "Strukturierte Fotos und kurze Zusammenfassung nach dem Einsatz" },
-  { id: "SVC-3", name: "E-Mail Rückmeldung", category: "Kommunikation", unit: "Nachricht", price: "inklusive", description: "Statusmeldung an Eigentümer nach Besuch oder Einsatz" },
-  { id: "SVC-4", name: "Briefkastenservice", category: "Betreuung", unit: "Besuch", price: "inklusive", description: "Briefkasten leeren, relevante Post fotografieren und melden" },
-  { id: "SVC-5", name: "Gartenpflege", category: "Außenanlage", unit: "Stunde", price: "595 SEK", description: "Rasen, Hecken, Saisonpflege und Sichtkontrolle außen" },
-  { id: "SVC-6", name: "Schlüsselservice", category: "Zugang", unit: "Einsatz", price: "495 SEK", description: "Schlüsselübergabe, Zugangsdokumentation und Schlüsselverwaltung" },
-  { id: "SVC-7", name: "Reinigung", category: "Innenbereich", unit: "Stunde", price: "495 SEK", description: "Innenreinigung und Vorbereitung für Eigentümer oder Gäste" },
-  { id: "SVC-8", name: "Notdienst", category: "Sonderleistung", unit: "Einsatz", price: "990 SEK", description: "Priorisierte Hilfe bei akuten Problemen nach Aufwand" },
+  { id: "SVC-1", name: "Hauskontrolle", category: "Kontrolle", unit: "Besuch", price: "795", currency: "SEK", description: "Sichtprüfung von Haus, Grundstück und Zugang mit Kurzbericht", checklist: [
+    { id: "SVC-1-1", title: "Zugang prüfen", note: "Schlüsselsafe, Türen, Fenster und Alarmstatus dokumentieren.", defaultMinutes: 10 },
+    { id: "SVC-1-2", title: "Außenrunde durchführen", note: "Fassade, Dach, Terrasse, Zufahrt und sichtbare Schäden prüfen.", defaultMinutes: 20 },
+    { id: "SVC-1-3", title: "Innenkontrolle abschließen", note: "Wasser, Heizung, Strom, Gerüche und Auffälligkeiten erfassen.", defaultMinutes: 20 },
+  ] },
+  { id: "SVC-2", name: "Fotobericht", category: "Dokumentation", unit: "Bericht", price: "inklusive", currency: "SEK", description: "Strukturierte Fotos und kurze Zusammenfassung nach dem Einsatz", checklist: [
+    { id: "SVC-2-1", title: "Vorher-Fotos erfassen", note: "Relevante Räume und Außenbereiche fotografieren.", defaultMinutes: 10 },
+    { id: "SVC-2-2", title: "Nachher-Fotos ergänzen", note: "Erledigte Arbeiten und besondere Feststellungen dokumentieren.", defaultMinutes: 10 },
+  ] },
+  { id: "SVC-3", name: "E-Mail Rückmeldung", category: "Kommunikation", unit: "Nachricht", price: "inklusive", currency: "SEK", description: "Statusmeldung an Eigentümer nach Besuch oder Einsatz", checklist: [
+    { id: "SVC-3-1", title: "Kundenzusammenfassung vorbereiten", note: "Nur kundenfreigegebene Hinweise aufnehmen.", defaultMinutes: 8 },
+  ] },
+  { id: "SVC-4", name: "Briefkastenservice", category: "Betreuung", unit: "Besuch", price: "inklusive", currency: "SEK", description: "Briefkasten leeren, relevante Post fotografieren und melden", checklist: [
+    { id: "SVC-4-1", title: "Briefkasten leeren", note: "Post sortieren und wichtige Briefe fotografieren.", defaultMinutes: 10 },
+  ] },
+  { id: "SVC-5", name: "Gartenpflege", category: "Außenanlage", unit: "Stunde", price: "595", currency: "SEK", description: "Rasen, Hecken, Saisonpflege und Sichtkontrolle außen", checklist: [
+    { id: "SVC-5-1", title: "Rasen und Wege prüfen", note: "Pflegebedarf, Hindernisse und Wetterlage notieren.", defaultMinutes: 15 },
+    { id: "SVC-5-2", title: "Gartenarbeit ausführen", note: "Arbeitszeit und besondere Arbeiten sauber erfassen.", defaultMinutes: 60 },
+  ] },
+  { id: "SVC-6", name: "Schlüsselservice", category: "Zugang", unit: "Einsatz", price: "495", currency: "SEK", description: "Schlüsselübergabe, Zugangsdokumentation und Schlüsselverwaltung", checklist: [
+    { id: "SVC-6-1", title: "Schlüsselbestand prüfen", note: "Schlüsselnummer, Ablageort und Übergabe dokumentieren.", defaultMinutes: 15 },
+  ] },
+  { id: "SVC-7", name: "Reinigung", category: "Innenbereich", unit: "Stunde", price: "495", currency: "SEK", description: "Innenreinigung und Vorbereitung für Eigentümer oder Gäste", checklist: [
+    { id: "SVC-7-1", title: "Räume reinigen", note: "Bad, Küche, Wohnräume und Schlafräume nach Standard prüfen.", defaultMinutes: 90 },
+  ] },
+  { id: "SVC-8", name: "Notdienst", category: "Sonderleistung", unit: "Einsatz", price: "990", currency: "SEK", description: "Priorisierte Hilfe bei akuten Problemen nach Aufwand", checklist: [
+    { id: "SVC-8-1", title: "Problem aufnehmen", note: "Ursache, Sofortmaßnahme und Folgeauftrag dokumentieren.", defaultMinutes: 30 },
+  ] },
 ];
 
 const seedPackages: ServicePackage[] = [
@@ -799,6 +828,13 @@ function statusTone(status: string) {
   if (["erledigt", "abgerechnet", "aktiv", "Gelesen"].includes(status)) return "good";
   if (["dringend", "gesperrt"].includes(status)) return "danger";
   return "neutral";
+}
+
+function serviceRate(service: ServiceItem) {
+  const price = service.price.trim();
+  const hasCurrency = /\b(SEK|EUR|USD|NOK|DKK)\b/i.test(price);
+  const amount = price.toLowerCase() === "inklusive" || hasCurrency ? price : `${price} ${service.currency || "SEK"}`;
+  return `${amount}/${service.unit}`;
 }
 
 export default function HomePage() {
@@ -818,6 +854,7 @@ export default function HomePage() {
   const [editingObjectId, setEditingObjectId] = useState<string | null>(null);
   const [editingCustomerId, setEditingCustomerId] = useState<string | null>(null);
   const [editingJobId, setEditingJobId] = useState<string | null>(null);
+  const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [recordNotice, setRecordNotice] = useState("");
   const [newObject, setNewObject] = useState<NewObjectFormState>(emptyObjectForm());
   const [newCustomer, setNewCustomer] = useState<CustomerFormState>(emptyCustomerForm());
@@ -1052,6 +1089,8 @@ export default function HomePage() {
     setJobs((current) =>
       current.map((item) => (item.id === job.id ? { ...item, status: "in Arbeit" } : item)),
     );
+    setActiveJobId(job.id);
+    setSelectedObjectId(job.objectId);
     setSection("field");
   }
 
@@ -1178,7 +1217,16 @@ export default function HomePage() {
               <JobsView jobs={jobs} objects={activeObjects} onCreate={openCreateJob} onEdit={openEditJob} onStart={startJob} />
             )}
             {section === "planning" && <PlanningView jobs={jobs} objects={activeObjects} onStart={startJob} />}
-            {section === "field" && <FieldView jobs={jobs} selectedObject={selectedObject} onComplete={completeJob} />}
+            {section === "field" && (
+              <FieldView
+                activeJobId={activeJobId}
+                jobs={jobs}
+                objects={activeObjects}
+                packages={servicePackages}
+                services={services}
+                onComplete={completeJob}
+              />
+            )}
             {section === "billing" && <BillingView billing={billing} objects={activeObjects} />}
             {section === "masterData" && (
               <MasterDataView
@@ -1548,20 +1596,89 @@ function PlanningView({ jobs, objects, onStart }: { jobs: JobRecord[]; objects: 
   );
 }
 
-function FieldView({ jobs, selectedObject, onComplete }: { jobs: JobRecord[]; selectedObject: ObjectRecord; onComplete: (job: JobRecord) => void }) {
-  const active = jobs.find((job) => job.status === "in Arbeit") ?? jobs[0];
+function FieldView({
+  activeJobId,
+  jobs,
+  objects,
+  packages,
+  services,
+  onComplete,
+}: {
+  activeJobId: string | null;
+  jobs: JobRecord[];
+  objects: ObjectRecord[];
+  packages: ServicePackage[];
+  services: ServiceItem[];
+  onComplete: (job: JobRecord) => void;
+}) {
+  const active = jobs.find((job) => job.id === activeJobId) ?? jobs.find((job) => job.status === "in Arbeit") ?? jobs[0];
+  const object = objects.find((item) => item.id === active.objectId) ?? objects[0];
+  const activePackage = packages.find((servicePackage) => !servicePackage.archived && servicePackage.name === object.carePackage);
+  const packageServices = activePackage
+    ? activePackage.serviceIds
+        .map((id) => services.find((service) => service.id === id && !service.archived))
+        .filter(Boolean) as ServiceItem[]
+    : [];
+  const fieldTasks = packageServices.length > 0
+    ? packageServices.flatMap((service) => {
+        if (service.checklist.length === 0) {
+          return [{
+            id: service.id,
+            title: service.name,
+            meta: `${service.category} · ${serviceRate(service)}`,
+            description: service.description,
+            defaultMinutes: 0,
+          }];
+        }
+
+        return service.checklist.map((item) => ({
+          id: `${service.id}-${item.id}`,
+          title: item.title,
+          meta: `${service.name} · ${service.category} · ${serviceRate(service)}`,
+          description: item.note,
+          defaultMinutes: item.defaultMinutes,
+        }));
+      })
+    : active.checklist.map((item) => ({
+        id: item,
+        title: item,
+        meta: active.type,
+        description: "Aufgabe aus der Auftragscheckliste dokumentieren.",
+        defaultMinutes: 0,
+      }));
+
   return (
     <section className="field-shell">
       <div className="phone-card">
         <p>Mobil vor Ort</p>
         <h2>{active.title}</h2>
-        <span>{selectedObject.name}</span>
-        <div className="checklist">
-          {active.checklist.map((item, index) => (
-            <label key={item}>
-              <input type="checkbox" defaultChecked={index < 2} />
-              <span>{item}</span>
-            </label>
+        <span>{object.name} · {object.address}</span>
+        <div className="field-summary">
+          <strong>{active.assignedTo}</strong>
+          <small>{active.dueDate} · {object.carePackage}</small>
+        </div>
+        <div className="service-task-list">
+          {fieldTasks.map((task, index) => (
+            <article key={task.id}>
+              <label>
+                <input type="checkbox" defaultChecked={index < 1} />
+                <span>
+                  <strong>{task.title}</strong>
+                  <small>{task.meta}</small>
+                </span>
+              </label>
+              <p>{task.description}</p>
+              <div className="field-task-inputs">
+                <label>
+                  <span>Zeit min.</span>
+                  <input aria-label={`Zeit ${task.title}`} defaultValue={task.defaultMinutes || ""} inputMode="numeric" min="0" type="number" />
+                </label>
+                <label>
+                  <span>Hinweis / Info</span>
+                  <textarea aria-label={`Hinweis ${task.title}`} placeholder="Kurznotiz, Besonderheit oder Rückmeldung" />
+                </label>
+              </div>
+            </article>
           ))}
         </div>
         <textarea defaultValue="Notiz: Zugang geprüft, Fotos ergänzt." aria-label="Einsatznotiz" />
@@ -1623,7 +1740,14 @@ function MasterDataView({
     category: "",
     unit: "",
     price: "",
+    currency: "SEK",
     description: "",
+    checklist: [] as ServiceChecklistItem[],
+  });
+  const [serviceChecklistForm, setServiceChecklistForm] = useState({
+    title: "",
+    note: "",
+    defaultMinutes: "",
   });
   const [packageForm, setPackageForm] = useState({
     name: "",
@@ -1651,7 +1775,8 @@ function MasterDataView({
 
   function resetServiceForm() {
     setEditingServiceId(null);
-    setServiceForm({ name: "", category: "", unit: "", price: "", description: "" });
+    setServiceForm({ name: "", category: "", unit: "", price: "", currency: "SEK", description: "", checklist: [] });
+    setServiceChecklistForm({ title: "", note: "", defaultMinutes: "" });
   }
 
   function editService(service: ServiceItem) {
@@ -1661,7 +1786,37 @@ function MasterDataView({
       category: service.category,
       unit: service.unit,
       price: service.price,
+      currency: service.currency || "SEK",
       description: service.description,
+      checklist: service.checklist ?? [],
+    });
+  }
+
+  function addServiceChecklistItem() {
+    if (!serviceChecklistForm.title.trim()) {
+      setArchiveNotice("Bitte für den Checklistenpunkt mindestens einen Titel erfassen.");
+      return;
+    }
+
+    setServiceForm({
+      ...serviceForm,
+      checklist: [
+        ...serviceForm.checklist,
+        {
+          id: `SCL-${Date.now()}`,
+          title: serviceChecklistForm.title.trim(),
+          note: serviceChecklistForm.note.trim() || "Hinweis vor Ort ergänzen.",
+          defaultMinutes: Number(serviceChecklistForm.defaultMinutes) || 0,
+        },
+      ],
+    });
+    setServiceChecklistForm({ title: "", note: "", defaultMinutes: "" });
+  }
+
+  function removeServiceChecklistItem(id: string) {
+    setServiceForm({
+      ...serviceForm,
+      checklist: serviceForm.checklist.filter((item) => item.id !== id),
     });
   }
 
@@ -1677,8 +1832,10 @@ function MasterDataView({
       name: serviceForm.name.trim(),
       category: serviceForm.category.trim(),
       unit: serviceForm.unit.trim(),
-      price: serviceForm.price.trim() || "0 SEK",
+      price: serviceForm.price.trim() || "0",
+      currency: serviceForm.currency,
       description: serviceForm.description.trim() || "Beschreibung ergänzen.",
+      checklist: serviceForm.checklist,
       archived: existingService?.archived ?? false,
     };
 
@@ -1820,8 +1977,42 @@ function MasterDataView({
           <datalist id="service-units">
             {serviceUnits.map((unit) => <option key={unit} value={unit} />)}
           </datalist>
-          <label><span>Preis</span><input value={serviceForm.price} onChange={(event) => setServiceForm({ ...serviceForm, price: event.target.value })} placeholder="z.B. 595 SEK/Stunde" /></label>
+          <label><span>Preis</span><input value={serviceForm.price} onChange={(event) => setServiceForm({ ...serviceForm, price: event.target.value })} placeholder="z.B. 595" /></label>
+          <label>
+            <span>Währung</span>
+            <select value={serviceForm.currency} onChange={(event) => setServiceForm({ ...serviceForm, currency: event.target.value })}>
+              <option>SEK</option>
+              <option>EUR</option>
+              <option>USD</option>
+              <option>NOK</option>
+              <option>DKK</option>
+            </select>
+          </label>
           <label className="wide"><span>Beschreibung</span><textarea value={serviceForm.description} onChange={(event) => setServiceForm({ ...serviceForm, description: event.target.value })} /></label>
+          <div className="wide service-checklist-editor">
+            <span>Checkliste für Einsatz</span>
+            <div className="service-checklist-form">
+              <label><span>Punkt</span><input value={serviceChecklistForm.title} onChange={(event) => setServiceChecklistForm({ ...serviceChecklistForm, title: event.target.value })} placeholder="z.B. Zugang prüfen" /></label>
+              <label><span>Standardzeit min.</span><input inputMode="numeric" min="0" type="number" value={serviceChecklistForm.defaultMinutes} onChange={(event) => setServiceChecklistForm({ ...serviceChecklistForm, defaultMinutes: event.target.value })} /></label>
+              <label className="wide"><span>Hinweis / Info</span><textarea value={serviceChecklistForm.note} onChange={(event) => setServiceChecklistForm({ ...serviceChecklistForm, note: event.target.value })} placeholder="Was soll vor Ort geprüft oder dokumentiert werden?" /></label>
+              <button className="ghost-button wide" onClick={addServiceChecklistItem} type="button">
+                <Plus size={16} />
+                Checklistenpunkt hinzufügen
+              </button>
+            </div>
+            <div className="checklist-preview">
+              {serviceForm.checklist.map((item) => (
+                <article key={item.id}>
+                  <div>
+                    <strong>{item.title}</strong>
+                    <small>{item.note} · {item.defaultMinutes} min.</small>
+                  </div>
+                  <IconAction danger label={`Checklistenpunkt ${item.title} entfernen`} onClick={() => removeServiceChecklistItem(item.id)}><Trash2 size={16} /></IconAction>
+                </article>
+              ))}
+              {serviceForm.checklist.length === 0 && <p>Noch keine Checklistenpunkte hinterlegt.</p>}
+            </div>
+          </div>
           <button className="primary-button wide" onClick={saveService} type="button">{editingServiceId ? "Leistung speichern" : "Leistung anlegen"}</button>
           {editingServiceId && <button className="ghost-button wide" onClick={resetServiceForm} type="button">Bearbeitung abbrechen</button>}
         </div>
@@ -1831,7 +2022,8 @@ function MasterDataView({
               <span>{service.category}</span>
               <strong>{service.name}</strong>
               <small>{service.description}</small>
-              <mark>{service.price}/{service.unit}</mark>
+              <small>{service.checklist?.length ?? 0} Checklistenpunkte</small>
+              <mark>{serviceRate(service)}</mark>
               <div className="card-actions">
                 <IconAction label={`Leistung ${service.name} bearbeiten`} onClick={() => editService(service)}><Pencil size={16} /></IconAction>
                 <IconAction danger label={`Leistung ${service.name} archivieren`} onClick={() => archiveService(service)}><Archive size={16} /></IconAction>
@@ -1847,7 +2039,7 @@ function MasterDataView({
                 <article key={service.id}>
                   <div>
                     <strong>{service.name}</strong>
-                    <span>{service.category} · {service.price}/{service.unit}</span>
+                    <span>{service.category} · {serviceRate(service)}</span>
                   </div>
                   <Badge value="archiviert" />
                   <div className="row-actions">
@@ -1953,7 +2145,7 @@ function MasterDataView({
                         <strong>{service.name}</strong>
                         <small>{service.description}</small>
                       </span>
-                      <mark>{service.price}/{service.unit}</mark>
+                      <mark>{serviceRate(service)}</mark>
                     </label>
                   ))}
                 </section>
@@ -2361,7 +2553,6 @@ function IconAction({
       className={danger ? "icon-button danger" : "icon-button"}
       data-tooltip={label}
       onClick={onClick}
-      title={label}
       type="button"
     >
       {children}

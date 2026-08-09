@@ -282,7 +282,7 @@ button {
   font-weight: 700;
   left: 50%;
   line-height: 1.2;
-  max-width: 240px;
+  max-width: min(260px, calc(100vw - 32px));
   opacity: 0;
   padding: 7px 9px;
   pointer-events: none;
@@ -291,7 +291,8 @@ button {
   transform: translate(-50%, 4px);
   transition: opacity 0.14s ease, transform 0.14s ease;
   visibility: hidden;
-  white-space: nowrap;
+  white-space: normal;
+  width: max-content;
   z-index: 40;
 }
 
@@ -585,7 +586,7 @@ mark.neutral {
 
 .field-shell {
   display: grid;
-  justify-items: start;
+  justify-items: center;
 }
 
 .phone-card {
@@ -594,8 +595,9 @@ mark.neutral {
   color: #fff;
   display: grid;
   gap: 12px;
-  max-width: 390px;
+  max-width: 430px;
   padding: 18px;
+  width: min(100%, 430px);
 }
 
 .checklist {
@@ -621,6 +623,85 @@ mark.neutral {
   color: #fff;
   min-height: 90px;
   padding: 10px;
+}
+
+.field-summary {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  display: grid;
+  gap: 3px;
+  padding: 10px 12px;
+}
+
+.field-summary small,
+.service-task-list small {
+  color: rgba(255, 255, 255, 0.68);
+}
+
+.service-task-list {
+  display: grid;
+  gap: 10px;
+}
+
+.service-task-list article {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.service-task-list article > label {
+  align-items: start;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.service-task-list input[type="checkbox"] {
+  height: 24px;
+  margin-top: 2px;
+  width: 24px;
+}
+
+.service-task-list p {
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 13px;
+  margin: 0;
+}
+
+.field-task-inputs {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 92px minmax(0, 1fr);
+}
+
+.field-task-inputs label {
+  display: grid;
+  gap: 4px;
+}
+
+.field-task-inputs span {
+  color: rgba(255, 255, 255, 0.66);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.field-task-inputs input,
+.field-task-inputs textarea {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  color: #fff;
+  min-height: 42px;
+  padding: 9px;
+}
+
+.field-task-inputs textarea {
+  min-height: 42px;
+  resize: vertical;
 }
 
 .service-catalog {
@@ -683,6 +764,42 @@ mark.neutral {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.service-checklist-editor {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.service-checklist-form {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) 140px;
+}
+
+.checklist-preview {
+  display: grid;
+  gap: 8px;
+}
+
+.checklist-preview article {
+  align-items: center;
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 10px;
+}
+
+.checklist-preview p {
+  color: var(--muted);
+  margin: 0;
 }
 
 .nested-backdrop {
