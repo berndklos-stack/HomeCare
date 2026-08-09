@@ -1,10 +1,23 @@
 export const appVersion = {
-  version: "1.21.0",
+  version: "1.22.0",
   releaseDate: "2026-08-09",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.22.0",
+    date: "2026-08-09",
+    changes: [
+      "Objekte werden beim Bearbeiten jetzt als eigene Seite statt als Popup geöffnet",
+      "Zurück-Pfeil führt aus der Objektbearbeitung zurück in die Objektübersicht",
+      "Historie und Verlauf sind direkt in der Objektbearbeitung eingebettet",
+      "Objektbilder werden in Übersicht und Bearbeitungsmodus angezeigt",
+      "Hochgeladene Objektbilder bleiben nach dem Aktualisieren lokal erhalten",
+      "Bilder können als Objektbild gesetzt und Medien in der Akte verschoben werden",
+      "Intervall- und Jahresrhythmusfelder im Serienauftrag wurden weiter verkleinert",
+    ],
+  },
   {
     version: "1.21.0",
     date: "2026-08-09",

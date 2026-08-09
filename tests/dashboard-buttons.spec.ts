@@ -12,8 +12,10 @@ test("new operations workspace supports core property and job flows", async ({ p
 
   await page.getByTestId("nav-objects").click();
   await expect(page.getByRole("heading", { name: "Objektübersicht" })).toBeVisible();
-  await expect(page.getByText("Objektakte", { exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Villa Långsjön" })).toBeVisible();
+  await expect(page.getByText("Objektakte", { exact: true })).toHaveCount(0);
+  await expect(page.locator(".object-list article").filter({ hasText: "Villa Långsjön" })).toBeVisible();
+  await page.locator(".object-list article").filter({ hasText: "Villa Långsjön" }).getByRole("button", { name: "Objekt Villa Långsjön bearbeiten" }).click();
+  await expect(page.getByRole("heading", { name: "Objekt bearbeiten" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Historie / Verlauf" })).toBeVisible();
   await page.locator(".history-list").getByRole("button", { name: /Poolpflege und Wasserwerte/ }).click();
   await expect(page.getByText("Pool gereinigt, Werte stabilisiert, nächste Kontrolle geplant.")).toBeVisible();
@@ -21,6 +23,7 @@ test("new operations workspace supports core property and job flows", async ({ p
   await expect(page.getByRole("button", { name: "PDF für Poolpflege und Wasserwerte ausgeben" })).toBeVisible();
   await page.getByRole("button", { name: "Bericht Poolpflege und Wasserwerte an Kunden senden" }).click();
   await expect(page.getByText("An eva.andersson@example.com gesendet")).toBeVisible();
+  await page.getByRole("button", { name: "Zurück zur Objektübersicht" }).click();
   await expect(
     page.locator(".object-list article").filter({ hasText: "Villa Långsjön" }).getByRole("button", { name: "Objekt Villa Långsjön bearbeiten" }),
   ).toHaveAttribute("data-tooltip", "Objekt Villa Långsjön bearbeiten");
@@ -50,14 +53,14 @@ test("new operations workspace supports core property and job flows", async ({ p
   await field("Hinweise / Risiken").fill("Poolpumpe regelmäßig prüfen");
   await page.getByRole("button", { name: "Objekt anlegen" }).click();
 
-  await expect(page.getByRole("heading", { name: "Testhaus Smaland" })).toBeVisible();
-  await expect(page.getByText("Testvägen 12, Nybro")).toBeVisible();
+  await expect(page.locator(".object-list article").filter({ hasText: "Testhaus Smaland" })).toBeVisible();
   await expect(page.getByText("145 m² · 2300 m² Grundstück")).toHaveCount(0);
 
   await page.locator(".object-list article").filter({ hasText: "Testhaus Smaland" }).getByRole("button", { name: "Objekt Testhaus Smaland bearbeiten" }).click();
   await expect(page.getByRole("heading", { name: "Objekt bearbeiten" })).toBeVisible();
   await expect(page.getByText("Dokument: versicherung.pdf")).toBeVisible();
   await expect(field("Größe m²")).toHaveValue("145");
+  await expect(field("Objektadresse")).toHaveValue("Testvägen 12, Nybro");
   await field("Telefon Eigentümer").fill("+46 70 123456");
   await field("Objektadresse").fill("Geänderter Weg 5, Nybro");
   await field("Alarmanlage").fill("Code im internen Tresor hinterlegt");
@@ -65,8 +68,11 @@ test("new operations workspace supports core property and job flows", async ({ p
   await field("Nächster Besuch").fill("2026-08-12");
   await page.getByRole("button", { name: "Objekt speichern" }).click();
 
-  await expect(page.getByText("Geänderter Weg 5, Nybro")).toBeVisible();
-  await expect(page.getByText(/\+46 70 123456/)).toBeVisible();
+  await page.locator(".object-list article").filter({ hasText: "Testhaus Smaland" }).getByRole("button", { name: "Objekt Testhaus Smaland bearbeiten" }).click();
+  await expect(field("Objektadresse")).toHaveValue("Geänderter Weg 5, Nybro");
+  await expect(field("Telefon Eigentümer")).toHaveValue("+46 70 123456");
+  await expect(page.getByText("Objektbild: objektfoto.jpg")).toBeVisible();
+  await page.getByRole("button", { name: "Zurück zur Objektübersicht" }).click();
 
   await page.getByRole("button", { name: /\d+\s*Berichte/ }).click();
   await expect(page.getByRole("heading", { name: "Objektübersicht" })).toBeVisible();
@@ -121,7 +127,7 @@ test("new operations workspace supports core property and job flows", async ({ p
   await page.getByTestId("nav-objects").click();
   await page.locator(".object-list article").filter({ hasText: "Villa Långsjön" }).getByRole("button", { name: "Objekt Villa Långsjön bearbeiten" }).click();
   await expect(exactField("Eigentümer")).toHaveValue("M. Schneider");
-  await page.getByRole("button", { name: "Schließen" }).click();
+  await page.getByRole("button", { name: "Zurück zur Objektübersicht" }).click();
   await page.getByTestId("nav-customers").click();
   await page.locator(".table-list article").filter({ hasText: "Familie Beispiel" }).getByRole("button", { name: "Kunde Familie Beispiel bearbeiten" }).click();
   await field("Telefon").fill("+46 70 112233");

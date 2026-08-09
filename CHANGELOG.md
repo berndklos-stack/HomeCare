@@ -4,6 +4,16 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.22.0 - 2026-08-09
+
+- Objekte werden beim Bearbeiten jetzt als eigene Seite statt als Popup geöffnet.
+- Zurück-Pfeil führt aus der Objektbearbeitung zurück in die Objektübersicht.
+- Historie und Verlauf sind direkt in der Objektbearbeitung eingebettet.
+- Objektbilder werden in Übersicht und Bearbeitungsmodus angezeigt.
+- Hochgeladene Objektbilder bleiben nach dem Aktualisieren lokal erhalten.
+- Bilder können als Objektbild gesetzt und Medien in der Akte verschoben werden.
+- Intervall- und Jahresrhythmusfelder im Serienauftrag wurden weiter verkleinert.
+
 ## 1.21.0 - 2026-08-09
 
 - Intervall- und Jahresrhythmusfelder im Serienauftrag sind jetzt kompakt.

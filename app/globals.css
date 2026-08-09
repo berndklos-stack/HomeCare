@@ -412,6 +412,67 @@ button {
   margin-bottom: 14px;
 }
 
+.editor-title {
+  align-items: flex-start;
+  border-bottom: 1px solid var(--line);
+  display: grid;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding-bottom: 14px;
+}
+
+.editor-title .ghost-button {
+  justify-self: start;
+}
+
+.object-editor-page {
+  display: grid;
+  gap: 16px;
+}
+
+.object-editor-preview {
+  align-items: center;
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: 180px minmax(0, 1fr);
+  margin-bottom: 16px;
+  padding: 12px;
+}
+
+.object-editor-preview > div:last-child {
+  display: grid;
+  gap: 4px;
+}
+
+.object-editor-image {
+  align-items: center;
+  aspect-ratio: 4 / 3;
+  background-color: var(--paper);
+  background-position: center;
+  background-size: cover;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  justify-content: center;
+  min-height: 120px;
+  text-align: center;
+}
+
+.object-editor-preview span {
+  color: var(--muted);
+}
+
+.object-history {
+  display: grid;
+  gap: 14px;
+}
+
 .panel-title h2,
 .object-file h2,
 .phone-card h2,
@@ -479,11 +540,25 @@ button {
   color: inherit;
   display: grid;
   gap: 10px;
-  grid-template-columns: minmax(180px, 1fr) minmax(90px, 0.35fr) minmax(170px, 0.7fr) minmax(90px, 0.35fr) auto;
+  grid-template-columns: 54px minmax(180px, 1fr) minmax(90px, 0.35fr) minmax(170px, 0.7fr) minmax(90px, 0.35fr) auto;
   min-height: 48px;
   padding: 0;
   text-align: left;
   width: 100%;
+}
+
+.object-thumb {
+  align-items: center;
+  background-color: var(--paper-soft);
+  background-position: center;
+  background-size: cover;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--brand);
+  display: inline-flex;
+  height: 42px;
+  justify-content: center;
+  width: 54px;
 }
 
 .customer-row {
@@ -1016,12 +1091,17 @@ mark.neutral {
 .interval-field,
 .year-interval-field {
   justify-self: end;
-  width: 86px;
+  max-width: 64px;
+  width: 64px;
 }
 
 .interval-field input,
 .year-interval-field input {
+  max-width: 64px;
+  padding-left: 6px;
+  padding-right: 6px;
   text-align: center;
+  width: 64px;
 }
 
 .weekday-picker {
@@ -1448,12 +1528,26 @@ mark.neutral {
   border-radius: 8px;
   display: grid;
   gap: 8px;
-  grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr) auto;
+  grid-template-columns: 54px minmax(180px, 1fr) minmax(180px, 1fr) auto auto;
   padding: 10px;
 }
 
 .media-list strong {
   display: block;
+}
+
+.media-thumb {
+  align-items: center;
+  background-color: var(--paper);
+  background-position: center;
+  background-size: cover;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--brand);
+  display: inline-flex;
+  height: 42px;
+  justify-content: center;
+  width: 54px;
 }
 
 .check-list {
@@ -1559,5 +1653,14 @@ mark.neutral {
   .recurrence-grid,
   .season-grid {
     grid-template-columns: 1fr;
+  }
+
+  .object-editor-preview {
+    grid-template-columns: 1fr;
+  }
+
+  .object-editor-image {
+    max-width: 260px;
+    width: 100%;
   }
 }

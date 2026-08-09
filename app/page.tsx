@@ -2,6 +2,9 @@
 
 import Image from "next/image";
 import {
+  ArrowDown,
+  ArrowLeft,
+  ArrowUp,
   Archive,
   CalendarDays,
   Camera,
@@ -25,7 +28,7 @@ import {
   Wrench,
   X,
 } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { appVersion, versionHistory } from "@/lib/appVersion";
 
 type Language = "de" | "sv" | "en";
@@ -41,7 +44,7 @@ type Section =
   | "communication"
   | "billing"
   | "masterData";
-type Modal = "object" | "customer" | "job" | "version" | null;
+type Modal = "customer" | "job" | "version" | null;
 
 type ObjectRecord = {
   id: string;
@@ -95,6 +98,7 @@ type MediaItem = {
   description: string;
   source: "Upload" | "Kamera";
   previewUrl?: string;
+  isPrimary?: boolean;
 };
 
 type CustomerRecord = {
@@ -424,6 +428,20 @@ function objectToForm(object: ObjectRecord): NewObjectFormState {
 
 function splitList(value: string) {
   return value.split(",").map((item) => item.trim()).filter(Boolean);
+}
+
+function primaryObjectImage(object: ObjectRecord) {
+  return object.media.items.find((item) => item.type === "Bild" && item.isPrimary && item.previewUrl)
+    ?? object.media.items.find((item) => item.type === "Bild" && item.previewUrl);
+}
+
+function fileToDataUrl(file: File) {
+  return new Promise<string>((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
+    reader.onerror = () => resolve("");
+    reader.readAsDataURL(file);
+  });
 }
 
 function formToObject(form: NewObjectFormState, id: string): ObjectRecord {
@@ -918,7 +936,8 @@ export default function HomePage() {
   const [theme, setTheme] = useState<Theme>("light");
   const [query, setQuery] = useState("");
   const [selectedObjectId, setSelectedObjectId] = useState("OBJ-1001");
-  const [objects, setObjects] = useState(seedObjects);
+  const [objects, setObjects] = useState<ObjectRecord[]>(seedObjects);
+  const [objectsStorageReady, setObjectsStorageReady] = useState(false);
   const [customers, setCustomers] = useState(seedCustomers);
   const [jobs, setJobs] = useState(seedJobs);
   const [reports] = useState(seedReports);
@@ -927,6 +946,7 @@ export default function HomePage() {
   const [servicePackages, setServicePackages] = useState(seedPackages);
   const [modal, setModal] = useState<Modal>(null);
   const [editingObjectId, setEditingObjectId] = useState<string | null>(null);
+  const [objectEditorOpen, setObjectEditorOpen] = useState(false);
   const [editingCustomerId, setEditingCustomerId] = useState<string | null>(null);
   const [editingJobId, setEditingJobId] = useState<string | null>(null);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
@@ -953,13 +973,32 @@ export default function HomePage() {
     scheduleYearInterval: "1",
   });
 
+  useEffect(() => {
+    window.setTimeout(() => {
+      const storedObjects = window.localStorage.getItem("kolaretorp-objects");
+      if (storedObjects) {
+        try {
+          setObjects(JSON.parse(storedObjects) as ObjectRecord[]);
+        } catch {
+          window.localStorage.removeItem("kolaretorp-objects");
+        }
+      }
+      setObjectsStorageReady(true);
+    }, 0);
+  }, []);
+
+  useEffect(() => {
+    if (!objectsStorageReady) return;
+    window.localStorage.setItem("kolaretorp-objects", JSON.stringify(objects));
+  }, [objects, objectsStorageReady]);
+
   const t = labels[language];
   const activeObjects = objects.filter((object) => !object.archived);
   const archivedObjects = objects.filter((object) => object.archived);
   const activeCustomers = customers.filter((customer) => !customer.archived);
   const archivedCustomers = customers.filter((customer) => customer.archived);
   const selectedObject = activeObjects.find((object) => object.id === selectedObjectId) ?? activeObjects[0] ?? objects[0];
-  const showObjectFile = section === "objects";
+  const editingObject = objects.find((object) => object.id === editingObjectId);
   const filteredObjects = activeObjects.filter((object) =>
     [object.name, object.owner, object.address, object.region, object.carePackage]
       .join(" ")
@@ -976,13 +1015,22 @@ export default function HomePage() {
   function openCreateObject() {
     setEditingObjectId(null);
     setNewObject(emptyObjectForm());
-    setModal("object");
+    setObjectEditorOpen(true);
+    setSection("objects");
   }
 
   function openEditObject(object: ObjectRecord) {
     setEditingObjectId(object.id);
+    setSelectedObjectId(object.id);
     setNewObject(objectToForm(object));
-    setModal("object");
+    setObjectEditorOpen(true);
+    setSection("objects");
+  }
+
+  function closeObjectEditor() {
+    setObjectEditorOpen(false);
+    setEditingObjectId(null);
+    setNewObject(emptyObjectForm());
   }
 
   function saveObject() {
@@ -1006,7 +1054,7 @@ export default function HomePage() {
     setSelectedObjectId(id);
     setSection("objects");
     setEditingObjectId(null);
-    setModal(null);
+    setObjectEditorOpen(false);
   }
 
   function archiveObject(object: ObjectRecord) {
@@ -1293,7 +1341,7 @@ export default function HomePage() {
           ))}
         </div>
 
-        <section className={showObjectFile ? "layout" : "layout full"}>
+        <section className="layout full">
           <div className="main-panel">
             {section === "dashboard" && (
               <Dashboard
@@ -1303,7 +1351,21 @@ export default function HomePage() {
                 setSection={setSection}
               />
             )}
-            {section === "objects" && (
+            {section === "objects" && objectEditorOpen && (
+              <ObjectEditorPage
+                customers={activeCustomers}
+                jobs={jobs}
+                object={editingObject}
+                onBack={closeObjectEditor}
+                onSubmit={saveObject}
+                reports={reports}
+                newObject={newObject}
+                setNewObject={setNewObject}
+                submitLabel={editingObjectId ? t.saveObject : t.createObject}
+                title={editingObjectId ? t.editObject : t.newObject}
+              />
+            )}
+            {section === "objects" && !objectEditorOpen && (
               <ObjectsView
                 archivedObjects={archivedObjects}
                 objects={filteredObjects}
@@ -1356,38 +1418,21 @@ export default function HomePage() {
               />
             )}
           </div>
-
-          {showObjectFile && (
-            <ObjectFile
-              jobs={jobs}
-              object={selectedObject}
-              reports={reports}
-            />
-          )}
         </section>
       </section>
 
       {modal && (
         <div className="modal-backdrop">
-          <section className={modal === "object" ? "modal modal-large" : "modal"} role="dialog" aria-modal="true">
+          <section className="modal" role="dialog" aria-modal="true">
             <header>
               <div>
-                <p>{modal === "object" ? "Objektstammdaten" : modal === "customer" ? "Kundenstammdaten" : modal === "job" ? "Auftrag" : "Änderungsverlauf"}</p>
-                <h2>{modal === "object" ? (editingObjectId ? t.editObject : t.newObject) : modal === "customer" ? (editingCustomerId ? t.editCustomer : t.newCustomer) : modal === "job" ? (editingJobId ? "Auftrag bearbeiten" : t.newJob) : `v${appVersion.version}`}</h2>
+                <p>{modal === "customer" ? "Kundenstammdaten" : modal === "job" ? "Auftrag" : "Änderungsverlauf"}</p>
+                <h2>{modal === "customer" ? (editingCustomerId ? t.editCustomer : t.newCustomer) : modal === "job" ? (editingJobId ? "Auftrag bearbeiten" : t.newJob) : `v${appVersion.version}`}</h2>
               </div>
               <button aria-label={t.close} onClick={() => setModal(null)} type="button">
                 <X size={18} />
               </button>
             </header>
-            {modal === "object" && (
-              <ObjectForm
-                customers={activeCustomers}
-                newObject={newObject}
-                setNewObject={setNewObject}
-                onSubmit={saveObject}
-                submitLabel={editingObjectId ? t.saveObject : t.createObject}
-              />
-            )}
             {modal === "job" && (
               <JobForm
                 newJob={newJob}
@@ -1525,6 +1570,7 @@ function ObjectsView({
             key={object.id}
           >
             <button className="object-row-main" onClick={() => onSelect(object.id)} type="button">
+              <ObjectThumbnail object={object} />
               <div>
                 <strong>{object.name}</strong>
                 <span>{object.owner}</span>
@@ -1563,6 +1609,23 @@ function ObjectsView({
         </div>
       )}
     </section>
+  );
+}
+
+function ObjectThumbnail({ object }: { object: ObjectRecord }) {
+  const image = primaryObjectImage(object);
+
+  return image?.previewUrl ? (
+    <span
+      aria-label={`Objektbild ${object.name}`}
+      className="object-thumb"
+      role="img"
+      style={{ backgroundImage: `url(${image.previewUrl})` }}
+    />
+  ) : (
+    <span className="object-thumb object-thumb-empty">
+      <Home size={18} />
+    </span>
   );
 }
 
@@ -2328,7 +2391,78 @@ function MasterDataView({
   );
 }
 
-function ObjectFile({
+function ObjectEditorPage({
+  customers,
+  jobs,
+  object,
+  onBack,
+  onSubmit,
+  reports,
+  newObject,
+  setNewObject,
+  submitLabel,
+  title,
+}: {
+  customers: CustomerRecord[];
+  jobs: JobRecord[];
+  object?: ObjectRecord;
+  onBack: () => void;
+  onSubmit: () => void;
+  reports: ReportRecord[];
+  newObject: NewObjectFormState;
+  setNewObject: (value: NewObjectFormState) => void;
+  submitLabel: string;
+  title: string;
+}) {
+  const primaryImage = newObject.mediaItems.find((item) => item.type === "Bild" && item.isPrimary && item.previewUrl)
+    ?? newObject.mediaItems.find((item) => item.type === "Bild" && item.previewUrl);
+
+  return (
+    <div className="object-editor-page">
+      <section className="panel">
+        <div className="editor-title">
+          <button className="ghost-button" onClick={onBack} type="button">
+            <ArrowLeft size={16} />
+            Zurück zur Objektübersicht
+          </button>
+          <div>
+            <p>Objektstammdaten</p>
+            <h2>{title}</h2>
+          </div>
+        </div>
+        <div className="object-editor-preview">
+          {primaryImage?.previewUrl ? (
+            <div
+              aria-label="Aktuelles Objektbild"
+              className="object-editor-image"
+              role="img"
+              style={{ backgroundImage: `url(${primaryImage.previewUrl})` }}
+            />
+          ) : (
+            <div className="object-editor-image object-editor-image-empty">
+              <Home size={26} />
+              <span>Noch kein Objektbild definiert</span>
+            </div>
+          )}
+          <div>
+            <strong>{newObject.name || "Neues Objekt"}</strong>
+            <span>{primaryImage ? `Objektbild: ${primaryImage.name}` : "In der Medienliste kann ein Bild als Objektbild gesetzt werden."}</span>
+          </div>
+        </div>
+        <ObjectForm
+          customers={customers}
+          newObject={newObject}
+          setNewObject={setNewObject}
+          onSubmit={onSubmit}
+          submitLabel={submitLabel}
+        />
+      </section>
+      {object && <ObjectHistory jobs={jobs} object={object} reports={reports} />}
+    </div>
+  );
+}
+
+function ObjectHistory({
   jobs,
   object,
   reports,
@@ -2362,63 +2496,36 @@ function ObjectFile({
   const [selectedHistoryId, setSelectedHistoryId] = useState(history[0]?.id ?? "");
   const [sentReports, setSentReports] = useState<string[]>([]);
   const selectedHistory = history.find((item) => item.id === selectedHistoryId) ?? history[0];
-  const previewImage = object.media.items.find((item) => item.type === "Bild" && item.previewUrl);
   const selectedReport = selectedHistory?.report;
   const selectedJob = selectedHistory?.job;
 
   return (
-    <aside className="object-file">
-      <div className="object-preview">
-        {previewImage?.previewUrl ? (
-          <div
-            aria-label={`Objektfoto ${object.name}`}
-            className="object-preview-image"
-            role="img"
-            style={{ backgroundImage: `url(${previewImage.previewUrl})` }}
-          />
-        ) : (
-          <div>
-            <Home size={26} />
-            <span>{object.name}</span>
-          </div>
-        )}
-      </div>
-      <div className="object-file-head">
+    <section className="panel object-history">
+      <div className="panel-title">
         <div>
-          <p>Objektakte</p>
-          <h2>{object.name}</h2>
-          <Badge value={object.status} />
+          <p>Objektverlauf</p>
+          <h2>Historie / Verlauf</h2>
+          <span>{object.name}</span>
         </div>
       </div>
-      <section>
-        <h3>Stammdaten</h3>
-        <dl>
-          <div><dt>Eigentümer</dt><dd>{object.owner}</dd></div>
-          <div><dt>Kontakt</dt><dd>{object.ownerEmail} · {object.ownerPhone}</dd></div>
-          <div><dt>Objektadresse</dt><dd>{object.address}</dd></div>
-        </dl>
-      </section>
-      <section>
-        <h3>Historie / Verlauf</h3>
-        <div className="history-list">
-          {history.map((item) => (
-            <button
-              className={selectedHistory?.id === item.id ? "active" : ""}
-              key={item.id}
-              onClick={() => setSelectedHistoryId(item.id)}
-              type="button"
-            >
-              <FileText size={15} />
-              <span>
-                <strong>{item.title}</strong>
-                <small>{item.date} · {item.type}{item.report ? " · Bericht vorhanden" : " · ohne Bericht"}</small>
-              </span>
-              <Badge value={item.job?.status ?? "Bericht"} />
-            </button>
-          ))}
-          {history.length === 0 && <p>Noch keine Aufträge oder Berichte vorhanden.</p>}
-        </div>
-      </section>
+      <div className="history-list">
+        {history.map((item) => (
+          <button
+            className={selectedHistory?.id === item.id ? "active" : ""}
+            key={item.id}
+            onClick={() => setSelectedHistoryId(item.id)}
+            type="button"
+          >
+            <FileText size={15} />
+            <span>
+              <strong>{item.title}</strong>
+              <small>{item.date} · {item.type}{item.report ? " · Bericht vorhanden" : " · ohne Bericht"}</small>
+            </span>
+            <Badge value={item.job?.status ?? "Bericht"} />
+          </button>
+        ))}
+        {history.length === 0 && <p>Noch keine Aufträge oder Berichte vorhanden.</p>}
+      </div>
       {selectedHistory && (
         <section className="history-detail">
           <div className="history-detail-head">
@@ -2477,7 +2584,7 @@ function ObjectFile({
           )}
         </section>
       )}
-    </aside>
+    </section>
   );
 }
 
@@ -2529,17 +2636,19 @@ function ObjectForm({
     });
   }
 
-  function addMedia(files: FileList | null, type: MediaItem["type"], source: MediaItem["source"]) {
+  async function addMedia(files: FileList | null, type: MediaItem["type"], source: MediaItem["source"]) {
     if (!files?.length) return;
 
-    const added = Array.from(files).map((file, index) => ({
+    const hasPrimaryImage = newObject.mediaItems.some((item) => item.type === "Bild" && item.isPrimary);
+    const added = await Promise.all(Array.from(files).map(async (file, index) => ({
       id: `MED-${Date.now()}-${index}-${file.name}`,
       type,
       name: file.name,
       description: type === "Dokument" ? newObject.documentDescription.trim() : "",
       source,
-      previewUrl: type === "Bild" ? URL.createObjectURL(file) : undefined,
-    }));
+      previewUrl: type === "Bild" ? await fileToDataUrl(file) : undefined,
+      isPrimary: type === "Bild" && !hasPrimaryImage && index === 0,
+    })));
     const mediaItems = [...newObject.mediaItems, ...added];
 
     setNewObject({
@@ -2560,7 +2669,14 @@ function ObjectForm({
   }
 
   function removeMedia(id: string) {
-    const mediaItems = newObject.mediaItems.filter((item) => item.id !== id);
+    const removed = newObject.mediaItems.find((item) => item.id === id);
+    const remainingItems = newObject.mediaItems.filter((item) => item.id !== id);
+    const nextPrimaryImageId = removed?.isPrimary && !remainingItems.some((item) => item.type === "Bild" && item.isPrimary)
+      ? remainingItems.find((item) => item.type === "Bild")?.id
+      : undefined;
+    const mediaItems = remainingItems.map((item) => (
+      item.id === nextPrimaryImageId ? { ...item, isPrimary: true } : item
+    ));
 
     setNewObject({
       ...newObject,
@@ -2569,6 +2685,23 @@ function ObjectForm({
       documents: String(mediaItems.filter((item) => item.type === "Dokument").length),
       floorPlans: String(mediaItems.filter((item) => item.type === "Grundriss").length),
     });
+  }
+
+  function setPrimaryImage(id: string) {
+    setNewObject({
+      ...newObject,
+      mediaItems: newObject.mediaItems.map((item) => ({ ...item, isPrimary: item.id === id && item.type === "Bild" })),
+    });
+  }
+
+  function moveMedia(id: string, direction: -1 | 1) {
+    const index = newObject.mediaItems.findIndex((item) => item.id === id);
+    const targetIndex = index + direction;
+    if (index < 0 || targetIndex < 0 || targetIndex >= newObject.mediaItems.length) return;
+
+    const mediaItems = [...newObject.mediaItems];
+    [mediaItems[index], mediaItems[targetIndex]] = [mediaItems[targetIndex], mediaItems[index]];
+    setNewObject({ ...newObject, mediaItems });
   }
 
   return (
@@ -2647,11 +2780,11 @@ function ObjectForm({
       <div className="wide upload-grid">
         <label className="upload-card">
           <span>Bilder hochladen</span>
-          <input aria-label="Bilder hochladen" accept="image/*" multiple type="file" onChange={(event) => addMedia(event.target.files, "Bild", "Upload")} />
+          <input aria-label="Bilder hochladen" accept="image/*" multiple type="file" onChange={(event) => void addMedia(event.target.files, "Bild", "Upload")} />
         </label>
         <label className="upload-card">
           <span>Foto mit Handy aufnehmen</span>
-          <input aria-label="Foto mit Handy aufnehmen" accept="image/*" capture="environment" type="file" onChange={(event) => addMedia(event.target.files, "Bild", "Kamera")} />
+          <input aria-label="Foto mit Handy aufnehmen" accept="image/*" capture="environment" type="file" onChange={(event) => void addMedia(event.target.files, "Bild", "Kamera")} />
         </label>
         <label>
           <span>Dokument-Kurzbeschreibung</span>
@@ -2659,19 +2792,31 @@ function ObjectForm({
         </label>
         <label className="upload-card">
           <span>Dokumente hochladen</span>
-          <input aria-label="Dokumente hochladen" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,image/*" multiple type="file" onChange={(event) => addMedia(event.target.files, "Dokument", "Upload")} />
+          <input aria-label="Dokumente hochladen" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,image/*" multiple type="file" onChange={(event) => void addMedia(event.target.files, "Dokument", "Upload")} />
         </label>
         <label className="upload-card">
           <span>Grundrisse hochladen</span>
-          <input aria-label="Grundrisse hochladen" accept=".pdf,image/*" multiple type="file" onChange={(event) => addMedia(event.target.files, "Grundriss", "Upload")} />
+          <input aria-label="Grundrisse hochladen" accept=".pdf,image/*" multiple type="file" onChange={(event) => void addMedia(event.target.files, "Grundriss", "Upload")} />
         </label>
       </div>
       {newObject.mediaItems.length > 0 && (
         <div className="wide media-list">
           {newObject.mediaItems.map((item) => (
             <article key={item.id}>
+              {item.type === "Bild" && item.previewUrl ? (
+                <span
+                  aria-label={`Vorschau ${item.name}`}
+                  className="media-thumb"
+                  role="img"
+                  style={{ backgroundImage: `url(${item.previewUrl})` }}
+                />
+              ) : (
+                <span className="media-thumb media-thumb-empty">
+                  <FileText size={16} />
+                </span>
+              )}
               <div>
-                <strong>{item.type}: {item.name}</strong>
+                <strong>{item.type}: {item.name}{item.isPrimary ? " · Objektbild" : ""}</strong>
                 <span>{item.source}</span>
               </div>
               <input
@@ -2680,6 +2825,11 @@ function ObjectForm({
                 value={item.description}
                 onChange={(event) => updateMediaDescription(item.id, event.target.value)}
               />
+              <div className="row-actions">
+                <IconAction label={`${item.name} nach oben verschieben`} onClick={() => moveMedia(item.id, -1)}><ArrowUp size={16} /></IconAction>
+                <IconAction label={`${item.name} nach unten verschieben`} onClick={() => moveMedia(item.id, 1)}><ArrowDown size={16} /></IconAction>
+                {item.type === "Bild" && <IconAction label={`${item.name} als Objektbild verwenden`} onClick={() => setPrimaryImage(item.id)}><Home size={16} /></IconAction>}
+              </div>
               <IconAction danger label={`Datei ${item.name} entfernen`} onClick={() => removeMedia(item.id)}><Trash2 size={16} /></IconAction>
             </article>
           ))}
