@@ -4,6 +4,13 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.14.0 - 2026-08-09
+
+- Aufträge können als einmaliger Auftrag oder Serienauftrag angelegt werden.
+- Serienaufträge erhalten Kalender-ähnliche Wiederholung mit Frequenz, Intervall, Wochentagen und Ende.
+- Mobile Auftragsbearbeitung unterstützt Bild erfassen, Foto benutzen und neues Foto.
+- Zeitfeld in der mobilen Checkliste ist kompakter und überlappt den Hinweisbereich nicht mehr.
+
 ## 1.13.0 - 2026-08-09
 
 - Leistungen enthalten jetzt detaillierte Checklistenpunkte mit Hinweis und Standardzeit.

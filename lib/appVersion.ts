@@ -1,10 +1,20 @@
 export const appVersion = {
-  version: "1.13.0",
+  version: "1.14.0",
   releaseDate: "2026-08-09",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.14.0",
+    date: "2026-08-09",
+    changes: [
+      "Aufträge können als einmaliger Auftrag oder Serienauftrag angelegt werden",
+      "Serienaufträge erhalten Kalender-ähnliche Wiederholung mit Frequenz, Intervall, Wochentagen und Ende",
+      "Mobile Auftragsbearbeitung unterstützt Bild erfassen, Foto benutzen und neues Foto",
+      "Zeitfeld in der mobilen Checkliste ist kompakter und überlappt den Hinweisbereich nicht mehr",
+    ],
+  },
   {
     version: "1.13.0",
     date: "2026-08-09",

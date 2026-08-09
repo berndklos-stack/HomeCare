@@ -71,12 +71,20 @@ test("new operations workspace supports core property and job flows", async ({ p
   await field("Titel").fill("Testauftrag Objektkontrolle");
   await field("Typ").fill("Hauskontrolle");
   await field("Priorität").selectOption("hoch");
+  await page.getByRole("button", { name: "Serienauftrag" }).click();
+  await field("Wiederholen").selectOption("wöchentlich");
+  await field("Alle").fill("2");
+  await page.getByRole("button", { name: "Mo", exact: true }).click();
+  await page.getByRole("button", { name: "Fr", exact: true }).click();
+  await field("Ende").selectOption("nach");
+  await field("Anzahl Termine").fill("6");
   await field("Beschreibung").fill("Innen, außen und Zugang dokumentieren");
   await field("Interne Notizen").fill("Nur intern sichtbar");
   await page.getByRole("button", { name: "Auftrag anlegen" }).click();
 
   await expect(page.getByRole("heading", { name: "Auftragsübersicht" })).toBeVisible();
   await expect(page.getByText("Testauftrag Objektkontrolle")).toBeVisible();
+  await expect(page.getByText(/Serie: alle 2 Wochen · Mo, Fr · 6 Termine/)).toBeVisible();
   await page.getByRole("button", { name: "Auftrag Testauftrag Objektkontrolle bearbeiten" }).click();
   await expect(page.getByRole("heading", { name: "Auftrag bearbeiten" })).toBeVisible();
   await field("Titel").fill("Bearbeiteter Testauftrag");
@@ -131,6 +139,14 @@ test("new operations workspace supports core property and job flows", async ({ p
   await expect(page.getByRole("article").filter({ hasText: "Zugang prüfen" }).getByText("Hauskontrolle · Kontrolle · 795 SEK/Besuch")).toBeVisible();
   await page.getByLabel("Zeit Zugang prüfen").fill("22");
   await page.getByLabel("Hinweis Zugang prüfen").fill("Schlüsselsafe geprüft, Zugang ohne Problem.");
+  await page.getByLabel("Bild erfassen").setInputFiles({
+    name: "einsatzfoto.jpg",
+    mimeType: "image/jpeg",
+    buffer: Buffer.from("demo"),
+  });
+  await expect(page.getByText("Neues Foto erfasst")).toBeVisible();
+  await page.getByRole("button", { name: "Foto benutzen" }).click();
+  await expect(page.getByText("Foto übernommen")).toBeVisible();
   await expect(page.getByRole("button", { name: "Einsatz abschließen" })).toBeVisible();
   await page.getByRole("button", { name: "Einsatz abschließen" }).click();
   await expect(page.getByRole("heading", { name: "Objektübersicht" })).toBeVisible();

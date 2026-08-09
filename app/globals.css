@@ -660,6 +660,18 @@ mark.neutral {
   grid-template-columns: auto minmax(0, 1fr);
 }
 
+.service-task-list article > label > span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.service-task-list article > label strong,
+.service-task-list article > label small {
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
 .service-task-list input[type="checkbox"] {
   height: 24px;
   margin-top: 2px;
@@ -675,12 +687,13 @@ mark.neutral {
 .field-task-inputs {
   display: grid;
   gap: 8px;
-  grid-template-columns: 92px minmax(0, 1fr);
+  grid-template-columns: 68px minmax(0, 1fr);
 }
 
 .field-task-inputs label {
   display: grid;
   gap: 4px;
+  min-width: 0;
 }
 
 .field-task-inputs span {
@@ -694,14 +707,39 @@ mark.neutral {
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 8px;
+  box-sizing: border-box;
   color: #fff;
   min-height: 42px;
   padding: 9px;
+  width: 100%;
 }
 
 .field-task-inputs textarea {
   min-height: 42px;
   resize: vertical;
+}
+
+.field-photo-capture {
+  display: grid;
+  gap: 10px;
+}
+
+.field-photo-capture input[type="file"] {
+  display: none;
+}
+
+.captured-photo-card {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+}
+
+.captured-photo-card span {
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 13px;
 }
 
 .service-catalog {
@@ -800,6 +838,51 @@ mark.neutral {
 .checklist-preview p {
   color: var(--muted);
   margin: 0;
+}
+
+.recurrence-editor {
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+}
+
+.segmented-control {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 4px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 4px;
+}
+
+.segmented-control button,
+.weekday-picker button {
+  border: 0;
+  border-radius: 6px;
+  color: var(--muted);
+  min-height: 36px;
+}
+
+.segmented-control button.active,
+.weekday-picker button.active {
+  background: var(--brand);
+  color: #fff;
+}
+
+.recurrence-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) 120px;
+}
+
+.weekday-picker {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
 }
 
 .nested-backdrop {

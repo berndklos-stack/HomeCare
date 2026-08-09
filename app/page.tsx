@@ -124,6 +124,17 @@ type JobRecord = {
   billable: boolean;
   material: string;
   workMinutes: number;
+  schedule: JobSchedule;
+};
+
+type JobSchedule = {
+  type: "einmalig" | "serie";
+  frequency: "täglich" | "wöchentlich" | "monatlich" | "jährlich";
+  interval: number;
+  weekdays: string[];
+  end: "nie" | "am" | "nach";
+  endDate: string;
+  occurrences: number;
 };
 
 type ReportRecord = {
@@ -222,6 +233,13 @@ type NewJobFormState = {
   assignedTo: string;
   description: string;
   internalNotes: string;
+  scheduleType: JobSchedule["type"];
+  scheduleFrequency: JobSchedule["frequency"];
+  scheduleInterval: string;
+  scheduleWeekdays: string[];
+  scheduleEnd: JobSchedule["end"];
+  scheduleEndDate: string;
+  scheduleOccurrences: string;
 };
 
 type CustomerFormState = {
@@ -702,6 +720,7 @@ const seedJobs: JobRecord[] = [
     billable: true,
     material: "pH-Minus, Teststreifen",
     workMinutes: 95,
+    schedule: { type: "serie", frequency: "wöchentlich", interval: 1, weekdays: ["Mo"], end: "nie", endDate: "", occurrences: 0 },
   },
   {
     id: "JOB-2408",
@@ -719,6 +738,7 @@ const seedJobs: JobRecord[] = [
     billable: true,
     material: "-",
     workMinutes: 120,
+    schedule: { type: "serie", frequency: "monatlich", interval: 1, weekdays: [], end: "am", endDate: "2026-10-31", occurrences: 0 },
   },
   {
     id: "JOB-2409",
@@ -736,6 +756,7 @@ const seedJobs: JobRecord[] = [
     billable: false,
     material: "Schrauben",
     workMinutes: 45,
+    schedule: { type: "einmalig", frequency: "wöchentlich", interval: 1, weekdays: [], end: "nie", endDate: "", occurrences: 0 },
   },
 ];
 
@@ -837,6 +858,27 @@ function serviceRate(service: ServiceItem) {
   return `${amount}/${service.unit}`;
 }
 
+function scheduleLabel(schedule: JobSchedule) {
+  if (schedule.type === "einmalig") return "einmalig";
+
+  const interval = schedule.interval > 1 ? `alle ${schedule.interval} ` : "jede ";
+  const cadence = schedule.frequency === "täglich"
+    ? `${interval}${schedule.interval > 1 ? "Tage" : "Tag"}`
+    : schedule.frequency === "wöchentlich"
+      ? `${interval}${schedule.interval > 1 ? "Wochen" : "Woche"}`
+      : schedule.frequency === "monatlich"
+        ? `${interval}${schedule.interval > 1 ? "Monate" : "Monat"}`
+        : `${interval}${schedule.interval > 1 ? "Jahre" : "Jahr"}`;
+  const days = schedule.weekdays.length > 0 ? ` · ${schedule.weekdays.join(", ")}` : "";
+  const end = schedule.end === "am" && schedule.endDate
+    ? ` · bis ${schedule.endDate}`
+    : schedule.end === "nach" && schedule.occurrences > 0
+      ? ` · ${schedule.occurrences} Termine`
+      : "";
+
+  return `Serie: ${cadence}${days}${end}`;
+}
+
 export default function HomePage() {
   const [section, setSection] = useState<Section>("dashboard");
   const [language, setLanguage] = useState<Language>("de");
@@ -866,6 +908,13 @@ export default function HomePage() {
     assignedTo: "Johan Berg",
     description: "",
     internalNotes: "",
+    scheduleType: "einmalig",
+    scheduleFrequency: "wöchentlich",
+    scheduleInterval: "1",
+    scheduleWeekdays: [],
+    scheduleEnd: "nie",
+    scheduleEndDate: "",
+    scheduleOccurrences: "10",
   });
 
   const t = labels[language];
@@ -1036,6 +1085,13 @@ export default function HomePage() {
       assignedTo: "Johan Berg",
       description: "",
       internalNotes: "",
+      scheduleType: "einmalig",
+      scheduleFrequency: "wöchentlich",
+      scheduleInterval: "1",
+      scheduleWeekdays: [],
+      scheduleEnd: "nie",
+      scheduleEndDate: "",
+      scheduleOccurrences: "10",
     });
     setModal("job");
   }
@@ -1051,6 +1107,13 @@ export default function HomePage() {
       assignedTo: job.assignedTo,
       description: job.description,
       internalNotes: job.internalNotes,
+      scheduleType: job.schedule.type,
+      scheduleFrequency: job.schedule.frequency,
+      scheduleInterval: String(job.schedule.interval),
+      scheduleWeekdays: job.schedule.weekdays,
+      scheduleEnd: job.schedule.end,
+      scheduleEndDate: job.schedule.endDate,
+      scheduleOccurrences: String(job.schedule.occurrences || 10),
     });
     setModal("job");
   }
@@ -1073,6 +1136,15 @@ export default function HomePage() {
       billable: jobs.find((job) => job.id === editingJobId)?.billable ?? true,
       material: jobs.find((job) => job.id === editingJobId)?.material ?? "-",
       workMinutes: jobs.find((job) => job.id === editingJobId)?.workMinutes ?? 0,
+      schedule: {
+        type: newJob.scheduleType,
+        frequency: newJob.scheduleFrequency,
+        interval: Math.max(Number(newJob.scheduleInterval) || 1, 1),
+        weekdays: newJob.scheduleFrequency === "wöchentlich" ? newJob.scheduleWeekdays : [],
+        end: newJob.scheduleEnd,
+        endDate: newJob.scheduleEnd === "am" ? newJob.scheduleEndDate : "",
+        occurrences: newJob.scheduleEnd === "nach" ? Math.max(Number(newJob.scheduleOccurrences) || 1, 1) : 0,
+      },
     };
 
     setJobs((current) =>
@@ -1555,7 +1627,7 @@ function JobsView({
           <article key={job.id}>
             <div>
               <strong>{job.title}</strong>
-              <span>{objects.find((object) => object.id === job.objectId)?.name} · {job.description}</span>
+              <span>{objects.find((object) => object.id === job.objectId)?.name} · {scheduleLabel(job.schedule)} · {job.description}</span>
             </div>
             <span>{job.priority}</span>
             <span>{job.dueDate}</span>
@@ -1611,6 +1683,7 @@ function FieldView({
   services: ServiceItem[];
   onComplete: (job: JobRecord) => void;
 }) {
+  const [capturedPhoto, setCapturedPhoto] = useState<{ name: string; accepted: boolean } | null>(null);
   const active = jobs.find((job) => job.id === activeJobId) ?? jobs.find((job) => job.status === "in Arbeit") ?? jobs[0];
   const object = objects.find((item) => item.id === active.objectId) ?? objects[0];
   const activePackage = packages.find((servicePackage) => !servicePackage.archived && servicePackage.name === object.carePackage);
@@ -1682,6 +1755,33 @@ function FieldView({
           ))}
         </div>
         <textarea defaultValue="Notiz: Zugang geprüft, Fotos ergänzt." aria-label="Einsatznotiz" />
+        <div className="field-photo-capture">
+          <label className="primary-button">
+            <span>Bild erfassen</span>
+            <input
+              aria-label="Bild erfassen"
+              accept="image/*"
+              capture="environment"
+              type="file"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (!file) return;
+                setCapturedPhoto({ name: file.name, accepted: false });
+                event.currentTarget.value = "";
+              }}
+            />
+          </label>
+          {capturedPhoto && (
+            <div className="captured-photo-card">
+              <strong>{capturedPhoto.accepted ? "Foto übernommen" : "Neues Foto erfasst"}</strong>
+              <span>{capturedPhoto.name}</span>
+              <div className="row-actions">
+                <button className="ghost-button compact" onClick={() => setCapturedPhoto({ ...capturedPhoto, accepted: true })} type="button">Foto benutzen</button>
+                <button className="ghost-button compact" onClick={() => setCapturedPhoto(null)} type="button">Neues Foto</button>
+              </div>
+            </div>
+          )}
+        </div>
         <button className="primary-button" onClick={() => onComplete(active)} type="button">
           Einsatz abschließen
         </button>
@@ -2504,8 +2604,19 @@ function JobForm({
   onSubmit: () => void;
   submitLabel: string;
 }) {
-  function update(key: keyof typeof newJob, value: string) {
+  const weekdays = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
+
+  function update(key: keyof typeof newJob, value: string | string[]) {
     setNewJob({ ...newJob, [key]: value });
+  }
+
+  function toggleWeekday(day: string) {
+    update(
+      "scheduleWeekdays",
+      newJob.scheduleWeekdays.includes(day)
+        ? newJob.scheduleWeekdays.filter((item) => item !== day)
+        : [...newJob.scheduleWeekdays, day],
+    );
   }
 
   return (
@@ -2529,6 +2640,57 @@ function JobForm({
       </label>
       <label><span>Fällig</span><input type="date" value={newJob.dueDate} onChange={(event) => update("dueDate", event.target.value)} /></label>
       <label><span>Zuständig</span><input value={newJob.assignedTo} onChange={(event) => update("assignedTo", event.target.value)} /></label>
+      <div className="wide recurrence-editor">
+        <span>Auftragsart</span>
+        <div className="segmented-control">
+          <button className={newJob.scheduleType === "einmalig" ? "active" : ""} onClick={() => update("scheduleType", "einmalig")} type="button">Einmalig</button>
+          <button className={newJob.scheduleType === "serie" ? "active" : ""} onClick={() => update("scheduleType", "serie")} type="button">Serienauftrag</button>
+        </div>
+        {newJob.scheduleType === "serie" && (
+          <div className="recurrence-grid">
+            <label>
+              <span>Wiederholen</span>
+              <select value={newJob.scheduleFrequency} onChange={(event) => update("scheduleFrequency", event.target.value)}>
+                <option>täglich</option>
+                <option>wöchentlich</option>
+                <option>monatlich</option>
+                <option>jährlich</option>
+              </select>
+            </label>
+            <label>
+              <span>Alle</span>
+              <input min="1" type="number" value={newJob.scheduleInterval} onChange={(event) => update("scheduleInterval", event.target.value)} />
+            </label>
+            {newJob.scheduleFrequency === "wöchentlich" && (
+              <div className="wide weekday-picker">
+                {weekdays.map((day) => (
+                  <button className={newJob.scheduleWeekdays.includes(day) ? "active" : ""} key={day} onClick={() => toggleWeekday(day)} type="button">{day}</button>
+                ))}
+              </div>
+            )}
+            <label>
+              <span>Ende</span>
+              <select value={newJob.scheduleEnd} onChange={(event) => update("scheduleEnd", event.target.value)}>
+                <option value="nie">Nie</option>
+                <option value="am">Am Datum</option>
+                <option value="nach">Nach Terminen</option>
+              </select>
+            </label>
+            {newJob.scheduleEnd === "am" && (
+              <label>
+                <span>Enddatum</span>
+                <input type="date" value={newJob.scheduleEndDate} onChange={(event) => update("scheduleEndDate", event.target.value)} />
+              </label>
+            )}
+            {newJob.scheduleEnd === "nach" && (
+              <label>
+                <span>Anzahl Termine</span>
+                <input min="1" type="number" value={newJob.scheduleOccurrences} onChange={(event) => update("scheduleOccurrences", event.target.value)} />
+              </label>
+            )}
+          </div>
+        )}
+      </div>
       <label className="wide"><span>Beschreibung</span><textarea value={newJob.description} onChange={(event) => update("description", event.target.value)} /></label>
       <label className="wide"><span>Interne Notizen</span><textarea value={newJob.internalNotes} onChange={(event) => update("internalNotes", event.target.value)} /></label>
       <button className="primary-button wide" onClick={onSubmit} type="button">{submitLabel}</button>
