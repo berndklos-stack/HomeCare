@@ -4,6 +4,18 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.2.0 - 2026-08-09
+
+- Objekte können einem Eigentümer aus den Kundenstammdaten zugeordnet werden.
+- Objektadresse, Eigentümeradresse und Rechnungsadresse werden getrennt gepflegt.
+- Rechnungsadresse kann aus Objektadresse, Eigentümeradresse oder einer abweichenden Adresse gewählt werden.
+- Bilder, Handy-Fotos, Dokumente und Grundrisse können in der Objektmaske erfasst werden.
+- Dokumente erhalten eine Kurzbeschreibung und erscheinen in der Objektakte.
+- Objektakte zeigt ein Objektfoto als Vorschau und einen Korrespondenzverlauf aus Nachrichten und gesendeten Einsatzberichten.
+- Kundenformular zeigt nur zugeordnete Objekte und enthält ein internes Notizfeld.
+- Farbsystem an Apple-nahe neutrale Grautöne mit sparsamer blauer Aktionsfarbe angepasst.
+- Kolaretorp-Logo aus der Website als App-Branding eingebunden.
+
 ## 1.1.0 - 2026-08-09
 
 - Objekte können direkt aus der Objektakte heraus bearbeitet und gespeichert werden.

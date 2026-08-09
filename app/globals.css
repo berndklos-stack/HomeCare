@@ -1,35 +1,35 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f4f5f2;
-  --foreground: #202522;
+  --background: #f5f5f7;
+  --foreground: #1d1d1f;
   --paper: #ffffff;
-  --paper-soft: #f8f8f4;
-  --line: #d9ded5;
-  --muted: #687169;
-  --brand: #285e5d;
-  --brand-2: #3e7772;
-  --accent: #b96f43;
-  --good: #2f7d57;
-  --warning: #a66b1f;
-  --danger: #b74f57;
-  --shadow: rgba(24, 36, 34, 0.08);
+  --paper-soft: #f9f9fb;
+  --line: #d2d2d7;
+  --muted: #6e6e73;
+  --brand: #0071e3;
+  --brand-2: #2997ff;
+  --accent: #86868b;
+  --good: #248a3d;
+  --warning: #b26a00;
+  --danger: #d70015;
+  --shadow: rgba(0, 0, 0, 0.08);
 }
 
 [data-theme="dark"] {
-  --background: #111614;
-  --foreground: #eef1eb;
-  --paper: #1a211f;
-  --paper-soft: #222a26;
-  --line: #33403b;
-  --muted: #aeb8b0;
-  --brand: #8fc4bd;
-  --brand-2: #a9d4c9;
-  --accent: #e8a06b;
-  --good: #8cc79c;
-  --warning: #e1b35f;
-  --danger: #e9878d;
-  --shadow: rgba(0, 0, 0, 0.28);
+  --background: #000000;
+  --foreground: #f5f5f7;
+  --paper: #161617;
+  --paper-soft: #1d1d1f;
+  --line: #3a3a3c;
+  --muted: #a1a1a6;
+  --brand: #2997ff;
+  --brand-2: #0071e3;
+  --accent: #86868b;
+  --good: #30d158;
+  --warning: #ffd60a;
+  --danger: #ff453a;
+  --shadow: rgba(0, 0, 0, 0.36);
 }
 
 @theme inline {
@@ -74,7 +74,7 @@ button {
 }
 
 .sidebar {
-  background: #183b3a;
+  background: #111111;
   color: #f8fbf6;
   display: flex;
   flex-direction: column;
@@ -89,20 +89,10 @@ button {
   min-height: 54px;
 }
 
-.brand strong,
-.brand span {
-  display: block;
-}
-
-.brand strong {
-  font-size: 18px;
-  letter-spacing: 0;
-}
-
-.brand span {
-  color: rgba(248, 251, 246, 0.7);
-  font-size: 12px;
-  text-transform: uppercase;
+.brand img {
+  height: auto;
+  max-width: 100%;
+  object-fit: contain;
 }
 
 .sidebar nav {
@@ -364,10 +354,10 @@ button {
 }
 
 .workboard button {
-  background: linear-gradient(135deg, var(--brand), var(--brand-2));
-  border: 0;
+  background: var(--paper);
+  border: 1px solid var(--line);
   border-radius: 8px;
-  color: #fff;
+  color: var(--foreground);
   display: grid;
   gap: 6px;
   min-height: 118px;
@@ -381,7 +371,7 @@ button {
 }
 
 .workboard small {
-  color: rgba(255, 255, 255, 0.76);
+  color: var(--muted);
 }
 
 .table-list,
@@ -490,8 +480,8 @@ mark.neutral {
 }
 
 .phone-card {
-  background: #172320;
-  border: 8px solid #0b1513;
+  background: #111111;
+  border: 8px solid #000000;
   color: #fff;
   display: grid;
   gap: 12px;
@@ -552,6 +542,32 @@ mark.neutral {
   padding: 18px;
   position: sticky;
   top: 16px;
+}
+
+.object-preview {
+  background: linear-gradient(135deg, var(--paper-soft), color-mix(in srgb, var(--brand), var(--paper) 82%));
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  min-height: 150px;
+  overflow: hidden;
+}
+
+.object-preview > div {
+  align-items: center;
+  color: var(--brand);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 150px;
+  justify-content: center;
+  padding: 14px;
+  text-align: center;
+}
+
+.object-preview-image {
+  background-position: center;
+  background-size: cover;
+  min-height: 150px;
 }
 
 .object-file-head {
@@ -713,6 +729,60 @@ mark.neutral {
   resize: vertical;
 }
 
+.media-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.media-summary span {
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--brand);
+  padding: 7px 10px;
+}
+
+.upload-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.upload-card {
+  background: var(--paper-soft);
+  border: 1px dashed var(--brand-2);
+  border-radius: 8px;
+  min-height: 92px;
+  padding: 12px;
+}
+
+.upload-card input {
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+
+.media-list {
+  display: grid;
+  gap: 8px;
+}
+
+.media-list article {
+  align-items: center;
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr) auto;
+  padding: 10px;
+}
+
+.media-list strong {
+  display: block;
+}
+
 .check-list {
   background: var(--paper-soft);
   border: 1px solid var(--line);
@@ -769,6 +839,7 @@ mark.neutral {
   .workboard,
   .planning-grid,
   .service-catalog,
+  .upload-grid,
   .form-grid {
     grid-template-columns: 1fr;
   }
@@ -786,7 +857,8 @@ mark.neutral {
   }
 
   .table-list article,
-  .object-list button {
+  .object-list button,
+  .media-list article {
     grid-template-columns: 1fr;
   }
 }

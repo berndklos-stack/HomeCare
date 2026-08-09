@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import {
   AlertTriangle,
   CalendarDays,
@@ -37,10 +38,14 @@ type Modal = "object" | "customer" | "job" | "version" | null;
 type ObjectRecord = {
   id: string;
   name: string;
+  ownerCustomerId: string;
   owner: string;
   ownerEmail: string;
   ownerPhone: string;
+  ownerAddress: string;
   address: string;
+  billingAddressMode: "Objektadresse" | "Eigentümeradresse" | "Abweichend";
+  billingAddress: string;
   region: string;
   sizeSqm: number;
   plotSqm: number;
@@ -68,9 +73,19 @@ type ObjectRecord = {
     images: number;
     documents: number;
     floorPlans: number;
+    items: MediaItem[];
   };
   nextVisit: string;
   lastVisit: string;
+};
+
+type MediaItem = {
+  id: string;
+  type: "Bild" | "Dokument" | "Grundriss";
+  name: string;
+  description: string;
+  source: "Upload" | "Kamera";
+  previewUrl?: string;
 };
 
 type CustomerRecord = {
@@ -79,10 +94,12 @@ type CustomerRecord = {
   contact: string;
   email: string;
   phone: string;
+  address: string;
   language: string;
   objects: string[];
   balance: string;
   portalStatus: "aktiv" | "einladen" | "gesperrt";
+  notes: string;
 };
 
 type JobRecord = {
@@ -137,10 +154,14 @@ type BillingRecord = {
 
 type NewObjectFormState = {
   name: string;
+  ownerCustomerId: string;
   owner: string;
   ownerEmail: string;
   ownerPhone: string;
+  ownerAddress: string;
   address: string;
+  billingAddressMode: ObjectRecord["billingAddressMode"];
+  billingAddress: string;
   region: string;
   sizeSqm: string;
   plotSqm: string;
@@ -163,6 +184,8 @@ type NewObjectFormState = {
   images: string;
   documents: string;
   floorPlans: string;
+  documentDescription: string;
+  mediaItems: MediaItem[];
   nextVisit: string;
   lastVisit: string;
 };
@@ -182,10 +205,12 @@ type CustomerFormState = {
   contact: string;
   email: string;
   phone: string;
+  address: string;
   language: string;
   balance: string;
   portalStatus: CustomerRecord["portalStatus"];
   objects: string[];
+  notes: string;
 };
 
 const labels = {
@@ -268,10 +293,14 @@ const navItems: Array<{ id: Section; label: string; icon: typeof Home }> = [
 function emptyObjectForm(): NewObjectFormState {
   return {
     name: "",
+    ownerCustomerId: "",
     owner: "",
     ownerEmail: "",
     ownerPhone: "",
+    ownerAddress: "",
     address: "",
+    billingAddressMode: "Eigentümeradresse",
+    billingAddress: "",
     region: "Nybro",
     sizeSqm: "95",
     plotSqm: "1800",
@@ -294,6 +323,8 @@ function emptyObjectForm(): NewObjectFormState {
     images: "0",
     documents: "0",
     floorPlans: "0",
+    documentDescription: "",
+    mediaItems: [],
     nextVisit: "",
     lastVisit: "",
   };
@@ -302,10 +333,14 @@ function emptyObjectForm(): NewObjectFormState {
 function objectToForm(object: ObjectRecord): NewObjectFormState {
   return {
     name: object.name,
+    ownerCustomerId: object.ownerCustomerId,
     owner: object.owner,
     ownerEmail: object.ownerEmail,
     ownerPhone: object.ownerPhone,
+    ownerAddress: object.ownerAddress,
     address: object.address,
+    billingAddressMode: object.billingAddressMode,
+    billingAddress: object.billingAddress,
     region: object.region,
     sizeSqm: String(object.sizeSqm),
     plotSqm: String(object.plotSqm),
@@ -328,6 +363,8 @@ function objectToForm(object: ObjectRecord): NewObjectFormState {
     images: String(object.media.images),
     documents: String(object.media.documents),
     floorPlans: String(object.media.floorPlans),
+    documentDescription: "",
+    mediaItems: object.media.items,
     nextVisit: object.nextVisit,
     lastVisit: object.lastVisit,
   };
@@ -338,13 +375,29 @@ function splitList(value: string) {
 }
 
 function formToObject(form: NewObjectFormState, id: string): ObjectRecord {
+  const imageCount = form.mediaItems.filter((item) => item.type === "Bild").length;
+  const documentCount = form.mediaItems.filter((item) => item.type === "Dokument").length;
+  const floorPlanCount = form.mediaItems.filter((item) => item.type === "Grundriss").length;
+  const objectAddress = form.address.trim() || "Adresse offen";
+  const ownerAddress = form.ownerAddress.trim() || "Eigentümeradresse offen";
+  const billingAddress =
+    form.billingAddressMode === "Objektadresse"
+      ? objectAddress
+      : form.billingAddressMode === "Eigentümeradresse"
+        ? ownerAddress
+        : form.billingAddress.trim() || ownerAddress;
+
   return {
     id,
     name: form.name.trim() || "Neues Ferienhaus",
+    ownerCustomerId: form.ownerCustomerId,
     owner: form.owner.trim() || "Neuer Eigentümer",
     ownerEmail: form.ownerEmail.trim() || "kunde@example.com",
     ownerPhone: form.ownerPhone.trim() || "-",
-    address: form.address.trim() || "Adresse offen",
+    ownerAddress,
+    address: objectAddress,
+    billingAddressMode: form.billingAddressMode,
+    billingAddress,
     region: form.region.trim() || "Nybro",
     sizeSqm: Number(form.sizeSqm) || 0,
     plotSqm: Number(form.plotSqm) || 0,
@@ -369,25 +422,28 @@ function formToObject(form: NewObjectFormState, id: string): ObjectRecord {
     },
     risks: splitList(form.risks),
     media: {
-      images: Number(form.images) || 0,
-      documents: Number(form.documents) || 0,
-      floorPlans: Number(form.floorPlans) || 0,
+      images: Math.max(Number(form.images) || 0, imageCount),
+      documents: Math.max(Number(form.documents) || 0, documentCount),
+      floorPlans: Math.max(Number(form.floorPlans) || 0, floorPlanCount),
+      items: form.mediaItems,
     },
     nextVisit: form.nextVisit.trim() || "noch planen",
     lastVisit: form.lastVisit.trim() || "-",
   };
 }
 
-function emptyCustomerForm(objects: ObjectRecord[] = []): CustomerFormState {
+function emptyCustomerForm(): CustomerFormState {
   return {
     name: "",
     contact: "",
     email: "",
     phone: "",
+    address: "",
     language: "Deutsch",
     balance: "0 SEK",
     portalStatus: "einladen",
-    objects: objects[0] ? [objects[0].id] : [],
+    objects: [],
+    notes: "",
   };
 }
 
@@ -397,10 +453,12 @@ function customerToForm(customer: CustomerRecord): CustomerFormState {
     contact: customer.contact,
     email: customer.email,
     phone: customer.phone,
+    address: customer.address,
     language: customer.language,
     balance: customer.balance,
     portalStatus: customer.portalStatus,
     objects: customer.objects,
+    notes: customer.notes,
   };
 }
 
@@ -411,10 +469,12 @@ function formToCustomer(form: CustomerFormState, id: string): CustomerRecord {
     contact: form.contact.trim() || "Kontakt ergänzen",
     email: form.email.trim() || "kunde@example.com",
     phone: form.phone.trim() || "-",
+    address: form.address.trim() || "Eigentümeradresse offen",
     language: form.language.trim() || "Deutsch",
     objects: form.objects,
     balance: form.balance.trim() || "0 SEK",
     portalStatus: form.portalStatus,
+    notes: form.notes.trim(),
   };
 }
 
@@ -422,10 +482,14 @@ const seedObjects: ObjectRecord[] = [
   {
     id: "OBJ-1001",
     name: "Villa Långsjön",
+    ownerCustomerId: "CUS-1",
     owner: "Familie Andersson",
     ownerEmail: "eva.andersson@example.com",
     ownerPhone: "+46 70 118 44 20",
+    ownerAddress: "Storgatan 12, 392 32 Kalmar",
     address: "Långsjövägen 18, 382 92 Orrefors",
+    billingAddressMode: "Eigentümeradresse",
+    billingAddress: "Storgatan 12, 392 32 Kalmar",
     region: "Orrefors",
     sizeSqm: 126,
     plotSqm: 2800,
@@ -449,17 +513,30 @@ const seedObjects: ObjectRecord[] = [
       internet: "Fiber 250/250",
     },
     risks: ["Poolwerte wöchentlich prüfen", "Terrasse nach Sturm kontrollieren"],
-    media: { images: 18, documents: 6, floorPlans: 1 },
+    media: {
+      images: 18,
+      documents: 6,
+      floorPlans: 1,
+      items: [
+        { id: "MED-1001-1", type: "Bild", name: "pooltechnik-vor-ort.jpg", description: "Pooltechnik und Filterdruck beim letzten Einsatz", source: "Kamera" },
+        { id: "MED-1001-2", type: "Dokument", name: "servicevertrag-komfort.pdf", description: "Aktueller Betreuungsvertrag Komfort", source: "Upload" },
+        { id: "MED-1001-3", type: "Grundriss", name: "grundriss-villa-langsjon.pdf", description: "Grundriss Erdgeschoss und Obergeschoss", source: "Upload" },
+      ],
+    },
     nextVisit: "31.07.2026",
     lastVisit: "Heute, 09:20",
   },
   {
     id: "OBJ-1002",
     name: "Stuga Nybro",
+    ownerCustomerId: "CUS-2",
     owner: "M. Schneider",
     ownerEmail: "markus.schneider@example.com",
     ownerPhone: "+49 171 440 22 18",
+    ownerAddress: "Musterstraße 9, 50667 Köln, Deutschland",
     address: "Skogsstigen 7, 382 34 Nybro",
+    billingAddressMode: "Eigentümeradresse",
+    billingAddress: "Musterstraße 9, 50667 Köln, Deutschland",
     region: "Nybro",
     sizeSqm: 84,
     plotSqm: 1600,
@@ -483,17 +560,29 @@ const seedObjects: ObjectRecord[] = [
       internet: "4G Router",
     },
     risks: ["Dachrinne bei Starkregen", "Brunnenpumpe im Winter sichern"],
-    media: { images: 11, documents: 4, floorPlans: 1 },
+    media: {
+      images: 11,
+      documents: 4,
+      floorPlans: 1,
+      items: [
+        { id: "MED-1002-1", type: "Bild", name: "dachrinne-hinten.jpg", description: "Dachrinne hinten links nach Starkregen", source: "Kamera" },
+        { id: "MED-1002-2", type: "Dokument", name: "brunnenpumpe-hinweis.pdf", description: "Hinweis zur Brunnenpumpe und Winterabsicherung", source: "Upload" },
+      ],
+    },
     nextVisit: "02.08.2026",
     lastVisit: "28.07.2026",
   },
   {
     id: "OBJ-1003",
     name: "Haus am Wald",
+    ownerCustomerId: "CUS-3",
     owner: "B. Klos",
     ownerEmail: "bernd@example.com",
     ownerPhone: "+46 76 101 81 86",
+    ownerAddress: "Kolaretorp 106, 382 93 Nybro",
     address: "Kolaretorp 106, 382 93 Nybro",
+    billingAddressMode: "Objektadresse",
+    billingAddress: "Kolaretorp 106, 382 93 Nybro",
     region: "Småland",
     sizeSqm: 102,
     plotSqm: 5200,
@@ -517,7 +606,14 @@ const seedObjects: ObjectRecord[] = [
       internet: "Fiber",
     },
     risks: ["Terrassentür justieren", "Wildschäden am Zaun prüfen"],
-    media: { images: 9, documents: 5, floorPlans: 0 },
+    media: {
+      images: 9,
+      documents: 5,
+      floorPlans: 0,
+      items: [
+        { id: "MED-1003-1", type: "Dokument", name: "werkstatt-intern.pdf", description: "Interner Hinweis zur Werkstatt", source: "Upload" },
+      ],
+    },
     nextVisit: "05.08.2026",
     lastVisit: "26.07.2026",
   },
@@ -530,10 +626,12 @@ const seedCustomers: CustomerRecord[] = [
     contact: "Eva Andersson",
     email: "eva.andersson@example.com",
     phone: "+46 70 118 44 20",
+    address: "Storgatan 12, 392 32 Kalmar",
     language: "SV / DE",
     objects: ["OBJ-1001"],
     balance: "0 SEK",
     portalStatus: "aktiv",
+    notes: "Bevorzugt Kommunikation per E-Mail, Fotos nach jeder Poolpflege mitschicken.",
   },
   {
     id: "CUS-2",
@@ -541,10 +639,12 @@ const seedCustomers: CustomerRecord[] = [
     contact: "Markus Schneider",
     email: "markus.schneider@example.com",
     phone: "+49 171 440 22 18",
+    address: "Musterstraße 9, 50667 Köln, Deutschland",
     language: "DE",
     objects: ["OBJ-1002"],
     balance: "1.840 SEK",
     portalStatus: "aktiv",
+    notes: "Rechnungsadresse in Deutschland, Rückfragen bitte auf Deutsch.",
   },
   {
     id: "CUS-3",
@@ -552,10 +652,12 @@ const seedCustomers: CustomerRecord[] = [
     contact: "Bernd Klos",
     email: "bernd@example.com",
     phone: "+46 76 101 81 86",
+    address: "Kolaretorp 106, 382 93 Nybro",
     language: "DE / EN",
     objects: ["OBJ-1003"],
     balance: "0 SEK",
     portalStatus: "einladen",
+    notes: "Interner Eigentümer, Werkstattinformationen nicht im Kundenportal anzeigen.",
   },
 ];
 
@@ -716,7 +818,7 @@ export default function HomePage() {
   const [editingCustomerId, setEditingCustomerId] = useState<string | null>(null);
   const [editingJobId, setEditingJobId] = useState<string | null>(null);
   const [newObject, setNewObject] = useState<NewObjectFormState>(emptyObjectForm());
-  const [newCustomer, setNewCustomer] = useState<CustomerFormState>(emptyCustomerForm(seedObjects));
+  const [newCustomer, setNewCustomer] = useState<CustomerFormState>(emptyCustomerForm());
   const [newJob, setNewJob] = useState<NewJobFormState>({
     title: "",
     type: "Hauskontrolle",
@@ -768,6 +870,14 @@ export default function HomePage() {
         ? current.map((object) => (object.id === editingObjectId ? saved : object))
         : [saved, ...current],
     );
+    setCustomers((current) =>
+      current.map((customer) => {
+        const withoutObject = customer.objects.filter((objectId) => objectId !== id);
+        return customer.id === saved.ownerCustomerId
+          ? { ...customer, objects: [...withoutObject, id] }
+          : { ...customer, objects: withoutObject };
+      }),
+    );
     setSelectedObjectId(id);
     setSection("objects");
     setEditingObjectId(null);
@@ -776,7 +886,7 @@ export default function HomePage() {
 
   function openCreateCustomer() {
     setEditingCustomerId(null);
-    setNewCustomer(emptyCustomerForm(objects));
+    setNewCustomer(emptyCustomerForm());
     setModal("customer");
   }
 
@@ -835,7 +945,7 @@ export default function HomePage() {
       id,
       title: newJob.title.trim() || "Neuer Auftrag",
       objectId: selectedObject.id,
-      customerId: customers.find((customer) => customer.name === selectedObject.owner)?.id ?? "CUS-1",
+      customerId: selectedObject.ownerCustomerId || customers.find((customer) => customer.name === selectedObject.owner)?.id || "CUS-1",
       type: newJob.type.trim() || "Hauskontrolle",
       status: jobs.find((job) => job.id === editingJobId)?.status ?? "geplant",
       priority: newJob.priority,
@@ -878,11 +988,7 @@ export default function HomePage() {
     <main className="app" data-ready="true" data-theme={theme}>
       <aside className="sidebar">
         <div className="brand">
-          <Home size={28} />
-          <div>
-            <strong>Kolaretorp</strong>
-            <span>Service AB</span>
-          </div>
+          <Image alt="Kolaretorp Service AB" height={23} priority src="/brand/kolaretorp-logo-white.png" width={220} />
         </div>
         <nav aria-label="Hauptnavigation">
           {navItems.map((item) => {
@@ -1019,6 +1125,7 @@ export default function HomePage() {
             </header>
             {modal === "object" && (
               <ObjectForm
+                customers={customers}
                 newObject={newObject}
                 setNewObject={setNewObject}
                 onSubmit={saveObject}
@@ -1193,7 +1300,7 @@ function CustomersView({
           <article key={customer.id}>
             <div>
               <strong>{customer.name}</strong>
-              <span>{customer.contact} · {customer.email} · {customer.phone} · {customer.language}</span>
+              <span>{customer.contact} · {customer.email} · {customer.phone} · {customer.language}{customer.notes ? ` · ${customer.notes}` : ""}</span>
             </div>
             <span>{objects.filter((object) => customer.objects.includes(object.id)).map((object) => object.name).join(", ")}</span>
             <span>{customer.balance}</span>
@@ -1366,8 +1473,39 @@ function ObjectFile({
   billing: BillingRecord[];
   onEdit: (object: ObjectRecord) => void;
 }) {
+  const previewImage = object.media.items.find((item) => item.type === "Bild" && item.previewUrl);
+  const correspondence = [
+    ...messages.map((message) => ({
+      id: message.id,
+      date: message.date,
+      label: `${message.channel}: ${message.subject}`,
+      status: message.status,
+    })),
+    ...reports.filter((report) => report.visibleToCustomer).map((report) => ({
+      id: report.id,
+      date: report.date,
+      label: `Einsatzbericht gesendet: ${report.title}`,
+      status: "Gesendet",
+    })),
+  ];
+
   return (
     <aside className="object-file">
+      <div className="object-preview">
+        {previewImage?.previewUrl ? (
+          <div
+            aria-label={`Objektfoto ${object.name}`}
+            className="object-preview-image"
+            role="img"
+            style={{ backgroundImage: `url(${previewImage.previewUrl})` }}
+          />
+        ) : (
+          <div>
+            <Home size={26} />
+            <span>{object.name}</span>
+          </div>
+        )}
+      </div>
       <div className="object-file-head">
         <div>
           <p>Objektakte</p>
@@ -1383,7 +1521,9 @@ function ObjectFile({
         <dl>
           <div><dt>Eigentümer</dt><dd>{object.owner}</dd></div>
           <div><dt>Kontakt</dt><dd>{object.ownerEmail} · {object.ownerPhone}</dd></div>
-          <div><dt>Adresse</dt><dd>{object.address}</dd></div>
+          <div><dt>Objektadresse</dt><dd>{object.address}</dd></div>
+          <div><dt>Eigentümeradresse</dt><dd>{object.ownerAddress}</dd></div>
+          <div><dt>Rechnungsadresse</dt><dd>{object.billingAddressMode}: {object.billingAddress}</dd></div>
           <div><dt>Größe</dt><dd>{object.sizeSqm} m² · {object.plotSqm} m² Grundstück</dd></div>
           <div><dt>Zimmer</dt><dd>{object.rooms} Zimmer · {object.beds} Betten · {object.bathrooms} Bad · Baujahr {object.buildYear}</dd></div>
           <div><dt>Paket</dt><dd>{object.carePackage}</dd></div>
@@ -1422,6 +1562,13 @@ function ObjectFile({
           <span>{object.media.documents} Dokumente</span>
           <span>{object.media.floorPlans} Grundrisse</span>
         </div>
+        {object.media.items.length > 0 && (
+          <div className="activity-list">
+            {object.media.items.slice(0, 5).map((item) => (
+              <span key={item.id}>{item.type} · {item.name}{item.description ? ` · ${item.description}` : ""}</span>
+            ))}
+          </div>
+        )}
       </section>
       <section>
         <h3>Berichte</h3>
@@ -1442,6 +1589,15 @@ function ObjectFile({
         </div>
       </section>
       <section>
+        <h3>Korrespondenzverlauf</h3>
+        <div className="activity-list">
+          {correspondence.length === 0 && <span>Noch keine Korrespondenz vorhanden</span>}
+          {correspondence.map((entry) => (
+            <span key={entry.id}>{entry.date} · {entry.label} · {entry.status}</span>
+          ))}
+        </div>
+      </section>
+      <section>
         <h3>Protokoll</h3>
         <div className="activity-list">
           <span>{jobs.length} Einsätze</span>
@@ -1455,11 +1611,13 @@ function ObjectFile({
 }
 
 function ObjectForm({
+  customers,
   newObject,
   setNewObject,
   onSubmit,
   submitLabel,
 }: {
+  customers: CustomerRecord[];
   newObject: NewObjectFormState;
   setNewObject: (value: NewObjectFormState) => void;
   onSubmit: () => void;
@@ -1467,6 +1625,79 @@ function ObjectForm({
 }) {
   function update(key: keyof typeof newObject, value: string) {
     setNewObject({ ...newObject, [key]: value });
+  }
+
+  function selectOwner(customerId: string) {
+    const customer = customers.find((item) => item.id === customerId);
+    if (!customer) {
+      setNewObject({ ...newObject, ownerCustomerId: "" });
+      return;
+    }
+
+    setNewObject({
+      ...newObject,
+      ownerCustomerId: customer.id,
+      owner: customer.name,
+      ownerEmail: customer.email,
+      ownerPhone: customer.phone,
+      ownerAddress: customer.address,
+      billingAddress: newObject.billingAddressMode === "Eigentümeradresse" ? customer.address : newObject.billingAddress,
+    });
+  }
+
+  function updateBillingMode(mode: ObjectRecord["billingAddressMode"]) {
+    setNewObject({
+      ...newObject,
+      billingAddressMode: mode,
+      billingAddress:
+        mode === "Objektadresse"
+          ? newObject.address
+          : mode === "Eigentümeradresse"
+            ? newObject.ownerAddress
+            : newObject.billingAddress,
+    });
+  }
+
+  function addMedia(files: FileList | null, type: MediaItem["type"], source: MediaItem["source"]) {
+    if (!files?.length) return;
+
+    const added = Array.from(files).map((file, index) => ({
+      id: `MED-${Date.now()}-${index}-${file.name}`,
+      type,
+      name: file.name,
+      description: type === "Dokument" ? newObject.documentDescription.trim() : "",
+      source,
+      previewUrl: type === "Bild" ? URL.createObjectURL(file) : undefined,
+    }));
+    const mediaItems = [...newObject.mediaItems, ...added];
+
+    setNewObject({
+      ...newObject,
+      mediaItems,
+      images: String(mediaItems.filter((item) => item.type === "Bild").length),
+      documents: String(mediaItems.filter((item) => item.type === "Dokument").length),
+      floorPlans: String(mediaItems.filter((item) => item.type === "Grundriss").length),
+      documentDescription: type === "Dokument" ? "" : newObject.documentDescription,
+    });
+  }
+
+  function updateMediaDescription(id: string, description: string) {
+    setNewObject({
+      ...newObject,
+      mediaItems: newObject.mediaItems.map((item) => (item.id === id ? { ...item, description } : item)),
+    });
+  }
+
+  function removeMedia(id: string) {
+    const mediaItems = newObject.mediaItems.filter((item) => item.id !== id);
+
+    setNewObject({
+      ...newObject,
+      mediaItems,
+      images: String(mediaItems.filter((item) => item.type === "Bild").length),
+      documents: String(mediaItems.filter((item) => item.type === "Dokument").length),
+      floorPlans: String(mediaItems.filter((item) => item.type === "Grundriss").length),
+    });
   }
 
   return (
@@ -1480,11 +1711,37 @@ function ObjectForm({
           <option>Winterruhe</option>
         </select>
       </label>
+      <label className="wide">
+        <span>Eigentümer aus Kunden</span>
+        <select value={newObject.ownerCustomerId} onChange={(event) => selectOwner(event.target.value)}>
+          <option value="">Manuell pflegen</option>
+          {customers.map((customer) => (
+            <option key={customer.id} value={customer.id}>{customer.name}</option>
+          ))}
+        </select>
+      </label>
       <label><span>Eigentümer</span><input value={newObject.owner} onChange={(event) => update("owner", event.target.value)} /></label>
       <label><span>E-Mail Eigentümer</span><input type="email" value={newObject.ownerEmail} onChange={(event) => update("ownerEmail", event.target.value)} /></label>
       <label><span>Telefon Eigentümer</span><input value={newObject.ownerPhone} onChange={(event) => update("ownerPhone", event.target.value)} /></label>
       <label><span>Ort/Region</span><input value={newObject.region} onChange={(event) => update("region", event.target.value)} /></label>
-      <label className="wide"><span>Adresse</span><input value={newObject.address} onChange={(event) => update("address", event.target.value)} /></label>
+      <label className="wide"><span>Eigentümeradresse</span><input value={newObject.ownerAddress} onChange={(event) => update("ownerAddress", event.target.value)} /></label>
+      <label className="wide"><span>Objektadresse</span><input value={newObject.address} onChange={(event) => update("address", event.target.value)} /></label>
+      <label>
+        <span>Rechnungsadresse verwenden</span>
+        <select value={newObject.billingAddressMode} onChange={(event) => updateBillingMode(event.target.value as ObjectRecord["billingAddressMode"])}>
+          <option>Eigentümeradresse</option>
+          <option>Objektadresse</option>
+          <option>Abweichend</option>
+        </select>
+      </label>
+      <label>
+        <span>Rechnungsadresse</span>
+        <input
+          disabled={newObject.billingAddressMode !== "Abweichend"}
+          value={newObject.billingAddressMode === "Objektadresse" ? newObject.address : newObject.billingAddressMode === "Eigentümeradresse" ? newObject.ownerAddress : newObject.billingAddress}
+          onChange={(event) => update("billingAddress", event.target.value)}
+        />
+      </label>
       <h3>Objektmerkmale</h3>
       <label><span>Größe m²</span><input type="number" value={newObject.sizeSqm} onChange={(event) => update("sizeSqm", event.target.value)} /></label>
       <label><span>Grundstück m²</span><input type="number" value={newObject.plotSqm} onChange={(event) => update("plotSqm", event.target.value)} /></label>
@@ -1511,9 +1768,52 @@ function ObjectForm({
       <label><span>Abwasser</span><input value={newObject.septic} onChange={(event) => update("septic", event.target.value)} /></label>
       <label><span>Internet</span><input value={newObject.internet} onChange={(event) => update("internet", event.target.value)} /></label>
       <h3>Dokumentation & Planung</h3>
-      <label><span>Bilder</span><input type="number" value={newObject.images} onChange={(event) => update("images", event.target.value)} /></label>
-      <label><span>Dokumente</span><input type="number" value={newObject.documents} onChange={(event) => update("documents", event.target.value)} /></label>
-      <label><span>Grundrisse</span><input type="number" value={newObject.floorPlans} onChange={(event) => update("floorPlans", event.target.value)} /></label>
+      <div className="wide media-summary">
+        <span>{newObject.images} Bilder</span>
+        <span>{newObject.documents} Dokumente</span>
+        <span>{newObject.floorPlans} Grundrisse</span>
+      </div>
+      <div className="wide upload-grid">
+        <label className="upload-card">
+          <span>Bilder hochladen</span>
+          <input aria-label="Bilder hochladen" accept="image/*" multiple type="file" onChange={(event) => addMedia(event.target.files, "Bild", "Upload")} />
+        </label>
+        <label className="upload-card">
+          <span>Foto mit Handy aufnehmen</span>
+          <input aria-label="Foto mit Handy aufnehmen" accept="image/*" capture="environment" type="file" onChange={(event) => addMedia(event.target.files, "Bild", "Kamera")} />
+        </label>
+        <label>
+          <span>Dokument-Kurzbeschreibung</span>
+          <input value={newObject.documentDescription} onChange={(event) => update("documentDescription", event.target.value)} placeholder="z.B. Energieausweis, Versicherung, Schlüsselprotokoll" />
+        </label>
+        <label className="upload-card">
+          <span>Dokumente hochladen</span>
+          <input aria-label="Dokumente hochladen" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,image/*" multiple type="file" onChange={(event) => addMedia(event.target.files, "Dokument", "Upload")} />
+        </label>
+        <label className="upload-card">
+          <span>Grundrisse hochladen</span>
+          <input aria-label="Grundrisse hochladen" accept=".pdf,image/*" multiple type="file" onChange={(event) => addMedia(event.target.files, "Grundriss", "Upload")} />
+        </label>
+      </div>
+      {newObject.mediaItems.length > 0 && (
+        <div className="wide media-list">
+          {newObject.mediaItems.map((item) => (
+            <article key={item.id}>
+              <div>
+                <strong>{item.type}: {item.name}</strong>
+                <span>{item.source}</span>
+              </div>
+              <input
+                aria-label={`Kurzbeschreibung ${item.name}`}
+                placeholder="Kurzbeschreibung"
+                value={item.description}
+                onChange={(event) => updateMediaDescription(item.id, event.target.value)}
+              />
+              <button className="row-action" onClick={() => removeMedia(item.id)} type="button">Entfernen</button>
+            </article>
+          ))}
+        </div>
+      )}
       <label><span>Letzter Besuch</span><input value={newObject.lastVisit} onChange={(event) => update("lastVisit", event.target.value)} /></label>
       <label><span>Nächster Besuch</span><input value={newObject.nextVisit} onChange={(event) => update("nextVisit", event.target.value)} /></label>
       <label className="wide"><span>Ausstattung</span><textarea value={newObject.equipment} onChange={(event) => update("equipment", event.target.value)} placeholder="Pool, Sauna, Kamin" /></label>
@@ -1540,15 +1840,6 @@ function CustomerForm({
     setCustomer({ ...customer, [key]: value } as CustomerFormState);
   }
 
-  function toggleObject(id: string) {
-    update(
-      "objects",
-      customer.objects.includes(id)
-        ? customer.objects.filter((objectId) => objectId !== id)
-        : [...customer.objects, id],
-    );
-  }
-
   return (
     <div className="form-grid">
       <h3>Kundendaten</h3>
@@ -1556,6 +1847,7 @@ function CustomerForm({
       <label><span>Ansprechpartner</span><input value={customer.contact} onChange={(event) => update("contact", event.target.value)} /></label>
       <label><span>E-Mail</span><input type="email" value={customer.email} onChange={(event) => update("email", event.target.value)} /></label>
       <label><span>Telefon</span><input value={customer.phone} onChange={(event) => update("phone", event.target.value)} /></label>
+      <label className="wide"><span>Eigentümeradresse / Rechnungsadresse</span><input value={customer.address} onChange={(event) => update("address", event.target.value)} /></label>
       <label><span>Sprache</span><input value={customer.language} onChange={(event) => update("language", event.target.value)} /></label>
       <label>
         <span>Portalstatus</span>
@@ -1566,14 +1858,13 @@ function CustomerForm({
         </select>
       </label>
       <label><span>Saldo</span><input value={customer.balance} onChange={(event) => update("balance", event.target.value)} /></label>
+      <label className="wide"><span>Notizen / interne Info</span><textarea value={customer.notes} onChange={(event) => update("notes", event.target.value)} /></label>
       <div className="wide check-list">
-        <span>Objekte</span>
-        {objects.map((object) => (
-          <label key={object.id}>
-            <input checked={customer.objects.includes(object.id)} onChange={() => toggleObject(object.id)} type="checkbox" />
-            <span>{object.name}</span>
-          </label>
+        <span>Zugeordnete Objekte</span>
+        {objects.filter((object) => customer.objects.includes(object.id)).map((object) => (
+          <p key={object.id}>{object.name} · {object.address}</p>
         ))}
+        {customer.objects.length === 0 && <p>Noch keine Objekte zugeordnet.</p>}
       </div>
       <button className="primary-button wide" onClick={onSubmit} type="button">{submitLabel}</button>
     </div>

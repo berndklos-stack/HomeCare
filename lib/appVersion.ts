@@ -1,10 +1,25 @@
 export const appVersion = {
-  version: "1.1.0",
+  version: "1.2.0",
   releaseDate: "2026-08-09",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.2.0",
+    date: "2026-08-09",
+    changes: [
+      "Objekte können einem Eigentümer aus den Kundenstammdaten zugeordnet werden",
+      "Objektadresse, Eigentümeradresse und Rechnungsadresse werden getrennt gepflegt",
+      "Rechnungsadresse kann aus Objektadresse, Eigentümeradresse oder abweichender Adresse gewählt werden",
+      "Bilder, Handy-Fotos, Dokumente und Grundrisse können in der Objektmaske erfasst werden",
+      "Dokumente erhalten eine Kurzbeschreibung und erscheinen in der Objektakte",
+      "Objektakte zeigt ein Objektfoto als Vorschau und einen Korrespondenzverlauf aus Nachrichten und gesendeten Einsatzberichten",
+      "Kundenformular zeigt nur zugeordnete Objekte und enthält ein internes Notizfeld",
+      "Farbsystem an Apple-nahe neutrale Grautöne mit sparsamer blauer Aktionsfarbe angepasst",
+      "Kolaretorp-Logo aus der Website als App-Branding eingebunden",
+    ],
+  },
   {
     version: "1.1.0",
     date: "2026-08-09",
