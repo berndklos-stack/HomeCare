@@ -1,10 +1,30 @@
 export const appVersion = {
-  version: "1.4.0",
+  version: "1.6.0",
   releaseDate: "2026-08-09",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.6.0",
+    date: "2026-08-09",
+    changes: [
+      "Leistungen können in den Stammdaten bearbeitet und gespeichert werden",
+      "Pakete können bearbeitet und mit geänderten Leistungszuordnungen gespeichert werden",
+      "Kategorie-Feld der Leistungen als lernendes Dropdown mit bestehenden Kategorien umgesetzt",
+      "E2E-Test prüft Bearbeitung von Leistungen, Paketbearbeitung und neue Kategorien",
+    ],
+  },
+  {
+    version: "1.5.0",
+    date: "2026-08-09",
+    changes: [
+      "Kunden können im Bearbeiten-Dialog Objekte per Dropdown zugeordnet bekommen",
+      "Kunden-Objekt-Zuordnung synchronisiert Eigentümerdaten zurück in die Objektstammdaten",
+      "Zugeordnete Objekte können aus der Kundenmaske wieder entfernt werden",
+      "Kundenübersicht kompakter gestaltet: Bearbeiten-Button rechts und Kundendaten auf zwei Zeilen begrenzt",
+    ],
+  },
   {
     version: "1.4.0",
     date: "2026-08-09",

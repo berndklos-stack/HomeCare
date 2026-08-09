@@ -251,6 +251,8 @@ button {
   border: 1px solid var(--line);
   color: var(--brand);
   justify-content: center;
+  min-height: 34px;
+  padding: 0 10px;
 }
 
 .quickbar {
@@ -408,6 +410,30 @@ button {
   padding: 0;
   text-align: left;
   width: 100%;
+}
+
+.customer-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.customer-row-main {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(260px, 1fr) minmax(140px, 0.45fr) minmax(90px, 0.25fr) auto;
+  min-width: 0;
+}
+
+.customer-row-main > div,
+.customer-row-main span {
+  min-width: 0;
+}
+
+.customer-row-main > div > span {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .object-list article:hover,
@@ -828,6 +854,17 @@ mark.neutral {
   align-items: center;
   display: flex;
   gap: 8px;
+}
+
+.assigned-row {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.assigned-row p {
+  margin: 0;
 }
 
 .version-list {

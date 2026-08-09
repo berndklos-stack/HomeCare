@@ -893,6 +893,25 @@ export default function HomePage() {
         ? current.map((customer) => (customer.id === editingCustomerId ? saved : customer))
         : [saved, ...current],
     );
+    setObjects((current) =>
+      current.map((object) => {
+        if (saved.objects.includes(object.id)) {
+          const billingAddress = object.billingAddressMode === "Eigentümeradresse" ? saved.address : object.billingAddress;
+
+          return {
+            ...object,
+            ownerCustomerId: saved.id,
+            owner: saved.name,
+            ownerEmail: saved.email,
+            ownerPhone: saved.phone,
+            ownerAddress: saved.address,
+            billingAddress,
+          };
+        }
+
+        return object.ownerCustomerId === saved.id ? { ...object, ownerCustomerId: "" } : object;
+      }),
+    );
     setEditingCustomerId(null);
     setSection("customers");
     setModal(null);
@@ -1287,14 +1306,16 @@ function CustomersView({
       </div>
       <div className="table-list">
         {customers.map((customer) => (
-          <article key={customer.id}>
-            <div>
+          <article className="customer-row" key={customer.id}>
+            <div className="customer-row-main">
+              <div>
               <strong>{customer.name}</strong>
-              <span>{customer.contact} · {customer.email} · {customer.phone} · {customer.language}{customer.notes ? ` · ${customer.notes}` : ""}</span>
+                <span>{customer.contact} · {customer.email} · {customer.phone} · {customer.language}{customer.notes ? ` · ${customer.notes}` : ""}</span>
+              </div>
+              <span>{objects.filter((object) => customer.objects.includes(object.id)).map((object) => object.name).join(", ") || "Keine Objekte"}</span>
+              <span>{customer.balance}</span>
+              <Badge value={customer.portalStatus} />
             </div>
-            <span>{objects.filter((object) => customer.objects.includes(object.id)).map((object) => object.name).join(", ")}</span>
-            <span>{customer.balance}</span>
-            <Badge value={customer.portalStatus} />
             <button className="row-action" onClick={() => onEdit(customer)} type="button">Bearbeiten</button>
           </article>
         ))}
@@ -1436,6 +1457,8 @@ function MasterDataView({
   packages: ServicePackage[];
   setPackages: (packages: ServicePackage[]) => void;
 }) {
+  const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
+  const [editingPackageId, setEditingPackageId] = useState<string | null>(null);
   const [serviceForm, setServiceForm] = useState({
     name: "",
     category: "Zusatzleistung",
@@ -1449,10 +1472,27 @@ function MasterDataView({
     description: "",
     serviceIds: [] as string[],
   });
+  const categories = Array.from(new Set(services.map((service) => service.category).filter(Boolean))).sort();
 
-  function createService() {
-    const created: ServiceItem = {
-      id: `SVC-${Date.now()}`,
+  function resetServiceForm() {
+    setEditingServiceId(null);
+    setServiceForm({ name: "", category: "Zusatzleistung", unit: "Einsatz", price: "", description: "" });
+  }
+
+  function editService(service: ServiceItem) {
+    setEditingServiceId(service.id);
+    setServiceForm({
+      name: service.name,
+      category: service.category,
+      unit: service.unit,
+      price: service.price,
+      description: service.description,
+    });
+  }
+
+  function saveService() {
+    const saved: ServiceItem = {
+      id: editingServiceId ?? `SVC-${Date.now()}`,
       name: serviceForm.name.trim() || "Neue Leistung",
       category: serviceForm.category.trim() || "Zusatzleistung",
       unit: serviceForm.unit.trim() || "Einsatz",
@@ -1460,8 +1500,8 @@ function MasterDataView({
       description: serviceForm.description.trim() || "Beschreibung ergänzen.",
     };
 
-    setServices([created, ...services]);
-    setServiceForm({ name: "", category: "Zusatzleistung", unit: "Einsatz", price: "", description: "" });
+    setServices(editingServiceId ? services.map((service) => (service.id === editingServiceId ? saved : service)) : [saved, ...services]);
+    resetServiceForm();
   }
 
   function togglePackageService(id: string) {
@@ -1473,17 +1513,32 @@ function MasterDataView({
     });
   }
 
-  function createPackage() {
-    const created: ServicePackage = {
-      id: `PKG-${Date.now()}`,
+  function resetPackageForm() {
+    setEditingPackageId(null);
+    setPackageForm({ name: "", price: "", description: "", serviceIds: [] });
+  }
+
+  function editPackage(servicePackage: ServicePackage) {
+    setEditingPackageId(servicePackage.id);
+    setPackageForm({
+      name: servicePackage.name,
+      price: servicePackage.price,
+      description: servicePackage.description,
+      serviceIds: servicePackage.serviceIds,
+    });
+  }
+
+  function savePackage() {
+    const saved: ServicePackage = {
+      id: editingPackageId ?? `PKG-${Date.now()}`,
       name: packageForm.name.trim() || "Neues Paket",
       price: packageForm.price.trim() || "0 SEK/Jahr",
       description: packageForm.description.trim() || "Paketbeschreibung ergänzen.",
       serviceIds: packageForm.serviceIds,
     };
 
-    setPackages([created, ...packages]);
-    setPackageForm({ name: "", price: "", description: "", serviceIds: [] });
+    setPackages(editingPackageId ? packages.map((servicePackage) => (servicePackage.id === editingPackageId ? saved : servicePackage)) : [saved, ...packages]);
+    resetPackageForm();
   }
 
   return (
@@ -1497,11 +1552,15 @@ function MasterDataView({
         </div>
         <div className="form-grid compact-form">
           <label><span>Leistung</span><input value={serviceForm.name} onChange={(event) => setServiceForm({ ...serviceForm, name: event.target.value })} /></label>
-          <label><span>Kategorie</span><input value={serviceForm.category} onChange={(event) => setServiceForm({ ...serviceForm, category: event.target.value })} /></label>
+          <label><span>Kategorie</span><input list="service-categories" value={serviceForm.category} onChange={(event) => setServiceForm({ ...serviceForm, category: event.target.value })} /></label>
+          <datalist id="service-categories">
+            {categories.map((category) => <option key={category} value={category} />)}
+          </datalist>
           <label><span>Einheit</span><input value={serviceForm.unit} onChange={(event) => setServiceForm({ ...serviceForm, unit: event.target.value })} /></label>
           <label><span>Preis</span><input value={serviceForm.price} onChange={(event) => setServiceForm({ ...serviceForm, price: event.target.value })} placeholder="z.B. 595 SEK/Stunde" /></label>
           <label className="wide"><span>Beschreibung</span><textarea value={serviceForm.description} onChange={(event) => setServiceForm({ ...serviceForm, description: event.target.value })} /></label>
-          <button className="primary-button wide" onClick={createService} type="button">Leistung anlegen</button>
+          <button className="primary-button wide" onClick={saveService} type="button">{editingServiceId ? "Leistung speichern" : "Leistung anlegen"}</button>
+          {editingServiceId && <button className="ghost-button wide" onClick={resetServiceForm} type="button">Bearbeitung abbrechen</button>}
         </div>
         <div className="service-catalog">
           {services.map((service) => (
@@ -1510,6 +1569,7 @@ function MasterDataView({
               <strong>{service.name}</strong>
               <small>{service.description}</small>
               <mark>{service.price}/{service.unit}</mark>
+              <button className="row-action" onClick={() => editService(service)} type="button">Bearbeiten</button>
             </article>
           ))}
         </div>
@@ -1535,7 +1595,8 @@ function MasterDataView({
               </label>
             ))}
           </div>
-          <button className="primary-button wide" onClick={createPackage} type="button">Paket anlegen</button>
+          <button className="primary-button wide" onClick={savePackage} type="button">{editingPackageId ? "Paket speichern" : "Paket anlegen"}</button>
+          {editingPackageId && <button className="ghost-button wide" onClick={resetPackageForm} type="button">Bearbeitung abbrechen</button>}
         </div>
         <div className="service-catalog package-catalog">
           {packages.map((servicePackage) => (
@@ -1550,6 +1611,7 @@ function MasterDataView({
                 })}
               </div>
               <mark>{servicePackage.price}</mark>
+              <button className="row-action" onClick={() => editPackage(servicePackage)} type="button">Bearbeiten</button>
             </article>
           ))}
         </div>
@@ -1831,6 +1893,18 @@ function CustomerForm({
     setCustomer({ ...customer, [key]: value } as CustomerFormState);
   }
 
+  function assignObject(id: string) {
+    if (!id || customer.objects.includes(id)) return;
+    update("objects", [...customer.objects, id]);
+  }
+
+  function removeObject(id: string) {
+    update("objects", customer.objects.filter((objectId) => objectId !== id));
+  }
+
+  const availableObjects = objects.filter((object) => !customer.objects.includes(object.id));
+  const assignedObjects = objects.filter((object) => customer.objects.includes(object.id));
+
   return (
     <div className="form-grid">
       <h3>Kundendaten</h3>
@@ -1850,10 +1924,22 @@ function CustomerForm({
       </label>
       <label><span>Saldo</span><input value={customer.balance} onChange={(event) => update("balance", event.target.value)} /></label>
       <label className="wide"><span>Notizen / interne Info</span><textarea value={customer.notes} onChange={(event) => update("notes", event.target.value)} /></label>
+      <label className="wide">
+        <span>Objekt zuordnen</span>
+        <select value="" onChange={(event) => assignObject(event.target.value)}>
+          <option value="">Objekt auswählen</option>
+          {availableObjects.map((object) => (
+            <option key={object.id} value={object.id}>{object.name} · {object.address}</option>
+          ))}
+        </select>
+      </label>
       <div className="wide check-list">
         <span>Zugeordnete Objekte</span>
-        {objects.filter((object) => customer.objects.includes(object.id)).map((object) => (
-          <p key={object.id}>{object.name} · {object.address}</p>
+        {assignedObjects.map((object) => (
+          <div className="assigned-row" key={object.id}>
+            <p>{object.name} · {object.address}</p>
+            <button className="row-action" onClick={() => removeObject(object.id)} type="button">Entfernen</button>
+          </div>
         ))}
         {customer.objects.length === 0 && <p>Noch keine Objekte zugeordnet.</p>}
       </div>

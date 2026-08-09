@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 
 test("new operations workspace supports core property and job flows", async ({ page }) => {
   const field = (name: string) => page.locator("label").filter({ hasText: name }).locator("input, textarea, select").first();
+  const exactField = (name: string) => page.locator("label").filter({ hasText: new RegExp(`^${name}$`) }).locator("input, textarea, select").first();
 
   await page.goto("/");
   await expect(page.locator("main")).toHaveAttribute("data-ready", "true");
@@ -92,8 +93,14 @@ test("new operations workspace supports core property and job flows", async ({ p
   await page.locator(".table-list article").filter({ hasText: "M. Schneider" }).getByRole("button", { name: "Bearbeiten" }).click();
   await expect(page.getByRole("dialog").getByText("Stuga Nybro")).toBeVisible();
   await expect(page.getByRole("dialog").getByText("Testhaus Smaland")).toBeVisible();
-  await expect(page.getByRole("dialog").getByText("Villa Långsjön")).toHaveCount(0);
+  await field("Objekt zuordnen").selectOption("OBJ-1001");
+  await expect(page.locator(".assigned-row").filter({ hasText: "Villa Långsjön" })).toBeVisible();
+  await page.getByRole("button", { name: "Kunde speichern" }).click();
+  await page.getByTestId("nav-objects").click();
+  await page.locator(".object-list article").filter({ hasText: "Villa Långsjön" }).getByRole("button", { name: "Bearbeiten" }).click();
+  await expect(exactField("Eigentümer")).toHaveValue("M. Schneider");
   await page.getByRole("button", { name: "Schließen" }).click();
+  await page.getByTestId("nav-customers").click();
   await page.locator(".table-list article").filter({ hasText: "Familie Beispiel" }).getByRole("button", { name: "Bearbeiten" }).click();
   await field("Telefon").fill("+46 70 112233");
   await page.getByRole("button", { name: "Kunde speichern" }).click();
@@ -118,6 +125,12 @@ test("new operations workspace supports core property and job flows", async ({ p
   await field("Beschreibung").fill("Fenster schließen, Griffe prüfen und Auffälligkeiten dokumentieren");
   await page.getByRole("button", { name: "Leistung anlegen" }).click();
   await expect(page.locator(".service-catalog").getByText("Fensterkontrolle")).toBeVisible();
+  await page.locator(".service-catalog article").filter({ hasText: "Fensterkontrolle" }).getByRole("button", { name: "Bearbeiten" }).click();
+  await field("Kategorie").fill("Winterservice");
+  await field("Preis").fill("375 SEK");
+  await page.getByRole("button", { name: "Leistung speichern" }).click();
+  await expect(page.locator("datalist#service-categories option[value='Winterservice']")).toHaveCount(1);
+  await expect(page.locator(".service-catalog article").filter({ hasText: "Fensterkontrolle" }).getByText("375 SEK/Einsatz")).toBeVisible();
   await field("Paketname").fill("Winterpaket");
   await field("Paketpreis").fill("3.990 SEK/Jahr");
   await field("Paketbeschreibung").fill("Winterkontrollen und schnelle Rückmeldung bei Schäden");
@@ -126,6 +139,12 @@ test("new operations workspace supports core property and job flows", async ({ p
   await page.getByRole("button", { name: "Paket anlegen" }).click();
   await expect(page.locator(".package-catalog").getByText("Winterpaket")).toBeVisible();
   await expect(page.locator(".package-catalog").getByText("Fensterkontrolle")).toBeVisible();
+  await page.locator(".package-catalog article").filter({ hasText: "Winterpaket" }).getByRole("button", { name: "Bearbeiten" }).click();
+  await field("Paketpreis").fill("4.290 SEK/Jahr");
+  await page.locator(".service-picker").getByLabel(/Notdienst/).check();
+  await page.getByRole("button", { name: "Paket speichern" }).click();
+  await expect(page.locator(".package-catalog article").filter({ hasText: "Winterpaket" }).getByText("4.290 SEK/Jahr")).toBeVisible();
+  await expect(page.locator(".package-catalog article").filter({ hasText: "Winterpaket" }).getByText("Notdienst")).toBeVisible();
 
   await page.getByLabel("Sprache").selectOption("sv");
   await expect(page.getByRole("heading", { name: "Fritidshusförvaltning" })).toBeVisible();
