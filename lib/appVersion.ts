@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.31.0",
+  version: "1.32.0",
   releaseDate: "2026-08-10",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.32.0",
+    date: "2026-08-10",
+    changes: [
+      "PDF-Bericht verwendet echte Bild-Elemente, damit Fotos im Chrome-PDF zuverlässig erscheinen",
+      "PDF-Bericht wurde kompakter gestaltet mit dichterer Kopfzeile, kleineren Einzelpunkten und reduzierten Abständen",
+      "Bildergalerien im Bericht nutzen im Druck bis zu drei Spalten",
+    ],
+  },
   {
     version: "1.31.0",
     date: "2026-08-10",

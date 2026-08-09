@@ -2820,11 +2820,11 @@ function ObjectHistory({
                 </div>
                 <div className="report-hero">
                   {primaryObjectImage(object)?.previewUrl ? (
-                    <div
-                      aria-label={`Objektbild ${object.name}`}
+                    // eslint-disable-next-line @next/next/no-img-element -- Chrome druckt echte img-Elemente zuverlässiger in PDFs als CSS-Hintergrundbilder.
+                    <img
+                      alt={`Objektbild ${object.name}`}
                       className="report-hero-image"
-                      role="img"
-                      style={{ backgroundImage: `url(${primaryObjectImage(object)?.previewUrl})` }}
+                      src={primaryObjectImage(object)?.previewUrl}
                     />
                   ) : (
                     <div className="report-hero-image report-hero-image-empty">
@@ -2922,11 +2922,8 @@ function ObjectHistory({
                           .filter((photo) => photo.previewUrl)
                           .map((photo) => (
                             <figure key={`${item.id}-${photo.name}-preview`}>
-                              <div
-                                aria-label={`Kontrollfoto ${photo.name}`}
-                                role="img"
-                                style={{ backgroundImage: `url(${photo.previewUrl})` }}
-                              />
+                              {/* eslint-disable-next-line @next/next/no-img-element -- Berichtsfotos müssen in Chrome-PDFs als echte Bilder erscheinen. */}
+                              <img alt={`Kontrollfoto ${photo.name}`} src={photo.previewUrl} />
                               <figcaption>{item.title}: {photo.name}</figcaption>
                             </figure>
                           )),
@@ -2944,11 +2941,8 @@ function ObjectHistory({
                       {reportImages.map((item) => (
                         <figure key={item.id}>
                           {item.previewUrl ? (
-                            <div
-                              aria-label={`Berichtsbild ${item.name}`}
-                              role="img"
-                              style={{ backgroundImage: `url(${item.previewUrl})` }}
-                            />
+                            // eslint-disable-next-line @next/next/no-img-element -- Berichtsfotos müssen in Chrome-PDFs als echte Bilder erscheinen.
+                            <img alt={`Berichtsbild ${item.name}`} src={item.previewUrl} />
                           ) : (
                             <div className="report-gallery-placeholder">
                               <Camera size={18} />
