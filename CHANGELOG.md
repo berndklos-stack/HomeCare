@@ -4,6 +4,12 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.7.0 - 2026-08-09
+
+- Objektakte wird nur noch im Menüpunkt Objekte angezeigt.
+- Alle anderen Menüpunkte nutzen wieder die volle Arbeitsbreite ohne Objektakten-Seitenblock.
+- Playwright-Test prüft die eingeschränkte Sichtbarkeit der Objektakte.
+
 ## 1.6.0 - 2026-08-09
 
 - Leistungen können in den Stammdaten bearbeitet und gespeichert werden.

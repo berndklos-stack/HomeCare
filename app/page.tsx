@@ -823,7 +823,7 @@ export default function HomePage() {
 
   const t = labels[language];
   const selectedObject = objects.find((object) => object.id === selectedObjectId) ?? objects[0];
-  const showObjectFile = ["dashboard", "objects", "planning", "field"].includes(section);
+  const showObjectFile = section === "objects";
   const filteredObjects = objects.filter((object) =>
     [object.name, object.owner, object.address, object.region, object.carePackage]
       .join(" ")

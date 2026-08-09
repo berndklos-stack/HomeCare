@@ -8,11 +8,12 @@ test("new operations workspace supports core property and job flows", async ({ p
   await expect(page.locator("main")).toHaveAttribute("data-ready", "true");
 
   await expect(page.getByRole("heading", { name: "Ferienhausverwaltung" })).toBeVisible();
-  await expect(page.getByText("Objektakte", { exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Villa Långsjön" })).toBeVisible();
+  await expect(page.getByText("Objektakte", { exact: true })).toHaveCount(0);
 
   await page.getByTestId("nav-objects").click();
   await expect(page.getByRole("heading", { name: "Objektübersicht" })).toBeVisible();
+  await expect(page.getByText("Objektakte", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Villa Långsjön" })).toBeVisible();
   await page.getByRole("button", { name: "Neues Objekt" }).click();
   await field("Objekt").fill("Testhaus Smaland");
   await field("Eigentümer aus Kunden").selectOption("CUS-2");

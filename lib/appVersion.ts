@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.6.0",
+  version: "1.7.0",
   releaseDate: "2026-08-09",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.7.0",
+    date: "2026-08-09",
+    changes: [
+      "Objektakte wird nur noch im Menüpunkt Objekte angezeigt",
+      "Alle anderen Menüpunkte nutzen wieder die volle Arbeitsbreite ohne Objektakten-Seitenblock",
+      "E2E-Test prüft die eingeschränkte Sichtbarkeit der Objektakte",
+    ],
+  },
   {
     version: "1.6.0",
     date: "2026-08-09",
