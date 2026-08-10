@@ -208,7 +208,18 @@ test("new operations workspace supports core property and job flows", async ({ p
   await expect(page.locator(".customer-report-card").getByText("Außenrunde geprüft, keine Auffälligkeiten.")).toBeVisible();
   await expect(page.locator(".customer-report-card").getByRole("figure", { name: /einsatzfoto.jpg/ })).toBeVisible();
   await expect(page.locator(".customer-report-card").getByText("nicht ausgeführt").first()).toBeVisible();
+  await expect(page.locator(".customer-report-card").getByText("40 Minuten dokumentiert")).toBeVisible();
+  await expect(page.locator(".customer-report-card").getByText("178 Minuten dokumentiert")).toHaveCount(0);
+  await expect(page.locator(".report-task-list article").filter({ hasText: "Innenkontrolle abschließen" }).getByText("0 min.")).toBeVisible();
   await field("Kommentar vor dem Senden").fill("Bitte beachten: Zugang wurde geprüft, Folgetermin bleibt bestehen.");
+  await expect(page.locator(".customer-report-card").getByText("Bitte beachten: Zugang wurde geprüft, Folgetermin bleibt bestehen.")).toBeVisible();
+  await page.reload();
+  await expect(page.locator("main")).toHaveAttribute("data-ready", "true");
+  await page.getByTestId("nav-objects").click();
+  await page.locator(".object-list article").filter({ hasText: "Stuga Nybro" }).getByRole("button", { name: "Objekt Stuga Nybro bearbeiten" }).click();
+  await page.locator(".history-list").getByRole("button", { name: /Bearbeiteter Testauftrag/ }).click();
+  await expect(page.locator(".customer-report-card").getByText("40 Minuten dokumentiert")).toBeVisible();
+  await expect(page.locator(".customer-report-card").getByRole("figure", { name: /einsatzfoto.jpg/ })).toBeVisible();
   await expect(page.locator(".customer-report-card").getByText("Bitte beachten: Zugang wurde geprüft, Folgetermin bleibt bestehen.")).toBeVisible();
   await page.getByRole("button", { name: "Zurück zur Objektübersicht" }).click();
   await page.locator(".object-list article").filter({ hasText: "Villa Långsjön" }).getByRole("button", { name: "Objekt Villa Långsjön archivieren" }).click();

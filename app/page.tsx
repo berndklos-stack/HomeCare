@@ -386,6 +386,28 @@ const navItems: Array<{ id: Section; label: string; icon: typeof Home }> = [
   { id: "masterData", label: "Stammdaten", icon: KeyRound },
 ];
 
+const storageKeys = {
+  objects: "kolaretorp-objects",
+  customers: "kolaretorp-customers",
+  jobs: "kolaretorp-jobs",
+  reports: "kolaretorp-reports",
+  services: "kolaretorp-services",
+  packages: "kolaretorp-packages",
+  fieldProgress: "kolaretorp-field-progress",
+};
+
+function readStoredValue<T>(key: string, fallback: T): T {
+  const stored = window.localStorage.getItem(key);
+  if (!stored) return fallback;
+
+  try {
+    return JSON.parse(stored) as T;
+  } catch {
+    window.localStorage.removeItem(key);
+    return fallback;
+  }
+}
+
 function emptyObjectForm(): NewObjectFormState {
   return {
     name: "",
@@ -1067,7 +1089,7 @@ export default function HomePage() {
   const [query, setQuery] = useState("");
   const [selectedObjectId, setSelectedObjectId] = useState("OBJ-1001");
   const [objects, setObjects] = useState<ObjectRecord[]>(seedObjects);
-  const [objectsStorageReady, setObjectsStorageReady] = useState(false);
+  const [appStorageReady, setAppStorageReady] = useState(false);
   const [customers, setCustomers] = useState(seedCustomers);
   const [jobs, setJobs] = useState(seedJobs);
   const [reports, setReports] = useState(seedReports);
@@ -1106,26 +1128,31 @@ export default function HomePage() {
 
   useEffect(() => {
     window.setTimeout(() => {
-      const storedObjects = window.localStorage.getItem("kolaretorp-objects");
-      if (storedObjects) {
-        try {
-          setObjects(JSON.parse(storedObjects) as ObjectRecord[]);
-        } catch {
-          window.localStorage.removeItem("kolaretorp-objects");
-        }
-      }
-      setObjectsStorageReady(true);
+      setObjects(readStoredValue<ObjectRecord[]>(storageKeys.objects, seedObjects));
+      setCustomers(readStoredValue<CustomerRecord[]>(storageKeys.customers, seedCustomers));
+      setJobs(readStoredValue<JobRecord[]>(storageKeys.jobs, seedJobs));
+      setReports(readStoredValue<ReportRecord[]>(storageKeys.reports, seedReports));
+      setServices(readStoredValue<ServiceItem[]>(storageKeys.services, seedServices));
+      setServicePackages(readStoredValue<ServicePackage[]>(storageKeys.packages, seedPackages));
+      setFieldProgress(readStoredValue<Record<string, Record<string, FieldTaskProgress>>>(storageKeys.fieldProgress, {}));
+      setAppStorageReady(true);
     }, 0);
   }, []);
 
   useEffect(() => {
-    if (!objectsStorageReady) return;
+    if (!appStorageReady) return;
     try {
-      window.localStorage.setItem("kolaretorp-objects", JSON.stringify(objects));
+      window.localStorage.setItem(storageKeys.objects, JSON.stringify(objects));
+      window.localStorage.setItem(storageKeys.customers, JSON.stringify(customers));
+      window.localStorage.setItem(storageKeys.jobs, JSON.stringify(jobs));
+      window.localStorage.setItem(storageKeys.reports, JSON.stringify(reports));
+      window.localStorage.setItem(storageKeys.services, JSON.stringify(services));
+      window.localStorage.setItem(storageKeys.packages, JSON.stringify(servicePackages));
+      window.localStorage.setItem(storageKeys.fieldProgress, JSON.stringify(fieldProgress));
     } catch (error) {
-      console.warn("Objektdaten konnten nicht lokal gespeichert werden.", error);
+      console.warn("App-Daten konnten nicht lokal gespeichert werden.", error);
     }
-  }, [objects, objectsStorageReady]);
+  }, [appStorageReady, customers, fieldProgress, jobs, objects, reports, servicePackages, services]);
 
   const t = labels[language];
   const activeObjects = objects.filter((object) => !object.archived);
@@ -1395,9 +1422,13 @@ export default function HomePage() {
   }
 
   function completeJob(job: JobRecord, checklistResults: FieldTaskResult[], fieldNote: string) {
-    const workMinutes = checklistResults.reduce((sum, item) => sum + item.minutes, 0);
-    const completedCount = checklistResults.filter((item) => item.completed).length;
-    const photoCount = checklistResults.reduce((sum, item) => sum + item.photos.length, 0);
+    const normalizedResults = checklistResults.map((item) => ({
+      ...item,
+      minutes: item.completed ? item.minutes : 0,
+    }));
+    const workMinutes = normalizedResults.reduce((sum, item) => sum + item.minutes, 0);
+    const completedCount = normalizedResults.filter((item) => item.completed).length;
+    const photoCount = normalizedResults.reduce((sum, item) => sum + item.photos.length, 0);
     const reportId = `REP-${Date.now()}`;
     const summary = `${completedCount} von ${checklistResults.length} Checklistenpunkten ausgeführt.${fieldNote.trim() ? ` ${fieldNote.trim()}` : ""}`;
 
@@ -1415,7 +1446,7 @@ export default function HomePage() {
         summary,
         internalNotes: job.internalNotes,
         media: [`${photoCount} Fotos`, `${workMinutes} Minuten dokumentiert`],
-        checklistResults,
+        checklistResults: normalizedResults,
         customerComment: "",
       },
       ...current.filter((report) => report.jobId !== job.id),
@@ -2095,7 +2126,8 @@ function FieldView({
                   <span>Zeit min.</span>
                   <input
                     aria-label={`Zeit ${task.title}`}
-                    value={currentTask.minutes}
+                    disabled={!currentTask.completed}
+                    value={currentTask.completed ? currentTask.minutes : ""}
                     inputMode="numeric"
                     min="0"
                     type="number"

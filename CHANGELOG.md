@@ -4,6 +4,18 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.36.0 - 2026-08-10
+
+- Aufträge, Status, Berichte und Einsatzfotos werden jetzt lokal gespeichert und nach Reload wiederhergestellt.
+- Kunden, Leistungen, Pakete und Mobil-vor-Ort-Fortschritt bleiben ebenfalls erhalten.
+- Test prüft jetzt, dass ein abgeschlossener Einsatzbericht inklusive Foto und Kommentar nach Seitenreload bestehen bleibt.
+
+## 1.35.0 - 2026-08-10
+
+- Arbeitszeit im Einsatzbericht zählt nur noch ausgeführte Checklistenpunkte.
+- Nicht ausgeführte Punkte bleiben im Bericht sichtbar, werden aber mit 0 Minuten ausgewiesen.
+- Minutenfelder nicht ausgeführter Punkte sind in Mobil vor Ort deaktiviert.
+
 ## 1.34.0 - 2026-08-10
 
 - Der Abschnitt Bilder zum Objekt / Einsatz wurde aus dem Bericht entfernt.

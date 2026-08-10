@@ -1,10 +1,28 @@
 export const appVersion = {
-  version: "1.34.0",
+  version: "1.36.0",
   releaseDate: "2026-08-10",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.36.0",
+    date: "2026-08-10",
+    changes: [
+      "Aufträge, Status, Berichte und Einsatzfotos werden jetzt lokal gespeichert und nach Reload wiederhergestellt",
+      "Kunden, Leistungen, Pakete und Mobil-vor-Ort-Fortschritt bleiben ebenfalls erhalten",
+      "Test prüft jetzt, dass ein abgeschlossener Einsatzbericht inklusive Foto und Kommentar nach Seitenreload bestehen bleibt",
+    ],
+  },
+  {
+    version: "1.35.0",
+    date: "2026-08-10",
+    changes: [
+      "Arbeitszeit im Einsatzbericht zählt nur noch ausgeführte Checklistenpunkte",
+      "Nicht ausgeführte Punkte bleiben im Bericht sichtbar, werden aber mit 0 Minuten ausgewiesen",
+      "Minutenfelder nicht ausgeführter Punkte sind in Mobil vor Ort deaktiviert",
+    ],
+  },
   {
     version: "1.34.0",
     date: "2026-08-10",
