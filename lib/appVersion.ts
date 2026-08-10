@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.39.0",
+  version: "1.40.0",
   releaseDate: "2026-08-10",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.40.0",
+    date: "2026-08-10",
+    changes: [
+      "Objektbearbeitung zeigt keinen doppelten Kopf mit Objektstammdaten und Objekt bearbeiten mehr",
+      "Objektbild ist kompakter in den oberen Bearbeitungskopf integriert",
+      "Tests wurden auf den neuen aufgeräumten Objektkopf angepasst",
+    ],
+  },
   {
     version: "1.39.0",
     date: "2026-08-10",

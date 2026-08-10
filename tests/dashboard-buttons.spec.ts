@@ -15,7 +15,7 @@ test("new operations workspace supports core property and job flows", async ({ p
   await expect(page.getByText("Objektakte", { exact: true })).toHaveCount(0);
   await expect(page.locator(".object-list article").filter({ hasText: "Villa Långsjön" })).toBeVisible();
   await page.locator(".object-list article").filter({ hasText: "Villa Långsjön" }).getByRole("button", { name: "Objekt Villa Långsjön bearbeiten" }).click();
-  await expect(page.getByRole("heading", { name: "Objekt bearbeiten" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Basisdaten" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Historie / Verlauf" })).toBeVisible();
   await page.locator(".history-list").getByRole("button", { name: /Poolpflege und Wasserwerte/ }).click();
   await expect(page.getByText("Pool gereinigt, Werte stabilisiert, nächste Kontrolle geplant.")).toBeVisible();
@@ -75,7 +75,7 @@ test("new operations workspace supports core property and job flows", async ({ p
   await expect(page.getByText("145 m² · 2300 m² Grundstück")).toHaveCount(0);
 
   await page.locator(".object-list article").filter({ hasText: "Testhaus Smaland" }).getByRole("button", { name: "Objekt Testhaus Smaland bearbeiten" }).click();
-  await expect(page.getByRole("heading", { name: "Objekt bearbeiten" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Basisdaten" })).toBeVisible();
   await expect(page.getByText("Dokument: versicherung.pdf")).toBeVisible();
   await expect(field("Größe m²")).toHaveValue("145");
   await expect(field("Objektadresse")).toHaveValue("Testvägen 12, Nybro");
@@ -246,7 +246,7 @@ test("new operations workspace supports core property and job flows", async ({ p
   await page.locator(".object-list article").filter({ hasText: "Testhaus Smaland" }).getByRole("button", { name: "Objekt Testhaus Smaland archivieren" }).click();
   await expect(page.getByText('Objekt "Testhaus Smaland" wurde archiviert.')).toBeVisible();
   await page.getByRole("button", { name: "Archiviertes Objekt Testhaus Smaland bearbeiten" }).click();
-  await expect(page.getByRole("heading", { name: "Objekt bearbeiten" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Basisdaten" })).toBeVisible();
   await field("Nächster Besuch").fill("2026-08-20");
   await page.getByRole("button", { name: "Objekt speichern" }).click();
   await expect(page.getByText('Objekt "Testhaus Smaland" wurde archiviert.')).toBeVisible();

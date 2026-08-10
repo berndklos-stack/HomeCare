@@ -4,6 +4,12 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.40.0 - 2026-08-10
+
+- Objektbearbeitung zeigt keinen doppelten Kopf mit Objektstammdaten und Objekt bearbeiten mehr.
+- Objektbild ist kompakter in den oberen Bearbeitungskopf integriert.
+- Tests wurden auf den neuen aufgeräumten Objektkopf angepasst.
+
 ## 1.39.0 - 2026-08-10
 
 - Dokumente in der Objektakte öffnen beim Anklicken eine Vorschau mit Druckfunktion.

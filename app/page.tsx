@@ -1570,7 +1570,6 @@ export default function HomePage() {
                 newObject={newObject}
                 setNewObject={setNewObject}
                 submitLabel={editingObjectId ? t.saveObject : t.createObject}
-                title={editingObjectId ? t.editObject : t.newObject}
               />
             )}
             {section === "objects" && !objectEditorOpen && (
@@ -2676,7 +2675,6 @@ function ObjectEditorPage({
   newObject,
   setNewObject,
   submitLabel,
-  title,
 }: {
   customers: CustomerRecord[];
   jobs: JobRecord[];
@@ -2688,7 +2686,6 @@ function ObjectEditorPage({
   newObject: NewObjectFormState;
   setNewObject: (value: NewObjectFormState) => void;
   submitLabel: string;
-  title: string;
 }) {
   const primaryImage = newObject.mediaItems.find((item) => item.type === "Bild" && item.isPrimary && item.previewUrl)
     ?? newObject.mediaItems.find((item) => item.type === "Bild" && item.previewUrl);
@@ -2702,10 +2699,6 @@ function ObjectEditorPage({
               <ArrowLeft size={16} />
               Zurück zur Objektübersicht
             </button>
-            <div>
-              <p>Objektstammdaten</p>
-              <h2>{title}</h2>
-            </div>
           </div>
           {primaryImage?.previewUrl ? (
             <div
