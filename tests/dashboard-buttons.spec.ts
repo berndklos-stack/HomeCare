@@ -32,6 +32,7 @@ test("new operations workspace supports core property and job flows", async ({ p
   await expect(reportCard.locator("dt", { hasText: "Priorität" })).toBeVisible();
   await expect(reportCard.getByText("Leistung", { exact: true })).toBeVisible();
   await expect(reportCard.getByText("Bilder zum Objekt / Einsatz")).toHaveCount(0);
+  await expect(reportCard.getByText("Dokumente in der Objektakte")).toHaveCount(0);
   await expect(page.getByText("Betreff: Einsatzbericht - Kolaretorp Service AB - Villa Långsjön")).toBeVisible();
   await expect(page.getByText("Kopie: info@kolaretorp.se")).toBeVisible();
   await expect(page.getByText("Anhang: Einsatzbericht-Villa Långsjön-Poolpflege und Wasserwerte.pdf")).toBeVisible();
@@ -39,6 +40,7 @@ test("new operations workspace supports core property and job flows", async ({ p
   await page.getByRole("button", { name: "Bericht Poolpflege und Wasserwerte an Kunden senden" }).click();
   await expect(page.getByText("Gesendet")).toBeVisible();
   await expect(page.getByText(/Zeitstempel:/)).toBeVisible();
+  await expect(page.getByText(/Bericht wurde zum Versand vorbereitet/)).toBeVisible();
   await page.getByRole("button", { name: "Zurück zur Objektübersicht" }).click();
   await expect(
     page.locator(".object-list article").filter({ hasText: "Villa Långsjön" }).getByRole("button", { name: "Objekt Villa Långsjön bearbeiten" }),

@@ -4,6 +4,13 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.37.0 - 2026-08-10
+
+- Der Abschnitt Dokumente in der Objektakte wurde aus dem Kundenbericht entfernt.
+- PDF-Druck erhält eine Seitenfußzeile mit Seite x von y Seiten.
+- Drucklayout blendet die restliche App-Struktur aus, damit nach den Kontrollpunkten keine leeren Seiten entstehen.
+- Der Senden-Button protokolliert den Versand jetzt mit sichtbarer Rückmeldung.
+
 ## 1.36.0 - 2026-08-10
 
 - Aufträge, Status, Berichte und Einsatzfotos werden jetzt lokal gespeichert und nach Reload wiederhergestellt.

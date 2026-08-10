@@ -2767,12 +2767,15 @@ function ObjectHistory({
   const reportSubject = selectedHistory ? `Einsatzbericht - Kolaretorp Service AB - ${object.name}` : "";
   const reportPdfName = selectedHistory ? `Einsatzbericht-${object.name}-${selectedHistory.title}.pdf` : "";
   const mailBody = customerReportMailBody(reportCustomer);
-  const reportDocuments = object.media.items.filter((item) => item.type !== "Bild");
   const reportId = selectedReport ? selectedReport.id : selectedHistory?.id ?? "";
   const sentAt = selectedReport ? selectedReport.sentAt || sentReports[selectedReport.id] : "";
+  const [sendFeedback, setSendFeedback] = useState("");
 
   function sendCustomerReport() {
-    if (!selectedReport) return;
+    if (!selectedReport) {
+      setSendFeedback("Für diesen Auftrag gibt es noch keinen Bericht zum Senden.");
+      return;
+    }
     const timestamp = new Date().toLocaleString("de-DE", {
       dateStyle: "medium",
       timeStyle: "short",
@@ -2782,6 +2785,7 @@ function ObjectHistory({
       [selectedReport.id]: timestamp,
     });
     onUpdateReport({ ...selectedReport, sentAt: timestamp });
+    setSendFeedback(`Bericht wurde zum Versand vorbereitet und am ${timestamp} protokolliert.`);
   }
 
   return (
@@ -2980,18 +2984,11 @@ function ObjectHistory({
                 <div className="history-media">
                   {selectedReport.media.map((item) => <span key={item}>{item}</span>)}
                 </div>
-                {reportDocuments.length > 0 && (
-                  <div className="report-documents">
-                    <strong>Dokumente in der Objektakte</strong>
-                    {reportDocuments.map((item) => (
-                      <span key={item.id}>{item.type}: {item.description || item.name}</span>
-                    ))}
-                  </div>
-                )}
                 <footer className="report-footer">
                   <span>Kolaretorp Service AB</span>
                   <span>info@kolaretorp.se</span>
                   {sentAt && <span>Versendet am {sentAt}</span>}
+                  <span className="print-page-counter" aria-hidden="true" />
                 </footer>
               </article>
               <div className="history-block internal">
@@ -3014,6 +3011,7 @@ function ObjectHistory({
                 <span>Anhang: {reportPdfName}</span>
                 <span>Body: {mailBody}</span>
                 {sentAt && <span>Zeitstempel: {sentAt}</span>}
+                {sendFeedback && <span>{sendFeedback}</span>}
               </div>
             </>
           ) : (

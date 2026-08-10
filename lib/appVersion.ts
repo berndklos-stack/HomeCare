@@ -1,10 +1,20 @@
 export const appVersion = {
-  version: "1.36.0",
+  version: "1.37.0",
   releaseDate: "2026-08-10",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.37.0",
+    date: "2026-08-10",
+    changes: [
+      "Der Abschnitt Dokumente in der Objektakte wurde aus dem Kundenbericht entfernt",
+      "PDF-Druck erhält eine Seitenfußzeile mit Seite x von y Seiten",
+      "Drucklayout blendet die restliche App-Struktur aus, damit nach den Kontrollpunkten keine leeren Seiten entstehen",
+      "Der Senden-Button protokolliert den Versand jetzt mit sichtbarer Rückmeldung",
+    ],
+  },
   {
     version: "1.36.0",
     date: "2026-08-10",

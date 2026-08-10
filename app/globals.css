@@ -1637,6 +1637,10 @@ mark.neutral {
   padding-top: 8px;
 }
 
+.print-page-counter {
+  display: none;
+}
+
 .send-status {
   background: color-mix(in srgb, var(--brand), var(--paper) 90%);
   border: 1px solid color-mix(in srgb, var(--brand), var(--line) 70%);
@@ -2059,8 +2063,57 @@ mark.neutral {
 
 @media print {
   @page {
-    margin: 14mm;
+    margin: 12mm 14mm 16mm;
     size: A4;
+
+    @bottom-center {
+      color: #6e6e73;
+      content: "Seite " counter(page) " von " counter(pages) " Seiten";
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 9px;
+      font-weight: 700;
+    }
+  }
+
+  html,
+  body {
+    background: #fff;
+    height: auto;
+    margin: 0;
+    min-height: 0;
+  }
+
+  .app,
+  .workspace,
+  .layout,
+  .main-panel,
+  .object-editor-page,
+  .object-history,
+  .history-detail {
+    background: #fff !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    display: block !important;
+    height: auto !important;
+    margin: 0 !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    width: auto !important;
+  }
+
+  .sidebar,
+  .topbar,
+  .quickbar,
+  .object-editor-page > .panel:first-child,
+  .object-history > .panel-title,
+  .history-list,
+  .history-detail-head,
+  .history-detail > dl,
+  .history-detail > .history-block,
+  .report-comment-editor,
+  .send-status {
+    display: none !important;
   }
 
   body * {
@@ -2077,10 +2130,8 @@ mark.neutral {
     box-shadow: none;
     color: #1d1d1f;
     gap: 7px;
-    left: 0;
     padding: 0;
-    position: absolute;
-    top: 0;
+    position: static;
     width: 100%;
   }
 
@@ -2127,9 +2178,7 @@ mark.neutral {
   }
 
   .printable-report .history-block,
-  .printable-report .report-checklist,
-  .printable-report .report-documents,
-  .printable-report .report-gallery {
+  .printable-report .report-checklist {
     gap: 4px;
   }
 
@@ -2158,13 +2207,16 @@ mark.neutral {
   .report-hero,
   .history-block,
   .report-checklist,
-  .report-documents span,
-  .report-gallery figure {
+  .report-task-list article,
+  .report-point-photos figure {
     break-inside: avoid;
   }
 
-  .report-gallery > div {
-    gap: 5px;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+  .print-page-counter {
+    display: inline;
+  }
+
+  .print-page-counter::after {
+    content: "Seite " counter(page) " von " counter(pages) " Seiten";
   }
 }
