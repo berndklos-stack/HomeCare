@@ -1881,7 +1881,7 @@ export default function HomePage() {
             )}
             {modal === "version" && (
               <div className="version-list">
-                {versionHistory.slice(0, 5).map((entry) => (
+                {versionHistory.map((entry) => (
                   <article key={entry.version}>
                     <strong>v{entry.version}</strong>
                     <span>{entry.date}</span>
@@ -1936,7 +1936,7 @@ function Dashboard({
             <h2>Nächste Einsätze</h2>
           </div>
         </div>
-        <div className="table-list">
+        <div className="table-list dashboard-work-list">
           {jobs.map((job) => (
             <article key={job.id}>
               <div>

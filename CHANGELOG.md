@@ -4,6 +4,12 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.45.0 - 2026-08-10
+
+- Tägliche Auftragsliste per Vercel Cron und Resend vorbereitet.
+- Änderungsverlauf zeigt nun alle Versionen scrollbar an.
+- Dashboard-Arbeitsliste ist kompakter und auf maximal zwei Zeilen pro Auftrag ausgelegt.
+
 ## 1.44.0 - 2026-08-10
 
 - Beim Abwählen eines mobilen Auftrags springt der Status von in Arbeit zurück auf geplant.

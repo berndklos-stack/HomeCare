@@ -38,10 +38,26 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 RESEND_API_KEY=
 REPORT_SENDER_EMAIL=info@kolaretorp.se
+DAILY_JOB_LIST_EMAIL=info@kolaretorp.se
+CRON_SECRET=
 ```
 
 `SUPABASE_SERVICE_ROLE_KEY` darf nur serverseitig verwendet werden und gehoert
 nicht in Browser-Code.
+
+## Tägliche Auftragsmail
+
+Vercel ruft `/api/cron/daily-jobs` stuendlich auf. Der Endpunkt sendet die
+Auftragsliste nur, wenn es in `Europe/Stockholm` 08:00 Uhr ist, und merkt sich
+den Versandtag in `public.app_state`, damit keine doppelte Tagesmail entsteht.
+
+Benötigt werden:
+
+- `RESEND_API_KEY` fuer den Mailversand
+- `REPORT_SENDER_EMAIL`, idealerweise eine bei Resend verifizierte Adresse
+- `DAILY_JOB_LIST_EMAIL`, standardmaessig `info@kolaretorp.se`
+- optional `CRON_SECRET`, wenn der Cron-Endpunkt per Bearer-Token geschuetzt
+  werden soll
 
 ## Datenbank
 
