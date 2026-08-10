@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.47.0",
+  version: "1.48.0",
   releaseDate: "2026-08-10",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.48.0",
+    date: "2026-08-10",
+    changes: [
+      "Supabase-Projekt wurde verknüpft und die app_state Tabelle per Migration angelegt",
+      "Serverseitige App-State-API normalisiert gespeicherte Snapshots robuster",
+      "Dauerhafte Speicherung von Kunden, Objekten, Aufträgen, Bildern und Dokumenten ist wieder aktiv",
+    ],
+  },
   {
     version: "1.47.0",
     date: "2026-08-10",

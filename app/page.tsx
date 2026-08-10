@@ -445,6 +445,31 @@ function persistLocalSnapshot(snapshot: AppSnapshot) {
   window.localStorage.setItem(storageKeys.activeJobId, JSON.stringify(snapshot.activeJobId));
 }
 
+function snapshotWeight(snapshot: AppSnapshot) {
+  const objectMedia = snapshot.objects.reduce((sum, object) => sum + object.media.items.length, 0);
+  const reportPhotos = snapshot.reports.reduce(
+    (sum, report) => sum + report.checklistResults.reduce((photoSum, item) => photoSum + item.photos.length, 0),
+    0,
+  );
+  const progressPhotos = Object.values(snapshot.fieldProgress).reduce(
+    (sum, tasks) => sum + Object.values(tasks).reduce((photoSum, task) => photoSum + task.photos.length, 0),
+    0,
+  );
+
+  return [
+    snapshot.objects.length,
+    snapshot.customers.length,
+    snapshot.jobs.length,
+    snapshot.reports.length,
+    snapshot.services.length,
+    snapshot.packages.length,
+    Object.keys(snapshot.fieldProgress).length,
+    objectMedia,
+    reportPhotos,
+    progressPhotos,
+  ].reduce((sum, value) => sum + value, 0);
+}
+
 async function withTimeout<T>(promise: Promise<T>, timeoutMs = 2500): Promise<T> {
   let timeoutId: number | undefined;
   const timeout = new Promise<never>((_, reject) => {
@@ -459,6 +484,10 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs = 2500): Promise<T>
 }
 
 async function loadSupabaseSnapshot() {
+  if (process.env.NEXT_PUBLIC_DISABLE_SUPABASE_SYNC === "1") {
+    return null;
+  }
+
   const response = await withTimeout(fetch("/api/app-state", {
     cache: "no-store",
     headers: { Accept: "application/json" },
@@ -473,6 +502,10 @@ async function loadSupabaseSnapshot() {
 }
 
 async function saveSupabaseSnapshot(snapshot: AppSnapshot) {
+  if (process.env.NEXT_PUBLIC_DISABLE_SUPABASE_SYNC === "1") {
+    return;
+  }
+
   const response = await withTimeout(fetch("/api/app-state", {
     body: JSON.stringify(snapshot),
     cache: "no-store",
@@ -1261,8 +1294,12 @@ export default function HomePage() {
         if (cancelled) return;
 
         if (remoteSnapshot) {
-          applySnapshot(remoteSnapshot);
-          persistLocalSnapshot(remoteSnapshot);
+          if (snapshotWeight(remoteSnapshot) >= snapshotWeight(localSnapshot)) {
+            applySnapshot(remoteSnapshot);
+            persistLocalSnapshot(remoteSnapshot);
+          } else {
+            await saveSupabaseSnapshot(localSnapshot);
+          }
         } else {
           await saveSupabaseSnapshot(localSnapshot);
         }

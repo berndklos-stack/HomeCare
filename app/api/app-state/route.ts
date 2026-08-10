@@ -5,6 +5,8 @@ export const runtime = "nodejs";
 
 const appStateRowId = "kolaretorp-service-app";
 
+type JsonObject = Record<string, unknown>;
+
 function getSupabaseServerClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -16,6 +18,19 @@ function getSupabaseServerClient() {
   return createClient(supabaseUrl, supabaseKey, {
     auth: { persistSession: false },
   });
+}
+
+function normalizeSnapshot(payload: unknown) {
+  if (
+    payload &&
+    typeof payload === "object" &&
+    "data" in payload &&
+    Object.keys(payload as JsonObject).length === 1
+  ) {
+    return (payload as { data: unknown }).data;
+  }
+
+  return payload;
 }
 
 export async function GET() {
@@ -34,8 +49,10 @@ export async function GET() {
     return NextResponse.json({ data: null, error: error.message }, { status: 500 });
   }
 
+  const snapshot = data?.data ? normalizeSnapshot(data.data) : null;
+
   return NextResponse.json(
-    { data: data?.data ?? null, updatedAt: data?.updated_at ?? null },
+    { data: snapshot, updatedAt: data?.updated_at ?? null },
     { headers: { "Cache-Control": "no-store, max-age=0, must-revalidate" } },
   );
 }
@@ -46,7 +63,7 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: "Supabase-Zugangsdaten fehlen." }, { status: 500 });
   }
 
-  const snapshot = await request.json();
+  const snapshot = normalizeSnapshot(await request.json());
   const updatedAt = new Date().toISOString();
   const { error } = await supabase
     .from("app_state")

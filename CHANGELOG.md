@@ -4,6 +4,12 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.48.0 - 2026-08-10
+
+- Supabase-Projekt wurde verknüpft und die app_state Tabelle per Migration angelegt.
+- Serverseitige App-State-API normalisiert gespeicherte Snapshots robuster.
+- Dauerhafte Speicherung von Kunden, Objekten, Aufträgen, Bildern und Dokumenten ist wieder aktiv.
+
 ## 1.47.0 - 2026-08-10
 
 - App-Daten werden jetzt über eine serverseitige App-State-API in Supabase gespeichert.
