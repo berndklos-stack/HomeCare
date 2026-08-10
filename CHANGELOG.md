@@ -4,6 +4,11 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.47.0 - 2026-08-10
+
+- App-Daten werden jetzt über eine serverseitige App-State-API in Supabase gespeichert.
+- Vercel-Production nutzt nun die Supabase-Umgebungsvariablen für dauerhafte Kunden, Objekte, Aufträge, Bilder und Dokumente.
+
 ## 1.46.0 - 2026-08-10
 
 - Vercel Cron auf Hobby-kompatiblen täglichen Lauf umgestellt.

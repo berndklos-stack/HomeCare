@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.46.0",
+  version: "1.47.0",
   releaseDate: "2026-08-10",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.47.0",
+    date: "2026-08-10",
+    changes: [
+      "App-Daten werden jetzt über eine serverseitige App-State-API in Supabase gespeichert",
+      "Vercel-Production nutzt nun die Supabase-Umgebungsvariablen für dauerhafte Kunden, Objekte, Aufträge, Bilder und Dokumente",
+    ],
+  },
   {
     version: "1.46.0",
     date: "2026-08-10",

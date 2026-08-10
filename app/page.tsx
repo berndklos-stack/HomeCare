@@ -34,7 +34,6 @@ import {
 } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import { appVersion, versionHistory } from "@/lib/appVersion";
-import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
 
 type Language = "de" | "sv" | "en";
 type Theme = "light" | "dark";
@@ -410,8 +409,6 @@ const storageKeys = {
   activeJobId: "kolaretorp-active-job-id",
 };
 
-const appStateRowId = "kolaretorp-service-app";
-
 function readStoredValue<T>(key: string, fallback: T): T {
   const stored = window.localStorage.getItem(key);
   if (!stored) return fallback;
@@ -462,41 +459,33 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs = 2500): Promise<T>
 }
 
 async function loadSupabaseSnapshot() {
-  const supabase = getSupabaseBrowserClient();
-  if (!supabase) return null;
-  const appStateTable = supabase.from("app_state") as unknown as {
-    select: (columns: string) => {
-      eq: (column: string, value: string) => {
-        maybeSingle: () => Promise<{ data: { data: AppSnapshot } | null; error: Error | null }>;
-      };
-    };
-  };
+  const response = await withTimeout(fetch("/api/app-state", {
+    cache: "no-store",
+    headers: { Accept: "application/json" },
+  }));
+  const payload = await response.json() as { data?: AppSnapshot | null; error?: string };
 
-  const { data, error } = await withTimeout(
-    appStateTable
-      .select("data")
-      .eq("id", appStateRowId)
-      .maybeSingle(),
-  );
-  if (error) throw error;
-  return (data?.data as AppSnapshot | undefined) ?? null;
+  if (!response.ok) {
+    throw new Error(payload.error || "App-Daten konnten nicht geladen werden.");
+  }
+
+  return payload.data ?? null;
 }
 
 async function saveSupabaseSnapshot(snapshot: AppSnapshot) {
-  const supabase = getSupabaseBrowserClient();
-  if (!supabase) return;
-  const appStateTable = supabase.from("app_state") as unknown as {
-    upsert: (row: { data: AppSnapshot; id: string; updated_at: string }) => Promise<{ error: Error | null }>;
-  };
+  const response = await withTimeout(fetch("/api/app-state", {
+    body: JSON.stringify(snapshot),
+    cache: "no-store",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    method: "PUT",
+  }));
+  const payload = await response.json() as { error?: string };
 
-  const { error } = await withTimeout(
-    appStateTable.upsert({
-      id: appStateRowId,
-      data: snapshot,
-      updated_at: new Date().toISOString(),
-    }),
-  );
-  if (error) throw error;
+  if (!response.ok) {
+    throw new Error(payload.error || "App-Daten konnten nicht gespeichert werden.");
+  }
 }
 
 function emptyObjectForm(): NewObjectFormState {
