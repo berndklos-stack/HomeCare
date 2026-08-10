@@ -1622,8 +1622,12 @@ export default function HomePage() {
   }
 
   function clearActiveJob() {
+    const nextJobs = jobs.map((item) => (
+      item.id === activeJobId && item.status === "in Arbeit" ? { ...item, status: "geplant" as const } : item
+    ));
+    setJobs(nextJobs);
     setActiveJobId(null);
-    persistSnapshotNow({ activeJobId: null });
+    persistSnapshotNow({ activeJobId: null, jobs: nextJobs });
   }
 
   function completeJob(job: JobRecord, checklistResults: FieldTaskResult[], fieldNote: string) {
@@ -2395,10 +2399,10 @@ function JobsView({
               <span>{job.dueDate}</span>
               <span>{job.priority}</span>
               <Badge value={job.status} />
-            </div>
-            <div className="row-actions">
-              <IconAction label={`Auftrag ${job.title} bearbeiten`} onClick={() => onEdit(job)}><Pencil size={16} /></IconAction>
-              <IconAction label={`Auftrag ${job.title} starten`} onClick={() => onStart(job)}><PlayCircle size={16} /></IconAction>
+              <div className="row-actions">
+                <IconAction label={`Auftrag ${job.title} bearbeiten`} onClick={() => onEdit(job)}><Pencil size={16} /></IconAction>
+                <IconAction label={`Auftrag ${job.title} starten`} onClick={() => onStart(job)}><PlayCircle size={16} /></IconAction>
+              </div>
             </div>
           </article>
         ))}

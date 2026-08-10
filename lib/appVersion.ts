@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.43.0",
+  version: "1.44.0",
   releaseDate: "2026-08-10",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.44.0",
+    date: "2026-08-10",
+    changes: [
+      "Beim Abwählen eines mobilen Auftrags springt der Status von in Arbeit zurück auf geplant",
+      "Aktionsbuttons in der Auftragsübersicht sind kleiner und kompakt in der oberen rechten Zeile platziert",
+    ],
+  },
   {
     version: "1.43.0",
     date: "2026-08-10",

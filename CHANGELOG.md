@@ -4,6 +4,11 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.44.0 - 2026-08-10
+
+- Beim Abwählen eines mobilen Auftrags springt der Status von in Arbeit zurück auf geplant.
+- Aktionsbuttons in der Auftragsübersicht sind kleiner und kompakt in der oberen rechten Zeile platziert.
+
 ## 1.43.0 - 2026-08-10
 
 - Berichte aus Objektakte und Berichte-Menü verwenden jetzt dieselbe Einsatzbericht-Komponente.

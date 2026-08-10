@@ -219,6 +219,7 @@ test("new operations workspace supports core property and job flows", async ({ p
   await expect(page.getByRole("heading", { name: "Bearbeiteter Testauftrag" })).toBeVisible();
   await page.getByRole("button", { name: "Auftrag Bearbeiteter Testauftrag abwählen" }).click();
   await expect(page.getByRole("heading", { name: "Auftrag auswählen" })).toBeVisible();
+  await expect(page.locator(".field-job-picker").getByRole("button", { name: /Bearbeiteter Testauftrag/ }).getByText("geplant")).toBeVisible();
   await page.locator(".field-job-picker").getByRole("button", { name: /Bearbeiteter Testauftrag/ }).click();
   await expect(page.getByRole("heading", { name: "Bearbeiteter Testauftrag" })).toBeVisible();
   await expect(page.getByLabel("Zeit Zugang prüfen")).toHaveValue("22");

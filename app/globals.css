@@ -618,9 +618,10 @@ button {
 }
 
 .job-row {
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  min-height: 58px;
-  padding: 9px 10px;
+  align-items: start;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 52px;
+  padding: 8px 10px;
 }
 
 .job-row-main {
@@ -639,14 +640,21 @@ button {
 .job-row-meta {
   align-items: center;
   display: grid;
-  gap: 8px;
-  grid-template-columns: auto auto auto;
+  gap: 6px;
+  grid-template-columns: auto auto auto auto;
   justify-items: end;
   white-space: nowrap;
 }
 
 .job-row .row-actions {
+  align-self: center;
+  gap: 6px;
   justify-content: end;
+}
+
+.job-row .icon-button {
+  height: 30px;
+  width: 30px;
 }
 
 mark {
