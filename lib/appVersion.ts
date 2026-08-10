@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.38.0",
+  version: "1.39.0",
   releaseDate: "2026-08-10",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.39.0",
+    date: "2026-08-10",
+    changes: [
+      "Dokumente in der Objektakte öffnen beim Anklicken eine Vorschau mit Druckfunktion",
+      "Objektfotos öffnen beim Anklicken einen großen Fotoviewer mit Druckfunktion",
+      "PDF-, Bild- und Textdateien werden im Viewer direkt dargestellt, große Office-Dateien als Metadatenvorschau",
+    ],
+  },
   {
     version: "1.38.0",
     date: "2026-08-10",

@@ -22,6 +22,7 @@ import {
   Pencil,
   PlayCircle,
   Plus,
+  Printer,
   RotateCcw,
   Search,
   Send,
@@ -542,6 +543,12 @@ async function fileToImagePreview(file: File, maxSize = 1280, quality = 0.72) {
   canvas.height = height;
   canvas.getContext("2d")?.drawImage(image, 0, 0, width, height);
   return canvas.toDataURL("image/jpeg", quality);
+}
+
+async function fileToDocumentPreview(file: File) {
+  if (file.type.startsWith("image/")) return fileToImagePreview(file, 1100, 0.7);
+  if (file.size > 2_000_000) return undefined;
+  return readFileAsDataUrl(file);
 }
 
 function formToObject(form: NewObjectFormState, id: string): ObjectRecord {
@@ -3045,6 +3052,8 @@ function ObjectForm({
 }) {
   const photoItems = newObject.mediaItems.filter((item) => item.type === "Bild");
   const fileItems = newObject.mediaItems.filter((item) => item.type !== "Bild");
+  const [previewDocument, setPreviewDocument] = useState<MediaItem | null>(null);
+  const [previewPhoto, setPreviewPhoto] = useState<MediaItem | null>(null);
 
   function update(key: keyof typeof newObject, value: string) {
     setNewObject({ ...newObject, [key]: value });
@@ -3091,7 +3100,7 @@ function ObjectForm({
       name: file.name,
       description: type === "Dokument" ? newObject.documentDescription.trim() : "",
       source,
-      previewUrl: type === "Bild" ? await fileToImagePreview(file) : undefined,
+      previewUrl: type === "Bild" ? await fileToImagePreview(file) : await fileToDocumentPreview(file),
       isPrimary: type === "Bild" && !hasPrimaryImage && index === 0,
     })));
     const mediaItems = [...newObject.mediaItems, ...added];
@@ -3233,11 +3242,12 @@ function ObjectForm({
           <div className="object-photo-gallery">
             {photoItems.map((item) => (
               <article className={item.isPrimary ? "primary" : ""} key={item.id}>
-                <div
-                  aria-label={`Foto ${item.name}`}
+                <button
+                  aria-label={`Foto ${item.name} Vorschau öffnen`}
                   className="object-photo-tile"
-                  role="img"
+                  onClick={() => setPreviewPhoto(item)}
                   style={{ backgroundImage: `url(${item.previewUrl})` }}
+                  type="button"
                 />
                 <input
                   aria-label={`Kurzbeschreibung ${item.name}`}
@@ -3248,6 +3258,7 @@ function ObjectForm({
                 <div className="row-actions">
                   <IconAction label={`${item.name} nach oben verschieben`} onClick={() => moveMedia(item.id, -1)}><ArrowUp size={16} /></IconAction>
                   <IconAction label={`${item.name} nach unten verschieben`} onClick={() => moveMedia(item.id, 1)}><ArrowDown size={16} /></IconAction>
+                  <IconAction label={`${item.name} Vorschau öffnen`} onClick={() => setPreviewPhoto(item)}><FileText size={16} /></IconAction>
                   <IconAction label={`${item.name} als Objektbild verwenden`} onClick={() => setPrimaryImage(item.id)}><Home size={16} /></IconAction>
                   <IconAction danger label={`Datei ${item.name} entfernen`} onClick={() => removeMedia(item.id)}><Trash2 size={16} /></IconAction>
                 </div>
@@ -3278,11 +3289,13 @@ function ObjectForm({
           <div className="media-list">
           {fileItems.map((item) => (
             <article key={item.id}>
-              <span className="media-thumb media-thumb-empty">
+              <button className="media-thumb media-thumb-empty" onClick={() => setPreviewDocument(item)} type="button" aria-label={`${item.name} Vorschau öffnen`}>
                 <FileText size={16} />
-              </span>
+              </button>
               <div>
-                <strong>{item.type}: {item.name}</strong>
+                <button className="document-preview-link" onClick={() => setPreviewDocument(item)} type="button">
+                  <strong>{item.type}: {item.name}</strong>
+                </button>
                 <span>{item.source}</span>
               </div>
               <input
@@ -3292,6 +3305,7 @@ function ObjectForm({
                 onChange={(event) => updateMediaDescription(item.id, event.target.value)}
               />
               <div className="row-actions">
+                <IconAction label={`${item.name} Vorschau öffnen`} onClick={() => setPreviewDocument(item)}><FileText size={16} /></IconAction>
                 <IconAction label={`${item.name} nach oben verschieben`} onClick={() => moveMedia(item.id, -1)}><ArrowUp size={16} /></IconAction>
                 <IconAction label={`${item.name} nach unten verschieben`} onClick={() => moveMedia(item.id, 1)}><ArrowDown size={16} /></IconAction>
               </div>
@@ -3303,11 +3317,107 @@ function ObjectForm({
           <p className="empty-attachment">Noch keine Dokumente zum Objekt vorhanden.</p>
         )}
       </section>
+      {previewDocument && (
+        <div className="modal-backdrop nested-backdrop">
+          <section aria-labelledby="document-preview-title" aria-modal="true" className="modal document-preview-modal" role="dialog">
+            <header>
+              <div>
+                <p>Dokumentvorschau</p>
+                <h2 id="document-preview-title">{previewDocument.name}</h2>
+              </div>
+              <button aria-label="Dokumentvorschau schließen" onClick={() => setPreviewDocument(null)} type="button">
+                <X size={18} />
+              </button>
+            </header>
+            <article className="printable-document">
+              <div className="document-preview-meta">
+                <span>{previewDocument.type}</span>
+                <strong>{previewDocument.name}</strong>
+                <small>{previewDocument.description || "Keine Kurzbeschreibung hinterlegt."}</small>
+              </div>
+              <DocumentPreview item={previewDocument} />
+            </article>
+            <div className="modal-actions">
+              <button className="ghost-button" onClick={() => setPreviewDocument(null)} type="button">Schließen</button>
+              <button className="primary-button" onClick={() => window.print()} type="button">
+                <Printer size={16} />
+                Drucken
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+      {previewPhoto && (
+        <div className="modal-backdrop nested-backdrop">
+          <section aria-labelledby="photo-preview-title" aria-modal="true" className="modal document-preview-modal" role="dialog">
+            <header>
+              <div>
+                <p>Fotovorschau</p>
+                <h2 id="photo-preview-title">{previewPhoto.name}</h2>
+              </div>
+              <button aria-label="Fotovorschau schließen" onClick={() => setPreviewPhoto(null)} type="button">
+                <X size={18} />
+              </button>
+            </header>
+            <article className="printable-document">
+              <div className="document-preview-meta">
+                <span>Bild</span>
+                <strong>{previewPhoto.name}</strong>
+                <small>{previewPhoto.description || "Keine Kurzbeschreibung hinterlegt."}</small>
+              </div>
+              {previewPhoto.previewUrl ? (
+                <img alt={`Vorschau ${previewPhoto.name}`} className="document-preview-image" src={previewPhoto.previewUrl} />
+              ) : (
+                <div className="document-preview-placeholder">
+                  <Camera size={34} />
+                  <strong>Keine Bildvorschau verfügbar</strong>
+                  <span>Das Foto ist als Eintrag vorhanden, aber ohne gespeicherte Vorschau.</span>
+                </div>
+              )}
+            </article>
+            <div className="modal-actions">
+              <button className="ghost-button" onClick={() => setPreviewPhoto(null)} type="button">Schließen</button>
+              <button className="primary-button" onClick={() => window.print()} type="button">
+                <Printer size={16} />
+                Drucken
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
       <label><span>Letzter Besuch</span><input value={newObject.lastVisit} onChange={(event) => update("lastVisit", event.target.value)} /></label>
       <label><span>Nächster Besuch</span><input value={newObject.nextVisit} onChange={(event) => update("nextVisit", event.target.value)} /></label>
       <label className="wide"><span>Ausstattung</span><textarea value={newObject.equipment} onChange={(event) => update("equipment", event.target.value)} placeholder="Pool, Sauna, Kamin" /></label>
       <label className="wide"><span>Hinweise / Risiken</span><textarea value={newObject.risks} onChange={(event) => update("risks", event.target.value)} /></label>
       <button className="primary-button wide" onClick={onSubmit} type="button">{submitLabel}</button>
+    </div>
+  );
+}
+
+function DocumentPreview({ item }: { item: MediaItem }) {
+  const source = item.previewUrl ?? "";
+  const lowerName = item.name.toLowerCase();
+  const isImage = source.startsWith("data:image/");
+  const isPdf = source.startsWith("data:application/pdf") || lowerName.endsWith(".pdf");
+  const isText = source.startsWith("data:text/");
+
+  if (isImage && source) {
+    return <img alt={`Vorschau ${item.name}`} className="document-preview-image" src={source} />;
+  }
+
+  if (isPdf && source) {
+    return <iframe className="document-preview-frame" src={source} title={`Vorschau ${item.name}`} />;
+  }
+
+  if (isText && source) {
+    return <iframe className="document-preview-frame" src={source} title={`Vorschau ${item.name}`} />;
+  }
+
+  return (
+    <div className="document-preview-placeholder">
+      <FileText size={34} />
+      <strong>Keine direkte Vorschau verfügbar</strong>
+      <span>Das Dokument ist hinterlegt. Für große oder Office-Dateien wird eine Metadaten-Vorschau angezeigt.</span>
     </div>
   );
 }

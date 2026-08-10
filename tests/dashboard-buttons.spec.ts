@@ -79,6 +79,10 @@ test("new operations workspace supports core property and job flows", async ({ p
   await expect(page.getByText("Dokument: versicherung.pdf")).toBeVisible();
   await expect(field("Größe m²")).toHaveValue("145");
   await expect(field("Objektadresse")).toHaveValue("Testvägen 12, Nybro");
+  await page.getByRole("button", { name: "versicherung.pdf Vorschau öffnen" }).first().click();
+  await expect(page.getByRole("dialog", { name: /versicherung.pdf/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Drucken" })).toBeVisible();
+  await page.getByRole("button", { name: "Dokumentvorschau schließen" }).click();
   await field("Telefon Eigentümer").fill("+46 70 123456");
   await field("Objektadresse").fill("Geänderter Weg 5, Nybro");
   await field("Alarmanlage").fill("Code im internen Tresor hinterlegt");
@@ -91,7 +95,11 @@ test("new operations workspace supports core property and job flows", async ({ p
   await expect(field("Telefon Eigentümer")).toHaveValue("+46 70 123456");
   await expect(page.getByRole("img", { name: "Aktuelles Objektbild" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Fotos zum Objekt" })).toBeVisible();
-  await expect(page.getByRole("img", { name: "Foto objektfoto.jpg" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Foto objektfoto.jpg Vorschau öffnen" })).toBeVisible();
+  await page.getByRole("button", { name: "Foto objektfoto.jpg Vorschau öffnen" }).first().click();
+  await expect(page.getByRole("dialog", { name: /objektfoto.jpg/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Drucken" })).toBeVisible();
+  await page.getByRole("button", { name: "Fotovorschau schließen" }).click();
   await page.getByRole("button", { name: "Zurück zur Objektübersicht" }).click();
   await page.locator(".object-list article").filter({ hasText: "Stuga Nybro" }).getByRole("button", { name: "Objekt Stuga Nybro bearbeiten" }).click();
   await page.getByLabel("Neues Foto hinzufügen").setInputFiles({
@@ -100,7 +108,7 @@ test("new operations workspace supports core property and job flows", async ({ p
     buffer: Buffer.from("demo"),
   });
   await expect(page.getByRole("img", { name: "Aktuelles Objektbild" })).toBeVisible();
-  await expect(page.getByRole("img", { name: "Foto zweites-objekt.jpg" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Foto zweites-objekt.jpg Vorschau öffnen" })).toBeVisible();
   await page.getByRole("button", { name: "Objekt speichern" }).click();
 
   await page.getByRole("button", { name: /\d+\s*Berichte/ }).click();

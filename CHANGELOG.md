@@ -4,6 +4,12 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.39.0 - 2026-08-10
+
+- Dokumente in der Objektakte öffnen beim Anklicken eine Vorschau mit Druckfunktion.
+- Objektfotos öffnen beim Anklicken einen großen Fotoviewer mit Druckfunktion.
+- PDF-, Bild- und Textdateien werden im Viewer direkt dargestellt, große Office-Dateien als Metadatenvorschau.
+
 ## 1.38.0 - 2026-08-10
 
 - Objekthistorie ist jetzt eingeklappt und zeigt Berichte kompakt zweizeilig an.

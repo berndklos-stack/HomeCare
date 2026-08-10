@@ -1899,8 +1899,28 @@ mark.neutral {
   background-size: cover;
   border: 1px solid var(--line);
   border-radius: 8px;
+  cursor: zoom-in;
   min-width: 0;
   width: 100%;
+}
+
+button.object-photo-tile {
+  appearance: none;
+  display: block;
+  padding: 0;
+  text-align: left;
+}
+
+.document-preview-link {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: zoom-in;
+  display: block;
+  font: inherit;
+  padding: 0;
+  text-align: left;
 }
 
 .document-description-field {
@@ -1939,6 +1959,84 @@ mark.neutral {
   height: 42px;
   justify-content: center;
   width: 54px;
+}
+
+button.media-thumb {
+  cursor: zoom-in;
+  padding: 0;
+}
+
+.document-preview-modal {
+  max-width: min(1100px, calc(100vw - 28px));
+  width: 100%;
+}
+
+.printable-document {
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+}
+
+.document-preview-meta {
+  display: grid;
+  gap: 3px;
+}
+
+.document-preview-meta span {
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.document-preview-meta strong {
+  font-size: 18px;
+}
+
+.document-preview-meta small,
+.document-preview-placeholder span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.document-preview-frame,
+.document-preview-image,
+.document-preview-placeholder {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  min-height: 62vh;
+  width: 100%;
+}
+
+.document-preview-frame {
+  display: block;
+}
+
+.document-preview-image {
+  display: block;
+  height: auto;
+  max-height: 70vh;
+  object-fit: contain;
+}
+
+.document-preview-placeholder {
+  align-items: center;
+  color: var(--brand);
+  display: grid;
+  justify-items: center;
+  padding: 28px;
+  text-align: center;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
 }
 
 .check-list {
@@ -2120,8 +2218,16 @@ mark.neutral {
   .history-detail > dl,
   .history-detail > .history-block,
   .report-comment-editor,
-  .send-status {
+  .send-status,
+  .modal > header,
+  .modal-actions {
     display: none !important;
+  }
+
+  .object-editor-page:has(.printable-document) > .panel:first-child,
+  .object-editor-page:has(.printable-document) .modal-backdrop,
+  .object-editor-page:has(.printable-document) .modal {
+    display: block !important;
   }
 
   body * {
@@ -2129,11 +2235,14 @@ mark.neutral {
   }
 
   .printable-report,
-  .printable-report * {
+  .printable-report *,
+  .printable-document,
+  .printable-document * {
     visibility: visible;
   }
 
-  .printable-report {
+  .printable-report,
+  .printable-document {
     border: 0;
     box-shadow: none;
     color: #1d1d1f;
@@ -2141,6 +2250,22 @@ mark.neutral {
     padding: 0;
     position: static;
     width: 100%;
+  }
+
+  .printable-document {
+    gap: 8px;
+  }
+
+  .printable-document .document-preview-frame,
+  .printable-document .document-preview-image,
+  .printable-document .document-preview-placeholder {
+    border: 0;
+    max-height: none;
+    min-height: 0;
+  }
+
+  .printable-document .document-preview-frame {
+    height: 245mm;
   }
 
   .printable-report dl {
