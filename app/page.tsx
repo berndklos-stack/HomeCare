@@ -394,6 +394,7 @@ const storageKeys = {
   services: "kolaretorp-services",
   packages: "kolaretorp-packages",
   fieldProgress: "kolaretorp-field-progress",
+  activeJobId: "kolaretorp-active-job-id",
 };
 
 function readStoredValue<T>(key: string, fallback: T): T {
@@ -528,12 +529,11 @@ function loadImage(dataUrl: string) {
   });
 }
 
-async function fileToImagePreview(file: File) {
+async function fileToImagePreview(file: File, maxSize = 1280, quality = 0.72) {
   const dataUrl = await readFileAsDataUrl(file);
   const image = await loadImage(dataUrl);
   if (!image) return dataUrl;
 
-  const maxSize = 1280;
   const scale = Math.min(1, maxSize / Math.max(image.naturalWidth, image.naturalHeight));
   const width = Math.max(1, Math.round(image.naturalWidth * scale));
   const height = Math.max(1, Math.round(image.naturalHeight * scale));
@@ -541,7 +541,7 @@ async function fileToImagePreview(file: File) {
   canvas.width = width;
   canvas.height = height;
   canvas.getContext("2d")?.drawImage(image, 0, 0, width, height);
-  return canvas.toDataURL("image/jpeg", 0.72);
+  return canvas.toDataURL("image/jpeg", quality);
 }
 
 function formToObject(form: NewObjectFormState, id: string): ObjectRecord {
@@ -1135,6 +1135,7 @@ export default function HomePage() {
       setServices(readStoredValue<ServiceItem[]>(storageKeys.services, seedServices));
       setServicePackages(readStoredValue<ServicePackage[]>(storageKeys.packages, seedPackages));
       setFieldProgress(readStoredValue<Record<string, Record<string, FieldTaskProgress>>>(storageKeys.fieldProgress, {}));
+      setActiveJobId(readStoredValue<string | null>(storageKeys.activeJobId, null));
       setAppStorageReady(true);
     }, 0);
   }, []);
@@ -1149,10 +1150,11 @@ export default function HomePage() {
       window.localStorage.setItem(storageKeys.services, JSON.stringify(services));
       window.localStorage.setItem(storageKeys.packages, JSON.stringify(servicePackages));
       window.localStorage.setItem(storageKeys.fieldProgress, JSON.stringify(fieldProgress));
+      window.localStorage.setItem(storageKeys.activeJobId, JSON.stringify(activeJobId));
     } catch (error) {
       console.warn("App-Daten konnten nicht lokal gespeichert werden.", error);
     }
-  }, [appStorageReady, customers, fieldProgress, jobs, objects, reports, servicePackages, services]);
+  }, [activeJobId, appStorageReady, customers, fieldProgress, jobs, objects, reports, servicePackages, services]);
 
   const t = labels[language];
   const activeObjects = objects.filter((object) => !object.archived);
@@ -1167,6 +1169,7 @@ export default function HomePage() {
       .toLowerCase()
       .includes(query.toLowerCase()),
   );
+  const currentFieldJobId = activeJobId ?? jobs.find((job) => job.status === "in Arbeit")?.id ?? jobs[0]?.id ?? "";
   const dashboardStats: Array<{ label: string; value: number; section: Section }> = [
     { label: "aktive Objekte", value: activeObjects.length, section: "objects" },
     { label: "offene Einsätze", value: jobs.filter((job) => job.status !== "erledigt" && job.status !== "abgerechnet").length, section: "planning" },
@@ -1459,6 +1462,7 @@ export default function HomePage() {
       delete next[job.id];
       return next;
     });
+    setActiveJobId(null);
     setSelectedObjectId(job.objectId);
     setSection("objects");
   }
@@ -1600,7 +1604,7 @@ export default function HomePage() {
                 objects={activeObjects}
                 packages={servicePackages}
                 services={services}
-                progress={activeJobId ? fieldProgress[activeJobId] ?? {} : {}}
+                progress={currentFieldJobId ? fieldProgress[currentFieldJobId] ?? {} : {}}
                 onProgressChange={(jobId, progress) => setFieldProgress((current) => ({ ...current, [jobId]: progress }))}
                 onComplete={completeJob}
               />
@@ -2110,7 +2114,7 @@ function FieldView({
                     onChange={(event) => {
                       const file = event.target.files?.[0];
                       if (!file) return;
-                      void readFileAsDataUrl(file).then((previewUrl) => {
+                      void fileToImagePreview(file, 900, 0.66).then((previewUrl) => {
                         updateTask(task.id, {
                           photos: [...currentTask.photos, { name: file.name, accepted: true, previewUrl }],
                         }, currentTask);
@@ -2758,9 +2762,9 @@ function ObjectHistory({
         report,
       })),
   ].sort((first, second) => second.date.localeCompare(first.date));
-  const [selectedHistoryId, setSelectedHistoryId] = useState(history[0]?.id ?? "");
+  const [selectedHistoryId, setSelectedHistoryId] = useState("");
   const [sentReports, setSentReports] = useState<Record<string, string>>({});
-  const selectedHistory = history.find((item) => item.id === selectedHistoryId) ?? history[0];
+  const selectedHistory = history.find((item) => item.id === selectedHistoryId);
   const selectedReport = selectedHistory?.report;
   const selectedJob = selectedHistory?.job;
   const reportCustomer = customers.find((customer) => customer.id === object.ownerCustomerId || customer.name === object.owner);
@@ -2802,7 +2806,7 @@ function ObjectHistory({
           <button
             className={selectedHistory?.id === item.id ? "active" : ""}
             key={item.id}
-            onClick={() => setSelectedHistoryId(item.id)}
+            onClick={() => setSelectedHistoryId(selectedHistory?.id === item.id ? "" : item.id)}
             type="button"
           >
             <FileText size={15} />

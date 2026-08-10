@@ -4,6 +4,13 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.38.0 - 2026-08-10
+
+- Objekthistorie ist jetzt eingeklappt und zeigt Berichte kompakt zweizeilig an.
+- Berichtsdetails klappen erst nach Klick auf den Historieneintrag auf.
+- Aktiver Einsatz wird lokal gespeichert und nach Reload oder Versionswechsel wiederhergestellt.
+- Vor-Ort-Fotos werden vor dem Speichern verkleinert, damit Status und Bilder stabil erhalten bleiben.
+
 ## 1.37.0 - 2026-08-10
 
 - Der Abschnitt Dokumente in der Objektakte wurde aus dem Kundenbericht entfernt.

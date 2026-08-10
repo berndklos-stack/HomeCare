@@ -1,10 +1,20 @@
 export const appVersion = {
-  version: "1.37.0",
+  version: "1.38.0",
   releaseDate: "2026-08-10",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.38.0",
+    date: "2026-08-10",
+    changes: [
+      "Objekthistorie ist jetzt eingeklappt und zeigt Berichte kompakt zweizeilig an",
+      "Berichtsdetails klappen erst nach Klick auf den Historieneintrag auf",
+      "Aktiver Einsatz wird lokal gespeichert und nach Reload oder Versionswechsel wiederhergestellt",
+      "Vor-Ort-Fotos werden vor dem Speichern verkleinert, damit Status und Bilder stabil erhalten bleiben",
+    ],
+  },
   {
     version: "1.37.0",
     date: "2026-08-10",

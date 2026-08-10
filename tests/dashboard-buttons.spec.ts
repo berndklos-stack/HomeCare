@@ -194,6 +194,15 @@ test("new operations workspace supports core property and job flows", async ({ p
     buffer: Buffer.from("demo"),
   });
   await expect(page.getByText("Foto übernommen")).toBeVisible();
+  await page.waitForFunction(() => window.localStorage.getItem("kolaretorp-field-progress")?.includes("einsatzfoto.jpg"));
+  await page.reload();
+  await expect(page.locator("main")).toHaveAttribute("data-ready", "true");
+  await page.getByTestId("nav-field").click();
+  await expect(page.getByRole("heading", { name: "Bearbeiteter Testauftrag" })).toBeVisible();
+  await expect(page.getByLabel("Zeit Zugang prüfen")).toHaveValue("22");
+  await expect(page.getByLabel("Hinweis Zugang prüfen")).toHaveValue("Schlüsselsafe geprüft, Zugang ohne Problem.");
+  await expect(page.getByRole("article").filter({ hasText: "Außenrunde durchführen" }).locator("input[type='checkbox']")).toBeChecked();
+  await expect(page.getByText("einsatzfoto.jpg")).toBeVisible();
   await page.getByTestId("nav-planning").click();
   await page.getByRole("button", { name: /Bearbeiteter Testauftrag/ }).click();
   await expect(page.getByLabel("Zeit Zugang prüfen")).toHaveValue("22");

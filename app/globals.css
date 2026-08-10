@@ -1264,7 +1264,8 @@ mark.neutral {
   display: grid;
   gap: 8px;
   grid-template-columns: auto minmax(0, 1fr) auto;
-  padding: 10px;
+  min-height: 62px;
+  padding: 8px 10px;
   text-align: left;
 }
 
@@ -1275,8 +1276,15 @@ mark.neutral {
 
 .history-list button span {
   display: grid;
-  gap: 3px;
+  gap: 2px;
   min-width: 0;
+}
+
+.history-list button strong,
+.history-list button small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .history-list small,
