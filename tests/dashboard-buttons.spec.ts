@@ -117,8 +117,10 @@ test("new operations workspace supports core property and job flows", async ({ p
   await expect(page.getByRole("button", { name: /Villa Långsjön/ })).toBeVisible();
   await page.getByRole("button", { name: /Poolpflege und Wasserwerte/ }).click();
   await expect(page.locator(".report-detail-panel").getByRole("heading", { name: "Poolpflege und Wasserwerte" })).toBeVisible();
-  await expect(page.locator(".report-detail-panel").getByText("Villa Långsjön", { exact: true })).toBeVisible();
+  await expect(page.locator(".report-detail-panel .report-hero strong", { hasText: "Villa Långsjön" })).toBeVisible();
   await expect(page.locator(".report-detail-panel").getByText("Pool gereinigt, Werte stabilisiert, nächste Kontrolle geplant.")).toBeVisible();
+  await expect(page.locator(".report-detail-panel").getByAltText("Objektbild Villa Långsjön")).toBeVisible();
+  await expect(page.locator(".report-detail-panel").getByRole("figure", { name: /zugang-villa-langsjon.jpg/ })).toBeVisible();
   await page.getByRole("button", { name: /\d+\s*abrechenbar/ }).click();
   await expect(page.getByRole("heading", { name: "Abrechnung" })).toBeVisible();
 
@@ -213,7 +215,11 @@ test("new operations workspace supports core property and job flows", async ({ p
   await expect(page.locator("main")).toHaveAttribute("data-ready", "true");
   await page.getByTestId("nav-field").click();
   await expect(page.getByText("Offene Aufträge")).toBeVisible();
-  await expect(page.getByRole("button", { name: /Bearbeiteter Testauftrag/ })).toBeVisible();
+  await expect(page.locator(".field-job-picker").getByRole("button", { name: /Bearbeiteter Testauftrag/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Bearbeiteter Testauftrag" })).toBeVisible();
+  await page.getByRole("button", { name: "Auftrag Bearbeiteter Testauftrag abwählen" }).click();
+  await expect(page.getByRole("heading", { name: "Auftrag auswählen" })).toBeVisible();
+  await page.locator(".field-job-picker").getByRole("button", { name: /Bearbeiteter Testauftrag/ }).click();
   await expect(page.getByRole("heading", { name: "Bearbeiteter Testauftrag" })).toBeVisible();
   await expect(page.getByLabel("Zeit Zugang prüfen")).toHaveValue("22");
   await expect(page.getByLabel("Hinweis Zugang prüfen")).toHaveValue("Schlüsselsafe geprüft, Zugang ohne Problem.");

@@ -329,7 +329,7 @@ button {
 
 .quickbar {
   display: grid;
-  gap: 10px;
+  gap: 8px;
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
@@ -349,10 +349,10 @@ button {
   cursor: pointer;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
   justify-content: center;
-  min-height: 70px;
-  padding: 14px;
+  min-height: 52px;
+  padding: 8px 10px;
   text-align: center;
 }
 
@@ -366,8 +366,13 @@ button {
 
 .quickbar strong {
   color: var(--brand);
-  font-size: 26px;
+  font-size: 22px;
   line-height: 1;
+}
+
+.quickbar span {
+  font-size: 12px;
+  line-height: 1.2;
 }
 
 .quickbar span,
@@ -757,6 +762,25 @@ mark.neutral {
   display: grid;
   gap: 3px;
   padding: 10px 12px;
+}
+
+.field-active-head {
+  align-items: start;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.field-active-head h2 {
+  min-width: 0;
+}
+
+.field-empty-state {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 6px;
+  padding: 14px;
 }
 
 .field-job-picker {

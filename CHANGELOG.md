@@ -4,6 +4,14 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.43.0 - 2026-08-10
+
+- Berichte aus Objektakte und Berichte-Menü verwenden jetzt dieselbe Einsatzbericht-Komponente.
+- Berichte-Menü zeigt nun ebenfalls Objektbild, Objektinformationen und Kontrollpunkt-Fotos.
+- Mobil vor Ort kann einen geöffneten Auftrag wieder abwählen und zur Auftragsliste zurückkehren.
+- Info-Kacheln im oberen Bereich sind kompakter gestaltet.
+- Test prüft, dass die Berichtsliste Objektbild und Einsatzfotos anzeigt.
+
 ## 1.42.0 - 2026-08-10
 
 - Mobil vor Ort zeigt jetzt alle offenen Aufträge als klickbare Liste.

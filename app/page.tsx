@@ -747,6 +747,32 @@ function formToCustomer(form: CustomerFormState, id: string): CustomerRecord {
   };
 }
 
+function svgPreview(label: string, colors: { sky: string; land: string; accent: string }) {
+  return `data:image/svg+xml;utf8,${encodeURIComponent(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 560">
+      <defs>
+        <linearGradient id="sky" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0" stop-color="${colors.sky}"/>
+          <stop offset="1" stop-color="#f5f5f7"/>
+        </linearGradient>
+      </defs>
+      <rect width="900" height="560" fill="url(#sky)"/>
+      <rect y="370" width="900" height="190" fill="${colors.land}"/>
+      <path d="M150 355h360v155H150z" fill="#fff" stroke="#1d1d1f" stroke-width="8"/>
+      <path d="M120 355l210-150 210 150z" fill="${colors.accent}" stroke="#1d1d1f" stroke-width="8"/>
+      <rect x="230" y="395" width="70" height="115" fill="#d6e8ff" stroke="#1d1d1f" stroke-width="6"/>
+      <rect x="355" y="395" width="80" height="70" fill="#d6e8ff" stroke="#1d1d1f" stroke-width="6"/>
+      <circle cx="700" cy="170" r="54" fill="#fff" opacity=".82"/>
+      <text x="56" y="82" font-family="Arial, sans-serif" font-size="42" font-weight="700" fill="#1d1d1f">${label}</text>
+    </svg>
+  `)}`;
+}
+
+const demoVillaImage = svgPreview("Villa Långsjön", { sky: "#cfe7ff", land: "#d8ead1", accent: "#d14836" });
+const demoAccessPhoto = svgPreview("Zugang geprüft", { sky: "#e8f1ff", land: "#e1e1e6", accent: "#0071e3" });
+const demoTerracePhoto = svgPreview("Außenrunde", { sky: "#f5e9d8", land: "#d7ebd3", accent: "#7a5a34" });
+const demoGardenPhoto = svgPreview("Gartenpflege", { sky: "#dff3ff", land: "#b9dfb8", accent: "#2f7d50" });
+
 const seedObjects: ObjectRecord[] = [
   {
     id: "OBJ-1001",
@@ -787,7 +813,7 @@ const seedObjects: ObjectRecord[] = [
       documents: 6,
       floorPlans: 1,
       items: [
-        { id: "MED-1001-1", type: "Bild", name: "pooltechnik-vor-ort.jpg", description: "Pooltechnik und Filterdruck beim letzten Einsatz", source: "Kamera" },
+        { id: "MED-1001-1", type: "Bild", name: "pooltechnik-vor-ort.jpg", description: "Pooltechnik und Filterdruck beim letzten Einsatz", source: "Kamera", previewUrl: demoVillaImage, isPrimary: true },
         { id: "MED-1001-2", type: "Dokument", name: "servicevertrag-komfort.pdf", description: "Aktueller Betreuungsvertrag Komfort", source: "Upload" },
         { id: "MED-1001-3", type: "Grundriss", name: "grundriss-villa-langsjon.pdf", description: "Grundriss Erdgeschoss und Obergeschoss", source: "Upload" },
       ],
@@ -1010,7 +1036,7 @@ const seedReports: ReportRecord[] = [
         completed: true,
         minutes: 10,
         note: "Zugang geprüft, Fotos ergänzt.",
-        photos: [{ name: "zugang-villa-langsjon.jpg", accepted: true }],
+        photos: [{ name: "zugang-villa-langsjon.jpg", accepted: true, previewUrl: demoAccessPhoto }],
       },
       {
         id: "REP-044-2",
@@ -1020,7 +1046,7 @@ const seedReports: ReportRecord[] = [
         completed: true,
         minutes: 20,
         note: "Keine Auffälligkeiten außen.",
-        photos: [{ name: "terrasse-villa-langsjon.jpg", accepted: true }],
+        photos: [{ name: "terrasse-villa-langsjon.jpg", accepted: true, previewUrl: demoTerracePhoto }],
       },
       {
         id: "REP-044-3",
@@ -1054,7 +1080,7 @@ const seedReports: ReportRecord[] = [
         completed: true,
         minutes: 15,
         note: "Zufahrt frei, Wege geprüft.",
-        photos: [{ name: "gartenpflege-nybro.jpg", accepted: true }],
+        photos: [{ name: "gartenpflege-nybro.jpg", accepted: true, previewUrl: demoGardenPhoto }],
       },
     ],
     customerComment: "Gartenpflege wurde ausgeführt, die Zufahrt ist frei.",
@@ -1595,6 +1621,11 @@ export default function HomePage() {
     setSection("field");
   }
 
+  function clearActiveJob() {
+    setActiveJobId(null);
+    persistSnapshotNow({ activeJobId: null });
+  }
+
   function completeJob(job: JobRecord, checklistResults: FieldTaskResult[], fieldNote: string) {
     const normalizedResults = checklistResults.map((item) => ({
       ...item,
@@ -1778,7 +1809,7 @@ export default function HomePage() {
               <JobsView jobs={jobs} objects={activeObjects} onCreate={openCreateJob} onEdit={openEditJob} onStart={startJob} />
             )}
             {section === "planning" && <PlanningView jobs={jobs} objects={activeObjects} onStart={startJob} />}
-            {section === "reports" && <ReportsView jobs={jobs} objects={objects} reports={reports} />}
+            {section === "reports" && <ReportsView customers={customers} jobs={jobs} objects={objects} reports={reports} />}
             {section === "field" && (
               <FieldView
                 activeJobId={activeJobId}
@@ -1788,6 +1819,7 @@ export default function HomePage() {
                 services={services}
                 progress={currentFieldJobId ? fieldProgress[currentFieldJobId] ?? {} : {}}
                 onSelectJob={startJob}
+                onClearActiveJob={clearActiveJob}
                 onProgressChange={(jobId, progress) => setFieldProgress((current) => {
                   const nextProgress = { ...current, [jobId]: progress };
                   persistSnapshotNow({ fieldProgress: nextProgress });
@@ -1918,10 +1950,12 @@ function Dashboard({
 }
 
 function ReportsView({
+  customers,
   jobs,
   objects,
   reports,
 }: {
+  customers: CustomerRecord[];
   jobs: JobRecord[];
   objects: ObjectRecord[];
   reports: ReportRecord[];
@@ -1930,6 +1964,9 @@ function ReportsView({
   const selectedReport = reports.find((report) => report.id === selectedReportId);
   const selectedObject = selectedReport ? objects.find((object) => object.id === selectedReport.objectId) : undefined;
   const selectedJob = selectedReport ? jobs.find((job) => job.id === selectedReport.jobId) : undefined;
+  const selectedCustomer = selectedObject
+    ? customers.find((customer) => customer.id === selectedObject.ownerCustomerId || customer.name === selectedObject.owner)
+    : undefined;
 
   return (
     <div className="stack">
@@ -1964,105 +2001,181 @@ function ReportsView({
           {reports.length === 0 && <p>Noch keine Berichte vorhanden.</p>}
         </div>
       </section>
-      {selectedReport && (
+      {selectedReport && selectedObject && (
         <section className="panel report-detail-panel">
           <div className="history-detail-head">
             <div>
               <h3>{selectedReport.title}</h3>
-              <span>{selectedObject?.name ?? "Objekt unbekannt"} · {selectedObject?.address ?? "Adresse offen"}</span>
+              <span>{selectedObject.name} · {selectedObject.address}</span>
             </div>
             <IconAction label={`PDF für ${selectedReport.title} ausgeben`} onClick={() => window.print()}><FileDown size={16} /></IconAction>
           </div>
-          <article className="customer-report-card printable-report">
-            <div className="customer-report-head">
-              <div>
-                <span>Kolaretorp Service AB</span>
-                <h3>Einsatzbericht</h3>
-                <small>Berichtsnummer {selectedReport.id} · {selectedReport.date}</small>
-              </div>
-              <Badge value={selectedJob?.status ?? "Bericht"} />
-            </div>
-            <div className="report-info-grid">
-              <section>
-                <strong>Objekt</strong>
-                <dl>
-                  <div><dt>Objekt</dt><dd>{selectedObject?.name ?? "Objekt unbekannt"}</dd></div>
-                  <div><dt>Adresse</dt><dd>{selectedObject?.address ?? "Adresse offen"}</dd></div>
-                </dl>
-              </section>
-              <section>
-                <strong>Auftrag</strong>
-                <dl>
-                  <div><dt>Auftrag</dt><dd>{selectedReport.title}</dd></div>
-                  <div><dt>Datum</dt><dd>{selectedReport.date}</dd></div>
-                  {selectedJob && <div><dt>Bearbeiter</dt><dd>{selectedJob.assignedTo}</dd></div>}
-                </dl>
-              </section>
-              <section>
-                <strong>Umfang</strong>
-                <dl>
-                  <div><dt>Punkte</dt><dd>{selectedReport.checklistResults.length}</dd></div>
-                  <div><dt>Medien</dt><dd>{selectedReport.media.join(" · ")}</dd></div>
-                </dl>
-              </section>
-              <section>
-                <strong>Kunde</strong>
-                <dl>
-                  <div><dt>Sichtbar</dt><dd>{selectedReport.visibleToCustomer ? "Ja" : "Nein"}</dd></div>
-                  <div><dt>Gesendet</dt><dd>{selectedReport.sentAt || "Noch nicht gesendet"}</dd></div>
-                </dl>
-              </section>
-            </div>
-            <div className="report-summary-grid">
-              <section>
-                <strong>Zusammenfassung</strong>
-                <p>{selectedReport.summary}</p>
-              </section>
-              <section>
-                <strong>Kommentar an den Kunden</strong>
-                <p>{selectedReport.customerComment || "Noch kein Kundenkommentar hinterlegt."}</p>
-              </section>
-            </div>
-            <div className="report-checklist">
-              <strong>Kontrolle vor Ort</strong>
-              <div className="report-task-list">
-                {selectedReport.checklistResults.map((item) => (
-                  <article key={item.id}>
-                    <div>
-                      <Badge value={item.completed ? "ausgeführt" : "nicht ausgeführt"} />
-                      <strong>{item.title}</strong>
-                      <span>{item.meta}</span>
-                    </div>
-                    <p>{item.description}</p>
-                    <dl>
-                      <div><dt>Zeit</dt><dd>{item.minutes} min.</dd></div>
-                      <div><dt>Hinweis / Info</dt><dd>{item.note || "Keine zusätzliche Info erfasst."}</dd></div>
-                    </dl>
-                    {item.photos.length > 0 && (
-                      <div className="report-point-photos">
-                        {item.photos.map((photo) => (
-                          <figure key={`${item.id}-${photo.name}`}>
-                            {photo.previewUrl ? (
-                              <img alt={`Kontrollfoto ${photo.name}`} src={photo.previewUrl} />
-                            ) : (
-                              <div className="report-gallery-placeholder">
-                                <Camera size={18} />
-                                <span>Foto erfasst</span>
-                              </div>
-                            )}
-                            <figcaption>{photo.name}</figcaption>
-                          </figure>
-                        ))}
-                      </div>
-                    )}
-                  </article>
-                ))}
-              </div>
-            </div>
-          </article>
+          <CustomerReportCard customer={selectedCustomer} job={selectedJob} object={selectedObject} report={selectedReport} sentAt={selectedReport.sentAt} />
         </section>
       )}
     </div>
+  );
+}
+
+function CustomerReportCard({
+  customer,
+  job,
+  object,
+  report,
+  sentAt,
+}: {
+  customer?: CustomerRecord;
+  job?: JobRecord;
+  object: ObjectRecord;
+  report: ReportRecord;
+  sentAt?: string;
+}) {
+  const objectImage = primaryObjectImage(object);
+
+  return (
+    <article className="customer-report-card printable-report">
+      <div className="customer-report-head">
+        <div>
+          <span>Kolaretorp Service AB</span>
+          <h3>Einsatzbericht</h3>
+          <small>Berichtsnummer {report.id} · erstellt am {new Date().toLocaleDateString("de-DE")}</small>
+        </div>
+        <Badge value={job?.status ?? "Bericht"} />
+      </div>
+      <div className="report-hero">
+        {objectImage?.previewUrl ? (
+          <img
+            alt={`Objektbild ${object.name}`}
+            className="report-hero-image"
+            src={objectImage.previewUrl}
+          />
+        ) : (
+          <div className="report-hero-image report-hero-image-empty">
+            <Home size={26} />
+            <span>{object.name}</span>
+          </div>
+        )}
+        <div>
+          <span>Einsatzbericht</span>
+          <strong>{object.name}</strong>
+          <span>{object.address}</span>
+          <small>{report.title} · {report.date}</small>
+        </div>
+      </div>
+      <div className="report-info-grid">
+        <section>
+          <strong>Objekt</strong>
+          <dl>
+            <div><dt>Objekt</dt><dd>{object.name}</dd></div>
+            <div><dt>Adresse</dt><dd>{object.address}</dd></div>
+            <div><dt>Eigentümer</dt><dd>{object.owner}</dd></div>
+          </dl>
+        </section>
+        <section>
+          <strong>Kunde</strong>
+          <dl>
+            <div><dt>Kunde</dt><dd>{customer?.name ?? object.owner}</dd></div>
+            <div><dt>Ansprechpartner</dt><dd>{customer?.contact ?? object.owner}</dd></div>
+            <div><dt>E-Mail</dt><dd>{customer?.email ?? object.ownerEmail}</dd></div>
+          </dl>
+        </section>
+        <section>
+          <strong>Auftrag</strong>
+          <dl>
+            <div><dt>Auftrag</dt><dd>{report.title}</dd></div>
+            <div><dt>Datum</dt><dd>{report.date}</dd></div>
+            {job && <div><dt>Rhythmus</dt><dd>{scheduleLabel(job.schedule)}</dd></div>}
+          </dl>
+        </section>
+        <section>
+          <strong>Leistung</strong>
+          <dl>
+            {job && <div><dt>Priorität</dt><dd>{job.priority}</dd></div>}
+            {job && <div><dt>Bearbeiter</dt><dd>{job.assignedTo}</dd></div>}
+            {job && <div><dt>Zeit / Material</dt><dd>{job.workMinutes} min. · {job.material}</dd></div>}
+          </dl>
+        </section>
+      </div>
+      <div className="report-summary-grid">
+        <section>
+          <strong>Zusammenfassung</strong>
+          <p>{report.summary}</p>
+        </section>
+        <section>
+          <strong>Kommentar an den Kunden</strong>
+          <p>{report.customerComment || "Noch kein Kundenkommentar hinterlegt."}</p>
+        </section>
+      </div>
+      {report.checklistResults.length > 0 ? (
+        <div className="report-checklist">
+          <strong>Kontrolle vor Ort</strong>
+          <div className="report-task-list">
+            {report.checklistResults.map((item) => (
+              <article key={item.id}>
+                <div>
+                  <Badge value={item.completed ? "ausgeführt" : "nicht ausgeführt"} />
+                  <strong>{item.title}</strong>
+                  <span>{item.meta}</span>
+                </div>
+                <p>{item.description}</p>
+                <dl>
+                  <div><dt>Zeit</dt><dd>{item.minutes} min.</dd></div>
+                  <div><dt>Hinweis / Info</dt><dd>{item.note || "Keine zusätzliche Info erfasst."}</dd></div>
+                  <div><dt>Bilder</dt><dd>{item.photos.length > 0 ? item.photos.map((photo) => photo.name).join(", ") : "Keine Bilder erfasst."}</dd></div>
+                </dl>
+                {item.photos.length > 0 && (
+                  <div className="report-point-photos">
+                    {item.photos.map((photo) => (
+                      <figure key={`${item.id}-${photo.name}-inline`}>
+                        {photo.previewUrl ? (
+                          <img alt={`Kontrollfoto ${photo.name}`} src={photo.previewUrl} />
+                        ) : (
+                          <div className="report-gallery-placeholder">
+                            <Camera size={18} />
+                            <span>Foto erfasst</span>
+                          </div>
+                        )}
+                        <figcaption>{photo.name}</figcaption>
+                      </figure>
+                    ))}
+                  </div>
+                )}
+              </article>
+            ))}
+          </div>
+        </div>
+      ) : job && job.checklist.length > 0 ? (
+        <div className="report-checklist">
+          <strong>Kontrolle vor Ort</strong>
+          <div className="report-task-list">
+            {job.checklist.map((item) => (
+              <article key={item}>
+                <div>
+                  <Badge value="offen" />
+                  <strong>{item}</strong>
+                  <span>{job.type}</span>
+                </div>
+                <p>Noch nicht im Einsatzbericht dokumentiert.</p>
+                <dl>
+                  <div><dt>Zeit</dt><dd>0 min.</dd></div>
+                  <div><dt>Hinweis / Info</dt><dd>Keine zusätzliche Info erfasst.</dd></div>
+                  <div><dt>Bilder</dt><dd>Keine Bilder erfasst.</dd></div>
+                </dl>
+              </article>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      <div className="history-media">
+        {report.media.map((item) => <span key={item}>{item}</span>)}
+      </div>
+      <footer className="report-footer">
+        <span>Kolaretorp Service AB</span>
+        <span>info@kolaretorp.se</span>
+        {sentAt && <span>Versendet am {sentAt}</span>}
+        <span className="print-page-counter" aria-hidden="true" />
+      </footer>
+    </article>
   );
 }
 
@@ -2329,6 +2442,7 @@ function FieldView({
   services,
   progress,
   onSelectJob,
+  onClearActiveJob,
   onProgressChange,
   onComplete,
 }: {
@@ -2339,13 +2453,14 @@ function FieldView({
   services: ServiceItem[];
   progress: Record<string, FieldTaskProgress>;
   onSelectJob: (job: JobRecord) => void;
+  onClearActiveJob: () => void;
   onProgressChange: (jobId: string, progress: Record<string, FieldTaskProgress>) => void;
   onComplete: (job: JobRecord, checklistResults: FieldTaskResult[], fieldNote: string) => void;
 }) {
   const [fieldNote, setFieldNote] = useState("Notiz: Zugang geprüft, Fotos ergänzt.");
   const openJobs = jobs.filter((job) => !["erledigt", "abgerechnet"].includes(job.status));
-  const active = jobs.find((job) => job.id === activeJobId) ?? openJobs.find((job) => job.status === "in Arbeit") ?? openJobs[0];
-  if (!active) {
+  const active = activeJobId ? jobs.find((job) => job.id === activeJobId) : undefined;
+  if (!active && openJobs.length === 0) {
     return (
       <section className="field-shell">
         <div className="phone-card">
@@ -2356,7 +2471,36 @@ function FieldView({
       </section>
     );
   }
-  const object = objects.find((item) => item.id === active.objectId) ?? objects[0];
+  if (!active) {
+    return (
+      <section className="field-shell">
+        <div className="phone-card">
+          <p>Mobil vor Ort</p>
+          <div className="field-job-picker">
+            <strong>Offene Aufträge</strong>
+            {openJobs.map((job) => {
+              const jobObject = objects.find((item) => item.id === job.objectId);
+              return (
+                <button key={job.id} onClick={() => onSelectJob(job)} type="button">
+                  <span>
+                    <strong>{job.title}</strong>
+                    <small>{jobObject?.name ?? "Objekt unbekannt"} · {job.dueDate}</small>
+                  </span>
+                  <Badge value={job.status} />
+                </button>
+              );
+            })}
+          </div>
+          <div className="field-empty-state">
+            <h2>Auftrag auswählen</h2>
+            <span>Tippe einen offenen Auftrag an, um die Checkliste vor Ort zu bearbeiten.</span>
+          </div>
+        </div>
+      </section>
+    );
+  }
+  const activeJob = active;
+  const object = objects.find((item) => item.id === activeJob.objectId) ?? objects[0];
   const activePackage = packages.find((servicePackage) => !servicePackage.archived && servicePackage.name === object.carePackage);
   const packageServices = activePackage
     ? activePackage.serviceIds
@@ -2383,10 +2527,10 @@ function FieldView({
           defaultMinutes: item.defaultMinutes,
         }));
       })
-    : active.checklist.map((item) => ({
+    : activeJob.checklist.map((item) => ({
         id: item,
         title: item,
-        meta: active.type,
+        meta: activeJob.type,
         description: "Aufgabe aus der Auftragscheckliste dokumentieren.",
         defaultMinutes: 0,
       }));
@@ -2405,7 +2549,7 @@ function FieldView({
     patch: Partial<FieldTaskProgress>,
     currentTask: FieldTaskProgress,
   ) {
-    onProgressChange(active.id, { ...progress, [id]: { ...currentTask, ...patch } });
+    onProgressChange(activeJob.id, { ...progress, [id]: { ...currentTask, ...patch } });
   }
 
   function completeActiveJob() {
@@ -2423,7 +2567,7 @@ function FieldView({
       };
     });
 
-    onComplete(active, results, fieldNote);
+    onComplete(activeJob, results, fieldNote);
   }
 
   return (
@@ -2436,7 +2580,7 @@ function FieldView({
             const jobObject = objects.find((item) => item.id === job.objectId);
             return (
               <button
-                className={job.id === active.id ? "active" : ""}
+                className={job.id === activeJob.id ? "active" : ""}
                 key={job.id}
                 onClick={() => onSelectJob(job)}
                 type="button"
@@ -2450,11 +2594,16 @@ function FieldView({
             );
           })}
         </div>
-        <h2>{active.title}</h2>
+        <div className="field-active-head">
+          <h2>{activeJob.title}</h2>
+          <IconAction label={`Auftrag ${activeJob.title} abwählen`} onClick={onClearActiveJob}>
+            <X size={16} />
+          </IconAction>
+        </div>
         <span>{object.name} · {object.address}</span>
         <div className="field-summary">
-          <strong>{active.assignedTo}</strong>
-          <small>{active.dueDate} · {object.carePackage}</small>
+          <strong>{activeJob.assignedTo}</strong>
+          <small>{activeJob.dueDate} · {object.carePackage}</small>
         </div>
         <div className="service-task-list">
           {fieldTasks.map((task, index) => {
@@ -3135,7 +3284,6 @@ function ObjectHistory({
   const reportSubject = selectedHistory ? `Einsatzbericht - Kolaretorp Service AB - ${object.name}` : "";
   const reportPdfName = selectedHistory ? `Einsatzbericht-${object.name}-${selectedHistory.title}.pdf` : "";
   const mailBody = customerReportMailBody(reportCustomer);
-  const reportId = selectedReport ? selectedReport.id : selectedHistory?.id ?? "";
   const sentAt = selectedReport ? selectedReport.sentAt || sentReports[selectedReport.id] : "";
   const [sendFeedback, setSendFeedback] = useState("");
 
@@ -3216,149 +3364,7 @@ function ObjectHistory({
           )}
           {selectedReport ? (
             <>
-              <article className="customer-report-card printable-report">
-                <div className="customer-report-head">
-                  <div>
-                    <span>Kolaretorp Service AB</span>
-                    <h3>Einsatzbericht</h3>
-                    <small>Berichtsnummer {reportId} · erstellt am {new Date().toLocaleDateString("de-DE")}</small>
-                  </div>
-                  <Badge value={selectedJob?.status ?? "Bericht"} />
-                </div>
-                <div className="report-hero">
-                  {primaryObjectImage(object)?.previewUrl ? (
-                    <img
-                      alt={`Objektbild ${object.name}`}
-                      className="report-hero-image"
-                      src={primaryObjectImage(object)?.previewUrl}
-                    />
-                  ) : (
-                    <div className="report-hero-image report-hero-image-empty">
-                      <Home size={26} />
-                      <span>{object.name}</span>
-                    </div>
-                  )}
-                  <div>
-                    <span>Einsatzbericht</span>
-                    <strong>{object.name}</strong>
-                    <span>{object.address}</span>
-                    <small>{selectedHistory.title} · {selectedHistory.date}</small>
-                  </div>
-                </div>
-                <div className="report-info-grid">
-                  <section>
-                    <strong>Objekt</strong>
-                    <dl>
-                      <div><dt>Objekt</dt><dd>{object.name}</dd></div>
-                      <div><dt>Adresse</dt><dd>{object.address}</dd></div>
-                      <div><dt>Eigentümer</dt><dd>{object.owner}</dd></div>
-                    </dl>
-                  </section>
-                  <section>
-                    <strong>Kunde</strong>
-                    <dl>
-                      <div><dt>Kunde</dt><dd>{reportCustomer?.name ?? object.owner}</dd></div>
-                      <div><dt>Ansprechpartner</dt><dd>{reportCustomer?.contact ?? object.owner}</dd></div>
-                      <div><dt>E-Mail</dt><dd>{reportCustomer?.email ?? object.ownerEmail}</dd></div>
-                    </dl>
-                  </section>
-                  <section>
-                    <strong>Auftrag</strong>
-                    <dl>
-                      <div><dt>Auftrag</dt><dd>{selectedHistory.title}</dd></div>
-                      <div><dt>Datum</dt><dd>{selectedHistory.date}</dd></div>
-                      {selectedJob && <div><dt>Rhythmus</dt><dd>{scheduleLabel(selectedJob.schedule)}</dd></div>}
-                    </dl>
-                  </section>
-                  <section>
-                    <strong>Leistung</strong>
-                    <dl>
-                      {selectedJob && <div><dt>Priorität</dt><dd>{selectedJob.priority}</dd></div>}
-                      {selectedJob && <div><dt>Bearbeiter</dt><dd>{selectedJob.assignedTo}</dd></div>}
-                      {selectedJob && <div><dt>Zeit / Material</dt><dd>{selectedJob.workMinutes} min. · {selectedJob.material}</dd></div>}
-                    </dl>
-                  </section>
-                </div>
-                <div className="report-summary-grid">
-                  <section>
-                    <strong>Zusammenfassung</strong>
-                    <p>{selectedReport.summary}</p>
-                  </section>
-                  <section>
-                    <strong>Kommentar an den Kunden</strong>
-                    <p>{selectedReport.customerComment || "Noch kein Kundenkommentar hinterlegt."}</p>
-                  </section>
-                </div>
-                {selectedReport.checklistResults.length > 0 ? (
-                  <div className="report-checklist">
-                    <strong>Kontrolle vor Ort</strong>
-                    <div className="report-task-list">
-                      {selectedReport.checklistResults.map((item) => (
-                        <article key={item.id}>
-                          <div>
-                            <Badge value={item.completed ? "ausgeführt" : "nicht ausgeführt"} />
-                            <strong>{item.title}</strong>
-                            <span>{item.meta}</span>
-                          </div>
-                          <p>{item.description}</p>
-                          <dl>
-                            <div><dt>Zeit</dt><dd>{item.minutes} min.</dd></div>
-                            <div><dt>Hinweis / Info</dt><dd>{item.note || "Keine zusätzliche Info erfasst."}</dd></div>
-                            <div><dt>Bilder</dt><dd>{item.photos.length > 0 ? item.photos.map((photo) => photo.name).join(", ") : "Keine Bilder erfasst."}</dd></div>
-                          </dl>
-                          {item.photos.length > 0 && (
-                            <div className="report-point-photos">
-                              {item.photos.map((photo) => (
-                                <figure key={`${item.id}-${photo.name}-inline`}>
-                                  {photo.previewUrl ? (
-                                    <img alt={`Kontrollfoto ${photo.name}`} src={photo.previewUrl} />
-                                  ) : (
-                                    <div className="report-gallery-placeholder">
-                                      <Camera size={18} />
-                                      <span>Foto erfasst</span>
-                                    </div>
-                                  )}
-                                  <figcaption>{photo.name}</figcaption>
-                                </figure>
-                              ))}
-                            </div>
-                          )}
-                        </article>
-                      ))}
-                    </div>
-                  </div>
-                ) : selectedJob && selectedJob.checklist.length > 0 ? (
-                  <div className="report-checklist">
-                    <strong>Kontrolle vor Ort</strong>
-                    <div className="report-task-list">
-                      {selectedJob.checklist.map((item) => (
-                        <article key={item}>
-                          <div>
-                            <Badge value="offen" />
-                            <strong>{item}</strong>
-                            <span>{selectedJob.type}</span>
-                          </div>
-                          <p>Noch nicht im Einsatzbericht dokumentiert.</p>
-                          <dl>
-                            <div><dt>Zeit</dt><dd>0 min.</dd></div>
-                            <div><dt>Hinweis / Info</dt><dd>Keine zusätzliche Info erfasst.</dd></div>
-                            <div><dt>Bilder</dt><dd>Keine Bilder erfasst.</dd></div>
-                          </dl>
-                        </article>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-                <div className="history-media">
-                  {selectedReport.media.map((item) => <span key={item}>{item}</span>)}
-                </div>
-                <footer className="report-footer">
-                  <span>Kolaretorp Service AB</span>
-                  <span>info@kolaretorp.se</span>
-                  {sentAt && <span>Versendet am {sentAt}</span>}
-                  <span className="print-page-counter" aria-hidden="true" />
-                </footer>
-              </article>
+              <CustomerReportCard customer={reportCustomer} job={selectedJob} object={object} report={selectedReport} sentAt={sentAt} />
               <div className="history-block internal">
                 <strong>Interne Notizen</strong>
                 <p>{selectedReport.internalNotes}</p>
