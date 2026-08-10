@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import { appVersion, versionHistory } from "@/lib/appVersion";
+import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
 
 type Language = "de" | "sv" | "en";
 type Theme = "light" | "dark";
@@ -208,6 +209,17 @@ type BillingRecord = {
   label: string;
   amount: string;
   status: "abrechenbar" | "abgerechnet" | "intern";
+};
+
+type AppSnapshot = {
+  activeJobId: string | null;
+  customers: CustomerRecord[];
+  fieldProgress: Record<string, Record<string, FieldTaskProgress>>;
+  jobs: JobRecord[];
+  objects: ObjectRecord[];
+  packages: ServicePackage[];
+  reports: ReportRecord[];
+  services: ServiceItem[];
 };
 
 type ServiceItem = {
@@ -398,6 +410,8 @@ const storageKeys = {
   activeJobId: "kolaretorp-active-job-id",
 };
 
+const appStateRowId = "kolaretorp-service-app";
+
 function readStoredValue<T>(key: string, fallback: T): T {
   const stored = window.localStorage.getItem(key);
   if (!stored) return fallback;
@@ -408,6 +422,81 @@ function readStoredValue<T>(key: string, fallback: T): T {
     window.localStorage.removeItem(key);
     return fallback;
   }
+}
+
+function readLocalSnapshot(): AppSnapshot {
+  return {
+    activeJobId: readStoredValue<string | null>(storageKeys.activeJobId, null),
+    customers: readStoredValue<CustomerRecord[]>(storageKeys.customers, seedCustomers),
+    fieldProgress: readStoredValue<Record<string, Record<string, FieldTaskProgress>>>(storageKeys.fieldProgress, {}),
+    jobs: readStoredValue<JobRecord[]>(storageKeys.jobs, seedJobs),
+    objects: readStoredValue<ObjectRecord[]>(storageKeys.objects, seedObjects),
+    packages: readStoredValue<ServicePackage[]>(storageKeys.packages, seedPackages),
+    reports: readStoredValue<ReportRecord[]>(storageKeys.reports, seedReports),
+    services: readStoredValue<ServiceItem[]>(storageKeys.services, seedServices),
+  };
+}
+
+function persistLocalSnapshot(snapshot: AppSnapshot) {
+  window.localStorage.setItem(storageKeys.objects, JSON.stringify(snapshot.objects));
+  window.localStorage.setItem(storageKeys.customers, JSON.stringify(snapshot.customers));
+  window.localStorage.setItem(storageKeys.jobs, JSON.stringify(snapshot.jobs));
+  window.localStorage.setItem(storageKeys.reports, JSON.stringify(snapshot.reports));
+  window.localStorage.setItem(storageKeys.services, JSON.stringify(snapshot.services));
+  window.localStorage.setItem(storageKeys.packages, JSON.stringify(snapshot.packages));
+  window.localStorage.setItem(storageKeys.fieldProgress, JSON.stringify(snapshot.fieldProgress));
+  window.localStorage.setItem(storageKeys.activeJobId, JSON.stringify(snapshot.activeJobId));
+}
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs = 2500): Promise<T> {
+  let timeoutId: number | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = window.setTimeout(() => reject(new Error("Supabase-Zeitlimit erreicht")), timeoutMs);
+  });
+
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    if (timeoutId) window.clearTimeout(timeoutId);
+  }
+}
+
+async function loadSupabaseSnapshot() {
+  const supabase = getSupabaseBrowserClient();
+  if (!supabase) return null;
+  const appStateTable = supabase.from("app_state") as unknown as {
+    select: (columns: string) => {
+      eq: (column: string, value: string) => {
+        maybeSingle: () => Promise<{ data: { data: AppSnapshot } | null; error: Error | null }>;
+      };
+    };
+  };
+
+  const { data, error } = await withTimeout(
+    appStateTable
+      .select("data")
+      .eq("id", appStateRowId)
+      .maybeSingle(),
+  );
+  if (error) throw error;
+  return (data?.data as AppSnapshot | undefined) ?? null;
+}
+
+async function saveSupabaseSnapshot(snapshot: AppSnapshot) {
+  const supabase = getSupabaseBrowserClient();
+  if (!supabase) return;
+  const appStateTable = supabase.from("app_state") as unknown as {
+    upsert: (row: { data: AppSnapshot; id: string; updated_at: string }) => Promise<{ error: Error | null }>;
+  };
+
+  const { error } = await withTimeout(
+    appStateTable.upsert({
+      id: appStateRowId,
+      data: snapshot,
+      updated_at: new Date().toISOString(),
+    }),
+  );
+  if (error) throw error;
 }
 
 function emptyObjectForm(): NewObjectFormState {
@@ -1097,6 +1186,7 @@ export default function HomePage() {
   const [selectedObjectId, setSelectedObjectId] = useState("OBJ-1001");
   const [objects, setObjects] = useState<ObjectRecord[]>(seedObjects);
   const [appStorageReady, setAppStorageReady] = useState(false);
+  const [supabaseSyncDisabled, setSupabaseSyncDisabled] = useState(false);
   const [customers, setCustomers] = useState(seedCustomers);
   const [jobs, setJobs] = useState(seedJobs);
   const [reports, setReports] = useState(seedReports);
@@ -1133,35 +1223,107 @@ export default function HomePage() {
     scheduleYearInterval: "1",
   });
 
+  function applySnapshot(snapshot: AppSnapshot) {
+    setObjects(snapshot.objects);
+    setCustomers(snapshot.customers);
+    setJobs(snapshot.jobs);
+    setReports(snapshot.reports);
+    setServices(snapshot.services);
+    setServicePackages(snapshot.packages);
+    setFieldProgress(snapshot.fieldProgress);
+    setActiveJobId(snapshot.activeJobId);
+  }
+
   useEffect(() => {
-    window.setTimeout(() => {
-      setObjects(readStoredValue<ObjectRecord[]>(storageKeys.objects, seedObjects));
-      setCustomers(readStoredValue<CustomerRecord[]>(storageKeys.customers, seedCustomers));
-      setJobs(readStoredValue<JobRecord[]>(storageKeys.jobs, seedJobs));
-      setReports(readStoredValue<ReportRecord[]>(storageKeys.reports, seedReports));
-      setServices(readStoredValue<ServiceItem[]>(storageKeys.services, seedServices));
-      setServicePackages(readStoredValue<ServicePackage[]>(storageKeys.packages, seedPackages));
-      setFieldProgress(readStoredValue<Record<string, Record<string, FieldTaskProgress>>>(storageKeys.fieldProgress, {}));
-      setActiveJobId(readStoredValue<string | null>(storageKeys.activeJobId, null));
-      setAppStorageReady(true);
-    }, 0);
+    let cancelled = false;
+
+    async function loadSnapshot() {
+      const localSnapshot = readLocalSnapshot();
+      if (!cancelled) applySnapshot(localSnapshot);
+
+      try {
+        const remoteSnapshot = await loadSupabaseSnapshot();
+        if (cancelled) return;
+
+        if (remoteSnapshot) {
+          applySnapshot(remoteSnapshot);
+          persistLocalSnapshot(remoteSnapshot);
+        } else {
+          await saveSupabaseSnapshot(localSnapshot);
+        }
+      } catch (error) {
+        console.warn("Supabase-Synchronisation ist nicht verfügbar. Lokaler Speicher bleibt aktiv.", error);
+        if (!cancelled) setSupabaseSyncDisabled(true);
+      } finally {
+        if (!cancelled) setAppStorageReady(true);
+      }
+    }
+
+    void loadSnapshot();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
     if (!appStorageReady) return;
+    const snapshot: AppSnapshot = {
+      activeJobId,
+      customers,
+      fieldProgress,
+      jobs,
+      objects,
+      packages: servicePackages,
+      reports,
+      services,
+    };
+
     try {
-      window.localStorage.setItem(storageKeys.objects, JSON.stringify(objects));
-      window.localStorage.setItem(storageKeys.customers, JSON.stringify(customers));
-      window.localStorage.setItem(storageKeys.jobs, JSON.stringify(jobs));
-      window.localStorage.setItem(storageKeys.reports, JSON.stringify(reports));
-      window.localStorage.setItem(storageKeys.services, JSON.stringify(services));
-      window.localStorage.setItem(storageKeys.packages, JSON.stringify(servicePackages));
-      window.localStorage.setItem(storageKeys.fieldProgress, JSON.stringify(fieldProgress));
-      window.localStorage.setItem(storageKeys.activeJobId, JSON.stringify(activeJobId));
+      persistLocalSnapshot(snapshot);
     } catch (error) {
       console.warn("App-Daten konnten nicht lokal gespeichert werden.", error);
     }
-  }, [activeJobId, appStorageReady, customers, fieldProgress, jobs, objects, reports, servicePackages, services]);
+
+    if (supabaseSyncDisabled) return;
+    const timeoutId = window.setTimeout(() => {
+      void saveSupabaseSnapshot(snapshot).catch((error) => {
+        console.warn("App-Daten konnten nicht nach Supabase synchronisiert werden.", error);
+        setSupabaseSyncDisabled(true);
+      });
+    }, 450);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [activeJobId, appStorageReady, customers, fieldProgress, jobs, objects, reports, servicePackages, services, supabaseSyncDisabled]);
+
+  function currentSnapshot(overrides: Partial<AppSnapshot> = {}): AppSnapshot {
+    return {
+      activeJobId,
+      customers,
+      fieldProgress,
+      jobs,
+      objects,
+      packages: servicePackages,
+      reports,
+      services,
+      ...overrides,
+    };
+  }
+
+  function persistSnapshotNow(overrides: Partial<AppSnapshot> = {}) {
+    const snapshot = currentSnapshot(overrides);
+    try {
+      persistLocalSnapshot(snapshot);
+    } catch (error) {
+      console.warn("App-Daten konnten nicht sofort lokal gespeichert werden.", error);
+    }
+
+    if (supabaseSyncDisabled) return;
+    void saveSupabaseSnapshot(snapshot).catch((error) => {
+      console.warn("App-Daten konnten nicht sofort nach Supabase synchronisiert werden.", error);
+      setSupabaseSyncDisabled(true);
+    });
+  }
 
   const t = labels[language];
   const activeObjects = objects.filter((object) => !object.archived);
@@ -1180,7 +1342,7 @@ export default function HomePage() {
   const dashboardStats: Array<{ label: string; value: number; section: Section }> = [
     { label: "aktive Objekte", value: activeObjects.length, section: "objects" },
     { label: "offene Einsätze", value: jobs.filter((job) => job.status !== "erledigt" && job.status !== "abgerechnet").length, section: "planning" },
-    { label: "Berichte", value: reports.length, section: "objects" },
+    { label: "Berichte", value: reports.length, section: "reports" },
     { label: "abrechenbar", value: billing.filter((item) => item.status === "abrechenbar").length, section: "billing" },
   ];
 
@@ -1209,20 +1371,19 @@ export default function HomePage() {
     const id = editingObjectId ?? `OBJ-${1000 + objects.length + 1}`;
     const existingObject = objects.find((object) => object.id === editingObjectId);
     const saved = { ...formToObject(newObject, id), archived: existingObject?.archived };
+    const nextObjects = editingObjectId
+      ? objects.map((object) => (object.id === editingObjectId ? saved : object))
+      : [saved, ...objects];
+    const nextCustomers = customers.map((customer) => {
+      const withoutObject = customer.objects.filter((objectId) => objectId !== id);
+      return customer.id === saved.ownerCustomerId
+        ? { ...customer, objects: [...withoutObject, id] }
+        : { ...customer, objects: withoutObject };
+    });
 
-    setObjects((current) =>
-      editingObjectId
-        ? current.map((object) => (object.id === editingObjectId ? saved : object))
-        : [saved, ...current],
-    );
-    setCustomers((current) =>
-      current.map((customer) => {
-        const withoutObject = customer.objects.filter((objectId) => objectId !== id);
-        return customer.id === saved.ownerCustomerId
-          ? { ...customer, objects: [...withoutObject, id] }
-          : { ...customer, objects: withoutObject };
-      }),
-    );
+    setObjects(nextObjects);
+    setCustomers(nextCustomers);
+    persistSnapshotNow({ customers: nextCustomers, objects: nextObjects });
     setSelectedObjectId(id);
     setSection("objects");
     setEditingObjectId(null);
@@ -1423,10 +1584,10 @@ export default function HomePage() {
   }
 
   function startJob(job: JobRecord) {
-    setJobs((current) =>
-      current.map((item) => (item.id === job.id ? { ...item, status: "in Arbeit" } : item)),
-    );
+    const nextJobs = jobs.map((item) => (item.id === job.id ? { ...item, status: "in Arbeit" as const } : item));
+    setJobs(nextJobs);
     setActiveJobId(job.id);
+    persistSnapshotNow({ activeJobId: job.id, jobs: nextJobs });
     setSelectedObjectId(job.objectId);
     setSection("field");
   }
@@ -1442,10 +1603,8 @@ export default function HomePage() {
     const reportId = `REP-${Date.now()}`;
     const summary = `${completedCount} von ${checklistResults.length} Checklistenpunkten ausgeführt.${fieldNote.trim() ? ` ${fieldNote.trim()}` : ""}`;
 
-    setJobs((current) =>
-      current.map((item) => (item.id === job.id ? { ...item, status: "erledigt", workMinutes } : item)),
-    );
-    setReports((current) => [
+    const nextJobs = jobs.map((item) => (item.id === job.id ? { ...item, status: "erledigt" as const, workMinutes } : item));
+    const nextReports = [
       {
         id: reportId,
         jobId: job.id,
@@ -1459,19 +1618,32 @@ export default function HomePage() {
         checklistResults: normalizedResults,
         customerComment: "",
       },
-      ...current.filter((report) => report.jobId !== job.id),
-    ]);
-    setObjects((current) =>
-      current.map((object) => (object.id === job.objectId ? { ...object, lastVisit: job.dueDate } : object)),
-    );
-    setFieldProgress((current) => {
-      const next = { ...current };
-      delete next[job.id];
-      return next;
-    });
+      ...reports.filter((report) => report.jobId !== job.id),
+    ];
+    const nextObjects = objects.map((object) => (object.id === job.objectId ? { ...object, lastVisit: job.dueDate } : object));
+    const nextFieldProgress = { ...fieldProgress };
+    delete nextFieldProgress[job.id];
+
+    setJobs(nextJobs);
+    setReports(nextReports);
+    setObjects(nextObjects);
+    setFieldProgress(nextFieldProgress);
     setActiveJobId(null);
+    persistSnapshotNow({
+      activeJobId: null,
+      fieldProgress: nextFieldProgress,
+      jobs: nextJobs,
+      objects: nextObjects,
+      reports: nextReports,
+    });
     setSelectedObjectId(job.objectId);
     setSection("objects");
+  }
+
+  function updateReportRecord(report: ReportRecord) {
+    const nextReports = reports.map((item) => (item.id === report.id ? report : item));
+    setReports(nextReports);
+    persistSnapshotNow({ reports: nextReports });
   }
 
   return (
@@ -1565,7 +1737,7 @@ export default function HomePage() {
                 object={editingObject}
                 onBack={closeObjectEditor}
                 onSubmit={saveObject}
-                onUpdateReport={(report) => setReports((current) => current.map((item) => (item.id === report.id ? report : item)))}
+                onUpdateReport={updateReportRecord}
                 reports={reports}
                 newObject={newObject}
                 setNewObject={setNewObject}
@@ -1603,6 +1775,7 @@ export default function HomePage() {
               <JobsView jobs={jobs} objects={activeObjects} onCreate={openCreateJob} onEdit={openEditJob} onStart={startJob} />
             )}
             {section === "planning" && <PlanningView jobs={jobs} objects={activeObjects} onStart={startJob} />}
+            {section === "reports" && <ReportsView jobs={jobs} objects={objects} reports={reports} />}
             {section === "field" && (
               <FieldView
                 activeJobId={activeJobId}
@@ -1611,7 +1784,11 @@ export default function HomePage() {
                 packages={servicePackages}
                 services={services}
                 progress={currentFieldJobId ? fieldProgress[currentFieldJobId] ?? {} : {}}
-                onProgressChange={(jobId, progress) => setFieldProgress((current) => ({ ...current, [jobId]: progress }))}
+                onProgressChange={(jobId, progress) => setFieldProgress((current) => {
+                  const nextProgress = { ...current, [jobId]: progress };
+                  persistSnapshotNow({ fieldProgress: nextProgress });
+                  return nextProgress;
+                })}
                 onComplete={completeJob}
               />
             )}
@@ -1698,7 +1875,7 @@ function Dashboard({
   const workBlocks = [
     { label: "Heute steuern", value: jobs.filter((job) => job.status === "in Arbeit").length, text: "laufende Einsätze", section: "planning" as Section },
     { label: "Objekte pflegen", value: objects.length, text: "vollständige Objektakten", section: "objects" as Section },
-    { label: "Berichte prüfen", value: reports.length, text: "in Objektakten", section: "objects" as Section },
+    { label: "Berichte prüfen", value: reports.length, text: "in Listenform", section: "reports" as Section },
   ];
 
   return (
@@ -1732,6 +1909,155 @@ function Dashboard({
           ))}
         </div>
       </section>
+    </div>
+  );
+}
+
+function ReportsView({
+  jobs,
+  objects,
+  reports,
+}: {
+  jobs: JobRecord[];
+  objects: ObjectRecord[];
+  reports: ReportRecord[];
+}) {
+  const [selectedReportId, setSelectedReportId] = useState("");
+  const selectedReport = reports.find((report) => report.id === selectedReportId);
+  const selectedObject = selectedReport ? objects.find((object) => object.id === selectedReport.objectId) : undefined;
+  const selectedJob = selectedReport ? jobs.find((job) => job.id === selectedReport.jobId) : undefined;
+
+  return (
+    <div className="stack">
+      <section className="panel">
+        <div className="panel-title">
+          <div>
+            <p>Berichte</p>
+            <h2>Berichtsübersicht</h2>
+          </div>
+        </div>
+        <div className="table-list report-overview-list">
+          {reports.map((report) => {
+            const object = objects.find((item) => item.id === report.objectId);
+            const job = jobs.find((item) => item.id === report.jobId);
+
+            return (
+              <button
+                className={selectedReportId === report.id ? "active" : ""}
+                key={report.id}
+                onClick={() => setSelectedReportId(report.id)}
+                type="button"
+              >
+                <FileText size={16} />
+                <span>
+                  <strong>{report.title}</strong>
+                  <small>{object?.name ?? "Objekt unbekannt"} · {report.date} · {job?.assignedTo ?? "ohne Bearbeiter"}</small>
+                </span>
+                <Badge value={job?.status ?? "Bericht"} />
+              </button>
+            );
+          })}
+          {reports.length === 0 && <p>Noch keine Berichte vorhanden.</p>}
+        </div>
+      </section>
+      {selectedReport && (
+        <section className="panel report-detail-panel">
+          <div className="history-detail-head">
+            <div>
+              <h3>{selectedReport.title}</h3>
+              <span>{selectedObject?.name ?? "Objekt unbekannt"} · {selectedObject?.address ?? "Adresse offen"}</span>
+            </div>
+            <IconAction label={`PDF für ${selectedReport.title} ausgeben`} onClick={() => window.print()}><FileDown size={16} /></IconAction>
+          </div>
+          <article className="customer-report-card printable-report">
+            <div className="customer-report-head">
+              <div>
+                <span>Kolaretorp Service AB</span>
+                <h3>Einsatzbericht</h3>
+                <small>Berichtsnummer {selectedReport.id} · {selectedReport.date}</small>
+              </div>
+              <Badge value={selectedJob?.status ?? "Bericht"} />
+            </div>
+            <div className="report-info-grid">
+              <section>
+                <strong>Objekt</strong>
+                <dl>
+                  <div><dt>Objekt</dt><dd>{selectedObject?.name ?? "Objekt unbekannt"}</dd></div>
+                  <div><dt>Adresse</dt><dd>{selectedObject?.address ?? "Adresse offen"}</dd></div>
+                </dl>
+              </section>
+              <section>
+                <strong>Auftrag</strong>
+                <dl>
+                  <div><dt>Auftrag</dt><dd>{selectedReport.title}</dd></div>
+                  <div><dt>Datum</dt><dd>{selectedReport.date}</dd></div>
+                  {selectedJob && <div><dt>Bearbeiter</dt><dd>{selectedJob.assignedTo}</dd></div>}
+                </dl>
+              </section>
+              <section>
+                <strong>Umfang</strong>
+                <dl>
+                  <div><dt>Punkte</dt><dd>{selectedReport.checklistResults.length}</dd></div>
+                  <div><dt>Medien</dt><dd>{selectedReport.media.join(" · ")}</dd></div>
+                </dl>
+              </section>
+              <section>
+                <strong>Kunde</strong>
+                <dl>
+                  <div><dt>Sichtbar</dt><dd>{selectedReport.visibleToCustomer ? "Ja" : "Nein"}</dd></div>
+                  <div><dt>Gesendet</dt><dd>{selectedReport.sentAt || "Noch nicht gesendet"}</dd></div>
+                </dl>
+              </section>
+            </div>
+            <div className="report-summary-grid">
+              <section>
+                <strong>Zusammenfassung</strong>
+                <p>{selectedReport.summary}</p>
+              </section>
+              <section>
+                <strong>Kommentar an den Kunden</strong>
+                <p>{selectedReport.customerComment || "Noch kein Kundenkommentar hinterlegt."}</p>
+              </section>
+            </div>
+            <div className="report-checklist">
+              <strong>Kontrolle vor Ort</strong>
+              <div className="report-task-list">
+                {selectedReport.checklistResults.map((item) => (
+                  <article key={item.id}>
+                    <div>
+                      <Badge value={item.completed ? "ausgeführt" : "nicht ausgeführt"} />
+                      <strong>{item.title}</strong>
+                      <span>{item.meta}</span>
+                    </div>
+                    <p>{item.description}</p>
+                    <dl>
+                      <div><dt>Zeit</dt><dd>{item.minutes} min.</dd></div>
+                      <div><dt>Hinweis / Info</dt><dd>{item.note || "Keine zusätzliche Info erfasst."}</dd></div>
+                    </dl>
+                    {item.photos.length > 0 && (
+                      <div className="report-point-photos">
+                        {item.photos.map((photo) => (
+                          <figure key={`${item.id}-${photo.name}`}>
+                            {photo.previewUrl ? (
+                              <img alt={`Kontrollfoto ${photo.name}`} src={photo.previewUrl} />
+                            ) : (
+                              <div className="report-gallery-placeholder">
+                                <Camera size={18} />
+                                <span>Foto erfasst</span>
+                              </div>
+                            )}
+                            <figcaption>{photo.name}</figcaption>
+                          </figure>
+                        ))}
+                      </div>
+                    )}
+                  </article>
+                ))}
+              </div>
+            </div>
+          </article>
+        </section>
+      )}
     </div>
   );
 }

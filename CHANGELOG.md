@@ -4,6 +4,13 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.41.0 - 2026-08-10
+
+- App-Daten werden als zentraler Snapshot nach Supabase synchronisiert.
+- Objekte, Dokumente, Fotos, Aufträge, Berichte und Vor-Ort-Fortschritt bleiben dadurch nach Versionswechseln erhalten.
+- Berichte-Zähler öffnet jetzt eine eigene Berichtsliste mit Objektzuordnung und Detailansicht.
+- Supabase-Schema enthält eine app_state Tabelle für die aktuelle Arbeitsdaten-Persistenz.
+
 ## 1.40.0 - 2026-08-10
 
 - Objektbearbeitung zeigt keinen doppelten Kopf mit Objektstammdaten und Objekt bearbeiten mehr.

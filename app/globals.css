@@ -509,6 +509,7 @@ button {
 }
 
 .table-list article,
+.table-list button,
 .object-list article {
   align-items: center;
   background: transparent;
@@ -578,7 +579,9 @@ button {
 
 .object-list article:hover,
 .object-list article.selected,
-.table-list article:hover {
+.table-list article:hover,
+.table-list button:hover,
+.table-list button.active {
   background: var(--paper-soft);
   border-color: var(--brand-2);
 }
@@ -586,6 +589,23 @@ button {
 .table-list strong,
 .object-list strong {
   display: block;
+}
+
+.report-overview-list button {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.report-overview-list button span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.report-overview-list button strong,
+.report-overview-list button small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .job-list {

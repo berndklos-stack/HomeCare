@@ -53,6 +53,13 @@ Das Startschema liegt in `supabase/schema.sql`. Es enthaelt Tabellen fuer:
 - Auftraege
 - Checklisten
 - Berichte mit Freigabe- und Mailstatus
+- `app_state` als zentraler Snapshot der aktuellen Demo-/Arbeitsdaten inklusive
+  Objekte, Dokumente, Fotos, Auftraege, Berichte und Mobil-vor-Ort-Fortschritt
 
 Die Row-Level-Security-Regeln sind als Anfangspunkt enthalten und muessen vor
 dem Produktivbetrieb mit echten Rollen und Admin-Policies erweitert werden.
+
+Damit Dokumente und Bilder nach Deploys/Versionswechseln erhalten bleiben, muss
+`supabase/schema.sql` einmal in der Supabase-Datenbank ausgefuehrt werden. Die
+App synchronisiert danach automatisch in die Tabelle `public.app_state` und
+nutzt `localStorage` nur noch als Fallback/offline Zwischenspeicher.

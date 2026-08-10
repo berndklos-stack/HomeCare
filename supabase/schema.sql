@@ -209,3 +209,24 @@ create policy "owners see own customer visible billing"
     customer_visible_amount is not null
     and customer_id = auth.uid()
   );
+
+create table if not exists public.app_state (
+  id text primary key,
+  data jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.app_state enable row level security;
+
+create policy "public read app demo state"
+  on public.app_state for select
+  using (true);
+
+create policy "public insert app demo state"
+  on public.app_state for insert
+  with check (true);
+
+create policy "public update app demo state"
+  on public.app_state for update
+  using (true)
+  with check (true);

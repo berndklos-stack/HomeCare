@@ -112,7 +112,13 @@ test("new operations workspace supports core property and job flows", async ({ p
   await page.getByRole("button", { name: "Objekt speichern" }).click();
 
   await page.getByRole("button", { name: /\d+\s*Berichte/ }).click();
-  await expect(page.getByRole("heading", { name: "Objektübersicht" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Berichtsübersicht" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Poolpflege und Wasserwerte/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Villa Långsjön/ })).toBeVisible();
+  await page.getByRole("button", { name: /Poolpflege und Wasserwerte/ }).click();
+  await expect(page.locator(".report-detail-panel").getByRole("heading", { name: "Poolpflege und Wasserwerte" })).toBeVisible();
+  await expect(page.locator(".report-detail-panel").getByText("Villa Långsjön", { exact: true })).toBeVisible();
+  await expect(page.locator(".report-detail-panel").getByText("Pool gereinigt, Werte stabilisiert, nächste Kontrolle geplant.")).toBeVisible();
   await page.getByRole("button", { name: /\d+\s*abrechenbar/ }).click();
   await expect(page.getByRole("heading", { name: "Abrechnung" })).toBeVisible();
 
