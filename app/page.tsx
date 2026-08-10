@@ -1338,7 +1338,10 @@ export default function HomePage() {
       .toLowerCase()
       .includes(query.toLowerCase()),
   );
-  const currentFieldJobId = activeJobId ?? jobs.find((job) => job.status === "in Arbeit")?.id ?? jobs[0]?.id ?? "";
+  const currentFieldJobId = activeJobId
+    ?? jobs.find((job) => job.status === "in Arbeit")?.id
+    ?? jobs.find((job) => !["erledigt", "abgerechnet"].includes(job.status))?.id
+    ?? "";
   const dashboardStats: Array<{ label: string; value: number; section: Section }> = [
     { label: "aktive Objekte", value: activeObjects.length, section: "objects" },
     { label: "offene Einsätze", value: jobs.filter((job) => job.status !== "erledigt" && job.status !== "abgerechnet").length, section: "planning" },
@@ -1784,6 +1787,7 @@ export default function HomePage() {
                 packages={servicePackages}
                 services={services}
                 progress={currentFieldJobId ? fieldProgress[currentFieldJobId] ?? {} : {}}
+                onSelectJob={startJob}
                 onProgressChange={(jobId, progress) => setFieldProgress((current) => {
                   const nextProgress = { ...current, [jobId]: progress };
                   persistSnapshotNow({ fieldProgress: nextProgress });
@@ -2324,6 +2328,7 @@ function FieldView({
   packages,
   services,
   progress,
+  onSelectJob,
   onProgressChange,
   onComplete,
 }: {
@@ -2333,11 +2338,24 @@ function FieldView({
   packages: ServicePackage[];
   services: ServiceItem[];
   progress: Record<string, FieldTaskProgress>;
+  onSelectJob: (job: JobRecord) => void;
   onProgressChange: (jobId: string, progress: Record<string, FieldTaskProgress>) => void;
   onComplete: (job: JobRecord, checklistResults: FieldTaskResult[], fieldNote: string) => void;
 }) {
   const [fieldNote, setFieldNote] = useState("Notiz: Zugang geprüft, Fotos ergänzt.");
-  const active = jobs.find((job) => job.id === activeJobId) ?? jobs.find((job) => job.status === "in Arbeit") ?? jobs[0];
+  const openJobs = jobs.filter((job) => !["erledigt", "abgerechnet"].includes(job.status));
+  const active = jobs.find((job) => job.id === activeJobId) ?? openJobs.find((job) => job.status === "in Arbeit") ?? openJobs[0];
+  if (!active) {
+    return (
+      <section className="field-shell">
+        <div className="phone-card">
+          <p>Mobil vor Ort</p>
+          <h2>Keine offenen Aufträge</h2>
+          <span>Aktuell gibt es keine geplanten oder laufenden Einsätze.</span>
+        </div>
+      </section>
+    );
+  }
   const object = objects.find((item) => item.id === active.objectId) ?? objects[0];
   const activePackage = packages.find((servicePackage) => !servicePackage.archived && servicePackage.name === object.carePackage);
   const packageServices = activePackage
@@ -2412,6 +2430,26 @@ function FieldView({
     <section className="field-shell">
       <div className="phone-card">
         <p>Mobil vor Ort</p>
+        <div className="field-job-picker">
+          <strong>Offene Aufträge</strong>
+          {openJobs.map((job) => {
+            const jobObject = objects.find((item) => item.id === job.objectId);
+            return (
+              <button
+                className={job.id === active.id ? "active" : ""}
+                key={job.id}
+                onClick={() => onSelectJob(job)}
+                type="button"
+              >
+                <span>
+                  <strong>{job.title}</strong>
+                  <small>{jobObject?.name ?? "Objekt unbekannt"} · {job.dueDate}</small>
+                </span>
+                <Badge value={job.status} />
+              </button>
+            );
+          })}
+        </div>
         <h2>{active.title}</h2>
         <span>{object.name} · {object.address}</span>
         <div className="field-summary">

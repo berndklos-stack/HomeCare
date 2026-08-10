@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.41.0",
+  version: "1.42.0",
   releaseDate: "2026-08-10",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.42.0",
+    date: "2026-08-10",
+    changes: [
+      "Mobil vor Ort zeigt jetzt alle offenen Aufträge als klickbare Liste",
+      "Beim Anklicken eines offenen Auftrags wird dieser direkt als aktiver Vor-Ort-Einsatz geöffnet",
+      "Der Mobilbereich zeigt einen leeren Zustand, wenn keine offenen Aufträge vorhanden sind",
+    ],
+  },
   {
     version: "1.41.0",
     date: "2026-08-10",

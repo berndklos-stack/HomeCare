@@ -4,6 +4,12 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.42.0 - 2026-08-10
+
+- Mobil vor Ort zeigt jetzt alle offenen Aufträge als klickbare Liste.
+- Beim Anklicken eines offenen Auftrags wird dieser direkt als aktiver Vor-Ort-Einsatz geöffnet.
+- Der Mobilbereich zeigt einen leeren Zustand, wenn keine offenen Aufträge vorhanden sind.
+
 ## 1.41.0 - 2026-08-10
 
 - App-Daten werden als zentraler Snapshot nach Supabase synchronisiert.

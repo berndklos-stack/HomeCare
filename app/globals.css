@@ -759,6 +759,47 @@ mark.neutral {
   padding: 10px 12px;
 }
 
+.field-job-picker {
+  display: grid;
+  gap: 7px;
+}
+
+.field-job-picker > strong {
+  font-size: 13px;
+}
+
+.field-job-picker button {
+  align-items: center;
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: inherit;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 58px;
+  padding: 9px 10px;
+  text-align: left;
+}
+
+.field-job-picker button.active,
+.field-job-picker button:hover {
+  border-color: var(--brand);
+}
+
+.field-job-picker button span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.field-job-picker button strong,
+.field-job-picker button small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .field-summary small,
 .service-task-list small {
   color: var(--muted);

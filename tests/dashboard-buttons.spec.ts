@@ -212,6 +212,8 @@ test("new operations workspace supports core property and job flows", async ({ p
   await page.reload();
   await expect(page.locator("main")).toHaveAttribute("data-ready", "true");
   await page.getByTestId("nav-field").click();
+  await expect(page.getByText("Offene Aufträge")).toBeVisible();
+  await expect(page.getByRole("button", { name: /Bearbeiteter Testauftrag/ })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Bearbeiteter Testauftrag" })).toBeVisible();
   await expect(page.getByLabel("Zeit Zugang prüfen")).toHaveValue("22");
   await expect(page.getByLabel("Hinweis Zugang prüfen")).toHaveValue("Schlüsselsafe geprüft, Zugang ohne Problem.");
