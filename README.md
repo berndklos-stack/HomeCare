@@ -47,9 +47,9 @@ nicht in Browser-Code.
 
 ## Tägliche Auftragsmail
 
-Vercel ruft `/api/cron/daily-jobs` stuendlich auf. Der Endpunkt sendet die
-Auftragsliste nur, wenn es in `Europe/Stockholm` 08:00 Uhr ist, und merkt sich
-den Versandtag in `public.app_state`, damit keine doppelte Tagesmail entsteht.
+Vercel ruft `/api/cron/daily-jobs` einmal taeglich um `06:00 UTC` auf. Das ist
+in der schwedischen Sommerzeit 08:00 Uhr. Der Endpunkt merkt sich den
+Versandtag in `public.app_state`, damit keine doppelte Tagesmail entsteht.
 
 Benötigt werden:
 

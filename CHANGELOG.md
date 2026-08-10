@@ -4,6 +4,11 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.46.0 - 2026-08-10
+
+- Vercel Cron auf Hobby-kompatiblen täglichen Lauf umgestellt.
+- Cachefreier Versions-Endpunkt zur Prüfung des live deployten Stands ergänzt.
+
 ## 1.45.0 - 2026-08-10
 
 - Tägliche Auftragsliste per Vercel Cron und Resend vorbereitet.

@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.45.0",
+  version: "1.46.0",
   releaseDate: "2026-08-10",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.46.0",
+    date: "2026-08-10",
+    changes: [
+      "Vercel Cron auf Hobby-kompatiblen täglichen Lauf umgestellt",
+      "Cachefreier Versions-Endpunkt zur Prüfung des live deployten Stands ergänzt",
+    ],
+  },
   {
     version: "1.45.0",
     date: "2026-08-10",

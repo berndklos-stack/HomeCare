@@ -181,9 +181,6 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const force = url.searchParams.get("force") === "1";
   const { date: today, hour } = stockholmParts();
-  if (!force && hour !== 8) {
-    return NextResponse.json({ skipped: true, reason: "Nicht 08:00 Uhr in Stockholm.", stockholmHour: hour });
-  }
 
   const supabase = getSupabaseServerClient();
   if (!supabase) {
@@ -235,5 +232,5 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: saveError.message }, { status: 500 });
   }
 
-  return NextResponse.json({ sent: true, today, openJobCount: mail.openJobCount });
+  return NextResponse.json({ sent: true, stockholmHour: hour, today, openJobCount: mail.openJobCount });
 }
