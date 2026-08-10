@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element -- Berichtsbilder müssen in Chrome-PDFs als echte img-Elemente erscheinen. */
+
 import Image from "next/image";
 import {
   ArrowDown,
@@ -2077,8 +2079,10 @@ function FieldView({
                     onChange={(event) => {
                       const file = event.target.files?.[0];
                       if (!file) return;
-                      void fileToImagePreview(file).then((previewUrl) => {
-                        updateTask(task.id, { photos: [...currentTask.photos, { name: file.name, accepted: true, previewUrl }] }, currentTask);
+                      void readFileAsDataUrl(file).then((previewUrl) => {
+                        updateTask(task.id, {
+                          photos: [...currentTask.photos, { name: file.name, accepted: true, previewUrl }],
+                        }, currentTask);
                       });
                       event.currentTarget.value = "";
                     }}
@@ -2731,7 +2735,6 @@ function ObjectHistory({
   const reportSubject = selectedHistory ? `Einsatzbericht - Kolaretorp Service AB - ${object.name}` : "";
   const reportPdfName = selectedHistory ? `Einsatzbericht-${object.name}-${selectedHistory.title}.pdf` : "";
   const mailBody = customerReportMailBody(reportCustomer);
-  const reportImages = object.media.items.filter((item) => item.type === "Bild");
   const reportDocuments = object.media.items.filter((item) => item.type !== "Bild");
   const reportId = selectedReport ? selectedReport.id : selectedHistory?.id ?? "";
   const sentAt = selectedReport ? selectedReport.sentAt || sentReports[selectedReport.id] : "";
@@ -2820,7 +2823,6 @@ function ObjectHistory({
                 </div>
                 <div className="report-hero">
                   {primaryObjectImage(object)?.previewUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- Chrome druckt echte img-Elemente zuverlässiger in PDFs als CSS-Hintergrundbilder.
                     <img
                       alt={`Objektbild ${object.name}`}
                       className="report-hero-image"
@@ -2900,17 +2902,21 @@ function ObjectHistory({
                             <div><dt>Hinweis / Info</dt><dd>{item.note || "Keine zusätzliche Info erfasst."}</dd></div>
                             <div><dt>Bilder</dt><dd>{item.photos.length > 0 ? item.photos.map((photo) => photo.name).join(", ") : "Keine Bilder erfasst."}</dd></div>
                           </dl>
-                          {item.photos.some((photo) => photo.previewUrl) && (
+                          {item.photos.length > 0 && (
                             <div className="report-point-photos">
-                              {item.photos
-                                .filter((photo) => photo.previewUrl)
-                                .map((photo) => (
-                                  <figure key={`${item.id}-${photo.name}-inline`}>
-                                    {/* eslint-disable-next-line @next/next/no-img-element -- Berichtsfotos müssen in Chrome-PDFs als echte Bilder erscheinen. */}
+                              {item.photos.map((photo) => (
+                                <figure key={`${item.id}-${photo.name}-inline`}>
+                                  {photo.previewUrl ? (
                                     <img alt={`Kontrollfoto ${photo.name}`} src={photo.previewUrl} />
-                                    <figcaption>{photo.name}</figcaption>
-                                  </figure>
-                                ))}
+                                  ) : (
+                                    <div className="report-gallery-placeholder">
+                                      <Camera size={18} />
+                                      <span>Foto erfasst</span>
+                                    </div>
+                                  )}
+                                  <figcaption>{photo.name}</figcaption>
+                                </figure>
+                              ))}
                             </div>
                           )}
                         </article>
@@ -2942,27 +2948,6 @@ function ObjectHistory({
                 <div className="history-media">
                   {selectedReport.media.map((item) => <span key={item}>{item}</span>)}
                 </div>
-                {reportImages.length > 0 && (
-                  <div className="report-gallery">
-                    <strong>Bilder zum Objekt / Einsatz</strong>
-                    <div>
-                      {reportImages.map((item) => (
-                        <figure key={item.id}>
-                          {item.previewUrl ? (
-                            // eslint-disable-next-line @next/next/no-img-element -- Berichtsfotos müssen in Chrome-PDFs als echte Bilder erscheinen.
-                            <img alt={`Berichtsbild ${item.name}`} src={item.previewUrl} />
-                          ) : (
-                            <div className="report-gallery-placeholder">
-                              <Camera size={18} />
-                              <span>Bild dokumentiert</span>
-                            </div>
-                          )}
-                          <figcaption>{item.description || item.name}</figcaption>
-                        </figure>
-                      ))}
-                    </div>
-                  </div>
-                )}
                 {reportDocuments.length > 0 && (
                   <div className="report-documents">
                     <strong>Dokumente in der Objektakte</strong>

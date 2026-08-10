@@ -4,6 +4,12 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.34.0 - 2026-08-10
+
+- Der Abschnitt Bilder zum Objekt / Einsatz wurde aus dem Bericht entfernt.
+- Das Objektbild erscheint nur noch oben im Berichtskopf.
+- Kontrollpunktfotos werden sofort und direkt am jeweiligen Einsatzpunkt angezeigt.
+
 ## 1.33.0 - 2026-08-10
 
 - Fotos aus Kontrollpunkten werden jetzt direkt beim jeweiligen Punkt im Bericht angezeigt.

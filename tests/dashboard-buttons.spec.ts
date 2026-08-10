@@ -31,7 +31,7 @@ test("new operations workspace supports core property and job flows", async ({ p
   await expect(reportCard.locator("dt", { hasText: "Rhythmus" })).toBeVisible();
   await expect(reportCard.locator("dt", { hasText: "Priorität" })).toBeVisible();
   await expect(reportCard.getByText("Leistung", { exact: true })).toBeVisible();
-  await expect(reportCard.getByText("Bilder zum Objekt / Einsatz")).toBeVisible();
+  await expect(reportCard.getByText("Bilder zum Objekt / Einsatz")).toHaveCount(0);
   await expect(page.getByText("Betreff: Einsatzbericht - Kolaretorp Service AB - Villa Långsjön")).toBeVisible();
   await expect(page.getByText("Kopie: info@kolaretorp.se")).toBeVisible();
   await expect(page.getByText("Anhang: Einsatzbericht-Villa Långsjön-Poolpflege und Wasserwerte.pdf")).toBeVisible();
