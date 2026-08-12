@@ -4,6 +4,12 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.50.0 - 2026-08-12
+
+- Geräte-Synchronisation führt lokale und Supabase-Daten beim Start zusammen.
+- Aufträge, Kunden, Objekte und Berichte, die nur auf einem Gerät vorhanden sind, werden nicht mehr verdrängt.
+- Fehlende lokale Datensätze werden nach dem Öffnen automatisch nach Supabase übernommen.
+
 ## 1.49.0 - 2026-08-12
 
 - Tägliche Auftragsmail nutzt jetzt eine explizite Empfängeradresse.

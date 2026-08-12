@@ -470,6 +470,54 @@ function snapshotWeight(snapshot: AppSnapshot) {
   ].reduce((sum, value) => sum + value, 0);
 }
 
+function mergeRecordsById<T extends { id: string }>(remoteRecords: T[], localRecords: T[]) {
+  const merged = [...remoteRecords];
+  const existingIds = new Set(remoteRecords.map((record) => record.id));
+
+  localRecords.forEach((record) => {
+    if (!existingIds.has(record.id)) {
+      merged.push(record);
+      existingIds.add(record.id);
+    }
+  });
+
+  return merged;
+}
+
+function mergeFieldProgress(
+  remoteProgress: AppSnapshot["fieldProgress"],
+  localProgress: AppSnapshot["fieldProgress"],
+) {
+  const merged = { ...localProgress, ...remoteProgress };
+
+  Object.entries(localProgress).forEach(([jobId, localTasks]) => {
+    if (!remoteProgress[jobId]) return;
+    merged[jobId] = { ...localTasks, ...remoteProgress[jobId] };
+  });
+
+  return merged;
+}
+
+function mergeSnapshots(remoteSnapshot: AppSnapshot, localSnapshot: AppSnapshot): AppSnapshot {
+  const jobs = mergeRecordsById(remoteSnapshot.jobs, localSnapshot.jobs);
+  const activeJobId = remoteSnapshot.activeJobId && jobs.some((job) => job.id === remoteSnapshot.activeJobId)
+    ? remoteSnapshot.activeJobId
+    : localSnapshot.activeJobId && jobs.some((job) => job.id === localSnapshot.activeJobId)
+      ? localSnapshot.activeJobId
+      : null;
+
+  return {
+    activeJobId,
+    customers: mergeRecordsById(remoteSnapshot.customers, localSnapshot.customers),
+    fieldProgress: mergeFieldProgress(remoteSnapshot.fieldProgress, localSnapshot.fieldProgress),
+    jobs,
+    objects: mergeRecordsById(remoteSnapshot.objects, localSnapshot.objects),
+    packages: mergeRecordsById(remoteSnapshot.packages, localSnapshot.packages),
+    reports: mergeRecordsById(remoteSnapshot.reports, localSnapshot.reports),
+    services: mergeRecordsById(remoteSnapshot.services, localSnapshot.services),
+  };
+}
+
 async function withTimeout<T>(promise: Promise<T>, timeoutMs = 2500): Promise<T> {
   let timeoutId: number | undefined;
   const timeout = new Promise<never>((_, reject) => {
@@ -1294,11 +1342,16 @@ export default function HomePage() {
         if (cancelled) return;
 
         if (remoteSnapshot) {
-          if (snapshotWeight(remoteSnapshot) >= snapshotWeight(localSnapshot)) {
+          const mergedSnapshot = mergeSnapshots(remoteSnapshot, localSnapshot);
+          if (snapshotWeight(mergedSnapshot) >= snapshotWeight(remoteSnapshot)) {
+            applySnapshot(mergedSnapshot);
+            persistLocalSnapshot(mergedSnapshot);
+            if (JSON.stringify(mergedSnapshot) !== JSON.stringify(remoteSnapshot)) {
+              await saveSupabaseSnapshot(mergedSnapshot);
+            }
+          } else {
             applySnapshot(remoteSnapshot);
             persistLocalSnapshot(remoteSnapshot);
-          } else {
-            await saveSupabaseSnapshot(localSnapshot);
           }
         } else {
           await saveSupabaseSnapshot(localSnapshot);

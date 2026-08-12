@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.49.0",
+  version: "1.50.0",
   releaseDate: "2026-08-12",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.50.0",
+    date: "2026-08-12",
+    changes: [
+      "Geräte-Synchronisation führt lokale und Supabase-Daten beim Start zusammen",
+      "Aufträge, Kunden, Objekte und Berichte, die nur auf einem Gerät vorhanden sind, werden nicht mehr verdrängt",
+      "Fehlende lokale Datensätze werden nach dem Öffnen automatisch nach Supabase übernommen",
+    ],
+  },
   {
     version: "1.49.0",
     date: "2026-08-12",
