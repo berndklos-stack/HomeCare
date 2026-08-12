@@ -151,24 +151,37 @@ async function sendResendMail({ html, subject, text }: { html: string; subject: 
     throw new Error("RESEND_API_KEY fehlt.");
   }
 
-  const response = await fetch("https://api.resend.com/emails", {
-    body: JSON.stringify({
-      from: `Kolaretorp Service AB <${fromAddress}>`,
-      html,
-      subject,
-      text,
-      to: [recipient],
-    }),
-    headers: {
-      Authorization: `Bearer ${resendApiKey}`,
-      "Content-Type": "application/json",
-    },
-    method: "POST",
-  });
+  const senderCandidates = Array.from(new Set([
+    fromAddress,
+    "onboarding@resend.dev",
+  ]));
+  let lastError = "";
 
-  if (!response.ok) {
-    throw new Error(`Resend konnte die Tagesmail nicht senden: ${response.status} ${await response.text()}`);
+  for (const sender of senderCandidates) {
+    const response = await fetch("https://api.resend.com/emails", {
+      body: JSON.stringify({
+        from: `Kolaretorp Service AB <${sender}>`,
+        html,
+        subject,
+        text,
+        to: [recipient],
+      }),
+      headers: {
+        Authorization: `Bearer ${resendApiKey}`,
+        "Content-Type": "application/json",
+      },
+      method: "POST",
+    });
+
+    if (response.ok) {
+      return { from: sender, to: recipient };
+    }
+
+    lastError = `${response.status} ${await response.text()}`;
+    if (!lastError.includes("domain is not verified")) break;
   }
+
+  throw new Error(`Resend konnte die Tagesmail nicht senden: ${lastError}`);
 }
 
 export async function GET(request: Request) {
@@ -211,7 +224,7 @@ export async function GET(request: Request) {
   }
 
   const mail = buildDailyJobMail((appState?.data as AppSnapshot | undefined) ?? {}, today);
-  await sendResendMail({
+  const delivery = await sendResendMail({
     html: mail.html,
     subject: `Tägliche Auftragsliste - Kolaretorp Service AB - ${displayDate(today)}`,
     text: mail.text,
@@ -232,5 +245,5 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: saveError.message }, { status: 500 });
   }
 
-  return NextResponse.json({ sent: true, stockholmHour: hour, today, openJobCount: mail.openJobCount });
+  return NextResponse.json({ sent: true, stockholmHour: hour, today, openJobCount: mail.openJobCount, delivery });
 }

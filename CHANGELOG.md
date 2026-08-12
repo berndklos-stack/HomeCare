@@ -4,6 +4,12 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.49.0 - 2026-08-12
+
+- Tägliche Auftragsmail nutzt jetzt eine explizite Empfängeradresse.
+- Mailversand fällt bei noch nicht verifizierter Kolaretorp-Domain auf die Resend-Testadresse zurück.
+- Cron-Endpunkt gibt Versanddetails für den Testlauf zurück.
+
 ## 1.48.0 - 2026-08-10
 
 - Supabase-Projekt wurde verknüpft und die app_state Tabelle per Migration angelegt.

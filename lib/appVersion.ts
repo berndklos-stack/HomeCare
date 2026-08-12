@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.48.0",
-  releaseDate: "2026-08-10",
+  version: "1.49.0",
+  releaseDate: "2026-08-12",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.49.0",
+    date: "2026-08-12",
+    changes: [
+      "Tägliche Auftragsmail nutzt jetzt eine explizite Empfängeradresse",
+      "Mailversand fällt bei noch nicht verifizierter Kolaretorp-Domain auf die Resend-Testadresse zurück",
+      "Cron-Endpunkt gibt Versanddetails für den Testlauf zurück",
+    ],
+  },
   {
     version: "1.48.0",
     date: "2026-08-10",
