@@ -129,6 +129,7 @@ test("new operations workspace supports core property and job flows", async ({ p
   await field("Titel").fill("Testauftrag Objektkontrolle");
   await field("Typ").fill("Hauskontrolle");
   await field("Priorität").selectOption("hoch");
+  await page.getByLabel(/Hauskontrolle.*795 SEK\/Besuch/).check();
   await page.getByRole("button", { name: "Serienauftrag" }).click();
   await field("Wiederholen").selectOption("wöchentlich");
   await field("Intervall").fill("2");
@@ -199,6 +200,7 @@ test("new operations workspace supports core property and job flows", async ({ p
   await page.getByRole("button", { name: /Bearbeiteter Testauftrag/ }).click();
   await expect(page.getByRole("heading", { name: "Bearbeiteter Testauftrag" })).toBeVisible();
   await expect(page.getByRole("article").filter({ hasText: "Zugang prüfen" }).getByText("Hauskontrolle · Kontrolle · 795 SEK/Besuch")).toBeVisible();
+  await expect(page.getByRole("article").filter({ hasText: "Vorher-Fotos erfassen" })).toHaveCount(0);
   await page.getByLabel("Zeit Zugang prüfen").fill("22");
   await page.getByLabel("Hinweis Zugang prüfen").fill("Schlüsselsafe geprüft, Zugang ohne Problem.");
   await page.getByRole("article").filter({ hasText: "Außenrunde durchführen" }).locator("input[type='checkbox']").check();

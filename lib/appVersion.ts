@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.50.0",
+  version: "1.51.0",
   releaseDate: "2026-08-12",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.51.0",
+    date: "2026-08-12",
+    changes: [
+      "Aufträge können jetzt konkrete Leistungen aus den Stammdaten enthalten",
+      "In der Auftragsanlage können eigene Leistungen mit eigenen Checklistenpunkten erfasst werden",
+      "Mobil vor Ort zeigt nur noch die Checklistenpunkte der im Auftrag hinterlegten Leistungen",
+    ],
+  },
   {
     version: "1.50.0",
     date: "2026-08-12",

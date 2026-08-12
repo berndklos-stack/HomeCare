@@ -134,6 +134,8 @@ type JobRecord = {
   description: string;
   internalNotes: string;
   checklist: string[];
+  serviceIds?: string[];
+  customService?: ServiceItem | null;
   billable: boolean;
   material: string;
   workMinutes: number;
@@ -295,6 +297,17 @@ type NewJobFormState = {
   assignedTo: string;
   description: string;
   internalNotes: string;
+  serviceIds: string[];
+  customServiceName: string;
+  customServiceCategory: string;
+  customServiceUnit: string;
+  customServicePrice: string;
+  customServiceCurrency: string;
+  customServiceDescription: string;
+  customServiceChecklist: ServiceChecklistItem[];
+  customChecklistTitle: string;
+  customChecklistNote: string;
+  customChecklistMinutes: string;
   scheduleType: JobSchedule["type"];
   scheduleFrequency: JobSchedule["frequency"];
   scheduleInterval: string;
@@ -609,6 +622,39 @@ function emptyObjectForm(): NewObjectFormState {
   };
 }
 
+function emptyJobForm(): NewJobFormState {
+  return {
+    title: "",
+    type: "Hauskontrolle",
+    priority: "normal",
+    dueDate: "2026-08-05",
+    assignedTo: "Johan Berg",
+    description: "",
+    internalNotes: "",
+    serviceIds: [],
+    customServiceName: "",
+    customServiceCategory: "",
+    customServiceUnit: "",
+    customServicePrice: "",
+    customServiceCurrency: "SEK",
+    customServiceDescription: "",
+    customServiceChecklist: [],
+    customChecklistTitle: "",
+    customChecklistNote: "",
+    customChecklistMinutes: "",
+    scheduleType: "einmalig",
+    scheduleFrequency: "wöchentlich",
+    scheduleInterval: "1",
+    scheduleWeekdays: [],
+    scheduleEnd: "nie",
+    scheduleEndDate: "",
+    scheduleOccurrences: "10",
+    scheduleActiveFromMonth: "",
+    scheduleActiveToMonth: "",
+    scheduleYearInterval: "1",
+  };
+}
+
 function objectToForm(object: ObjectRecord): NewObjectFormState {
   return {
     name: object.name,
@@ -656,6 +702,65 @@ function splitList(value: string) {
 function primaryObjectImage(object: ObjectRecord) {
   return object.media.items.find((item) => item.type === "Bild" && item.isPrimary && item.previewUrl)
     ?? object.media.items.find((item) => item.type === "Bild" && item.previewUrl);
+}
+
+function serviceToFieldTasks(service: ServiceItem): FieldTask[] {
+  if (service.checklist.length === 0) {
+    return [{
+      id: service.id,
+      title: service.name,
+      meta: `${service.category} · ${serviceRate(service)}`,
+      description: service.description,
+      defaultMinutes: 0,
+    }];
+  }
+
+  return service.checklist.map((item) => ({
+    id: `${service.id}-${item.id}`,
+    title: item.title,
+    meta: `${service.name} · ${service.category} · ${serviceRate(service)}`,
+    description: item.note,
+    defaultMinutes: item.defaultMinutes,
+  }));
+}
+
+function jobSelectedServices(job: JobRecord, services: ServiceItem[]) {
+  const selected = (job.serviceIds ?? [])
+    .map((id) => services.find((service) => service.id === id && !service.archived))
+    .filter(Boolean) as ServiceItem[];
+
+  return job.customService ? [...selected, job.customService] : selected;
+}
+
+function jobToForm(job: JobRecord): NewJobFormState {
+  return {
+    ...emptyJobForm(),
+    title: job.title,
+    type: job.type,
+    priority: job.priority,
+    dueDate: job.dueDate,
+    assignedTo: job.assignedTo,
+    description: job.description,
+    internalNotes: job.internalNotes,
+    serviceIds: job.serviceIds ?? [],
+    customServiceName: job.customService?.name ?? "",
+    customServiceCategory: job.customService?.category ?? "",
+    customServiceUnit: job.customService?.unit ?? "",
+    customServicePrice: job.customService?.price ?? "",
+    customServiceCurrency: job.customService?.currency ?? "SEK",
+    customServiceDescription: job.customService?.description ?? "",
+    customServiceChecklist: job.customService?.checklist ?? [],
+    scheduleType: job.schedule.type,
+    scheduleFrequency: job.schedule.frequency,
+    scheduleInterval: String(job.schedule.interval),
+    scheduleWeekdays: job.schedule.weekdays,
+    scheduleEnd: job.schedule.end,
+    scheduleEndDate: job.schedule.endDate,
+    scheduleOccurrences: String(job.schedule.occurrences || 10),
+    scheduleActiveFromMonth: job.schedule.activeFromMonth ? String(job.schedule.activeFromMonth) : "",
+    scheduleActiveToMonth: job.schedule.activeToMonth ? String(job.schedule.activeToMonth) : "",
+    scheduleYearInterval: String(job.schedule.yearInterval || 1),
+  };
 }
 
 function firstNameFromName(name: string) {
@@ -1043,6 +1148,8 @@ const seedJobs: JobRecord[] = [
     description: "Pool reinigen, Wasserwerte messen, Filterdruck dokumentieren.",
     internalNotes: "pH-Mittel nur intern kalkulieren.",
     checklist: ["Zugang dokumentieren", "Vorher-Fotos", "Wasserwerte", "Material", "Bericht"],
+    serviceIds: ["SVC-1", "SVC-2", "SVC-3"],
+    customService: null,
     billable: true,
     material: "pH-Minus, Teststreifen",
     workMinutes: 95,
@@ -1061,6 +1168,8 @@ const seedJobs: JobRecord[] = [
     description: "Rasen, Hecken, Zufahrt, Dachrinne hinten links prüfen.",
     internalNotes: "Dachrinne eventuell als Zusatzauftrag anbieten.",
     checklist: ["Außenrunde", "Rasen", "Hecken", "Fotos", "Rückmeldung"],
+    serviceIds: ["SVC-5", "SVC-2", "SVC-3"],
+    customService: null,
     billable: true,
     material: "-",
     workMinutes: 120,
@@ -1079,6 +1188,21 @@ const seedJobs: JobRecord[] = [
     description: "Beschlag prüfen und Tür einstellen.",
     internalNotes: "Interne Nacharbeit.",
     checklist: ["Werkzeug", "Beschlag", "Test", "Notiz"],
+    serviceIds: [],
+    customService: {
+      id: "JOB-SVC-2409",
+      name: "Terrassentür justieren",
+      category: "Reparatur",
+      unit: "Einsatz",
+      price: "0",
+      currency: "SEK",
+      description: "Beschlag prüfen und Tür einstellen.",
+      checklist: [
+        { id: "JOB-SVC-2409-1", title: "Werkzeug vorbereiten", note: "Passendes Werkzeug und Schrauben bereitlegen.", defaultMinutes: 5 },
+        { id: "JOB-SVC-2409-2", title: "Beschlag prüfen", note: "Beschlag und Schließverhalten kontrollieren.", defaultMinutes: 20 },
+        { id: "JOB-SVC-2409-3", title: "Funktion testen", note: "Tür mehrfach öffnen und schließen, Ergebnis dokumentieren.", defaultMinutes: 10 },
+      ],
+    },
     billable: false,
     material: "Schrauben",
     workMinutes: 45,
@@ -1299,25 +1423,7 @@ export default function HomePage() {
   const [recordNotice, setRecordNotice] = useState("");
   const [newObject, setNewObject] = useState<NewObjectFormState>(emptyObjectForm());
   const [newCustomer, setNewCustomer] = useState<CustomerFormState>(emptyCustomerForm());
-  const [newJob, setNewJob] = useState<NewJobFormState>({
-    title: "",
-    type: "Hauskontrolle",
-    priority: "normal" as JobRecord["priority"],
-    dueDate: "2026-08-05",
-    assignedTo: "Johan Berg",
-    description: "",
-    internalNotes: "",
-    scheduleType: "einmalig",
-    scheduleFrequency: "wöchentlich",
-    scheduleInterval: "1",
-    scheduleWeekdays: [],
-    scheduleEnd: "nie",
-    scheduleEndDate: "",
-    scheduleOccurrences: "10",
-    scheduleActiveFromMonth: "",
-    scheduleActiveToMonth: "",
-    scheduleYearInterval: "1",
-  });
+  const [newJob, setNewJob] = useState<NewJobFormState>(emptyJobForm());
 
   function applySnapshot(snapshot: AppSnapshot) {
     setObjects(snapshot.objects);
@@ -1602,71 +1708,57 @@ export default function HomePage() {
 
   function openCreateJob() {
     setEditingJobId(null);
-    setNewJob({
-      title: "",
-      type: "Hauskontrolle",
-      priority: "normal",
-      dueDate: "2026-08-05",
-      assignedTo: "Johan Berg",
-      description: "",
-      internalNotes: "",
-      scheduleType: "einmalig",
-      scheduleFrequency: "wöchentlich",
-      scheduleInterval: "1",
-      scheduleWeekdays: [],
-      scheduleEnd: "nie",
-      scheduleEndDate: "",
-      scheduleOccurrences: "10",
-      scheduleActiveFromMonth: "",
-      scheduleActiveToMonth: "",
-      scheduleYearInterval: "1",
-    });
+    setNewJob(emptyJobForm());
     setModal("job");
   }
 
   function openEditJob(job: JobRecord) {
     setEditingJobId(job.id);
     setSelectedObjectId(job.objectId);
-    setNewJob({
-      title: job.title,
-      type: job.type,
-      priority: job.priority,
-      dueDate: job.dueDate,
-      assignedTo: job.assignedTo,
-      description: job.description,
-      internalNotes: job.internalNotes,
-      scheduleType: job.schedule.type,
-      scheduleFrequency: job.schedule.frequency,
-      scheduleInterval: String(job.schedule.interval),
-      scheduleWeekdays: job.schedule.weekdays,
-      scheduleEnd: job.schedule.end,
-      scheduleEndDate: job.schedule.endDate,
-      scheduleOccurrences: String(job.schedule.occurrences || 10),
-      scheduleActiveFromMonth: job.schedule.activeFromMonth ? String(job.schedule.activeFromMonth) : "",
-      scheduleActiveToMonth: job.schedule.activeToMonth ? String(job.schedule.activeToMonth) : "",
-      scheduleYearInterval: String(job.schedule.yearInterval || 1),
-    });
+    setNewJob(jobToForm(job));
     setModal("job");
   }
 
   function saveJob() {
     const id = editingJobId ?? `JOB-${2410 + jobs.length}`;
+    const existingJob = jobs.find((job) => job.id === editingJobId);
+    const customServiceName = newJob.customServiceName.trim();
+    const customService: ServiceItem | null = customServiceName
+      ? {
+          id: existingJob?.customService?.id ?? `JOB-SVC-${id}`,
+          name: customServiceName,
+          category: newJob.customServiceCategory.trim() || "Sonderleistung",
+          unit: newJob.customServiceUnit.trim() || "Einsatz",
+          price: newJob.customServicePrice.trim() || "0",
+          currency: newJob.customServiceCurrency.trim() || "SEK",
+          description: newJob.customServiceDescription.trim() || "Individuelle Leistung zum Auftrag.",
+          checklist: newJob.customServiceChecklist,
+        }
+      : null;
+    const selectedServiceTasks = newJob.serviceIds
+      .map((serviceId) => services.find((service) => service.id === serviceId && !service.archived))
+      .filter(Boolean)
+      .flatMap((service) => serviceToFieldTasks(service as ServiceItem));
+    const customServiceTasks = customService ? serviceToFieldTasks(customService) : [];
+    const checklist = [...selectedServiceTasks, ...customServiceTasks].map((task) => task.title);
     const saved: JobRecord = {
       id,
       title: newJob.title.trim() || "Neuer Auftrag",
       objectId: selectedObject.id,
       customerId: selectedObject.ownerCustomerId || customers.find((customer) => customer.name === selectedObject.owner)?.id || "CUS-1",
-      type: newJob.type.trim() || "Hauskontrolle",
-      status: jobs.find((job) => job.id === editingJobId)?.status ?? "geplant",
+      type: newJob.type.trim() || customService?.name || "Hauskontrolle",
+      status: existingJob?.status ?? "geplant",
       priority: newJob.priority,
       dueDate: newJob.dueDate,
       assignedTo: newJob.assignedTo.trim() || "nicht zugewiesen",
       description: newJob.description.trim() || "Beschreibung ergänzen.",
       internalNotes: newJob.internalNotes.trim() || "Keine internen Notizen.",
-      checklist: jobs.find((job) => job.id === editingJobId)?.checklist ?? ["Zugang prüfen", "Fotos erfassen", "Arbeit dokumentieren", "Bericht vorbereiten"],
-      billable: jobs.find((job) => job.id === editingJobId)?.billable ?? true,
-      material: jobs.find((job) => job.id === editingJobId)?.material ?? "-",
-      workMinutes: jobs.find((job) => job.id === editingJobId)?.workMinutes ?? 0,
+      checklist: checklist.length > 0 ? checklist : existingJob?.checklist ?? ["Auftrag dokumentieren"],
+      serviceIds: newJob.serviceIds,
+      customService,
+      billable: existingJob?.billable ?? true,
+      material: existingJob?.material ?? "-",
+      workMinutes: existingJob?.workMinutes ?? 0,
       schedule: {
         type: newJob.scheduleType,
         frequency: newJob.scheduleFrequency,
@@ -1943,6 +2035,7 @@ export default function HomePage() {
                 newJob={newJob}
                 objects={activeObjects}
                 selectedObject={selectedObject}
+                services={services}
                 setNewJob={setNewJob}
                 setSelectedObjectId={setSelectedObjectId}
                 onSubmit={saveJob}
@@ -2584,32 +2677,10 @@ function FieldView({
   }
   const activeJob = active;
   const object = objects.find((item) => item.id === activeJob.objectId) ?? objects[0];
-  const activePackage = packages.find((servicePackage) => !servicePackage.archived && servicePackage.name === object.carePackage);
-  const packageServices = activePackage
-    ? activePackage.serviceIds
-        .map((id) => services.find((service) => service.id === id && !service.archived))
-        .filter(Boolean) as ServiceItem[]
-    : [];
-  const fieldTasks = packageServices.length > 0
-    ? packageServices.flatMap((service) => {
-        if (service.checklist.length === 0) {
-          return [{
-            id: service.id,
-            title: service.name,
-            meta: `${service.category} · ${serviceRate(service)}`,
-            description: service.description,
-            defaultMinutes: 0,
-          }];
-        }
-
-        return service.checklist.map((item) => ({
-          id: `${service.id}-${item.id}`,
-          title: item.title,
-          meta: `${service.name} · ${service.category} · ${serviceRate(service)}`,
-          description: item.note,
-          defaultMinutes: item.defaultMinutes,
-        }));
-      })
+  void packages;
+  const jobServices = jobSelectedServices(activeJob, services);
+  const fieldTasks = jobServices.length > 0
+    ? jobServices.flatMap(serviceToFieldTasks)
     : activeJob.checklist.map((item) => ({
         id: item,
         title: item,
@@ -3953,6 +4024,7 @@ function JobForm({
   setNewJob,
   objects,
   selectedObject,
+  services,
   setSelectedObjectId,
   onSubmit,
   submitLabel,
@@ -3961,6 +4033,7 @@ function JobForm({
   setNewJob: (value: NewJobFormState) => void;
   objects: ObjectRecord[];
   selectedObject: ObjectRecord;
+  services: ServiceItem[];
   setSelectedObjectId: (id: string) => void;
   onSubmit: () => void;
   submitLabel: string;
@@ -3983,6 +4056,43 @@ function JobForm({
 
   function update(key: keyof typeof newJob, value: string | string[]) {
     setNewJob({ ...newJob, [key]: value });
+  }
+
+  function toggleService(serviceId: string) {
+    update(
+      "serviceIds",
+      newJob.serviceIds.includes(serviceId)
+        ? newJob.serviceIds.filter((id) => id !== serviceId)
+        : [...newJob.serviceIds, serviceId],
+    );
+  }
+
+  function addCustomChecklistItem() {
+    const title = newJob.customChecklistTitle.trim();
+    if (!title) return;
+
+    setNewJob({
+      ...newJob,
+      customChecklistTitle: "",
+      customChecklistNote: "",
+      customChecklistMinutes: "",
+      customServiceChecklist: [
+        ...newJob.customServiceChecklist,
+        {
+          id: `CUSTOM-${Date.now()}`,
+          title,
+          note: newJob.customChecklistNote.trim() || "Vor Ort prüfen und dokumentieren.",
+          defaultMinutes: Number(newJob.customChecklistMinutes) || 0,
+        },
+      ],
+    });
+  }
+
+  function removeCustomChecklistItem(id: string) {
+    setNewJob({
+      ...newJob,
+      customServiceChecklist: newJob.customServiceChecklist.filter((item) => item.id !== id),
+    });
   }
 
   function toggleWeekday(day: string) {
@@ -4015,6 +4125,66 @@ function JobForm({
       </label>
       <label><span>Fällig</span><input type="date" value={newJob.dueDate} onChange={(event) => update("dueDate", event.target.value)} /></label>
       <label><span>Zuständig</span><input value={newJob.assignedTo} onChange={(event) => update("assignedTo", event.target.value)} /></label>
+      <section className="wide service-assignment">
+        <div className="section-heading">
+          <span>Leistungen im Auftrag</span>
+          <strong>{newJob.serviceIds.length + (newJob.customServiceName.trim() ? 1 : 0)} ausgewählt</strong>
+        </div>
+        <div className="service-select-grid">
+          {services.filter((service) => !service.archived).map((service) => (
+            <label className="service-select-card" key={service.id}>
+              <input checked={newJob.serviceIds.includes(service.id)} onChange={() => toggleService(service.id)} type="checkbox" />
+              <span>
+                <strong>{service.name}</strong>
+                <small>{service.category} · {serviceRate(service)} · {service.checklist.length} Checkpunkte</small>
+              </span>
+            </label>
+          ))}
+        </div>
+      </section>
+      <section className="wide custom-service-editor">
+        <div className="section-heading">
+          <span>Eigene Leistung erfassen</span>
+          <strong>optional</strong>
+        </div>
+        <div className="form-grid compact-form">
+          <label><span>Leistung</span><input value={newJob.customServiceName} onChange={(event) => update("customServiceName", event.target.value)} /></label>
+          <label><span>Kategorie</span><input list="job-custom-service-categories" value={newJob.customServiceCategory} onChange={(event) => update("customServiceCategory", event.target.value)} /></label>
+          <datalist id="job-custom-service-categories">
+            {[...new Set(services.map((service) => service.category).filter(Boolean))].sort((a, b) => a.localeCompare(b, "de")).map((category) => (
+              <option key={category} value={category} />
+            ))}
+          </datalist>
+          <label><span>Einheit</span><input list="job-custom-service-units" value={newJob.customServiceUnit} onChange={(event) => update("customServiceUnit", event.target.value)} /></label>
+          <datalist id="job-custom-service-units">
+            {[...new Set(services.map((service) => service.unit).filter(Boolean))].sort((a, b) => a.localeCompare(b, "de")).map((unit) => (
+              <option key={unit} value={unit} />
+            ))}
+          </datalist>
+          <label><span>Preis</span><input value={newJob.customServicePrice} onChange={(event) => update("customServicePrice", event.target.value)} /></label>
+          <label><span>Währung</span><select value={newJob.customServiceCurrency} onChange={(event) => update("customServiceCurrency", event.target.value)}><option>SEK</option><option>EUR</option><option>NOK</option><option>DKK</option></select></label>
+          <label className="wide"><span>Beschreibung</span><textarea value={newJob.customServiceDescription} onChange={(event) => update("customServiceDescription", event.target.value)} /></label>
+        </div>
+        <div className="service-checklist-form">
+          <label><span>Checkpunkt</span><input value={newJob.customChecklistTitle} onChange={(event) => update("customChecklistTitle", event.target.value)} /></label>
+          <label className="checklist-minutes-field"><span>Standardzeit min.</span><input min="0" type="number" value={newJob.customChecklistMinutes} onChange={(event) => update("customChecklistMinutes", event.target.value)} /></label>
+          <label className="wide"><span>Hinweis / Info</span><textarea value={newJob.customChecklistNote} onChange={(event) => update("customChecklistNote", event.target.value)} /></label>
+          <button className="ghost-button wide" onClick={addCustomChecklistItem} type="button"><Plus size={16} /> Checklistenpunkt hinzufügen</button>
+        </div>
+        {newJob.customServiceChecklist.length > 0 && (
+          <div className="checklist-preview">
+            {newJob.customServiceChecklist.map((item) => (
+              <article key={item.id}>
+                <div>
+                  <strong>{item.title}</strong>
+                  <span>{item.note} · {item.defaultMinutes} Min.</span>
+                </div>
+                <IconAction danger label={`Checklistenpunkt ${item.title} entfernen`} onClick={() => removeCustomChecklistItem(item.id)}><Trash2 size={16} /></IconAction>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
       <div className="wide recurrence-editor">
         <div className="recurrence-head">
           <CalendarDays size={18} />

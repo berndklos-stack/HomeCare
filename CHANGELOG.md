@@ -4,6 +4,12 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.51.0 - 2026-08-12
+
+- Aufträge können jetzt konkrete Leistungen aus den Stammdaten enthalten.
+- In der Auftragsanlage können eigene Leistungen mit eigenen Checklistenpunkten erfasst werden.
+- Mobil vor Ort zeigt nur noch die Checklistenpunkte der im Auftrag hinterlegten Leistungen.
+
 ## 1.50.0 - 2026-08-12
 
 - Geräte-Synchronisation führt lokale und Supabase-Daten beim Start zusammen.

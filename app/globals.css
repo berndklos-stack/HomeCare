@@ -1141,6 +1141,66 @@ mark.neutral {
   margin: 0;
 }
 
+.service-assignment,
+.custom-service-editor {
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+}
+
+.section-heading {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.section-heading span {
+  color: var(--brand);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.section-heading strong {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.service-select-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.service-select-card {
+  align-items: start;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: auto minmax(0, 1fr);
+  padding: 10px;
+}
+
+.service-select-card input {
+  margin-top: 3px;
+}
+
+.service-select-card small {
+  color: var(--muted);
+  display: block;
+  font-size: 12px;
+  margin-top: 3px;
+}
+
+.compact-form {
+  gap: 10px;
+}
+
 .recurrence-editor {
   background: var(--paper-soft);
   border: 1px solid var(--line);
