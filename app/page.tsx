@@ -228,6 +228,7 @@ type AppSnapshot = {
   packages: ServicePackage[];
   reports: ReportRecord[];
   services: ServiceItem[];
+  updatedAt?: string;
 };
 
 type ServiceItem = {
@@ -428,6 +429,7 @@ const storageKeys = {
   fieldNotes: "kolaretorp-field-notes",
   fieldProgress: "kolaretorp-field-progress",
   activeJobId: "kolaretorp-active-job-id",
+  updatedAt: "kolaretorp-updated-at",
 };
 
 function readStoredValue<T>(key: string, fallback: T): T {
@@ -451,12 +453,14 @@ function readLocalSnapshot(): AppSnapshot {
     jobs: readStoredValue<JobRecord[]>(storageKeys.jobs, seedJobs),
     objects: readStoredValue<ObjectRecord[]>(storageKeys.objects, seedObjects),
     packages: readStoredValue<ServicePackage[]>(storageKeys.packages, seedPackages),
-    reports: readStoredValue<ReportRecord[]>(storageKeys.reports, seedReports),
+    reports: dedupeReports(readStoredValue<ReportRecord[]>(storageKeys.reports, seedReports)),
     services: readStoredValue<ServiceItem[]>(storageKeys.services, seedServices),
+    updatedAt: readStoredValue<string | undefined>(storageKeys.updatedAt, undefined),
   };
 }
 
 function persistLocalSnapshot(snapshot: AppSnapshot) {
+  const updatedAt = snapshot.updatedAt ?? new Date().toISOString();
   window.localStorage.setItem(storageKeys.objects, JSON.stringify(snapshot.objects));
   window.localStorage.setItem(storageKeys.customers, JSON.stringify(snapshot.customers));
   window.localStorage.setItem(storageKeys.jobs, JSON.stringify(snapshot.jobs));
@@ -466,6 +470,7 @@ function persistLocalSnapshot(snapshot: AppSnapshot) {
   window.localStorage.setItem(storageKeys.fieldNotes, JSON.stringify(snapshot.fieldNotes));
   window.localStorage.setItem(storageKeys.fieldProgress, JSON.stringify(snapshot.fieldProgress));
   window.localStorage.setItem(storageKeys.activeJobId, JSON.stringify(snapshot.activeJobId));
+  window.localStorage.setItem(storageKeys.updatedAt, JSON.stringify(updatedAt));
 }
 
 function snapshotWeight(snapshot: AppSnapshot) {
@@ -496,18 +501,17 @@ function snapshotWeight(snapshot: AppSnapshot) {
   ].reduce((sum, value) => sum + value, 0);
 }
 
-function mergeRecordsById<T extends { id: string }>(remoteRecords: T[], localRecords: T[]) {
-  const merged = [...remoteRecords];
-  const existingIds = new Set(remoteRecords.map((record) => record.id));
+function mergeRecordsById<T extends { id: string }>(primaryRecords: T[], secondaryRecords: T[]) {
+  const recordsById = new Map<string, T>();
 
-  localRecords.forEach((record) => {
-    if (!existingIds.has(record.id)) {
-      merged.push(record);
-      existingIds.add(record.id);
-    }
+  secondaryRecords.forEach((record) => {
+    recordsById.set(record.id, record);
+  });
+  primaryRecords.forEach((record) => {
+    recordsById.set(record.id, { ...recordsById.get(record.id), ...record });
   });
 
-  return merged;
+  return Array.from(recordsById.values());
 }
 
 function mediaItemScore(item: MediaItem) {
@@ -538,21 +542,15 @@ function mergeMediaItems(remoteItems: MediaItem[] = [], localItems: MediaItem[] 
   }));
 }
 
-function objectMediaScore(object: ObjectRecord) {
-  return object.media.items.reduce((sum, item) => sum + mediaItemScore(item), 0);
-}
+function mergeObjectsById(primaryObjects: ObjectRecord[], secondaryObjects: ObjectRecord[]) {
+  const secondaryById = new Map(secondaryObjects.map((object) => [object.id, object]));
+  const primaryIds = new Set(primaryObjects.map((object) => object.id));
+  const merged = primaryObjects.map((primaryObject) => {
+    const secondaryObject = secondaryById.get(primaryObject.id);
+    if (!secondaryObject) return primaryObject;
 
-function mergeObjectsById(remoteObjects: ObjectRecord[], localObjects: ObjectRecord[]) {
-  const localById = new Map(localObjects.map((object) => [object.id, object]));
-  const remoteIds = new Set(remoteObjects.map((object) => object.id));
-  const merged = remoteObjects.map((remoteObject) => {
-    const localObject = localById.get(remoteObject.id);
-    if (!localObject) return remoteObject;
-
-    const base = objectMediaScore(localObject) > objectMediaScore(remoteObject)
-      ? { ...remoteObject, ...localObject }
-      : { ...localObject, ...remoteObject };
-    const mediaItems = mergeMediaItems(remoteObject.media.items, localObject.media.items);
+    const base = { ...secondaryObject, ...primaryObject };
+    const mediaItems = mergeMediaItems(primaryObject.media.items, secondaryObject.media.items);
 
     return {
       ...base,
@@ -566,52 +564,64 @@ function mergeObjectsById(remoteObjects: ObjectRecord[], localObjects: ObjectRec
     };
   });
 
-  localObjects.forEach((object) => {
-    if (!remoteIds.has(object.id)) merged.push(object);
+  secondaryObjects.forEach((object) => {
+    if (!primaryIds.has(object.id)) merged.push(object);
   });
 
   return merged;
 }
 
 function mergeFieldProgress(
-  remoteProgress: AppSnapshot["fieldProgress"],
-  localProgress: AppSnapshot["fieldProgress"],
+  primaryProgress: AppSnapshot["fieldProgress"],
+  secondaryProgress: AppSnapshot["fieldProgress"],
 ) {
-  const merged = { ...localProgress, ...remoteProgress };
+  const merged = { ...secondaryProgress, ...primaryProgress };
 
-  Object.entries(localProgress).forEach(([jobId, localTasks]) => {
-    if (!remoteProgress[jobId]) return;
-    merged[jobId] = { ...localTasks, ...remoteProgress[jobId] };
+  Object.entries(primaryProgress).forEach(([jobId, primaryTasks]) => {
+    if (!secondaryProgress[jobId]) return;
+    merged[jobId] = { ...secondaryProgress[jobId], ...primaryTasks };
   });
 
   return merged;
 }
 
 function mergeFieldNotes(
-  remoteNotes: AppSnapshot["fieldNotes"] | undefined,
-  localNotes: AppSnapshot["fieldNotes"] | undefined,
+  primaryNotes: AppSnapshot["fieldNotes"] | undefined,
+  secondaryNotes: AppSnapshot["fieldNotes"] | undefined,
 ) {
-  return { ...(localNotes ?? {}), ...(remoteNotes ?? {}) };
+  return { ...(secondaryNotes ?? {}), ...(primaryNotes ?? {}) };
 }
 
 function mergeSnapshots(remoteSnapshot: AppSnapshot, localSnapshot: AppSnapshot): AppSnapshot {
-  const jobs = mergeRecordsById(remoteSnapshot.jobs, localSnapshot.jobs);
-  const activeJobId = remoteSnapshot.activeJobId && jobs.some((job) => job.id === remoteSnapshot.activeJobId)
-    ? remoteSnapshot.activeJobId
-    : localSnapshot.activeJobId && jobs.some((job) => job.id === localSnapshot.activeJobId)
-      ? localSnapshot.activeJobId
+  const remoteTime = Date.parse(remoteSnapshot.updatedAt ?? "");
+  const localTime = Date.parse(localSnapshot.updatedAt ?? "");
+  const localIsNewer = Number.isFinite(localTime)
+    ? !Number.isFinite(remoteTime) || localTime >= remoteTime
+    : snapshotWeight(localSnapshot) >= snapshotWeight(remoteSnapshot);
+  const primarySnapshot = localIsNewer ? localSnapshot : remoteSnapshot;
+  const secondarySnapshot = localIsNewer ? remoteSnapshot : localSnapshot;
+  const jobs = mergeRecordsById(primarySnapshot.jobs, secondarySnapshot.jobs);
+  const activeJobId = primarySnapshot.activeJobId && jobs.some((job) => job.id === primarySnapshot.activeJobId)
+    ? primarySnapshot.activeJobId
+    : secondarySnapshot.activeJobId && jobs.some((job) => job.id === secondarySnapshot.activeJobId)
+      ? secondarySnapshot.activeJobId
       : null;
 
   return {
     activeJobId,
-    customers: mergeRecordsById(remoteSnapshot.customers, localSnapshot.customers),
-    fieldNotes: mergeFieldNotes(remoteSnapshot.fieldNotes, localSnapshot.fieldNotes),
-    fieldProgress: mergeFieldProgress(remoteSnapshot.fieldProgress, localSnapshot.fieldProgress),
+    customers: mergeRecordsById(primarySnapshot.customers, secondarySnapshot.customers),
+    fieldNotes: mergeFieldNotes(primarySnapshot.fieldNotes, secondarySnapshot.fieldNotes),
+    fieldProgress: mergeFieldProgress(primarySnapshot.fieldProgress, secondarySnapshot.fieldProgress),
     jobs,
-    objects: mergeObjectsById(remoteSnapshot.objects, localSnapshot.objects),
-    packages: mergeRecordsById(remoteSnapshot.packages, localSnapshot.packages),
-    reports: mergeRecordsById(remoteSnapshot.reports, localSnapshot.reports),
-    services: mergeRecordsById(remoteSnapshot.services, localSnapshot.services),
+    objects: mergeObjectsById(primarySnapshot.objects, secondarySnapshot.objects),
+    packages: mergeRecordsById(primarySnapshot.packages, secondarySnapshot.packages),
+    reports: dedupeReports(mergeRecordsById(primarySnapshot.reports, secondarySnapshot.reports)),
+    services: mergeRecordsById(primarySnapshot.services, secondarySnapshot.services),
+    updatedAt: new Date(Math.max(
+      Number.isFinite(remoteTime) ? remoteTime : 0,
+      Number.isFinite(localTime) ? localTime : 0,
+      Date.now(),
+    )).toISOString(),
   };
 }
 
@@ -641,13 +651,13 @@ async function loadSupabaseSnapshot() {
     cache: "no-store",
     headers: { Accept: "application/json" },
   }));
-  const payload = await response.json() as { data?: AppSnapshot | null; error?: string };
+  const payload = await response.json() as { data?: AppSnapshot | null; error?: string; updatedAt?: string | null };
 
   if (!response.ok) {
     throw new Error(payload.error || "App-Daten konnten nicht geladen werden.");
   }
 
-  return payload.data ?? null;
+  return payload.data ? { ...payload.data, updatedAt: payload.data.updatedAt ?? payload.updatedAt ?? undefined } : null;
 }
 
 async function saveSupabaseSnapshot(snapshot: AppSnapshot) {
@@ -1694,6 +1704,68 @@ function formatJobDate(date: Date) {
   return date.toISOString().slice(0, 10);
 }
 
+function normalizeReportDate(value: string) {
+  const parsed = parseJobDate(value);
+  return parsed ? formatJobDate(parsed) : value.trim();
+}
+
+function reportDedupeKey(report: ReportRecord) {
+  return [
+    report.objectId,
+    report.title.trim().toLowerCase(),
+    normalizeReportDate(report.date),
+  ].join("|");
+}
+
+function reportCompletenessScore(report: ReportRecord) {
+  const photoCount = report.checklistResults.reduce((sum, item) => sum + item.photos.length, 0);
+  const noteCount = report.checklistResults.filter((item) => item.note.trim()).length;
+
+  return [
+    report.sentAt ? 100 : 0,
+    report.customerComment.trim() ? 20 : 0,
+    report.checklistResults.length * 4,
+    photoCount * 3,
+    noteCount * 2,
+    report.summary.trim() ? 1 : 0,
+  ].reduce((sum, value) => sum + value, 0);
+}
+
+function mergeReportPair(first: ReportRecord, second: ReportRecord) {
+  const primary = reportCompletenessScore(second) >= reportCompletenessScore(first) ? second : first;
+  const fallback = primary === first ? second : first;
+  const checklistById = new Map<string, FieldTaskResult>();
+
+  [...fallback.checklistResults, ...primary.checklistResults].forEach((item) => {
+    const existing = checklistById.get(item.id);
+    const existingScore = existing ? Number(existing.completed) + existing.photos.length + Number(Boolean(existing.note.trim())) : -1;
+    const itemScore = Number(item.completed) + item.photos.length + Number(Boolean(item.note.trim()));
+    if (!existing || itemScore >= existingScore) checklistById.set(item.id, item);
+  });
+
+  return {
+    ...fallback,
+    ...primary,
+    checklistResults: Array.from(checklistById.values()),
+    customerComment: primary.customerComment || fallback.customerComment,
+    date: normalizeReportDate(primary.date),
+    media: Array.from(new Set([...fallback.media, ...primary.media])),
+    sentAt: primary.sentAt ?? fallback.sentAt,
+  };
+}
+
+function dedupeReports(reports: ReportRecord[]) {
+  const reportsByKey = new Map<string, ReportRecord>();
+
+  reports.forEach((report) => {
+    const key = reportDedupeKey(report);
+    const existing = reportsByKey.get(key);
+    reportsByKey.set(key, existing ? mergeReportPair(existing, report) : { ...report, date: normalizeReportDate(report.date) });
+  });
+
+  return Array.from(reportsByKey.values()).sort((first, second) => normalizeReportDate(second.date).localeCompare(normalizeReportDate(first.date)));
+}
+
 function addScheduleInterval(date: Date, schedule: JobSchedule) {
   const nextDate = new Date(date);
   const interval = Math.max(schedule.interval || 1, 1);
@@ -1956,11 +2028,12 @@ export default function HomePage() {
   const [newJob, setNewJob] = useState<NewJobFormState>(emptyJobForm());
 
   function applySnapshot(snapshot: AppSnapshot) {
-    const normalizedJobs = ensureSeriesOccurrences(snapshot.jobs, snapshot.reports);
+    const normalizedReports = dedupeReports(snapshot.reports);
+    const normalizedJobs = ensureSeriesOccurrences(snapshot.jobs, normalizedReports);
     setObjects(snapshot.objects);
     setCustomers(snapshot.customers);
     setJobs(normalizedJobs);
-    setReports(snapshot.reports);
+    setReports(normalizedReports);
     setServices(snapshot.services);
     setServicePackages(snapshot.packages);
     setFieldNotes(snapshot.fieldNotes ?? {});
@@ -2030,6 +2103,7 @@ export default function HomePage() {
       packages: servicePackages,
       reports,
       services,
+      updatedAt: new Date().toISOString(),
     };
 
     try {
@@ -2060,6 +2134,7 @@ export default function HomePage() {
       packages: servicePackages,
       reports,
       services,
+      updatedAt: new Date().toISOString(),
       ...overrides,
     };
   }
@@ -2441,10 +2516,10 @@ export default function HomePage() {
       customerComment: existingReport?.customerComment ?? "",
       sentAt: existingReport?.sentAt,
     };
-    const nextReports = [
+    const nextReports = dedupeReports([
       savedReport,
       ...reports.filter((report) => report.id !== reportId && (job.schedule.type === "serie" || report.jobId !== job.id)),
-    ];
+    ]);
     const nextObjects = objects.map((object) => (object.id === job.objectId ? { ...object, lastVisit: job.dueDate } : object));
     const nextFieldProgress = { ...fieldProgress };
     const nextFieldNotes = { ...fieldNotes };
@@ -2472,7 +2547,7 @@ export default function HomePage() {
   }
 
   function updateReportRecord(report: ReportRecord) {
-    const nextReports = reports.map((item) => (item.id === report.id ? report : item));
+    const nextReports = dedupeReports(reports.map((item) => (item.id === report.id ? report : item)));
     setReports(nextReports);
     persistSnapshotNow({ reports: nextReports });
   }
@@ -3526,7 +3601,7 @@ function FieldView({
   onComplete: (job: JobRecord, checklistResults: FieldTaskResult[], fieldNote: string) => void;
 }) {
   const openJobs = jobs.filter((job) => !["erledigt", "abgerechnet", "storniert"].includes(job.status));
-  const completedReports = reports.filter((report) => {
+  const completedReports = dedupeReports(reports).filter((report) => {
     const job = allJobs.find((item) => item.id === report.jobId);
     return job ? ["erledigt", "geplant", "in Arbeit"].includes(job.status) : true;
   });
@@ -3568,7 +3643,6 @@ function FieldView({
           <div className="field-job-picker">
             <strong>Abgeschlossene Berichte</strong>
             {completedReports.map((report) => {
-              const job = allJobs.find((item) => item.id === report.jobId);
               const jobObject = objects.find((item) => item.id === report.objectId);
               return (
                 <button key={report.id} onClick={() => onSelectReport(report)} type="button">
@@ -3576,7 +3650,7 @@ function FieldView({
                     <strong>{report.title}</strong>
                     <small>{jobObject?.name ?? "Objekt unbekannt"} · {report.date}</small>
                   </span>
-                  <Badge value={job?.status ?? "Bericht"} />
+                  <Badge value={report.sentAt ? "gesendet" : "Bericht"} />
                 </button>
               );
             })}
@@ -3671,7 +3745,6 @@ function FieldView({
         <div className="field-job-picker">
           <strong>Abgeschlossene Berichte</strong>
           {completedReports.slice(0, 6).map((report) => {
-            const job = allJobs.find((item) => item.id === report.jobId);
             const jobObject = objects.find((item) => item.id === report.objectId);
             return (
               <button
@@ -3684,7 +3757,7 @@ function FieldView({
                   <strong>{report.title}</strong>
                   <small>{jobObject?.name ?? "Objekt unbekannt"} · {report.date}</small>
                 </span>
-                <Badge value={job?.status ?? "Bericht"} />
+                <Badge value={report.sentAt ? "gesendet" : "Bericht"} />
               </button>
             );
           })}

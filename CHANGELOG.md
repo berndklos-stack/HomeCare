@@ -4,6 +4,13 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.69.0 - 2026-08-16
+
+- Doppelte Berichte werden beim Laden, Synchronisieren und Speichern fachlich zusammengeführt.
+- Bericht-Dubletten mit deutschem und ISO-Datumsformat werden als gleicher Bericht erkannt.
+- Mobil vor Ort zeigt abgeschlossene Berichte mit Berichtszustand statt irreführendem Auftragsstatus an.
+- Stammdatenfelder behalten beim Versionswechsel den neueren lokalen oder Supabase-Stand statt pauschal überschrieben zu werden.
+
 ## 1.68.0 - 2026-08-16
 
 - Objektbilder werden beim Zusammenführen von lokalen Daten und Supabase-Daten nicht mehr durch ältere Objektstände verdrängt.

@@ -1,10 +1,20 @@
 export const appVersion = {
-  version: "1.68.0",
+  version: "1.69.0",
   releaseDate: "2026-08-16",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.69.0",
+    date: "2026-08-16",
+    changes: [
+      "Doppelte Berichte werden beim Laden, Synchronisieren und Speichern fachlich zusammengeführt",
+      "Bericht-Dubletten mit deutschem und ISO-Datumsformat werden als gleicher Bericht erkannt",
+      "Mobil vor Ort zeigt abgeschlossene Berichte mit Berichtszustand statt irreführendem Auftragsstatus an",
+      "Stammdatenfelder behalten beim Versionswechsel den neueren lokalen oder Supabase-Stand statt pauschal überschrieben zu werden",
+    ],
+  },
   {
     version: "1.68.0",
     date: "2026-08-16",
