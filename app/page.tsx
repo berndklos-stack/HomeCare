@@ -121,12 +121,20 @@ type CustomerRecord = {
   language: string;
   portalLoginEmail: string;
   portalPassword: string;
+  portalLoginHistory: PortalLoginEntry[];
   objects: string[];
   balance: string;
   portalStatus: "aktiv" | "einladen" | "gesperrt";
   notes: string;
   reportMailBody: string;
   archived?: boolean;
+};
+
+type PortalLoginEntry = {
+  id: string;
+  email: string;
+  loggedAt: string;
+  userAgent: string;
 };
 
 type JobRecord = {
@@ -353,6 +361,7 @@ type CustomerFormState = {
   language: string;
   portalLoginEmail: string;
   portalPassword: string;
+  portalLoginHistory: PortalLoginEntry[];
   balance: string;
   portalStatus: CustomerRecord["portalStatus"];
   objects: string[];
@@ -1241,6 +1250,7 @@ function emptyCustomerForm(): CustomerFormState {
     language: "Deutsch",
     portalLoginEmail: "",
     portalPassword: "",
+    portalLoginHistory: [],
     balance: "0 SEK",
     portalStatus: "einladen",
     objects: [],
@@ -1259,6 +1269,7 @@ function customerToForm(customer: CustomerRecord): CustomerFormState {
     language: customer.language,
     portalLoginEmail: customer.portalLoginEmail || customer.email,
     portalPassword: customer.portalPassword || "",
+    portalLoginHistory: customer.portalLoginHistory ?? [],
     balance: customer.balance,
     portalStatus: customer.portalStatus,
     objects: customer.objects,
@@ -1278,6 +1289,7 @@ function formToCustomer(form: CustomerFormState, id: string): CustomerRecord {
     language: form.language.trim() || "Deutsch",
     portalLoginEmail: form.portalLoginEmail.trim() || form.email.trim() || "kunde@example.com",
     portalPassword: form.portalPassword.trim(),
+    portalLoginHistory: form.portalLoginHistory ?? [],
     objects: form.objects,
     balance: form.balance.trim() || "0 SEK",
     portalStatus: form.portalStatus,
