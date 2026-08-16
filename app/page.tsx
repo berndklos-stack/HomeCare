@@ -3032,14 +3032,17 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     : undefined;
 
   if (portalOnly) {
+    const portalLoggedIn = Boolean(portalCustomerId);
     return (
-      <main className="app portal-app" data-ready="true" data-theme={theme}>
+      <main className={`app portal-app ${portalLoggedIn ? "" : "portal-login-app"}`} data-ready="true" data-theme={theme}>
         <section className="workspace portal-workspace">
           <header className="topbar portal-topbar">
-            <div className="portal-brand-head">
-              <Image alt="Kolaretorp Service AB" height={28} priority src="/kolaretorp-logo.png" width={220} />
-              <span>Välkommen im Kundenportal von Kolaretorp Service AB</span>
-            </div>
+            {portalLoggedIn ? (
+              <div className="portal-brand-head">
+                <Image alt="Kolaretorp Service AB" height={28} priority src="/kolaretorp-logo.png" width={220} />
+                <span>Kundenportal</span>
+              </div>
+            ) : <span aria-hidden="true" />}
             <div className="toolbar">
               <button className="ghost-button" onClick={() => setTheme(theme === "dark" ? "light" : "dark")} type="button">
                 {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
@@ -4571,8 +4574,13 @@ function CustomerPortalView({
 
   if (!customer) {
     return (
-      <section className="portal-shell">
+      <section className="portal-shell portal-login-shell">
         <div className="portal-login panel">
+          <div className="portal-login-brand">
+            <Image alt="Kolaretorp Service AB" height={42} priority src="/kolaretorp-logo.png" width={280} />
+            <h1>Välkommen im Kundenportal</h1>
+            <span>Kolaretorp Service AB</span>
+          </div>
           <div className="panel-title">
             <div>
               <p>Kundenportal</p>

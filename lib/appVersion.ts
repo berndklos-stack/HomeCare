@@ -1,10 +1,20 @@
 export const appVersion = {
-  version: "1.76.0",
+  version: "1.77.0",
   releaseDate: "2026-08-17",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.77.0",
+    date: "2026-08-17",
+    changes: [
+      "Kundenportal-Login wurde gestalterisch neu aufgebaut",
+      "Vor dem Login erscheint keine doppelte Portal-Headline mehr",
+      "Logo und Willkommenszeile stehen jetzt fokussiert in der Login-Karte",
+      "Login-Formular und Einloggen-Button sind kompakter und sauber ausgerichtet",
+    ],
+  },
   {
     version: "1.76.0",
     date: "2026-08-17",

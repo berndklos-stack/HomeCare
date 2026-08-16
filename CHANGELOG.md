@@ -4,6 +4,13 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.77.0 - 2026-08-17
+
+- Kundenportal-Login wurde gestalterisch neu aufgebaut.
+- Vor dem Login erscheint keine doppelte Portal-Headline mehr.
+- Logo und Willkommenszeile stehen jetzt fokussiert in der Login-Karte.
+- Login-Formular und Einloggen-Button sind kompakter und sauber ausgerichtet.
+
 ## 1.76.0 - 2026-08-17
 
 - Erfolgreiche Kundenportal-Logins werden mit Zeitstempel, Login-E-Mail und Gerätehinweis protokolliert.
