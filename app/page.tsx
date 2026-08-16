@@ -1476,6 +1476,7 @@ const seedCustomers: CustomerRecord[] = [
     language: "SV / DE",
     portalLoginEmail: "eva.andersson@example.com",
     portalPassword: "demo-portal",
+    portalLoginHistory: [],
     objects: ["OBJ-1001"],
     balance: "0 SEK",
     portalStatus: "aktiv",
@@ -1492,6 +1493,7 @@ const seedCustomers: CustomerRecord[] = [
     language: "DE",
     portalLoginEmail: "markus.schneider@example.com",
     portalPassword: "demo-portal",
+    portalLoginHistory: [],
     objects: ["OBJ-1002"],
     balance: "1.840 SEK",
     portalStatus: "aktiv",
@@ -1508,6 +1510,7 @@ const seedCustomers: CustomerRecord[] = [
     language: "DE / EN",
     portalLoginEmail: "bernd@example.com",
     portalPassword: "demo-portal",
+    portalLoginHistory: [],
     objects: ["OBJ-1003"],
     balance: "0 SEK",
     portalStatus: "einladen",
@@ -2889,6 +2892,29 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     setRecordNotice("Kundenstammdaten aus dem Portal wurden aktualisiert.");
   }
 
+  function recordPortalLogin(customerId: string, email: string, userAgent: string) {
+    const loginEntry: PortalLoginEntry = {
+      id: `LOGIN-${Date.now()}`,
+      email,
+      loggedAt: new Date().toLocaleString("de-DE", {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }),
+      userAgent: userAgent || "Unbekanntes Gerät",
+    };
+    const nextCustomers = customers.map((customer) => (
+      customer.id === customerId
+        ? {
+            ...customer,
+            portalLoginHistory: [loginEntry, ...(customer.portalLoginHistory ?? [])].slice(0, 25),
+          }
+        : customer
+    ));
+
+    setCustomers(nextCustomers);
+    persistSnapshotNow({ customers: nextCustomers });
+  }
+
   async function createPortalJob(customer: CustomerRecord, objectId: string, form: NewJobFormState) {
     const object = objects.find((item) => item.id === objectId);
     const id = `JOB-PORTAL-${Date.now()}`;
@@ -3029,6 +3055,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
             messages={portalMessages}
             objects={objects}
             onCreateJob={createPortalJob}
+            onRecordLogin={recordPortalLogin}
             onSendMessage={createPortalMessage}
             onUpdateCustomer={updatePortalCustomer}
             reports={reports}
@@ -3181,6 +3208,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                 messages={portalMessages}
                 objects={objects}
                 onCreateJob={createPortalJob}
+                onRecordLogin={recordPortalLogin}
                 onSendMessage={createPortalMessage}
                 onUpdateCustomer={updatePortalCustomer}
                 reports={reports}
@@ -4407,6 +4435,7 @@ function CustomerPortalView({
   messages,
   objects,
   onCreateJob,
+  onRecordLogin,
   onSendMessage,
   onUpdateCustomer,
   reports,
@@ -4420,6 +4449,7 @@ function CustomerPortalView({
   messages: PortalMessageRecord[];
   objects: ObjectRecord[];
   onCreateJob: (customer: CustomerRecord, objectId: string, form: NewJobFormState) => Promise<void>;
+  onRecordLogin: (customerId: string, email: string, userAgent: string) => void;
   onSendMessage: (customer: CustomerRecord, objectId: string, subject: string, message: string) => Promise<void>;
   onUpdateCustomer: (customerId: string, updates: Pick<CustomerRecord, "email" | "phone">) => void;
   reports: ReportRecord[];
@@ -4506,6 +4536,7 @@ function CustomerPortalView({
     setSelectedObjectId(matchedCustomer.objects[0] ?? "");
     setPortalProfileEmail(matchedCustomer.email);
     setPortalProfilePhone(matchedCustomer.phone);
+    onRecordLogin(matchedCustomer.id, matchedCustomer.portalLoginEmail || matchedCustomer.email, window.navigator.userAgent);
     setPortalNotice("");
   }
 
@@ -5924,6 +5955,22 @@ function CustomerForm({
       <h3>Portalzugang</h3>
       <label><span>Login-E-Mail</span><input type="email" value={customer.portalLoginEmail} onChange={(event) => update("portalLoginEmail", event.target.value)} /></label>
       <label><span>Portal-Passwort</span><input value={customer.portalPassword} onChange={(event) => update("portalPassword", event.target.value)} /></label>
+      <div className="wide portal-login-history">
+        <span>Login-Verlauf Kundenportal</span>
+        {(customer.portalLoginHistory ?? []).length > 0 ? (
+          <div>
+            {(customer.portalLoginHistory ?? []).map((entry) => (
+              <article key={entry.id}>
+                <strong>{entry.loggedAt}</strong>
+                <span>{entry.email}</span>
+                <small>{entry.userAgent}</small>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p>Noch keine Kundenportal-Logins protokolliert.</p>
+        )}
+      </div>
       <label><span>Saldo</span><input value={customer.balance} onChange={(event) => update("balance", event.target.value)} /></label>
       <label className="wide"><span>Notizen / interne Info</span><textarea value={customer.notes} onChange={(event) => update("notes", event.target.value)} /></label>
       <label className="wide">

@@ -4,6 +4,12 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.76.0 - 2026-08-17
+
+- Erfolgreiche Kundenportal-Logins werden mit Zeitstempel, Login-E-Mail und Gerätehinweis protokolliert.
+- Der Login-Verlauf ist nur intern in den Kundenstammdaten sichtbar.
+- Beim Speichern von Kundenstammdaten bleibt der Login-Verlauf erhalten.
+
 ## 1.75.0 - 2026-08-17
 
 - Kundenportal zeigt Serienaufträge kompakt als Hauptauftrag mit ausklappbaren Teilaufträgen.

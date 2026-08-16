@@ -2746,6 +2746,44 @@ button.media-thumb {
   break-inside: avoid;
 }
 
+.portal-login-history {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+}
+
+.portal-login-history > span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.portal-login-history > div {
+  display: grid;
+  gap: 6px;
+}
+
+.portal-login-history article {
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 2px;
+  padding: 8px;
+}
+
+.portal-login-history small,
+.portal-login-history p {
+  color: var(--muted);
+  font-size: 12px;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 @media (max-width: 1180px) {
   .app,
   .layout {

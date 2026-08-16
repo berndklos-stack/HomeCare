@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.75.0",
+  version: "1.76.0",
   releaseDate: "2026-08-17",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.76.0",
+    date: "2026-08-17",
+    changes: [
+      "Erfolgreiche Kundenportal-Logins werden mit Zeitstempel, Login-E-Mail und Gerätehinweis protokolliert",
+      "Der Login-Verlauf ist nur intern in den Kundenstammdaten sichtbar",
+      "Beim Speichern von Kundenstammdaten bleibt der Login-Verlauf erhalten",
+    ],
+  },
   {
     version: "1.75.0",
     date: "2026-08-17",
