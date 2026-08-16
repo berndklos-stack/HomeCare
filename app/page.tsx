@@ -3852,11 +3852,84 @@ function JobsView({
       const groupDiff = jobSortGroup(first, firstOccurrences) - jobSortGroup(second, secondOccurrences);
       return groupDiff || nextRelevantJobDate(first, firstOccurrences) - nextRelevantJobDate(second, secondOccurrences);
     });
+  const activeRootJobs = rootJobs.filter((job) => jobSortGroup(job, occurrenceGroups[job.id] ?? []) < 4);
+  const cancelledRootJobs = rootJobs.filter((job) => jobSortGroup(job, occurrenceGroups[job.id] ?? []) >= 4);
 
   function toggleSeries(id: string) {
     setExpandedSeriesIds((current) => (
       current.includes(id) ? current.filter((item) => item !== id) : [...current, id]
     ));
+  }
+
+  function renderJobRow(job: JobRecord) {
+    const occurrences = sortedByDueDate(occurrenceGroups[job.id] ?? []);
+    const isRecurring = isSeriesMaster(job);
+    const isExpanded = expandedSeriesIds.includes(job.id);
+    const summary = isRecurring ? seriesSummary(job, occurrences, reports) : null;
+
+    return (
+      <article className={`job-row ${isRecurring ? "series-job-row" : ""}`} key={job.id}>
+        <div className="job-row-main">
+          <div className="job-title-line">
+            <strong>{job.title}</strong>
+            {isRecurring && summary && (
+              <div className="series-summary-chips" aria-label="Serienstatus">
+                <span>Serienauftrag</span>
+                <span>Letzter: {summary.lastDone}</span>
+                <span>Nächster: {summary.nextStatus} {summary.nextDate}</span>
+              </div>
+            )}
+          </div>
+          <span>{objects.find((object) => object.id === job.objectId)?.name} · {isRecurring && summary ? summary.rhythm : scheduleLabel(job.schedule)} · {job.description}</span>
+        </div>
+        <div className="job-row-meta">
+          <span>{isRecurring ? `${occurrences.length} Teilaufträge` : job.dueDate}</span>
+          <span>{job.priority}</span>
+          {!isRecurring && <Badge value={job.status} />}
+          <div className="row-actions">
+            {isRecurring && (
+              <IconAction label={`${job.title} Teilaufträge ${isExpanded ? "ausblenden" : "anzeigen"}`} onClick={() => toggleSeries(job.id)}>
+                {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+              </IconAction>
+            )}
+            <IconAction label={`Auftrag ${job.title} bearbeiten`} onClick={() => onEdit(job)}><Pencil size={16} /></IconAction>
+            {!isRecurring && job.status !== "storniert" && (
+              <IconAction label={`Auftrag ${job.title} starten`} onClick={() => onStart(job)}><PlayCircle size={16} /></IconAction>
+            )}
+            {job.status === "storniert" ? (
+              <IconAction label={`Auftrag ${job.title} reaktivieren`} onClick={() => onRestore(job)}><RotateCcw size={16} /></IconAction>
+            ) : (
+              <IconAction danger label={`Auftrag ${job.title} stornieren`} onClick={() => onCancel(job)}><X size={16} /></IconAction>
+            )}
+          </div>
+        </div>
+        {isRecurring && isExpanded && (
+          <div className="series-occurrence-list">
+            {occurrences.map((occurrence) => (
+              <div className="series-occurrence-row" key={occurrence.id}>
+                <div>
+                  <strong>{occurrence.dueDate}</strong>
+                  <span>{readableJobStatus(occurrence.status)} · {occurrence.assignedTo}</span>
+                </div>
+                <div className="row-actions">
+                  <Badge value={occurrence.status} />
+                  <IconAction label={`Teilauftrag ${occurrence.dueDate} bearbeiten`} onClick={() => onEdit(occurrence)}><Pencil size={16} /></IconAction>
+                  {occurrence.status !== "storniert" && !["erledigt", "abgerechnet"].includes(occurrence.status) && (
+                    <IconAction label={`Teilauftrag ${occurrence.dueDate} starten`} onClick={() => onStart(occurrence)}><PlayCircle size={16} /></IconAction>
+                  )}
+                  {occurrence.status === "storniert" ? (
+                    <IconAction label={`Teilauftrag ${occurrence.dueDate} reaktivieren`} onClick={() => onRestore(occurrence)}><RotateCcw size={16} /></IconAction>
+                  ) : (
+                    <IconAction danger label={`Teilauftrag ${occurrence.dueDate} stornieren`} onClick={() => onCancel(occurrence)}><X size={16} /></IconAction>
+                  )}
+                </div>
+              </div>
+            ))}
+            {occurrences.length === 0 && <span className="muted-line">Für diesen Serienauftrag sind aktuell keine offenen Teilaufträge vorbereitet.</span>}
+          </div>
+        )}
+      </article>
+    );
   }
 
   return (
@@ -3884,78 +3957,17 @@ function JobsView({
         ))}
       </div>
       <div className="table-list job-list">
-        {rootJobs.map((job) => {
-          const occurrences = sortedByDueDate(occurrenceGroups[job.id] ?? []);
-          const isRecurring = isSeriesMaster(job);
-          const isExpanded = expandedSeriesIds.includes(job.id);
-          const summary = isRecurring ? seriesSummary(job, occurrences, reports) : null;
-
-          return (
-            <article className={`job-row ${isRecurring ? "series-job-row" : ""}`} key={job.id}>
-              <div className="job-row-main">
-                <div className="job-title-line">
-                  <strong>{job.title}</strong>
-                  {isRecurring && summary && (
-                    <div className="series-summary-chips" aria-label="Serienstatus">
-                      <span>Serienauftrag</span>
-                      <span>Letzter: {summary.lastDone}</span>
-                      <span>Nächster: {summary.nextStatus} {summary.nextDate}</span>
-                    </div>
-                  )}
-                </div>
-                <span>{objects.find((object) => object.id === job.objectId)?.name} · {isRecurring && summary ? summary.rhythm : scheduleLabel(job.schedule)} · {job.description}</span>
-              </div>
-              <div className="job-row-meta">
-                <span>{isRecurring ? `${occurrences.length} Teilaufträge` : job.dueDate}</span>
-                <span>{job.priority}</span>
-                {!isRecurring && <Badge value={job.status} />}
-                <div className="row-actions">
-                  {isRecurring && (
-                    <IconAction label={`${job.title} Teilaufträge ${isExpanded ? "ausblenden" : "anzeigen"}`} onClick={() => toggleSeries(job.id)}>
-                      {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                    </IconAction>
-                  )}
-                  <IconAction label={`Auftrag ${job.title} bearbeiten`} onClick={() => onEdit(job)}><Pencil size={16} /></IconAction>
-                  {!isRecurring && job.status !== "storniert" && (
-                    <IconAction label={`Auftrag ${job.title} starten`} onClick={() => onStart(job)}><PlayCircle size={16} /></IconAction>
-                  )}
-                  {job.status === "storniert" ? (
-                    <IconAction label={`Auftrag ${job.title} reaktivieren`} onClick={() => onRestore(job)}><RotateCcw size={16} /></IconAction>
-                  ) : (
-                    <IconAction danger label={`Auftrag ${job.title} stornieren`} onClick={() => onCancel(job)}><X size={16} /></IconAction>
-                  )}
-                </div>
-              </div>
-              {isRecurring && isExpanded && (
-                <div className="series-occurrence-list">
-                  {occurrences.map((occurrence) => (
-                    <div className="series-occurrence-row" key={occurrence.id}>
-                      <div>
-                        <strong>{occurrence.dueDate}</strong>
-                        <span>{readableJobStatus(occurrence.status)} · {occurrence.assignedTo}</span>
-                      </div>
-                      <div className="row-actions">
-                        <Badge value={occurrence.status} />
-                        <IconAction label={`Teilauftrag ${occurrence.dueDate} bearbeiten`} onClick={() => onEdit(occurrence)}><Pencil size={16} /></IconAction>
-                        {occurrence.status !== "storniert" && !["erledigt", "abgerechnet"].includes(occurrence.status) && (
-                          <IconAction label={`Teilauftrag ${occurrence.dueDate} starten`} onClick={() => onStart(occurrence)}><PlayCircle size={16} /></IconAction>
-                        )}
-                        {occurrence.status === "storniert" ? (
-                          <IconAction label={`Teilauftrag ${occurrence.dueDate} reaktivieren`} onClick={() => onRestore(occurrence)}><RotateCcw size={16} /></IconAction>
-                        ) : (
-                          <IconAction danger label={`Teilauftrag ${occurrence.dueDate} stornieren`} onClick={() => onCancel(occurrence)}><X size={16} /></IconAction>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                  {occurrences.length === 0 && <span className="muted-line">Für diesen Serienauftrag sind aktuell keine offenen Teilaufträge vorbereitet.</span>}
-                </div>
-              )}
-            </article>
-          );
-        })}
-        {rootJobs.length === 0 && <span className="muted-line">Keine Aufträge für diesen Status.</span>}
+        {activeRootJobs.map(renderJobRow)}
+        {activeRootJobs.length === 0 && cancelledRootJobs.length === 0 && <span className="muted-line">Keine Aufträge für diesen Status.</span>}
       </div>
+      {cancelledRootJobs.length > 0 && (
+        <div className="job-cancelled-group">
+          <h3>Stornierte Aufträge</h3>
+          <div className="table-list job-list job-list-cancelled">
+            {cancelledRootJobs.map(renderJobRow)}
+          </div>
+        </div>
+      )}
     </section>
   );
 }

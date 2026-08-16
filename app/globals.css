@@ -678,7 +678,7 @@ button {
 }
 
 .job-list {
-  gap: 7px;
+  gap: 5px;
 }
 
 .status-filter-bar {
@@ -707,19 +707,19 @@ button {
 }
 
 .job-row {
-  align-items: start;
+  align-items: center;
   grid-template-columns: minmax(360px, 1fr) auto;
-  min-height: 52px;
-  padding: 8px 10px;
+  min-height: 44px;
+  padding: 6px 8px;
 }
 
 .series-job-row {
-  row-gap: 8px;
+  row-gap: 5px;
 }
 
 .job-row-main {
   display: grid;
-  gap: 3px;
+  gap: 1px;
   min-width: 0;
 }
 
@@ -733,7 +733,7 @@ button {
   align-items: center;
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
 }
 
@@ -747,7 +747,7 @@ button {
 .job-row-meta {
   align-items: center;
   display: grid;
-  gap: 6px;
+  gap: 5px;
   grid-template-columns: auto auto auto;
   justify-items: end;
   white-space: nowrap;
@@ -757,7 +757,7 @@ button {
   align-items: center;
   display: flex;
   flex-wrap: wrap;
-  gap: 5px;
+  gap: 4px;
   justify-content: flex-start;
   min-width: 0;
   white-space: normal;
@@ -771,7 +771,7 @@ button {
   font-size: 11px;
   font-weight: 800;
   line-height: 1.2;
-  padding: 4px 7px;
+  padding: 3px 6px;
   white-space: nowrap;
 }
 
@@ -783,10 +783,10 @@ button {
 .series-occurrence-list {
   border-top: 1px solid var(--line);
   display: grid;
-  gap: 6px;
+  gap: 4px;
   grid-column: 1 / -1;
   margin-top: 2px;
-  padding-top: 8px;
+  padding-top: 6px;
 }
 
 .series-occurrence-row {
@@ -795,10 +795,10 @@ button {
   border: 1px solid var(--line);
   border-radius: 8px;
   display: grid;
-  gap: 8px;
+  gap: 6px;
   grid-template-columns: minmax(0, 1fr) auto;
-  min-height: 42px;
-  padding: 6px 8px;
+  min-height: 36px;
+  padding: 5px 7px;
 }
 
 .series-occurrence-row div:first-child {
@@ -822,13 +822,34 @@ button {
 
 .job-row .row-actions {
   align-self: center;
-  gap: 6px;
+  gap: 4px;
   justify-content: end;
 }
 
 .job-row .icon-button {
-  height: 30px;
-  width: 30px;
+  height: 28px;
+  min-height: 28px;
+  width: 28px;
+}
+
+.job-cancelled-group {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+  padding-top: 10px;
+}
+
+.job-cancelled-group h3 {
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.job-list-cancelled .job-row {
+  opacity: 0.82;
 }
 
 mark {

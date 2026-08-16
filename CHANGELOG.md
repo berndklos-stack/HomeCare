@@ -4,6 +4,12 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.82.0 - 2026-08-17
+
+- Stornierte Aufträge werden in der Auftragsübersicht unten separat gruppiert.
+- Auftragszeilen und Teilauftragszeilen wurden kompakter gestaltet.
+- Aktionsbuttons in der Auftragsübersicht sind kleiner und dichter ausgerichtet.
+
 ## 1.81.0 - 2026-08-17
 
 - Archivierte Kunden, Objekte, Leistungen und Pakete werden kompakter dargestellt.
