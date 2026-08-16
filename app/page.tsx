@@ -1863,6 +1863,7 @@ export default function HomePage() {
   const [editingCustomerId, setEditingCustomerId] = useState<string | null>(null);
   const [editingJobId, setEditingJobId] = useState<string | null>(null);
   const [editingFieldReportId, setEditingFieldReportId] = useState<string | null>(null);
+  const [completedReportPromptId, setCompletedReportPromptId] = useState<string | null>(null);
   const [sendPreviewReportId, setSendPreviewReportId] = useState<string | null>(null);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [recordNotice, setRecordNotice] = useState("");
@@ -2374,6 +2375,7 @@ export default function HomePage() {
     });
     setSelectedObjectId(job.objectId);
     setSection("objects");
+    if (!isReportEdit) setCompletedReportPromptId(reportId);
   }
 
   function updateReportRecord(report: ReportRecord) {
@@ -2412,6 +2414,12 @@ export default function HomePage() {
   const sendPreviewJob = sendPreviewReport ? jobs.find((job) => job.id === sendPreviewReport.jobId) : undefined;
   const sendPreviewCustomer = sendPreviewObject
     ? customers.find((customer) => customer.id === sendPreviewObject.ownerCustomerId || customer.name === sendPreviewObject.owner)
+    : undefined;
+  const completedPromptReport = completedReportPromptId ? reports.find((report) => report.id === completedReportPromptId) : undefined;
+  const completedPromptObject = completedPromptReport ? objects.find((object) => object.id === completedPromptReport.objectId) : undefined;
+  const completedPromptJob = completedPromptReport ? jobs.find((job) => job.id === completedPromptReport.jobId) : undefined;
+  const completedPromptCustomer = completedPromptObject
+    ? customers.find((customer) => customer.id === completedPromptObject.ownerCustomerId || customer.name === completedPromptObject.owner)
     : undefined;
 
   return (
@@ -2583,6 +2591,48 @@ export default function HomePage() {
           </div>
         </section>
       </section>
+
+      {completedPromptReport && completedPromptObject && (
+        <div className="modal-backdrop">
+          <section className="modal send-preview-modal report-complete-modal" role="dialog" aria-modal="true" aria-labelledby="report-complete-title">
+            <header>
+              <div>
+                <p>Einsatz abgeschlossen</p>
+                <h2 id="report-complete-title">Bericht wurde erzeugt</h2>
+              </div>
+              <button aria-label="Hinweis schließen" onClick={() => setCompletedReportPromptId(null)} type="button">
+                <X size={18} />
+              </button>
+            </header>
+            <p className="report-complete-copy">
+              Soll der Bericht jetzt geöffnet werden? Du kannst ihn prüfen und anschließend direkt an den Kunden senden.
+            </p>
+            <div className="send-preview-report">
+              <CustomerReportCard
+                customer={completedPromptCustomer}
+                job={completedPromptJob}
+                object={completedPromptObject}
+                report={completedPromptReport}
+                sentAt={completedPromptReport.sentAt}
+              />
+            </div>
+            <div className="modal-actions">
+              <button className="ghost-button" onClick={() => setCompletedReportPromptId(null)} type="button">Später</button>
+              <button
+                className="primary-button"
+                onClick={() => {
+                  setCompletedReportPromptId(null);
+                  setSendPreviewReportId(completedPromptReport.id);
+                }}
+                type="button"
+              >
+                <Send size={16} />
+                Bericht öffnen
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
 
       {sendPreviewReport && sendPreviewObject && (
         <div className="modal-backdrop">

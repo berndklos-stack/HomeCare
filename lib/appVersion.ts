@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.64.0",
+  version: "1.65.0",
   releaseDate: "2026-08-16",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.65.0",
+    date: "2026-08-16",
+    changes: [
+      "Nach dem Abschließen eines Einsatzes fragt die App jetzt, ob der erzeugte Bericht geöffnet werden soll",
+      "Der Abschlussdialog zeigt direkt eine Berichtsvorschau",
+      "Aus dem Abschlussdialog kann direkt die Versandvorschau zum Kundenbericht geöffnet werden",
+    ],
+  },
   {
     version: "1.64.0",
     date: "2026-08-16",

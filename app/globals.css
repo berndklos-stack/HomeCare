@@ -2090,6 +2090,15 @@ mark.neutral {
   overflow: auto;
 }
 
+.report-complete-modal .send-preview-report {
+  max-height: 50vh;
+}
+
+.report-complete-copy {
+  color: var(--muted);
+  margin: 0;
+}
+
 .modal header {
   align-items: center;
   display: flex;

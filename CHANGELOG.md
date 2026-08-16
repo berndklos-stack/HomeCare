@@ -4,6 +4,12 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.65.0 - 2026-08-16
+
+- Nach dem Abschließen eines Einsatzes fragt die App jetzt, ob der erzeugte Bericht geöffnet werden soll.
+- Der Abschlussdialog zeigt direkt eine Berichtsvorschau.
+- Aus dem Abschlussdialog kann direkt die Versandvorschau zum Kundenbericht geöffnet werden.
+
 ## 1.64.0 - 2026-08-16
 
 - Bericht senden öffnet jetzt zuerst eine Versandvorschau mit Empfänger, CC, Betreff, Body und PDF-Anhang.
