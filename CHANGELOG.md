@@ -4,6 +4,12 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.60.0 - 2026-08-16
+
+- Auftragsübersicht bietet jetzt eine Statusfilter-Leiste.
+- Erledigte, abgerechnete und stornierte Aufträge werden in der Übersicht unten einsortiert.
+- Serienaufträge werden beim Filtern berücksichtigt, wenn ein Teilauftrag den gewählten Status hat.
+
 ## 1.59.0 - 2026-08-16
 
 - Erledigte, abgerechnete und stornierte Einsätze werden in der Dashboard-Arbeitsliste nicht mehr angezeigt.

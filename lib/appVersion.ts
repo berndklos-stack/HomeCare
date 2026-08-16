@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.59.0",
+  version: "1.60.0",
   releaseDate: "2026-08-16",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.60.0",
+    date: "2026-08-16",
+    changes: [
+      "Auftragsübersicht bietet jetzt eine Statusfilter-Leiste",
+      "Erledigte, abgerechnete und stornierte Aufträge werden in der Übersicht unten einsortiert",
+      "Serienaufträge werden beim Filtern berücksichtigt, wenn ein Teilauftrag den gewählten Status hat",
+    ],
+  },
   {
     version: "1.59.0",
     date: "2026-08-16",

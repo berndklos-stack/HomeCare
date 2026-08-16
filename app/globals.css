@@ -646,6 +646,31 @@ button {
   gap: 7px;
 }
 
+.status-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: -4px 0 10px;
+}
+
+.status-filter-bar button {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+  min-height: 30px;
+  padding: 5px 10px;
+}
+
+.status-filter-bar button.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
 .job-row {
   align-items: start;
   grid-template-columns: minmax(360px, 1fr) auto;

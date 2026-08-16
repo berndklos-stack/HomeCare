@@ -1637,6 +1637,22 @@ function nextRelevantJobDate(job: JobRecord, occurrences: JobRecord[]) {
   return parseJobDate(nextOccurrence?.dueDate ?? job.dueDate)?.getTime() ?? Number.MAX_SAFE_INTEGER;
 }
 
+function jobSortGroup(job: JobRecord, occurrences: JobRecord[]) {
+  const statuses = occurrences.length > 0 ? occurrences.map((item) => item.status) : [job.status];
+  if (statuses.some((status) => status === "in Arbeit")) return 0;
+  if (statuses.some((status) => status === "geplant" || status === "pausiert")) return 1;
+  if (statuses.some((status) => status === "erledigt")) return 2;
+  if (statuses.some((status) => status === "abgerechnet")) return 3;
+  return 4;
+}
+
+function jobMatchesStatusFilter(job: JobRecord, occurrences: JobRecord[], statusFilter: string) {
+  if (statusFilter === "alle") return true;
+  return occurrences.length > 0
+    ? occurrences.some((occurrence) => occurrence.status === statusFilter)
+    : job.status === statusFilter;
+}
+
 export default function HomePage() {
   const [section, setSection] = useState<Section>("dashboard");
   const [language, setLanguage] = useState<Language>("de");
@@ -2891,6 +2907,7 @@ function JobsView({
   reports: ReportRecord[];
 }) {
   const [expandedSeriesIds, setExpandedSeriesIds] = useState<string[]>([]);
+  const [statusFilter, setStatusFilter] = useState("alle");
   const occurrenceGroups = jobs.reduce<Record<string, JobRecord[]>>((groups, job) => {
     if (!job.seriesMasterId) return groups;
     return {
@@ -2900,7 +2917,13 @@ function JobsView({
   }, {});
   const rootJobs = jobs
     .filter((job) => !job.seriesMasterId)
-    .sort((first, second) => nextRelevantJobDate(first, occurrenceGroups[first.id] ?? []) - nextRelevantJobDate(second, occurrenceGroups[second.id] ?? []));
+    .filter((job) => jobMatchesStatusFilter(job, occurrenceGroups[job.id] ?? [], statusFilter))
+    .sort((first, second) => {
+      const firstOccurrences = occurrenceGroups[first.id] ?? [];
+      const secondOccurrences = occurrenceGroups[second.id] ?? [];
+      const groupDiff = jobSortGroup(first, firstOccurrences) - jobSortGroup(second, secondOccurrences);
+      return groupDiff || nextRelevantJobDate(first, firstOccurrences) - nextRelevantJobDate(second, secondOccurrences);
+    });
 
   function toggleSeries(id: string) {
     setExpandedSeriesIds((current) => (
@@ -2919,6 +2942,18 @@ function JobsView({
           <Plus size={16} />
           Neuer Auftrag
         </button>
+      </div>
+      <div className="status-filter-bar" aria-label="Aufträge nach Status filtern">
+        {["alle", "geplant", "in Arbeit", "pausiert", "erledigt", "abgerechnet", "storniert"].map((status) => (
+          <button
+            className={statusFilter === status ? "active" : ""}
+            key={status}
+            onClick={() => setStatusFilter(status)}
+            type="button"
+          >
+            {status}
+          </button>
+        ))}
       </div>
       <div className="table-list job-list">
         {rootJobs.map((job) => {
@@ -2991,6 +3026,7 @@ function JobsView({
             </article>
           );
         })}
+        {rootJobs.length === 0 && <span className="muted-line">Keine Aufträge für diesen Status.</span>}
       </div>
     </section>
   );
