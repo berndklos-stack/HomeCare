@@ -648,7 +648,7 @@ button {
 
 .job-row {
   align-items: start;
-  grid-template-columns: minmax(260px, 1fr) minmax(380px, auto);
+  grid-template-columns: minmax(360px, 1fr) auto;
   min-height: 52px;
   padding: 8px 10px;
 }
@@ -663,8 +663,22 @@ button {
   min-width: 0;
 }
 
-.job-row-main strong,
 .job-row-main span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.job-title-line {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.job-title-line strong {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -674,7 +688,7 @@ button {
   align-items: center;
   display: grid;
   gap: 6px;
-  grid-template-columns: auto auto minmax(0, auto) auto;
+  grid-template-columns: auto auto auto;
   justify-items: end;
   white-space: nowrap;
 }
@@ -684,7 +698,7 @@ button {
   display: flex;
   flex-wrap: wrap;
   gap: 5px;
-  justify-content: flex-end;
+  justify-content: flex-start;
   min-width: 0;
   white-space: normal;
 }

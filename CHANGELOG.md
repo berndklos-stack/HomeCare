@@ -4,6 +4,16 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.58.0 - 2026-08-16
+
+- Auftragsübersicht ist jetzt nach dem nächsten relevanten Termin sortiert.
+- Bei Serienaufträgen zählt dafür der nächste offene Teilauftrag.
+
+## 1.57.0 - 2026-08-16
+
+- Serieninformationen in der Auftragsübersicht stehen jetzt direkt in der Titelzeile neben dem Auftragstitel.
+- Die rechte Aktionsspalte bleibt dadurch kompakter und besser scannbar.
+
 ## 1.56.0 - 2026-08-16
 
 - Serienaufträge werden in der Auftragsübersicht kompakter mit separaten Chips für Rhythmus, letzten und nächsten Teilauftrag dargestellt.

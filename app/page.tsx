@@ -1632,6 +1632,11 @@ function seriesSummary(master: JobRecord, occurrences: JobRecord[], reports: Rep
   };
 }
 
+function nextRelevantJobDate(job: JobRecord, occurrences: JobRecord[]) {
+  const nextOccurrence = sortedByDueDate(occurrences).find((item) => !["erledigt", "abgerechnet", "storniert"].includes(item.status));
+  return parseJobDate(nextOccurrence?.dueDate ?? job.dueDate)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+}
+
 export default function HomePage() {
   const [section, setSection] = useState<Section>("dashboard");
   const [language, setLanguage] = useState<Language>("de");
@@ -2884,7 +2889,6 @@ function JobsView({
   reports: ReportRecord[];
 }) {
   const [expandedSeriesIds, setExpandedSeriesIds] = useState<string[]>([]);
-  const rootJobs = jobs.filter((job) => !job.seriesMasterId);
   const occurrenceGroups = jobs.reduce<Record<string, JobRecord[]>>((groups, job) => {
     if (!job.seriesMasterId) return groups;
     return {
@@ -2892,6 +2896,9 @@ function JobsView({
       [job.seriesMasterId]: [...(groups[job.seriesMasterId] ?? []), job],
     };
   }, {});
+  const rootJobs = jobs
+    .filter((job) => !job.seriesMasterId)
+    .sort((first, second) => nextRelevantJobDate(first, occurrenceGroups[first.id] ?? []) - nextRelevantJobDate(second, occurrenceGroups[second.id] ?? []));
 
   function toggleSeries(id: string) {
     setExpandedSeriesIds((current) => (
@@ -2921,21 +2928,22 @@ function JobsView({
           return (
             <article className={`job-row ${isRecurring ? "series-job-row" : ""}`} key={job.id}>
               <div className="job-row-main">
-                <strong>{job.title}</strong>
+                <div className="job-title-line">
+                  <strong>{job.title}</strong>
+                  {isRecurring && summary && (
+                    <div className="series-summary-chips" aria-label="Serienstatus">
+                      <span>Serienauftrag</span>
+                      <span>Letzter: {summary.lastDone}</span>
+                      <span>Nächster: {summary.nextStatus} {summary.nextDate}</span>
+                    </div>
+                  )}
+                </div>
                 <span>{objects.find((object) => object.id === job.objectId)?.name} · {isRecurring && summary ? summary.rhythm : scheduleLabel(job.schedule)} · {job.description}</span>
               </div>
               <div className="job-row-meta">
                 <span>{isRecurring ? `${occurrences.length} Teilaufträge` : job.dueDate}</span>
                 <span>{job.priority}</span>
-                {isRecurring && summary ? (
-                  <div className="series-summary-chips" aria-label="Serienstatus">
-                    <span>Serienauftrag</span>
-                    <span>Letzter: {summary.lastDone}</span>
-                    <span>Nächster: {summary.nextStatus} {summary.nextDate}</span>
-                  </div>
-                ) : (
-                  <Badge value={job.status} />
-                )}
+                {!isRecurring && <Badge value={job.status} />}
                 <div className="row-actions">
                   {isRecurring && (
                     <IconAction label={`${job.title} Teilaufträge ${isExpanded ? "ausblenden" : "anzeigen"}`} onClick={() => toggleSeries(job.id)}>
