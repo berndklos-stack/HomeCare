@@ -1,10 +1,17 @@
 export const appVersion = {
-  version: "1.87.0",
+  version: "1.88.0",
   releaseDate: "2026-08-17",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.88.0",
+    date: "2026-08-17",
+    changes: [
+      "Archivierte Kunden werden jetzt wie archivierte Objekte als einklappbarer Block mit Pfeil angezeigt",
+    ],
+  },
   {
     version: "1.87.0",
     date: "2026-08-17",

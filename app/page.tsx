@@ -3777,6 +3777,8 @@ function CustomersView({
   onDelete: (customer: CustomerRecord) => void;
   onEdit: (customer: CustomerRecord) => void;
 }) {
+  const [archivedCustomersOpen, setArchivedCustomersOpen] = useState(false);
+
   return (
     <section className="panel">
       <div className="panel-title">
@@ -3810,24 +3812,30 @@ function CustomersView({
         ))}
       </div>
       {archivedCustomers.length > 0 && (
-        <div className="archive-section">
-          <h3>Archivierte Kunden</h3>
-          <div className="table-list compact-list archive-list">
-            {archivedCustomers.map((customer) => (
-              <article key={customer.id}>
-                <div>
-                  <strong>{customer.name}</strong>
-                  <span>{customer.contact} · {customer.email}</span>
-                </div>
-                <Badge value="archiviert" />
-                <div className="row-actions">
-                  <IconAction label={`Archivierten Kunden ${customer.name} bearbeiten`} onClick={() => onEdit(customer)}><Pencil size={16} /></IconAction>
-                  <IconAction label={`Archivierten Kunden ${customer.name} reaktivieren`} onClick={() => onRestore(customer)}><RotateCcw size={16} /></IconAction>
-                  <IconAction danger label={`Archivierten Kunden ${customer.name} löschen`} onClick={() => onDelete(customer)}><Trash2 size={16} /></IconAction>
-                </div>
-              </article>
-            ))}
-          </div>
+        <div className="archive-section archive-fold-group">
+          <button className="job-fold-toggle" onClick={() => setArchivedCustomersOpen((open) => !open)} type="button">
+            {archivedCustomersOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+            <span>Archivierte Kunden</span>
+            <small>{archivedCustomers.length}</small>
+          </button>
+          {archivedCustomersOpen && (
+            <div className="table-list compact-list archive-list">
+              {archivedCustomers.map((customer) => (
+                <article key={customer.id}>
+                  <div>
+                    <strong>{customer.name}</strong>
+                    <span>{customer.contact} · {customer.email}</span>
+                  </div>
+                  <Badge value="archiviert" />
+                  <div className="row-actions">
+                    <IconAction label={`Archivierten Kunden ${customer.name} bearbeiten`} onClick={() => onEdit(customer)}><Pencil size={16} /></IconAction>
+                    <IconAction label={`Archivierten Kunden ${customer.name} reaktivieren`} onClick={() => onRestore(customer)}><RotateCcw size={16} /></IconAction>
+                    <IconAction danger label={`Archivierten Kunden ${customer.name} löschen`} onClick={() => onDelete(customer)}><Trash2 size={16} /></IconAction>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </section>

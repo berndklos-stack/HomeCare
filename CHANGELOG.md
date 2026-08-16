@@ -4,6 +4,10 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.88.0 - 2026-08-17
+
+- Archivierte Kunden werden jetzt wie archivierte Objekte als einklappbarer Block mit Pfeil angezeigt.
+
 ## 1.87.0 - 2026-08-17
 
 - Login-Verlauf im Kundenstamm ist jetzt als einklappbarer Block mit Pfeil dargestellt.
