@@ -1705,6 +1705,13 @@ mark.neutral {
   text-transform: uppercase;
 }
 
+.customer-report-logo {
+  display: block;
+  height: auto;
+  max-width: 210px;
+  width: min(48vw, 210px);
+}
+
 .customer-report-head small {
   color: var(--muted);
   display: block;

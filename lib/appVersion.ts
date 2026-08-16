@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.70.0",
+  version: "1.71.0",
   releaseDate: "2026-08-16",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.71.0",
+    date: "2026-08-16",
+    changes: [
+      "Kundenberichte zeigen im Kopf jetzt das Kolaretorp-Logo statt nur Text",
+      "PDF-Berichte verwenden das Kolaretorp-Logo im Header mit Text-Fallback",
+    ],
+  },
   {
     version: "1.70.0",
     date: "2026-08-16",

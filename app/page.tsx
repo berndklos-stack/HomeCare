@@ -937,9 +937,20 @@ async function createReportPdfBlob(report: ReportRecord, object: ObjectRecord, j
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(18);
   pdf.text("Einsatzbericht", margin, 18);
-  pdf.setFontSize(10);
-  pdf.setFont("helvetica", "normal");
-  pdf.text("Kolaretorp Service AB", margin, 26);
+  const logoDataUrl = await fetchAssetAsDataUrl("/kolaretorp-logo.png");
+  if (logoDataUrl) {
+    try {
+      pdf.addImage(logoDataUrl, "PNG", margin, 22, 54, 5.6, undefined, "FAST");
+    } catch {
+      pdf.setFontSize(10);
+      pdf.setFont("helvetica", "normal");
+      pdf.text("Kolaretorp Service AB", margin, 26);
+    }
+  } else {
+    pdf.setFontSize(10);
+    pdf.setFont("helvetica", "normal");
+    pdf.text("Kolaretorp Service AB", margin, 26);
+  }
   pdf.text(`Bericht ${report.id}`, pageWidth - margin, 18, { align: "right" });
   pdf.text(report.date, pageWidth - margin, 26, { align: "right" });
   y = 46;
@@ -1076,6 +1087,22 @@ function readFileAsDataUrl(file: File) {
     reader.onerror = () => resolve("");
     reader.readAsDataURL(file);
   });
+}
+
+async function fetchAssetAsDataUrl(path: string) {
+  try {
+    const response = await fetch(path);
+    if (!response.ok) return "";
+    const blob = await response.blob();
+    return await new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
+      reader.onerror = () => resolve("");
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return "";
+  }
 }
 
 function loadImage(dataUrl: string) {
@@ -3075,7 +3102,7 @@ function CustomerReportCard({
     <article className="customer-report-card printable-report">
       <div className="customer-report-head">
         <div>
-          <span>Kolaretorp Service AB</span>
+          <img alt="Kolaretorp Service AB" className="customer-report-logo" src="/kolaretorp-logo.png" />
           <h3>Einsatzbericht</h3>
           <small>Berichtsnummer {report.id} · erstellt am {new Date().toLocaleDateString("de-DE")}</small>
         </div>
