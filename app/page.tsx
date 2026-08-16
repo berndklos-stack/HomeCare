@@ -37,7 +37,7 @@ import {
   Wrench,
   X,
 } from "lucide-react";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { appVersion, versionHistory } from "@/lib/appVersion";
 
 type Language = "de" | "sv" | "en";
@@ -644,7 +644,6 @@ function mergeSnapshots(remoteSnapshot: AppSnapshot, localSnapshot: AppSnapshot)
     updatedAt: new Date(Math.max(
       Number.isFinite(remoteTime) ? remoteTime : 0,
       Number.isFinite(localTime) ? localTime : 0,
-      Date.now(),
     )).toISOString(),
   };
 }
@@ -848,7 +847,7 @@ function serviceToFieldTasks(service: ServiceItem): FieldTask[] {
 
 function jobSelectedServices(job: JobRecord, services: ServiceItem[]) {
   const selected = (job.serviceIds ?? [])
-    .map((id) => services.find((service) => service.id === id && !service.archived))
+    .map((id) => services.find((service) => service.id === id))
     .filter(Boolean) as ServiceItem[];
 
   return job.customService ? [...selected, job.customService] : selected;
@@ -1879,6 +1878,92 @@ function alignDateToActiveSeason(date: Date, schedule: JobSchedule) {
   return nextDate;
 }
 
+const weekdayToJsDay: Record<string, number> = {
+  Mo: 1,
+  Di: 2,
+  Mi: 3,
+  Do: 4,
+  Fr: 5,
+  Sa: 6,
+  So: 0,
+};
+
+function startOfWeek(date: Date) {
+  const monday = new Date(date);
+  const day = monday.getDay() || 7;
+  monday.setDate(monday.getDate() - day + 1);
+  return new Date(`${formatJobDate(monday)}T12:00:00`);
+}
+
+function dateInActiveSeason(date: Date, schedule: JobSchedule) {
+  if (!schedule.activeFromMonth || !schedule.activeToMonth) return true;
+
+  const month = date.getMonth() + 1;
+  const fromMonth = schedule.activeFromMonth;
+  const toMonth = schedule.activeToMonth;
+  return fromMonth <= toMonth
+    ? month >= fromMonth && month <= toMonth
+    : month >= fromMonth || month <= toMonth;
+}
+
+function dateInYearRhythm(date: Date, firstDate: Date, schedule: JobSchedule) {
+  const yearInterval = Math.max(schedule.yearInterval || 1, 1);
+  return (date.getFullYear() - firstDate.getFullYear()) % yearInterval === 0;
+}
+
+function weeklySeriesDates(master: JobRecord, reports: ReportRecord[]) {
+  const firstDate = parseJobDate(master.dueDate);
+  if (!firstDate) return [];
+
+  const selectedWeekdays = master.schedule.weekdays.length > 0
+    ? master.schedule.weekdays
+    : ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
+  const selectedDays = new Set(selectedWeekdays.map((day) => weekdayToJsDay[day]).filter((day) => day !== undefined));
+  const completedDates = new Set(
+    reports
+      .filter((report) => report.jobId === master.id || report.jobId.startsWith(`${master.id}-OCC-`))
+      .map((report) => report.date),
+  );
+  const excludedDates = new Set(master.seriesExcludedDates ?? []);
+  const dates: string[] = [];
+  const startWeek = startOfWeek(firstDate);
+  const endDate = master.schedule.end === "am" && master.schedule.endDate ? parseJobDate(master.schedule.endDate) : null;
+  const openEndHorizon = new Date();
+  openEndHorizon.setMonth(openEndHorizon.getMonth() + 6);
+  const lastDate = endDate ?? (master.schedule.end === "nie" ? openEndHorizon : null);
+  const candidate = new Date(firstDate);
+  let occurrenceCount = 0;
+  let guard = 0;
+
+  while (guard < 900) {
+    guard += 1;
+    if (lastDate && candidate > lastDate) break;
+    if (master.schedule.end === "nach" && master.schedule.occurrences > 0 && occurrenceCount >= master.schedule.occurrences) break;
+
+    const candidateWeek = startOfWeek(candidate);
+    const weekDiff = Math.floor((candidateWeek.getTime() - startWeek.getTime()) / (7 * 24 * 60 * 60 * 1000));
+    const isIntervalWeek = weekDiff >= 0 && weekDiff % Math.max(master.schedule.interval || 1, 1) === 0;
+    const dateValue = formatJobDate(candidate);
+
+    if (
+      candidate >= firstDate
+      && isIntervalWeek
+      && selectedDays.has(candidate.getDay())
+      && dateInActiveSeason(candidate, master.schedule)
+      && dateInYearRhythm(candidate, firstDate, master.schedule)
+    ) {
+      occurrenceCount += 1;
+      if (!completedDates.has(dateValue) && !excludedDates.has(dateValue)) {
+        dates.push(dateValue);
+      }
+    }
+
+    candidate.setDate(candidate.getDate() + 1);
+  }
+
+  return dates;
+}
+
 function nextSeriesDueDate(job: JobRecord) {
   if (job.schedule.type !== "serie" || job.seriesMasterId) return null;
 
@@ -1906,6 +1991,9 @@ function isSeriesMaster(job: JobRecord) {
 
 function openSeriesDates(master: JobRecord, reports: ReportRecord[]) {
   if (!isSeriesMaster(master)) return [];
+  if (master.schedule.frequency === "wöchentlich" && master.schedule.weekdays.length > 0) {
+    return weeklySeriesDates(master, reports);
+  }
 
   const firstDate = parseJobDate(master.dueDate);
   if (!firstDate) return [];
@@ -1967,10 +2055,33 @@ function makeSeriesOccurrence(master: JobRecord, date: string): JobRecord {
   };
 }
 
+function syncSeriesOccurrenceFromMaster(master: JobRecord, occurrence: JobRecord, reports: ReportRecord[]) {
+  const hasReport = reports.some((report) => report.jobId === occurrence.id);
+  if (hasReport || ["erledigt", "abgerechnet", "storniert"].includes(occurrence.status)) return occurrence;
+
+  return {
+    ...occurrence,
+    title: master.title,
+    objectId: master.objectId,
+    customerId: master.customerId,
+    type: master.type,
+    priority: master.priority,
+    assignedTo: master.assignedTo,
+    description: master.description,
+    internalNotes: master.internalNotes,
+    checklist: master.checklist,
+    serviceIds: master.serviceIds,
+    customService: master.customService,
+    billable: master.billable,
+    material: master.material,
+  };
+}
+
 function ensureSeriesOccurrences(jobs: JobRecord[], reports: ReportRecord[]) {
   let changed = false;
   const existingIds = new Set(jobs.map((job) => job.id));
   const existingOccurrenceDates = new Map<string, Set<string>>();
+  const seriesMasters = new Map(jobs.filter(isSeriesMaster).map((job) => [job.id, job]));
 
   jobs.forEach((job) => {
     if (!job.seriesMasterId || !job.seriesOccurrenceDate) return;
@@ -1980,6 +2091,13 @@ function ensureSeriesOccurrences(jobs: JobRecord[], reports: ReportRecord[]) {
   });
 
   const nextJobs = jobs.map((job) => {
+    if (job.seriesMasterId) {
+      const master = seriesMasters.get(job.seriesMasterId);
+      if (!master) return job;
+      const synced = syncSeriesOccurrenceFromMaster(master, job, reports);
+      if (synced !== job) changed = true;
+      return synced;
+    }
     if (!isSeriesMaster(job)) return job;
     const openDates = openSeriesDates(job, reports);
     const hasOpenOccurrence = openDates.some((date) => !existingOccurrenceDates.get(job.id)?.has(date));
@@ -2081,8 +2199,13 @@ function jobMatchesStatusFilter(job: JobRecord, occurrences: JobRecord[], status
     : job.status === statusFilter;
 }
 
-export default function HomePage() {
-  const [section, setSection] = useState<Section>("dashboard");
+type HomePageProps = {
+  initialSection?: Section;
+  portalOnly?: boolean;
+};
+
+export default function HomePage({ initialSection = "dashboard", portalOnly = false }: HomePageProps = {}) {
+  const [section, setSection] = useState<Section>(initialSection);
   const [language, setLanguage] = useState<Language>("de");
   const [theme, setTheme] = useState<Theme>("light");
   const [query, setQuery] = useState("");
@@ -2113,6 +2236,8 @@ export default function HomePage() {
   const [newObject, setNewObject] = useState<NewObjectFormState>(emptyObjectForm());
   const [newCustomer, setNewCustomer] = useState<CustomerFormState>(emptyCustomerForm());
   const [newJob, setNewJob] = useState<NewJobFormState>(emptyJobForm());
+  const skipNextAutoSaveRef = useRef(false);
+  const remoteSyncRunningRef = useRef(false);
 
   function applySnapshot(snapshot: AppSnapshot) {
     const normalizedReports = dedupeReports(snapshot.reports);
@@ -2141,6 +2266,7 @@ export default function HomePage() {
         if (cancelled) return;
 
         if (remoteSnapshot) {
+          skipNextAutoSaveRef.current = true;
           const mergedSnapshot = mergeSnapshots(remoteSnapshot, localSnapshot);
           if (snapshotWeight(mergedSnapshot) >= snapshotWeight(remoteSnapshot)) {
             applySnapshot(mergedSnapshot);
@@ -2181,6 +2307,10 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!appStorageReady) return;
+    if (skipNextAutoSaveRef.current) {
+      skipNextAutoSaveRef.current = false;
+      return;
+    }
     const snapshot: AppSnapshot = {
       activeJobId,
       customers,
@@ -2212,22 +2342,74 @@ export default function HomePage() {
     return () => window.clearTimeout(timeoutId);
   }, [activeJobId, appStorageReady, customers, fieldNotes, fieldProgress, jobs, objects, portalMessages, reports, servicePackages, services, supabaseSyncDisabled]);
 
-  function currentSnapshot(overrides: Partial<AppSnapshot> = {}): AppSnapshot {
-    return {
-      activeJobId,
-      customers,
-      fieldNotes,
-      fieldProgress,
-      jobs,
-      objects,
-      packages: servicePackages,
-      portalMessages,
-      reports,
-      services,
-      updatedAt: new Date().toISOString(),
-      ...overrides,
+  const currentSnapshot = useCallback((overrides: Partial<AppSnapshot> = {}): AppSnapshot => ({
+    activeJobId,
+    customers,
+    fieldNotes,
+    fieldProgress,
+    jobs,
+    objects,
+    packages: servicePackages,
+    portalMessages,
+    reports,
+    services,
+    updatedAt: new Date().toISOString(),
+    ...overrides,
+  }), [activeJobId, customers, fieldNotes, fieldProgress, jobs, objects, portalMessages, reports, servicePackages, services]);
+
+  const syncRemoteSnapshot = useCallback(async () => {
+    if (!appStorageReady || supabaseSyncDisabled || remoteSyncRunningRef.current) return;
+    remoteSyncRunningRef.current = true;
+
+    try {
+      const remoteSnapshot = await loadSupabaseSnapshot();
+      if (!remoteSnapshot) return;
+
+      const localSnapshot = currentSnapshot();
+      const remoteTime = Date.parse(remoteSnapshot.updatedAt ?? "");
+      const localTime = Date.parse(localSnapshot.updatedAt ?? "");
+      const remoteHasNewerData = Number.isFinite(remoteTime) && (!Number.isFinite(localTime) || remoteTime > localTime);
+      const remoteHasMoreData = snapshotWeight(remoteSnapshot) > snapshotWeight(localSnapshot);
+
+      if (!remoteHasNewerData && !remoteHasMoreData) return;
+
+      const mergedSnapshot = mergeSnapshots(remoteSnapshot, localSnapshot);
+      skipNextAutoSaveRef.current = true;
+      applySnapshot(mergedSnapshot);
+      persistLocalSnapshot(mergedSnapshot);
+
+      if (JSON.stringify(mergedSnapshot) !== JSON.stringify(remoteSnapshot)) {
+        await saveSupabaseSnapshot(mergedSnapshot);
+      }
+    } catch (error) {
+      console.warn("App-Daten konnten nicht automatisch aktualisiert werden.", error);
+    } finally {
+      remoteSyncRunningRef.current = false;
+    }
+  }, [appStorageReady, currentSnapshot, supabaseSyncDisabled]);
+
+  useEffect(() => {
+    if (!appStorageReady || supabaseSyncDisabled) return;
+
+    const intervalId = window.setInterval(() => {
+      void syncRemoteSnapshot();
+    }, 15000);
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible") {
+        void syncRemoteSnapshot();
+      }
+    }
+
+    window.addEventListener("focus", syncRemoteSnapshot);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", syncRemoteSnapshot);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }
+  }, [appStorageReady, supabaseSyncDisabled, syncRemoteSnapshot]);
 
   function persistSnapshotNow(overrides: Partial<AppSnapshot> = {}) {
     const snapshot = currentSnapshot(overrides);
@@ -2463,7 +2645,7 @@ export default function HomePage() {
         }
       : null;
     const selectedServiceTasks = newJob.serviceIds
-      .map((serviceId) => services.find((service) => service.id === serviceId && !service.archived))
+      .map((serviceId) => services.find((service) => service.id === serviceId))
       .filter(Boolean)
       .flatMap((service) => serviceToFieldTasks(service as ServiceItem));
     const customServiceTasks = customService ? serviceToFieldTasks(customService) : [];
@@ -2767,6 +2949,39 @@ export default function HomePage() {
   const completedPromptCustomer = completedPromptObject
     ? customers.find((customer) => customer.id === completedPromptObject.ownerCustomerId || customer.name === completedPromptObject.owner)
     : undefined;
+
+  if (portalOnly) {
+    return (
+      <main className="app portal-app" data-ready="true" data-theme={theme}>
+        <section className="workspace portal-workspace">
+          <header className="topbar portal-topbar">
+            <div className="portal-brand-head">
+              <Image alt="Kolaretorp Service AB" height={28} priority src="/brand/kolaretorp-logo.png" width={220} />
+              <span>Kundenportal</span>
+            </div>
+            <div className="toolbar">
+              <button className="ghost-button" onClick={() => setTheme(theme === "dark" ? "light" : "dark")} type="button">
+                {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+                {theme === "dark" ? t.light : t.dark}
+              </button>
+            </div>
+          </header>
+          <CustomerPortalView
+            billing={billing}
+            customerId={portalCustomerId}
+            customers={customers}
+            jobs={jobs}
+            messages={portalMessages}
+            objects={objects}
+            onCreateJob={createPortalJob}
+            onSendMessage={createPortalMessage}
+            reports={reports}
+            setCustomerId={setPortalCustomerId}
+          />
+        </section>
+      </main>
+    );
+  }
 
   return (
     <main className="app" data-ready="true" data-theme={theme}>
@@ -5781,10 +5996,16 @@ function JobForm({
               <input min="1" type="number" value={newJob.scheduleInterval} onChange={(event) => update("scheduleInterval", event.target.value)} />
             </label>
             {newJob.scheduleFrequency === "wöchentlich" && (
-              <div className="wide weekday-picker" aria-label="Wochentage auswählen">
-                {weekdays.map((day) => (
-                  <button className={newJob.scheduleWeekdays.includes(day) ? "active" : ""} key={day} onClick={() => toggleWeekday(day)} type="button">{day}</button>
-                ))}
+              <div className="wide weekday-picker-wrap">
+                <div className="weekday-preset-row">
+                  <button onClick={() => update("scheduleWeekdays", ["Mo", "Di", "Mi", "Do", "Fr"])} type="button">Werktage</button>
+                  <button onClick={() => update("scheduleWeekdays", weekdays)} type="button">Alle Tage</button>
+                </div>
+                <div className="weekday-picker" aria-label="Wochentage auswählen">
+                  {weekdays.map((day) => (
+                    <button className={newJob.scheduleWeekdays.includes(day) ? "active" : ""} key={day} onClick={() => toggleWeekday(day)} type="button">{day}</button>
+                  ))}
+                </div>
               </div>
             )}
             <div className="wide season-grid">

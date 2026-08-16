@@ -1,10 +1,32 @@
 export const appVersion = {
-  version: "1.72.0",
-  releaseDate: "2026-08-16",
+  version: "1.74.0",
+  releaseDate: "2026-08-17",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.74.0",
+    date: "2026-08-17",
+    changes: [
+      "Offene App-Fenster aktualisieren Daten jetzt automatisch aus Supabase",
+      "Beim Zurückkehren in die App und regelmäßig im Hintergrund werden neuere Daten anderer Geräte übernommen",
+      "Remote-Aktualisierungen lösen keinen unnötigen Gegenspeicher-Lauf mehr aus",
+      "Offene Teilaufträge von Serienaufträgen übernehmen jetzt alle Leistungen und Checklistenpunkte des Hauptauftrags",
+      "Wöchentliche Serienaufträge erzeugen jetzt Teilaufträge für alle ausgewählten Wochentage statt nur für das Startdatum",
+      "In der Auftragsanlage kann Mo-Fr direkt über die Auswahl Werktage gesetzt werden",
+      "Archivierte, aber bereits zugeordnete Leistungen bleiben in bestehenden Aufträgen und Einsätzen auswertbar",
+    ],
+  },
+  {
+    version: "1.73.0",
+    date: "2026-08-17",
+    changes: [
+      "Kundenportal ist jetzt direkt über die eigene URL /portal erreichbar",
+      "Die Portal-URL öffnet eine eigenständige Kundenansicht ohne interne Verwaltungsnavigation",
+      "Portal-Seite verwendet das Kolaretorp-Logo und eine reduzierte Kopfzeile für Kunden",
+    ],
+  },
   {
     version: "1.72.0",
     date: "2026-08-16",

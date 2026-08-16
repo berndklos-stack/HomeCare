@@ -4,6 +4,22 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.74.0 - 2026-08-17
+
+- Offene App-Fenster aktualisieren Daten jetzt automatisch aus Supabase.
+- Beim Zurückkehren in die App und regelmäßig im Hintergrund werden neuere Daten anderer Geräte übernommen.
+- Remote-Aktualisierungen lösen keinen unnötigen Gegenspeicher-Lauf mehr aus.
+- Offene Teilaufträge von Serienaufträgen übernehmen jetzt alle Leistungen und Checklistenpunkte des Hauptauftrags.
+- Wöchentliche Serienaufträge erzeugen jetzt Teilaufträge für alle ausgewählten Wochentage statt nur für das Startdatum.
+- In der Auftragsanlage kann Mo-Fr direkt über die Auswahl Werktage gesetzt werden.
+- Archivierte, aber bereits zugeordnete Leistungen bleiben in bestehenden Aufträgen und Einsätzen auswertbar.
+
+## 1.73.0 - 2026-08-17
+
+- Kundenportal ist jetzt direkt über die eigene URL `/portal` erreichbar.
+- Die Portal-URL öffnet eine eigenständige Kundenansicht ohne interne Verwaltungsnavigation.
+- Portal-Seite verwendet das Kolaretorp-Logo und eine reduzierte Kopfzeile für Kunden.
+
 ## 1.72.0 - 2026-08-16
 
 - Kundenportal als eigener Bereich mit Kundenanmeldung per E-Mail ergänzt.

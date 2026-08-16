@@ -1439,6 +1439,29 @@ mark.neutral {
   grid-template-columns: repeat(7, minmax(0, 1fr));
 }
 
+.weekday-picker-wrap {
+  display: grid;
+  gap: 8px;
+}
+
+.weekday-preset-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.weekday-preset-row button {
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--brand);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 800;
+  min-height: 32px;
+  padding: 6px 10px;
+}
+
 .season-grid {
   display: grid;
   gap: 10px;
@@ -2486,6 +2509,39 @@ button.media-thumb {
 .portal-shell {
   display: grid;
   gap: 14px;
+}
+
+.portal-app {
+  grid-template-columns: 1fr;
+  min-height: 100vh;
+}
+
+.portal-workspace {
+  max-width: 1240px;
+  min-width: 0;
+  width: min(100%, 1240px);
+}
+
+.portal-topbar {
+  align-items: center;
+}
+
+.portal-brand-head {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.portal-brand-head img {
+  height: auto;
+  max-width: min(220px, 55vw);
+}
+
+.portal-brand-head span {
+  color: var(--muted);
+  font-size: 16px;
+  font-weight: 800;
 }
 
 .portal-login {
