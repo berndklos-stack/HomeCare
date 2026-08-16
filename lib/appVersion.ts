@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.67.0",
+  version: "1.68.0",
   releaseDate: "2026-08-16",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.68.0",
+    date: "2026-08-16",
+    changes: [
+      "Objektbilder werden beim Zusammenführen von lokalen Daten und Supabase-Daten nicht mehr durch ältere Objektstände verdrängt",
+      "Objekt-Mediendaten werden pro Objekt zusammengeführt und vorhandene Bildvorschauen bevorzugt erhalten",
+      "Neue Objektbilder werden stärker komprimiert, damit die Speicherung im Supabase-Snapshot stabiler bleibt",
+    ],
+  },
   {
     version: "1.67.0",
     date: "2026-08-16",

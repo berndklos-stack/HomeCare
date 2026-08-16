@@ -4,6 +4,12 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.68.0 - 2026-08-16
+
+- Objektbilder werden beim Zusammenführen von lokalen Daten und Supabase-Daten nicht mehr durch ältere Objektstände verdrängt.
+- Objekt-Mediendaten werden pro Objekt zusammengeführt und vorhandene Bildvorschauen bevorzugt erhalten.
+- Neue Objektbilder werden stärker komprimiert, damit iPhone-Fotos stabil im Supabase-Snapshot gespeichert werden können.
+
 ## 1.67.0 - 2026-08-16
 
 - Mobil vor Ort speichert Einsatznotizen jetzt als eigenen Zwischenstand in LocalStorage und Supabase.

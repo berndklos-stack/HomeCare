@@ -510,6 +510,69 @@ function mergeRecordsById<T extends { id: string }>(remoteRecords: T[], localRec
   return merged;
 }
 
+function mediaItemScore(item: MediaItem) {
+  return [
+    item.previewUrl ? 4 : 0,
+    item.isPrimary ? 2 : 0,
+    item.description ? 1 : 0,
+  ].reduce((sum, value) => sum + value, 0);
+}
+
+function mergeMediaItems(remoteItems: MediaItem[] = [], localItems: MediaItem[] = []) {
+  const itemsById = new Map<string, MediaItem>();
+
+  [...remoteItems, ...localItems].forEach((item) => {
+    const existing = itemsById.get(item.id);
+    if (!existing || mediaItemScore(item) >= mediaItemScore(existing)) {
+      itemsById.set(item.id, { ...existing, ...item });
+    }
+  });
+
+  const mergedItems = Array.from(itemsById.values());
+  const primaryImage = mergedItems.find((item) => item.type === "Bild" && item.isPrimary && item.previewUrl)
+    ?? mergedItems.find((item) => item.type === "Bild" && item.previewUrl);
+
+  return mergedItems.map((item) => ({
+    ...item,
+    isPrimary: item.type === "Bild" ? item.id === primaryImage?.id : item.isPrimary,
+  }));
+}
+
+function objectMediaScore(object: ObjectRecord) {
+  return object.media.items.reduce((sum, item) => sum + mediaItemScore(item), 0);
+}
+
+function mergeObjectsById(remoteObjects: ObjectRecord[], localObjects: ObjectRecord[]) {
+  const localById = new Map(localObjects.map((object) => [object.id, object]));
+  const remoteIds = new Set(remoteObjects.map((object) => object.id));
+  const merged = remoteObjects.map((remoteObject) => {
+    const localObject = localById.get(remoteObject.id);
+    if (!localObject) return remoteObject;
+
+    const base = objectMediaScore(localObject) > objectMediaScore(remoteObject)
+      ? { ...remoteObject, ...localObject }
+      : { ...localObject, ...remoteObject };
+    const mediaItems = mergeMediaItems(remoteObject.media.items, localObject.media.items);
+
+    return {
+      ...base,
+      media: {
+        ...base.media,
+        documents: mediaItems.filter((item) => item.type === "Dokument").length,
+        floorPlans: mediaItems.filter((item) => item.type === "Grundriss").length,
+        images: mediaItems.filter((item) => item.type === "Bild").length,
+        items: mediaItems,
+      },
+    };
+  });
+
+  localObjects.forEach((object) => {
+    if (!remoteIds.has(object.id)) merged.push(object);
+  });
+
+  return merged;
+}
+
 function mergeFieldProgress(
   remoteProgress: AppSnapshot["fieldProgress"],
   localProgress: AppSnapshot["fieldProgress"],
@@ -545,7 +608,7 @@ function mergeSnapshots(remoteSnapshot: AppSnapshot, localSnapshot: AppSnapshot)
     fieldNotes: mergeFieldNotes(remoteSnapshot.fieldNotes, localSnapshot.fieldNotes),
     fieldProgress: mergeFieldProgress(remoteSnapshot.fieldProgress, localSnapshot.fieldProgress),
     jobs,
-    objects: mergeRecordsById(remoteSnapshot.objects, localSnapshot.objects),
+    objects: mergeObjectsById(remoteSnapshot.objects, localSnapshot.objects),
     packages: mergeRecordsById(remoteSnapshot.packages, localSnapshot.packages),
     reports: mergeRecordsById(remoteSnapshot.reports, localSnapshot.reports),
     services: mergeRecordsById(remoteSnapshot.services, localSnapshot.services),
@@ -4513,7 +4576,7 @@ function ObjectForm({
       name: file.name,
       description: type === "Dokument" ? newObject.documentDescription.trim() : "",
       source,
-      previewUrl: type === "Bild" ? await fileToImagePreview(file) : await fileToDocumentPreview(file),
+      previewUrl: type === "Bild" ? await fileToImagePreview(file, 900, 0.62) : await fileToDocumentPreview(file),
       isPrimary: type === "Bild" && !hasPrimaryImage && index === 0,
     })));
     const mediaItems = [...newObject.mediaItems, ...added];
