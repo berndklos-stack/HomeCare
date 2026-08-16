@@ -4,6 +4,15 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.72.0 - 2026-08-16
+
+- Kundenportal als eigener Bereich mit Kundenanmeldung per E-Mail ergänzt.
+- Kunden sehen im Portal nur ihre zugeordneten Objekte, freigegebenen Berichte, offene Aufträge und vorbereitete Rechnungspositionen.
+- Portal-Login-E-Mail und Passwort können intern in den Kundenstammdaten gepflegt werden.
+- Kunden sehen im Portal ihre eigenen Stammdaten, aber keine internen Zugangsdaten.
+- Kunden können Nachrichten und neue Aufträge anlegen; Kolaretorp erhält dazu eine E-Mail an info@kolaretorp.se.
+- Portal-Nachrichten werden im App-Snapshot gespeichert und bleiben nach Versionswechseln erhalten.
+
 ## 1.71.0 - 2026-08-16
 
 - Kundenberichte zeigen im Kopf jetzt das Kolaretorp-Logo statt nur Text.

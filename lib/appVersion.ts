@@ -1,10 +1,22 @@
 export const appVersion = {
-  version: "1.71.0",
+  version: "1.72.0",
   releaseDate: "2026-08-16",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.72.0",
+    date: "2026-08-16",
+    changes: [
+      "Kundenportal als eigener Bereich mit Kundenanmeldung per E-Mail ergänzt",
+      "Kunden sehen im Portal nur ihre zugeordneten Objekte, freigegebenen Berichte, offene Aufträge und vorbereitete Rechnungspositionen",
+      "Portal-Login-E-Mail und Passwort können intern in den Kundenstammdaten gepflegt werden",
+      "Kunden sehen im Portal ihre eigenen Stammdaten, aber keine internen Zugangsdaten",
+      "Kunden können Nachrichten und neue Aufträge anlegen; Kolaretorp erhält dazu eine E-Mail an info@kolaretorp.se",
+      "Portal-Nachrichten werden im App-Snapshot gespeichert und bleiben nach Versionswechseln erhalten",
+    ],
+  },
   {
     version: "1.71.0",
     date: "2026-08-16",
