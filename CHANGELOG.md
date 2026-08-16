@@ -4,6 +4,12 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.85.0 - 2026-08-17
+
+- Dashboard-Arbeitsliste wird nach Fälligkeitsdatum sortiert.
+- Bei Serienaufträgen zeigt das Dashboard jetzt die nächsten fünf offenen Teiltermine.
+- Serientermine in der Arbeitsliste zeigen den zugehörigen Hauptauftrag und Rhythmus.
+
 ## 1.84.0 - 2026-08-17
 
 - Erledigte und stornierte Aufträge werden unten in einklappbaren Gruppen angezeigt.

@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.84.0",
+  version: "1.85.0",
   releaseDate: "2026-08-17",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.85.0",
+    date: "2026-08-17",
+    changes: [
+      "Dashboard-Arbeitsliste wird nach Fälligkeitsdatum sortiert",
+      "Bei Serienaufträgen zeigt das Dashboard jetzt die nächsten fünf offenen Teiltermine",
+      "Serientermine in der Arbeitsliste zeigen den zugehörigen Hauptauftrag und Rhythmus",
+    ],
+  },
   {
     version: "1.84.0",
     date: "2026-08-17",

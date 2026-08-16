@@ -2168,10 +2168,25 @@ function nextOperationalJobs(jobs: JobRecord[]) {
   return operational.filter((job) => !job.seriesMasterId || nextBySeries.get(job.seriesMasterId)?.id === job.id);
 }
 
+function dashboardWorkJobs(jobs: JobRecord[]) {
+  const openJobs = jobs.filter((job) => !["erledigt", "abgerechnet", "storniert"].includes(job.status));
+  const groupedOccurrences = openJobs.reduce<Record<string, JobRecord[]>>((groups, job) => {
+    if (!job.seriesMasterId) return groups;
+    return {
+      ...groups,
+      [job.seriesMasterId]: [...(groups[job.seriesMasterId] ?? []), job],
+    };
+  }, {});
+  const standaloneJobs = openJobs.filter((job) => !isSeriesMaster(job) && !job.seriesMasterId);
+  const nextSeriesOccurrences = Object.values(groupedOccurrences).flatMap((occurrences) => sortedByDueDate(occurrences).slice(0, 5));
+
+  return sortedByDueDate([...standaloneJobs, ...nextSeriesOccurrences]);
+}
+
 function recurringJobHint(job: JobRecord, allJobs: JobRecord[]) {
   if (!job.seriesMasterId) return "";
   const master = allJobs.find((item) => item.id === job.seriesMasterId);
-  return master ? `Serienauftrag · ${scheduleLabel(master.schedule)}` : "Serienauftrag";
+  return master ? `Serienauftrag · ${master.title} · ${scheduleLabel(master.schedule).replace(/^Serie:\s*/, "")}` : "Serienauftrag";
 }
 
 function sortedByDueDate(jobs: JobRecord[]) {
@@ -3078,7 +3093,6 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
             {section === "dashboard" && (
               <Dashboard
                 allJobs={jobs}
-                jobs={upcomingOperationalJobs}
                 objects={activeObjects}
                 reports={reports}
                 setSection={setSection}
@@ -3343,18 +3357,16 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
 
 function Dashboard({
   allJobs,
-  jobs,
   objects,
   reports,
   setSection,
 }: {
   allJobs: JobRecord[];
-  jobs: JobRecord[];
   objects: ObjectRecord[];
   reports: ReportRecord[];
   setSection: (section: Section) => void;
 }) {
-  const openDashboardJobs = jobs.filter((job) => !["erledigt", "abgerechnet", "storniert"].includes(job.status));
+  const openDashboardJobs = dashboardWorkJobs(allJobs);
   const workBlocks = [
     { label: "Heute steuern", value: openDashboardJobs.filter((job) => job.status === "in Arbeit").length, text: "laufende Einsätze", section: "planning" as Section },
     { label: "Objekte pflegen", value: objects.length, text: "vollständige Objektakten", section: "objects" as Section },
