@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.58.0",
+  version: "1.59.0",
   releaseDate: "2026-08-16",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.59.0",
+    date: "2026-08-16",
+    changes: [
+      "Erledigte, abgerechnete und stornierte Einsätze werden in der Dashboard-Arbeitsliste nicht mehr angezeigt",
+      "Dashboard zeigt einen leeren Zustand, wenn keine offenen Einsätze vorhanden sind",
+    ],
+  },
   {
     version: "1.58.0",
     date: "2026-08-16",

@@ -2413,8 +2413,9 @@ function Dashboard({
   reports: ReportRecord[];
   setSection: (section: Section) => void;
 }) {
+  const openDashboardJobs = jobs.filter((job) => !["erledigt", "abgerechnet", "storniert"].includes(job.status));
   const workBlocks = [
-    { label: "Heute steuern", value: jobs.filter((job) => job.status === "in Arbeit").length, text: "laufende Einsätze", section: "planning" as Section },
+    { label: "Heute steuern", value: openDashboardJobs.filter((job) => job.status === "in Arbeit").length, text: "laufende Einsätze", section: "planning" as Section },
     { label: "Objekte pflegen", value: objects.length, text: "vollständige Objektakten", section: "objects" as Section },
     { label: "Berichte prüfen", value: reports.length, text: "in Listenform", section: "reports" as Section },
   ];
@@ -2438,7 +2439,7 @@ function Dashboard({
           </div>
         </div>
         <div className="table-list dashboard-work-list">
-          {jobs.map((job) => (
+          {openDashboardJobs.map((job) => (
             <article key={job.id}>
               <div>
                 <strong>{job.title}</strong>
@@ -2448,6 +2449,7 @@ function Dashboard({
               <Badge value={job.status} />
             </article>
           ))}
+          {openDashboardJobs.length === 0 && <span className="muted-line">Keine offenen Einsätze.</span>}
         </div>
       </section>
     </div>

@@ -4,6 +4,11 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.59.0 - 2026-08-16
+
+- Erledigte, abgerechnete und stornierte Einsätze werden in der Dashboard-Arbeitsliste nicht mehr angezeigt.
+- Dashboard zeigt einen leeren Zustand, wenn keine offenen Einsätze vorhanden sind.
+
 ## 1.58.0 - 2026-08-16
 
 - Auftragsübersicht ist jetzt nach dem nächsten relevanten Termin sortiert.
