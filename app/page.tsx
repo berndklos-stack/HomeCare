@@ -932,32 +932,41 @@ async function createReportPdfBlob(report: ReportRecord, object: ObjectRecord, j
   return pdf.output("blob");
 }
 
-async function openCustomerReportShare(report: ReportRecord, object: ObjectRecord, job: JobRecord | undefined, customer: CustomerRecord | undefined) {
+function blobToBase64(blob: Blob) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === "string" ? reader.result : "";
+      resolve(result.includes(",") ? result.split(",")[1] : result);
+    };
+    reader.onerror = () => reject(reader.error ?? new Error("PDF konnte nicht gelesen werden."));
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function sendCustomerReportMail(report: ReportRecord, object: ObjectRecord, job: JobRecord | undefined, customer: CustomerRecord | undefined) {
   const pdfBlob = await createReportPdfBlob(report, object, job, customer);
   const fileName = `${safeFileName(customerReportSendSubject(report, object))}.pdf`;
-  const file = new File([pdfBlob], fileName, { type: "application/pdf" });
-  const shareText = `${customerReportSendBody(customer)}\n\nKopie: info@kolaretorp.se`;
-  const canShareFile = "share" in navigator
-    && (!("canShare" in navigator) || navigator.canShare({ files: [file] }));
+  const attachmentBase64 = await blobToBase64(pdfBlob);
+  const response = await fetch("/api/reports/send", {
+    body: JSON.stringify({
+      attachmentBase64,
+      body: customerReportSendBody(customer),
+      cc: "info@kolaretorp.se",
+      filename: fileName,
+      subject: customerReportSendSubject(report, object),
+      to: customer?.email || object.ownerEmail,
+    }),
+    headers: {
+      "Content-Type": "application/json",
+    },
+    method: "POST",
+  });
+  const payload = await response.json() as { error?: string; sent?: boolean };
 
-  if (canShareFile) {
-    await navigator.share({
-      files: [file],
-      title: customerReportSendSubject(report, object),
-      text: shareText,
-    });
-    return true;
+  if (!response.ok || !payload.sent) {
+    throw new Error(payload.error || "Bericht konnte nicht gesendet werden.");
   }
-
-  const downloadUrl = URL.createObjectURL(pdfBlob);
-  const link = document.createElement("a");
-  link.href = downloadUrl;
-  link.download = fileName;
-  link.click();
-  URL.revokeObjectURL(downloadUrl);
-
-  window.alert("Dieses Gerät erlaubt keinen direkten Mail-Anhang aus dem Browser. Die PDF wurde heruntergeladen. Bitte in Mail als Anhang einfügen; der Bericht wird deshalb noch nicht als gesendet gesperrt.");
-  return false;
 }
 
 function readFileAsDataUrl(file: File) {
@@ -2383,9 +2392,13 @@ export default function HomePage() {
     });
     const nextReport = { ...report, sentAt: report.sentAt ?? timestamp };
 
-    const shared = await openCustomerReportShare(nextReport, reportObject, reportJob, reportCustomer);
-    if (!shared) return;
-    updateReportRecord(nextReport);
+    try {
+      await sendCustomerReportMail(nextReport, reportObject, reportJob, reportCustomer);
+      updateReportRecord(nextReport);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Bericht konnte nicht gesendet werden.";
+      window.alert(message);
+    }
   }
 
   return (

@@ -4,6 +4,12 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.63.0 - 2026-08-16
+
+- Berichtversand läuft jetzt über einen serverseitigen API-Endpunkt mit PDF-Anhang.
+- Kundenberichte werden nur nach erfolgreichem Mailversand als gesendet markiert und gesperrt.
+- Für Kundenberichte wird kein Resend-Testabsender mehr verwendet, damit die Domain-Verifizierung sauber erzwungen wird.
+
 ## 1.62.0 - 2026-08-16
 
 - Bericht senden erzeugt jetzt eine PDF-Datei und übergibt sie per Geräte-Teilen als Anhang.

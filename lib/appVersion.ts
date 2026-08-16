@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.62.0",
+  version: "1.63.0",
   releaseDate: "2026-08-16",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.63.0",
+    date: "2026-08-16",
+    changes: [
+      "Berichtversand läuft jetzt über einen serverseitigen API-Endpunkt mit PDF-Anhang",
+      "Kundenberichte werden nur nach erfolgreichem Mailversand als gesendet markiert und gesperrt",
+      "Für Kundenberichte wird kein Resend-Testabsender mehr verwendet, damit die Domain-Verifizierung sauber erzwungen wird",
+    ],
+  },
   {
     version: "1.62.0",
     date: "2026-08-16",
