@@ -4,6 +4,13 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.79.0 - 2026-08-17
+
+- Kundenportal-Texte wurden auf Du-Form umgestellt.
+- Leistungsanfrage im Portal spricht Kunden jetzt direkt und persönlicher an.
+- Leere Zustände und Bestätigungsmeldungen im Portal sind kundenfreundlicher formuliert.
+- Einsatzberichte können jetzt direkt als PDF heruntergeladen werden.
+
 ## 1.78.0 - 2026-08-17
 
 - Auftragsanlage im Kundenportal wurde entfernt.

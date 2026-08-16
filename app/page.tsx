@@ -1084,6 +1084,19 @@ function blobToBase64(blob: Blob) {
   });
 }
 
+async function downloadCustomerReportPdf(report: ReportRecord, object: ObjectRecord, job: JobRecord | undefined, customer: CustomerRecord | undefined) {
+  const pdfBlob = await createReportPdfBlob(report, object, job, customer);
+  const fileName = `${safeFileName(customerReportSendSubject(report, object))}.pdf`;
+  const url = URL.createObjectURL(pdfBlob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 async function sendCustomerReportMail(report: ReportRecord, object: ObjectRecord, job: JobRecord | undefined, customer: CustomerRecord | undefined) {
   const recipientEmail = reportRecipientEmail(object, customer);
   if (!recipientEmail) throw new Error("Keine Empfängeradresse in den Objekt- oder Kundendaten gefunden.");
@@ -3449,7 +3462,7 @@ function ReportsView({
             </div>
             <div className="row-actions">
               <IconAction label={`Bericht ${selectedReport.title} mobil nachbearbeiten`} onClick={() => onEditInField(selectedReport)}><Pencil size={16} /></IconAction>
-              <IconAction label={`PDF für ${selectedReport.title} ausgeben`} onClick={() => window.print()}><FileDown size={16} /></IconAction>
+              <IconAction label={`PDF für ${selectedReport.title} herunterladen`} onClick={() => void downloadCustomerReportPdf(selectedReport, selectedObject, selectedJob, selectedCustomer)}><FileDown size={16} /></IconAction>
               <IconAction label={`Bericht ${selectedReport.title} an Kunden senden`} onClick={() => onSendReport(selectedReport)}><Send size={16} /></IconAction>
             </div>
           </div>
@@ -4451,7 +4464,7 @@ function CustomerPortalView({
     await onSendMessage(customer, currentObjectId, messageSubject.trim() || "Leistungsanfrage aus dem Kundenportal", messageBody);
     setMessageSubject("");
     setMessageBody("");
-    setPortalNotice("Leistungsanfrage wurde gesendet.");
+    setPortalNotice("Deine Leistungsanfrage wurde gesendet.");
   }
 
   function savePortalProfile() {
@@ -4460,7 +4473,7 @@ function CustomerPortalView({
       email: portalProfileEmail || customer.email,
       phone: portalProfilePhone || customer.phone,
     });
-    setPortalNotice("Stammdaten wurden gespeichert.");
+    setPortalNotice("Deine Stammdaten wurden gespeichert.");
   }
 
   if (!customer) {
@@ -4475,7 +4488,7 @@ function CustomerPortalView({
             <div>
               <p>Kundenportal</p>
               <h2>Anmelden</h2>
-              <span>Kunden sehen nur ihre zugeordneten Objekte, Berichte und Rechnungsinformationen.</span>
+              <span>Du siehst hier deine Objekte, Berichte, Nachrichten und Rechnungsinformationen.</span>
             </div>
           </div>
           {portalNotice && <div className="warning-line">{portalNotice}</div>}
@@ -4523,7 +4536,7 @@ function CustomerPortalView({
         <section className="panel portal-wide">
           <div className="panel-title">
             <div>
-              <p>Meine Stammdaten</p>
+              <p>Deine Stammdaten</p>
               <h2>Kontakt und Rechnungsadresse</h2>
             </div>
           </div>
@@ -4562,7 +4575,7 @@ function CustomerPortalView({
           <div className="panel-title">
             <div>
               <p>Objekte</p>
-              <h2>Meine Ferienhäuser</h2>
+              <h2>Deine Ferienhäuser</h2>
             </div>
           </div>
           <div className="portal-object-list">
@@ -4576,7 +4589,7 @@ function CustomerPortalView({
                 <Badge value={object.status} />
               </button>
             ))}
-            {customerObjects.length === 0 && <p>Keine Objekte zugeordnet.</p>}
+            {customerObjects.length === 0 && <p>Dir sind noch keine Objekte zugeordnet.</p>}
           </div>
         </section>
 
@@ -4584,7 +4597,7 @@ function CustomerPortalView({
           <div className="panel-title">
             <div>
               <p>Aufträge</p>
-              <h2>Offene Aufträge</h2>
+              <h2>Deine offenen Aufträge</h2>
             </div>
           </div>
           <div className="compact-list">
@@ -4626,7 +4639,7 @@ function CustomerPortalView({
                 </article>
               );
             })}
-            {portalJobs.length === 0 && <p>Keine offenen Aufträge.</p>}
+            {portalJobs.length === 0 && <p>Aktuell sind keine offenen Aufträge für dich vorhanden.</p>}
           </div>
         </section>
 
@@ -4634,7 +4647,7 @@ function CustomerPortalView({
           <div className="panel-title">
             <div>
               <p>Leistung anfragen</p>
-              <h2>Nachricht an Kolaretorp</h2>
+              <h2>Schreib uns eine Nachricht</h2>
             </div>
           </div>
           <div className="form-grid portal-form">
@@ -4650,7 +4663,7 @@ function CustomerPortalView({
             </label>
             <label className="wide">
               <span>Nachricht</span>
-              <textarea placeholder="Bitte beschreiben Sie kurz, welche Leistung Sie wünschen." value={messageBody} onChange={(event) => setMessageBody(event.target.value)} />
+              <textarea placeholder="Bitte beschreibe kurz, welche Leistung du wünschst." value={messageBody} onChange={(event) => setMessageBody(event.target.value)} />
             </label>
             <button className="primary-button wide" disabled={!currentObjectId || !messageBody.trim()} onClick={() => void submitMessage()} type="button">
               <Mail size={16} />
@@ -4682,7 +4695,7 @@ function CustomerPortalView({
                 <Badge value={report.sentAt ? "gesendet" : "Bericht"} />
               </button>
             ))}
-            {portalReports.length === 0 && <p>Noch keine freigegebenen Berichte.</p>}
+            {portalReports.length === 0 && <p>Für dich sind noch keine Berichte freigegeben.</p>}
           </div>
         </section>
 
@@ -4693,7 +4706,7 @@ function CustomerPortalView({
                 <h3>{selectedPortalReport.title}</h3>
                 <span>{selectedPortalReportObject.name} · {selectedPortalReport.date}</span>
               </div>
-              <IconAction label={`PDF für ${selectedPortalReport.title} ausgeben`} onClick={() => window.print()}><FileDown size={16} /></IconAction>
+              <IconAction label={`PDF für ${selectedPortalReport.title} herunterladen`} onClick={() => void downloadCustomerReportPdf(selectedPortalReport, selectedPortalReportObject, selectedPortalReportJob, customer)}><FileDown size={16} /></IconAction>
             </div>
             <CustomerReportCard
               customer={customer}
@@ -4721,7 +4734,7 @@ function CustomerPortalView({
                 <Badge value={item.status} />
               </article>
             ))}
-            {portalBilling.length === 0 && <p>Noch keine Rechnungspositionen freigegeben.</p>}
+            {portalBilling.length === 0 && <p>Für dich sind noch keine Rechnungspositionen freigegeben.</p>}
           </div>
         </section>
 
@@ -4740,7 +4753,7 @@ function CustomerPortalView({
                 <Badge value={message.status} />
               </article>
             ))}
-            {portalMessages.length === 0 && <p>Noch keine Nachrichten gesendet.</p>}
+            {portalMessages.length === 0 && <p>Du hast noch keine Nachrichten gesendet.</p>}
           </div>
         </section>
       </div>
@@ -5340,7 +5353,7 @@ function ObjectHistory({
               <span>{selectedHistory.date} · {object.name}</span>
             </div>
             <div className="row-actions">
-              <IconAction label={`PDF für ${selectedHistory.title} ausgeben`} onClick={() => window.print()}><FileDown size={16} /></IconAction>
+              <IconAction label={`PDF für ${selectedHistory.title} herunterladen`} onClick={() => selectedReport && void downloadCustomerReportPdf(selectedReport, object, selectedJob, reportCustomer)}><FileDown size={16} /></IconAction>
               <IconAction
                 label={`Bericht ${selectedHistory.title} an Kunden senden`}
                 onClick={() => selectedReport && onSendReport(selectedReport)}
