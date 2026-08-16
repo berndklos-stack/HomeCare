@@ -4,6 +4,13 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.62.0 - 2026-08-16
+
+- Bericht senden erzeugt jetzt eine PDF-Datei und übergibt sie per Geräte-Teilen als Anhang.
+- Mailtext und Betreff werden nach Kolaretorp-Vorgabe vorbereitet.
+- Gesendete Berichte werden gesperrt und können danach nicht mehr verändert werden.
+- Bericht senden ist jetzt auch in Mobil vor Ort verfügbar.
+
 ## 1.61.0 - 2026-08-16
 
 - Abgeschlossene Berichte können in Mobil vor Ort wieder mit ihrer Checkliste nachbearbeitet werden.

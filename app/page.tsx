@@ -775,10 +775,189 @@ function firstNameFromName(name: string) {
 
 const defaultReportMailBody = "Hallo {Vorname}, anbei der Bericht vom aktuellen Einsatz. Für Rückfragen stehen wir gerne zur Verfügung.";
 
-function customerReportMailBody(customer: CustomerRecord | undefined) {
+function customerReportSendBody(customer: CustomerRecord | undefined) {
   const firstName = firstNameFromName(customer?.contact || customer?.name || "");
-  const template = customer?.reportMailBody?.trim() || defaultReportMailBody;
-  return template.replaceAll("{Vorname}", firstName);
+  return `Hej ${firstName},\n\nanbei der Bericht vom letzten Einsatz.\nLieben Dank fuer deinen Auftrag.\n\nHejdå`;
+}
+
+function customerReportSendSubject(report: ReportRecord, object: ObjectRecord) {
+  return `Einsatz - Bericht vom ${report.date} - ${object.name}`;
+}
+
+function safeFileName(value: string) {
+  return value
+    .replace(/[^\wäöüÄÖÜß-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+async function createReportPdfBlob(report: ReportRecord, object: ObjectRecord, job: JobRecord | undefined, customer: CustomerRecord | undefined) {
+  const { jsPDF } = await import("jspdf");
+  const pdf = new jsPDF({ unit: "mm", format: "a4" });
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const margin = 14;
+  let y = margin;
+
+  function addFooter() {
+    const pageCount = pdf.getNumberOfPages();
+    for (let page = 1; page <= pageCount; page += 1) {
+      pdf.setPage(page);
+      pdf.setFontSize(8);
+      pdf.setTextColor(120);
+      pdf.text(`Seite ${page} von ${pageCount}`, pageWidth - margin, pageHeight - 8, { align: "right" });
+    }
+  }
+
+  function ensureSpace(height: number) {
+    if (y + height <= pageHeight - 16) return;
+    pdf.addPage();
+    y = margin;
+  }
+
+  function addWrappedText(text: string, x: number, maxWidth: number, lineHeight = 5) {
+    const lines = pdf.splitTextToSize(text || "-", maxWidth) as string[];
+    ensureSpace(lines.length * lineHeight + 2);
+    pdf.text(lines, x, y);
+    y += lines.length * lineHeight;
+  }
+
+  function addKeyValue(label: string, value: string, x: number, width: number) {
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(8);
+    pdf.setTextColor(105);
+    pdf.text(label, x, y);
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(10);
+    pdf.setTextColor(20);
+    y += 4;
+    addWrappedText(value, x, width, 4.5);
+  }
+
+  pdf.setFillColor(246, 247, 249);
+  pdf.rect(0, 0, pageWidth, 38, "F");
+  pdf.setTextColor(20);
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(18);
+  pdf.text("Einsatzbericht", margin, 18);
+  pdf.setFontSize(10);
+  pdf.setFont("helvetica", "normal");
+  pdf.text("Kolaretorp Service AB", margin, 26);
+  pdf.text(`Bericht ${report.id}`, pageWidth - margin, 18, { align: "right" });
+  pdf.text(report.date, pageWidth - margin, 26, { align: "right" });
+  y = 46;
+
+  const objectImage = primaryObjectImage(object);
+  if (objectImage?.previewUrl?.startsWith("data:image")) {
+    try {
+      pdf.addImage(objectImage.previewUrl, "JPEG", margin, y, 48, 32, undefined, "FAST");
+    } catch {
+      pdf.setDrawColor(210);
+      pdf.rect(margin, y, 48, 32);
+    }
+  } else {
+    pdf.setDrawColor(210);
+    pdf.rect(margin, y, 48, 32);
+  }
+
+  const infoX = margin + 56;
+  addKeyValue("Objekt", `${object.name} · ${object.address}`, infoX, pageWidth - infoX - margin);
+  addKeyValue("Eigentümer", `${customer?.name ?? object.owner} · ${customer?.email ?? object.ownerEmail}`, infoX, pageWidth - infoX - margin);
+  if (job) addKeyValue("Auftrag", `${job.title} · ${job.assignedTo} · ${job.status}`, infoX, pageWidth - infoX - margin);
+  y = Math.max(y, 84);
+
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(12);
+  pdf.setTextColor(20);
+  pdf.text("Zusammenfassung", margin, y);
+  y += 7;
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(10);
+  addWrappedText(report.summary, margin, pageWidth - margin * 2);
+  if (report.customerComment) {
+    y += 4;
+    pdf.setFont("helvetica", "bold");
+    pdf.text("Kommentar", margin, y);
+    y += 6;
+    pdf.setFont("helvetica", "normal");
+    addWrappedText(report.customerComment, margin, pageWidth - margin * 2);
+  }
+
+  y += 5;
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(12);
+  pdf.text("Checkliste", margin, y);
+  y += 7;
+
+  report.checklistResults.forEach((item, index) => {
+    ensureSpace(24);
+    pdf.setFillColor(250, 250, 251);
+    pdf.setDrawColor(225);
+    const startY = y;
+    pdf.roundedRect(margin, y, pageWidth - margin * 2, 18, 2, 2, "FD");
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(10);
+    pdf.setTextColor(20);
+    pdf.text(`${index + 1}. ${item.title}`, margin + 4, y + 6);
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(item.completed ? 34 : 150);
+    pdf.text(item.completed ? "ausgeführt" : "nicht ausgeführt", pageWidth - margin - 4, y + 6, { align: "right" });
+    pdf.setTextColor(80);
+    pdf.text(`${item.minutes || 0} min.`, pageWidth - margin - 4, y + 13, { align: "right" });
+    y += 23;
+    if (item.description) addWrappedText(item.description, margin + 4, pageWidth - margin * 2 - 8, 4.2);
+    if (item.note) {
+      pdf.setFont("helvetica", "bold");
+      pdf.text("Hinweis", margin + 4, y);
+      y += 5;
+      pdf.setFont("helvetica", "normal");
+      addWrappedText(item.note, margin + 4, pageWidth - margin * 2 - 8, 4.2);
+    }
+    item.photos.forEach((photo) => {
+      const previewUrl = photo.previewUrl;
+      if (!previewUrl?.startsWith("data:image")) return;
+      ensureSpace(38);
+      try {
+        pdf.addImage(previewUrl, "JPEG", margin + 4, y, 42, 28, undefined, "FAST");
+      } catch {
+        pdf.rect(margin + 4, y, 42, 28);
+      }
+      y += 33;
+    });
+    if (y === startY) y += 23;
+    y += 3;
+  });
+
+  addFooter();
+  return pdf.output("blob");
+}
+
+async function openCustomerReportShare(report: ReportRecord, object: ObjectRecord, job: JobRecord | undefined, customer: CustomerRecord | undefined) {
+  const pdfBlob = await createReportPdfBlob(report, object, job, customer);
+  const fileName = `${safeFileName(customerReportSendSubject(report, object))}.pdf`;
+  const file = new File([pdfBlob], fileName, { type: "application/pdf" });
+  const shareText = `${customerReportSendBody(customer)}\n\nKopie: info@kolaretorp.se`;
+  const canShareFile = "share" in navigator
+    && (!("canShare" in navigator) || navigator.canShare({ files: [file] }));
+
+  if (canShareFile) {
+    await navigator.share({
+      files: [file],
+      title: customerReportSendSubject(report, object),
+      text: shareText,
+    });
+    return true;
+  }
+
+  const downloadUrl = URL.createObjectURL(pdfBlob);
+  const link = document.createElement("a");
+  link.href = downloadUrl;
+  link.download = fileName;
+  link.click();
+  URL.revokeObjectURL(downloadUrl);
+
+  window.alert("Dieses Gerät erlaubt keinen direkten Mail-Anhang aus dem Browser. Die PDF wurde heruntergeladen. Bitte in Mail als Anhang einfügen; der Bericht wird deshalb noch nicht als gesendet gesperrt.");
+  return false;
 }
 
 function readFileAsDataUrl(file: File) {
@@ -2193,6 +2372,22 @@ export default function HomePage() {
     persistSnapshotNow({ reports: nextReports });
   }
 
+  async function sendReportToCustomer(report: ReportRecord) {
+    const reportObject = objects.find((object) => object.id === report.objectId);
+    if (!reportObject) return;
+    const reportJob = jobs.find((job) => job.id === report.jobId);
+    const reportCustomer = customers.find((customer) => customer.id === reportObject.ownerCustomerId || customer.name === reportObject.owner);
+    const timestamp = new Date().toLocaleString("de-DE", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
+    const nextReport = { ...report, sentAt: report.sentAt ?? timestamp };
+
+    const shared = await openCustomerReportShare(nextReport, reportObject, reportJob, reportCustomer);
+    if (!shared) return;
+    updateReportRecord(nextReport);
+  }
+
   return (
     <main className="app" data-ready="true" data-theme={theme}>
       <aside className="sidebar">
@@ -2285,6 +2480,7 @@ export default function HomePage() {
                 object={editingObject}
                 onBack={closeObjectEditor}
                 onSubmit={saveObject}
+                onSendReport={sendReportToCustomer}
                 onUpdateReport={updateReportRecord}
                 reports={reports}
                 newObject={newObject}
@@ -2323,7 +2519,7 @@ export default function HomePage() {
               <JobsView jobs={jobs} objects={activeObjects} onCancel={cancelJob} onCreate={openCreateJob} onEdit={openEditJob} onRestore={restoreJob} onStart={startJob} reports={reports} />
             )}
             {section === "planning" && <PlanningView allJobs={jobs} jobs={upcomingOperationalJobs} objects={activeObjects} onStart={startJob} />}
-            {section === "reports" && <ReportsView customers={customers} jobs={jobs} objects={objects} onEditInField={editReportInField} reports={reports} />}
+            {section === "reports" && <ReportsView customers={customers} jobs={jobs} objects={objects} onEditInField={editReportInField} onSendReport={sendReportToCustomer} reports={reports} />}
             {section === "field" && (
               <FieldView
                 activeJobId={activeJobId}
@@ -2337,6 +2533,7 @@ export default function HomePage() {
                 editingReportId={editingFieldReportId}
                 onSelectJob={startJob}
                 onSelectReport={editReportInField}
+                onSendReport={sendReportToCustomer}
                 onClearActiveJob={clearActiveJob}
                 onProgressChange={(jobId, progress) => setFieldProgress((current) => {
                   const nextProgress = { ...current, [jobId]: progress };
@@ -2476,12 +2673,14 @@ function ReportsView({
   customers,
   jobs,
   onEditInField,
+  onSendReport,
   objects,
   reports,
 }: {
   customers: CustomerRecord[];
   jobs: JobRecord[];
   onEditInField: (report: ReportRecord) => void;
+  onSendReport: (report: ReportRecord) => void;
   objects: ObjectRecord[];
   reports: ReportRecord[];
 }) {
@@ -2536,6 +2735,7 @@ function ReportsView({
             <div className="row-actions">
               <IconAction label={`Bericht ${selectedReport.title} mobil nachbearbeiten`} onClick={() => onEditInField(selectedReport)}><Pencil size={16} /></IconAction>
               <IconAction label={`PDF für ${selectedReport.title} ausgeben`} onClick={() => window.print()}><FileDown size={16} /></IconAction>
+              <IconAction label={`Bericht ${selectedReport.title} an Kunden senden`} onClick={() => onSendReport(selectedReport)}><Send size={16} /></IconAction>
             </div>
           </div>
           <CustomerReportCard customer={selectedCustomer} job={selectedJob} object={selectedObject} report={selectedReport} sentAt={selectedReport.sentAt} />
@@ -3073,6 +3273,7 @@ function FieldView({
   onSelectReport,
   onClearActiveJob,
   onProgressChange,
+  onSendReport,
   onComplete,
 }: {
   activeJobId: string | null;
@@ -3088,6 +3289,7 @@ function FieldView({
   onSelectReport: (report: ReportRecord) => void;
   onClearActiveJob: () => void;
   onProgressChange: (jobId: string, progress: Record<string, FieldTaskProgress>) => void;
+  onSendReport: (report: ReportRecord) => void;
   onComplete: (job: JobRecord, checklistResults: FieldTaskResult[], fieldNote: string) => void;
 }) {
   const [fieldNote, setFieldNote] = useState("Notiz: Zugang geprüft, Fotos ergänzt.");
@@ -3097,6 +3299,8 @@ function FieldView({
     return job ? ["erledigt", "geplant", "in Arbeit"].includes(job.status) : true;
   });
   const active = activeJobId ? jobs.find((job) => job.id === activeJobId) ?? allJobs.find((job) => job.id === activeJobId) : undefined;
+  const activeReport = editingReportId ? reports.find((report) => report.id === editingReportId) : undefined;
+  const reportLocked = Boolean(activeReport?.sentAt);
   if (!active && openJobs.length === 0 && completedReports.length === 0) {
     return (
       <section className="field-shell">
@@ -3252,10 +3456,18 @@ function FieldView({
         </div>
         <div className="field-active-head">
           <h2>{editingReportId ? "Bericht nachbearbeiten" : activeJob.title}</h2>
-          <IconAction label={`Auftrag ${activeJob.title} abwählen`} onClick={onClearActiveJob}>
-            <X size={16} />
-          </IconAction>
+          <div className="row-actions">
+            {activeReport && (
+              <IconAction label={`Bericht ${activeReport.title} senden`} onClick={() => onSendReport(activeReport)}>
+                <Send size={16} />
+              </IconAction>
+            )}
+            <IconAction label={`Auftrag ${activeJob.title} abwählen`} onClick={onClearActiveJob}>
+              <X size={16} />
+            </IconAction>
+          </div>
         </div>
+        {reportLocked && <div className="warning-line">Dieser Bericht wurde am {activeReport?.sentAt} gesendet und ist für Änderungen gesperrt.</div>}
         <span>{object.name} · {object.address}</span>
         <div className="field-summary">
           <strong>{activeJob.assignedTo}</strong>
@@ -3271,6 +3483,7 @@ function FieldView({
                 <label>
                   <input
                     type="checkbox"
+                    disabled={reportLocked}
                     checked={currentTask.completed}
                     onChange={(event) => updateTask(task.id, { completed: event.target.checked }, currentTask)}
                   />
@@ -3285,6 +3498,7 @@ function FieldView({
                     aria-label={`Bild zu ${task.title} erfassen`}
                     accept="image/*"
                     capture="environment"
+                    disabled={reportLocked}
                     type="file"
                     onChange={(event) => {
                       const file = event.target.files?.[0];
@@ -3305,7 +3519,7 @@ function FieldView({
                   <span>Zeit min.</span>
                   <input
                     aria-label={`Zeit ${task.title}`}
-                    disabled={!currentTask.completed}
+                    disabled={!currentTask.completed || reportLocked}
                     value={currentTask.completed ? currentTask.minutes : ""}
                     inputMode="numeric"
                     min="0"
@@ -3317,6 +3531,7 @@ function FieldView({
                   <span>Hinweis / Info</span>
                   <textarea
                     aria-label={`Hinweis ${task.title}`}
+                    disabled={reportLocked}
                     placeholder="Kurznotiz, Besonderheit oder Rückmeldung"
                     value={currentTask.note}
                     onChange={(event) => updateTask(task.id, { note: event.target.value }, currentTask)}
@@ -3330,6 +3545,7 @@ function FieldView({
                   <div className="row-actions">
                     <button
                       className="ghost-button compact"
+                      disabled={reportLocked}
                       onClick={() => updateTask(task.id, {
                         photos: currentTask.photos.map((item, index) => (index === photoIndex ? { ...item, accepted: true } : item)),
                       }, currentTask)}
@@ -3339,6 +3555,7 @@ function FieldView({
                     </button>
                     <button
                       className="ghost-button compact"
+                      disabled={reportLocked}
                       onClick={() => updateTask(task.id, {
                         photos: currentTask.photos.filter((_, index) => index !== photoIndex),
                       }, currentTask)}
@@ -3353,8 +3570,8 @@ function FieldView({
             );
           })}
         </div>
-        <textarea value={fieldNote} onChange={(event) => setFieldNote(event.target.value)} aria-label="Einsatznotiz" />
-        <button className="primary-button" onClick={completeActiveJob} type="button">
+        <textarea disabled={reportLocked} value={fieldNote} onChange={(event) => setFieldNote(event.target.value)} aria-label="Einsatznotiz" />
+        <button className="primary-button" disabled={reportLocked} onClick={completeActiveJob} type="button">
           {editingReportId ? "Bericht speichern" : "Einsatz abschließen"}
         </button>
       </div>
@@ -3838,6 +4055,7 @@ function ObjectEditorPage({
   jobs,
   object,
   onBack,
+  onSendReport,
   onSubmit,
   onUpdateReport,
   reports,
@@ -3849,6 +4067,7 @@ function ObjectEditorPage({
   jobs: JobRecord[];
   object?: ObjectRecord;
   onBack: () => void;
+  onSendReport: (report: ReportRecord) => void;
   onSubmit: () => void;
   onUpdateReport: (report: ReportRecord) => void;
   reports: ReportRecord[];
@@ -3891,7 +4110,7 @@ function ObjectEditorPage({
           submitLabel={submitLabel}
         />
       </section>
-      {object && <ObjectHistory customers={customers} jobs={jobs} object={object} onUpdateReport={onUpdateReport} reports={reports} />}
+      {object && <ObjectHistory customers={customers} jobs={jobs} object={object} onSendReport={onSendReport} onUpdateReport={onUpdateReport} reports={reports} />}
     </div>
   );
 }
@@ -3900,12 +4119,14 @@ function ObjectHistory({
   customers,
   jobs,
   object,
+  onSendReport,
   onUpdateReport,
   reports,
 }: {
   customers: CustomerRecord[];
   jobs: JobRecord[];
   object: ObjectRecord;
+  onSendReport: (report: ReportRecord) => void;
   onUpdateReport: (report: ReportRecord) => void;
   reports: ReportRecord[];
 }) {
@@ -3932,33 +4153,14 @@ function ObjectHistory({
       })),
   ].sort((first, second) => second.date.localeCompare(first.date));
   const [selectedHistoryId, setSelectedHistoryId] = useState("");
-  const [sentReports, setSentReports] = useState<Record<string, string>>({});
   const selectedHistory = history.find((item) => item.id === selectedHistoryId);
   const selectedReport = selectedHistory?.report;
   const selectedJob = selectedHistory?.job;
   const reportCustomer = customers.find((customer) => customer.id === object.ownerCustomerId || customer.name === object.owner);
-  const reportSubject = selectedHistory ? `Einsatzbericht - Kolaretorp Service AB - ${object.name}` : "";
+  const reportSubject = selectedReport ? customerReportSendSubject(selectedReport, object) : "";
   const reportPdfName = selectedHistory ? `Einsatzbericht-${object.name}-${selectedHistory.title}.pdf` : "";
-  const mailBody = customerReportMailBody(reportCustomer);
-  const sentAt = selectedReport ? selectedReport.sentAt || sentReports[selectedReport.id] : "";
-  const [sendFeedback, setSendFeedback] = useState("");
-
-  function sendCustomerReport() {
-    if (!selectedReport) {
-      setSendFeedback("Für diesen Auftrag gibt es noch keinen Bericht zum Senden.");
-      return;
-    }
-    const timestamp = new Date().toLocaleString("de-DE", {
-      dateStyle: "medium",
-      timeStyle: "short",
-    });
-    setSentReports({
-      ...sentReports,
-      [selectedReport.id]: timestamp,
-    });
-    onUpdateReport({ ...selectedReport, sentAt: timestamp });
-    setSendFeedback(`Bericht wurde zum Versand vorbereitet und am ${timestamp} protokolliert.`);
-  }
+  const mailBody = selectedReport ? customerReportSendBody(reportCustomer) : "";
+  const sentAt = selectedReport?.sentAt ?? "";
 
   return (
     <section className="panel object-history">
@@ -3998,7 +4200,7 @@ function ObjectHistory({
               <IconAction label={`PDF für ${selectedHistory.title} ausgeben`} onClick={() => window.print()}><FileDown size={16} /></IconAction>
               <IconAction
                 label={`Bericht ${selectedHistory.title} an Kunden senden`}
-                onClick={sendCustomerReport}
+                onClick={() => selectedReport && onSendReport(selectedReport)}
               >
                 <Send size={16} />
               </IconAction>
@@ -4028,9 +4230,10 @@ function ObjectHistory({
               <label className="report-comment-editor">
                 <span>Kommentar vor dem Senden</span>
                 <textarea
+                  disabled={Boolean(sentAt)}
                   value={selectedReport.customerComment}
                   onChange={(event) => onUpdateReport({ ...selectedReport, customerComment: event.target.value })}
-                  placeholder="Kommentar ergänzen, der im Kundenbericht erscheinen soll."
+                  placeholder={sentAt ? "Bericht wurde bereits gesendet und ist gesperrt." : "Kommentar ergänzen, der im Kundenbericht erscheinen soll."}
                 />
               </label>
               <div className="send-status">
@@ -4041,7 +4244,6 @@ function ObjectHistory({
                 <span>Anhang: {reportPdfName}</span>
                 <span>Body: {mailBody}</span>
                 {sentAt && <span>Zeitstempel: {sentAt}</span>}
-                {sendFeedback && <span>{sendFeedback}</span>}
               </div>
             </>
           ) : (

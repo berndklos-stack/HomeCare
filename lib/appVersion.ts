@@ -1,10 +1,20 @@
 export const appVersion = {
-  version: "1.61.0",
+  version: "1.62.0",
   releaseDate: "2026-08-16",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.62.0",
+    date: "2026-08-16",
+    changes: [
+      "Bericht senden erzeugt jetzt eine PDF-Datei und übergibt sie per Geräte-Teilen als Anhang",
+      "Mailtext und Betreff werden nach Kolaretorp-Vorgabe vorbereitet",
+      "Gesendete Berichte werden gesperrt und können danach nicht mehr verändert werden",
+      "Bericht senden ist jetzt auch in Mobil vor Ort verfügbar",
+    ],
+  },
   {
     version: "1.61.0",
     date: "2026-08-16",
