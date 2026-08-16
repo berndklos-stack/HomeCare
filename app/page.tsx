@@ -3093,10 +3093,10 @@ function FieldView({
   const [fieldNote, setFieldNote] = useState("Notiz: Zugang geprüft, Fotos ergänzt.");
   const openJobs = jobs.filter((job) => !["erledigt", "abgerechnet", "storniert"].includes(job.status));
   const completedReports = reports.filter((report) => {
-    const job = jobs.find((item) => item.id === report.jobId);
+    const job = allJobs.find((item) => item.id === report.jobId);
     return job ? ["erledigt", "geplant", "in Arbeit"].includes(job.status) : true;
   });
-  const active = activeJobId ? jobs.find((job) => job.id === activeJobId) : undefined;
+  const active = activeJobId ? jobs.find((job) => job.id === activeJobId) ?? allJobs.find((job) => job.id === activeJobId) : undefined;
   if (!active && openJobs.length === 0 && completedReports.length === 0) {
     return (
       <section className="field-shell">
@@ -3132,7 +3132,7 @@ function FieldView({
           <div className="field-job-picker">
             <strong>Abgeschlossene Berichte</strong>
             {completedReports.map((report) => {
-              const job = jobs.find((item) => item.id === report.jobId);
+              const job = allJobs.find((item) => item.id === report.jobId);
               const jobObject = objects.find((item) => item.id === report.objectId);
               return (
                 <button key={report.id} onClick={() => onSelectReport(report)} type="button">
@@ -3231,7 +3231,7 @@ function FieldView({
         <div className="field-job-picker">
           <strong>Abgeschlossene Berichte</strong>
           {completedReports.slice(0, 6).map((report) => {
-            const job = jobs.find((item) => item.id === report.jobId);
+            const job = allJobs.find((item) => item.id === report.jobId);
             const jobObject = objects.find((item) => item.id === report.objectId);
             return (
               <button

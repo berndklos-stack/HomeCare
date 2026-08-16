@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.60.0",
+  version: "1.61.0",
   releaseDate: "2026-08-16",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.61.0",
+    date: "2026-08-16",
+    changes: [
+      "Abgeschlossene Berichte können in Mobil vor Ort wieder mit ihrer Checkliste nachbearbeitet werden",
+      "Die mobile Berichtsbearbeitung findet abgeschlossene Aufträge jetzt auch dann, wenn sie nicht in der gekürzten offenen Arbeitsliste stehen",
+    ],
+  },
   {
     version: "1.60.0",
     date: "2026-08-16",

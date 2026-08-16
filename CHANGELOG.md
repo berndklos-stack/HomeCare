@@ -4,6 +4,11 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.61.0 - 2026-08-16
+
+- Abgeschlossene Berichte können in Mobil vor Ort wieder mit ihrer Checkliste nachbearbeitet werden.
+- Die mobile Berichtsbearbeitung findet abgeschlossene Aufträge jetzt auch dann, wenn sie nicht in der gekürzten offenen Arbeitsliste stehen.
+
 ## 1.60.0 - 2026-08-16
 
 - Auftragsübersicht bietet jetzt eine Statusfilter-Leiste.
