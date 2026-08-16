@@ -877,6 +877,10 @@ function customerReportSendSubject(report: ReportRecord, object: ObjectRecord) {
   return `Einsatz - Bericht vom ${report.date} - ${object.name}`;
 }
 
+function reportRecipientEmail(object: ObjectRecord, customer: CustomerRecord | undefined) {
+  return object.ownerEmail.trim() || customer?.email.trim() || "";
+}
+
 function safeFileName(value: string) {
   return value
     .replace(/[^\wäöüÄÖÜß-]+/g, "-")
@@ -955,7 +959,7 @@ async function createReportPdfBlob(report: ReportRecord, object: ObjectRecord, j
 
   const infoX = margin + 56;
   addKeyValue("Objekt", `${object.name} · ${object.address}`, infoX, pageWidth - infoX - margin);
-  addKeyValue("Eigentümer", `${customer?.name ?? object.owner} · ${customer?.email ?? object.ownerEmail}`, infoX, pageWidth - infoX - margin);
+  addKeyValue("Eigentümer", `${customer?.name ?? object.owner} · ${reportRecipientEmail(object, customer) || "-"}`, infoX, pageWidth - infoX - margin);
   if (job) addKeyValue("Auftrag", `${job.title} · ${job.assignedTo} · ${job.status}`, infoX, pageWidth - infoX - margin);
   y = Math.max(y, 84);
 
@@ -1038,6 +1042,9 @@ function blobToBase64(blob: Blob) {
 }
 
 async function sendCustomerReportMail(report: ReportRecord, object: ObjectRecord, job: JobRecord | undefined, customer: CustomerRecord | undefined) {
+  const recipientEmail = reportRecipientEmail(object, customer);
+  if (!recipientEmail) throw new Error("Keine Empfängeradresse in den Objekt- oder Kundendaten gefunden.");
+
   const pdfBlob = await createReportPdfBlob(report, object, job, customer);
   const fileName = `${safeFileName(customerReportSendSubject(report, object))}.pdf`;
   const attachmentBase64 = await blobToBase64(pdfBlob);
@@ -1048,7 +1055,7 @@ async function sendCustomerReportMail(report: ReportRecord, object: ObjectRecord
       cc: "info@kolaretorp.se",
       filename: fileName,
       subject: customerReportSendSubject(report, object),
-      to: customer?.email || object.ownerEmail,
+      to: recipientEmail,
     }),
     headers: {
       "Content-Type": "application/json",
@@ -2823,7 +2830,7 @@ export default function HomePage() {
             <div className="send-preview-grid">
               <div>
                 <span>An</span>
-                <strong>{sendPreviewCustomer?.email || sendPreviewObject.ownerEmail}</strong>
+                <strong>{reportRecipientEmail(sendPreviewObject, sendPreviewCustomer) || "Keine E-Mail-Adresse hinterlegt"}</strong>
               </div>
               <div>
                 <span>CC</span>
@@ -3108,7 +3115,7 @@ function CustomerReportCard({
           <dl>
             <div><dt>Kunde</dt><dd>{customer?.name ?? object.owner}</dd></div>
             <div><dt>Ansprechpartner</dt><dd>{customer?.contact ?? object.owner}</dd></div>
-            <div><dt>E-Mail</dt><dd>{customer?.email ?? object.ownerEmail}</dd></div>
+            <div><dt>E-Mail</dt><dd>{reportRecipientEmail(object, customer) || "-"}</dd></div>
           </dl>
         </section>
         <section>
@@ -4567,7 +4574,7 @@ function ObjectHistory({
               <div className="send-status">
                 <strong>{sentAt ? "Gesendet" : "Noch nicht an Kunden gesendet"}</strong>
                 <span>Betreff: {reportSubject}</span>
-                <span>An: {reportCustomer?.email ?? object.ownerEmail}</span>
+                <span>An: {reportRecipientEmail(object, reportCustomer) || "Keine E-Mail-Adresse hinterlegt"}</span>
                 <span>Kopie: info@kolaretorp.se</span>
                 <span>Anhang: {reportPdfName}</span>
                 <span>Body: {mailBody}</span>

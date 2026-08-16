@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.69.0",
+  version: "1.70.0",
   releaseDate: "2026-08-16",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.70.0",
+    date: "2026-08-16",
+    changes: [
+      "Beim Berichtversand wird jetzt die aktuelle E-Mail-Adresse aus den Objektstammdaten bevorzugt verwendet",
+      "Versandvorschau, Objektverlauf, Berichtsanzeige und tatsächlicher Mailversand zeigen dieselbe Empfängeradresse",
+      "Der Versand meldet einen klaren Fehler, wenn weder Objekt noch Kunde eine E-Mail-Adresse enthalten",
+    ],
+  },
   {
     version: "1.69.0",
     date: "2026-08-16",

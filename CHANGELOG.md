@@ -4,6 +4,12 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.70.0 - 2026-08-16
+
+- Beim Berichtversand wird jetzt die aktuelle E-Mail-Adresse aus den Objektstammdaten bevorzugt verwendet.
+- Versandvorschau, Objektverlauf, Berichtsanzeige und tatsächlicher Mailversand zeigen dieselbe Empfängeradresse.
+- Der Versand meldet einen klaren Fehler, wenn weder Objekt noch Kunde eine E-Mail-Adresse enthalten.
+
 ## 1.69.0 - 2026-08-16
 
 - Doppelte Berichte werden beim Laden, Synchronisieren und Speichern fachlich zusammengeführt.
