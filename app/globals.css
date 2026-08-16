@@ -2530,17 +2530,17 @@ button.media-thumb {
   align-items: center;
   display: flex;
   flex-wrap: wrap;
-  gap: 14px;
+  gap: 16px;
 }
 
 .portal-brand-head img {
   height: auto;
-  max-width: min(220px, 55vw);
+  max-width: min(220px, 46vw);
 }
 
 .portal-brand-head span {
   color: var(--foreground);
-  font-size: clamp(18px, 2.2vw, 26px);
+  font-size: clamp(17px, 1.6vw, 24px);
   font-weight: 800;
   line-height: 1.15;
 }
@@ -2551,31 +2551,17 @@ button.media-thumb {
   width: min(100%, 560px);
 }
 
-.portal-login-brand {
-  align-items: center;
-  border-bottom: 1px solid var(--line);
-  display: grid;
-  gap: 12px;
-  justify-items: center;
-  margin-bottom: 16px;
-  padding-bottom: 16px;
-  text-align: center;
-}
-
-.portal-login-brand img {
-  height: auto;
-  max-width: min(260px, 70vw);
-}
-
-.portal-login-brand strong {
-  font-size: clamp(18px, 2.4vw, 24px);
-  line-height: 1.18;
-}
-
 .portal-login label,
 .portal-form label {
   display: grid;
   gap: 5px;
+}
+
+.portal-login-button {
+  justify-content: center;
+  margin-top: 4px;
+  min-height: 44px;
+  width: 100%;
 }
 
 .portal-login input,

@@ -2999,7 +2999,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
         <section className="workspace portal-workspace">
           <header className="topbar portal-topbar">
             <div className="portal-brand-head">
-              <Image alt="Kolaretorp Service AB" height={28} priority src="/brand/kolaretorp-logo.png" width={220} />
+              <Image alt="Kolaretorp Service AB" height={28} priority src="/kolaretorp-logo.png" width={220} />
               <span>Välkommen im Kundenportal von Kolaretorp Service AB</span>
             </div>
             <div className="toolbar">
@@ -4530,10 +4530,6 @@ function CustomerPortalView({
     return (
       <section className="portal-shell">
         <div className="portal-login panel">
-          <div className="portal-login-brand">
-            <Image alt="Kolaretorp Service AB" height={40} priority src="/brand/kolaretorp-logo.png" width={260} />
-            <strong>Välkommen im Kundenportal von Kolaretorp Service AB</strong>
-          </div>
           <div className="panel-title">
             <div>
               <p>Kundenportal</p>
@@ -4550,7 +4546,7 @@ function CustomerPortalView({
             <span>Passwort</span>
             <input placeholder="Portal-Passwort" type="password" value={loginPassword} onChange={(event) => setLoginPassword(event.target.value)} />
           </label>
-          <button className="primary-button" onClick={login} type="button">
+          <button className="primary-button portal-login-button" onClick={login} type="button">
             <KeyRound size={16} />
             Einloggen
           </button>

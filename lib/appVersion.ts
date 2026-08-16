@@ -14,7 +14,7 @@ export const versionHistory = [
       "Auftragsanlage im Kundenportal nutzt jetzt die vollständige Admin-Logik mit Leistungen, eigener Leistung, Checkliste und Serienauftrag",
       "Kunden können im Portal ihre E-Mail-Adresse und Telefonnummer selbst aktualisieren",
       "Portal-Kopf zeigt das Kolaretorp-Logo mit Willkommenszeile",
-      "Anmeldemaske im Kundenportal zeigt jetzt das Logo und keine Demo-Zugänge mehr",
+      "Anmeldemaske im Kundenportal zeigt jetzt das Logo korrekt, ohne doppelte Willkommenszeile und ohne Demo-Zugänge",
     ],
   },
   {
