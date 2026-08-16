@@ -4,6 +4,11 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.87.0 - 2026-08-17
+
+- Login-Verlauf im Kundenstamm ist jetzt als einklappbarer Block mit Pfeil dargestellt.
+- Portal-Login-Protokoll zeigt im geschlossenen Zustand nur noch Titel und Anzahl.
+
 ## 1.86.0 - 2026-08-17
 
 - Mobil vor Ort nutzt dieselbe nach Datum sortierte Arbeitslistenlogik wie das Dashboard.

@@ -5860,6 +5860,8 @@ function CustomerForm({
   onSubmit: () => void;
   submitLabel: string;
 }) {
+  const [loginHistoryOpen, setLoginHistoryOpen] = useState(false);
+
   function update(key: keyof CustomerFormState, value: string | string[]) {
     setCustomer({ ...customer, [key]: value } as CustomerFormState);
   }
@@ -5897,8 +5899,12 @@ function CustomerForm({
       <label><span>Login-E-Mail</span><input type="email" value={customer.portalLoginEmail} onChange={(event) => update("portalLoginEmail", event.target.value)} /></label>
       <label><span>Portal-Passwort</span><input value={customer.portalPassword} onChange={(event) => update("portalPassword", event.target.value)} /></label>
       <div className="wide portal-login-history">
-        <span>Login-Verlauf Kundenportal</span>
-        {(customer.portalLoginHistory ?? []).length > 0 ? (
+        <button className="job-fold-toggle" onClick={() => setLoginHistoryOpen((open) => !open)} type="button">
+          {loginHistoryOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+          <span>Login-Verlauf Kundenportal</span>
+          <small>{(customer.portalLoginHistory ?? []).length}</small>
+        </button>
+        {loginHistoryOpen && (customer.portalLoginHistory ?? []).length > 0 ? (
           <div>
             {(customer.portalLoginHistory ?? []).map((entry) => (
               <article key={entry.id}>
@@ -5908,9 +5914,9 @@ function CustomerForm({
               </article>
             ))}
           </div>
-        ) : (
+        ) : loginHistoryOpen ? (
           <p>Noch keine Kundenportal-Logins protokolliert.</p>
-        )}
+        ) : null}
       </div>
       <label><span>Saldo</span><input value={customer.balance} onChange={(event) => update("balance", event.target.value)} /></label>
       <label className="wide"><span>Notizen / interne Info</span><textarea value={customer.notes} onChange={(event) => update("notes", event.target.value)} /></label>
