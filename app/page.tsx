@@ -123,11 +123,14 @@ type CustomerRecord = {
 
 type JobRecord = {
   id: string;
+  seriesMasterId?: string;
+  seriesOccurrenceDate?: string;
+  seriesExcludedDates?: string[];
   title: string;
   objectId: string;
   customerId: string;
   type: string;
-  status: "geplant" | "in Arbeit" | "pausiert" | "erledigt" | "abgerechnet";
+  status: "geplant" | "in Arbeit" | "pausiert" | "erledigt" | "abgerechnet" | "storniert";
   priority: "niedrig" | "normal" | "hoch" | "dringend";
   dueDate: string;
   assignedTo: string;
@@ -1447,7 +1450,7 @@ function alignDateToActiveSeason(date: Date, schedule: JobSchedule) {
 }
 
 function nextSeriesDueDate(job: JobRecord) {
-  if (job.schedule.type !== "serie") return null;
+  if (job.schedule.type !== "serie" || job.seriesMasterId) return null;
 
   const currentDate = parseJobDate(job.dueDate);
   if (!currentDate) return null;
@@ -1461,6 +1464,118 @@ function nextSeriesDueDate(job: JobRecord) {
   if (job.schedule.end === "nach" && job.schedule.occurrences <= 1) return null;
 
   return formatJobDate(nextDate);
+}
+
+function seriesOccurrenceId(masterId: string, date: string) {
+  return `${masterId}-OCC-${date.replaceAll("-", "")}`;
+}
+
+function isSeriesMaster(job: JobRecord) {
+  return job.schedule.type === "serie" && !job.seriesMasterId;
+}
+
+function openSeriesDates(master: JobRecord, reports: ReportRecord[]) {
+  if (!isSeriesMaster(master)) return [];
+
+  const firstDate = parseJobDate(master.dueDate);
+  if (!firstDate) return [];
+
+  const completedDates = new Set(
+    reports
+      .filter((report) => report.jobId === master.id || report.jobId.startsWith(`${master.id}-OCC-`))
+      .map((report) => report.date),
+  );
+  const excludedDates = new Set(master.seriesExcludedDates ?? []);
+  const dates: string[] = [];
+  const openEndHorizon = new Date();
+  openEndHorizon.setMonth(openEndHorizon.getMonth() + 6);
+  let nextDate = ["erledigt", "abgerechnet"].includes(master.status)
+    ? addScheduleInterval(firstDate, master.schedule)
+    : new Date(firstDate);
+  let guard = 0;
+  let occurrenceCount = 0;
+
+  while (guard < 80) {
+    guard += 1;
+    nextDate = alignDateToActiveSeason(nextDate, master.schedule);
+    const dateValue = formatJobDate(nextDate);
+    const endDate = master.schedule.end === "am" && master.schedule.endDate ? parseJobDate(master.schedule.endDate) : null;
+
+    if (endDate && nextDate > endDate) break;
+    if (master.schedule.end === "nie" && nextDate > openEndHorizon) break;
+    occurrenceCount += 1;
+    if (master.schedule.end === "nach" && master.schedule.occurrences > 0 && occurrenceCount > master.schedule.occurrences) break;
+
+    if (!completedDates.has(dateValue) && !excludedDates.has(dateValue)) {
+      dates.push(dateValue);
+    }
+    nextDate = addScheduleInterval(nextDate, master.schedule);
+  }
+
+  return dates;
+}
+
+function makeSeriesOccurrence(master: JobRecord, date: string): JobRecord {
+  return {
+    ...master,
+    id: seriesOccurrenceId(master.id, date),
+    seriesMasterId: master.id,
+    seriesOccurrenceDate: date,
+    seriesExcludedDates: undefined,
+    dueDate: date,
+    status: "geplant",
+    schedule: {
+      type: "einmalig",
+      frequency: master.schedule.frequency,
+      interval: 1,
+      weekdays: [],
+      end: "nie",
+      endDate: "",
+      occurrences: 0,
+    },
+    workMinutes: 0,
+  };
+}
+
+function ensureSeriesOccurrences(jobs: JobRecord[], reports: ReportRecord[]) {
+  let changed = false;
+  const existingIds = new Set(jobs.map((job) => job.id));
+  const existingOccurrenceDates = new Map<string, Set<string>>();
+
+  jobs.forEach((job) => {
+    if (!job.seriesMasterId || !job.seriesOccurrenceDate) return;
+    const dates = existingOccurrenceDates.get(job.seriesMasterId) ?? new Set<string>();
+    dates.add(job.seriesOccurrenceDate);
+    existingOccurrenceDates.set(job.seriesMasterId, dates);
+  });
+
+  const nextJobs = jobs.map((job) => {
+    if (!isSeriesMaster(job)) return job;
+    const openDates = openSeriesDates(job, reports);
+    const hasOpenOccurrence = openDates.some((date) => !existingOccurrenceDates.get(job.id)?.has(date));
+
+    if (hasOpenOccurrence) changed = true;
+    return job;
+  });
+
+  nextJobs
+    .filter(isSeriesMaster)
+    .forEach((master) => {
+      openSeriesDates(master, reports).forEach((date) => {
+        const id = seriesOccurrenceId(master.id, date);
+        if (existingIds.has(id) || existingOccurrenceDates.get(master.id)?.has(date)) return;
+        nextJobs.push(makeSeriesOccurrence(master, date));
+        existingIds.add(id);
+        changed = true;
+      });
+    });
+
+  return changed ? nextJobs : jobs;
+}
+
+function visibleOperationalJobs(jobs: JobRecord[]) {
+  const mastersWithOccurrences = new Set(jobs.filter((job) => job.seriesMasterId).map((job) => job.seriesMasterId));
+  return jobs.filter((job) => !isSeriesMaster(job) || !mastersWithOccurrences.has(job.id));
 }
 
 export default function HomePage() {
@@ -1492,14 +1607,15 @@ export default function HomePage() {
   const [newJob, setNewJob] = useState<NewJobFormState>(emptyJobForm());
 
   function applySnapshot(snapshot: AppSnapshot) {
+    const normalizedJobs = ensureSeriesOccurrences(snapshot.jobs, snapshot.reports);
     setObjects(snapshot.objects);
     setCustomers(snapshot.customers);
-    setJobs(snapshot.jobs);
+    setJobs(normalizedJobs);
     setReports(snapshot.reports);
     setServices(snapshot.services);
     setServicePackages(snapshot.packages);
     setFieldProgress(snapshot.fieldProgress);
-    setActiveJobId(snapshot.activeJobId);
+    setActiveJobId(snapshot.activeJobId && normalizedJobs.some((job) => job.id === snapshot.activeJobId) ? snapshot.activeJobId : null);
   }
 
   useEffect(() => {
@@ -1542,6 +1658,15 @@ export default function HomePage() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!appStorageReady) return;
+    const timeoutId = window.setTimeout(() => {
+      setJobs((current) => ensureSeriesOccurrences(current, reports));
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [appStorageReady, reports]);
 
   useEffect(() => {
     if (!appStorageReady) return;
@@ -1607,6 +1732,7 @@ export default function HomePage() {
   const archivedObjects = objects.filter((object) => object.archived);
   const activeCustomers = customers.filter((customer) => !customer.archived);
   const archivedCustomers = customers.filter((customer) => customer.archived);
+  const operationalJobs = visibleOperationalJobs(jobs);
   const selectedObject = activeObjects.find((object) => object.id === selectedObjectId) ?? activeObjects[0] ?? objects[0];
   const editingObject = objects.find((object) => object.id === editingObjectId);
   const filteredObjects = activeObjects.filter((object) =>
@@ -1616,12 +1742,12 @@ export default function HomePage() {
       .includes(query.toLowerCase()),
   );
   const currentFieldJobId = activeJobId
-    ?? jobs.find((job) => job.status === "in Arbeit")?.id
-    ?? jobs.find((job) => !["erledigt", "abgerechnet"].includes(job.status))?.id
+    ?? operationalJobs.find((job) => job.status === "in Arbeit")?.id
+    ?? operationalJobs.find((job) => !["erledigt", "abgerechnet"].includes(job.status))?.id
     ?? "";
   const dashboardStats: Array<{ label: string; value: number; section: Section }> = [
     { label: "aktive Objekte", value: activeObjects.length, section: "objects" },
-    { label: "offene Einsätze", value: jobs.filter((job) => job.status !== "erledigt" && job.status !== "abgerechnet").length, section: "planning" },
+    { label: "offene Einsätze", value: operationalJobs.filter((job) => !["erledigt", "abgerechnet", "storniert"].includes(job.status)).length, section: "planning" },
     { label: "Berichte", value: reports.length, section: "reports" },
     { label: "abrechenbar", value: billing.filter((item) => item.status === "abrechenbar").length, section: "billing" },
   ];
@@ -1671,7 +1797,7 @@ export default function HomePage() {
   }
 
   function archiveObject(object: ObjectRecord) {
-    const openJobs = jobs.filter((job) => job.objectId === object.id && !["erledigt", "abgerechnet"].includes(job.status));
+    const openJobs = jobs.filter((job) => job.objectId === object.id && !["erledigt", "abgerechnet", "storniert"].includes(job.status));
     if (openJobs.length > 0) {
       setRecordNotice(`Objekt "${object.name}" kann nicht archiviert werden: offene Einsätze ${openJobs.map((job) => job.title).join(", ")}.`);
       return;
@@ -1785,6 +1911,24 @@ export default function HomePage() {
     setModal("job");
   }
 
+  function cancelJob(job: JobRecord) {
+    const nextJobs = jobs.map((item) => (
+      item.id === job.id || (isSeriesMaster(job) && item.seriesMasterId === job.id)
+        ? { ...item, status: "storniert" as const }
+        : item
+    ));
+    setJobs(nextJobs);
+    persistSnapshotNow({ jobs: nextJobs });
+  }
+
+  function restoreJob(job: JobRecord) {
+    const nextJobs = jobs.map((item) => (
+      item.id === job.id ? { ...item, status: "geplant" as const } : item
+    ));
+    setJobs(nextJobs);
+    persistSnapshotNow({ jobs: nextJobs });
+  }
+
   function saveJob() {
     const id = editingJobId ?? `JOB-${2410 + jobs.length}`;
     const existingJob = jobs.find((job) => job.id === editingJobId);
@@ -1809,6 +1953,9 @@ export default function HomePage() {
     const checklist = [...selectedServiceTasks, ...customServiceTasks].map((task) => task.title);
     const saved: JobRecord = {
       id,
+      seriesMasterId: existingJob?.seriesMasterId,
+      seriesOccurrenceDate: existingJob?.seriesOccurrenceDate,
+      seriesExcludedDates: existingJob?.seriesExcludedDates,
       title: newJob.title.trim() || "Neuer Auftrag",
       objectId: selectedObject.id,
       customerId: selectedObject.ownerCustomerId || customers.find((customer) => customer.name === selectedObject.owner)?.id || "CUS-1",
@@ -1839,11 +1986,17 @@ export default function HomePage() {
       },
     };
 
-    setJobs((current) =>
-      editingJobId
-        ? current.map((job) => (job.id === editingJobId ? saved : job))
-        : [saved, ...current],
-    );
+    setJobs((current) => {
+      const reportJobIds = new Set(reports.map((report) => report.jobId));
+      const withoutOldOccurrences = editingJobId && isSeriesMaster(saved)
+        ? current.filter((job) => job.seriesMasterId !== editingJobId || reportJobIds.has(job.id) || job.status !== "geplant")
+        : current;
+      const nextJobs = editingJobId
+        ? withoutOldOccurrences.map((job) => (job.id === editingJobId ? saved : job))
+        : [saved, ...withoutOldOccurrences];
+
+      return ensureSeriesOccurrences(nextJobs, reports);
+    });
     setEditingJobId(null);
     setSection("jobs");
     setModal(null);
@@ -2043,7 +2196,7 @@ export default function HomePage() {
           <div className="main-panel">
             {section === "dashboard" && (
               <Dashboard
-                jobs={jobs}
+                jobs={operationalJobs}
                 objects={activeObjects}
                 reports={reports}
                 setSection={setSection}
@@ -2091,14 +2244,14 @@ export default function HomePage() {
               />
             )}
             {section === "jobs" && (
-              <JobsView jobs={jobs} objects={activeObjects} onCreate={openCreateJob} onEdit={openEditJob} onStart={startJob} />
+              <JobsView jobs={operationalJobs} objects={activeObjects} onCancel={cancelJob} onCreate={openCreateJob} onEdit={openEditJob} onRestore={restoreJob} onStart={startJob} />
             )}
-            {section === "planning" && <PlanningView jobs={jobs} objects={activeObjects} onStart={startJob} />}
+            {section === "planning" && <PlanningView jobs={operationalJobs} objects={activeObjects} onStart={startJob} />}
             {section === "reports" && <ReportsView customers={customers} jobs={jobs} objects={objects} onEditInField={editReportInField} reports={reports} />}
             {section === "field" && (
               <FieldView
                 activeJobId={activeJobId}
-                jobs={jobs}
+                jobs={operationalJobs}
                 objects={activeObjects}
                 packages={servicePackages}
                 services={services}
@@ -2656,14 +2809,18 @@ function CustomersView({
 function JobsView({
   jobs,
   objects,
+  onCancel,
   onCreate,
   onEdit,
+  onRestore,
   onStart,
 }: {
   jobs: JobRecord[];
   objects: ObjectRecord[];
+  onCancel: (job: JobRecord) => void;
   onCreate: () => void;
   onEdit: (job: JobRecord) => void;
+  onRestore: (job: JobRecord) => void;
   onStart: (job: JobRecord) => void;
 }) {
   return (
@@ -2691,7 +2848,14 @@ function JobsView({
               <Badge value={job.status} />
               <div className="row-actions">
                 <IconAction label={`Auftrag ${job.title} bearbeiten`} onClick={() => onEdit(job)}><Pencil size={16} /></IconAction>
-                <IconAction label={`Auftrag ${job.title} starten`} onClick={() => onStart(job)}><PlayCircle size={16} /></IconAction>
+                {job.status === "storniert" ? (
+                  <IconAction label={`Auftrag ${job.title} reaktivieren`} onClick={() => onRestore(job)}><RotateCcw size={16} /></IconAction>
+                ) : (
+                  <>
+                    <IconAction label={`Auftrag ${job.title} starten`} onClick={() => onStart(job)}><PlayCircle size={16} /></IconAction>
+                    <IconAction danger label={`Auftrag ${job.title} stornieren`} onClick={() => onCancel(job)}><X size={16} /></IconAction>
+                  </>
+                )}
               </div>
             </div>
           </article>
@@ -2711,7 +2875,7 @@ function PlanningView({ jobs, objects, onStart }: { jobs: JobRecord[]; objects: 
         </div>
       </div>
       <div className="planning-grid">
-        {["geplant", "in Arbeit", "erledigt", "abgerechnet"].map((status) => (
+        {["geplant", "in Arbeit", "erledigt", "abgerechnet", "storniert"].map((status) => (
           <div key={status}>
             <h3>{status}</h3>
             {jobs.filter((job) => job.status === status).map((job) => (
@@ -2758,10 +2922,10 @@ function FieldView({
   onComplete: (job: JobRecord, checklistResults: FieldTaskResult[], fieldNote: string) => void;
 }) {
   const [fieldNote, setFieldNote] = useState("Notiz: Zugang geprüft, Fotos ergänzt.");
-  const openJobs = jobs.filter((job) => !["erledigt", "abgerechnet"].includes(job.status));
+  const openJobs = jobs.filter((job) => !["erledigt", "abgerechnet", "storniert"].includes(job.status));
   const completedReports = reports.filter((report) => {
     const job = jobs.find((item) => item.id === report.jobId);
-    return job && ["erledigt", "geplant", "in Arbeit"].includes(job.status);
+    return job ? ["erledigt", "geplant", "in Arbeit"].includes(job.status) : true;
   });
   const active = activeJobId ? jobs.find((job) => job.id === activeJobId) : undefined;
   if (!active && openJobs.length === 0 && completedReports.length === 0) {

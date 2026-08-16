@@ -1,10 +1,20 @@
 export const appVersion = {
-  version: "1.52.0",
+  version: "1.53.0",
   releaseDate: "2026-08-16",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.53.0",
+    date: "2026-08-16",
+    changes: [
+      "Serienaufträge erzeugen jetzt konkrete interne Teilaufträge, die einzeln bearbeitet, gestartet oder storniert werden können",
+      "Der Serienauftrag Bolet - Rasenmähen erzeugt die noch offenen Termine 27.08.2026 und 10.09.2026 bis zum Enddatum",
+      "Nie endende Serien werden rollierend für die nächsten 6 Monate als interne Auftragsliste vorbereitet",
+      "Aufträge können jetzt storniert und bei Bedarf wieder reaktiviert werden",
+    ],
+  },
   {
     version: "1.52.0",
     date: "2026-08-16",

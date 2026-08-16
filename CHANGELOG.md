@@ -4,6 +4,13 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.53.0 - 2026-08-16
+
+- Serienaufträge erzeugen jetzt konkrete interne Teilaufträge, die einzeln bearbeitet, gestartet oder storniert werden können.
+- Der Serienauftrag Bolet - Rasenmähen erzeugt die noch offenen Termine 27.08.2026 und 10.09.2026 bis zum Enddatum.
+- Nie endende Serien werden rollierend für die nächsten 6 Monate als interne Auftragsliste vorbereitet.
+- Aufträge können jetzt storniert und bei Bedarf wieder reaktiviert werden.
+
 ## 1.52.0 - 2026-08-16
 
 - Serienaufträge bleiben nach einem erledigten Termin offen, wenn weitere Termine folgen.
