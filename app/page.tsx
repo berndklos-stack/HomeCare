@@ -1614,9 +1614,7 @@ function readableJobStatus(status: JobRecord["status"]) {
   return status;
 }
 
-function seriesStatusLabel(master: JobRecord, occurrences: JobRecord[], reports: ReportRecord[]) {
-  if (!isSeriesMaster(master)) return master.status;
-
+function seriesSummary(master: JobRecord, occurrences: JobRecord[], reports: ReportRecord[]) {
   const completedDates = [
     ...occurrences.filter((job) => ["erledigt", "abgerechnet"].includes(job.status)).map((job) => job.dueDate),
     ...reports.filter((report) => report.jobId === master.id || report.jobId.startsWith(`${master.id}-OCC-`)).map((report) => report.date),
@@ -1625,10 +1623,13 @@ function seriesStatusLabel(master: JobRecord, occurrences: JobRecord[], reports:
     .filter(Boolean)
     .sort((first, second) => (parseJobDate(second)?.getTime() ?? 0) - (parseJobDate(first)?.getTime() ?? 0));
   const nextJob = sortedByDueDate(occurrences).find((job) => !["erledigt", "abgerechnet", "storniert"].includes(job.status));
-  const lastText = completedDates[0] ? `Letzter Teilauftrag erledigt am ${completedDates[0]}` : "Noch kein Teilauftrag erledigt";
-  const nextText = nextJob ? `Nächster Teilauftrag ${readableJobStatus(nextJob.status)} am ${nextJob.dueDate}` : "Kein offener Teilauftrag";
 
-  return `Serienauftrag · ${lastText} · ${nextText}`;
+  return {
+    lastDone: completedDates[0] ?? "noch keiner",
+    nextDate: nextJob?.dueDate ?? "kein offener",
+    nextStatus: nextJob ? readableJobStatus(nextJob.status) : "abgeschlossen",
+    rhythm: scheduleLabel(master.schedule).replace(/^Serie:\s*/, ""),
+  };
 }
 
 export default function HomePage() {
@@ -2915,18 +2916,26 @@ function JobsView({
           const occurrences = sortedByDueDate(occurrenceGroups[job.id] ?? []);
           const isRecurring = isSeriesMaster(job);
           const isExpanded = expandedSeriesIds.includes(job.id);
-          const visibleStatus = isRecurring ? seriesStatusLabel(job, occurrences, reports) : job.status;
+          const summary = isRecurring ? seriesSummary(job, occurrences, reports) : null;
 
           return (
             <article className={`job-row ${isRecurring ? "series-job-row" : ""}`} key={job.id}>
               <div className="job-row-main">
                 <strong>{job.title}</strong>
-                <span>{objects.find((object) => object.id === job.objectId)?.name} · {scheduleLabel(job.schedule)} · {job.description}</span>
+                <span>{objects.find((object) => object.id === job.objectId)?.name} · {isRecurring && summary ? summary.rhythm : scheduleLabel(job.schedule)} · {job.description}</span>
               </div>
               <div className="job-row-meta">
                 <span>{isRecurring ? `${occurrences.length} Teilaufträge` : job.dueDate}</span>
                 <span>{job.priority}</span>
-                <Badge value={visibleStatus} />
+                {isRecurring && summary ? (
+                  <div className="series-summary-chips" aria-label="Serienstatus">
+                    <span>Serienauftrag</span>
+                    <span>Letzter: {summary.lastDone}</span>
+                    <span>Nächster: {summary.nextStatus} {summary.nextDate}</span>
+                  </div>
+                ) : (
+                  <Badge value={job.status} />
+                )}
                 <div className="row-actions">
                   {isRecurring && (
                     <IconAction label={`${job.title} Teilaufträge ${isExpanded ? "ausblenden" : "anzeigen"}`} onClick={() => toggleSeries(job.id)}>
