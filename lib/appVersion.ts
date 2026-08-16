@@ -1,10 +1,17 @@
 export const appVersion = {
-  version: "1.79.0",
+  version: "1.80.0",
   releaseDate: "2026-08-17",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.80.0",
+    date: "2026-08-17",
+    changes: [
+      "Überschrift der Leistungsanfrage im Kundenportal lautet jetzt Nachricht an Kolaretorp Service AB",
+    ],
+  },
   {
     version: "1.79.0",
     date: "2026-08-17",

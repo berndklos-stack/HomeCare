@@ -4647,7 +4647,7 @@ function CustomerPortalView({
           <div className="panel-title">
             <div>
               <p>Leistung anfragen</p>
-              <h2>Schreib uns eine Nachricht</h2>
+              <h2>Nachricht an Kolaretorp Service AB</h2>
             </div>
           </div>
           <div className="form-grid portal-form">

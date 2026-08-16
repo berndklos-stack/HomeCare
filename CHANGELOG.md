@@ -4,6 +4,10 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.80.0 - 2026-08-17
+
+- Überschrift der Leistungsanfrage im Kundenportal lautet jetzt Nachricht an Kolaretorp Service AB.
+
 ## 1.79.0 - 2026-08-17
 
 - Kundenportal-Texte wurden auf Du-Form umgestellt.
