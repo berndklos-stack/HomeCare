@@ -1398,6 +1398,71 @@ function scheduleLabel(schedule: JobSchedule) {
   return `Serie: ${cadence}${days}${season}${years}${end}`;
 }
 
+function parseJobDate(value: string) {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const parsed = new Date(`${value}T12:00:00`);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  const germanDate = value.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+  if (germanDate) {
+    const [, day, month, year] = germanDate;
+    const parsed = new Date(`${year}-${month}-${day}T12:00:00`);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  return null;
+}
+
+function formatJobDate(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function addScheduleInterval(date: Date, schedule: JobSchedule) {
+  const nextDate = new Date(date);
+  const interval = Math.max(schedule.interval || 1, 1);
+
+  if (schedule.frequency === "täglich") nextDate.setDate(nextDate.getDate() + interval);
+  if (schedule.frequency === "wöchentlich") nextDate.setDate(nextDate.getDate() + interval * 7);
+  if (schedule.frequency === "monatlich") nextDate.setMonth(nextDate.getMonth() + interval);
+  if (schedule.frequency === "jährlich") nextDate.setFullYear(nextDate.getFullYear() + interval);
+
+  return nextDate;
+}
+
+function alignDateToActiveSeason(date: Date, schedule: JobSchedule) {
+  if (!schedule.activeFromMonth || !schedule.activeToMonth) return date;
+
+  const nextDate = new Date(date);
+  const currentMonth = nextDate.getMonth() + 1;
+  const fromMonth = schedule.activeFromMonth;
+  const toMonth = schedule.activeToMonth;
+
+  if (fromMonth <= toMonth && (currentMonth < fromMonth || currentMonth > toMonth)) {
+    const year = currentMonth > toMonth ? nextDate.getFullYear() + Math.max(schedule.yearInterval || 1, 1) : nextDate.getFullYear();
+    return new Date(`${year}-${String(fromMonth).padStart(2, "0")}-01T12:00:00`);
+  }
+
+  return nextDate;
+}
+
+function nextSeriesDueDate(job: JobRecord) {
+  if (job.schedule.type !== "serie") return null;
+
+  const currentDate = parseJobDate(job.dueDate);
+  if (!currentDate) return null;
+
+  const nextDate = alignDateToActiveSeason(addScheduleInterval(currentDate, job.schedule), job.schedule);
+  if (job.schedule.end === "am" && job.schedule.endDate) {
+    const endDate = parseJobDate(job.schedule.endDate);
+    if (endDate && nextDate > endDate) return null;
+  }
+
+  if (job.schedule.end === "nach" && job.schedule.occurrences <= 1) return null;
+
+  return formatJobDate(nextDate);
+}
+
 export default function HomePage() {
   const [section, setSection] = useState<Section>("dashboard");
   const [language, setLanguage] = useState<Language>("de");
@@ -1419,6 +1484,7 @@ export default function HomePage() {
   const [objectEditorOpen, setObjectEditorOpen] = useState(false);
   const [editingCustomerId, setEditingCustomerId] = useState<string | null>(null);
   const [editingJobId, setEditingJobId] = useState<string | null>(null);
+  const [editingFieldReportId, setEditingFieldReportId] = useState<string | null>(null);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [recordNotice, setRecordNotice] = useState("");
   const [newObject, setNewObject] = useState<NewObjectFormState>(emptyObjectForm());
@@ -1787,7 +1853,33 @@ export default function HomePage() {
     const nextJobs = jobs.map((item) => (item.id === job.id ? { ...item, status: "in Arbeit" as const } : item));
     setJobs(nextJobs);
     setActiveJobId(job.id);
+    setEditingFieldReportId(null);
     persistSnapshotNow({ activeJobId: job.id, jobs: nextJobs });
+    setSelectedObjectId(job.objectId);
+    setSection("field");
+  }
+
+  function editReportInField(report: ReportRecord) {
+    const job = jobs.find((item) => item.id === report.jobId);
+    if (!job) return;
+
+    const reportProgress = Object.fromEntries(
+      report.checklistResults.map((item) => [
+        item.id,
+        {
+          completed: item.completed,
+          minutes: String(item.minutes || ""),
+          note: item.note,
+          photos: item.photos,
+        },
+      ]),
+    ) as Record<string, FieldTaskProgress>;
+    const nextFieldProgress = { ...fieldProgress, [job.id]: reportProgress };
+
+    setFieldProgress(nextFieldProgress);
+    setActiveJobId(job.id);
+    setEditingFieldReportId(report.id);
+    persistSnapshotNow({ activeJobId: job.id, fieldProgress: nextFieldProgress });
     setSelectedObjectId(job.objectId);
     setSection("field");
   }
@@ -1798,10 +1890,16 @@ export default function HomePage() {
     ));
     setJobs(nextJobs);
     setActiveJobId(null);
+    setEditingFieldReportId(null);
     persistSnapshotNow({ activeJobId: null, jobs: nextJobs });
   }
 
   function completeJob(job: JobRecord, checklistResults: FieldTaskResult[], fieldNote: string) {
+    const existingReport = editingFieldReportId
+      ? reports.find((report) => report.id === editingFieldReportId)
+      : reports.find((report) => report.jobId === job.id && report.date === job.dueDate);
+    const isReportEdit = Boolean(editingFieldReportId && existingReport);
+    const nextDueDate = isReportEdit ? null : nextSeriesDueDate(job);
     const normalizedResults = checklistResults.map((item) => ({
       ...item,
       minutes: item.completed ? item.minutes : 0,
@@ -1809,25 +1907,36 @@ export default function HomePage() {
     const workMinutes = normalizedResults.reduce((sum, item) => sum + item.minutes, 0);
     const completedCount = normalizedResults.filter((item) => item.completed).length;
     const photoCount = normalizedResults.reduce((sum, item) => sum + item.photos.length, 0);
-    const reportId = `REP-${Date.now()}`;
+    const reportId = existingReport?.id ?? `REP-${Date.now()}`;
     const summary = `${completedCount} von ${checklistResults.length} Checklistenpunkten ausgeführt.${fieldNote.trim() ? ` ${fieldNote.trim()}` : ""}`;
-
-    const nextJobs = jobs.map((item) => (item.id === job.id ? { ...item, status: "erledigt" as const, workMinutes } : item));
+    const nextSchedule = job.schedule.type === "serie" && nextDueDate && job.schedule.end === "nach"
+      ? { ...job.schedule, occurrences: Math.max(job.schedule.occurrences - 1, 0) }
+      : job.schedule;
+    const nextJobStatus = isReportEdit
+      ? job.status
+      : job.schedule.type === "serie" && nextDueDate ? "geplant" as const : "erledigt" as const;
+    const nextJobs = jobs.map((item) => (
+      item.id === job.id
+        ? { ...item, dueDate: nextDueDate ?? item.dueDate, schedule: nextSchedule, status: nextJobStatus, workMinutes }
+        : item
+    ));
+    const savedReport: ReportRecord = {
+      id: reportId,
+      jobId: job.id,
+      objectId: job.objectId,
+      title: job.title,
+      date: existingReport?.date ?? job.dueDate,
+      visibleToCustomer: existingReport?.visibleToCustomer ?? true,
+      summary,
+      internalNotes: job.internalNotes,
+      media: [`${photoCount} Fotos`, `${workMinutes} Minuten dokumentiert`],
+      checklistResults: normalizedResults,
+      customerComment: existingReport?.customerComment ?? "",
+      sentAt: existingReport?.sentAt,
+    };
     const nextReports = [
-      {
-        id: reportId,
-        jobId: job.id,
-        objectId: job.objectId,
-        title: job.title,
-        date: job.dueDate,
-        visibleToCustomer: true,
-        summary,
-        internalNotes: job.internalNotes,
-        media: [`${photoCount} Fotos`, `${workMinutes} Minuten dokumentiert`],
-        checklistResults: normalizedResults,
-        customerComment: "",
-      },
-      ...reports.filter((report) => report.jobId !== job.id),
+      savedReport,
+      ...reports.filter((report) => report.id !== reportId && (job.schedule.type === "serie" || report.jobId !== job.id)),
     ];
     const nextObjects = objects.map((object) => (object.id === job.objectId ? { ...object, lastVisit: job.dueDate } : object));
     const nextFieldProgress = { ...fieldProgress };
@@ -1838,6 +1947,7 @@ export default function HomePage() {
     setObjects(nextObjects);
     setFieldProgress(nextFieldProgress);
     setActiveJobId(null);
+    setEditingFieldReportId(null);
     persistSnapshotNow({
       activeJobId: null,
       fieldProgress: nextFieldProgress,
@@ -1984,7 +2094,7 @@ export default function HomePage() {
               <JobsView jobs={jobs} objects={activeObjects} onCreate={openCreateJob} onEdit={openEditJob} onStart={startJob} />
             )}
             {section === "planning" && <PlanningView jobs={jobs} objects={activeObjects} onStart={startJob} />}
-            {section === "reports" && <ReportsView customers={customers} jobs={jobs} objects={objects} reports={reports} />}
+            {section === "reports" && <ReportsView customers={customers} jobs={jobs} objects={objects} onEditInField={editReportInField} reports={reports} />}
             {section === "field" && (
               <FieldView
                 activeJobId={activeJobId}
@@ -1992,8 +2102,11 @@ export default function HomePage() {
                 objects={activeObjects}
                 packages={servicePackages}
                 services={services}
+                reports={reports}
                 progress={currentFieldJobId ? fieldProgress[currentFieldJobId] ?? {} : {}}
+                editingReportId={editingFieldReportId}
                 onSelectJob={startJob}
+                onSelectReport={editReportInField}
                 onClearActiveJob={clearActiveJob}
                 onProgressChange={(jobId, progress) => setFieldProgress((current) => {
                   const nextProgress = { ...current, [jobId]: progress };
@@ -2128,11 +2241,13 @@ function Dashboard({
 function ReportsView({
   customers,
   jobs,
+  onEditInField,
   objects,
   reports,
 }: {
   customers: CustomerRecord[];
   jobs: JobRecord[];
+  onEditInField: (report: ReportRecord) => void;
   objects: ObjectRecord[];
   reports: ReportRecord[];
 }) {
@@ -2184,7 +2299,10 @@ function ReportsView({
               <h3>{selectedReport.title}</h3>
               <span>{selectedObject.name} · {selectedObject.address}</span>
             </div>
-            <IconAction label={`PDF für ${selectedReport.title} ausgeben`} onClick={() => window.print()}><FileDown size={16} /></IconAction>
+            <div className="row-actions">
+              <IconAction label={`Bericht ${selectedReport.title} mobil nachbearbeiten`} onClick={() => onEditInField(selectedReport)}><Pencil size={16} /></IconAction>
+              <IconAction label={`PDF für ${selectedReport.title} ausgeben`} onClick={() => window.print()}><FileDown size={16} /></IconAction>
+            </div>
           </div>
           <CustomerReportCard customer={selectedCustomer} job={selectedJob} object={selectedObject} report={selectedReport} sentAt={selectedReport.sentAt} />
         </section>
@@ -2612,31 +2730,41 @@ function PlanningView({ jobs, objects, onStart }: { jobs: JobRecord[]; objects: 
 
 function FieldView({
   activeJobId,
+  editingReportId,
   jobs,
   objects,
   packages,
+  reports,
   services,
   progress,
   onSelectJob,
+  onSelectReport,
   onClearActiveJob,
   onProgressChange,
   onComplete,
 }: {
   activeJobId: string | null;
+  editingReportId: string | null;
   jobs: JobRecord[];
   objects: ObjectRecord[];
   packages: ServicePackage[];
+  reports: ReportRecord[];
   services: ServiceItem[];
   progress: Record<string, FieldTaskProgress>;
   onSelectJob: (job: JobRecord) => void;
+  onSelectReport: (report: ReportRecord) => void;
   onClearActiveJob: () => void;
   onProgressChange: (jobId: string, progress: Record<string, FieldTaskProgress>) => void;
   onComplete: (job: JobRecord, checklistResults: FieldTaskResult[], fieldNote: string) => void;
 }) {
   const [fieldNote, setFieldNote] = useState("Notiz: Zugang geprüft, Fotos ergänzt.");
   const openJobs = jobs.filter((job) => !["erledigt", "abgerechnet"].includes(job.status));
+  const completedReports = reports.filter((report) => {
+    const job = jobs.find((item) => item.id === report.jobId);
+    return job && ["erledigt", "geplant", "in Arbeit"].includes(job.status);
+  });
   const active = activeJobId ? jobs.find((job) => job.id === activeJobId) : undefined;
-  if (!active && openJobs.length === 0) {
+  if (!active && openJobs.length === 0 && completedReports.length === 0) {
     return (
       <section className="field-shell">
         <div className="phone-card">
@@ -2666,10 +2794,28 @@ function FieldView({
                 </button>
               );
             })}
+            {openJobs.length === 0 && <span>Keine offenen Aufträge.</span>}
+          </div>
+          <div className="field-job-picker">
+            <strong>Abgeschlossene Berichte</strong>
+            {completedReports.map((report) => {
+              const job = jobs.find((item) => item.id === report.jobId);
+              const jobObject = objects.find((item) => item.id === report.objectId);
+              return (
+                <button key={report.id} onClick={() => onSelectReport(report)} type="button">
+                  <span>
+                    <strong>{report.title}</strong>
+                    <small>{jobObject?.name ?? "Objekt unbekannt"} · {report.date}</small>
+                  </span>
+                  <Badge value={job?.status ?? "Bericht"} />
+                </button>
+              );
+            })}
+            {completedReports.length === 0 && <span>Noch keine abgeschlossenen Berichte.</span>}
           </div>
           <div className="field-empty-state">
             <h2>Auftrag auswählen</h2>
-            <span>Tippe einen offenen Auftrag an, um die Checkliste vor Ort zu bearbeiten.</span>
+            <span>Tippe einen offenen Auftrag oder einen bestehenden Bericht an, um die Checkliste vor Ort zu bearbeiten.</span>
           </div>
         </div>
       </section>
@@ -2747,9 +2893,32 @@ function FieldView({
               </button>
             );
           })}
+          {openJobs.length === 0 && <span>Keine offenen Aufträge.</span>}
+        </div>
+        <div className="field-job-picker">
+          <strong>Abgeschlossene Berichte</strong>
+          {completedReports.slice(0, 6).map((report) => {
+            const job = jobs.find((item) => item.id === report.jobId);
+            const jobObject = objects.find((item) => item.id === report.objectId);
+            return (
+              <button
+                className={editingReportId === report.id ? "active" : ""}
+                key={report.id}
+                onClick={() => onSelectReport(report)}
+                type="button"
+              >
+                <span>
+                  <strong>{report.title}</strong>
+                  <small>{jobObject?.name ?? "Objekt unbekannt"} · {report.date}</small>
+                </span>
+                <Badge value={job?.status ?? "Bericht"} />
+              </button>
+            );
+          })}
+          {completedReports.length === 0 && <span>Noch keine abgeschlossenen Berichte.</span>}
         </div>
         <div className="field-active-head">
-          <h2>{activeJob.title}</h2>
+          <h2>{editingReportId ? "Bericht nachbearbeiten" : activeJob.title}</h2>
           <IconAction label={`Auftrag ${activeJob.title} abwählen`} onClick={onClearActiveJob}>
             <X size={16} />
           </IconAction>
@@ -2853,7 +3022,7 @@ function FieldView({
         </div>
         <textarea value={fieldNote} onChange={(event) => setFieldNote(event.target.value)} aria-label="Einsatznotiz" />
         <button className="primary-button" onClick={completeActiveJob} type="button">
-          Einsatz abschließen
+          {editingReportId ? "Bericht speichern" : "Einsatz abschließen"}
         </button>
       </div>
     </section>

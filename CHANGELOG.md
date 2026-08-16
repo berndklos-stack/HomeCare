@@ -4,6 +4,13 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.52.0 - 2026-08-16
+
+- Serienaufträge bleiben nach einem erledigten Termin offen, wenn weitere Termine folgen.
+- Bei Serienaufträgen wird der nächste Fälligkeitstermin automatisch fortgeschrieben.
+- Mobil vor Ort zeigt abgeschlossene Berichte zur Nachbearbeitung an.
+- Bestehende Einsatzberichte können mobil geöffnet, geändert und erneut gespeichert werden.
+
 ## 1.51.0 - 2026-08-12
 
 - Aufträge können jetzt konkrete Leistungen aus den Stammdaten enthalten.

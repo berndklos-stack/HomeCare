@@ -1,10 +1,20 @@
 export const appVersion = {
-  version: "1.51.0",
-  releaseDate: "2026-08-12",
+  version: "1.52.0",
+  releaseDate: "2026-08-16",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.52.0",
+    date: "2026-08-16",
+    changes: [
+      "Serienaufträge bleiben nach einem erledigten Termin offen, wenn weitere Termine folgen",
+      "Bei Serienaufträgen wird der nächste Fälligkeitstermin automatisch fortgeschrieben",
+      "Mobil vor Ort zeigt abgeschlossene Berichte zur Nachbearbeitung an",
+      "Bestehende Einsatzberichte können mobil geöffnet, geändert und erneut gespeichert werden",
+    ],
+  },
   {
     version: "1.51.0",
     date: "2026-08-12",
