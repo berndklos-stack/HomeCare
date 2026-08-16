@@ -3698,7 +3698,7 @@ function ObjectsView({
       {archivedObjects.length > 0 && (
         <div className="archive-section">
           <h3>Archivierte Objekte</h3>
-          <div className="table-list compact-list">
+          <div className="table-list compact-list archive-list">
             {archivedObjects.map((object) => (
               <article key={object.id}>
                 <div>
@@ -3709,8 +3709,8 @@ function ObjectsView({
                 <div className="row-actions">
                   <IconAction label={`Archiviertes Objekt ${object.name} bearbeiten`} onClick={() => onEdit(object)}><Pencil size={16} /></IconAction>
                   <IconAction label={`Archiviertes Objekt ${object.name} reaktivieren`} onClick={() => onRestore(object)}><RotateCcw size={16} /></IconAction>
+                  <IconAction danger label={`Archiviertes Objekt ${object.name} löschen`} onClick={() => onDelete(object)}><Trash2 size={16} /></IconAction>
                 </div>
-                <IconAction danger label={`Archiviertes Objekt ${object.name} löschen`} onClick={() => onDelete(object)}><Trash2 size={16} /></IconAction>
               </article>
             ))}
           </div>
@@ -3793,7 +3793,7 @@ function CustomersView({
       {archivedCustomers.length > 0 && (
         <div className="archive-section">
           <h3>Archivierte Kunden</h3>
-          <div className="table-list compact-list">
+          <div className="table-list compact-list archive-list">
             {archivedCustomers.map((customer) => (
               <article key={customer.id}>
                 <div>
@@ -3804,8 +3804,8 @@ function CustomersView({
                 <div className="row-actions">
                   <IconAction label={`Archivierten Kunden ${customer.name} bearbeiten`} onClick={() => onEdit(customer)}><Pencil size={16} /></IconAction>
                   <IconAction label={`Archivierten Kunden ${customer.name} reaktivieren`} onClick={() => onRestore(customer)}><RotateCcw size={16} /></IconAction>
+                  <IconAction danger label={`Archivierten Kunden ${customer.name} löschen`} onClick={() => onDelete(customer)}><Trash2 size={16} /></IconAction>
                 </div>
-                <IconAction danger label={`Archivierten Kunden ${customer.name} löschen`} onClick={() => onDelete(customer)}><Trash2 size={16} /></IconAction>
               </article>
             ))}
           </div>
@@ -5081,7 +5081,7 @@ function MasterDataView({
         {archivedServices.length > 0 && (
           <div className="archive-section">
             <h3>Archivierte Leistungen</h3>
-            <div className="table-list compact-list">
+            <div className="table-list compact-list archive-list">
               {archivedServices.map((service) => (
                 <article key={service.id}>
                   <div>
@@ -5092,8 +5092,8 @@ function MasterDataView({
                   <div className="row-actions">
                     <IconAction label={`Archivierte Leistung ${service.name} bearbeiten`} onClick={() => editService(service)}><Pencil size={16} /></IconAction>
                     <IconAction label={`Archivierte Leistung ${service.name} reaktivieren`} onClick={() => restoreService(service)}><RotateCcw size={16} /></IconAction>
+                    <IconAction danger label={`Archivierte Leistung ${service.name} löschen`} onClick={() => deleteArchivedService(service)}><Trash2 size={16} /></IconAction>
                   </div>
-                  <IconAction danger label={`Archivierte Leistung ${service.name} löschen`} onClick={() => deleteArchivedService(service)}><Trash2 size={16} /></IconAction>
                 </article>
               ))}
             </div>
@@ -5161,8 +5161,8 @@ function MasterDataView({
                   <div className="row-actions">
                     <IconAction label={`Archiviertes Paket ${servicePackage.name} bearbeiten`} onClick={() => editPackage(servicePackage)}><Pencil size={16} /></IconAction>
                     <IconAction label={`Archiviertes Paket ${servicePackage.name} reaktivieren`} onClick={() => restorePackage(servicePackage)}><RotateCcw size={16} /></IconAction>
+                    <IconAction danger label={`Archiviertes Paket ${servicePackage.name} löschen`} onClick={() => deleteArchivedPackage(servicePackage)}><Trash2 size={16} /></IconAction>
                   </div>
-                  <IconAction danger label={`Archiviertes Paket ${servicePackage.name} löschen`} onClick={() => deleteArchivedPackage(servicePackage)}><Trash2 size={16} /></IconAction>
                 </article>
               ))}
             </div>

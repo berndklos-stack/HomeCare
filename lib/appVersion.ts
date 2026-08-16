@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.80.0",
+  version: "1.81.0",
   releaseDate: "2026-08-17",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.81.0",
+    date: "2026-08-17",
+    changes: [
+      "Archivierte Kunden, Objekte, Leistungen und Pakete werden kompakter dargestellt",
+      "Archiv-Aktionsbuttons stehen jetzt kleiner und einzeilig in einer gemeinsamen Buttonzeile",
+      "Löschen, Bearbeiten und Reaktivieren nutzen in Archivlisten dieselbe kompakte Icon-Darstellung",
+    ],
+  },
   {
     version: "1.80.0",
     date: "2026-08-17",

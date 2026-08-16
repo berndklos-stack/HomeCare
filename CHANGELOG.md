@@ -4,6 +4,12 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.81.0 - 2026-08-17
+
+- Archivierte Kunden, Objekte, Leistungen und Pakete werden kompakter dargestellt.
+- Archiv-Aktionsbuttons stehen jetzt kleiner und einzeilig in einer gemeinsamen Buttonzeile.
+- Löschen, Bearbeiten und Reaktivieren nutzen in Archivlisten dieselbe kompakte Icon-Darstellung.
+
 ## 1.80.0 - 2026-08-17
 
 - Überschrift der Leistungsanfrage im Kundenportal lautet jetzt Nachricht an Kolaretorp Service AB.
