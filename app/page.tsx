@@ -1863,6 +1863,7 @@ export default function HomePage() {
   const [editingCustomerId, setEditingCustomerId] = useState<string | null>(null);
   const [editingJobId, setEditingJobId] = useState<string | null>(null);
   const [editingFieldReportId, setEditingFieldReportId] = useState<string | null>(null);
+  const [sendPreviewReportId, setSendPreviewReportId] = useState<string | null>(null);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [recordNotice, setRecordNotice] = useState("");
   const [newObject, setNewObject] = useState<NewObjectFormState>(emptyObjectForm());
@@ -2381,7 +2382,11 @@ export default function HomePage() {
     persistSnapshotNow({ reports: nextReports });
   }
 
-  async function sendReportToCustomer(report: ReportRecord) {
+  function sendReportToCustomer(report: ReportRecord) {
+    setSendPreviewReportId(report.id);
+  }
+
+  async function confirmSendReportToCustomer(report: ReportRecord) {
     const reportObject = objects.find((object) => object.id === report.objectId);
     if (!reportObject) return;
     const reportJob = jobs.find((job) => job.id === report.jobId);
@@ -2395,11 +2400,19 @@ export default function HomePage() {
     try {
       await sendCustomerReportMail(nextReport, reportObject, reportJob, reportCustomer);
       updateReportRecord(nextReport);
+      setSendPreviewReportId(null);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Bericht konnte nicht gesendet werden.";
       window.alert(message);
     }
   }
+
+  const sendPreviewReport = sendPreviewReportId ? reports.find((report) => report.id === sendPreviewReportId) : undefined;
+  const sendPreviewObject = sendPreviewReport ? objects.find((object) => object.id === sendPreviewReport.objectId) : undefined;
+  const sendPreviewJob = sendPreviewReport ? jobs.find((job) => job.id === sendPreviewReport.jobId) : undefined;
+  const sendPreviewCustomer = sendPreviewObject
+    ? customers.find((customer) => customer.id === sendPreviewObject.ownerCustomerId || customer.name === sendPreviewObject.owner)
+    : undefined;
 
   return (
     <main className="app" data-ready="true" data-theme={theme}>
@@ -2570,6 +2583,60 @@ export default function HomePage() {
           </div>
         </section>
       </section>
+
+      {sendPreviewReport && sendPreviewObject && (
+        <div className="modal-backdrop">
+          <section className="modal send-preview-modal" role="dialog" aria-modal="true" aria-labelledby="send-preview-title">
+            <header>
+              <div>
+                <p>Versandvorschau</p>
+                <h2 id="send-preview-title">Bericht senden</h2>
+              </div>
+              <button aria-label="Versandvorschau schließen" onClick={() => setSendPreviewReportId(null)} type="button">
+                <X size={18} />
+              </button>
+            </header>
+            <div className="send-preview-grid">
+              <div>
+                <span>An</span>
+                <strong>{sendPreviewCustomer?.email || sendPreviewObject.ownerEmail}</strong>
+              </div>
+              <div>
+                <span>CC</span>
+                <strong>info@kolaretorp.se</strong>
+              </div>
+              <div className="wide">
+                <span>Betreff</span>
+                <strong>{customerReportSendSubject(sendPreviewReport, sendPreviewObject)}</strong>
+              </div>
+              <div className="wide">
+                <span>PDF-Anhang</span>
+                <strong>{safeFileName(customerReportSendSubject(sendPreviewReport, sendPreviewObject))}.pdf</strong>
+              </div>
+              <div className="wide">
+                <span>Nachricht</span>
+                <pre>{customerReportSendBody(sendPreviewCustomer)}</pre>
+              </div>
+            </div>
+            <div className="send-preview-report">
+              <CustomerReportCard
+                customer={sendPreviewCustomer}
+                job={sendPreviewJob}
+                object={sendPreviewObject}
+                report={sendPreviewReport}
+                sentAt={sendPreviewReport.sentAt}
+              />
+            </div>
+            <div className="modal-actions">
+              <button className="ghost-button" onClick={() => setSendPreviewReportId(null)} type="button">Abbrechen</button>
+              <button className="primary-button" onClick={() => void confirmSendReportToCustomer(sendPreviewReport)} type="button">
+                <Send size={16} />
+                Jetzt senden
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
 
       {modal && (
         <div className="modal-backdrop">

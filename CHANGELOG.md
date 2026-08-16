@@ -4,6 +4,12 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.64.0 - 2026-08-16
+
+- Bericht senden öffnet jetzt zuerst eine Versandvorschau mit Empfänger, CC, Betreff, Body und PDF-Anhang.
+- Der Versand wird erst nach Bestätigung in der Vorschau ausgelöst.
+- In der Vorschau ist der Kundenbericht vor dem Senden sichtbar.
+
 ## 1.63.0 - 2026-08-16
 
 - Berichtversand läuft jetzt über einen serverseitigen API-Endpunkt mit PDF-Anhang.

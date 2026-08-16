@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.63.0",
+  version: "1.64.0",
   releaseDate: "2026-08-16",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.64.0",
+    date: "2026-08-16",
+    changes: [
+      "Bericht senden öffnet jetzt zuerst eine Versandvorschau mit Empfänger, CC, Betreff, Body und PDF-Anhang",
+      "Der Versand wird erst nach Bestätigung in der Vorschau ausgelöst",
+      "In der Vorschau ist der Kundenbericht vor dem Senden sichtbar",
+    ],
+  },
   {
     version: "1.63.0",
     date: "2026-08-16",
