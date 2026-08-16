@@ -3658,6 +3658,8 @@ function ObjectsView({
   onEdit: (object: ObjectRecord) => void;
   onSelect: (id: string) => void;
 }) {
+  const [archivedObjectsOpen, setArchivedObjectsOpen] = useState(false);
+
   return (
     <section className="panel">
       <div className="panel-title">
@@ -3696,24 +3698,30 @@ function ObjectsView({
         ))}
       </div>
       {archivedObjects.length > 0 && (
-        <div className="archive-section">
-          <h3>Archivierte Objekte</h3>
-          <div className="table-list compact-list archive-list">
-            {archivedObjects.map((object) => (
-              <article key={object.id}>
-                <div>
-                  <strong>{object.name}</strong>
-                  <span>{object.address}</span>
-                </div>
-                <Badge value="archiviert" />
-                <div className="row-actions">
-                  <IconAction label={`Archiviertes Objekt ${object.name} bearbeiten`} onClick={() => onEdit(object)}><Pencil size={16} /></IconAction>
-                  <IconAction label={`Archiviertes Objekt ${object.name} reaktivieren`} onClick={() => onRestore(object)}><RotateCcw size={16} /></IconAction>
-                  <IconAction danger label={`Archiviertes Objekt ${object.name} löschen`} onClick={() => onDelete(object)}><Trash2 size={16} /></IconAction>
-                </div>
-              </article>
-            ))}
-          </div>
+        <div className="archive-section archive-fold-group">
+          <button className="job-fold-toggle" onClick={() => setArchivedObjectsOpen((open) => !open)} type="button">
+            {archivedObjectsOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+            <span>Archivierte Objekte</span>
+            <small>{archivedObjects.length}</small>
+          </button>
+          {archivedObjectsOpen && (
+            <div className="table-list compact-list archive-list">
+              {archivedObjects.map((object) => (
+                <article key={object.id}>
+                  <div>
+                    <strong>{object.name}</strong>
+                    <span>{object.address}</span>
+                  </div>
+                  <Badge value="archiviert" />
+                  <div className="row-actions">
+                    <IconAction label={`Archiviertes Objekt ${object.name} bearbeiten`} onClick={() => onEdit(object)}><Pencil size={16} /></IconAction>
+                    <IconAction label={`Archiviertes Objekt ${object.name} reaktivieren`} onClick={() => onRestore(object)}><RotateCcw size={16} /></IconAction>
+                    <IconAction danger label={`Archiviertes Objekt ${object.name} löschen`} onClick={() => onDelete(object)}><Trash2 size={16} /></IconAction>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </section>
@@ -3835,6 +3843,8 @@ function JobsView({
   reports: ReportRecord[];
 }) {
   const [expandedSeriesIds, setExpandedSeriesIds] = useState<string[]>([]);
+  const [completedGroupOpen, setCompletedGroupOpen] = useState(false);
+  const [cancelledGroupOpen, setCancelledGroupOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState("alle");
   const occurrenceGroups = jobs.reduce<Record<string, JobRecord[]>>((groups, job) => {
     if (!job.seriesMasterId) return groups;
@@ -3852,7 +3862,11 @@ function JobsView({
       const groupDiff = jobSortGroup(first, firstOccurrences) - jobSortGroup(second, secondOccurrences);
       return groupDiff || nextRelevantJobDate(first, firstOccurrences) - nextRelevantJobDate(second, secondOccurrences);
     });
-  const activeRootJobs = rootJobs.filter((job) => jobSortGroup(job, occurrenceGroups[job.id] ?? []) < 4);
+  const activeRootJobs = rootJobs.filter((job) => jobSortGroup(job, occurrenceGroups[job.id] ?? []) < 2);
+  const completedRootJobs = rootJobs.filter((job) => {
+    const group = jobSortGroup(job, occurrenceGroups[job.id] ?? []);
+    return group >= 2 && group < 4;
+  });
   const cancelledRootJobs = rootJobs.filter((job) => jobSortGroup(job, occurrenceGroups[job.id] ?? []) >= 4);
 
   function toggleSeries(id: string) {
@@ -3932,6 +3946,25 @@ function JobsView({
     );
   }
 
+  function renderJobGroup(title: string, count: number, open: boolean, onToggle: () => void, rows: JobRecord[], className = "") {
+    if (count === 0) return null;
+
+    return (
+      <div className={`job-fold-group ${className}`}>
+        <button className="job-fold-toggle" onClick={onToggle} type="button">
+          {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+          <span>{title}</span>
+          <small>{count}</small>
+        </button>
+        {open && (
+          <div className="table-list job-list">
+            {rows.map(renderJobRow)}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <section className="panel">
       <div className="panel-title">
@@ -3958,16 +3991,10 @@ function JobsView({
       </div>
       <div className="table-list job-list">
         {activeRootJobs.map(renderJobRow)}
-        {activeRootJobs.length === 0 && cancelledRootJobs.length === 0 && <span className="muted-line">Keine Aufträge für diesen Status.</span>}
+        {activeRootJobs.length === 0 && completedRootJobs.length === 0 && cancelledRootJobs.length === 0 && <span className="muted-line">Keine Aufträge für diesen Status.</span>}
       </div>
-      {cancelledRootJobs.length > 0 && (
-        <div className="job-cancelled-group">
-          <h3>Stornierte Aufträge</h3>
-          <div className="table-list job-list job-list-cancelled">
-            {cancelledRootJobs.map(renderJobRow)}
-          </div>
-        </div>
-      )}
+      {renderJobGroup("Erledigte Aufträge", completedRootJobs.length, completedGroupOpen, () => setCompletedGroupOpen((open) => !open), completedRootJobs)}
+      {renderJobGroup("Stornierte Aufträge", cancelledRootJobs.length, cancelledGroupOpen, () => setCancelledGroupOpen((open) => !open), cancelledRootJobs, "job-list-cancelled")}
     </section>
   );
 }

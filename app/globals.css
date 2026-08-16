@@ -316,6 +316,18 @@ button {
   justify-content: flex-end;
 }
 
+.table-list .row-actions .icon-button,
+.compact-list .row-actions .icon-button {
+  align-items: center;
+  display: inline-flex;
+  flex: 0 0 auto;
+  justify-content: center;
+  min-height: 0;
+  padding: 0;
+  text-align: center;
+  width: 32px;
+}
+
 .archive-notice {
   background: color-mix(in srgb, var(--warning), var(--paper) 88%);
   border: 1px solid color-mix(in srgb, var(--warning), var(--paper) 62%);
@@ -615,6 +627,14 @@ button {
   gap: 6px;
 }
 
+.archive-fold-group {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+  padding-top: 10px;
+}
+
 .archive-list article {
   gap: 8px;
   grid-template-columns: minmax(180px, 1fr) auto auto;
@@ -747,10 +767,16 @@ button {
 .job-row-meta {
   align-items: center;
   display: grid;
-  gap: 5px;
+  gap: 6px;
   grid-template-columns: auto auto auto;
   justify-items: end;
   white-space: nowrap;
+}
+
+.job-row-meta > span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 650;
 }
 
 .series-summary-chips {
@@ -822,17 +848,23 @@ button {
 
 .job-row .row-actions {
   align-self: center;
-  gap: 4px;
+  gap: 5px;
   justify-content: end;
 }
 
-.job-row .icon-button {
-  height: 28px;
-  min-height: 28px;
-  width: 28px;
+.job-row .row-actions .icon-button {
+  border-radius: 7px;
+  height: 30px;
+  min-height: 30px;
+  width: 30px;
 }
 
-.job-cancelled-group {
+.job-row .row-actions .icon-button svg {
+  height: 15px;
+  width: 15px;
+}
+
+.job-fold-group {
   border-top: 1px solid var(--line);
   display: grid;
   gap: 6px;
@@ -840,15 +872,34 @@ button {
   padding-top: 10px;
 }
 
-.job-cancelled-group h3 {
+.job-fold-toggle {
+  align-items: center;
+  background: transparent;
+  border: 0;
   color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
   font-size: 12px;
+  font-weight: 850;
+  gap: 6px;
+  justify-self: start;
   letter-spacing: 0;
-  margin: 0;
+  padding: 2px 0;
   text-transform: uppercase;
 }
 
-.job-list-cancelled .job-row {
+.job-fold-toggle small {
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1;
+  padding: 3px 6px;
+}
+
+.job-list-cancelled .job-row,
+.job-list-cancelled .job-list .job-row {
   opacity: 0.82;
 }
 

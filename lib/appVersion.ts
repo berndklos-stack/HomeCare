@@ -1,10 +1,28 @@
 export const appVersion = {
-  version: "1.82.0",
+  version: "1.84.0",
   releaseDate: "2026-08-17",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.84.0",
+    date: "2026-08-17",
+    changes: [
+      "Erledigte und stornierte Aufträge werden unten in einklappbaren Gruppen angezeigt",
+      "Aktive Aufträge bleiben in der Auftragsübersicht direkt sichtbar",
+      "Gruppen für erledigte und stornierte Aufträge zeigen Anzahl und Pfeil zum Öffnen",
+      "Archivierte Objekte werden ebenfalls als einklappbarer Block mit Pfeil angezeigt",
+    ],
+  },
+  {
+    version: "1.83.0",
+    date: "2026-08-17",
+    changes: [
+      "Aktionsbuttons in Auftrags- und Archivlisten werden nicht mehr durch Tabellenstyles vergrößert",
+      "Buttonblöcke in der Auftragsübersicht sind jetzt sauberer und gleichmäßiger ausgerichtet",
+    ],
+  },
   {
     version: "1.82.0",
     date: "2026-08-17",
