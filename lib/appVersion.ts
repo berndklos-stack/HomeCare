@@ -1,10 +1,20 @@
 export const appVersion = {
-  version: "1.77.0",
+  version: "1.78.0",
   releaseDate: "2026-08-17",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.78.0",
+    date: "2026-08-17",
+    changes: [
+      "Auftragsanlage im Kundenportal wurde entfernt",
+      "Kunden fragen Leistungen jetzt über den Nachrichtenbereich an",
+      "Portal-Anfragen erhalten automatisch einen passenden Betreff, wenn keiner eingegeben wurde",
+      "Portal-Willkommen zeigt nur noch Välkommen im Kundenportal, da das Logo die Firma bereits sichtbar macht",
+    ],
+  },
   {
     version: "1.77.0",
     date: "2026-08-17",

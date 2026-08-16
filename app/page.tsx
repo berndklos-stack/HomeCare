@@ -2915,88 +2915,6 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     persistSnapshotNow({ customers: nextCustomers });
   }
 
-  async function createPortalJob(customer: CustomerRecord, objectId: string, form: NewJobFormState) {
-    const object = objects.find((item) => item.id === objectId);
-    const id = `JOB-PORTAL-${Date.now()}`;
-    const customServiceName = form.customServiceName.trim();
-    const customService: ServiceItem | null = customServiceName
-      ? {
-          id: `JOB-SVC-${id}`,
-          name: customServiceName,
-          category: form.customServiceCategory.trim() || "Sonderleistung",
-          unit: form.customServiceUnit.trim() || "Einsatz",
-          price: form.customServicePrice.trim() || "0",
-          currency: form.customServiceCurrency.trim() || "SEK",
-          description: form.customServiceDescription.trim() || "Individuelle Leistung zum Auftrag.",
-          checklist: form.customServiceChecklist,
-        }
-      : null;
-    const selectedServiceTasks = form.serviceIds
-      .map((serviceId) => services.find((service) => service.id === serviceId))
-      .filter(Boolean)
-      .flatMap((service) => serviceToFieldTasks(service as ServiceItem));
-    const customServiceTasks = customService ? serviceToFieldTasks(customService) : [];
-    const checklist = [...selectedServiceTasks, ...customServiceTasks].map((task) => task.title);
-    const savedJob: JobRecord = {
-      id,
-      title: form.title.trim() || "Kundenauftrag",
-      objectId,
-      customerId: customer.id,
-      type: form.type.trim() || customService?.name || "Kundenauftrag",
-      status: "geplant",
-      priority: form.priority,
-      dueDate: form.dueDate || formatJobDate(new Date()),
-      assignedTo: "Büro",
-      description: form.description.trim() || "Auftrag wurde im Kundenportal angelegt.",
-      internalNotes: `Angelegt durch Kundenportal am ${new Date().toLocaleString("de-DE")}.`,
-      checklist: checklist.length > 0 ? checklist : ["Auftrag prüfen", "Termin planen", "Rückmeldung an Kunden"],
-      serviceIds: form.serviceIds,
-      customService,
-      billable: true,
-      material: "-",
-      workMinutes: 0,
-      schedule: {
-        type: form.scheduleType,
-        frequency: form.scheduleFrequency,
-        interval: Math.max(Number(form.scheduleInterval) || 1, 1),
-        weekdays: form.scheduleFrequency === "wöchentlich" ? form.scheduleWeekdays : [],
-        end: form.scheduleEnd,
-        endDate: form.scheduleEnd === "am" ? form.scheduleEndDate : "",
-        occurrences: form.scheduleEnd === "nach" ? Math.max(Number(form.scheduleOccurrences) || 1, 1) : 0,
-        activeFromMonth: form.scheduleActiveFromMonth ? Number(form.scheduleActiveFromMonth) : undefined,
-        activeToMonth: form.scheduleActiveToMonth ? Number(form.scheduleActiveToMonth) : undefined,
-        yearInterval: Math.max(Number(form.scheduleYearInterval) || 1, 1),
-      },
-    };
-    const nextJobs = ensureSeriesOccurrences([savedJob, ...jobs], reports);
-
-    setJobs(nextJobs);
-    persistSnapshotNow({ jobs: nextJobs });
-
-    try {
-      await notifyPortalActivity(
-        `Neuer Kundenauftrag - ${object?.name ?? "Objekt offen"}`,
-        [
-          `Kunde: ${customer.name}`,
-          `Kontakt: ${customer.contact}`,
-          `E-Mail: ${customer.email}`,
-          `Objekt: ${object?.name ?? objectId}`,
-          `Priorität: ${form.priority}`,
-          `Auftragsart: ${scheduleLabel(savedJob.schedule)}`,
-          `Leistungen: ${form.serviceIds.length + (customService ? 1 : 0)}`,
-          `Titel: ${savedJob.title}`,
-          "",
-          savedJob.description,
-        ].join("\n"),
-        customer.email,
-      );
-      setRecordNotice("Kundenauftrag wurde angelegt und per E-Mail gemeldet.");
-    } catch (error) {
-      const messageText = error instanceof Error ? error.message : "Benachrichtigung konnte nicht gesendet werden.";
-      setRecordNotice(`Kundenauftrag angelegt, aber Mailversand fehlgeschlagen: ${messageText}`);
-    }
-  }
-
   async function confirmSendReportToCustomer(report: ReportRecord) {
     const reportObject = objects.find((object) => object.id === report.objectId);
     if (!reportObject) return;
@@ -3057,12 +2975,10 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
             jobs={jobs}
             messages={portalMessages}
             objects={objects}
-            onCreateJob={createPortalJob}
             onRecordLogin={recordPortalLogin}
             onSendMessage={createPortalMessage}
             onUpdateCustomer={updatePortalCustomer}
             reports={reports}
-            services={services}
             setCustomerId={setPortalCustomerId}
           />
         </section>
@@ -3210,12 +3126,10 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                 jobs={jobs}
                 messages={portalMessages}
                 objects={objects}
-                onCreateJob={createPortalJob}
                 onRecordLogin={recordPortalLogin}
                 onSendMessage={createPortalMessage}
                 onUpdateCustomer={updatePortalCustomer}
                 reports={reports}
-                services={services}
                 setCustomerId={setPortalCustomerId}
               />
             )}
@@ -4437,12 +4351,10 @@ function CustomerPortalView({
   jobs,
   messages,
   objects,
-  onCreateJob,
   onRecordLogin,
   onSendMessage,
   onUpdateCustomer,
   reports,
-  services,
   setCustomerId,
 }: {
   billing: BillingRecord[];
@@ -4451,12 +4363,10 @@ function CustomerPortalView({
   jobs: JobRecord[];
   messages: PortalMessageRecord[];
   objects: ObjectRecord[];
-  onCreateJob: (customer: CustomerRecord, objectId: string, form: NewJobFormState) => Promise<void>;
   onRecordLogin: (customerId: string, email: string, userAgent: string) => void;
   onSendMessage: (customer: CustomerRecord, objectId: string, subject: string, message: string) => Promise<void>;
   onUpdateCustomer: (customerId: string, updates: Pick<CustomerRecord, "email" | "phone">) => void;
   reports: ReportRecord[];
-  services: ServiceItem[];
   setCustomerId: (id: string) => void;
 }) {
   const portalCustomers = customers.filter((customer) => !customer.archived && customer.portalStatus !== "gesperrt");
@@ -4466,12 +4376,6 @@ function CustomerPortalView({
   const [selectedObjectId, setSelectedObjectId] = useState("");
   const [messageSubject, setMessageSubject] = useState("");
   const [messageBody, setMessageBody] = useState("");
-  const [portalJobForm, setPortalJobForm] = useState<NewJobFormState>({
-    ...emptyJobForm(),
-    assignedTo: "Büro",
-    dueDate: formatJobDate(new Date()),
-    internalNotes: "",
-  });
   const [portalProfileEmail, setPortalProfileEmail] = useState("");
   const [portalProfilePhone, setPortalProfilePhone] = useState("");
   const [portalNotice, setPortalNotice] = useState("");
@@ -4484,7 +4388,6 @@ function CustomerPortalView({
   const currentObjectId = selectedObjectId && customerObjects.some((object) => object.id === selectedObjectId)
     ? selectedObjectId
     : customerObjects[0]?.id ?? "";
-  const currentPortalObject = customerObjects.find((object) => object.id === currentObjectId) ?? customerObjects[0];
   const portalReports = reports
     .filter((report) => customerObjects.some((object) => object.id === report.objectId) && report.visibleToCustomer)
     .sort((first, second) => normalizeReportDate(second.date).localeCompare(normalizeReportDate(first.date)));
@@ -4545,22 +4448,10 @@ function CustomerPortalView({
 
   async function submitMessage() {
     if (!customer || !currentObjectId || !messageBody.trim()) return;
-    await onSendMessage(customer, currentObjectId, messageSubject, messageBody);
+    await onSendMessage(customer, currentObjectId, messageSubject.trim() || "Leistungsanfrage aus dem Kundenportal", messageBody);
     setMessageSubject("");
     setMessageBody("");
-    setPortalNotice("Nachricht wurde gesendet.");
-  }
-
-  async function submitJob() {
-    if (!customer || !currentObjectId || !portalJobForm.title.trim()) return;
-    await onCreateJob(customer, currentObjectId, portalJobForm);
-    setPortalJobForm({
-      ...emptyJobForm(),
-      assignedTo: "Büro",
-      dueDate: formatJobDate(new Date()),
-      internalNotes: "",
-    });
-    setPortalNotice("Auftrag wurde angelegt.");
+    setPortalNotice("Leistungsanfrage wurde gesendet.");
   }
 
   function savePortalProfile() {
@@ -4579,7 +4470,6 @@ function CustomerPortalView({
           <div className="portal-login-brand">
             <Image alt="Kolaretorp Service AB" height={42} priority src="/kolaretorp-logo.png" width={280} />
             <h1>Välkommen im Kundenportal</h1>
-            <span>Kolaretorp Service AB</span>
           </div>
           <div className="panel-title">
             <div>
@@ -4743,32 +4633,8 @@ function CustomerPortalView({
         <section className="panel portal-wide">
           <div className="panel-title">
             <div>
-              <p>Neuer Auftrag</p>
-              <h2>Auftrag anlegen</h2>
-            </div>
-          </div>
-          {currentPortalObject ? (
-            <JobForm
-              customerMode
-              newJob={portalJobForm}
-              objects={customerObjects}
-              selectedObject={currentPortalObject}
-              services={services}
-              setNewJob={setPortalJobForm}
-              setSelectedObjectId={setSelectedObjectId}
-              onSubmit={() => void submitJob()}
-              submitLabel="Auftrag senden"
-            />
-          ) : (
-            <p>Kein Objekt für die Auftragsanlage verfügbar.</p>
-          )}
-        </section>
-
-        <section className="panel">
-          <div className="panel-title">
-            <div>
-              <p>Nachricht</p>
-              <h2>Nachricht senden</h2>
+              <p>Leistung anfragen</p>
+              <h2>Nachricht an Kolaretorp</h2>
             </div>
           </div>
           <div className="form-grid portal-form">
@@ -4778,11 +4644,17 @@ function CustomerPortalView({
                 {customerObjects.map((object) => <option key={object.id} value={object.id}>{object.name}</option>)}
               </select>
             </label>
-            <label className="wide"><span>Betreff</span><input value={messageSubject} onChange={(event) => setMessageSubject(event.target.value)} /></label>
-            <label className="wide"><span>Nachricht</span><textarea value={messageBody} onChange={(event) => setMessageBody(event.target.value)} /></label>
+            <label className="wide">
+              <span>Betreff</span>
+              <input placeholder="z.B. Reinigung, Gartenpflege oder Reparatur" value={messageSubject} onChange={(event) => setMessageSubject(event.target.value)} />
+            </label>
+            <label className="wide">
+              <span>Nachricht</span>
+              <textarea placeholder="Bitte beschreiben Sie kurz, welche Leistung Sie wünschen." value={messageBody} onChange={(event) => setMessageBody(event.target.value)} />
+            </label>
             <button className="primary-button wide" disabled={!currentObjectId || !messageBody.trim()} onClick={() => void submitMessage()} type="button">
               <Mail size={16} />
-              Nachricht senden
+              Anfrage senden
             </button>
           </div>
         </section>

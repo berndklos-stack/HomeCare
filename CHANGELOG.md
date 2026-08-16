@@ -4,6 +4,13 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.78.0 - 2026-08-17
+
+- Auftragsanlage im Kundenportal wurde entfernt.
+- Kunden fragen Leistungen jetzt über den Nachrichtenbereich an.
+- Portal-Anfragen erhalten automatisch einen passenden Betreff, wenn keiner eingegeben wurde.
+- Portal-Willkommen zeigt nur noch Välkommen im Kundenportal, da das Logo die Firma bereits sichtbar macht.
+
 ## 1.77.0 - 2026-08-17
 
 - Kundenportal-Login wurde gestalterisch neu aufgebaut.
