@@ -4,6 +4,18 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.55.0 - 2026-08-16
+
+- Dashboard, Einsatzplanung und Mobil vor Ort zeigen pro Serienauftrag nur noch den nächsten relevanten Teilauftrag.
+- Offene Listen kennzeichnen Teilaufträge jetzt als Serienauftrag mit dem hinterlegten Rhythmus.
+- Die vollständige interne Auftragsliste der Serie bleibt in der Auftragsübersicht aufklappbar.
+
+## 1.54.0 - 2026-08-16
+
+- Auftragsübersicht zeigt Serien wieder als Hauptauftrag mit aufklappbaren Teilaufträgen.
+- Serienstatus nennt letzten erledigten Teilauftrag und den nächsten offenen oder laufenden Teilauftrag.
+- Teilaufträge können aus der aufgeklappten Serienansicht direkt bearbeitet, gestartet, storniert oder reaktiviert werden.
+
 ## 1.53.0 - 2026-08-16
 
 - Serienaufträge erzeugen jetzt konkrete interne Teilaufträge, die einzeln bearbeitet, gestartet oder storniert werden können.

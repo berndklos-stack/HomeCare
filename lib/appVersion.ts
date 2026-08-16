@@ -1,10 +1,28 @@
 export const appVersion = {
-  version: "1.53.0",
+  version: "1.55.0",
   releaseDate: "2026-08-16",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.55.0",
+    date: "2026-08-16",
+    changes: [
+      "Dashboard, Einsatzplanung und Mobil vor Ort zeigen pro Serienauftrag nur noch den nächsten relevanten Teilauftrag",
+      "Offene Listen kennzeichnen Teilaufträge jetzt als Serienauftrag mit dem hinterlegten Rhythmus",
+      "Die vollständige interne Auftragsliste der Serie bleibt in der Auftragsübersicht aufklappbar",
+    ],
+  },
+  {
+    version: "1.54.0",
+    date: "2026-08-16",
+    changes: [
+      "Auftragsübersicht zeigt Serien wieder als Hauptauftrag mit aufklappbaren Teilaufträgen",
+      "Serienstatus nennt letzten erledigten Teilauftrag und den nächsten offenen oder laufenden Teilauftrag",
+      "Teilaufträge können aus der aufgeklappten Serienansicht direkt bearbeitet, gestartet, storniert oder reaktiviert werden",
+    ],
+  },
   {
     version: "1.53.0",
     date: "2026-08-16",

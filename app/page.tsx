@@ -9,6 +9,8 @@ import {
   ArrowUp,
   Archive,
   CalendarDays,
+  ChevronDown,
+  ChevronRight,
   Camera,
   ClipboardList,
   Euro,
@@ -1578,6 +1580,57 @@ function visibleOperationalJobs(jobs: JobRecord[]) {
   return jobs.filter((job) => !isSeriesMaster(job) || !mastersWithOccurrences.has(job.id));
 }
 
+function nextOperationalJobs(jobs: JobRecord[]) {
+  const operational = visibleOperationalJobs(jobs);
+  const nextBySeries = new Map<string, JobRecord>();
+
+  sortedByDueDate(operational)
+    .filter((job) => job.seriesMasterId && !["erledigt", "abgerechnet", "storniert"].includes(job.status))
+    .forEach((job) => {
+      if (!job.seriesMasterId || nextBySeries.has(job.seriesMasterId)) return;
+      nextBySeries.set(job.seriesMasterId, job);
+    });
+
+  return operational.filter((job) => !job.seriesMasterId || nextBySeries.get(job.seriesMasterId)?.id === job.id);
+}
+
+function recurringJobHint(job: JobRecord, allJobs: JobRecord[]) {
+  if (!job.seriesMasterId) return "";
+  const master = allJobs.find((item) => item.id === job.seriesMasterId);
+  return master ? `Serienauftrag · ${scheduleLabel(master.schedule)}` : "Serienauftrag";
+}
+
+function sortedByDueDate(jobs: JobRecord[]) {
+  return [...jobs].sort((first, second) => {
+    const firstDate = parseJobDate(first.dueDate)?.getTime() ?? 0;
+    const secondDate = parseJobDate(second.dueDate)?.getTime() ?? 0;
+    return firstDate - secondDate;
+  });
+}
+
+function readableJobStatus(status: JobRecord["status"]) {
+  if (status === "geplant") return "offen";
+  if (status === "in Arbeit") return "in Bearbeitung";
+  return status;
+}
+
+function seriesStatusLabel(master: JobRecord, occurrences: JobRecord[], reports: ReportRecord[]) {
+  if (!isSeriesMaster(master)) return master.status;
+
+  const completedDates = [
+    ...occurrences.filter((job) => ["erledigt", "abgerechnet"].includes(job.status)).map((job) => job.dueDate),
+    ...reports.filter((report) => report.jobId === master.id || report.jobId.startsWith(`${master.id}-OCC-`)).map((report) => report.date),
+    ...(["erledigt", "abgerechnet"].includes(master.status) ? [master.dueDate] : []),
+  ]
+    .filter(Boolean)
+    .sort((first, second) => (parseJobDate(second)?.getTime() ?? 0) - (parseJobDate(first)?.getTime() ?? 0));
+  const nextJob = sortedByDueDate(occurrences).find((job) => !["erledigt", "abgerechnet", "storniert"].includes(job.status));
+  const lastText = completedDates[0] ? `Letzter Teilauftrag erledigt am ${completedDates[0]}` : "Noch kein Teilauftrag erledigt";
+  const nextText = nextJob ? `Nächster Teilauftrag ${readableJobStatus(nextJob.status)} am ${nextJob.dueDate}` : "Kein offener Teilauftrag";
+
+  return `Serienauftrag · ${lastText} · ${nextText}`;
+}
+
 export default function HomePage() {
   const [section, setSection] = useState<Section>("dashboard");
   const [language, setLanguage] = useState<Language>("de");
@@ -1732,7 +1785,7 @@ export default function HomePage() {
   const archivedObjects = objects.filter((object) => object.archived);
   const activeCustomers = customers.filter((customer) => !customer.archived);
   const archivedCustomers = customers.filter((customer) => customer.archived);
-  const operationalJobs = visibleOperationalJobs(jobs);
+  const upcomingOperationalJobs = nextOperationalJobs(jobs);
   const selectedObject = activeObjects.find((object) => object.id === selectedObjectId) ?? activeObjects[0] ?? objects[0];
   const editingObject = objects.find((object) => object.id === editingObjectId);
   const filteredObjects = activeObjects.filter((object) =>
@@ -1742,12 +1795,12 @@ export default function HomePage() {
       .includes(query.toLowerCase()),
   );
   const currentFieldJobId = activeJobId
-    ?? operationalJobs.find((job) => job.status === "in Arbeit")?.id
-    ?? operationalJobs.find((job) => !["erledigt", "abgerechnet"].includes(job.status))?.id
+    ?? upcomingOperationalJobs.find((job) => job.status === "in Arbeit")?.id
+    ?? upcomingOperationalJobs.find((job) => !["erledigt", "abgerechnet", "storniert"].includes(job.status))?.id
     ?? "";
   const dashboardStats: Array<{ label: string; value: number; section: Section }> = [
     { label: "aktive Objekte", value: activeObjects.length, section: "objects" },
-    { label: "offene Einsätze", value: operationalJobs.filter((job) => !["erledigt", "abgerechnet", "storniert"].includes(job.status)).length, section: "planning" },
+    { label: "offene Einsätze", value: upcomingOperationalJobs.filter((job) => !["erledigt", "abgerechnet", "storniert"].includes(job.status)).length, section: "planning" },
     { label: "Berichte", value: reports.length, section: "reports" },
     { label: "abrechenbar", value: billing.filter((item) => item.status === "abrechenbar").length, section: "billing" },
   ];
@@ -2196,7 +2249,8 @@ export default function HomePage() {
           <div className="main-panel">
             {section === "dashboard" && (
               <Dashboard
-                jobs={operationalJobs}
+                allJobs={jobs}
+                jobs={upcomingOperationalJobs}
                 objects={activeObjects}
                 reports={reports}
                 setSection={setSection}
@@ -2244,14 +2298,15 @@ export default function HomePage() {
               />
             )}
             {section === "jobs" && (
-              <JobsView jobs={operationalJobs} objects={activeObjects} onCancel={cancelJob} onCreate={openCreateJob} onEdit={openEditJob} onRestore={restoreJob} onStart={startJob} />
+              <JobsView jobs={jobs} objects={activeObjects} onCancel={cancelJob} onCreate={openCreateJob} onEdit={openEditJob} onRestore={restoreJob} onStart={startJob} reports={reports} />
             )}
-            {section === "planning" && <PlanningView jobs={operationalJobs} objects={activeObjects} onStart={startJob} />}
+            {section === "planning" && <PlanningView allJobs={jobs} jobs={upcomingOperationalJobs} objects={activeObjects} onStart={startJob} />}
             {section === "reports" && <ReportsView customers={customers} jobs={jobs} objects={objects} onEditInField={editReportInField} reports={reports} />}
             {section === "field" && (
               <FieldView
                 activeJobId={activeJobId}
-                jobs={operationalJobs}
+                allJobs={jobs}
+                jobs={upcomingOperationalJobs}
                 objects={activeObjects}
                 packages={servicePackages}
                 services={services}
@@ -2340,11 +2395,13 @@ export default function HomePage() {
 }
 
 function Dashboard({
+  allJobs,
   jobs,
   objects,
   reports,
   setSection,
 }: {
+  allJobs: JobRecord[];
   jobs: JobRecord[];
   objects: ObjectRecord[];
   reports: ReportRecord[];
@@ -2379,7 +2436,7 @@ function Dashboard({
             <article key={job.id}>
               <div>
                 <strong>{job.title}</strong>
-                <span>{job.type} · {job.assignedTo}</span>
+                <span>{recurringJobHint(job, allJobs) || `${job.type} · ${job.assignedTo}`}</span>
               </div>
               <span>{job.dueDate}</span>
               <Badge value={job.status} />
@@ -2814,6 +2871,7 @@ function JobsView({
   onEdit,
   onRestore,
   onStart,
+  reports,
 }: {
   jobs: JobRecord[];
   objects: ObjectRecord[];
@@ -2822,7 +2880,24 @@ function JobsView({
   onEdit: (job: JobRecord) => void;
   onRestore: (job: JobRecord) => void;
   onStart: (job: JobRecord) => void;
+  reports: ReportRecord[];
 }) {
+  const [expandedSeriesIds, setExpandedSeriesIds] = useState<string[]>([]);
+  const rootJobs = jobs.filter((job) => !job.seriesMasterId);
+  const occurrenceGroups = jobs.reduce<Record<string, JobRecord[]>>((groups, job) => {
+    if (!job.seriesMasterId) return groups;
+    return {
+      ...groups,
+      [job.seriesMasterId]: [...(groups[job.seriesMasterId] ?? []), job],
+    };
+  }, {});
+
+  function toggleSeries(id: string) {
+    setExpandedSeriesIds((current) => (
+      current.includes(id) ? current.filter((item) => item !== id) : [...current, id]
+    ));
+  }
+
   return (
     <section className="panel">
       <div className="panel-title">
@@ -2836,36 +2911,73 @@ function JobsView({
         </button>
       </div>
       <div className="table-list job-list">
-        {jobs.map((job) => (
-          <article className="job-row" key={job.id}>
-            <div className="job-row-main">
-              <strong>{job.title}</strong>
-              <span>{objects.find((object) => object.id === job.objectId)?.name} · {scheduleLabel(job.schedule)} · {job.description}</span>
-            </div>
-            <div className="job-row-meta">
-              <span>{job.dueDate}</span>
-              <span>{job.priority}</span>
-              <Badge value={job.status} />
-              <div className="row-actions">
-                <IconAction label={`Auftrag ${job.title} bearbeiten`} onClick={() => onEdit(job)}><Pencil size={16} /></IconAction>
-                {job.status === "storniert" ? (
-                  <IconAction label={`Auftrag ${job.title} reaktivieren`} onClick={() => onRestore(job)}><RotateCcw size={16} /></IconAction>
-                ) : (
-                  <>
-                    <IconAction label={`Auftrag ${job.title} starten`} onClick={() => onStart(job)}><PlayCircle size={16} /></IconAction>
-                    <IconAction danger label={`Auftrag ${job.title} stornieren`} onClick={() => onCancel(job)}><X size={16} /></IconAction>
-                  </>
-                )}
+        {rootJobs.map((job) => {
+          const occurrences = sortedByDueDate(occurrenceGroups[job.id] ?? []);
+          const isRecurring = isSeriesMaster(job);
+          const isExpanded = expandedSeriesIds.includes(job.id);
+          const visibleStatus = isRecurring ? seriesStatusLabel(job, occurrences, reports) : job.status;
+
+          return (
+            <article className={`job-row ${isRecurring ? "series-job-row" : ""}`} key={job.id}>
+              <div className="job-row-main">
+                <strong>{job.title}</strong>
+                <span>{objects.find((object) => object.id === job.objectId)?.name} · {scheduleLabel(job.schedule)} · {job.description}</span>
               </div>
-            </div>
-          </article>
-        ))}
+              <div className="job-row-meta">
+                <span>{isRecurring ? `${occurrences.length} Teilaufträge` : job.dueDate}</span>
+                <span>{job.priority}</span>
+                <Badge value={visibleStatus} />
+                <div className="row-actions">
+                  {isRecurring && (
+                    <IconAction label={`${job.title} Teilaufträge ${isExpanded ? "ausblenden" : "anzeigen"}`} onClick={() => toggleSeries(job.id)}>
+                      {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                    </IconAction>
+                  )}
+                  <IconAction label={`Auftrag ${job.title} bearbeiten`} onClick={() => onEdit(job)}><Pencil size={16} /></IconAction>
+                  {!isRecurring && job.status !== "storniert" && (
+                    <IconAction label={`Auftrag ${job.title} starten`} onClick={() => onStart(job)}><PlayCircle size={16} /></IconAction>
+                  )}
+                  {job.status === "storniert" ? (
+                    <IconAction label={`Auftrag ${job.title} reaktivieren`} onClick={() => onRestore(job)}><RotateCcw size={16} /></IconAction>
+                  ) : (
+                    <IconAction danger label={`Auftrag ${job.title} stornieren`} onClick={() => onCancel(job)}><X size={16} /></IconAction>
+                  )}
+                </div>
+              </div>
+              {isRecurring && isExpanded && (
+                <div className="series-occurrence-list">
+                  {occurrences.map((occurrence) => (
+                    <div className="series-occurrence-row" key={occurrence.id}>
+                      <div>
+                        <strong>{occurrence.dueDate}</strong>
+                        <span>{readableJobStatus(occurrence.status)} · {occurrence.assignedTo}</span>
+                      </div>
+                      <div className="row-actions">
+                        <Badge value={occurrence.status} />
+                        <IconAction label={`Teilauftrag ${occurrence.dueDate} bearbeiten`} onClick={() => onEdit(occurrence)}><Pencil size={16} /></IconAction>
+                        {occurrence.status !== "storniert" && !["erledigt", "abgerechnet"].includes(occurrence.status) && (
+                          <IconAction label={`Teilauftrag ${occurrence.dueDate} starten`} onClick={() => onStart(occurrence)}><PlayCircle size={16} /></IconAction>
+                        )}
+                        {occurrence.status === "storniert" ? (
+                          <IconAction label={`Teilauftrag ${occurrence.dueDate} reaktivieren`} onClick={() => onRestore(occurrence)}><RotateCcw size={16} /></IconAction>
+                        ) : (
+                          <IconAction danger label={`Teilauftrag ${occurrence.dueDate} stornieren`} onClick={() => onCancel(occurrence)}><X size={16} /></IconAction>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {occurrences.length === 0 && <span className="muted-line">Für diesen Serienauftrag sind aktuell keine offenen Teilaufträge vorbereitet.</span>}
+                </div>
+              )}
+            </article>
+          );
+        })}
       </div>
     </section>
   );
 }
 
-function PlanningView({ jobs, objects, onStart }: { jobs: JobRecord[]; objects: ObjectRecord[]; onStart: (job: JobRecord) => void }) {
+function PlanningView({ allJobs, jobs, objects, onStart }: { allJobs: JobRecord[]; jobs: JobRecord[]; objects: ObjectRecord[]; onStart: (job: JobRecord) => void }) {
   return (
     <section className="panel">
       <div className="panel-title">
@@ -2882,7 +2994,7 @@ function PlanningView({ jobs, objects, onStart }: { jobs: JobRecord[]; objects: 
               <button key={job.id} onClick={() => onStart(job)} type="button">
                 <strong>{job.title}</strong>
                 <span>{objects.find((object) => object.id === job.objectId)?.name}</span>
-                <small>{job.assignedTo} · {job.dueDate}</small>
+                <small>{recurringJobHint(job, allJobs) || job.assignedTo} · {job.dueDate}</small>
               </button>
             ))}
           </div>
@@ -2894,6 +3006,7 @@ function PlanningView({ jobs, objects, onStart }: { jobs: JobRecord[]; objects: 
 
 function FieldView({
   activeJobId,
+  allJobs,
   editingReportId,
   jobs,
   objects,
@@ -2908,6 +3021,7 @@ function FieldView({
   onComplete,
 }: {
   activeJobId: string | null;
+  allJobs: JobRecord[];
   editingReportId: string | null;
   jobs: JobRecord[];
   objects: ObjectRecord[];
@@ -2952,7 +3066,7 @@ function FieldView({
                 <button key={job.id} onClick={() => onSelectJob(job)} type="button">
                   <span>
                     <strong>{job.title}</strong>
-                    <small>{jobObject?.name ?? "Objekt unbekannt"} · {job.dueDate}</small>
+                    <small>{jobObject?.name ?? "Objekt unbekannt"} · {job.dueDate} · {recurringJobHint(job, allJobs) || job.assignedTo}</small>
                   </span>
                   <Badge value={job.status} />
                 </button>
@@ -3051,7 +3165,7 @@ function FieldView({
               >
                 <span>
                   <strong>{job.title}</strong>
-                  <small>{jobObject?.name ?? "Objekt unbekannt"} · {job.dueDate}</small>
+                  <small>{jobObject?.name ?? "Objekt unbekannt"} · {job.dueDate} · {recurringJobHint(job, allJobs) || job.assignedTo}</small>
                 </span>
                 <Badge value={job.status} />
               </button>

@@ -653,6 +653,10 @@ button {
   padding: 8px 10px;
 }
 
+.series-job-row {
+  row-gap: 8px;
+}
+
 .job-row-main {
   display: grid;
   gap: 3px;
@@ -673,6 +677,46 @@ button {
   grid-template-columns: auto auto auto auto;
   justify-items: end;
   white-space: nowrap;
+}
+
+.series-occurrence-list {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 6px;
+  grid-column: 1 / -1;
+  margin-top: 2px;
+  padding-top: 8px;
+}
+
+.series-occurrence-row {
+  align-items: center;
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 42px;
+  padding: 6px 8px;
+}
+
+.series-occurrence-row div:first-child {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.series-occurrence-row strong,
+.series-occurrence-row span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.muted-line {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .job-row .row-actions {
