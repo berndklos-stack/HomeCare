@@ -1119,17 +1119,60 @@ mark.neutral {
 }
 
 .captured-photo-card {
+  align-items: center;
   background: var(--paper);
   border: 1px solid var(--line);
   border-radius: 8px;
   display: grid;
+  grid-template-columns: 74px minmax(0, 1fr) auto;
   gap: 8px;
-  padding: 12px;
+  padding: 8px;
+}
+
+.captured-photo-card img {
+  aspect-ratio: 4 / 3;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  height: 56px;
+  object-fit: cover;
+  width: 74px;
+}
+
+.captured-photo-placeholder {
+  align-items: center;
+  aspect-ratio: 4 / 3;
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--brand);
+  display: grid;
+  height: 56px;
+  justify-content: center;
+  width: 74px;
+}
+
+.captured-photo-card > div:not(.row-actions) {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
 }
 
 .captured-photo-card span {
   color: var(--muted);
   font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.captured-photo-card .row-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.captured-photo-card .icon-button {
+  height: 34px;
+  width: 34px;
 }
 
 .service-catalog {

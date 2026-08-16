@@ -9,6 +9,7 @@ import {
   ArrowUp,
   Archive,
   CalendarDays,
+  Check,
   ChevronDown,
   ChevronRight,
   Camera,
@@ -3670,28 +3671,39 @@ function FieldView({
               </div>
               {currentTask.photos.map((photo, photoIndex) => (
                 <div className="captured-photo-card" key={`${task.id}-${photo.name}-${photoIndex}`}>
-                  <strong>{photo.accepted ? "Foto übernommen" : "Neues Foto erfasst"}</strong>
-                  <span>{photo.name}</span>
+                  {photo.previewUrl ? (
+                    <img alt={`Vorschau ${photo.name}`} src={photo.previewUrl} />
+                  ) : (
+                    <div className="captured-photo-placeholder">
+                      <Camera size={18} />
+                    </div>
+                  )}
+                  <div>
+                    <strong>{photo.accepted ? "Foto übernommen" : "Neues Foto erfasst"}</strong>
+                    <span>{photo.name}</span>
+                  </div>
                   <div className="row-actions">
                     <button
-                      className="ghost-button compact"
+                      aria-label="Foto benutzen"
+                      className="icon-button"
                       disabled={reportLocked}
                       onClick={() => updateTask(task.id, {
                         photos: currentTask.photos.map((item, index) => (index === photoIndex ? { ...item, accepted: true } : item)),
                       }, currentTask)}
                       type="button"
                     >
-                      Foto benutzen
+                      <Check size={16} />
                     </button>
                     <button
-                      className="ghost-button compact"
+                      aria-label="Neues Foto aufnehmen"
+                      className="icon-button"
                       disabled={reportLocked}
                       onClick={() => updateTask(task.id, {
                         photos: currentTask.photos.filter((_, index) => index !== photoIndex),
                       }, currentTask)}
                       type="button"
                     >
-                      Neues Foto
+                      <RotateCcw size={16} />
                     </button>
                   </div>
                 </div>

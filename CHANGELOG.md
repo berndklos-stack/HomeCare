@@ -4,6 +4,11 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.66.0 - 2026-08-16
+
+- Aufgenommene Kontrollpunkt-Fotos werden in Mobil vor Ort direkt als Vorschau angezeigt.
+- Die Foto-Aktionsbuttons im Kontrollpunkt sind jetzt kompakte Icon-Buttons.
+
 ## 1.65.0 - 2026-08-16
 
 - Nach dem Abschließen eines Einsatzes fragt die App jetzt, ob der erzeugte Bericht geöffnet werden soll.

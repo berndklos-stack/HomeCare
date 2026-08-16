@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.65.0",
+  version: "1.66.0",
   releaseDate: "2026-08-16",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.66.0",
+    date: "2026-08-16",
+    changes: [
+      "Aufgenommene Kontrollpunkt-Fotos werden in Mobil vor Ort direkt als Vorschau angezeigt",
+      "Die Foto-Aktionsbuttons im Kontrollpunkt sind jetzt kompakte Icon-Buttons",
+    ],
+  },
   {
     version: "1.65.0",
     date: "2026-08-16",
