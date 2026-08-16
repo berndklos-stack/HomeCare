@@ -4,6 +4,12 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.86.0 - 2026-08-17
+
+- Mobil vor Ort nutzt dieselbe nach Datum sortierte Arbeitslistenlogik wie das Dashboard.
+- Bei Serienaufträgen werden Mobil vor Ort die nächsten fünf offenen Teiltermine angezeigt.
+- Serientermine sind auch mobil mit Hauptauftrag und Rhythmus gekennzeichnet.
+
 ## 1.85.0 - 2026-08-17
 
 - Dashboard-Arbeitsliste wird nach Fälligkeitsdatum sortiert.

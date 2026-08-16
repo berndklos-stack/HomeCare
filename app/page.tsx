@@ -3164,7 +3164,6 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
               <FieldView
                 activeJobId={activeJobId}
                 allJobs={jobs}
-                jobs={upcomingOperationalJobs}
                 objects={activeObjects}
                 packages={servicePackages}
                 services={services}
@@ -4042,7 +4041,6 @@ function FieldView({
   activeJobId,
   allJobs,
   editingReportId,
-  jobs,
   objects,
   packages,
   reports,
@@ -4060,7 +4058,6 @@ function FieldView({
   activeJobId: string | null;
   allJobs: JobRecord[];
   editingReportId: string | null;
-  jobs: JobRecord[];
   objects: ObjectRecord[];
   packages: ServicePackage[];
   reports: ReportRecord[];
@@ -4075,15 +4072,15 @@ function FieldView({
   onSendReport: (report: ReportRecord) => void;
   onComplete: (job: JobRecord, checklistResults: FieldTaskResult[], fieldNote: string) => void;
 }) {
-  const openJobs = jobs.filter((job) => !["erledigt", "abgerechnet", "storniert"].includes(job.status));
+  const fieldOpenJobs = dashboardWorkJobs(allJobs);
   const completedReports = dedupeReports(reports).filter((report) => {
     const job = allJobs.find((item) => item.id === report.jobId);
     return job ? ["erledigt", "geplant", "in Arbeit"].includes(job.status) : true;
   });
-  const active = activeJobId ? jobs.find((job) => job.id === activeJobId) ?? allJobs.find((job) => job.id === activeJobId) : undefined;
+  const active = activeJobId ? fieldOpenJobs.find((job) => job.id === activeJobId) ?? allJobs.find((job) => job.id === activeJobId) : undefined;
   const activeReport = editingReportId ? reports.find((report) => report.id === editingReportId) : undefined;
   const reportLocked = Boolean(activeReport?.sentAt);
-  if (!active && openJobs.length === 0 && completedReports.length === 0) {
+  if (!active && fieldOpenJobs.length === 0 && completedReports.length === 0) {
     return (
       <section className="field-shell">
         <div className="phone-card">
@@ -4101,7 +4098,7 @@ function FieldView({
           <p>Mobil vor Ort</p>
           <div className="field-job-picker">
             <strong>Offene Aufträge</strong>
-            {openJobs.map((job) => {
+            {fieldOpenJobs.map((job) => {
               const jobObject = objects.find((item) => item.id === job.objectId);
               return (
                 <button key={job.id} onClick={() => onSelectJob(job)} type="button">
@@ -4113,7 +4110,7 @@ function FieldView({
                 </button>
               );
             })}
-            {openJobs.length === 0 && <span>Keine offenen Aufträge.</span>}
+            {fieldOpenJobs.length === 0 && <span>Keine offenen Aufträge.</span>}
           </div>
           <div className="field-job-picker">
             <strong>Abgeschlossene Berichte</strong>
@@ -4198,7 +4195,7 @@ function FieldView({
         <p>Mobil vor Ort</p>
         <div className="field-job-picker">
           <strong>Offene Aufträge</strong>
-          {openJobs.map((job) => {
+          {fieldOpenJobs.map((job) => {
             const jobObject = objects.find((item) => item.id === job.objectId);
             return (
               <button
@@ -4215,7 +4212,7 @@ function FieldView({
               </button>
             );
           })}
-          {openJobs.length === 0 && <span>Keine offenen Aufträge.</span>}
+          {fieldOpenJobs.length === 0 && <span>Keine offenen Aufträge.</span>}
         </div>
         <div className="field-job-picker">
           <strong>Abgeschlossene Berichte</strong>

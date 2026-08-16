@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.85.0",
+  version: "1.86.0",
   releaseDate: "2026-08-17",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.86.0",
+    date: "2026-08-17",
+    changes: [
+      "Mobil vor Ort nutzt dieselbe nach Datum sortierte Arbeitslistenlogik wie das Dashboard",
+      "Bei Serienaufträgen werden Mobil vor Ort die nächsten fünf offenen Teiltermine angezeigt",
+      "Serientermine sind auch mobil mit Hauptauftrag und Rhythmus gekennzeichnet",
+    ],
+  },
   {
     version: "1.85.0",
     date: "2026-08-17",
