@@ -1,10 +1,22 @@
 export const appVersion = {
-  version: "1.74.0",
+  version: "1.75.0",
   releaseDate: "2026-08-17",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.75.0",
+    date: "2026-08-17",
+    changes: [
+      "Kundenportal zeigt Serienaufträge kompakt als Hauptauftrag mit ausklappbaren Teilaufträgen",
+      "Kunden können freigegebene Berichte öffnen und über die PDF-/Druckausgabe herunterladen",
+      "Auftragsanlage im Kundenportal nutzt jetzt die vollständige Admin-Logik mit Leistungen, eigener Leistung, Checkliste und Serienauftrag",
+      "Kunden können im Portal ihre E-Mail-Adresse und Telefonnummer selbst aktualisieren",
+      "Portal-Kopf zeigt das Kolaretorp-Logo mit Willkommenszeile",
+      "Anmeldemaske im Kundenportal zeigt jetzt das Logo und keine Demo-Zugänge mehr",
+    ],
+  },
   {
     version: "1.74.0",
     date: "2026-08-17",

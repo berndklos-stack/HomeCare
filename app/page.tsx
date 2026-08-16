@@ -2866,30 +2866,71 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     }
   }
 
-  async function createPortalJob(customer: CustomerRecord, objectId: string, title: string, description: string, priority: JobRecord["priority"]) {
+  function updatePortalCustomer(customerId: string, updates: Pick<CustomerRecord, "email" | "phone">) {
+    const nextCustomers = customers.map((customer) => (
+      customer.id === customerId
+        ? { ...customer, email: updates.email.trim() || customer.email, phone: updates.phone.trim() || customer.phone }
+        : customer
+    ));
+    setCustomers(nextCustomers);
+    persistSnapshotNow({ customers: nextCustomers });
+    setRecordNotice("Kundenstammdaten aus dem Portal wurden aktualisiert.");
+  }
+
+  async function createPortalJob(customer: CustomerRecord, objectId: string, form: NewJobFormState) {
     const object = objects.find((item) => item.id === objectId);
-    const dueDate = formatJobDate(new Date());
+    const id = `JOB-PORTAL-${Date.now()}`;
+    const customServiceName = form.customServiceName.trim();
+    const customService: ServiceItem | null = customServiceName
+      ? {
+          id: `JOB-SVC-${id}`,
+          name: customServiceName,
+          category: form.customServiceCategory.trim() || "Sonderleistung",
+          unit: form.customServiceUnit.trim() || "Einsatz",
+          price: form.customServicePrice.trim() || "0",
+          currency: form.customServiceCurrency.trim() || "SEK",
+          description: form.customServiceDescription.trim() || "Individuelle Leistung zum Auftrag.",
+          checklist: form.customServiceChecklist,
+        }
+      : null;
+    const selectedServiceTasks = form.serviceIds
+      .map((serviceId) => services.find((service) => service.id === serviceId))
+      .filter(Boolean)
+      .flatMap((service) => serviceToFieldTasks(service as ServiceItem));
+    const customServiceTasks = customService ? serviceToFieldTasks(customService) : [];
+    const checklist = [...selectedServiceTasks, ...customServiceTasks].map((task) => task.title);
     const savedJob: JobRecord = {
-      id: `JOB-PORTAL-${Date.now()}`,
-      title: title.trim() || "Kundenauftrag",
+      id,
+      title: form.title.trim() || "Kundenauftrag",
       objectId,
       customerId: customer.id,
-      type: "Kundenauftrag",
+      type: form.type.trim() || customService?.name || "Kundenauftrag",
       status: "geplant",
-      priority,
-      dueDate,
+      priority: form.priority,
+      dueDate: form.dueDate || formatJobDate(new Date()),
       assignedTo: "Büro",
-      description: description.trim() || "Auftrag wurde im Kundenportal angelegt.",
+      description: form.description.trim() || "Auftrag wurde im Kundenportal angelegt.",
       internalNotes: `Angelegt durch Kundenportal am ${new Date().toLocaleString("de-DE")}.`,
-      checklist: ["Auftrag prüfen", "Termin planen", "Rückmeldung an Kunden"],
-      serviceIds: [],
-      customService: null,
+      checklist: checklist.length > 0 ? checklist : ["Auftrag prüfen", "Termin planen", "Rückmeldung an Kunden"],
+      serviceIds: form.serviceIds,
+      customService,
       billable: true,
       material: "-",
       workMinutes: 0,
-      schedule: { type: "einmalig", frequency: "wöchentlich", interval: 1, weekdays: [], end: "nie", endDate: "", occurrences: 0 },
+      schedule: {
+        type: form.scheduleType,
+        frequency: form.scheduleFrequency,
+        interval: Math.max(Number(form.scheduleInterval) || 1, 1),
+        weekdays: form.scheduleFrequency === "wöchentlich" ? form.scheduleWeekdays : [],
+        end: form.scheduleEnd,
+        endDate: form.scheduleEnd === "am" ? form.scheduleEndDate : "",
+        occurrences: form.scheduleEnd === "nach" ? Math.max(Number(form.scheduleOccurrences) || 1, 1) : 0,
+        activeFromMonth: form.scheduleActiveFromMonth ? Number(form.scheduleActiveFromMonth) : undefined,
+        activeToMonth: form.scheduleActiveToMonth ? Number(form.scheduleActiveToMonth) : undefined,
+        yearInterval: Math.max(Number(form.scheduleYearInterval) || 1, 1),
+      },
     };
-    const nextJobs = [savedJob, ...jobs];
+    const nextJobs = ensureSeriesOccurrences([savedJob, ...jobs], reports);
 
     setJobs(nextJobs);
     persistSnapshotNow({ jobs: nextJobs });
@@ -2902,7 +2943,9 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
           `Kontakt: ${customer.contact}`,
           `E-Mail: ${customer.email}`,
           `Objekt: ${object?.name ?? objectId}`,
-          `Priorität: ${priority}`,
+          `Priorität: ${form.priority}`,
+          `Auftragsart: ${scheduleLabel(savedJob.schedule)}`,
+          `Leistungen: ${form.serviceIds.length + (customService ? 1 : 0)}`,
           `Titel: ${savedJob.title}`,
           "",
           savedJob.description,
@@ -2957,7 +3000,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
           <header className="topbar portal-topbar">
             <div className="portal-brand-head">
               <Image alt="Kolaretorp Service AB" height={28} priority src="/brand/kolaretorp-logo.png" width={220} />
-              <span>Kundenportal</span>
+              <span>Välkommen im Kundenportal von Kolaretorp Service AB</span>
             </div>
             <div className="toolbar">
               <button className="ghost-button" onClick={() => setTheme(theme === "dark" ? "light" : "dark")} type="button">
@@ -2975,7 +3018,9 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
             objects={objects}
             onCreateJob={createPortalJob}
             onSendMessage={createPortalMessage}
+            onUpdateCustomer={updatePortalCustomer}
             reports={reports}
+            services={services}
             setCustomerId={setPortalCustomerId}
           />
         </section>
@@ -3125,7 +3170,9 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                 objects={objects}
                 onCreateJob={createPortalJob}
                 onSendMessage={createPortalMessage}
+                onUpdateCustomer={updatePortalCustomer}
                 reports={reports}
+                services={services}
                 setCustomerId={setPortalCustomerId}
               />
             )}
@@ -4349,7 +4396,9 @@ function CustomerPortalView({
   objects,
   onCreateJob,
   onSendMessage,
+  onUpdateCustomer,
   reports,
+  services,
   setCustomerId,
 }: {
   billing: BillingRecord[];
@@ -4358,9 +4407,11 @@ function CustomerPortalView({
   jobs: JobRecord[];
   messages: PortalMessageRecord[];
   objects: ObjectRecord[];
-  onCreateJob: (customer: CustomerRecord, objectId: string, title: string, description: string, priority: JobRecord["priority"]) => Promise<void>;
+  onCreateJob: (customer: CustomerRecord, objectId: string, form: NewJobFormState) => Promise<void>;
   onSendMessage: (customer: CustomerRecord, objectId: string, subject: string, message: string) => Promise<void>;
+  onUpdateCustomer: (customerId: string, updates: Pick<CustomerRecord, "email" | "phone">) => void;
   reports: ReportRecord[];
+  services: ServiceItem[];
   setCustomerId: (id: string) => void;
 }) {
   const portalCustomers = customers.filter((customer) => !customer.archived && customer.portalStatus !== "gesperrt");
@@ -4370,10 +4421,17 @@ function CustomerPortalView({
   const [selectedObjectId, setSelectedObjectId] = useState("");
   const [messageSubject, setMessageSubject] = useState("");
   const [messageBody, setMessageBody] = useState("");
-  const [jobTitle, setJobTitle] = useState("");
-  const [jobDescription, setJobDescription] = useState("");
-  const [jobPriority, setJobPriority] = useState<JobRecord["priority"]>("normal");
+  const [portalJobForm, setPortalJobForm] = useState<NewJobFormState>({
+    ...emptyJobForm(),
+    assignedTo: "Büro",
+    dueDate: formatJobDate(new Date()),
+    internalNotes: "",
+  });
+  const [portalProfileEmail, setPortalProfileEmail] = useState("");
+  const [portalProfilePhone, setPortalProfilePhone] = useState("");
   const [portalNotice, setPortalNotice] = useState("");
+  const [expandedPortalSeriesIds, setExpandedPortalSeriesIds] = useState<string[]>([]);
+  const [selectedPortalReportId, setSelectedPortalReportId] = useState("");
 
   const customerObjects = customer
     ? objects.filter((object) => !object.archived && (customer.objects.includes(object.id) || object.ownerCustomerId === customer.id))
@@ -4381,10 +4439,44 @@ function CustomerPortalView({
   const currentObjectId = selectedObjectId && customerObjects.some((object) => object.id === selectedObjectId)
     ? selectedObjectId
     : customerObjects[0]?.id ?? "";
-  const portalReports = reports.filter((report) => customerObjects.some((object) => object.id === report.objectId) && report.visibleToCustomer);
-  const portalJobs = jobs.filter((job) => customerObjects.some((object) => object.id === job.objectId) && !["abgerechnet", "storniert"].includes(job.status));
+  const currentPortalObject = customerObjects.find((object) => object.id === currentObjectId) ?? customerObjects[0];
+  const portalReports = reports
+    .filter((report) => customerObjects.some((object) => object.id === report.objectId) && report.visibleToCustomer)
+    .sort((first, second) => normalizeReportDate(second.date).localeCompare(normalizeReportDate(first.date)));
+  const selectedPortalReport = portalReports.find((report) => report.id === selectedPortalReportId);
+  const selectedPortalReportObject = selectedPortalReport ? objects.find((object) => object.id === selectedPortalReport.objectId) : undefined;
+  const selectedPortalReportJob = selectedPortalReport ? jobs.find((job) => job.id === selectedPortalReport.jobId) : undefined;
+  const customerJobs = jobs.filter((job) => customerObjects.some((object) => object.id === job.objectId));
+  const portalOccurrenceGroups = customerJobs.reduce<Record<string, JobRecord[]>>((groups, job) => {
+    if (!job.seriesMasterId) return groups;
+    return {
+      ...groups,
+      [job.seriesMasterId]: [...(groups[job.seriesMasterId] ?? []), job],
+    };
+  }, {});
+  const portalJobs = customerJobs
+    .filter((job) => !job.seriesMasterId)
+    .filter((job) => {
+      const occurrences = portalOccurrenceGroups[job.id] ?? [];
+      if (isSeriesMaster(job)) {
+        return occurrences.some((occurrence) => !["erledigt", "abgerechnet", "storniert"].includes(occurrence.status));
+      }
+      return !["erledigt", "abgerechnet", "storniert"].includes(job.status);
+    })
+    .sort((first, second) => {
+      const firstOccurrences = portalOccurrenceGroups[first.id] ?? [];
+      const secondOccurrences = portalOccurrenceGroups[second.id] ?? [];
+      const groupDiff = jobSortGroup(first, firstOccurrences) - jobSortGroup(second, secondOccurrences);
+      return groupDiff || nextRelevantJobDate(first, firstOccurrences) - nextRelevantJobDate(second, secondOccurrences);
+    });
   const portalMessages = messages.filter((message) => message.customerId === customer?.id);
   const portalBilling = billing.filter((item) => customerObjects.some((object) => object.id === item.objectId));
+
+  function togglePortalSeries(id: string) {
+    setExpandedPortalSeriesIds((current) => (
+      current.includes(id) ? current.filter((item) => item !== id) : [...current, id]
+    ));
+  }
 
   function login() {
     const normalizedEmail = loginEmail.trim().toLowerCase();
@@ -4400,6 +4492,8 @@ function CustomerPortalView({
 
     setCustomerId(matchedCustomer.id);
     setSelectedObjectId(matchedCustomer.objects[0] ?? "");
+    setPortalProfileEmail(matchedCustomer.email);
+    setPortalProfilePhone(matchedCustomer.phone);
     setPortalNotice("");
   }
 
@@ -4412,18 +4506,34 @@ function CustomerPortalView({
   }
 
   async function submitJob() {
-    if (!customer || !currentObjectId || !jobTitle.trim()) return;
-    await onCreateJob(customer, currentObjectId, jobTitle, jobDescription, jobPriority);
-    setJobTitle("");
-    setJobDescription("");
-    setJobPriority("normal");
+    if (!customer || !currentObjectId || !portalJobForm.title.trim()) return;
+    await onCreateJob(customer, currentObjectId, portalJobForm);
+    setPortalJobForm({
+      ...emptyJobForm(),
+      assignedTo: "Büro",
+      dueDate: formatJobDate(new Date()),
+      internalNotes: "",
+    });
     setPortalNotice("Auftrag wurde angelegt.");
+  }
+
+  function savePortalProfile() {
+    if (!customer) return;
+    onUpdateCustomer(customer.id, {
+      email: portalProfileEmail || customer.email,
+      phone: portalProfilePhone || customer.phone,
+    });
+    setPortalNotice("Stammdaten wurden gespeichert.");
   }
 
   if (!customer) {
     return (
       <section className="portal-shell">
         <div className="portal-login panel">
+          <div className="portal-login-brand">
+            <Image alt="Kolaretorp Service AB" height={40} priority src="/brand/kolaretorp-logo.png" width={260} />
+            <strong>Välkommen im Kundenportal von Kolaretorp Service AB</strong>
+          </div>
           <div className="panel-title">
             <div>
               <p>Kundenportal</p>
@@ -4444,21 +4554,6 @@ function CustomerPortalView({
             <KeyRound size={16} />
             Einloggen
           </button>
-          <div className="portal-login-hint">
-            <strong>Demo-Zugänge</strong>
-            {portalCustomers.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => {
-                  setLoginEmail(item.portalLoginEmail || item.email);
-                  setLoginPassword(item.portalPassword || "");
-                }}
-                type="button"
-              >
-                {item.portalLoginEmail || item.email}
-              </button>
-            ))}
-          </div>
         </div>
       </section>
     );
@@ -4506,11 +4601,11 @@ function CustomerPortalView({
             </div>
             <div>
               <span>E-Mail</span>
-              <strong>{customer.email}</strong>
+              <input value={portalProfileEmail || customer.email} onChange={(event) => setPortalProfileEmail(event.target.value)} />
             </div>
             <div>
               <span>Telefon</span>
-              <strong>{customer.phone}</strong>
+              <input value={portalProfilePhone || customer.phone} onChange={(event) => setPortalProfilePhone(event.target.value)} />
             </div>
             <div>
               <span>Adresse / Rechnungsadresse</span>
@@ -4521,9 +4616,12 @@ function CustomerPortalView({
               <strong>{customer.language}</strong>
             </div>
           </div>
+          <button className="primary-button portal-profile-save" onClick={savePortalProfile} type="button">
+            Stammdaten speichern
+          </button>
         </section>
 
-        <section className="panel">
+        <section className="panel portal-wide">
           <div className="panel-title">
             <div>
               <p>Objekte</p>
@@ -4545,7 +4643,7 @@ function CustomerPortalView({
           </div>
         </section>
 
-        <section className="panel">
+        <section className="panel portal-wide">
           <div className="panel-title">
             <div>
               <p>Aufträge</p>
@@ -4553,47 +4651,70 @@ function CustomerPortalView({
             </div>
           </div>
           <div className="compact-list">
-            {portalJobs.map((job) => (
-              <article key={job.id}>
-                <strong>{job.title}</strong>
-                <span>{objects.find((object) => object.id === job.objectId)?.name ?? "Objekt"} · {job.dueDate}</span>
-                <Badge value={readableJobStatus(job.status)} />
-              </article>
-            ))}
+            {portalJobs.map((job) => {
+              const occurrences = sortedByDueDate(portalOccurrenceGroups[job.id] ?? []);
+              const openOccurrences = occurrences.filter((occurrence) => !["erledigt", "abgerechnet", "storniert"].includes(occurrence.status));
+              const isRecurring = isSeriesMaster(job);
+              const summary = isRecurring ? seriesSummary(job, occurrences, reports) : null;
+              const isExpanded = expandedPortalSeriesIds.includes(job.id);
+
+              return (
+                <article className="portal-job-item" key={job.id}>
+                  <div>
+                    <strong>{job.title}</strong>
+                    <span>{objects.find((object) => object.id === job.objectId)?.name ?? "Objekt"} · {isRecurring && summary ? summary.rhythm : job.dueDate}</span>
+                  </div>
+                  {isRecurring && summary ? (
+                    <div className="portal-series-summary">
+                      <Badge value="Serienauftrag" />
+                      <small>Letzter: {summary.lastDone}</small>
+                      <small>Nächster: {summary.nextStatus} {summary.nextDate}</small>
+                      <button className="icon-button" onClick={() => togglePortalSeries(job.id)} type="button">
+                        {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                      </button>
+                    </div>
+                  ) : (
+                    <Badge value={readableJobStatus(job.status)} />
+                  )}
+                  {isRecurring && isExpanded && (
+                    <div className="portal-series-occurrences">
+                      {openOccurrences.map((occurrence) => (
+                        <div key={occurrence.id}>
+                          <span>{occurrence.dueDate}</span>
+                          <Badge value={readableJobStatus(occurrence.status)} />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </article>
+              );
+            })}
             {portalJobs.length === 0 && <p>Keine offenen Aufträge.</p>}
           </div>
         </section>
 
-        <section className="panel">
+        <section className="panel portal-wide">
           <div className="panel-title">
             <div>
               <p>Neuer Auftrag</p>
-              <h2>Auftrag an Kolaretorp senden</h2>
+              <h2>Auftrag anlegen</h2>
             </div>
           </div>
-          <div className="form-grid portal-form">
-            <label>
-              <span>Objekt</span>
-              <select value={currentObjectId} onChange={(event) => setSelectedObjectId(event.target.value)}>
-                {customerObjects.map((object) => <option key={object.id} value={object.id}>{object.name}</option>)}
-              </select>
-            </label>
-            <label>
-              <span>Priorität</span>
-              <select value={jobPriority} onChange={(event) => setJobPriority(event.target.value as JobRecord["priority"])}>
-                <option value="normal">normal</option>
-                <option value="hoch">hoch</option>
-                <option value="dringend">dringend</option>
-                <option value="niedrig">niedrig</option>
-              </select>
-            </label>
-            <label className="wide"><span>Titel</span><input value={jobTitle} onChange={(event) => setJobTitle(event.target.value)} /></label>
-            <label className="wide"><span>Beschreibung</span><textarea value={jobDescription} onChange={(event) => setJobDescription(event.target.value)} /></label>
-            <button className="primary-button wide" disabled={!currentObjectId || !jobTitle.trim()} onClick={() => void submitJob()} type="button">
-              <ClipboardList size={16} />
-              Auftrag senden
-            </button>
-          </div>
+          {currentPortalObject ? (
+            <JobForm
+              customerMode
+              newJob={portalJobForm}
+              objects={customerObjects}
+              selectedObject={currentPortalObject}
+              services={services}
+              setNewJob={setPortalJobForm}
+              setSelectedObjectId={setSelectedObjectId}
+              onSubmit={() => void submitJob()}
+              submitLabel="Auftrag senden"
+            />
+          ) : (
+            <p>Kein Objekt für die Auftragsanlage verfügbar.</p>
+          )}
         </section>
 
         <section className="panel">
@@ -4626,17 +4747,44 @@ function CustomerPortalView({
               <h2>Einsatzberichte</h2>
             </div>
           </div>
-          <div className="compact-list">
+          <div className="compact-list portal-report-list">
             {portalReports.map((report) => (
-              <article key={report.id}>
-                <strong>{report.title}</strong>
-                <span>{objects.find((object) => object.id === report.objectId)?.name ?? "Objekt"} · {report.date}</span>
+              <button
+                className={selectedPortalReportId === report.id ? "active" : ""}
+                key={report.id}
+                onClick={() => setSelectedPortalReportId(report.id)}
+                type="button"
+              >
+                <FileText size={16} />
+                <span>
+                  <strong>{report.title}</strong>
+                  <small>{objects.find((object) => object.id === report.objectId)?.name ?? "Objekt"} · {report.date}</small>
+                </span>
                 <Badge value={report.sentAt ? "gesendet" : "Bericht"} />
-              </article>
+              </button>
             ))}
             {portalReports.length === 0 && <p>Noch keine freigegebenen Berichte.</p>}
           </div>
         </section>
+
+        {selectedPortalReport && selectedPortalReportObject && (
+          <section className="panel portal-wide portal-report-detail">
+            <div className="history-detail-head">
+              <div>
+                <h3>{selectedPortalReport.title}</h3>
+                <span>{selectedPortalReportObject.name} · {selectedPortalReport.date}</span>
+              </div>
+              <IconAction label={`PDF für ${selectedPortalReport.title} ausgeben`} onClick={() => window.print()}><FileDown size={16} /></IconAction>
+            </div>
+            <CustomerReportCard
+              customer={customer}
+              job={selectedPortalReportJob}
+              object={selectedPortalReportObject}
+              report={selectedPortalReport}
+              sentAt={selectedPortalReport.sentAt}
+            />
+          </section>
+        )}
 
         <section className="panel portal-wide">
           <div className="panel-title">
@@ -5803,6 +5951,7 @@ function CustomerForm({
 }
 
 function JobForm({
+  customerMode = false,
   newJob,
   setNewJob,
   objects,
@@ -5812,6 +5961,7 @@ function JobForm({
   onSubmit,
   submitLabel,
 }: {
+  customerMode?: boolean;
   newJob: NewJobFormState;
   setNewJob: (value: NewJobFormState) => void;
   objects: ObjectRecord[];
@@ -5907,7 +6057,7 @@ function JobForm({
         </select>
       </label>
       <label><span>Fällig</span><input type="date" value={newJob.dueDate} onChange={(event) => update("dueDate", event.target.value)} /></label>
-      <label><span>Zuständig</span><input value={newJob.assignedTo} onChange={(event) => update("assignedTo", event.target.value)} /></label>
+      {!customerMode && <label><span>Zuständig</span><input value={newJob.assignedTo} onChange={(event) => update("assignedTo", event.target.value)} /></label>}
       <section className="wide service-assignment">
         <div className="section-heading">
           <span>Leistungen im Auftrag</span>
@@ -6052,7 +6202,7 @@ function JobForm({
         )}
       </div>
       <label className="wide"><span>Beschreibung</span><textarea value={newJob.description} onChange={(event) => update("description", event.target.value)} /></label>
-      <label className="wide"><span>Interne Notizen</span><textarea value={newJob.internalNotes} onChange={(event) => update("internalNotes", event.target.value)} /></label>
+      {!customerMode && <label className="wide"><span>Interne Notizen</span><textarea value={newJob.internalNotes} onChange={(event) => update("internalNotes", event.target.value)} /></label>}
       <button className="primary-button wide" onClick={onSubmit} type="button">{submitLabel}</button>
     </div>
   );

@@ -4,6 +4,15 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.75.0 - 2026-08-17
+
+- Kundenportal zeigt Serienaufträge kompakt als Hauptauftrag mit ausklappbaren Teilaufträgen.
+- Kunden können freigegebene Berichte öffnen und über die PDF-/Druckausgabe herunterladen.
+- Auftragsanlage im Kundenportal nutzt jetzt die vollständige Admin-Logik mit Leistungen, eigener Leistung, Checkliste und Serienauftrag.
+- Kunden können im Portal ihre E-Mail-Adresse und Telefonnummer selbst aktualisieren.
+- Portal-Kopf zeigt das Kolaretorp-Logo mit Willkommenszeile.
+- Anmeldemaske im Kundenportal zeigt jetzt das Logo und keine Demo-Zugänge mehr.
+
 ## 1.74.0 - 2026-08-17
 
 - Offene App-Fenster aktualisieren Daten jetzt automatisch aus Supabase.
