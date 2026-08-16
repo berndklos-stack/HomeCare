@@ -3669,6 +3669,7 @@ function ObjectsView({
   onEdit: (object: ObjectRecord) => void;
   onSelect: (id: string) => void;
 }) {
+  const [activeObjectsOpen, setActiveObjectsOpen] = useState(true);
   const [archivedObjectsOpen, setArchivedObjectsOpen] = useState(false);
 
   return (
@@ -3684,29 +3685,38 @@ function ObjectsView({
         </button>
       </div>
       {notice && <p className="archive-notice">{notice}</p>}
-      <div className="object-list">
-        {objects.map((object) => (
-          <article
-            className={selectedObjectId === object.id ? "selected" : ""}
-            key={object.id}
-          >
-            <button className="object-row-main" onClick={() => onSelect(object.id)} type="button">
-              <ObjectThumbnail object={object} />
-              <div>
-                <strong>{object.name}</strong>
-                <span>{object.owner}</span>
-              </div>
-              <span>{object.region}</span>
-              <span>{object.sizeSqm} m² · {object.rooms} Zi. · {object.beds} Betten</span>
-              <span>{object.carePackage}</span>
-              <Badge value={object.status} />
-            </button>
-            <div className="row-actions">
-              <IconAction label={`Objekt ${object.name} bearbeiten`} onClick={() => onEdit(object)}><Pencil size={16} /></IconAction>
-              <IconAction danger label={`Objekt ${object.name} archivieren`} onClick={() => onArchive(object)}><Archive size={16} /></IconAction>
-            </div>
-          </article>
-        ))}
+      <div className="active-fold-group">
+        <button className="job-fold-toggle" onClick={() => setActiveObjectsOpen((open) => !open)} type="button">
+          {activeObjectsOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+          <span>Aktive Objekte</span>
+          <small>{objects.length}</small>
+        </button>
+        {activeObjectsOpen && (
+          <div className="object-list">
+            {objects.map((object) => (
+              <article
+                className={selectedObjectId === object.id ? "selected" : ""}
+                key={object.id}
+              >
+                <button className="object-row-main" onClick={() => onSelect(object.id)} type="button">
+                  <ObjectThumbnail object={object} />
+                  <div>
+                    <strong>{object.name}</strong>
+                    <span>{object.owner}</span>
+                  </div>
+                  <span>{object.region}</span>
+                  <span>{object.sizeSqm} m² · {object.rooms} Zi. · {object.beds} Betten</span>
+                  <span>{object.carePackage}</span>
+                  <Badge value={object.status} />
+                </button>
+                <div className="row-actions">
+                  <IconAction label={`Objekt ${object.name} bearbeiten`} onClick={() => onEdit(object)}><Pencil size={16} /></IconAction>
+                  <IconAction danger label={`Objekt ${object.name} archivieren`} onClick={() => onArchive(object)}><Archive size={16} /></IconAction>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
       </div>
       {archivedObjects.length > 0 && (
         <div className="archive-section archive-fold-group">
@@ -3777,6 +3787,7 @@ function CustomersView({
   onDelete: (customer: CustomerRecord) => void;
   onEdit: (customer: CustomerRecord) => void;
 }) {
+  const [activeCustomersOpen, setActiveCustomersOpen] = useState(true);
   const [archivedCustomersOpen, setArchivedCustomersOpen] = useState(false);
 
   return (
@@ -3792,24 +3803,33 @@ function CustomersView({
         </button>
       </div>
       {notice && <p className="archive-notice">{notice}</p>}
-      <div className="table-list">
-        {customers.map((customer) => (
-          <article className="customer-row" key={customer.id}>
-            <div className="customer-row-main">
-              <div>
-              <strong>{customer.name}</strong>
-                <span>{customer.contact} · {customer.email} · {customer.phone} · {customer.language}{customer.notes ? ` · ${customer.notes}` : ""}</span>
-              </div>
-              <span>{objects.filter((object) => customer.objects.includes(object.id)).map((object) => object.name).join(", ") || "Keine Objekte"}</span>
-              <span>{customer.balance}</span>
-              <Badge value={customer.portalStatus} />
-            </div>
-            <div className="row-actions">
-              <IconAction label={`Kunde ${customer.name} bearbeiten`} onClick={() => onEdit(customer)}><Pencil size={16} /></IconAction>
-              <IconAction danger label={`Kunde ${customer.name} archivieren`} onClick={() => onArchive(customer)}><Archive size={16} /></IconAction>
-            </div>
-          </article>
-        ))}
+      <div className="active-fold-group">
+        <button className="job-fold-toggle" onClick={() => setActiveCustomersOpen((open) => !open)} type="button">
+          {activeCustomersOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+          <span>Aktive Kunden</span>
+          <small>{customers.length}</small>
+        </button>
+        {activeCustomersOpen && (
+          <div className="table-list">
+            {customers.map((customer) => (
+              <article className="customer-row" key={customer.id}>
+                <div className="customer-row-main">
+                  <div>
+                  <strong>{customer.name}</strong>
+                    <span>{customer.contact} · {customer.email} · {customer.phone} · {customer.language}{customer.notes ? ` · ${customer.notes}` : ""}</span>
+                  </div>
+                  <span>{objects.filter((object) => customer.objects.includes(object.id)).map((object) => object.name).join(", ") || "Keine Objekte"}</span>
+                  <span>{customer.balance}</span>
+                  <Badge value={customer.portalStatus} />
+                </div>
+                <div className="row-actions">
+                  <IconAction label={`Kunde ${customer.name} bearbeiten`} onClick={() => onEdit(customer)}><Pencil size={16} /></IconAction>
+                  <IconAction danger label={`Kunde ${customer.name} archivieren`} onClick={() => onArchive(customer)}><Archive size={16} /></IconAction>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
       </div>
       {archivedCustomers.length > 0 && (
         <div className="archive-section archive-fold-group">
@@ -3862,6 +3882,7 @@ function JobsView({
   reports: ReportRecord[];
 }) {
   const [expandedSeriesIds, setExpandedSeriesIds] = useState<string[]>([]);
+  const [activeGroupOpen, setActiveGroupOpen] = useState(true);
   const [completedGroupOpen, setCompletedGroupOpen] = useState(false);
   const [cancelledGroupOpen, setCancelledGroupOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState("alle");
@@ -4008,10 +4029,8 @@ function JobsView({
           </button>
         ))}
       </div>
-      <div className="table-list job-list">
-        {activeRootJobs.map(renderJobRow)}
-        {activeRootJobs.length === 0 && completedRootJobs.length === 0 && cancelledRootJobs.length === 0 && <span className="muted-line">Keine Aufträge für diesen Status.</span>}
-      </div>
+      {renderJobGroup("Aktive Aufträge", activeRootJobs.length, activeGroupOpen, () => setActiveGroupOpen((open) => !open), activeRootJobs)}
+      {activeRootJobs.length === 0 && completedRootJobs.length === 0 && cancelledRootJobs.length === 0 && <span className="muted-line">Keine Aufträge für diesen Status.</span>}
       {renderJobGroup("Erledigte Aufträge", completedRootJobs.length, completedGroupOpen, () => setCompletedGroupOpen((open) => !open), completedRootJobs)}
       {renderJobGroup("Stornierte Aufträge", cancelledRootJobs.length, cancelledGroupOpen, () => setCancelledGroupOpen((open) => !open), cancelledRootJobs, "job-list-cancelled")}
     </section>

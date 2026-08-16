@@ -627,6 +627,11 @@ button {
   gap: 6px;
 }
 
+.active-fold-group {
+  display: grid;
+  gap: 8px;
+}
+
 .archive-fold-group {
   border-top: 1px solid var(--line);
   display: grid;

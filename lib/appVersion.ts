@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.88.0",
+  version: "1.89.0",
   releaseDate: "2026-08-17",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.89.0",
+    date: "2026-08-17",
+    changes: [
+      "Aktive Kunden, aktive Objekte und aktive Aufträge sind jetzt ebenfalls per Pfeil einklappbar",
+      "Aktive Listen bleiben standardmäßig geöffnet und zeigen die Anzahl im Klappkopf",
+    ],
+  },
   {
     version: "1.88.0",
     date: "2026-08-17",

@@ -4,6 +4,11 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.89.0 - 2026-08-17
+
+- Aktive Kunden, aktive Objekte und aktive Aufträge sind jetzt ebenfalls per Pfeil einklappbar.
+- Aktive Listen bleiben standardmäßig geöffnet und zeigen die Anzahl im Klappkopf.
+
 ## 1.88.0 - 2026-08-17
 
 - Archivierte Kunden werden jetzt wie archivierte Objekte als einklappbarer Block mit Pfeil angezeigt.
