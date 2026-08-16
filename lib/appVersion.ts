@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.66.0",
+  version: "1.67.0",
   releaseDate: "2026-08-16",
   label: "Kolaretorp Service App",
 };
 
 export const versionHistory = [
+  {
+    version: "1.67.0",
+    date: "2026-08-16",
+    changes: [
+      "Mobil vor Ort speichert Einsatznotizen jetzt als eigenen Zwischenstand in LocalStorage und Supabase",
+      "Minuten und Hinweise der Checklistenpunkte werden beim Verlassen des Feldes nochmals gespeichert",
+      "Zwischenstände bleiben beim Abwählen oder Verlassen des Einsatzes erhalten, bis der Einsatz abgeschlossen wird",
+    ],
+  },
   {
     version: "1.66.0",
     date: "2026-08-16",

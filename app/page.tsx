@@ -221,6 +221,7 @@ type BillingRecord = {
 type AppSnapshot = {
   activeJobId: string | null;
   customers: CustomerRecord[];
+  fieldNotes: Record<string, string>;
   fieldProgress: Record<string, Record<string, FieldTaskProgress>>;
   jobs: JobRecord[];
   objects: ObjectRecord[];
@@ -424,6 +425,7 @@ const storageKeys = {
   reports: "kolaretorp-reports",
   services: "kolaretorp-services",
   packages: "kolaretorp-packages",
+  fieldNotes: "kolaretorp-field-notes",
   fieldProgress: "kolaretorp-field-progress",
   activeJobId: "kolaretorp-active-job-id",
 };
@@ -444,6 +446,7 @@ function readLocalSnapshot(): AppSnapshot {
   return {
     activeJobId: readStoredValue<string | null>(storageKeys.activeJobId, null),
     customers: readStoredValue<CustomerRecord[]>(storageKeys.customers, seedCustomers),
+    fieldNotes: readStoredValue<Record<string, string>>(storageKeys.fieldNotes, {}),
     fieldProgress: readStoredValue<Record<string, Record<string, FieldTaskProgress>>>(storageKeys.fieldProgress, {}),
     jobs: readStoredValue<JobRecord[]>(storageKeys.jobs, seedJobs),
     objects: readStoredValue<ObjectRecord[]>(storageKeys.objects, seedObjects),
@@ -460,17 +463,20 @@ function persistLocalSnapshot(snapshot: AppSnapshot) {
   window.localStorage.setItem(storageKeys.reports, JSON.stringify(snapshot.reports));
   window.localStorage.setItem(storageKeys.services, JSON.stringify(snapshot.services));
   window.localStorage.setItem(storageKeys.packages, JSON.stringify(snapshot.packages));
+  window.localStorage.setItem(storageKeys.fieldNotes, JSON.stringify(snapshot.fieldNotes));
   window.localStorage.setItem(storageKeys.fieldProgress, JSON.stringify(snapshot.fieldProgress));
   window.localStorage.setItem(storageKeys.activeJobId, JSON.stringify(snapshot.activeJobId));
 }
 
 function snapshotWeight(snapshot: AppSnapshot) {
+  const fieldNotes = snapshot.fieldNotes ?? {};
+  const fieldProgress = snapshot.fieldProgress ?? {};
   const objectMedia = snapshot.objects.reduce((sum, object) => sum + object.media.items.length, 0);
   const reportPhotos = snapshot.reports.reduce(
     (sum, report) => sum + report.checklistResults.reduce((photoSum, item) => photoSum + item.photos.length, 0),
     0,
   );
-  const progressPhotos = Object.values(snapshot.fieldProgress).reduce(
+  const progressPhotos = Object.values(fieldProgress).reduce(
     (sum, tasks) => sum + Object.values(tasks).reduce((photoSum, task) => photoSum + task.photos.length, 0),
     0,
   );
@@ -482,7 +488,8 @@ function snapshotWeight(snapshot: AppSnapshot) {
     snapshot.reports.length,
     snapshot.services.length,
     snapshot.packages.length,
-    Object.keys(snapshot.fieldProgress).length,
+    Object.keys(fieldNotes).length,
+    Object.keys(fieldProgress).length,
     objectMedia,
     reportPhotos,
     progressPhotos,
@@ -517,6 +524,13 @@ function mergeFieldProgress(
   return merged;
 }
 
+function mergeFieldNotes(
+  remoteNotes: AppSnapshot["fieldNotes"] | undefined,
+  localNotes: AppSnapshot["fieldNotes"] | undefined,
+) {
+  return { ...(localNotes ?? {}), ...(remoteNotes ?? {}) };
+}
+
 function mergeSnapshots(remoteSnapshot: AppSnapshot, localSnapshot: AppSnapshot): AppSnapshot {
   const jobs = mergeRecordsById(remoteSnapshot.jobs, localSnapshot.jobs);
   const activeJobId = remoteSnapshot.activeJobId && jobs.some((job) => job.id === remoteSnapshot.activeJobId)
@@ -528,6 +542,7 @@ function mergeSnapshots(remoteSnapshot: AppSnapshot, localSnapshot: AppSnapshot)
   return {
     activeJobId,
     customers: mergeRecordsById(remoteSnapshot.customers, localSnapshot.customers),
+    fieldNotes: mergeFieldNotes(remoteSnapshot.fieldNotes, localSnapshot.fieldNotes),
     fieldProgress: mergeFieldProgress(remoteSnapshot.fieldProgress, localSnapshot.fieldProgress),
     jobs,
     objects: mergeRecordsById(remoteSnapshot.objects, localSnapshot.objects),
@@ -535,6 +550,10 @@ function mergeSnapshots(remoteSnapshot: AppSnapshot, localSnapshot: AppSnapshot)
     reports: mergeRecordsById(remoteSnapshot.reports, localSnapshot.reports),
     services: mergeRecordsById(remoteSnapshot.services, localSnapshot.services),
   };
+}
+
+function reportSummaryNote(summary: string) {
+  return summary.replace(/^\d+ von \d+ Checklistenpunkten ausgeführt\.\s*/, "").trim();
 }
 
 async function withTimeout<T>(promise: Promise<T>, timeoutMs = 2500): Promise<T> {
@@ -1857,6 +1876,7 @@ export default function HomePage() {
   const [billing] = useState(seedBilling);
   const [services, setServices] = useState(seedServices);
   const [servicePackages, setServicePackages] = useState(seedPackages);
+  const [fieldNotes, setFieldNotes] = useState<Record<string, string>>({});
   const [fieldProgress, setFieldProgress] = useState<Record<string, Record<string, FieldTaskProgress>>>({});
   const [modal, setModal] = useState<Modal>(null);
   const [editingObjectId, setEditingObjectId] = useState<string | null>(null);
@@ -1880,6 +1900,7 @@ export default function HomePage() {
     setReports(snapshot.reports);
     setServices(snapshot.services);
     setServicePackages(snapshot.packages);
+    setFieldNotes(snapshot.fieldNotes ?? {});
     setFieldProgress(snapshot.fieldProgress);
     setActiveJobId(snapshot.activeJobId && normalizedJobs.some((job) => job.id === snapshot.activeJobId) ? snapshot.activeJobId : null);
   }
@@ -1939,6 +1960,7 @@ export default function HomePage() {
     const snapshot: AppSnapshot = {
       activeJobId,
       customers,
+      fieldNotes,
       fieldProgress,
       jobs,
       objects,
@@ -1962,12 +1984,13 @@ export default function HomePage() {
     }, 450);
 
     return () => window.clearTimeout(timeoutId);
-  }, [activeJobId, appStorageReady, customers, fieldProgress, jobs, objects, reports, servicePackages, services, supabaseSyncDisabled]);
+  }, [activeJobId, appStorageReady, customers, fieldNotes, fieldProgress, jobs, objects, reports, servicePackages, services, supabaseSyncDisabled]);
 
   function currentSnapshot(overrides: Partial<AppSnapshot> = {}): AppSnapshot {
     return {
       activeJobId,
       customers,
+      fieldNotes,
       fieldProgress,
       jobs,
       objects,
@@ -2294,11 +2317,13 @@ export default function HomePage() {
       ]),
     ) as Record<string, FieldTaskProgress>;
     const nextFieldProgress = { ...fieldProgress, [job.id]: reportProgress };
+    const nextFieldNotes = { ...fieldNotes, [job.id]: reportSummaryNote(report.summary) };
 
     setFieldProgress(nextFieldProgress);
+    setFieldNotes(nextFieldNotes);
     setActiveJobId(job.id);
     setEditingFieldReportId(report.id);
-    persistSnapshotNow({ activeJobId: job.id, fieldProgress: nextFieldProgress });
+    persistSnapshotNow({ activeJobId: job.id, fieldNotes: nextFieldNotes, fieldProgress: nextFieldProgress });
     setSelectedObjectId(job.objectId);
     setSection("field");
   }
@@ -2359,16 +2384,20 @@ export default function HomePage() {
     ];
     const nextObjects = objects.map((object) => (object.id === job.objectId ? { ...object, lastVisit: job.dueDate } : object));
     const nextFieldProgress = { ...fieldProgress };
+    const nextFieldNotes = { ...fieldNotes };
     delete nextFieldProgress[job.id];
+    delete nextFieldNotes[job.id];
 
     setJobs(nextJobs);
     setReports(nextReports);
     setObjects(nextObjects);
+    setFieldNotes(nextFieldNotes);
     setFieldProgress(nextFieldProgress);
     setActiveJobId(null);
     setEditingFieldReportId(null);
     persistSnapshotNow({
       activeJobId: null,
+      fieldNotes: nextFieldNotes,
       fieldProgress: nextFieldProgress,
       jobs: nextJobs,
       objects: nextObjects,
@@ -2564,6 +2593,7 @@ export default function HomePage() {
                 packages={servicePackages}
                 services={services}
                 reports={reports}
+                fieldNote={currentFieldJobId ? fieldNotes[currentFieldJobId] ?? "" : ""}
                 progress={currentFieldJobId ? fieldProgress[currentFieldJobId] ?? {} : {}}
                 editingReportId={editingFieldReportId}
                 onSelectJob={startJob}
@@ -2574,6 +2604,11 @@ export default function HomePage() {
                   const nextProgress = { ...current, [jobId]: progress };
                   persistSnapshotNow({ fieldProgress: nextProgress });
                   return nextProgress;
+                })}
+                onFieldNoteChange={(jobId, note) => setFieldNotes((current) => {
+                  const nextNotes = { ...current, [jobId]: note };
+                  persistSnapshotNow({ fieldNotes: nextNotes });
+                  return nextNotes;
                 })}
                 onComplete={completeJob}
               />
@@ -3399,10 +3434,12 @@ function FieldView({
   packages,
   reports,
   services,
+  fieldNote,
   progress,
   onSelectJob,
   onSelectReport,
   onClearActiveJob,
+  onFieldNoteChange,
   onProgressChange,
   onSendReport,
   onComplete,
@@ -3415,15 +3452,16 @@ function FieldView({
   packages: ServicePackage[];
   reports: ReportRecord[];
   services: ServiceItem[];
+  fieldNote: string;
   progress: Record<string, FieldTaskProgress>;
   onSelectJob: (job: JobRecord) => void;
   onSelectReport: (report: ReportRecord) => void;
   onClearActiveJob: () => void;
+  onFieldNoteChange: (jobId: string, note: string) => void;
   onProgressChange: (jobId: string, progress: Record<string, FieldTaskProgress>) => void;
   onSendReport: (report: ReportRecord) => void;
   onComplete: (job: JobRecord, checklistResults: FieldTaskResult[], fieldNote: string) => void;
 }) {
-  const [fieldNote, setFieldNote] = useState("Notiz: Zugang geprüft, Fotos ergänzt.");
   const openJobs = jobs.filter((job) => !["erledigt", "abgerechnet", "storniert"].includes(job.status));
   const completedReports = reports.filter((report) => {
     const job = allJobs.find((item) => item.id === report.jobId);
@@ -3518,6 +3556,10 @@ function FieldView({
     currentTask: FieldTaskProgress,
   ) {
     onProgressChange(activeJob.id, { ...progress, [id]: { ...currentTask, ...patch } });
+  }
+
+  function updateFieldNote(note: string) {
+    onFieldNoteChange(activeJob.id, note);
   }
 
   function completeActiveJob() {
@@ -3656,6 +3698,7 @@ function FieldView({
                     min="0"
                     type="number"
                     onChange={(event) => updateTask(task.id, { minutes: event.target.value }, currentTask)}
+                    onBlur={(event) => updateTask(task.id, { minutes: event.currentTarget.value }, currentTask)}
                   />
                 </label>
                 <label>
@@ -3666,6 +3709,7 @@ function FieldView({
                     placeholder="Kurznotiz, Besonderheit oder Rückmeldung"
                     value={currentTask.note}
                     onChange={(event) => updateTask(task.id, { note: event.target.value }, currentTask)}
+                    onBlur={(event) => updateTask(task.id, { note: event.currentTarget.value }, currentTask)}
                   />
                 </label>
               </div>
@@ -3712,7 +3756,13 @@ function FieldView({
             );
           })}
         </div>
-        <textarea disabled={reportLocked} value={fieldNote} onChange={(event) => setFieldNote(event.target.value)} aria-label="Einsatznotiz" />
+        <textarea
+          disabled={reportLocked}
+          value={fieldNote}
+          onBlur={(event) => updateFieldNote(event.currentTarget.value)}
+          onChange={(event) => updateFieldNote(event.target.value)}
+          aria-label="Einsatznotiz"
+        />
         <button className="primary-button" disabled={reportLocked} onClick={completeActiveJob} type="button">
           {editingReportId ? "Bericht speichern" : "Einsatz abschließen"}
         </button>

@@ -4,6 +4,12 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.67.0 - 2026-08-16
+
+- Mobil vor Ort speichert Einsatznotizen jetzt als eigenen Zwischenstand in LocalStorage und Supabase.
+- Minuten und Hinweise der Checklistenpunkte werden beim Verlassen des Feldes nochmals gespeichert.
+- Zwischenstände bleiben beim Abwählen oder Verlassen des Einsatzes erhalten, bis der Einsatz abgeschlossen wird.
+
 ## 1.66.0 - 2026-08-16
 
 - Aufgenommene Kontrollpunkt-Fotos werden in Mobil vor Ort direkt als Vorschau angezeigt.
