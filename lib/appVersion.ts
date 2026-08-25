@@ -1,10 +1,17 @@
 export const appVersion = {
-  version: "1.209.0",
+  version: "1.210.0",
   releaseDate: "2026-08-25",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.210.0",
+    date: "2026-08-25",
+    changes: [
+      "Die einklappbaren Bericht-Zeilen in Mobil vor Ort haben denselben seitlichen Textabstand wie Auftragszeilen",
+    ],
+  },
   {
     version: "1.209.0",
     date: "2026-08-25",
