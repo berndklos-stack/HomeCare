@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.198.0",
+  version: "1.199.0",
   releaseDate: "2026-08-25",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.199.0",
+    date: "2026-08-25",
+    changes: [
+      "Manuelles Aktualisieren lädt lokale iPhone-Änderungen jetzt per kompaktem Online-Patch hoch",
+      "Lokale Berichte und Statusänderungen mit Fotos müssen dadurch nicht mehr als großer Vollsnapshot gespeichert werden",
+      "Nach erfolgreichem Zusammenführen zeigt Homecare eine klare Online-Rückmeldung",
+    ],
+  },
   {
     version: "1.198.0",
     date: "2026-08-25",

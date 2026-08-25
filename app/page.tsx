@@ -4367,9 +4367,28 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       persistLocalSnapshot(mergedSnapshot);
 
       if (mergedDiffersFromRemote) {
-        const savedAt = await saveSupabaseSnapshot(mergedSnapshot);
+        const savedAt = await saveSupabasePatch({
+          activeJobId: mergedSnapshot.activeJobId,
+          billing: mergedSnapshot.billing,
+          companySettings: mergedSnapshot.companySettings,
+          customers: mergedSnapshot.customers,
+          dailyMailSettings: mergedSnapshot.dailyMailSettings,
+          fieldNotes: mergedSnapshot.fieldNotes,
+          fieldProgress: mergedSnapshot.fieldProgress,
+          jobs: mergedSnapshot.jobs,
+          materials: mergedSnapshot.materials,
+          objects: mergedSnapshot.objects,
+          packages: mergedSnapshot.packages,
+          personnel: mergedSnapshot.personnel,
+          portalMessages: mergedSnapshot.portalMessages,
+          reports: mergedSnapshot.reports,
+          resources: mergedSnapshot.resources,
+          services: mergedSnapshot.services,
+          updatedAt: mergedSnapshot.updatedAt,
+        });
         lastRemoteSnapshotKeyRef.current = snapshotContentKey(mergedSnapshot);
         setAppUpdatedAt(savedAt);
+        if (force) setRecordNotice("Lokale Änderungen wurden online zusammengeführt.");
       } else {
         lastRemoteSnapshotKeyRef.current = snapshotContentKey(remoteSnapshot);
       }
