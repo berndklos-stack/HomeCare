@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Kolaretorp Service AB | Ferienhausverwaltung",
+  title: "Kolaretorp Service AB | Homecare",
   description:
     "Digitale Verwaltung für Ferienhäuser, Aufträge, Einsätze und Eigentümerberichte in Småland.",
   icons: {

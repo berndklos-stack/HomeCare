@@ -1,10 +1,973 @@
 export const appVersion = {
-  version: "1.89.0",
-  releaseDate: "2026-08-17",
-  label: "Kolaretorp Service App",
+  version: "1.197.0",
+  releaseDate: "2026-08-25",
+  label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.197.0",
+    date: "2026-08-25",
+    changes: [
+      "Mobil vor Ort speichert Einsatzfotos robuster und mit kleinerer Bildvorschau",
+      "Vor-Ort-Zwischenstände und abgeschlossene Einsätze werden sofort online synchronisiert",
+      "Mehrtägige Einzelaufträge speichern Tagesberichte getrennt pro Arbeitstag",
+      "Homecare korrigiert Serien-Teilaufträge mit vorhandenem Bericht beim Laden auf erledigt",
+    ],
+  },
+  {
+    version: "1.196.0",
+    date: "2026-08-25",
+    changes: [
+      "Die Felder im pauschalen Rabattblock sind gleich hoch",
+      "Rabattart, Wert, Grund und Löschen sind sauber in einer Zeile verteilt",
+      "Das Grund-Feld nutzt jetzt den verfügbaren Platz bis zum rechten Löschicon",
+    ],
+  },
+  {
+    version: "1.195.0",
+    date: "2026-08-25",
+    changes: [
+      "Der pauschale Rabatt ist kompakter angeordnet",
+      "Rabattart, Wert und Grund sind schmaler dargestellt",
+      "Das Löschen-Icon für den pauschalen Rabatt steht jetzt ganz rechts in derselben Zeile",
+    ],
+  },
+  {
+    version: "1.194.0",
+    date: "2026-08-25",
+    changes: [
+      "Der Kopf im Auftragsdialog ist jetzt fest vom scrollenden Inhalt getrennt",
+      "Beim Scrollen können keine Formularfelder mehr oberhalb der Überschrift sichtbar werden",
+      "Nur der Formularinhalt unterhalb von Auftrag bearbeiten scrollt",
+    ],
+  },
+  {
+    version: "1.193.0",
+    date: "2026-08-25",
+    changes: [
+      "Mengenfelder in Leistungs- und Materialpositionen sind schmaler und sauber untereinander ausgerichtet",
+      "Der Kopf des Auftragsdialogs bleibt beim Scrollen sichtbar",
+      "Der Dialogkopf hat jetzt einen deckenden Hintergrund, damit Inhalte sauber darunter verschwinden",
+    ],
+  },
+  {
+    version: "1.192.0",
+    date: "2026-08-25",
+    changes: [
+      "Der Auftragsdialog ist jetzt als Workflow aufgebaut: Kopfdaten, Leistungen, Material, Zeitplanung, Abschluss",
+      "Leistungen und Material werden nur noch per Hinzufügen-Button ausgewählt oder manuell angelegt",
+      "Paket- und Stammdatenleistungen erscheinen nicht mehr als große Anhakliste im ersten Formularblock",
+      "Löschen von Positionen und Rabatten nutzt einheitliche Papierkorb-Icons",
+    ],
+  },
+  {
+    version: "1.191.0",
+    date: "2026-08-25",
+    changes: [
+      "Das Popup Auftrag bearbeiten nutzt jetzt deutlich mehr Bildschirmbreite",
+      "Auf großen Bildschirmen wird der Auftragsdialog dreispaltig angeordnet",
+      "Der Dialog hat mehr nutzbare Höhe und bleibt dadurch übersichtlicher",
+    ],
+  },
+  {
+    version: "1.190.0",
+    date: "2026-08-25",
+    changes: [
+      "Das Mengenfeld bei Materialpositionen ist deutlich schmaler",
+      "Materialpositionen sind mit Menge, Summe und Löschen sauberer in einer Flucht ausgerichtet",
+      "Lange Materialdetails werden kompakt gekürzt statt die Zeile auseinanderzuziehen",
+    ],
+  },
+  {
+    version: "1.189.0",
+    date: "2026-08-25",
+    changes: [
+      "Trennlinien im Offerten-PDF stehen jetzt erst nach Position plus zugehörigem Rabatt",
+      "Positionsgruppen sind dadurch ruhiger und klarer lesbar",
+      "Der Abstand zwischen Rabatt und nächster Position wurde reduziert",
+    ],
+  },
+  {
+    version: "1.188.0",
+    date: "2026-08-25",
+    changes: [
+      "Materialpositionen nutzen jetzt feste Spalten für Text, Menge, Summe und Löschen",
+      "Die Löschicons bleiben rechts sauber untereinander ausgerichtet",
+      "Rabattfelder sind breiter und geordneter angeordnet",
+    ],
+  },
+  {
+    version: "1.187.0",
+    date: "2026-08-25",
+    changes: [
+      "Rabatte im Offerten-PDF werden jetzt dezenter als Unterzeile dargestellt",
+      "Negative Rabattbeträge nutzen ein sauberes Minuszeichen",
+      "Rabattzeilen zeigen nur noch den relevanten Abzug statt unnötiger Tabellenwerte",
+    ],
+  },
+  {
+    version: "1.186.0",
+    date: "2026-08-25",
+    changes: [
+      "Materialpositionen im Auftragsdialog sind optisch aufgeräumter und kompakter",
+      "Der Papierkorb bleibt jetzt ein kleines Icon in der Positionszeile",
+      "Rabattaktionen bei Materialpositionen sind schmaler und ziehen die Karte nicht mehr auseinander",
+    ],
+  },
+  {
+    version: "1.185.0",
+    date: "2026-08-25",
+    changes: [
+      "Rabatte werden in Offerte und Auftragsbestätigung als kompakte Unterzeilen dargestellt",
+      "Prozent-Rabatte zeigen den Prozentsatz direkt in der Rabattzeile",
+      "Geldbeträge mit Cent/Öre werden im PDF sauber formatiert",
+    ],
+  },
+  {
+    version: "1.184.0",
+    date: "2026-08-25",
+    changes: [
+      "Materialpositionen im Auftragsdialog sind jetzt kompakter angeordnet",
+      "Rabatte bei Materialpositionen stehen dichter bei Menge und Summe",
+      "Das Entfernen von Materialpositionen nutzt jetzt nur noch ein kleines Icon",
+    ],
+  },
+  {
+    version: "1.183.0",
+    date: "2026-08-25",
+    changes: [
+      "Rabatte können jetzt einzeln an Leistungen und Materialpositionen gepflegt werden",
+      "Zusätzlich bleibt ein pauschaler Auftragsrabatt möglich",
+      "Positionsrabatte erscheinen in Offerte, Auftragsbestätigung und Abrechnung direkt bei der jeweiligen Position",
+    ],
+  },
+  {
+    version: "1.182.0",
+    date: "2026-08-25",
+    changes: [
+      "Der Rabattbereich im Auftrag wird nur angezeigt, wenn ein Rabatt angelegt wurde",
+      "Ohne Rabatt erscheint nur ein kompakter Button Rabatt hinzufügen",
+      "Rabatte mit Wert 0 werden beim Speichern nicht als Rabattposition übernommen",
+    ],
+  },
+  {
+    version: "1.181.0",
+    date: "2026-08-25",
+    changes: [
+      "Leistungen im Auftrag haben jetzt eine eigene Menge / Anzahl",
+      "Rabatte können als Betrag oder Prozentwert im Auftrag erfasst werden",
+      "Offerte, Auftragsbestätigung und Abrechnung berücksichtigen Leistungsmenge und Rabatt in den Summen",
+    ],
+  },
+  {
+    version: "1.180.0",
+    date: "2026-08-25",
+    changes: [
+      "Beim Bestätigen einer Offerte öffnet sich jetzt zuerst der Auftragsdialog mit Status geplant",
+      "Aufträge können nun als Auftragsbestätigung per PDF heruntergeladen und an Kunden gesendet werden",
+      "Auftragsbestätigungen nutzen dieselbe Versandvorschau mit bearbeitbarem Mailtext wie Offerten",
+    ],
+  },
+  {
+    version: "1.179.0",
+    date: "2026-08-25",
+    changes: [
+      "Die Offerten-PDF-Fusszeile ist optisch sauberer mit kleinen Blocküberschriften und Trennlinien aufgebaut",
+      "Org.-Nr., Momsreg.nr/VAT und F-Skatt stehen im Steuerblock jetzt untereinander statt in einer langen Zeile",
+    ],
+  },
+  {
+    version: "1.178.0",
+    date: "2026-08-25",
+    changes: [
+      "Die Offerten-PDF-Fusszeile verzichtet jetzt auf die Adresse, weil sie bereits im Kopf steht",
+      "Die Fusszeile ist kompakter in Firma/Kontakt, Bank und Steuerdaten/F-Skatt aufgeteilt",
+    ],
+  },
+  {
+    version: "1.177.0",
+    date: "2026-08-25",
+    changes: [
+      "Die Beschreibung in Offerten-PDFs steht jetzt mit Abstand direkt oberhalb der Positionsliste",
+      "Die Beschreibung nutzt dieselbe ruhige Schriftgröße wie die Kopfdaten darüber",
+    ],
+  },
+  {
+    version: "1.176.0",
+    date: "2026-08-25",
+    changes: [
+      "Offerten-PDFs übersetzen Einheiten bei schwedischen Kunden automatisch ins Schwedische",
+      "Die Offerten-Fusszeile ist jetzt in mehrere zweizeilige Blöcke nebeneinander aufgeteilt",
+      "Der Offertenstatus wird bei schwedischen Kunden als schwedischer Status ausgegeben",
+    ],
+  },
+  {
+    version: "1.175.0",
+    date: "2026-08-25",
+    changes: [
+      "Kundenkommunikation richtet sich jetzt nach der beim Kunden gepflegten Sprache",
+      "Schwedische Kunden erhalten Offerten-Mails, Berichts-Mails und Portal-Einladungen automatisch auf Schwedisch",
+      "Offerten- und Berichts-PDFs verwenden bei schwedischen Kunden schwedische Überschriften und Hinweise",
+    ],
+  },
+  {
+    version: "1.174.0",
+    date: "2026-08-25",
+    changes: [
+      "Die separate Steuernummer wurde aus den Firmenstammdaten entfernt",
+      "Offerten-Fusszeilen nutzen nur noch Org.-Nr., Momsreg.nr / VAT, F-Skatt-Hinweis und Bankdaten",
+    ],
+  },
+  {
+    version: "1.173.0",
+    date: "2026-08-25",
+    changes: [
+      "Firmenstammdaten enthalten jetzt Momsreg.nr / VAT und den F-Skatt-Status",
+      "Offerten-PDFs zeigen Momsreg.nr / VAT und Godkänd för F-skatt automatisch in der Fusszeile",
+      "Der F-Skatt-Hinweis wird nur ausgegeben, wenn er in den Firmenstammdaten aktiviert ist",
+    ],
+  },
+  {
+    version: "1.172.0",
+    date: "2026-08-25",
+    changes: [
+      "Der Mailtext beim Offertenversand ist in der Versandvorschau bearbeitbar",
+      "Offerten-PDFs haben eine Fusszeile mit Firmenname, Adresse, E-Mail, Org.-Nummer und Bankverbindung",
+      "Firmenstammdaten koennen jetzt im Stammdatenbereich unter Firma gepflegt werden",
+      "Die Offerten-Fusszeile verwendet automatisch die gepflegten Firmenstammdaten",
+    ],
+  },
+  {
+    version: "1.171.0",
+    date: "2026-08-25",
+    changes: [
+      "Offerten koennen jetzt als ordentliches PDF mit Kolaretorp-Logo erstellt werden",
+      "Offerten haben eine Versandvorschau mit freundlichem Du-Mailtext und PDF-Anhang",
+      "Offerten-PDFs enthalten Leistungen, Material, Mengen, Netto, Moms und Gesamtbetrag",
+      "Der Versand der Offerte wird am Auftrag mit Angebotsnummer und Sendezeit dokumentiert",
+    ],
+  },
+  {
+    version: "1.170.0",
+    date: "2026-08-24",
+    changes: [
+      "Auftraege haben jetzt den Workflow-Status Offerte als Vorstufe zum geplanten Auftrag",
+      "Erledigte Auftraege koennen automatisch in die Abrechnung uebernommen und als abgerechnet markiert werden",
+      "Abrechnungspositionen speichern Rechnungsnummer, Rechnungsdatum, Leistungsdatum, Rechnungszeilen, Moms-Satz und Exportstatus fuer Spiris / Visma",
+      "Material kann in den Stammdaten gepflegt und direkt in Offerten/Auftraegen frei oder aus dem Katalog erfasst werden",
+    ],
+  },
+  {
+    version: "1.169.0",
+    date: "2026-08-24",
+    changes: [
+      "Nachrichten im Kundenportal oeffnen beim Anklicken jetzt ebenfalls ein Detail-Popup",
+      "Das Popup zeigt Objekt, Status, Zeitstempel, Nachricht und Antwortenverlauf uebersichtlich an",
+      "Der Nachrichtenverlauf im Portal bleibt dadurch kompakt und besser lesbar",
+    ],
+  },
+  {
+    version: "1.168.0",
+    date: "2026-08-24",
+    changes: [
+      "Nachrichten im Kommunikationsreiter oeffnen beim Anklicken jetzt ein Detail-Popup",
+      "Das Popup zeigt Nachricht, Kunde, Objekt, Status, Verlauf und Antwortfeld uebersichtlich an",
+      "Die Kommunikationsliste bleibt dadurch kompakt und ohne ausgeklappte Detailflaechen",
+    ],
+  },
+  {
+    version: "1.167.0",
+    date: "2026-08-24",
+    changes: [
+      "Der Dialog Nachricht an Kunde nutzt jetzt eine groessere, sauber strukturierte Versandmaske",
+      "Empfaenger, Antwortadresse und Blindkopie werden als Info-Karten wie beim Berichtversand angezeigt",
+      "Betreff und Nachricht sind als gut lesbare Eingabefelder mit grossem Textbereich angeordnet",
+    ],
+  },
+  {
+    version: "1.166.0",
+    date: "2026-08-24",
+    changes: [
+      "Die Kommunikationsseite hat jetzt ein Such- und Filterfeld",
+      "Kundenportal-Nachrichten koennen nach Datum, Kunde, Objekt oder Status sortiert werden",
+      "Direkte Kundennachrichten aus der Kundenuebersicht bleiben mit dokumentiert",
+    ],
+  },
+  {
+    version: "1.165.0",
+    date: "2026-08-24",
+    changes: [
+      "Aktive Kunden haben in der Kundenuebersicht jetzt einen direkten Nachricht-Button",
+      "Im geoeffneten Kundenstamm gibt es oben einen Button Nachricht an Kunde",
+      "Direkte Kundennachrichten werden per Mail mit Blindkopie an info@kolaretorp.se gesendet und im Kundenportal dokumentiert",
+    ],
+  },
+  {
+    version: "1.164.0",
+    date: "2026-08-24",
+    changes: [
+      "Der Arbeitsbereich richtet Topbar, Kennzahlen und Inhalt wieder sauber oben aus",
+      "Kundenportal-Anfragen werden als kompakte Listenzeilen statt grosser Karten dargestellt",
+      "Nachricht, Zeitstempel, Status und Antwortaktion sind platzsparend in einer Zeile angeordnet",
+    ],
+  },
+  {
+    version: "1.163.0",
+    date: "2026-08-24",
+    changes: [
+      "Kunden sehen Antworten auf Portal-Anfragen jetzt auch im Kundenportal",
+      "Portal-Antworten werden unter der urspruenglichen Nachricht mit Zeitstempel angezeigt",
+    ],
+  },
+  {
+    version: "1.162.0",
+    date: "2026-08-24",
+    changes: [
+      "Die oberen Kennzahlen-Kacheln sind deutlich kompakter dargestellt",
+      "Der Arbeitsbereich nutzt geringere Abstaende, damit mehr Inhalt auf den Bildschirm passt",
+    ],
+  },
+  {
+    version: "1.161.0",
+    date: "2026-08-24",
+    changes: [
+      "Die Kommunikationsliste ist kompakter dargestellt",
+      "Status und Antworten-Button stehen jetzt direkt in der Kopfzeile der Anfrage",
+      "Zeitstempel und Nachrichtentext brauchen deutlich weniger vertikalen Platz",
+    ],
+  },
+  {
+    version: "1.160.0",
+    date: "2026-08-24",
+    changes: [
+      "Antworten auf Kundenportal-Anfragen werden jetzt direkt aus der App gesendet und dokumentiert",
+      "App-Antworten werden mit Zeitstempel und Versandstatus an der urspruenglichen Anfrage gespeichert",
+      "Antwortmails gehen als Blindkopie an info@kolaretorp.se",
+    ],
+  },
+  {
+    version: "1.159.0",
+    date: "2026-08-24",
+    changes: [
+      "Antwortmails aus der Kommunikation kodieren Leerzeichen jetzt kompatibel fuer Apple Mail",
+      "Betreff und Originalnachricht erscheinen dadurch ohne Pluszeichen",
+    ],
+  },
+  {
+    version: "1.158.0",
+    date: "2026-08-24",
+    changes: [
+      "Kundenportal-Anfragen haben in der Kommunikation jetzt einen Antworten-Button",
+      "Der Antworten-Button oeffnet eine Mail an den Kunden mit Betreff und Originalanfrage im Mailtext",
+    ],
+  },
+  {
+    version: "1.157.0",
+    date: "2026-08-24",
+    changes: [
+      "Kundenportal-Anfragen speichern jetzt Mailstatus, Versandzeit und eventuelle Versandfehler",
+      "Der Bereich Kommunikation zeigt alle Kundenportal-Nachrichten inklusive Nachrichtentext und Zeitstempel",
+      "Kunden sehen ihre gesendeten Nachrichten im Portal mit Status und Sendezeit im Nachrichtenverlauf",
+    ],
+  },
+  {
+    version: "1.156.0",
+    date: "2026-08-24",
+    changes: [
+      "Die Begruessung im Kundenportal lautet jetzt Vaelkommen im Kundenportal mit Ausrufezeichen hinter dem Vornamen",
+    ],
+  },
+  {
+    version: "1.155.0",
+    date: "2026-08-24",
+    changes: [
+      "Die Kopfbox im Kundenportal begruesst Kunden jetzt mit Willkommen im Kundenportal und dem Vornamen",
+    ],
+  },
+  {
+    version: "1.154.0",
+    date: "2026-08-24",
+    changes: [
+      "Doppelt zusammengesetzte Adressen wie Strasse und komplette Adresse werden in der Anzeige bereinigt",
+      "Kundenportal, Objektlisten und Berichte zeigen dadurch Gunnabo 126 nur noch einmal mit PLZ und Ort",
+      "Adressfelder normalisieren bereits vorhandene doppelte Adresswerte beim Oeffnen",
+    ],
+  },
+  {
+    version: "1.153.0",
+    date: "2026-08-24",
+    changes: [
+      "Kunden und Objekte werden in der Uebersicht jetzt durch Klick auf die Zeile geoeffnet",
+      "Archivieren, Wiederherstellen und endgueltiges Loeschen sind bei Kunden und Objekten nur noch im geoeffneten Datensatz moeglich",
+      "Die Kundenuebersicht hat jetzt Suche und Sortierung nach Name, Anlagezeit oder Objekt",
+    ],
+  },
+  {
+    version: "1.152.0",
+    date: "2026-08-24",
+    changes: [
+      "Erzwungenes Online-Speichern sendet jetzt nur noch kleine Daten-Patches statt den kompletten App-State",
+      "Kundenspeichern laeuft dadurch nicht mehr in den 413-Fehler durch grosse Fotos oder Berichte",
+      "Serverseitig werden Patch-Daten in den bestehenden App-State eingemischt",
+    ],
+  },
+  {
+    version: "1.151.0",
+    date: "2026-08-24",
+    changes: [
+      "Online-Speichern versucht jetzt mehrere Speicherwege nacheinander",
+      "Die App nutzt relative und absolute API-Adresse sowie fetch und XMLHttpRequest als Fallback",
+      "Nach erfolgreichem Online-Speichern verschwindet eine alte Fehlermeldung automatisch",
+    ],
+  },
+  {
+    version: "1.150.0",
+    date: "2026-08-24",
+    changes: [
+      "Online-Speichern hat jetzt einen XMLHttpRequest-Fallback fuer Safari- und PWA-Fetch-Fehler",
+      "Bei The string did not match the expected pattern versucht die App automatisch den zweiten Speicherweg",
+      "Die Speicheradresse wird jetzt aus window.location.origin gebildet",
+    ],
+  },
+  {
+    version: "1.149.0",
+    date: "2026-08-24",
+    changes: [
+      "Online-Speichern nutzt jetzt eine absolute API-Adresse und POST statt PUT",
+      "Safari- und PWA-Probleme mit dem Speichern von Kundendaten werden dadurch umgangen",
+      "Die App-State-API akzeptiert weiterhin PUT und zusaetzlich POST fuer Speicherungen",
+    ],
+  },
+  {
+    version: "1.148.0",
+    date: "2026-08-24",
+    changes: [
+      "Online-Speichern verwendet beim PUT keine Safari-kritische Cache-Option mehr",
+      "Der Fehler The string did not match the expected pattern beim Speichern wird dadurch vermieden",
+    ],
+  },
+  {
+    version: "1.147.0",
+    date: "2026-08-24",
+    changes: [
+      "Kunde speichern schreibt Kundendaten jetzt erzwungen direkt in die Online-Datenbank",
+      "Auch Stammdaten-Speichern im Kundenportal nutzt jetzt den erzwungenen Online-Speicherweg",
+      "Damit werden Telefonnummern wie bei Korn nicht mehr nur lokal sichtbar gespeichert",
+    ],
+  },
+  {
+    version: "1.146.0",
+    date: "2026-08-24",
+    changes: [
+      "Explizites Speichern von Stammdaten startet den Online-Speicherlauf jetzt sofort",
+      "Kundentelefonnummern sollen dadurch ohne spuerbare Wartezeit in Supabase landen",
+    ],
+  },
+  {
+    version: "1.145.0",
+    date: "2026-08-24",
+    changes: [
+      "Der Aktualisieren-Button prueft jetzt zuerst, ob eine neue App-Version online ist",
+      "Bei neuer Version wird die WebApp automatisch neu geladen, damit der aktuelle Synchronisationscode laeuft",
+      "Das verhindert, dass alte Safari- oder PWA-Caches lokale Telefonnummern nicht in die Datenbank schreiben",
+    ],
+  },
+  {
+    version: "1.144.0",
+    date: "2026-08-24",
+    changes: [
+      "Geoeffnete Berichte im Kundenportal koennen jetzt wieder geschlossen werden",
+    ],
+  },
+  {
+    version: "1.143.0",
+    date: "2026-08-24",
+    changes: [
+      "Manuelles Aktualisieren fuehrt lokale und Online-Kundendaten jetzt auch bei reinen Feldabweichungen zusammen",
+      "Lokale Telefonnummern koennen dadurch leere Online-Werte wieder reparieren",
+      "Der Objektbereich im Kundenportal nutzt jetzt denselben Ueberschriftenstil wie die anderen Portalbereiche",
+    ],
+  },
+  {
+    version: "1.142.0",
+    date: "2026-08-24",
+    changes: [
+      "Bei Kunden heisst die laufende Nummer jetzt Kundennummer statt Personalnummer",
+      "Personalnummer bleibt ausschliesslich in der Personalverwaltung sichtbar",
+    ],
+  },
+  {
+    version: "1.141.0",
+    date: "2026-08-24",
+    changes: [
+      "Telefonfelder im Kundenportal ziehen nachgeladenen Online-Stand sicher nach",
+      "Platzhalter-Striche werden im Kundenportal nicht mehr als Telefonnummer angezeigt",
+      "Im Kundenportal wird im Dunkelmodus automatisch das helle Logo angezeigt",
+    ],
+  },
+  {
+    version: "1.140.0",
+    date: "2026-08-24",
+    changes: [
+      "Im Kundenportal wird im Dunkelmodus automatisch das helle Logo angezeigt",
+    ],
+  },
+  {
+    version: "1.139.0",
+    date: "2026-08-24",
+    changes: [
+      "Im Kundenportal zeigt der Objektbereich nur noch die Ueberschrift Objekte ohne zusaetzliche Kundenportal-Vorzeile",
+    ],
+  },
+  {
+    version: "1.138.0",
+    date: "2026-08-24",
+    changes: [
+      "Das Kundenportal nutzt jetzt die volle Bildschirmbreite",
+      "Portalboxen und Abstaende sind kompakter dargestellt",
+      "Telefonnummern von Kunden bleiben beim Versionswechsel und Geraeteabgleich erhalten",
+    ],
+  },
+  {
+    version: "1.137.0",
+    date: "2026-08-24",
+    changes: [
+      "Telefonnummern von Kunden werden beim Versionswechsel und Geraeteabgleich vor leeren lokalen Werten geschuetzt",
+      "Beim Speichern eines bestehenden Kunden ueberschreibt ein leeres Telefonfeld keine vorhandene Nummer mehr",
+      "Telefon 2 wird ebenfalls beim Zusammenfuehren von Online- und lokalen Daten erhalten",
+    ],
+  },
+  {
+    version: "1.136.0",
+    date: "2026-08-24",
+    changes: [
+      "Das Logo im Kundenportal ist oben groesser dargestellt",
+      "Der Portal-Kopf zeigt neben dem Logo keinen zusaetzlichen Kundenportal-Text mehr",
+      "Die erste Portalbox zeigt nur noch Kundenportal ohne Kundenname und E-Mail",
+    ],
+  },
+  {
+    version: "1.135.0",
+    date: "2026-08-24",
+    changes: [
+      "Im Kundenportal zeigt Zugang jetzt den gepflegten Zugangsweg ohne feste Schlüsselsafe-Beschriftung",
+      "Zugangsarten wie Schlüssel, Chip oder Code werden dadurch neutral angezeigt",
+    ],
+  },
+  {
+    version: "1.134.0",
+    date: "2026-08-24",
+    changes: [
+      "Kunden haben jetzt ein zweites optionales Telefonnummernfeld",
+      "Telefon 2 wird im Kundenformular, in der Kundenübersicht und im Kundenportal gepflegt",
+      "Leere zweite Telefonnummern bleiben leer und werden nicht als Platzhalter angezeigt",
+    ],
+  },
+  {
+    version: "1.133.0",
+    date: "2026-08-24",
+    changes: [
+      "Im Kundenportal ist die Überschrift Objekte wieder sichtbar",
+      "Nächster Besuch im Objekt nutzt jetzt den nächsten offenen Auftrag für dieses Objekt",
+      "Wenn kein offener Auftrag geplant ist, zeigt das Portal noch nichts geplant",
+    ],
+  },
+  {
+    version: "1.132.0",
+    date: "2026-08-24",
+    changes: [
+      "Neu angelegte Betreuungspakete stehen jetzt im Objektformular zur Auswahl",
+      "Das Betreuungspaket im Objekt ist nicht mehr auf Basis, Plus, Komfort und Premium begrenzt",
+      "Bestehende Paketwerte bleiben in der Auswahl sichtbar, auch wenn ein Paket später archiviert wird",
+    ],
+  },
+  {
+    version: "1.131.0",
+    date: "2026-08-24",
+    changes: [
+      "Im Kundenportal öffnet ein Klick auf ein Objekt jetzt die Objektstammdaten",
+      "Die Objektstammdaten zeigen Adresse, Status, Paket, Eckdaten, Zugang, Technik und Ausstattung",
+      "Die Objektstammdaten lassen sich im Portal wieder schließen",
+    ],
+  },
+  {
+    version: "1.130.0",
+    date: "2026-08-24",
+    changes: [
+      "Im Kundenportal wurde die Überschrift Deine Ferienhäuser im Objektbereich entfernt",
+      "Die Objektliste im Portal bleibt direkt sichtbar ohne zusätzlichen Panel-Kopf",
+    ],
+  },
+  {
+    version: "1.129.0",
+    date: "2026-08-24",
+    changes: [
+      "Personalnummern werden jetzt als kurze laufende Nummern wie 001, 002 und 003 erzeugt",
+      "Lange alte Nummern werden in der Oberfläche nicht mehr angezeigt und beim Speichern durch die nächste dreistellige Nummer ersetzt",
+      "Die technische eindeutige ID bleibt im Hintergrund erhalten, damit Archivieren und Löschen stabil bleiben",
+    ],
+  },
+  {
+    version: "1.128.0",
+    date: "2026-08-24",
+    changes: [
+      "Neue Kunden und neues Personal erhalten echte eindeutige IDs statt wiederverwendbarer laufender Nummern",
+      "Kunden und Personal zeigen Personalnummer und angelegt am in Übersicht und Bearbeitung",
+      "Archivieren, Wiederherstellen und endgültiges Löschen von Kunden speichern sofort online",
+      "Endgültiges Löschen entfernt nur noch den angeklickten Kundendatensatz, auch falls alte doppelte IDs vorhanden sind",
+    ],
+  },
+  {
+    version: "1.127.0",
+    date: "2026-08-21",
+    changes: [
+      "Supabase-Disk-IO wird reduziert: automatische Online-Prüfung läuft deutlich seltener",
+      "Die App speichert identische Snapshots nicht erneut in Supabase",
+      "Die App-State-API hält gelesene Daten bis zu 30 Sekunden im Server-Zwischenspeicher",
+      "Manuelles Aktualisieren bleibt jederzeit über den Aktualisieren-Button möglich",
+    ],
+  },
+  {
+    version: "1.126.0",
+    date: "2026-08-21",
+    changes: [
+      "Die WebApp hat jetzt einen Aktualisieren-Button in der Kopfzeile",
+      "Der Button lädt Online-Änderungen sofort neu, ohne die Safari-WebApp schließen zu müssen",
+      "Während der Aktualisierung zeigt der Button einen laufenden Status und danach eine kurze Rückmeldung",
+    ],
+  },
+  {
+    version: "1.125.0",
+    date: "2026-08-21",
+    changes: [
+      "KW-Zusammenfassungen von Serienaufträgen können jetzt als versendbarer Wochenbericht erzeugt werden",
+      "Wochenberichte öffnen direkt die Versandvorschau und nutzen denselben PDF- und Mailweg wie Tagesberichte",
+      "Wochenberichte behalten vorhandene Kundenkommentare und Versandstatus beim erneuten Aktualisieren",
+      "PDF, Vorschau und Mailbetreff unterscheiden jetzt Einsatzberichte und Wochenberichte",
+    ],
+  },
+  {
+    version: "1.124.0",
+    date: "2026-08-21",
+    changes: [
+      "Kunden- und Objektfelder werden beim Verlassen des Feldes automatisch gespeichert",
+      "Mobil vor Ort können Zeiten jetzt getrennt in Stunden und Minuten eingegeben werden",
+      "Aufgeklappte Serienaufträge zeigen einen Wochenbericht pro Kalenderwoche",
+      "Planung, Dashboard und Aufträge holen Online-Änderungen anderer Geräte schneller und auch nach Fokuswechsel erneut ab",
+      "Klick auf einen Auftrag in der Einsatzplanung öffnet jetzt den Auftrag statt ihn als in Arbeit zu starten",
+      "Personal und Ressourcen öffnen standardmäßig in der Listenansicht und nutzen Symbolbuttons für Liste und Kacheln",
+      "App-Überschrift und Browser-Titel verwenden jetzt Homecare statt Ferienhausverwaltung",
+      "Tagesmail kann jetzt direkt in den Stammdaten bei den Tagesmail-Einstellungen gestartet werden",
+      "Dunkelmodus ist als kompakter Symbolbutton dargestellt",
+      "Navigation, Kopfbereich, Quickbar und Stammdaten nutzen gepflegte schwedische UI-Übersetzungen",
+      "Online-Speicherung wird gebündelt, damit Feldwechsel und Planung weniger Komplett-Synchronisationen auslösen",
+      "Automatische Aktualisierung anderer Geräte läuft seltener im Hintergrund und weiterhin sofort bei Fokuswechsel",
+      "App-State-API puffert kurze Lesezugriffe und behandelt Supabase-Überlastung ohne Vercel-500er-Burst",
+      "Supabase-Schreibfehler werden kurz wiederholt und clientseitig als retryfähig behandelt",
+    ],
+  },
+  {
+    version: "1.123.0",
+    date: "2026-08-20",
+    changes: [
+      "Startet am und Endet am stehen im Auftragsformular jetzt in einer gemeinsamen Zeile",
+      "Auf kleinen Bildschirmen bricht die Datumszeile weiterhin sauber untereinander um",
+    ],
+  },
+  {
+    version: "1.122.0",
+    date: "2026-08-20",
+    changes: [
+      "Tagesmail wird zusätzlich als Kopie an Nicole.Klos@icloud.com gesendet",
+      "Nicole wird nicht doppelt eingetragen, falls sie Hauptempfängerin der Tagesmail ist",
+    ],
+  },
+  {
+    version: "1.121.0",
+    date: "2026-08-20",
+    changes: [
+      "Einmalige Aufträge können jetzt über mehrere Tage laufen",
+      "Auftragsformular hat Startet am und Endet am statt nur einem Fälligkeitsdatum",
+      "Mehrtagesaufträge werden in Planung, Dashboard, Mobilansicht und Objektverlauf als Zeitraum angezeigt",
+      "Drag & Drop verschiebt bei Mehrtagesaufträgen den Ausführungsstart, die Dauer bleibt erhalten",
+    ],
+  },
+  {
+    version: "1.120.0",
+    date: "2026-08-20",
+    changes: [
+      "Personal-Stammdaten haben jetzt Kachel- und Listenansicht",
+      "Ressourcen-Stammdaten haben jetzt Kachel- und Listenansicht",
+      "Klick auf Personal- oder Ressourcenlisten öffnet direkt die Bearbeitung",
+    ],
+  },
+  {
+    version: "1.119.0",
+    date: "2026-08-20",
+    changes: [
+      "Nächster offener Teilauftrag berücksichtigt jetzt das verschobene Einsatzdatum",
+      "Dashboard und Serienköpfe sortieren offene Teilaufträge nach Einsatzdatum",
+      "Mobil vor Ort zeigt bei verschobenen Aufträgen Einsatzdatum und Originaldatum",
+      "Vor-Ort-Berichte werden beim Abschließen mit dem Einsatzdatum gespeichert",
+    ],
+  },
+  {
+    version: "1.118.0",
+    date: "2026-08-20",
+    changes: [
+      "Verschobene Teilaufträge zeigen in der Serienliste jetzt das neue Einsatzdatum",
+      "Bei verschobenen Teilaufträgen bleiben Originaldatum und Verschiebeanzahl sichtbar",
+      "Aktionen für Teilaufträge verwenden das aktuelle Einsatzdatum in der Beschriftung",
+    ],
+  },
+  {
+    version: "1.117.0",
+    date: "2026-08-20",
+    changes: [
+      "Dashboard markiert zusammengehörige Aufträge mit derselben Gruppenfarbe",
+      "Auftragsübersicht markiert Serien-Master und Teilaufträge mit derselben Farbe",
+      "Gruppenfarben bleiben stabil, auch nach Synchronisierung oder Neuladen",
+    ],
+  },
+  {
+    version: "1.116.0",
+    date: "2026-08-20",
+    changes: [
+      "Aufträge können im Dispokalender per Drag & Drop auf andere Tage oder Personalzeilen verschoben werden",
+      "Beim Verschieben bleibt das Originaldatum erhalten und nur das Ausführdatum ändert sich",
+      "Verschiebungen werden am Auftrag mit Originaldatum, Ausführdatum, Personal und Zeitstempel protokolliert",
+    ],
+  },
+  {
+    version: "1.115.0",
+    date: "2026-08-20",
+    changes: [
+      "Personal- und Ressourcen-Stammdaten starten jetzt mit einer Listenansicht",
+      "Neues Personal und neue Ressourcen werden über eigene Neuanlage-Buttons geöffnet",
+      "Ressourcen-Karten zeigen oben rechts ein kleines Vorschaubild oder einen Platzhalter",
+    ],
+  },
+  {
+    version: "1.114.0",
+    date: "2026-08-20",
+    changes: [
+      "Einsatzplanung zeigt nur noch eine offene Zeile Nicht zugewiesen statt doppelter Platzhalter",
+      "Personal kann direkt auf der Dispo-Karte einem Einsatz zugewiesen werden",
+      "Personal- und Ressourcenzuweisungen werden sofort online gespeichert",
+    ],
+  },
+  {
+    version: "1.113.0",
+    date: "2026-08-20",
+    changes: [
+      "In der Einsatzplanung können Ressourcen direkt einem Einsatz zugeordnet werden",
+      "Zugeordnete Ressourcen werden auf der Dispo-Karte angezeigt und können entfernt werden",
+      "Der Auswahlkalender öffnet nicht mehr am rechten Bildschirmrand außerhalb der Ansicht",
+    ],
+  },
+  {
+    version: "1.112.0",
+    date: "2026-08-20",
+    changes: [
+      "Dispokalender ersetzt den Jahres-Button durch einen Kalender-Button zur Datumsauswahl",
+      "Ausgewähltes Datum springt automatisch zur passenden Montag-bis-Sonntag-Woche",
+      "Dispokalender ist kompakter, damit eine komplette Woche besser auf den Mac-Bildschirm passt",
+    ],
+  },
+  {
+    version: "1.111.0",
+    date: "2026-08-20",
+    changes: [
+      "Dispokalender zeigt immer exakt eine Woche von Montag bis Sonntag",
+      "Dispokalender blendet die Kalenderwoche ein",
+      "Wochen-Navigation springt immer montags zur vorherigen oder nächsten Woche",
+    ],
+  },
+  {
+    version: "1.110.0",
+    date: "2026-08-20",
+    changes: [
+      "Tagesmail akzeptiert jetzt Apple webcal:// Kalenderquellen",
+      "Ein versehentlicher Punkt am Ende einer Kalenderquelle wird beim Abruf ignoriert",
+    ],
+  },
+  {
+    version: "1.109.0",
+    date: "2026-08-20",
+    changes: [
+      "Dispokalender kann wochenweise vor- und zurückgeklickt werden",
+      "Dispokalender hat eine Jahresansicht für Serien bis zum letzten aktiven Termin",
+      "Einsatzplanung nutzt jetzt alle aktiven Teilaufträge statt nur den nächsten Serien-Termin",
+    ],
+  },
+  {
+    version: "1.108.0",
+    date: "2026-08-20",
+    changes: [
+      "Dispo-Matrix erweitert den sichtbaren Zeitraum automatisch bis zum spätesten aktiven Auftrag",
+      "Serienaufträge wie Umbau Gunnabo bleiben in der Einsatzplanung bis zum Serien-Enddatum sichtbar",
+    ],
+  },
+  {
+    version: "1.107.0",
+    date: "2026-08-20",
+    changes: [
+      "Tagesmail-Kalenderquellen können jetzt in den Stammdaten konfiguriert werden",
+      "Kalender- und Geburtstagsquellen werden online synchronisiert und von der Tagesmail verwendet",
+    ],
+  },
+  {
+    version: "1.106.0",
+    date: "2026-08-20",
+    changes: [
+      "Einsatzplanung zeigt jetzt eine Dispo-Matrix mit Personalzeilen und Tages-Spalten",
+      "Einsätze werden in der Planung nach Mitarbeiter und Datum einsortiert",
+      "Überfällige Einsätze bleiben als eigener Block oberhalb des Dispo-Boards sichtbar",
+    ],
+  },
+  {
+    version: "1.105.0",
+    date: "2026-08-20",
+    changes: [
+      "Tagesmail kann jetzt über einen Button direkt aus dem Programm manuell gestartet werden",
+      "Manueller Tagesmailversand zeigt eine Rückmeldung mit Anzahl aktiver Aufträge",
+    ],
+  },
+  {
+    version: "1.104.0",
+    date: "2026-08-20",
+    changes: [
+      "Button für Ressourcenbilder heißt jetzt Bild hinzufügen",
+    ],
+  },
+  {
+    version: "1.103.0",
+    date: "2026-08-20",
+    changes: [
+      "Zweck / Ärende im Fahrtenbuch ist jetzt ein lernendes Auswahlfeld",
+      "Quickfahrt nutzt dieselben gelernten Zweck-Vorschläge wie das Ressourcen-Fahrtenbuch",
+    ],
+  },
+  {
+    version: "1.102.0",
+    date: "2026-08-20",
+    changes: [
+      "Fahrten können jetzt über einen globalen Quickbutton aus jeder Ansicht erfasst werden",
+      "Quickfahrt speichert direkt ins Fahrtenbuch des gewählten Fahrzeugs",
+      "Quickfahrt übernimmt nach dem Speichern Zieladresse und End-Km als Vorschlag für die nächste Fahrt",
+    ],
+  },
+  {
+    version: "1.101.0",
+    date: "2026-08-20",
+    changes: [
+      "Ressourcen können jetzt Bilder direkt per Upload oder Mobilfoto speichern",
+      "Ressourcenbilder können beschrieben, als Hauptbild markiert und entfernt werden",
+      "Einsatzplanung ist jetzt als Dispo-Kalender mit Tages-Spalten und überfälligen Einsätzen aufgebaut",
+    ],
+  },
+  {
+    version: "1.100.0",
+    date: "2026-08-20",
+    changes: [
+      "Tagesmail nutzt jetzt dieselbe aktive Auftragsliste wie die Auftragsübersicht",
+      "Tagesmail kann Kalendertermine für heute und die nächsten drei Tage aus Kalender-ICS-Quellen aufführen",
+      "Tagesmail kann Geburtstage aus einer verbundenen Geburtstags-ICS-Quelle aufführen",
+      "Start- und Zieladressen im Fahrtenbuch werden gespeichert und als lernende Vorschläge angeboten",
+    ],
+  },
+  {
+    version: "1.99.0",
+    date: "2026-08-20",
+    changes: [
+      "Stammdaten enthalten jetzt Personalverwaltung",
+      "Stammdaten enthalten jetzt Ressourcen für Fahrzeuge, Maschinen und Geräte",
+      "Fahrzeuge haben ein Fahrtenbuch mit Skatteverket-relevanten Feldern für Kilometerstände, Fahrtzweck, Strecke und Dienst-/Privatfahrten",
+    ],
+  },
+  {
+    version: "1.98.0",
+    date: "2026-08-20",
+    changes: [
+      "Portal-Einladung verwendet den Kundenvornamen statt Ansprechpartner-Platzhalter",
+      "Kundenname wird im Kundenformular in Vorname und Nachname getrennt gepflegt",
+    ],
+  },
+  {
+    version: "1.97.0",
+    date: "2026-08-20",
+    changes: [
+      "PLZ-Eingaben bleiben beim Tippen im PLZ-Feld und springen nicht mehr in das Feld Ort",
+    ],
+  },
+  {
+    version: "1.96.0",
+    date: "2026-08-20",
+    changes: [
+      "Portal-Einladungstext verwendet jetzt durchgehend Du-Form",
+      "Portal-Einladung spricht Kunden immer mit dem Vornamen an",
+    ],
+  },
+  {
+    version: "1.95.0",
+    date: "2026-08-20",
+    changes: [
+      "Adressfelder zeigen innerhalb jedes Adressblocks nur noch Straße, PLZ und Ort",
+      "Kunden können eine abweichende Rechnungsadresse erfassen",
+      "Objekt- und Rechnungsadressen nutzen dieselbe getrennte Eingabe nach Straße, PLZ und Ort",
+    ],
+  },
+  {
+    version: "1.94.0",
+    date: "2026-08-20",
+    changes: [
+      "Portal-Einladung erzeugt jetzt eine bearbeitbare E-Mail-Vorschau",
+      "Einladungsvorschau zeigt Empfänger, Betreff und Zugangsdaten im Mailtext",
+      "Portal-Einladung kann direkt aus der Vorschau gesendet werden",
+      "Beim Senden der Portal-Einladung werden die Kundendaten gespeichert",
+    ],
+  },
+  {
+    version: "1.93.0",
+    date: "2026-08-20",
+    changes: [
+      "Kundenadressen werden jetzt getrennt nach Straße, PLZ und Ort gepflegt",
+      "Objektadressen, Eigentümeradressen und Rechnungsadressen werden getrennt nach Straße, PLZ und Ort gepflegt",
+      "Portal-Passwort aus PLZ und Hausnummer nutzt jetzt die getrennt gepflegte Adresse",
+      "E-Mail-Adresse in Objektstammdaten kann jetzt ebenfalls leer gespeichert werden",
+    ],
+  },
+  {
+    version: "1.92.0",
+    date: "2026-08-20",
+    changes: [
+      "Kunden-E-Mail-Adressen können jetzt vollständig geleert werden",
+      "Sprache im Kundenstamm ist jetzt eine lernende Vorschlagsliste",
+      "Kunden können im Kundenstamm für das Portal vorbereitet werden",
+      "Portal-Passwort wird beim Einladen aus PLZ und Hausnummer gebildet",
+      "Objektstatus ist jetzt eine lernende Vorschlagsliste",
+    ],
+  },
+  {
+    version: "1.91.0",
+    date: "2026-08-20",
+    changes: [
+      "Statusgruppen im Objektverlauf sind jetzt standardmäßig geschlossen",
+      "Einträge im Objektverlauf werden erst angezeigt, wenn die jeweilige Statusgruppe per Pfeil geöffnet wird",
+    ],
+  },
+  {
+    version: "1.90.0",
+    date: "2026-08-20",
+    changes: [
+      "Objektverlauf gruppiert Einsätze jetzt nach Status",
+      "Einträge im Objektverlauf werden innerhalb jeder Statusgruppe nach Datum aufsteigend angezeigt",
+      "Statusgruppen im Objektverlauf sind per Pfeil auf- und zuklappbar",
+      "Online-Synchronisierung übernimmt lokale Offline-Änderungen beim nächsten Netz wieder in Supabase",
+      "Abgeschlossene Aufträge werden beim Zusammenführen nicht mehr durch ältere geplante Stände überschrieben",
+    ],
+  },
   {
     version: "1.89.0",
     date: "2026-08-17",
