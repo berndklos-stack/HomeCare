@@ -6678,6 +6678,32 @@ function ReportsView({
   reports: ReportRecord[];
 }) {
   const [selectedReportId, setSelectedReportId] = useState("");
+  const [reportQuery, setReportQuery] = useState("");
+  const [reportStatusFilter, setReportStatusFilter] = useState("alle");
+  const [reportSort, setReportSort] = useState("date-desc");
+  const filteredReports = dedupeReports(reports)
+    .filter((report) => {
+      const object = objects.find((item) => item.id === report.objectId);
+      const job = jobs.find((item) => item.id === report.jobId);
+      const haystack = [report.title, report.date, report.summary, object?.name, object?.address, job?.assignedTo, job?.status]
+        .join(" ")
+        .toLowerCase();
+      const statusMatches = reportStatusFilter === "alle"
+        || (reportStatusFilter === "gesendet" ? Boolean(report.sentAt) : !report.sentAt);
+
+      return statusMatches && haystack.includes(reportQuery.trim().toLowerCase());
+    })
+    .sort((first, second) => {
+      const firstObject = objects.find((item) => item.id === first.objectId);
+      const secondObject = objects.find((item) => item.id === second.objectId);
+      const firstJob = jobs.find((item) => item.id === first.jobId);
+      const secondJob = jobs.find((item) => item.id === second.jobId);
+
+      if (reportSort === "date-asc") return normalizeReportDate(first.date).localeCompare(normalizeReportDate(second.date));
+      if (reportSort === "object") return (firstObject?.name ?? "").localeCompare(secondObject?.name ?? "", "de");
+      if (reportSort === "status") return (firstJob?.status ?? "").localeCompare(secondJob?.status ?? "", "de");
+      return normalizeReportDate(second.date).localeCompare(normalizeReportDate(first.date));
+    });
   const selectedReport = reports.find((report) => report.id === selectedReportId);
   const selectedObject = selectedReport ? objects.find((object) => object.id === selectedReport.objectId) : undefined;
   const selectedJob = selectedReport ? jobs.find((job) => job.id === selectedReport.jobId) : undefined;
@@ -6694,8 +6720,31 @@ function ReportsView({
             <h2>Berichtsübersicht</h2>
           </div>
         </div>
+        <div className="list-toolbar report-list-toolbar">
+          <label>
+            <span>Suchen</span>
+            <input value={reportQuery} onChange={(event) => setReportQuery(event.target.value)} placeholder="Bericht, Objekt, Datum..." />
+          </label>
+          <label>
+            <span>Status</span>
+            <select value={reportStatusFilter} onChange={(event) => setReportStatusFilter(event.target.value)}>
+              <option value="alle">Alle Berichte</option>
+              <option value="offen">Nicht gesendet</option>
+              <option value="gesendet">Gesendet</option>
+            </select>
+          </label>
+          <label>
+            <span>Sortieren</span>
+            <select value={reportSort} onChange={(event) => setReportSort(event.target.value)}>
+              <option value="date-desc">Datum neu zuerst</option>
+              <option value="date-asc">Datum alt zuerst</option>
+              <option value="object">Objekt A-Z</option>
+              <option value="status">Status A-Z</option>
+            </select>
+          </label>
+        </div>
         <div className="table-list report-overview-list">
-          {reports.map((report) => {
+          {filteredReports.map((report) => {
             const object = objects.find((item) => item.id === report.objectId);
             const job = jobs.find((item) => item.id === report.jobId);
 
@@ -6703,7 +6752,7 @@ function ReportsView({
               <button
                 className={selectedReportId === report.id ? "active" : ""}
                 key={report.id}
-                onClick={() => setSelectedReportId(report.id)}
+                onClick={() => setSelectedReportId((current) => current === report.id ? "" : report.id)}
                 type="button"
               >
                 <FileText size={16} />
@@ -6715,7 +6764,7 @@ function ReportsView({
               </button>
             );
           })}
-          {reports.length === 0 && <p>Noch keine Berichte vorhanden.</p>}
+          {filteredReports.length === 0 && <p>Noch keine passenden Berichte vorhanden.</p>}
         </div>
       </section>
       {selectedReport && selectedObject && (
@@ -6729,6 +6778,7 @@ function ReportsView({
               <IconAction label={`Bericht ${selectedReport.title} mobil nachbearbeiten`} onClick={() => onEditInField(selectedReport)}><Pencil size={16} /></IconAction>
               <IconAction label={`PDF für ${selectedReport.title} herunterladen`} onClick={() => void downloadCustomerReportPdf(selectedReport, selectedObject, selectedJob, selectedCustomer)}><FileDown size={16} /></IconAction>
               <IconAction label={`Bericht ${selectedReport.title} an Kunden senden`} onClick={() => onSendReport(selectedReport)}><Send size={16} /></IconAction>
+              <IconAction label={`Bericht ${selectedReport.title} schließen`} onClick={() => setSelectedReportId("")}><X size={16} /></IconAction>
             </div>
           </div>
           <CustomerReportCard customer={selectedCustomer} job={selectedJob} object={selectedObject} report={selectedReport} sentAt={selectedReport.sentAt} />

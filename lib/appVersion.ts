@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.205.0",
+  version: "1.206.0",
   releaseDate: "2026-08-25",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.206.0",
+    date: "2026-08-25",
+    changes: [
+      "Die Berichtsübersicht hat wieder Suche, Statusfilter und Sortierung",
+      "Ein geöffneter Bericht kann direkt wieder geschlossen werden",
+    ],
+  },
   {
     version: "1.205.0",
     date: "2026-08-25",

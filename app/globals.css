@@ -382,6 +382,10 @@ button {
   min-height: 38px;
 }
 
+.report-list-toolbar {
+  grid-template-columns: minmax(220px, 1fr) minmax(150px, 190px) minmax(170px, 220px);
+}
+
 .empty-list-note {
   color: var(--muted);
   font-weight: 700;
