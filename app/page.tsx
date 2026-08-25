@@ -1241,6 +1241,31 @@ function mergeObjectsById(primaryObjects: ObjectRecord[], secondaryObjects: Obje
   return merged;
 }
 
+function mergeVehicleLogbook(primaryLogbook: VehicleLogEntry[] = [], secondaryLogbook: VehicleLogEntry[] = []) {
+  return mergeRecordsById(primaryLogbook, secondaryLogbook)
+    .sort((first, second) => first.date.localeCompare(second.date));
+}
+
+function mergeResourcesById(primaryResources: ResourceRecord[] = [], secondaryResources: ResourceRecord[] = []) {
+  const secondaryById = new Map(secondaryResources.map((resource) => [resource.id, resource]));
+  const primaryIds = new Set(primaryResources.map((resource) => resource.id));
+  const merged = primaryResources.map((primaryResource) => {
+    const secondaryResource = secondaryById.get(primaryResource.id);
+    if (!secondaryResource) return primaryResource;
+    return {
+      ...secondaryResource,
+      ...primaryResource,
+      logbook: mergeVehicleLogbook(primaryResource.logbook, secondaryResource.logbook),
+    };
+  });
+
+  secondaryResources.forEach((resource) => {
+    if (!primaryIds.has(resource.id)) merged.push(resource);
+  });
+
+  return merged;
+}
+
 function mergeFieldProgress(
   primaryProgress: AppSnapshot["fieldProgress"],
   secondaryProgress: AppSnapshot["fieldProgress"],
@@ -1293,7 +1318,7 @@ function mergeSnapshots(remoteSnapshot: AppSnapshot, localSnapshot: AppSnapshot)
     personnel: mergeRecordsById(primarySnapshot.personnel ?? [], secondarySnapshot.personnel ?? []),
     portalMessages: mergeRecordsById(primarySnapshot.portalMessages ?? [], secondarySnapshot.portalMessages ?? []),
     reports,
-    resources: mergeRecordsById(primarySnapshot.resources ?? [], secondarySnapshot.resources ?? []),
+    resources: mergeResourcesById(primarySnapshot.resources ?? [], secondarySnapshot.resources ?? []),
     services: mergeRecordsById(primarySnapshot.services, secondarySnapshot.services),
     updatedAt: new Date(Math.max(
       Number.isFinite(remoteTime) ? remoteTime : 0,
@@ -4360,7 +4385,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   useEffect(() => {
     if (!appStorageReady) return;
     const fastSyncSections: Section[] = ["dashboard", "field", "jobs", "planning"];
-    const intervalMs = fastSyncSections.includes(section) ? 60000 : 120000;
+    const intervalMs = fastSyncSections.includes(section) ? 15000 : 60000;
 
     const intervalId = supabaseSyncDisabled
       ? undefined
@@ -5106,7 +5131,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     setJobs(nextJobs);
     setActiveJobId(null);
     setEditingFieldReportId(null);
-    persistSnapshotNow({ activeJobId: null, jobs: nextJobs });
+    persistSnapshotNow({ activeJobId: null, jobs: nextJobs }, { forceRemote: true });
   }
 
   function completeJob(job: JobRecord, checklistResults: FieldTaskResult[], fieldNote: string, workDate?: string) {
@@ -5503,12 +5528,29 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     persistSnapshotNow({ customers: nextCustomers });
   }
 
+  function latestLogbookEntry(vehicle?: ResourceRecord) {
+    return vehicle?.logbook
+      .filter((entry) => entry.endOdometer.trim())
+      .sort((first, second) => `${second.date}-${second.id}`.localeCompare(`${first.date}-${first.id}`))[0];
+  }
+
+  function quickTripDefaultsForVehicle(vehicleId: string) {
+    const vehicle = resources.find((resource) => resource.id === vehicleId && resource.type === "Fahrzeug");
+    const latestEntry = latestLogbookEntry(vehicle);
+    return {
+      endAddress: latestEntry?.endAddress ?? "",
+      startOdometer: latestEntry?.endOdometer ?? vehicle?.odometerYearStart ?? "",
+    };
+  }
+
   function openQuickTrip() {
     setQuickTripForm((current) => ({
       ...current,
       date: current.date || new Date().toISOString().slice(0, 10),
       driverId: current.driverId || personnel.find((person) => !person.archived)?.id || "",
       resourceId: current.resourceId || activeVehicles[0]?.id || "",
+      startAddress: current.startAddress || quickTripDefaultsForVehicle(current.resourceId || activeVehicles[0]?.id || "").endAddress,
+      startOdometer: current.startOdometer || quickTripDefaultsForVehicle(current.resourceId || activeVehicles[0]?.id || "").startOdometer,
     }));
     setQuickTripOpen(true);
   }
@@ -5558,7 +5600,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     ));
 
     setResources(nextResources);
-    persistSnapshotNow({ resources: nextResources });
+    persistSnapshotNow({ resources: nextResources }, { forceRemote: true });
     setQuickTripOpen(false);
     setRecordNotice(`Fahrt vom ${entry.date} wurde im Fahrtenbuch gespeichert.`);
     setQuickTripForm({
@@ -5955,6 +5997,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                 setMaterials={setMaterials}
                 setPackages={setServicePackages}
                 setPersonnel={setPersonnel}
+                onPersistResources={(nextResources) => persistSnapshotNow({ resources: nextResources }, { forceRemote: true })}
                 setResources={setResources}
                 setServices={setServices}
                 setDailyMailSettings={setDailyMailSettings}
@@ -5978,7 +6021,15 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
             </header>
             <div className="form-grid compact-form">
               <label><span>Fahrzeug</span>
-                <select value={quickTripForm.resourceId} onChange={(event) => setQuickTripForm({ ...quickTripForm, resourceId: event.target.value })}>
+                <select value={quickTripForm.resourceId} onChange={(event) => {
+                  const defaults = quickTripDefaultsForVehicle(event.target.value);
+                  setQuickTripForm({
+                    ...quickTripForm,
+                    resourceId: event.target.value,
+                    startAddress: defaults.endAddress,
+                    startOdometer: defaults.startOdometer,
+                  });
+                }}>
                   <option value="">Fahrzeug auswählen</option>
                   {activeVehicles.map((vehicle) => <option key={vehicle.id} value={vehicle.id}>{vehicle.name} · {vehicle.identifier}</option>)}
                 </select>
@@ -8804,6 +8855,7 @@ function MasterDataView({
   resources,
   services,
   setPersonnel,
+  onPersistResources,
   setResources,
   setServices,
   setMaterials,
@@ -8824,6 +8876,7 @@ function MasterDataView({
   resources: ResourceRecord[];
   services: ServiceItem[];
   setPersonnel: (personnel: PersonnelRecord[]) => void;
+  onPersistResources: (resources: ResourceRecord[]) => void;
   setResources: (resources: ResourceRecord[]) => void;
   setServices: (services: ServiceItem[]) => void;
   setMaterials: (materials: MaterialItem[]) => void;
@@ -9122,26 +9175,34 @@ function MasterDataView({
       archived: existingResource?.archived ?? false,
     };
 
-    setResources(editingResourceId ? resources.map((resource) => (resource.id === editingResourceId ? saved : resource)) : [saved, ...resources]);
+    const nextResources = editingResourceId ? resources.map((resource) => (resource.id === editingResourceId ? saved : resource)) : [saved, ...resources];
+    setResources(nextResources);
+    onPersistResources(nextResources);
     setEditingResourceId(saved.id);
     setResourceEditorOpen(true);
     setArchiveNotice(`Ressource "${saved.name}" wurde gespeichert.`);
   }
 
   function archiveResource(resource: ResourceRecord) {
-    setResources(resources.map((item) => (item.id === resource.id ? { ...item, archived: true } : item)));
+    const nextResources = resources.map((item) => (item.id === resource.id ? { ...item, archived: true } : item));
+    setResources(nextResources);
+    onPersistResources(nextResources);
     setArchiveNotice(`Ressource "${resource.name}" wurde archiviert.`);
     if (editingResourceId === resource.id) resetResourceForm();
   }
 
   function restoreResource(resource: ResourceRecord) {
-    setResources(resources.map((item) => (item.id === resource.id ? { ...item, archived: false } : item)));
+    const nextResources = resources.map((item) => (item.id === resource.id ? { ...item, archived: false } : item));
+    setResources(nextResources);
+    onPersistResources(nextResources);
     setArchiveNotice(`Ressource "${resource.name}" wurde wieder aktiviert.`);
   }
 
   function deleteArchivedResource(resource: ResourceRecord) {
     if (!resource.archived) return;
-    setResources(resources.filter((item) => item.id !== resource.id));
+    const nextResources = resources.filter((item) => item.id !== resource.id);
+    setResources(nextResources);
+    onPersistResources(nextResources);
     setArchiveNotice(`Archivierte Ressource "${resource.name}" wurde endgültig gelöscht.`);
   }
 
@@ -9191,7 +9252,14 @@ function MasterDataView({
     });
   }
 
+  function latestSelectedLogbookEntry() {
+    return selectedResource?.logbook
+      .filter((entry) => entry.endOdometer.trim())
+      .sort((first, second) => `${second.date}-${second.id}`.localeCompare(`${first.date}-${first.id}`))[0];
+  }
+
   function resetLogbookForm() {
+    const latestEntry = latestSelectedLogbookEntry();
     setEditingLogEntryId(null);
     setLogbookForm({
       date: new Date().toISOString().slice(0, 10),
@@ -9202,8 +9270,8 @@ function MasterDataView({
       kilometers: "",
       notes: "",
       purpose: "",
-      startAddress: "",
-      startOdometer: "",
+      startAddress: latestEntry?.endAddress ?? "",
+      startOdometer: latestEntry?.endOdometer ?? selectedResource?.odometerYearStart ?? "",
       tripType: "Dienstfahrt",
       visited: "",
     });
@@ -9220,13 +9288,15 @@ function MasterDataView({
       return;
     }
 
+    const kilometers = logbookForm.kilometers.trim()
+      || String(Math.max(0, (Number(logbookForm.endOdometer) || 0) - (Number(logbookForm.startOdometer) || 0)) || "");
     const requiredFields = [
       logbookForm.date,
       logbookForm.startAddress,
       logbookForm.endAddress,
       logbookForm.startOdometer,
       logbookForm.endOdometer,
-      logbookForm.kilometers,
+      kilometers,
       logbookForm.purpose,
     ];
     if (requiredFields.some((field) => !field.trim())) {
@@ -9244,7 +9314,7 @@ function MasterDataView({
       endAddress: logbookForm.endAddress.trim(),
       endOdometer: logbookForm.endOdometer.trim(),
       fuelOrCharge: logbookForm.fuelOrCharge.trim(),
-      kilometers: logbookForm.kilometers.trim(),
+      kilometers,
       notes: logbookForm.notes.trim(),
       purpose: logbookForm.purpose.trim(),
       startAddress: logbookForm.startAddress.trim(),
@@ -9252,7 +9322,7 @@ function MasterDataView({
       visited: logbookForm.tripType === "Privatfahrt" ? "" : logbookForm.visited.trim(),
     };
 
-    setResources(resources.map((resource) => {
+    const nextResources = resources.map((resource) => {
       if (resource.id !== selectedResource.id) return resource;
       const nextLogbook = editingLogEntryId
         ? resource.logbook.map((entry) => (entry.id === editingLogEntryId ? saved : entry))
@@ -9262,18 +9332,22 @@ function MasterDataView({
         ...resource,
         logbook: nextLogbook.sort((first, second) => first.date.localeCompare(second.date)),
       };
-    }));
+    });
+    setResources(nextResources);
+    onPersistResources(nextResources);
     setArchiveNotice(`Fahrt vom ${saved.date} wurde gespeichert.`);
     resetLogbookForm();
   }
 
   function deleteLogbookEntry(entryId: string) {
     if (!selectedResource) return;
-    setResources(resources.map((resource) => (
+    const nextResources = resources.map((resource) => (
       resource.id === selectedResource.id
         ? { ...resource, logbook: resource.logbook.filter((entry) => entry.id !== entryId) }
         : resource
-    )));
+    ));
+    setResources(nextResources);
+    onPersistResources(nextResources);
     if (editingLogEntryId === entryId) resetLogbookForm();
     setArchiveNotice("Fahrtenbucheintrag wurde gelöscht.");
   }

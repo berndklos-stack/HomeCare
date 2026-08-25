@@ -52,7 +52,18 @@ async function wait(ms: number) {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function mergeRecordsById(existingRecords: unknown, patchRecords: unknown) {
+function mergeJobStatus(existingStatus: unknown, patchStatus: unknown) {
+  if (
+    ["erledigt", "abgerechnet"].includes(String(existingStatus)) &&
+    !["erledigt", "abgerechnet"].includes(String(patchStatus))
+  ) {
+    return existingStatus;
+  }
+
+  return patchStatus;
+}
+
+function mergeRecordsById(existingRecords: unknown, patchRecords: unknown, key?: string) {
   if (!Array.isArray(existingRecords) || !Array.isArray(patchRecords)) return patchRecords;
   const recordsById = new Map<string, JsonObject>();
 
@@ -64,11 +75,26 @@ function mergeRecordsById(existingRecords: unknown, patchRecords: unknown) {
   patchRecords.forEach((record) => {
     if (record && typeof record === "object" && "id" in record) {
       const id = String((record as JsonObject).id);
-      recordsById.set(id, { ...(recordsById.get(id) ?? {}), ...(record as JsonObject) });
+      const existing = recordsById.get(id) ?? {};
+      const patch = record as JsonObject;
+      const merged = { ...existing, ...patch };
+      if (key === "jobs" && "status" in existing && "status" in patch) {
+        merged.status = mergeJobStatus(existing.status, patch.status);
+      }
+      if (key === "resources" && (Array.isArray(existing.logbook) || Array.isArray(patch.logbook))) {
+        merged.logbook = mergeRecordsById(existing.logbook, patch.logbook);
+      }
+      recordsById.set(id, merged);
     }
   });
 
   return Array.from(recordsById.values());
+}
+
+function mergeObjectsByKey(existingValue: unknown, patchValue: unknown) {
+  const existing = existingValue && typeof existingValue === "object" && !Array.isArray(existingValue) ? existingValue as JsonObject : {};
+  const patch = patchValue && typeof patchValue === "object" && !Array.isArray(patchValue) ? patchValue as JsonObject : {};
+  return { ...existing, ...patch };
 }
 
 function mergeSnapshotPatch(existingSnapshot: unknown, patch: unknown) {
@@ -77,7 +103,15 @@ function mergeSnapshotPatch(existingSnapshot: unknown, patch: unknown) {
   const merged: JsonObject = { ...existing };
 
   Object.entries(patchObject).forEach(([key, value]) => {
-    merged[key] = Array.isArray(value) ? mergeRecordsById(existing[key], value) : value;
+    if (Array.isArray(value)) {
+      merged[key] = mergeRecordsById(existing[key], value, key);
+      return;
+    }
+    if (["fieldNotes", "fieldProgress"].includes(key)) {
+      merged[key] = mergeObjectsByKey(existing[key], value);
+      return;
+    }
+    merged[key] = value;
   });
 
   return merged;

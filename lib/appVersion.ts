@@ -1,10 +1,22 @@
 export const appVersion = {
-  version: "1.197.0",
+  version: "1.198.0",
   releaseDate: "2026-08-25",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.198.0",
+    date: "2026-08-25",
+    changes: [
+      "Auftrag abwählen/schließen in Mobil vor Ort wird jetzt sofort online synchronisiert",
+      "Online-Patches schützen erledigte Aufträge vor älteren geplanten oder in-Arbeit-Ständen",
+      "Vor-Ort-Notizen und Vor-Ort-Zwischenstände werden beim Online-Patch pro Schlüssel zusammengeführt",
+      "Mac und iPhone prüfen in Arbeitsansichten häufiger auf neue Online-Änderungen",
+      "Fahrtenbuch übernimmt bei neuen Fahrten den letzten End-Km als Start-Km",
+      "Fahrtenbucheinträge werden beim Geräteabgleich pro Eintrag zusammengeführt und sofort online gespeichert",
+    ],
+  },
   {
     version: "1.197.0",
     date: "2026-08-25",
