@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.208.0",
+  version: "1.209.0",
   releaseDate: "2026-08-25",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.209.0",
+    date: "2026-08-25",
+    changes: [
+      "Ältere Gerätestände ohne Status-Zeitstempel können neuere Statuswechsel nicht mehr überschreiben",
+      "Der Rückwechsel von in Arbeit auf geplant bleibt dadurch auch nach Aktualisieren auf beiden Geräten erhalten",
+    ],
+  },
   {
     version: "1.208.0",
     date: "2026-08-25",
