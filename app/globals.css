@@ -1480,6 +1480,12 @@ mark.neutral {
   font-size: 13px;
 }
 
+.field-job-picker .field-picker-toggle {
+  background: transparent;
+  min-height: 34px;
+  padding: 4px 0;
+}
+
 .field-job-picker button {
   align-items: center;
   background: var(--paper-soft);

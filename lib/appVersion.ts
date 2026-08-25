@@ -1,10 +1,21 @@
 export const appVersion = {
-  version: "1.204.0",
+  version: "1.205.0",
   releaseDate: "2026-08-25",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.205.0",
+    date: "2026-08-25",
+    changes: [
+      "Statuswechsel beim Anwählen eines Auftrags werden sofort online gespeichert",
+      "Beim Abgleich gewinnt für Auftragstatus jetzt der neueste Status-Zeitstempel statt pauschal der höhere Status",
+      "Geplant, in Arbeit und erledigt bleiben dadurch zwischen iPhone und Mac synchron",
+      "In Mobil vor Ort sind abgeschlossene Berichte standardmäßig eingeklappt",
+      "Gesendete Berichte stehen in Mobil vor Ort in einer eigenen eingeklappten Gruppe",
+    ],
+  },
   {
     version: "1.204.0",
     date: "2026-08-25",

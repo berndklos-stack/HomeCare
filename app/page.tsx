@@ -157,6 +157,8 @@ type JobRecord = {
   customerId: string;
   type: string;
   status: "offerte" | "geplant" | "in Arbeit" | "pausiert" | "erledigt" | "abgerechnet" | "storniert";
+  statusUpdatedAt?: string;
+  resetAt?: string;
   priority: "niedrig" | "normal" | "hoch" | "dringend";
   dueDate: string;
   startDate?: string;
@@ -1274,16 +1276,24 @@ function mergeJobsById(primaryJobs: JobRecord[], secondaryJobs: JobRecord[]) {
       return;
     }
 
-    const primaryScore = jobStatusScore(primaryJob);
-    const secondaryScore = jobStatusScore(secondaryJob);
-    const statusWinner = primaryScore >= secondaryScore ? primaryJob : secondaryJob;
+    const primaryStatusTime = Date.parse(primaryJob.statusUpdatedAt ?? "");
+    const secondaryStatusTime = Date.parse(secondaryJob.statusUpdatedAt ?? "");
+    const statusWinner = Number.isFinite(primaryStatusTime) || Number.isFinite(secondaryStatusTime)
+      ? (Number.isFinite(primaryStatusTime) ? primaryStatusTime : 0) >= (Number.isFinite(secondaryStatusTime) ? secondaryStatusTime : 0)
+        ? primaryJob
+        : secondaryJob
+      : jobStatusScore(primaryJob) >= jobStatusScore(secondaryJob)
+        ? primaryJob
+        : secondaryJob;
     const merged = { ...secondaryJob, ...primaryJob };
 
     jobsById.set(primaryJob.id, {
       ...merged,
       dueDate: statusWinner.dueDate,
       material: statusWinner.material,
+      resetAt: statusWinner.resetAt,
       status: statusWinner.status,
+      statusUpdatedAt: statusWinner.statusUpdatedAt,
       workMinutes: statusWinner.workMinutes,
     });
   });
@@ -5182,12 +5192,13 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   }
 
   function startJob(job: JobRecord) {
-    const nextJobs = jobs.map((item) => (item.id === job.id ? { ...item, status: "in Arbeit" as const } : item));
+    const statusUpdatedAt = new Date().toISOString();
+    const nextJobs = jobs.map((item) => (item.id === job.id ? { ...item, status: "in Arbeit" as const, statusUpdatedAt } : item));
     setJobs(nextJobs);
     setActiveJobId(job.id);
     setFieldWorkDates((current) => ({ ...current, [job.id]: current[job.id] ?? defaultFieldWorkDate(job) }));
     setEditingFieldReportId(null);
-    persistSnapshotNow({ activeJobId: job.id, jobs: nextJobs });
+    persistSnapshotNow({ activeJobId: job.id, jobs: nextJobs }, { forceRemote: true });
     setSelectedObjectId(job.objectId);
     setSection("field");
   }
@@ -5263,8 +5274,9 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   }
 
   function clearActiveJob() {
+    const statusUpdatedAt = new Date().toISOString();
     const nextJobs = jobs.map((item) => (
-      item.id === activeJobId && item.status === "in Arbeit" ? { ...item, status: "geplant" as const } : item
+      item.id === activeJobId && item.status === "in Arbeit" ? { ...item, status: "geplant" as const, statusUpdatedAt } : item
     ));
     setJobs(nextJobs);
     setActiveJobId(null);
@@ -5302,13 +5314,14 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     const nextOpenWorkDate = workDates.find((date) => date > executionDate && !coveredReportDates.has(date))
       ?? workDates.find((date) => !coveredReportDates.has(date))
       ?? executionDate;
+    const statusUpdatedAt = new Date().toISOString();
     const nextJobStatus = isReportEdit
       ? job.status
       : isMultiDayJob && !allWorkDatesReported ? "in Arbeit" as const
         : job.schedule.type === "serie" && nextDueDate ? "geplant" as const : "erledigt" as const;
     const nextJobs = jobs.map((item) => (
       item.id === job.id
-        ? { ...item, dueDate: nextDueDate ?? item.dueDate, schedule: nextSchedule, status: nextJobStatus, workMinutes }
+        ? { ...item, dueDate: nextDueDate ?? item.dueDate, schedule: nextSchedule, status: nextJobStatus, statusUpdatedAt, workMinutes }
         : item
     ));
     const savedReport: ReportRecord = {
@@ -7732,11 +7745,15 @@ function FieldView({
   onSendReport: (report: ReportRecord) => void;
   onComplete: (job: JobRecord, checklistResults: FieldTaskResult[], fieldNote: string, workDate?: string) => void;
 }) {
+  const [showCompletedReports, setShowCompletedReports] = useState(false);
+  const [showSentReports, setShowSentReports] = useState(false);
   const fieldOpenJobs = dashboardWorkJobs(allJobs);
   const completedReports = dedupeReports(reports).filter((report) => {
     const job = allJobs.find((item) => item.id === report.jobId);
     return job ? ["erledigt", "geplant", "in Arbeit"].includes(job.status) : true;
   });
+  const editableCompletedReports = completedReports.filter((report) => !report.sentAt);
+  const sentReports = completedReports.filter((report) => report.sentAt);
   const active = activeJobId ? fieldOpenJobs.find((job) => job.id === activeJobId) ?? allJobs.find((job) => job.id === activeJobId) : undefined;
   const activeReport = editingReportId ? reports.find((report) => report.id === editingReportId) : undefined;
   const reportLocked = Boolean(activeReport?.sentAt);
@@ -7774,8 +7791,14 @@ function FieldView({
             {fieldOpenJobs.length === 0 && <span>Keine offenen Aufträge.</span>}
           </div>
           <div className="field-job-picker">
-            <strong>Abgeschlossene Berichte</strong>
-            {completedReports.map((report) => {
+            <button className="field-picker-toggle" onClick={() => setShowCompletedReports((current) => !current)} type="button">
+              <span>
+                <strong>Abgeschlossene Berichte</strong>
+                <small>{editableCompletedReports.length}</small>
+              </span>
+              {showCompletedReports ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+            </button>
+            {showCompletedReports && editableCompletedReports.map((report) => {
               const jobObject = objects.find((item) => item.id === report.objectId);
               return (
                 <button key={report.id} onClick={() => onSelectReport(report)} type="button">
@@ -7783,11 +7806,33 @@ function FieldView({
                     <strong>{report.title}</strong>
                     <small>{jobObject?.name ?? "Objekt unbekannt"} · {report.date}</small>
                   </span>
-                  <Badge value={report.sentAt ? "gesendet" : "Bericht"} />
+                  <Badge value="Bericht" />
                 </button>
               );
             })}
-            {completedReports.length === 0 && <span>Noch keine abgeschlossenen Berichte.</span>}
+            {showCompletedReports && editableCompletedReports.length === 0 && <span>Noch keine abgeschlossenen Berichte.</span>}
+          </div>
+          <div className="field-job-picker">
+            <button className="field-picker-toggle" onClick={() => setShowSentReports((current) => !current)} type="button">
+              <span>
+                <strong>Gesendete Berichte</strong>
+                <small>{sentReports.length}</small>
+              </span>
+              {showSentReports ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+            </button>
+            {showSentReports && sentReports.map((report) => {
+              const jobObject = objects.find((item) => item.id === report.objectId);
+              return (
+                <button key={report.id} onClick={() => onSelectReport(report)} type="button">
+                  <span>
+                    <strong>{report.title}</strong>
+                    <small>{jobObject?.name ?? "Objekt unbekannt"} · {report.date}</small>
+                  </span>
+                  <Badge value="gesendet" />
+                </button>
+              );
+            })}
+            {showSentReports && sentReports.length === 0 && <span>Noch keine gesendeten Berichte.</span>}
           </div>
           <div className="field-empty-state">
             <h2>Auftrag auswählen</h2>
@@ -7882,8 +7927,14 @@ function FieldView({
           {fieldOpenJobs.length === 0 && <span>Keine offenen Aufträge.</span>}
         </div>
         <div className="field-job-picker">
-          <strong>Abgeschlossene Berichte</strong>
-          {completedReports.slice(0, 6).map((report) => {
+          <button className="field-picker-toggle" onClick={() => setShowCompletedReports((current) => !current)} type="button">
+            <span>
+              <strong>Abgeschlossene Berichte</strong>
+              <small>{editableCompletedReports.length}</small>
+            </span>
+            {showCompletedReports ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+          </button>
+          {showCompletedReports && editableCompletedReports.slice(0, 6).map((report) => {
             const jobObject = objects.find((item) => item.id === report.objectId);
             return (
               <button
@@ -7896,11 +7947,38 @@ function FieldView({
                   <strong>{report.title}</strong>
                   <small>{jobObject?.name ?? "Objekt unbekannt"} · {report.date}</small>
                 </span>
-                <Badge value={report.sentAt ? "gesendet" : "Bericht"} />
+                <Badge value="Bericht" />
               </button>
             );
           })}
-          {completedReports.length === 0 && <span>Noch keine abgeschlossenen Berichte.</span>}
+          {showCompletedReports && editableCompletedReports.length === 0 && <span>Noch keine abgeschlossenen Berichte.</span>}
+        </div>
+        <div className="field-job-picker">
+          <button className="field-picker-toggle" onClick={() => setShowSentReports((current) => !current)} type="button">
+            <span>
+              <strong>Gesendete Berichte</strong>
+              <small>{sentReports.length}</small>
+            </span>
+            {showSentReports ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+          </button>
+          {showSentReports && sentReports.slice(0, 6).map((report) => {
+            const jobObject = objects.find((item) => item.id === report.objectId);
+            return (
+              <button
+                className={editingReportId === report.id ? "active" : ""}
+                key={report.id}
+                onClick={() => onSelectReport(report)}
+                type="button"
+              >
+                <span>
+                  <strong>{report.title}</strong>
+                  <small>{jobObject?.name ?? "Objekt unbekannt"} · {report.date}</small>
+                </span>
+                <Badge value="gesendet" />
+              </button>
+            );
+          })}
+          {showSentReports && sentReports.length === 0 && <span>Noch keine gesendeten Berichte.</span>}
         </div>
         <div className="field-active-head">
           <h2>{editingReportId ? "Bericht nachbearbeiten" : activeJob.title}</h2>

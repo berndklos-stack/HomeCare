@@ -55,6 +55,16 @@ async function wait(ms: number) {
 function mergeJobStatus(existing: JsonObject, patch: JsonObject) {
   const existingStatus = existing.status;
   const patchStatus = patch.status;
+  const existingStatusTime = Date.parse(String(existing.statusUpdatedAt ?? ""));
+  const patchStatusTime = Date.parse(String(patch.statusUpdatedAt ?? ""));
+
+  if (
+    Number.isFinite(existingStatusTime)
+    && Number.isFinite(patchStatusTime)
+    && patchStatusTime < existingStatusTime
+  ) {
+    return existingStatus;
+  }
 
   if (
     existingStatus === "geplant"
@@ -96,7 +106,11 @@ function mergeRecordsById(existingRecords: unknown, patchRecords: unknown, key?:
       const { __forceStatus: _forceStatus, ...cleanPatch } = patch;
       const merged = { ...existing, ...cleanPatch };
       if (key === "jobs" && !statusOverrideRequested(patch) && "status" in existing && "status" in patch) {
-        merged.status = mergeJobStatus(existing, patch);
+        const mergedStatus = mergeJobStatus(existing, patch);
+        merged.status = mergedStatus;
+        if (mergedStatus === existing.status) {
+          merged.statusUpdatedAt = existing.statusUpdatedAt;
+        }
       }
       if (key === "resources" && (Array.isArray(existing.logbook) || Array.isArray(patch.logbook))) {
         merged.logbook = mergeRecordsById(existing.logbook, patch.logbook);
