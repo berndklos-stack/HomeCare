@@ -973,7 +973,7 @@ function readStoredValue<T>(key: string, fallback: T): T {
 }
 
 function readLocalSnapshot(): AppSnapshot {
-  return {
+  return recoverReportsFromFieldProgress({
     activeJobId: readStoredValue<string | null>(storageKeys.activeJobId, null),
     billing: readStoredValue<BillingRecord[]>(storageKeys.billing, seedBilling),
     companySettings: readStoredValue<CompanySettings>(storageKeys.companySettings, seedCompanySettings),
@@ -991,7 +991,7 @@ function readLocalSnapshot(): AppSnapshot {
     resources: readStoredValue<ResourceRecord[]>(storageKeys.resources, seedResources),
     services: readStoredValue<ServiceItem[]>(storageKeys.services, seedServices),
     updatedAt: readStoredValue<string | undefined>(storageKeys.updatedAt, undefined),
-  };
+  });
 }
 
 function persistLocalSnapshot(snapshot: AppSnapshot) {
@@ -1089,6 +1089,85 @@ function snapshotPatch(snapshot: AppSnapshot): Partial<AppSnapshot> {
 function missingLocalReports(remoteReports: ReportRecord[] = [], localReports: ReportRecord[] = []) {
   const remoteKeys = new Set(remoteReports.flatMap((report) => [report.id, reportDedupeKey(report)]));
   return localReports.filter((report) => !remoteKeys.has(report.id) && !remoteKeys.has(reportDedupeKey(report)));
+}
+
+function progressHasReportContent(progress: Record<string, FieldTaskProgress>) {
+  return Object.values(progress).some((task) => (
+    task.completed
+    || Boolean(task.note.trim())
+    || Boolean(task.minutes.trim())
+    || task.photos.length > 0
+  ));
+}
+
+function reportResultsFromProgress(job: JobRecord, services: ServiceItem[], progress: Record<string, FieldTaskProgress>) {
+  const fieldTasks = jobSelectedServices(job, services).length > 0
+    ? jobSelectedServices(job, services).flatMap(serviceToFieldTasks)
+    : job.checklist.map((item) => ({
+        id: item,
+        title: item,
+        meta: job.type,
+        description: "Aufgabe aus der Auftragscheckliste dokumentieren.",
+        defaultMinutes: 0,
+      }));
+
+  const taskById = new Map(fieldTasks.map((task) => [task.id, task]));
+
+  return Object.entries(progress).map(([id, task]) => {
+    const fieldTask = taskById.get(id);
+    return {
+      id,
+      title: fieldTask?.title ?? id,
+      meta: fieldTask?.meta ?? job.type,
+      description: fieldTask?.description ?? "Aus gespeicherten Einsatzdaten wiederhergestellt.",
+      completed: task.completed,
+      minutes: Number(task.minutes) || 0,
+      note: task.note.trim(),
+      photos: task.photos,
+    };
+  });
+}
+
+function recoverReportsFromFieldProgress(snapshot: AppSnapshot): AppSnapshot {
+  const existingReportKeys = new Set(snapshot.reports.map((report) => `${report.jobId}|${normalizeReportDate(report.date)}`));
+  const recoveredReports = snapshot.jobs.flatMap((job) => {
+    const workDates = jobWorkDates(job);
+    const progressEntries = workDates
+      .map((date) => ({ date, progress: snapshot.fieldProgress[fieldProgressKey(job, date)] }))
+      .filter((entry) => entry.progress && progressHasReportContent(entry.progress));
+
+    return progressEntries.flatMap(({ date, progress }) => {
+      if (existingReportKeys.has(`${job.id}|${date}`)) return [];
+      if (!["erledigt", "abgerechnet", "in Arbeit"].includes(job.status)) return [];
+
+      const checklistResults = reportResultsFromProgress(job, snapshot.services, progress);
+      const completedCount = checklistResults.filter((item) => item.completed).length;
+      const photoCount = checklistResults.reduce((sum, item) => sum + item.photos.length, 0);
+      const workMinutes = checklistResults.reduce((sum, item) => sum + item.minutes, 0);
+      const fieldNote = snapshot.fieldNotes[fieldProgressKey(job, date)]?.trim();
+
+      return [{
+        id: `REP-${job.id}-${date}`,
+        jobId: job.id,
+        objectId: job.objectId,
+        title: job.title,
+        date,
+        visibleToCustomer: true,
+        summary: `${workDates.length > 1 ? `Tagesbericht ${date}: ` : ""}${completedCount} von ${checklistResults.length} Checklistenpunkten ausgeführt.${fieldNote ? ` ${fieldNote}` : ""}`,
+        internalNotes: job.internalNotes,
+        media: [`${photoCount} Fotos`, `${workMinutes} Minuten dokumentiert`, "aus Einsatzdaten wiederhergestellt"],
+        checklistResults,
+        customerComment: "",
+      }];
+    });
+  });
+
+  if (recoveredReports.length === 0) return snapshot;
+
+  return {
+    ...snapshot,
+    reports: dedupeReports([...recoveredReports, ...snapshot.reports]),
+  };
 }
 
 function createEntityId(prefix: string) {
@@ -1330,7 +1409,7 @@ function mergeSnapshots(remoteSnapshot: AppSnapshot, localSnapshot: AppSnapshot)
       ? secondarySnapshot.activeJobId
       : null;
 
-  return {
+  return recoverReportsFromFieldProgress({
     activeJobId,
     billing: mergeRecordsById(primarySnapshot.billing ?? seedBilling, secondarySnapshot.billing ?? seedBilling),
     companySettings: { ...seedCompanySettings, ...(secondarySnapshot.companySettings ?? {}), ...(primarySnapshot.companySettings ?? {}) },
@@ -1351,7 +1430,7 @@ function mergeSnapshots(remoteSnapshot: AppSnapshot, localSnapshot: AppSnapshot)
       Number.isFinite(remoteTime) ? remoteTime : 0,
       Number.isFinite(localTime) ? localTime : 0,
     )).toISOString(),
-  };
+  });
 }
 
 function reportSummaryNote(summary: string) {

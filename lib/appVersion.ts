@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.200.0",
+  version: "1.201.0",
   releaseDate: "2026-08-25",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.201.0",
+    date: "2026-08-25",
+    changes: [
+      "Homecare stellt fehlende Berichte aus gespeicherten Vor-Ort-Daten wieder her, wenn Checklisten, Zeiten oder Fotos noch vorhanden sind",
+      "Wiederhergestellte Tagesberichte werden beim Geräteabgleich in die normale Berichtsliste übernommen",
+      "Die Reparatur legt keine Duplikate an, wenn bereits ein Bericht für Auftrag und Datum existiert",
+    ],
+  },
   {
     version: "1.200.0",
     date: "2026-08-25",
