@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.202.0",
+  version: "1.203.0",
   releaseDate: "2026-08-25",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.203.0",
+    date: "2026-08-25",
+    changes: [
+      "Ein einzelner erledigter Auftrag kann bei Bedarf gezielt zentral zurückgesetzt werden, ohne den gesamten Datenbestand zu überschreiben",
+      "Der normale Sync-Schutz gegen ältere Gerätestände bleibt dabei aktiv",
+    ],
+  },
   {
     version: "1.202.0",
     date: "2026-08-25",

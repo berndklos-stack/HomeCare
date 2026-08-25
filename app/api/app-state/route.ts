@@ -63,6 +63,10 @@ function mergeJobStatus(existingStatus: unknown, patchStatus: unknown) {
   return patchStatus;
 }
 
+function statusOverrideRequested(record: JsonObject) {
+  return record.__forceStatus === true;
+}
+
 function mergeRecordsById(existingRecords: unknown, patchRecords: unknown, key?: string) {
   if (!Array.isArray(existingRecords) || !Array.isArray(patchRecords)) return patchRecords;
   const recordsById = new Map<string, JsonObject>();
@@ -77,8 +81,9 @@ function mergeRecordsById(existingRecords: unknown, patchRecords: unknown, key?:
       const id = String((record as JsonObject).id);
       const existing = recordsById.get(id) ?? {};
       const patch = record as JsonObject;
-      const merged = { ...existing, ...patch };
-      if (key === "jobs" && "status" in existing && "status" in patch) {
+      const { __forceStatus: _forceStatus, ...cleanPatch } = patch;
+      const merged = { ...existing, ...cleanPatch };
+      if (key === "jobs" && !statusOverrideRequested(patch) && "status" in existing && "status" in patch) {
         merged.status = mergeJobStatus(existing.status, patch.status);
       }
       if (key === "resources" && (Array.isArray(existing.logbook) || Array.isArray(patch.logbook))) {
