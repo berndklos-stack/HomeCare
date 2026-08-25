@@ -266,6 +266,7 @@ type FieldTaskProgress = {
   minutes: string;
   note: string;
   photos: FieldPhoto[];
+  updatedAt?: string;
 };
 
 type BillingRecord = {
@@ -1380,7 +1381,37 @@ function mergeFieldProgress(
 
   Object.entries(primaryProgress).forEach(([jobId, primaryTasks]) => {
     if (!secondaryProgress[jobId]) return;
-    merged[jobId] = { ...secondaryProgress[jobId], ...primaryTasks };
+    const secondaryTasks = secondaryProgress[jobId];
+    const taskIds = new Set([...Object.keys(secondaryTasks), ...Object.keys(primaryTasks)]);
+    merged[jobId] = Object.fromEntries(Array.from(taskIds).map((taskId) => {
+      const primaryTask = primaryTasks[taskId];
+      const secondaryTask = secondaryTasks[taskId];
+      if (!primaryTask) return [taskId, secondaryTask];
+      if (!secondaryTask) return [taskId, primaryTask];
+
+      const primaryTime = Date.parse(primaryTask.updatedAt ?? "");
+      const secondaryTime = Date.parse(secondaryTask.updatedAt ?? "");
+      const newestTask = Number.isFinite(primaryTime) && Number.isFinite(secondaryTime)
+        ? primaryTime >= secondaryTime ? primaryTask : secondaryTask
+        : primaryTask;
+      const fallbackTask = newestTask === primaryTask ? secondaryTask : primaryTask;
+      const photoKeys = new Set<string>();
+      const photos = [...(fallbackTask.photos ?? []), ...(newestTask.photos ?? [])].filter((photo) => {
+        const key = `${photo.name}|${photo.previewUrl ?? ""}`;
+        if (photoKeys.has(key)) return false;
+        photoKeys.add(key);
+        return true;
+      });
+
+      return [taskId, {
+        ...fallbackTask,
+        ...newestTask,
+        completed: newestTask.completed || fallbackTask.completed,
+        minutes: newestTask.minutes || fallbackTask.minutes,
+        note: newestTask.note || fallbackTask.note,
+        photos,
+      }];
+    })) as Record<string, FieldTaskProgress>;
   });
 
   return merged;
@@ -4287,7 +4318,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
 
     remoteSaveTimerRef.current = window.setTimeout(() => {
       remoteSaveTimerRef.current = null;
-      void saveSupabaseSnapshot(snapshot)
+      void saveSupabasePatch(snapshotPatch(snapshot))
         .then((savedAt) => {
           lastRemoteSnapshotKeyRef.current = snapshotKey;
           pendingRemoteSnapshotKeyRef.current = null;
@@ -4342,17 +4373,12 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
           lastRemoteSnapshotKeyRef.current = snapshotContentKey(remoteSnapshot);
           skipNextAutoSaveRef.current = true;
           const mergedSnapshot = mergeSnapshots(remoteSnapshot, localSnapshot);
-          if (snapshotWeight(mergedSnapshot) >= snapshotWeight(remoteSnapshot)) {
-            applySnapshot(mergedSnapshot);
-            persistLocalSnapshot(mergedSnapshot);
-            if (JSON.stringify(mergedSnapshot) !== JSON.stringify(remoteSnapshot)) {
-              const savedAt = await saveSupabasePatch(snapshotPatch(mergedSnapshot));
-              lastRemoteSnapshotKeyRef.current = snapshotContentKey(mergedSnapshot);
-              if (!cancelled) setAppUpdatedAt(savedAt);
-            }
-          } else {
-            applySnapshot(remoteSnapshot);
-            persistLocalSnapshot(remoteSnapshot);
+          applySnapshot(mergedSnapshot);
+          persistLocalSnapshot(mergedSnapshot);
+          if (JSON.stringify(mergedSnapshot) !== JSON.stringify(remoteSnapshot)) {
+            const savedAt = await saveSupabasePatch(snapshotPatch(mergedSnapshot));
+            lastRemoteSnapshotKeyRef.current = snapshotContentKey(mergedSnapshot);
+            if (!cancelled) setAppUpdatedAt(savedAt);
           }
         } else {
           const savedAt = await saveSupabaseSnapshot(localSnapshot);
@@ -7795,6 +7821,7 @@ function FieldView({
       minutes: task.defaultMinutes ? String(task.defaultMinutes) : "",
       note: "",
       photos: [],
+      updatedAt: undefined,
     };
   }
 
@@ -7803,7 +7830,7 @@ function FieldView({
     patch: Partial<FieldTaskProgress>,
     currentTask: FieldTaskProgress,
   ) {
-    onProgressChange(fieldProgressKey(activeJob, activeWorkDate), { ...progress, [id]: { ...currentTask, ...patch } });
+    onProgressChange(fieldProgressKey(activeJob, activeWorkDate), { ...progress, [id]: { ...currentTask, ...patch, updatedAt: new Date().toISOString() } });
   }
 
   function updateFieldNote(note: string) {

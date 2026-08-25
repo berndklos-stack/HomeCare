@@ -97,6 +97,64 @@ function mergeObjectsByKey(existingValue: unknown, patchValue: unknown) {
   return { ...existing, ...patch };
 }
 
+function mergeFieldPhotos(existingPhotos: unknown, patchPhotos: unknown) {
+  const photoKeys = new Set<string>();
+  return [
+    ...(Array.isArray(existingPhotos) ? existingPhotos : []),
+    ...(Array.isArray(patchPhotos) ? patchPhotos : []),
+  ].filter((photo) => {
+    if (!photo || typeof photo !== "object") return false;
+    const item = photo as JsonObject;
+    const key = `${String(item.name ?? "")}|${String(item.previewUrl ?? "")}`;
+    if (photoKeys.has(key)) return false;
+    photoKeys.add(key);
+    return true;
+  });
+}
+
+function mergeFieldTaskProgress(existingTask: unknown, patchTask: unknown) {
+  const existing = existingTask && typeof existingTask === "object" && !Array.isArray(existingTask) ? existingTask as JsonObject : {};
+  const patch = patchTask && typeof patchTask === "object" && !Array.isArray(patchTask) ? patchTask as JsonObject : {};
+  const existingTime = Date.parse(String(existing.updatedAt ?? ""));
+  const patchTime = Date.parse(String(patch.updatedAt ?? ""));
+  const patchIsNewer = Number.isFinite(patchTime)
+    ? !Number.isFinite(existingTime) || patchTime >= existingTime
+    : true;
+  const newest = patchIsNewer ? patch : existing;
+  const fallback = patchIsNewer ? existing : patch;
+
+  return {
+    ...fallback,
+    ...newest,
+    completed: Boolean(newest.completed) || Boolean(fallback.completed),
+    minutes: String(newest.minutes ?? fallback.minutes ?? ""),
+    note: String(newest.note ?? fallback.note ?? ""),
+    photos: mergeFieldPhotos(existing.photos, patch.photos),
+  };
+}
+
+function mergeFieldProgress(existingValue: unknown, patchValue: unknown) {
+  const existing = existingValue && typeof existingValue === "object" && !Array.isArray(existingValue) ? existingValue as JsonObject : {};
+  const patch = patchValue && typeof patchValue === "object" && !Array.isArray(patchValue) ? patchValue as JsonObject : {};
+  const merged: JsonObject = { ...existing };
+
+  Object.entries(patch).forEach(([jobId, patchTasks]) => {
+    const existingTasks = existing[jobId] && typeof existing[jobId] === "object" && !Array.isArray(existing[jobId])
+      ? existing[jobId] as JsonObject
+      : {};
+    const patchTaskMap = patchTasks && typeof patchTasks === "object" && !Array.isArray(patchTasks)
+      ? patchTasks as JsonObject
+      : {};
+    const taskIds = new Set([...Object.keys(existingTasks), ...Object.keys(patchTaskMap)]);
+    merged[jobId] = Object.fromEntries(Array.from(taskIds).map((taskId) => [
+      taskId,
+      mergeFieldTaskProgress(existingTasks[taskId], patchTaskMap[taskId]),
+    ]));
+  });
+
+  return merged;
+}
+
 function mergeSnapshotPatch(existingSnapshot: unknown, patch: unknown) {
   const existing = existingSnapshot && typeof existingSnapshot === "object" ? existingSnapshot as JsonObject : {};
   const patchObject = patch && typeof patch === "object" ? patch as JsonObject : {};
@@ -107,7 +165,11 @@ function mergeSnapshotPatch(existingSnapshot: unknown, patch: unknown) {
       merged[key] = mergeRecordsById(existing[key], value, key);
       return;
     }
-    if (["fieldNotes", "fieldProgress"].includes(key)) {
+    if (key === "fieldProgress") {
+      merged[key] = mergeFieldProgress(existing[key], value);
+      return;
+    }
+    if (key === "fieldNotes") {
       merged[key] = mergeObjectsByKey(existing[key], value);
       return;
     }

@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.201.0",
+  version: "1.202.0",
   releaseDate: "2026-08-25",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.202.0",
+    date: "2026-08-25",
+    changes: [
+      "Vor-Ort-Fotos werden pro Checklistenpunkt mit Zeitstempel gespeichert und beim Sync zusammengeführt",
+      "Ältere Gerätedaten können neue Einsatzfotos nicht mehr aus dem Tagesbericht überschreiben",
+      "Der automatische Online-Speicherweg nutzt ebenfalls Merge-Patches statt kompletter Datenersetzung",
+    ],
+  },
   {
     version: "1.201.0",
     date: "2026-08-25",
