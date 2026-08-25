@@ -1490,6 +1490,12 @@ mark.neutral {
   padding: 4px 0;
 }
 
+.field-job-picker .inline-count {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .field-job-picker button {
   align-items: center;
   background: var(--paper-soft);

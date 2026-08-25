@@ -7853,8 +7853,7 @@ function FieldView({
           <div className="field-job-picker">
             <button className="field-picker-toggle" onClick={() => setShowCompletedReports((current) => !current)} type="button">
               <span>
-                <strong>Abgeschlossene Berichte</strong>
-                <small>{editableCompletedReports.length}</small>
+                <strong>Abgeschlossene Berichte <small className="inline-count">{editableCompletedReports.length}</small></strong>
               </span>
               {showCompletedReports ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
             </button>
@@ -7875,8 +7874,7 @@ function FieldView({
           <div className="field-job-picker">
             <button className="field-picker-toggle" onClick={() => setShowSentReports((current) => !current)} type="button">
               <span>
-                <strong>Gesendete Berichte</strong>
-                <small>{sentReports.length}</small>
+                <strong>Gesendete Berichte <small className="inline-count">{sentReports.length}</small></strong>
               </span>
               {showSentReports ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
             </button>
@@ -7989,8 +7987,7 @@ function FieldView({
         <div className="field-job-picker">
           <button className="field-picker-toggle" onClick={() => setShowCompletedReports((current) => !current)} type="button">
             <span>
-              <strong>Abgeschlossene Berichte</strong>
-              <small>{editableCompletedReports.length}</small>
+              <strong>Abgeschlossene Berichte <small className="inline-count">{editableCompletedReports.length}</small></strong>
             </span>
             {showCompletedReports ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
           </button>
@@ -8016,8 +8013,7 @@ function FieldView({
         <div className="field-job-picker">
           <button className="field-picker-toggle" onClick={() => setShowSentReports((current) => !current)} type="button">
             <span>
-              <strong>Gesendete Berichte</strong>
-              <small>{sentReports.length}</small>
+              <strong>Gesendete Berichte <small className="inline-count">{sentReports.length}</small></strong>
             </span>
             {showSentReports ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
           </button>

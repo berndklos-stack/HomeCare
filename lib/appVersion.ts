@@ -1,10 +1,17 @@
 export const appVersion = {
-  version: "1.207.0",
+  version: "1.208.0",
   releaseDate: "2026-08-25",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.208.0",
+    date: "2026-08-25",
+    changes: [
+      "In Mobil vor Ort steht die Anzahl direkt hinter Abgeschlossene Berichte und Gesendete Berichte",
+    ],
+  },
   {
     version: "1.207.0",
     date: "2026-08-25",
