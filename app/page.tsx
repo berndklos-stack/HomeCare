@@ -4957,21 +4957,23 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   }
 
   function cancelJob(job: JobRecord) {
+    const statusUpdatedAt = new Date().toISOString();
     const nextJobs = jobs.map((item) => (
       item.id === job.id || (isSeriesMaster(job) && item.seriesMasterId === job.id)
-        ? { ...item, status: "storniert" as const }
+        ? { ...item, status: "storniert" as const, statusUpdatedAt }
         : item
     ));
     setJobs(nextJobs);
-    persistSnapshotNow({ jobs: nextJobs });
+    persistSnapshotNow({ jobs: nextJobs }, { forceRemote: true });
   }
 
   function restoreJob(job: JobRecord) {
+    const statusUpdatedAt = new Date().toISOString();
     const nextJobs = jobs.map((item) => (
-      item.id === job.id ? { ...item, status: "geplant" as const } : item
+      item.id === job.id ? { ...item, status: "geplant" as const, statusUpdatedAt } : item
     ));
     setJobs(nextJobs);
-    persistSnapshotNow({ jobs: nextJobs });
+    persistSnapshotNow({ jobs: nextJobs }, { forceRemote: true });
   }
 
   function confirmOffer(job: JobRecord) {
@@ -5016,7 +5018,8 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   }
 
   function moveJobToBilling(job: JobRecord) {
-    const normalizedJob = job.status === "erledigt" ? job : { ...job, status: "erledigt" as const };
+    const statusUpdatedAt = new Date().toISOString();
+    const normalizedJob = job.status === "erledigt" ? job : { ...job, status: "erledigt" as const, statusUpdatedAt };
     const nextJobs = jobs.map((item) => (item.id === job.id ? normalizedJob : item));
     const nextBilling = ensureBillingForJobs(nextJobs, billing, reports);
     setJobs(nextJobs);
@@ -5033,11 +5036,12 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   }
 
   function markBillingInvoiced(item: BillingRecord) {
+    const statusUpdatedAt = new Date().toISOString();
     const nextBilling = billing.map((entry) => (
       entry.id === item.id ? { ...entry, invoicedAt: new Date().toISOString(), status: "abgerechnet" as const } : entry
     ));
     const nextJobs = item.jobId
-      ? jobs.map((job) => (job.id === item.jobId ? { ...job, status: "abgerechnet" as const } : job))
+      ? jobs.map((job) => (job.id === item.jobId ? { ...job, status: "abgerechnet" as const, statusUpdatedAt } : job))
       : jobs;
     setBilling(nextBilling);
     setJobs(nextJobs);
@@ -5121,6 +5125,9 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       delete serviceDiscounts.customService;
     }
     const hasDiscount = decimalValue(newJob.discountValue) > 0;
+    const statusUpdatedAt = !existingJob || existingJob.status !== newJob.status
+      ? new Date().toISOString()
+      : existingJob.statusUpdatedAt;
     const saved: JobRecord = {
       id,
       seriesMasterId: existingJob?.seriesMasterId,
@@ -5131,6 +5138,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       customerId: selectedObject.ownerCustomerId || customers.find((customer) => customer.name === selectedObject.owner)?.id || "CUS-1",
       type: newJob.type.trim() || customService?.name || "Hauskontrolle",
       status: newJob.status,
+      statusUpdatedAt,
       priority: newJob.priority,
       dueDate: endDate,
       startDate,
@@ -5171,21 +5179,21 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       },
     };
 
-    if (newMasterMaterials.length > 0) {
-      setMaterials((current) => [...newMasterMaterials, ...current]);
-    }
-
-    setJobs((current) => {
-      const reportJobIds = new Set(reports.map((report) => report.jobId));
-      const withoutOldOccurrences = editingJobId && isSeriesMaster(saved)
-        ? current.filter((job) => job.seriesMasterId !== editingJobId || reportJobIds.has(job.id) || job.status !== "geplant")
-        : current;
-      const nextJobs = editingJobId
+    const nextMaterials = newMasterMaterials.length > 0 ? [...newMasterMaterials, ...materials] : materials;
+    const reportJobIds = new Set(reports.map((report) => report.jobId));
+    const withoutOldOccurrences = editingJobId && isSeriesMaster(saved)
+      ? jobs.filter((job) => job.seriesMasterId !== editingJobId || reportJobIds.has(job.id) || job.status !== "geplant")
+      : jobs;
+    const nextJobs = ensureSeriesOccurrences(
+      editingJobId
         ? withoutOldOccurrences.map((job) => (job.id === editingJobId ? saved : job))
-        : [saved, ...withoutOldOccurrences];
+        : [saved, ...withoutOldOccurrences],
+      reports,
+    );
 
-      return ensureSeriesOccurrences(nextJobs, reports);
-    });
+    if (newMasterMaterials.length > 0) setMaterials(nextMaterials);
+    setJobs(nextJobs);
+    persistSnapshotNow({ jobs: nextJobs, materials: nextMaterials }, { forceRemote: true });
     setEditingJobId(null);
     setSection("jobs");
     setModal(null);
@@ -5206,13 +5214,13 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   function assignJobResources(job: JobRecord, resourceIds: string[]) {
     const nextJobs = jobs.map((item) => (item.id === job.id ? { ...item, resourceIds } : item));
     setJobs(nextJobs);
-    persistSnapshotNow({ jobs: nextJobs });
+    persistSnapshotNow({ jobs: nextJobs }, { forceRemote: true });
   }
 
   function assignJobPersonnel(job: JobRecord, assignedTo: string) {
     const nextJobs = jobs.map((item) => (item.id === job.id ? { ...item, assignedTo } : item));
     setJobs(nextJobs);
-    persistSnapshotNow({ jobs: nextJobs });
+    persistSnapshotNow({ jobs: nextJobs }, { forceRemote: true });
   }
 
   function moveJobExecution(job: JobRecord, toDate: string, assignedTo: string) {
@@ -5240,7 +5248,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       };
     });
     setJobs(nextJobs);
-    persistSnapshotNow({ jobs: nextJobs });
+    persistSnapshotNow({ jobs: nextJobs }, { forceRemote: true });
   }
 
   function editReportInField(report: ReportRecord) {
@@ -5273,10 +5281,12 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     setSection("field");
   }
 
-  function clearActiveJob() {
+  function clearActiveJob(job?: JobRecord) {
+    const targetJobId = job?.id ?? activeJobId ?? jobs.find((item) => item.status === "in Arbeit")?.id;
+    if (!targetJobId) return;
     const statusUpdatedAt = new Date().toISOString();
     const nextJobs = jobs.map((item) => (
-      item.id === activeJobId && item.status === "in Arbeit" ? { ...item, status: "geplant" as const, statusUpdatedAt } : item
+      item.id === targetJobId && item.status === "in Arbeit" ? { ...item, status: "geplant" as const, statusUpdatedAt } : item
     ));
     setJobs(nextJobs);
     setActiveJobId(null);
@@ -7789,7 +7799,7 @@ function FieldView({
   onSelectJob: (job: JobRecord) => void;
   onSelectReport: (report: ReportRecord) => void;
   onSelectWorkDate: (jobId: string, date: string) => void;
-  onClearActiveJob: () => void;
+  onClearActiveJob: (job: JobRecord) => void;
   onFieldNoteChange: (jobId: string, note: string) => void;
   onProgressChange: (jobId: string, progress: Record<string, FieldTaskProgress>) => void;
   onSendReport: (report: ReportRecord) => void;
@@ -8038,7 +8048,7 @@ function FieldView({
                 <Send size={16} />
               </IconAction>
             )}
-            <IconAction label={`Auftrag ${activeJob.title} abwählen`} onClick={onClearActiveJob}>
+            <IconAction label={`Auftrag ${activeJob.title} abwählen`} onClick={() => onClearActiveJob(activeJob)}>
               <X size={16} />
             </IconAction>
           </div>

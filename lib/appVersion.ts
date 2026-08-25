@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.206.0",
+  version: "1.207.0",
   releaseDate: "2026-08-25",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.207.0",
+    date: "2026-08-25",
+    changes: [
+      "Der Rückweg von in Arbeit auf geplant wird jetzt immer am sichtbaren Auftrag ausgeführt und sofort online gespeichert",
+      "Auftrag speichern, verschieben, Personal ändern und Ressourcen ändern werden direkt synchronisiert",
+      "Manuelle Statusänderungen im Auftragsdialog bekommen einen Status-Zeitstempel für den Geräteabgleich",
+    ],
+  },
   {
     version: "1.206.0",
     date: "2026-08-25",
