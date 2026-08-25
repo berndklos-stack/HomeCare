@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.199.0",
+  version: "1.200.0",
   releaseDate: "2026-08-25",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.200.0",
+    date: "2026-08-25",
+    changes: [
+      "Der Startabgleich nach einem App-Neuladen speichert zusammengeführte lokale Daten jetzt ebenfalls per kompaktem Online-Patch",
+      "Homecare erkennt lokale Berichte, die online fehlen, und meldet beim Aktualisieren deren Upload",
+      "Der Abgleich vermeidet dadurch Vollsnapshot-Uploads, die bei lokalen iPhone-Berichten mit Fotos scheitern können",
+    ],
+  },
   {
     version: "1.199.0",
     date: "2026-08-25",

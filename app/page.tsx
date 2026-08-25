@@ -1064,6 +1064,33 @@ function snapshotContentKey(snapshot: AppSnapshot) {
   return `${serialized.length}:${stableStringHash(serialized)}`;
 }
 
+function snapshotPatch(snapshot: AppSnapshot): Partial<AppSnapshot> {
+  return {
+    activeJobId: snapshot.activeJobId,
+    billing: snapshot.billing,
+    companySettings: snapshot.companySettings,
+    customers: snapshot.customers,
+    dailyMailSettings: snapshot.dailyMailSettings,
+    fieldNotes: snapshot.fieldNotes,
+    fieldProgress: snapshot.fieldProgress,
+    jobs: snapshot.jobs,
+    materials: snapshot.materials,
+    objects: snapshot.objects,
+    packages: snapshot.packages,
+    personnel: snapshot.personnel,
+    portalMessages: snapshot.portalMessages,
+    reports: snapshot.reports,
+    resources: snapshot.resources,
+    services: snapshot.services,
+    updatedAt: snapshot.updatedAt,
+  };
+}
+
+function missingLocalReports(remoteReports: ReportRecord[] = [], localReports: ReportRecord[] = []) {
+  const remoteKeys = new Set(remoteReports.flatMap((report) => [report.id, reportDedupeKey(report)]));
+  return localReports.filter((report) => !remoteKeys.has(report.id) && !remoteKeys.has(reportDedupeKey(report)));
+}
+
 function createEntityId(prefix: string) {
   const randomPart = typeof crypto !== "undefined" && "randomUUID" in crypto
     ? crypto.randomUUID()
@@ -4240,7 +4267,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
             applySnapshot(mergedSnapshot);
             persistLocalSnapshot(mergedSnapshot);
             if (JSON.stringify(mergedSnapshot) !== JSON.stringify(remoteSnapshot)) {
-              const savedAt = await saveSupabaseSnapshot(mergedSnapshot);
+              const savedAt = await saveSupabasePatch(snapshotPatch(mergedSnapshot));
               lastRemoteSnapshotKeyRef.current = snapshotContentKey(mergedSnapshot);
               if (!cancelled) setAppUpdatedAt(savedAt);
             }
@@ -4359,6 +4386,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       const mergedSnapshot = mergeSnapshots(remoteSnapshot, localSnapshot);
       const mergedDiffersFromRemote = JSON.stringify(mergedSnapshot) !== JSON.stringify(remoteSnapshot);
       const mergedDiffersFromLocal = JSON.stringify(mergedSnapshot) !== JSON.stringify(localSnapshot);
+      const missingReports = missingLocalReports(remoteSnapshot.reports, localSnapshot.reports);
 
       if (!force && !remoteHasNewerData && !localHasNewerData && !remoteHasMoreData && !mergedDiffersFromRemote && !mergedDiffersFromLocal) return;
 
@@ -4367,28 +4395,14 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       persistLocalSnapshot(mergedSnapshot);
 
       if (mergedDiffersFromRemote) {
-        const savedAt = await saveSupabasePatch({
-          activeJobId: mergedSnapshot.activeJobId,
-          billing: mergedSnapshot.billing,
-          companySettings: mergedSnapshot.companySettings,
-          customers: mergedSnapshot.customers,
-          dailyMailSettings: mergedSnapshot.dailyMailSettings,
-          fieldNotes: mergedSnapshot.fieldNotes,
-          fieldProgress: mergedSnapshot.fieldProgress,
-          jobs: mergedSnapshot.jobs,
-          materials: mergedSnapshot.materials,
-          objects: mergedSnapshot.objects,
-          packages: mergedSnapshot.packages,
-          personnel: mergedSnapshot.personnel,
-          portalMessages: mergedSnapshot.portalMessages,
-          reports: mergedSnapshot.reports,
-          resources: mergedSnapshot.resources,
-          services: mergedSnapshot.services,
-          updatedAt: mergedSnapshot.updatedAt,
-        });
+        const savedAt = await saveSupabasePatch(snapshotPatch(mergedSnapshot));
         lastRemoteSnapshotKeyRef.current = snapshotContentKey(mergedSnapshot);
         setAppUpdatedAt(savedAt);
-        if (force) setRecordNotice("Lokale Änderungen wurden online zusammengeführt.");
+        if (force) {
+          setRecordNotice(missingReports.length > 0
+            ? `${missingReports.length} lokaler Bericht wurde online zusammengeführt.`
+            : "Lokale Änderungen wurden online zusammengeführt.");
+        }
       } else {
         lastRemoteSnapshotKeyRef.current = snapshotContentKey(remoteSnapshot);
       }
