@@ -52,7 +52,19 @@ async function wait(ms: number) {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function mergeJobStatus(existingStatus: unknown, patchStatus: unknown) {
+function mergeJobStatus(existing: JsonObject, patch: JsonObject) {
+  const existingStatus = existing.status;
+  const patchStatus = patch.status;
+
+  if (
+    existingStatus === "geplant"
+    && typeof existing.resetAt === "string"
+    && patch.resetAt !== existing.resetAt
+    && ["erledigt", "abgerechnet"].includes(String(patchStatus))
+  ) {
+    return existingStatus;
+  }
+
   if (
     ["erledigt", "abgerechnet"].includes(String(existingStatus)) &&
     !["erledigt", "abgerechnet"].includes(String(patchStatus))
@@ -84,7 +96,7 @@ function mergeRecordsById(existingRecords: unknown, patchRecords: unknown, key?:
       const { __forceStatus: _forceStatus, ...cleanPatch } = patch;
       const merged = { ...existing, ...cleanPatch };
       if (key === "jobs" && !statusOverrideRequested(patch) && "status" in existing && "status" in patch) {
-        merged.status = mergeJobStatus(existing.status, patch.status);
+        merged.status = mergeJobStatus(existing, patch);
       }
       if (key === "resources" && (Array.isArray(existing.logbook) || Array.isArray(patch.logbook))) {
         merged.logbook = mergeRecordsById(existing.logbook, patch.logbook);

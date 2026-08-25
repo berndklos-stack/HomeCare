@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.203.0",
+  version: "1.204.0",
   releaseDate: "2026-08-25",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.204.0",
+    date: "2026-08-25",
+    changes: [
+      "Zurückgesetzte Aufträge bleiben zentral geplant, auch wenn ein altes Gerät noch einen erledigten Stand ohne Bericht sendet",
+      "Erst ein neu geladener und bewusst erneut abgeschlossener Einsatz kann den Auftrag wieder erledigen",
+    ],
+  },
   {
     version: "1.203.0",
     date: "2026-08-25",
