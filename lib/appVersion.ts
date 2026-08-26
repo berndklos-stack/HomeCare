@@ -1,10 +1,21 @@
 export const appVersion = {
-  version: "1.211.0",
+  version: "1.212.0",
   releaseDate: "2026-08-26",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.212.0",
+    date: "2026-08-26",
+    changes: [
+      "Kontenplan fuer Spiris / Visma in den Stammdaten hinterlegt",
+      "Leistungen und Material koennen feste Erloeskonten aus dem Kontenplan verwenden",
+      "Rechnungspositionen uebernehmen Kontierung, Waehrung, Moms und Kundennummern fuer die Spiris-Uebergabe",
+      "Spiris-Uebergaben werden gegen doppelte Uebergabe geschuetzt und koennen zurueckgesetzt werden",
+      "Die Kopfleiste zeigt neben Aktualisieren nur noch den letzten Datenabgleich an",
+    ],
+  },
   {
     version: "1.211.0",
     date: "2026-08-26",

@@ -4,6 +4,14 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.212.0 - 2026-08-26
+
+- Kontenplan für Spiris / Visma in den Stammdaten hinterlegt.
+- Leistungen und Material können feste Erlöskonten aus dem Kontenplan verwenden.
+- Rechnungspositionen übernehmen Kontierung, Währung, Moms und Kundennummern für die Spiris-Übergabe.
+- Spiris-Übergaben werden gegen doppelte Übergabe geschützt und können zurückgesetzt werden.
+- Die Kopfleiste zeigt neben Aktualisieren nur noch den letzten Datenabgleich an.
+
 ## 1.211.0 - 2026-08-26
 
 - Abrechnung zum Rechnungsprozess mit Rechnungs-PDF, Ausgangsbuch, Zahlungsstatus und Storno erweitert.

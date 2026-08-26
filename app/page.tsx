@@ -301,6 +301,7 @@ type BillingRecord = {
 
 type BillingLineItem = {
   id: string;
+  accountingAccount?: string;
   kind: "Leistung" | "Material" | "Rabatt";
   name: string;
   quantity: string;
@@ -320,6 +321,7 @@ type LineDiscount = {
 
 type MaterialItem = {
   id: string;
+  accountingAccount?: string;
   name: string;
   category: string;
   unit: string;
@@ -332,6 +334,7 @@ type MaterialItem = {
 
 type JobMaterialItem = {
   id: string;
+  accountingAccount?: string;
   materialId?: string;
   name: string;
   category: string;
@@ -454,6 +457,7 @@ type AppSnapshot = {
 
 type ServiceItem = {
   id: string;
+  accountingAccount?: string;
   name: string;
   category: string;
   unit: string;
@@ -1206,6 +1210,13 @@ function formatCreatedAt(value?: string) {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return value;
   return parsed.toLocaleString("de-DE", { dateStyle: "medium", timeStyle: "short" });
+}
+
+function formatUpdatedTime(value?: string) {
+  if (!value) return "";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "";
+  return parsed.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
 }
 
 function mergeRecordsById<T extends { id: string }>(primaryRecords: T[], secondaryRecords: T[]) {
@@ -1989,6 +2000,7 @@ function discountLineFor(baseLine: BillingLineItem, discount: LineDiscount | und
 function jobBillingLines(job: JobRecord, services: ServiceItem[]): BillingLineItem[] {
   const serviceLines = jobSelectedServices(job, services).flatMap((service) => {
     const line: BillingLineItem = {
+      accountingAccount: service.accountingAccount || defaultAccountingAccount("Leistung", service.name),
       currency: service.currency || "SEK",
       id: `LINE-${job.id}-${service.id}`,
       kind: "Leistung",
@@ -2003,6 +2015,7 @@ function jobBillingLines(job: JobRecord, services: ServiceItem[]): BillingLineIt
   });
   const materialLines = (job.materialItems ?? []).flatMap((item) => {
     const line: BillingLineItem = {
+      accountingAccount: item.accountingAccount || defaultAccountingAccount("Material", item.name),
       currency: item.currency || "SEK",
       id: `LINE-${job.id}-${item.id}`,
       kind: "Material",
@@ -2255,21 +2268,37 @@ function invoiceSubject(item: BillingRecord, object: ObjectRecord, customer?: Cu
   return `${label} ${item.invoiceNumber || item.id} - ${object.name}`;
 }
 
-const vismaAccountingMap = [
-  { account: "3041", match: /arbeit|betreuung|einsatz|kontrolle|pflege|service|stunde|wartung/i, name: "Arbeitsleistung / Service", type: "Leistung" },
-  { account: "3051", match: /bericht|e-mail|kommunikation|nachricht|rückmeldung/i, name: "Kommunikation / Bericht", type: "Leistung" },
-  { account: "3055", match: /reinigung|wäsche|innen/i, name: "Reinigung", type: "Leistung" },
-  { account: "3056", match: /pool|garten|außen|aussen/i, name: "Außenbereich / Pool / Garten", type: "Leistung" },
-  { account: "3058", match: /material|ersatzteil|filter|chemie|farbe|holz|schraube/i, name: "Weiterberechnetes Material", type: "Material" },
+const vismaChartOfAccounts = [
+  { account: "3041", category: "Leistung", label: "Arbeitsleistung / Service" },
+  { account: "3051", category: "Leistung", label: "Kommunikation / Bericht" },
+  { account: "3055", category: "Leistung", label: "Reinigung" },
+  { account: "3056", category: "Leistung", label: "Außenbereich / Pool / Garten" },
+  { account: "3058", category: "Material", label: "Weiterberechnetes Material" },
+  { account: "3730", category: "Rabatt", label: "Gewährte Rabatte" },
 ];
 
+const legacyAccountingRules = [
+  { account: "3041", match: /arbeit|betreuung|einsatz|kontrolle|pflege|service|stunde|wartung/i, type: "Leistung" },
+  { account: "3051", match: /bericht|e-mail|kommunikation|nachricht|rückmeldung/i, type: "Leistung" },
+  { account: "3055", match: /reinigung|wäsche|innen/i, type: "Leistung" },
+  { account: "3056", match: /pool|garten|außen|aussen/i, type: "Leistung" },
+  { account: "3058", match: /material|ersatzteil|filter|chemie|farbe|holz|schraube/i, type: "Material" },
+];
+
+function accountingAccountLabel(account: string | undefined) {
+  return vismaChartOfAccounts.find((entry) => entry.account === account)?.label || "Konto nicht im Kontenplan";
+}
+
+function defaultAccountingAccount(kind: BillingLineItem["kind"], name = "") {
+  if (kind === "Rabatt") return "3730";
+  const legacyRule = legacyAccountingRules.find((entry) => entry.type === kind && entry.match.test(name));
+  if (legacyRule) return legacyRule.account;
+  return kind === "Material" ? "3058" : "3041";
+}
+
 function lineAccounting(line: BillingLineItem) {
-  if (line.kind === "Rabatt") return { account: "3730", label: "Gewährte Rabatte" };
-  const mapped = vismaAccountingMap.find((entry) => entry.type === line.kind && entry.match.test(line.name));
-  if (mapped) return { account: mapped.account, label: mapped.name };
-  return line.kind === "Material"
-    ? { account: "3058", label: "Weiterberechnetes Material" }
-    : { account: "3041", label: "Arbeitsleistung / Service" };
+  const account = line.accountingAccount || defaultAccountingAccount(line.kind, line.name);
+  return { account, label: accountingAccountLabel(account) };
 }
 
 function billingCustomerNumber(customer: CustomerRecord | undefined) {
@@ -3645,40 +3674,40 @@ const seedBilling: BillingRecord[] = [
 ];
 
 const seedServices: ServiceItem[] = [
-  { id: "SVC-1", name: "Hauskontrolle", category: "Kontrolle", unit: "Besuch", price: "795", currency: "SEK", description: "Sichtprüfung von Haus, Grundstück und Zugang mit Kurzbericht", checklist: [
+  { id: "SVC-1", accountingAccount: "3041", name: "Hauskontrolle", category: "Kontrolle", unit: "Besuch", price: "795", currency: "SEK", description: "Sichtprüfung von Haus, Grundstück und Zugang mit Kurzbericht", checklist: [
     { id: "SVC-1-1", title: "Zugang prüfen", note: "Schlüsselsafe, Türen, Fenster und Alarmstatus dokumentieren.", defaultMinutes: 10 },
     { id: "SVC-1-2", title: "Außenrunde durchführen", note: "Fassade, Dach, Terrasse, Zufahrt und sichtbare Schäden prüfen.", defaultMinutes: 20 },
     { id: "SVC-1-3", title: "Innenkontrolle abschließen", note: "Wasser, Heizung, Strom, Gerüche und Auffälligkeiten erfassen.", defaultMinutes: 20 },
   ] },
-  { id: "SVC-2", name: "Fotobericht", category: "Dokumentation", unit: "Bericht", price: "inklusive", currency: "SEK", description: "Strukturierte Fotos und kurze Zusammenfassung nach dem Einsatz", checklist: [
+  { id: "SVC-2", accountingAccount: "3051", name: "Fotobericht", category: "Dokumentation", unit: "Bericht", price: "inklusive", currency: "SEK", description: "Strukturierte Fotos und kurze Zusammenfassung nach dem Einsatz", checklist: [
     { id: "SVC-2-1", title: "Vorher-Fotos erfassen", note: "Relevante Räume und Außenbereiche fotografieren.", defaultMinutes: 10 },
     { id: "SVC-2-2", title: "Nachher-Fotos ergänzen", note: "Erledigte Arbeiten und besondere Feststellungen dokumentieren.", defaultMinutes: 10 },
   ] },
-  { id: "SVC-3", name: "E-Mail Rückmeldung", category: "Kommunikation", unit: "Nachricht", price: "inklusive", currency: "SEK", description: "Statusmeldung an Eigentümer nach Besuch oder Einsatz", checklist: [
+  { id: "SVC-3", accountingAccount: "3051", name: "E-Mail Rückmeldung", category: "Kommunikation", unit: "Nachricht", price: "inklusive", currency: "SEK", description: "Statusmeldung an Eigentümer nach Besuch oder Einsatz", checklist: [
     { id: "SVC-3-1", title: "Kundenzusammenfassung vorbereiten", note: "Nur kundenfreigegebene Hinweise aufnehmen.", defaultMinutes: 8 },
   ] },
-  { id: "SVC-4", name: "Briefkastenservice", category: "Betreuung", unit: "Besuch", price: "inklusive", currency: "SEK", description: "Briefkasten leeren, relevante Post fotografieren und melden", checklist: [
+  { id: "SVC-4", accountingAccount: "3041", name: "Briefkastenservice", category: "Betreuung", unit: "Besuch", price: "inklusive", currency: "SEK", description: "Briefkasten leeren, relevante Post fotografieren und melden", checklist: [
     { id: "SVC-4-1", title: "Briefkasten leeren", note: "Post sortieren und wichtige Briefe fotografieren.", defaultMinutes: 10 },
   ] },
-  { id: "SVC-5", name: "Gartenpflege", category: "Außenanlage", unit: "Stunde", price: "595", currency: "SEK", description: "Rasen, Hecken, Saisonpflege und Sichtkontrolle außen", checklist: [
+  { id: "SVC-5", accountingAccount: "3056", name: "Gartenpflege", category: "Außenanlage", unit: "Stunde", price: "595", currency: "SEK", description: "Rasen, Hecken, Saisonpflege und Sichtkontrolle außen", checklist: [
     { id: "SVC-5-1", title: "Rasen und Wege prüfen", note: "Pflegebedarf, Hindernisse und Wetterlage notieren.", defaultMinutes: 15 },
     { id: "SVC-5-2", title: "Gartenarbeit ausführen", note: "Arbeitszeit und besondere Arbeiten sauber erfassen.", defaultMinutes: 60 },
   ] },
-  { id: "SVC-6", name: "Schlüsselservice", category: "Zugang", unit: "Einsatz", price: "495", currency: "SEK", description: "Schlüsselübergabe, Zugangsdokumentation und Schlüsselverwaltung", checklist: [
+  { id: "SVC-6", accountingAccount: "3041", name: "Schlüsselservice", category: "Zugang", unit: "Einsatz", price: "495", currency: "SEK", description: "Schlüsselübergabe, Zugangsdokumentation und Schlüsselverwaltung", checklist: [
     { id: "SVC-6-1", title: "Schlüsselbestand prüfen", note: "Schlüsselnummer, Ablageort und Übergabe dokumentieren.", defaultMinutes: 15 },
   ] },
-  { id: "SVC-7", name: "Reinigung", category: "Innenbereich", unit: "Stunde", price: "495", currency: "SEK", description: "Innenreinigung und Vorbereitung für Eigentümer oder Gäste", checklist: [
+  { id: "SVC-7", accountingAccount: "3055", name: "Reinigung", category: "Innenbereich", unit: "Stunde", price: "495", currency: "SEK", description: "Innenreinigung und Vorbereitung für Eigentümer oder Gäste", checklist: [
     { id: "SVC-7-1", title: "Räume reinigen", note: "Bad, Küche, Wohnräume und Schlafräume nach Standard prüfen.", defaultMinutes: 90 },
   ] },
-  { id: "SVC-8", name: "Notdienst", category: "Sonderleistung", unit: "Einsatz", price: "990", currency: "SEK", description: "Priorisierte Hilfe bei akuten Problemen nach Aufwand", checklist: [
+  { id: "SVC-8", accountingAccount: "3041", name: "Notdienst", category: "Sonderleistung", unit: "Einsatz", price: "990", currency: "SEK", description: "Priorisierte Hilfe bei akuten Problemen nach Aufwand", checklist: [
     { id: "SVC-8-1", title: "Problem aufnehmen", note: "Ursache, Sofortmaßnahme und Folgeauftrag dokumentieren.", defaultMinutes: 30 },
   ] },
 ];
 
 const seedMaterials: MaterialItem[] = [
-  { id: "MAT-1", name: "Müllsäcke", category: "Verbrauchsmaterial", unit: "Rolle", price: "49", currency: "SEK", description: "Standard-Müllsäcke für Reinigung und Garten" },
-  { id: "MAT-2", name: "Reinigungsmittel", category: "Reinigung", unit: "Stück", price: "79", currency: "SEK", description: "Allgemeines Reinigungsmittel" },
-  { id: "MAT-3", name: "Rasenmäherbenzin", category: "Garten", unit: "Liter", price: "24", currency: "SEK", description: "Kraftstoff für Gartenarbeiten" },
+  { id: "MAT-1", accountingAccount: "3058", name: "Müllsäcke", category: "Verbrauchsmaterial", unit: "Rolle", price: "49", currency: "SEK", description: "Standard-Müllsäcke für Reinigung und Garten" },
+  { id: "MAT-2", accountingAccount: "3058", name: "Reinigungsmittel", category: "Reinigung", unit: "Stück", price: "79", currency: "SEK", description: "Allgemeines Reinigungsmittel" },
+  { id: "MAT-3", accountingAccount: "3058", name: "Rasenmäherbenzin", category: "Garten", unit: "Liter", price: "24", currency: "SEK", description: "Kraftstoff für Gartenarbeiten" },
 ];
 
 const seedPackages: ServicePackage[] = [
@@ -5226,7 +5255,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       createdAt: new Date().toISOString(),
       customerId: job.customerId,
       externalExportStatus: "nicht gesendet",
-      externalExportSystem: "Visma Buchhaltung",
+      externalExportSystem: "Spiris / Visma Buchhaltung",
       id: `BIL-${job.id}`,
       invoiceDate: new Date().toISOString().slice(0, 10),
       invoiceNumber: `INV-${new Date().getFullYear()}-${String(invoiceIndex).padStart(4, "0")}`,
@@ -5296,19 +5325,39 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   }
 
   function markBillingExported(item: BillingRecord) {
+    if (item.externalExportStatus === "gesendet") {
+      setRecordNotice(`Rechnung "${item.invoiceNumber || item.label}" wurde bereits an Spiris übergeben. Für eine erneute Übergabe bitte zuerst zurücksetzen.`);
+      return;
+    }
+
     const nextBilling = billing.map((entry) => (
       entry.id === item.id
         ? {
             ...entry,
             externalExportStatus: "gesendet" as const,
-            externalExportSystem: entry.externalExportSystem || "Visma Buchhaltung",
+            externalExportSystem: entry.externalExportSystem || "Spiris / Visma Buchhaltung",
             externalExportedAt: new Date().toISOString(),
           }
         : entry
     ));
     setBilling(nextBilling);
     persistSnapshotNow({ billing: nextBilling }, { forceRemote: true });
-    setRecordNotice(`Rechnung "${item.invoiceNumber || item.label}" wurde zur Übergabe an Visma Buchhaltung vorgemerkt.`);
+    setRecordNotice(`Rechnung "${item.invoiceNumber || item.label}" wurde an Spiris / Visma Buchhaltung übergeben.`);
+  }
+
+  function resetBillingExport(item: BillingRecord) {
+    const nextBilling = billing.map((entry) => (
+      entry.id === item.id
+        ? {
+            ...entry,
+            externalExportStatus: "nicht gesendet" as const,
+            externalExportedAt: undefined,
+          }
+        : entry
+    ));
+    setBilling(nextBilling);
+    persistSnapshotNow({ billing: nextBilling }, { forceRemote: true });
+    setRecordNotice(`Spiris-Übergabe für Rechnung "${item.invoiceNumber || item.label}" wurde zurückgesetzt.`);
   }
 
   function markInvoiceSent(item: BillingRecord) {
@@ -5356,6 +5405,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     const customServiceId = existingJob?.customService?.id ?? `JOB-SVC-${id}`;
     const customService: ServiceItem | null = customServiceName
       ? {
+          accountingAccount: defaultAccountingAccount("Leistung", customServiceName),
           id: customServiceId,
           name: customServiceName,
           category: newJob.customServiceCategory.trim() || "Sonderleistung",
@@ -5377,10 +5427,11 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     const endDate = (newJob.endDate || startDate) < startDate ? startDate : (newJob.endDate || startDate);
     const newMasterMaterials: MaterialItem[] = [];
     const materialItems = newJob.materialItems.map((item) => {
-      if (!item.saveToMaster || item.materialId) return { ...item, discount: cleanDiscount(item.discount), saveToMaster: false };
+      if (!item.saveToMaster || item.materialId) return { ...item, accountingAccount: item.accountingAccount || defaultAccountingAccount("Material", item.name), discount: cleanDiscount(item.discount), saveToMaster: false };
 
       const materialId = createEntityId("MAT");
       newMasterMaterials.push({
+        accountingAccount: item.accountingAccount || defaultAccountingAccount("Material", item.name),
         archived: false,
         category: item.category.trim() || "Material",
         currency: item.currency || "SEK",
@@ -5392,7 +5443,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
         unit: item.unit.trim() || "Stück",
       });
 
-      return { ...item, discount: cleanDiscount(item.discount), id: item.id || materialId, materialId, saveToMaster: false };
+      return { ...item, accountingAccount: item.accountingAccount || defaultAccountingAccount("Material", item.name), discount: cleanDiscount(item.discount), id: item.id || materialId, materialId, saveToMaster: false };
     });
     const serviceDiscounts: Record<string, LineDiscount> = {};
     Object.entries(newJob.serviceDiscounts).forEach(([serviceId, discount]) => {
@@ -6258,7 +6309,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
               <RefreshCw size={16} />
               {manualRefreshRunning ? tx("Aktualisiere") : tx("Aktualisieren")}
             </button>
-            {recordNotice && <p className="toolbar-notice" role="status">{recordNotice}</p>}
+            {formatUpdatedTime(appUpdatedAt) && <p className="toolbar-notice" role="status">Daten aktualisiert: {formatUpdatedTime(appUpdatedAt)}</p>}
             <button aria-label={theme === "dark" ? t.light : t.dark} className="ghost-button icon-button theme-toggle" data-tooltip={theme === "dark" ? t.light : t.dark} onClick={() => setTheme(theme === "dark" ? "light" : "dark")} type="button">
               {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
             </button>
@@ -6430,6 +6481,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                 onMarkInvoiced={markBillingInvoiced}
                 onMarkPaid={markInvoicePaid}
                 onMarkSent={markInvoiceSent}
+                onResetExport={resetBillingExport}
                 reports={reports}
                 services={services}
               />
@@ -8526,6 +8578,7 @@ function BillingView({
   onMarkInvoiced,
   onMarkPaid,
   onMarkSent,
+  onResetExport,
   reports,
   services,
 }: {
@@ -8540,6 +8593,7 @@ function BillingView({
   onMarkInvoiced: (item: BillingRecord) => void;
   onMarkPaid: (item: BillingRecord) => void;
   onMarkSent: (item: BillingRecord) => void;
+  onResetExport: (item: BillingRecord) => void;
   reports: ReportRecord[];
   services: ServiceItem[];
 }) {
@@ -8558,7 +8612,7 @@ function BillingView({
         <div>
           <p>Finanzen</p>
           <h2>Rechnungsprozess</h2>
-          <span>Homecare erstellt Rechnung und Ausgangsbuch; Visma erhält die vollständigen Buchhaltungsdaten.</span>
+          <span>Homecare erstellt Rechnung und Ausgangsbuch; Spiris / Visma erhält die vollständigen Buchhaltungsdaten.</span>
         </div>
         <button className="primary-button" onClick={onCollectBillable} type="button">
           <Euro size={16} />
@@ -8579,7 +8633,7 @@ function BillingView({
           <strong>{formatMoney(openInvoiceTotal, "SEK")}</strong>
         </div>
         <div>
-          <span>Visma Übergabe</span>
+          <span>Spiris Übergabe</span>
           <strong>{billing.filter((item) => item.externalExportStatus === "gesendet").length}/{billing.length}</strong>
         </div>
       </div>
@@ -8619,8 +8673,11 @@ function BillingView({
                 {invoiceStatus === "entwurf" && (
                   <IconAction label={`Rechnung ${item.invoiceNumber || item.label} buchen`} onClick={() => onMarkInvoiced(item)}><Check size={16} /></IconAction>
                 )}
-                {["gebucht", "gesendet", "überfällig"].includes(invoiceStatus) && (
-                  <IconAction label={`Rechnung ${item.invoiceNumber || item.label} an Visma Buchhaltung übergeben`} onClick={() => onMarkExported(item)}><Send size={16} /></IconAction>
+                {["gebucht", "gesendet", "überfällig"].includes(invoiceStatus) && item.externalExportStatus !== "gesendet" && (
+                  <IconAction label={`Rechnung ${item.invoiceNumber || item.label} an Spiris / Visma Buchhaltung übergeben`} onClick={() => onMarkExported(item)}><Send size={16} /></IconAction>
+                )}
+                {item.externalExportStatus === "gesendet" && (
+                  <IconAction label={`Spiris-Übergabe ${item.invoiceNumber || item.label} zurücksetzen`} onClick={() => onResetExport(item)}><RotateCcw size={16} /></IconAction>
                 )}
                 {invoiceStatus === "gebucht" && (
                   <IconAction label={`Rechnung ${item.invoiceNumber || item.label} als versendet markieren`} onClick={() => onMarkSent(item)}><Mail size={16} /></IconAction>
@@ -8633,7 +8690,7 @@ function BillingView({
                 )}
               </div>
               <footer className="message-meta">
-                <span>Visma: {item.externalExportStatus || "nicht gesendet"} · Ziel: {item.externalExportSystem || "Visma Buchhaltung"}</span>
+                <span>Spiris: {item.externalExportStatus || "nicht gesendet"} · {item.externalExportedAt ? `übergeben ${formatCreatedAt(item.externalExportedAt)}` : "noch nicht übergeben"} · Ziel: {item.externalExportSystem || "Spiris / Visma Buchhaltung"}</span>
                 <span>Bericht: {reports.find((report) => report.id === item.reportId)?.title ?? "-"}</span>
                 <span>Preisquelle: {services.length} Leistungsstammdaten verfügbar</span>
               </footer>
@@ -9587,6 +9644,7 @@ function MasterDataView({
   const [mailSettingsForm, setMailSettingsForm] = useState(dailyMailSettings);
   const [companySettingsForm, setCompanySettingsForm] = useState(companySettings);
   const [serviceForm, setServiceForm] = useState({
+    accountingAccount: "3041",
     name: "",
     category: "",
     unit: "",
@@ -9597,6 +9655,7 @@ function MasterDataView({
     checklist: [] as ServiceChecklistItem[],
   });
   const [materialForm, setMaterialForm] = useState({
+    accountingAccount: "3058",
     category: "",
     currency: "SEK",
     description: "",
@@ -10020,7 +10079,7 @@ function MasterDataView({
 
   function resetServiceForm() {
     setEditingServiceId(null);
-    setServiceForm({ name: "", category: "", unit: "", price: "", currency: "SEK", taxRate: "25", description: "", checklist: [] });
+    setServiceForm({ accountingAccount: "3041", name: "", category: "", unit: "", price: "", currency: "SEK", taxRate: "25", description: "", checklist: [] });
     setServiceChecklistForm({ title: "", note: "", defaultMinutes: "" });
   }
 
@@ -10033,6 +10092,7 @@ function MasterDataView({
       price: service.price,
       currency: service.currency || "SEK",
       taxRate: service.taxRate || "25",
+      accountingAccount: service.accountingAccount || defaultAccountingAccount("Leistung", service.name),
       description: service.description,
       checklist: service.checklist ?? [],
     });
@@ -10081,6 +10141,7 @@ function MasterDataView({
       price: serviceForm.price.trim() || "0",
       currency: serviceForm.currency,
       taxRate: serviceForm.taxRate.trim() || "25",
+      accountingAccount: serviceForm.accountingAccount || defaultAccountingAccount("Leistung", serviceForm.name),
       description: serviceForm.description.trim() || "Beschreibung ergänzen.",
       checklist: serviceForm.checklist,
       archived: existingService?.archived ?? false,
@@ -10137,12 +10198,13 @@ function MasterDataView({
 
   function resetMaterialForm() {
     setEditingMaterialId(null);
-    setMaterialForm({ category: "", currency: "SEK", description: "", name: "", price: "", taxRate: "25", unit: "Stück" });
+    setMaterialForm({ accountingAccount: "3058", category: "", currency: "SEK", description: "", name: "", price: "", taxRate: "25", unit: "Stück" });
   }
 
   function editMaterial(material: MaterialItem) {
     setEditingMaterialId(material.id);
     setMaterialForm({
+      accountingAccount: material.accountingAccount || defaultAccountingAccount("Material", material.name),
       category: material.category,
       currency: material.currency || "SEK",
       description: material.description,
@@ -10163,6 +10225,7 @@ function MasterDataView({
     const existingMaterial = materials.find((material) => material.id === editingMaterialId);
     const saved: MaterialItem = {
       archived: existingMaterial?.archived ?? false,
+      accountingAccount: materialForm.accountingAccount || defaultAccountingAccount("Material", materialForm.name),
       category: materialForm.category.trim() || "Material",
       currency: materialForm.currency || "SEK",
       description: materialForm.description.trim() || "Materialposition",
@@ -10302,7 +10365,7 @@ function MasterDataView({
             <div>
               <p>Stammdaten</p>
               <h2>Firma</h2>
-              <span>Diese Angaben erscheinen in Offerten, Rechnungen und der späteren Übergabe an Visma Buchhaltung.</span>
+              <span>Diese Angaben erscheinen in Offerten, Rechnungen und der späteren Übergabe an Spiris / Visma Buchhaltung.</span>
             </div>
           </div>
           <div className="form-grid compact-form">
@@ -10730,6 +10793,7 @@ function MasterDataView({
             <div>
               <p>Stammdaten</p>
               <h2>Material verwalten</h2>
+              <span>Materialpositionen erhalten hier ihr Erlöskonto für die spätere Spiris / Visma-Übergabe.</span>
             </div>
           </div>
           <div className="form-grid compact-form">
@@ -10747,6 +10811,13 @@ function MasterDataView({
               <label><span>Währung</span><select value={materialForm.currency} onChange={(event) => setMaterialForm({ ...materialForm, currency: event.target.value })}><option>SEK</option><option>EUR</option><option>NOK</option><option>DKK</option></select></label>
             </div>
             <label><span>Moms %</span><input inputMode="decimal" value={materialForm.taxRate} onChange={(event) => setMaterialForm({ ...materialForm, taxRate: event.target.value })} /></label>
+            <label><span>Erlöskonto</span>
+              <select value={materialForm.accountingAccount} onChange={(event) => setMaterialForm({ ...materialForm, accountingAccount: event.target.value })}>
+                {vismaChartOfAccounts.filter((account) => account.category === "Material").map((account) => (
+                  <option key={account.account} value={account.account}>{account.account} · {account.label}</option>
+                ))}
+              </select>
+            </label>
             <label className="wide"><span>Beschreibung</span><textarea value={materialForm.description} onChange={(event) => setMaterialForm({ ...materialForm, description: event.target.value })} /></label>
             <button className="primary-button wide" onClick={saveMaterial} type="button">{editingMaterialId ? "Material speichern" : "Material anlegen"}</button>
             {editingMaterialId && <button className="ghost-button wide" onClick={resetMaterialForm} type="button">Bearbeitung abbrechen</button>}
@@ -10756,7 +10827,7 @@ function MasterDataView({
               <article key={material.id}>
                 <div>
                   <strong>{material.name}</strong>
-                  <span>{material.category} · {material.price} {material.currency}/{material.unit} · Moms {material.taxRate || "25"}%</span>
+                  <span>{material.category} · {material.price} {material.currency}/{material.unit} · Moms {material.taxRate || "25"}% · Konto {material.accountingAccount || defaultAccountingAccount("Material", material.name)}</span>
                 </div>
                 <span>{material.description}</span>
                 <div className="row-actions">
@@ -10794,6 +10865,25 @@ function MasterDataView({
       {masterDataTab === "services" && (
         <>
           <section className="panel">
+            <div className="panel-title">
+              <div>
+                <p>Buchhaltung</p>
+                <h2>Kontenplan für Spiris / Visma</h2>
+                <span>Diese Konten werden bei Leistungen und Material ausgewählt und anschließend in die Rechnungsposition übernommen.</span>
+              </div>
+            </div>
+            <div className="table-list compact-list chart-of-accounts-list">
+              {vismaChartOfAccounts.map((account) => (
+                <article key={account.account}>
+                  <div>
+                    <strong>{account.account} · {account.label}</strong>
+                    <span>{account.category}</span>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+          <section className="panel">
         <div className="panel-title">
           <div>
             <p>Stammdaten</p>
@@ -10824,6 +10914,13 @@ function MasterDataView({
             </label>
           </div>
           <label><span>Moms %</span><input inputMode="decimal" value={serviceForm.taxRate} onChange={(event) => setServiceForm({ ...serviceForm, taxRate: event.target.value })} /></label>
+          <label><span>Erlöskonto</span>
+            <select value={serviceForm.accountingAccount} onChange={(event) => setServiceForm({ ...serviceForm, accountingAccount: event.target.value })}>
+              {vismaChartOfAccounts.filter((account) => account.category === "Leistung").map((account) => (
+                <option key={account.account} value={account.account}>{account.account} · {account.label}</option>
+              ))}
+            </select>
+          </label>
           <label className="wide"><span>Beschreibung</span><textarea value={serviceForm.description} onChange={(event) => setServiceForm({ ...serviceForm, description: event.target.value })} /></label>
           <div className="wide service-checklist-editor">
             <span>Checkliste für Einsatz</span>
@@ -10858,7 +10955,7 @@ function MasterDataView({
               <span>{service.category}</span>
               <strong>{service.name}</strong>
               <small>{service.description}</small>
-              <small>{service.checklist?.length ?? 0} Checklistenpunkte</small>
+              <small>{service.checklist?.length ?? 0} Checklistenpunkte · Konto {service.accountingAccount || defaultAccountingAccount("Leistung", service.name)}</small>
               <mark>{serviceRate(service)}</mark>
               <div className="card-actions">
                 <IconAction label={`Leistung ${service.name} bearbeiten`} onClick={() => editService(service)}><Pencil size={16} /></IconAction>
@@ -12187,6 +12284,7 @@ function JobForm({
       materialItems: [
         ...newJob.materialItems,
         {
+          accountingAccount: material.accountingAccount || defaultAccountingAccount("Material", material.name),
           category: material.category,
           currency: material.currency || "SEK",
           id: `JOB-MAT-${Date.now()}`,
@@ -12214,6 +12312,7 @@ function JobForm({
       materialItems: [
         ...newJob.materialItems,
         {
+          accountingAccount: defaultAccountingAccount("Material", newJob.materialName),
           category: newJob.materialCategory.trim() || "Material",
           currency: newJob.materialCurrency || "SEK",
           id: `JOB-MAT-${Date.now()}`,
