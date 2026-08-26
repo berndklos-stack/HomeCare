@@ -282,14 +282,20 @@ type BillingRecord = {
   externalExportStatus?: "nicht gesendet" | "gesendet" | "fehler";
   externalExportSystem?: string;
   externalExportedAt?: string;
+  cancelledAt?: string;
+  dueDate?: string;
   invoiceDate?: string;
   invoiceNumber?: string;
+  invoiceStatus?: "entwurf" | "gebucht" | "gesendet" | "bezahlt" | "storniert";
   invoicedAt?: string;
   jobId?: string;
   lines?: BillingLineItem[];
   notes?: string;
+  outgoingBookNumber?: string;
+  paidAt?: string;
   reportId?: string;
   serviceDate?: string;
+  sentAt?: string;
   status: "abrechenbar" | "abgerechnet" | "intern";
 };
 
@@ -2213,6 +2219,78 @@ function offerTotals(lines: BillingLineItem[]) {
   return { currency, gross: net + tax, net, tax, taxByRate };
 }
 
+function addDays(dateString: string, days: number) {
+  const date = new Date(`${dateString}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return dateString;
+  date.setDate(date.getDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function invoiceTotals(item: BillingRecord) {
+  if (item.lines?.length) return offerTotals(item.lines);
+  const gross = decimalValue(item.amount);
+  return { currency: "SEK", gross, net: gross, tax: 0, taxByRate: {} as Record<string, number> };
+}
+
+function effectiveInvoiceStatus(item: BillingRecord) {
+  if (item.cancelledAt || item.invoiceStatus === "storniert") return "storniert";
+  if (item.paidAt || item.invoiceStatus === "bezahlt") return "bezahlt";
+  if (item.dueDate && item.invoiceStatus && ["gebucht", "gesendet"].includes(item.invoiceStatus) && item.dueDate < new Date().toISOString().slice(0, 10)) return "überfällig";
+  if (item.sentAt || item.invoiceStatus === "gesendet") return "gesendet";
+  if (item.invoicedAt || item.status === "abgerechnet" || item.invoiceStatus === "gebucht") return "gebucht";
+  return "entwurf";
+}
+
+function nextOutgoingBookNumber(billing: BillingRecord[], invoiceDate: string) {
+  const year = invoiceDate.slice(0, 4) || String(new Date().getFullYear());
+  const existingCount = billing.filter((item) => (
+    (item.outgoingBookNumber || item.invoicedAt)
+    && (item.invoiceDate || item.invoicedAt || "").slice(0, 4) === year
+  )).length;
+  return `AR-${year}-${String(existingCount + 1).padStart(4, "0")}`;
+}
+
+function invoiceSubject(item: BillingRecord, object: ObjectRecord, customer?: CustomerRecord) {
+  const label = isSwedishCustomerLanguage(customer?.language) ? "Faktura" : "Rechnung";
+  return `${label} ${item.invoiceNumber || item.id} - ${object.name}`;
+}
+
+const vismaAccountingMap = [
+  { account: "3041", match: /arbeit|betreuung|einsatz|kontrolle|pflege|service|stunde|wartung/i, name: "Arbeitsleistung / Service", type: "Leistung" },
+  { account: "3051", match: /bericht|e-mail|kommunikation|nachricht|rückmeldung/i, name: "Kommunikation / Bericht", type: "Leistung" },
+  { account: "3055", match: /reinigung|wäsche|innen/i, name: "Reinigung", type: "Leistung" },
+  { account: "3056", match: /pool|garten|außen|aussen/i, name: "Außenbereich / Pool / Garten", type: "Leistung" },
+  { account: "3058", match: /material|ersatzteil|filter|chemie|farbe|holz|schraube/i, name: "Weiterberechnetes Material", type: "Material" },
+];
+
+function lineAccounting(line: BillingLineItem) {
+  if (line.kind === "Rabatt") return { account: "3730", label: "Gewährte Rabatte" };
+  const mapped = vismaAccountingMap.find((entry) => entry.type === line.kind && entry.match.test(line.name));
+  if (mapped) return { account: mapped.account, label: mapped.name };
+  return line.kind === "Material"
+    ? { account: "3058", label: "Weiterberechnetes Material" }
+    : { account: "3041", label: "Arbeitsleistung / Service" };
+}
+
+function billingCustomerNumber(customer: CustomerRecord | undefined) {
+  return normalizeReadableNumber(customer?.personalNumber) || customer?.id || "Kundennummer fehlt";
+}
+
+function vismaTransferRows(item: BillingRecord, customer: CustomerRecord | undefined) {
+  return (item.lines ?? []).map((line) => {
+    const accounting = lineAccounting(line);
+    return {
+      account: accounting.account,
+      amount: formatMoney(lineNetAmount(line), line.currency),
+      customerNumber: billingCustomerNumber(customer),
+      currency: line.currency,
+      label: accounting.label,
+      moms: `${line.taxRate}%`,
+      name: line.name,
+    };
+  });
+}
+
 function companyFooterLines(settings: CompanySettings) {
   return [
     settings.name,
@@ -2746,6 +2824,161 @@ async function sendOfferMail(job: JobRecord, object: ObjectRecord, customer: Cus
 async function downloadOrderConfirmationPdf(job: JobRecord, object: ObjectRecord, customer: CustomerRecord | undefined, services: ServiceItem[], companySettings: CompanySettings) {
   const pdfBlob = await createOfferPdfBlob(job, object, customer, services, companySettings, "confirmation");
   const fileName = `${safeFileName(orderConfirmationSendSubject(job, object, customer))}.pdf`;
+  const url = URL.createObjectURL(pdfBlob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+async function createInvoicePdfBlob(item: BillingRecord, object: ObjectRecord, customer: CustomerRecord | undefined, companySettings: CompanySettings) {
+  const { jsPDF } = await import("jspdf");
+  const pdf = new jsPDF({ unit: "mm", format: "a4" });
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const margin = 14;
+  const lines = item.lines?.length ? item.lines : [{
+    currency: "SEK",
+    id: `${item.id}-LINE`,
+    kind: "Leistung" as const,
+    name: item.label,
+    quantity: "1",
+    taxRate: "0",
+    unit: "Position",
+    unitPrice: String(decimalValue(item.amount)),
+  }];
+  const totals = invoiceTotals({ ...item, lines });
+  const swedish = isSwedishCustomerLanguage(customer?.language);
+  let y = margin;
+
+  function ensureSpace(height: number) {
+    if (y + height < pageHeight - 32) return;
+    pdf.addPage();
+    y = margin;
+  }
+
+  function addWrapped(text: string, x: number, width: number, fontSize = 9, lineHeight = 4.5) {
+    pdf.setFontSize(fontSize);
+    const wrapped = pdf.splitTextToSize(text || "-", width);
+    pdf.text(wrapped, x, y);
+    y += wrapped.length * lineHeight;
+  }
+
+  const logoData = await fetchAssetAsDataUrl("/kolaretorp-logo.png");
+  if (logoData) {
+    try {
+      const logoImage = await loadImage(logoData);
+      const logoWidth = 55;
+      const logoHeight = logoWidth * (logoImage?.naturalHeight ? logoImage.naturalHeight / logoImage.naturalWidth : 0.12);
+      pdf.addImage(logoData, "PNG", margin, y, logoWidth, Math.min(logoHeight, 18));
+    } catch {
+      pdf.text(companySettings.name, margin, y + 8);
+    }
+  }
+
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(18);
+  pdf.text(swedish ? "Faktura" : "Rechnung", pageWidth - margin, y + 8, { align: "right" });
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(10);
+  pdf.text(item.invoiceNumber || item.id, pageWidth - margin, y + 15, { align: "right" });
+  y += 28;
+
+  pdf.setFont("helvetica", "bold");
+  addWrapped(companySettings.name, margin, 82, 11, 5);
+  pdf.setFont("helvetica", "normal");
+  addWrapped(`${displayAddress(companySettings.address)}\n${companySettings.email}`, margin, 82, 9, 4);
+
+  const recipientX = 118;
+  const recipientAddress = customer?.billingAddress || customer?.address || object.billingAddress || object.address;
+  pdf.setFont("helvetica", "bold");
+  pdf.text(swedish ? "Kund" : "Kunde", recipientX, 44);
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(9);
+  pdf.text(pdf.splitTextToSize(`${customer?.name || object.owner}\n${displayAddress(recipientAddress)}\n${customer?.email || object.ownerEmail || ""}`, 76), recipientX, 50);
+
+  y = 80;
+  const meta = [
+    `${swedish ? "Fakturadatum" : "Rechnungsdatum"}: ${item.invoiceDate || new Date().toISOString().slice(0, 10)}`,
+    `${swedish ? "Förfallodatum" : "Fällig am"}: ${item.dueDate || addDays(item.invoiceDate || new Date().toISOString().slice(0, 10), 30)}`,
+    `${swedish ? "Utfört datum" : "Leistungsdatum"}: ${item.serviceDate || "-"}`,
+    `Objekt: ${object.name}, ${displayAddress(object.address)}`,
+  ];
+  pdf.setFontSize(9);
+  meta.forEach((row) => {
+    pdf.text(row, margin, y);
+    y += 5;
+  });
+  y += 8;
+
+  pdf.setFont("helvetica", "bold");
+  pdf.text(swedish ? "Rad" : "Position", margin, y);
+  pdf.text(swedish ? "Antal" : "Menge", 105, y);
+  pdf.text(swedish ? "Pris" : "Preis", 130, y);
+  pdf.text("Moms", 155, y);
+  pdf.text("Netto", pageWidth - margin, y, { align: "right" });
+  y += 3;
+  pdf.line(margin, y, pageWidth - margin, y);
+  y += 7;
+
+  lines.forEach((line) => {
+    ensureSpace(18);
+    pdf.setFont("helvetica", line.kind === "Rabatt" ? "italic" : "normal");
+    pdf.setFontSize(line.kind === "Rabatt" ? 8 : 9);
+    const nameLines = pdf.splitTextToSize(line.name, 84);
+    pdf.text(nameLines, margin, y);
+    pdf.text(`${line.quantity} ${localizedUnit(line.unit, swedish)}`, 105, y);
+    pdf.text(formatMoney(decimalValue(line.unitPrice), line.currency), 130, y);
+    pdf.text(`${line.taxRate}%`, 155, y);
+    pdf.text(formatMoney(lineNetAmount(line), line.currency), pageWidth - margin, y, { align: "right" });
+    y += Math.max(7, nameLines.length * 4.5 + 2);
+  });
+
+  y += 4;
+  pdf.line(118, y, pageWidth - margin, y);
+  y += 7;
+  pdf.setFont("helvetica", "normal");
+  pdf.text("Netto", 130, y);
+  pdf.text(formatMoney(totals.net, totals.currency), pageWidth - margin, y, { align: "right" });
+  y += 6;
+  Object.entries(totals.taxByRate).forEach(([rate, value]) => {
+    pdf.text(`Moms ${rate}%`, 130, y);
+    pdf.text(formatMoney(value, totals.currency), pageWidth - margin, y, { align: "right" });
+    y += 6;
+  });
+  pdf.setFont("helvetica", "bold");
+  pdf.text("Brutto", 130, y);
+  pdf.text(formatMoney(totals.gross, totals.currency), pageWidth - margin, y, { align: "right" });
+  y += 12;
+
+  pdf.setFont("helvetica", "normal");
+  addWrapped(companySettings.bank ? `${swedish ? "Betalning" : "Zahlung"}: ${companySettings.bank}` : "Bankdaten bitte in den Firmeneinstellungen ergänzen.", margin, pageWidth - margin * 2, 9, 4.5);
+
+  const footerBlocks = companyFooterBlocks(companySettings);
+  pdf.setDrawColor(215);
+  pdf.line(margin, pageHeight - 30, pageWidth - margin, pageHeight - 30);
+  footerBlocks.forEach((block, index) => {
+    const blockWidth = (pageWidth - margin * 2) / footerBlocks.length;
+    const x = margin + index * blockWidth;
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(6.6);
+    pdf.text(block.title, x, pageHeight - 24);
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(7.2);
+    block.lines.slice(0, 3).forEach((line, lineIndex) => {
+      pdf.text(line, x, pageHeight - 19 + lineIndex * 4.2, { maxWidth: blockWidth - 8 });
+    });
+  });
+
+  return pdf.output("blob");
+}
+
+async function downloadInvoicePdf(item: BillingRecord, object: ObjectRecord, customer: CustomerRecord | undefined, companySettings: CompanySettings) {
+  const pdfBlob = await createInvoicePdfBlob(item, object, customer, companySettings);
+  const fileName = `${safeFileName(invoiceSubject(item, object, customer))}.pdf`;
   const url = URL.createObjectURL(pdfBlob);
   const link = document.createElement("a");
   link.href = url;
@@ -3545,9 +3778,9 @@ const seedCompanySettings: CompanySettings = {
 };
 
 function statusTone(status: string) {
-  if (["offerte", "in Arbeit", "Entwurf", "abrechenbar"].includes(status)) return "warning";
-  if (["erledigt", "abgerechnet", "aktiv", "Gelesen"].includes(status)) return "good";
-  if (["dringend", "gesperrt"].includes(status)) return "danger";
+  if (["offerte", "in Arbeit", "Entwurf", "abrechenbar", "entwurf", "gebucht", "gesendet"].includes(status)) return "warning";
+  if (["erledigt", "abgerechnet", "aktiv", "Gelesen", "bezahlt"].includes(status)) return "good";
+  if (["dringend", "gesperrt", "überfällig", "storniert"].includes(status)) return "danger";
   return "neutral";
 }
 
@@ -4989,13 +5222,15 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
 
     return {
       amount: jobBillingAmount(job, services),
+      dueDate: addDays(new Date().toISOString().slice(0, 10), 30),
       createdAt: new Date().toISOString(),
       customerId: job.customerId,
       externalExportStatus: "nicht gesendet",
-      externalExportSystem: "Spiris / Visma",
+      externalExportSystem: "Visma Buchhaltung",
       id: `BIL-${job.id}`,
       invoiceDate: new Date().toISOString().slice(0, 10),
       invoiceNumber: `INV-${new Date().getFullYear()}-${String(invoiceIndex).padStart(4, "0")}`,
+      invoiceStatus: "entwurf",
       jobId: job.id,
       label: jobBillingLabel(job, services),
       lines: jobBillingLines(job, services),
@@ -5036,9 +5271,20 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   }
 
   function markBillingInvoiced(item: BillingRecord) {
+    const invoiceDate = item.invoiceDate || new Date().toISOString().slice(0, 10);
     const statusUpdatedAt = new Date().toISOString();
     const nextBilling = billing.map((entry) => (
-      entry.id === item.id ? { ...entry, invoicedAt: new Date().toISOString(), status: "abgerechnet" as const } : entry
+      entry.id === item.id
+        ? {
+            ...entry,
+            dueDate: entry.dueDate || addDays(invoiceDate, 30),
+            invoiceDate,
+            invoiceStatus: "gebucht" as const,
+            invoicedAt: entry.invoicedAt || new Date().toISOString(),
+            outgoingBookNumber: entry.outgoingBookNumber || nextOutgoingBookNumber(billing, invoiceDate),
+            status: "abgerechnet" as const,
+          }
+        : entry
     ));
     const nextJobs = item.jobId
       ? jobs.map((job) => (job.id === item.jobId ? { ...job, status: "abgerechnet" as const, statusUpdatedAt } : job))
@@ -5046,7 +5292,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     setBilling(nextBilling);
     setJobs(nextJobs);
     persistSnapshotNow({ billing: nextBilling, jobs: nextJobs }, { forceRemote: true });
-    setRecordNotice(`Abrechnungsposition "${item.label}" wurde als abgerechnet markiert.`);
+    setRecordNotice(`Rechnung "${item.invoiceNumber || item.label}" wurde gebucht und ins Ausgangsbuch übernommen.`);
   }
 
   function markBillingExported(item: BillingRecord) {
@@ -5055,14 +5301,52 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
         ? {
             ...entry,
             externalExportStatus: "gesendet" as const,
-            externalExportSystem: entry.externalExportSystem || "Spiris / Visma",
+            externalExportSystem: entry.externalExportSystem || "Visma Buchhaltung",
             externalExportedAt: new Date().toISOString(),
           }
         : entry
     ));
     setBilling(nextBilling);
     persistSnapshotNow({ billing: nextBilling }, { forceRemote: true });
-    setRecordNotice(`Exportstatus für "${item.label}" wurde vorgemerkt.`);
+    setRecordNotice(`Rechnung "${item.invoiceNumber || item.label}" wurde zur Übergabe an Visma Buchhaltung vorgemerkt.`);
+  }
+
+  function markInvoiceSent(item: BillingRecord) {
+    const nextBilling = billing.map((entry) => (
+      entry.id === item.id
+        ? { ...entry, invoiceStatus: "gesendet" as const, sentAt: entry.sentAt || new Date().toISOString() }
+        : entry
+    ));
+    setBilling(nextBilling);
+    persistSnapshotNow({ billing: nextBilling }, { forceRemote: true });
+    setRecordNotice(`Rechnung "${item.invoiceNumber || item.label}" wurde als versendet markiert.`);
+  }
+
+  function markInvoicePaid(item: BillingRecord) {
+    const nextBilling = billing.map((entry) => (
+      entry.id === item.id
+        ? { ...entry, invoiceStatus: "bezahlt" as const, paidAt: entry.paidAt || new Date().toISOString() }
+        : entry
+    ));
+    setBilling(nextBilling);
+    persistSnapshotNow({ billing: nextBilling }, { forceRemote: true });
+    setRecordNotice(`Zahlung für Rechnung "${item.invoiceNumber || item.label}" wurde erfasst.`);
+  }
+
+  function cancelInvoice(item: BillingRecord) {
+    const statusUpdatedAt = new Date().toISOString();
+    const nextBilling = billing.map((entry) => (
+      entry.id === item.id
+        ? { ...entry, cancelledAt: entry.cancelledAt || statusUpdatedAt, invoiceStatus: "storniert" as const, status: "intern" as const }
+        : entry
+    ));
+    const nextJobs = item.jobId
+      ? jobs.map((job) => (job.id === item.jobId ? { ...job, status: "erledigt" as const, statusUpdatedAt } : job))
+      : jobs;
+    setBilling(nextBilling);
+    setJobs(nextJobs);
+    persistSnapshotNow({ billing: nextBilling, jobs: nextJobs }, { forceRemote: true });
+    setRecordNotice(`Rechnung "${item.invoiceNumber || item.label}" wurde storniert.`);
   }
 
   function saveJob() {
@@ -5429,6 +5713,13 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     const customer = customers.find((item) => item.id === job.customerId || item.id === object?.ownerCustomerId || item.name === object?.owner);
     if (!object) return;
     await downloadOrderConfirmationPdf(job, object, customer, services, companySettings);
+  }
+
+  async function downloadBillingInvoice(item: BillingRecord) {
+    const object = objects.find((entry) => entry.id === item.objectId);
+    const customer = customers.find((entry) => entry.id === item.customerId || entry.id === object?.ownerCustomerId || entry.name === object?.owner);
+    if (!object) return;
+    await downloadInvoicePdf(item, object, customer, companySettings);
   }
 
   async function confirmSendOfferToCustomer(job: JobRecord) {
@@ -5967,6 +6258,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
               <RefreshCw size={16} />
               {manualRefreshRunning ? tx("Aktualisiere") : tx("Aktualisieren")}
             </button>
+            {recordNotice && <p className="toolbar-notice" role="status">{recordNotice}</p>}
             <button aria-label={theme === "dark" ? t.light : t.dark} className="ghost-button icon-button theme-toggle" data-tooltip={theme === "dark" ? t.light : t.dark} onClick={() => setTheme(theme === "dark" ? "light" : "dark")} type="button">
               {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
             </button>
@@ -6023,7 +6315,6 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
               <ObjectsView
                 archivedObjects={archivedObjects}
                 objects={filteredObjects}
-                notice={recordNotice}
                 selectedObjectId={selectedObject.id}
                 onCreate={openCreateObject}
                 onEdit={openEditObject}
@@ -6034,7 +6325,6 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
               <CustomersView
                 archivedCustomers={archivedCustomers}
                 customers={activeCustomers}
-                notice={recordNotice}
                 objects={activeObjects}
                 onCreate={openCreateCustomer}
                 onEdit={openEditCustomer}
@@ -6079,7 +6369,6 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                 customers={customers}
                 messages={portalMessages}
                 objects={objects}
-                notice={recordNotice}
                 onSendReply={sendPortalMessageReply}
               />
             )}
@@ -6131,11 +6420,16 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
             {section === "billing" && (
               <BillingView
                 billing={billing}
+                customers={customers}
                 jobs={jobs}
                 objects={activeObjects}
                 onCollectBillable={collectBillableJobs}
+                onDownloadInvoice={downloadBillingInvoice}
+                onCancelInvoice={cancelInvoice}
                 onMarkExported={markBillingExported}
                 onMarkInvoiced={markBillingInvoiced}
+                onMarkPaid={markInvoicePaid}
+                onMarkSent={markInvoiceSent}
                 reports={reports}
                 services={services}
               />
@@ -6964,7 +7258,6 @@ function CustomerReportCard({
 function ObjectsView({
   archivedObjects,
   objects,
-  notice,
   selectedObjectId,
   onCreate,
   onEdit,
@@ -6972,7 +7265,6 @@ function ObjectsView({
 }: {
   archivedObjects: ObjectRecord[];
   objects: ObjectRecord[];
-  notice: string;
   selectedObjectId: string;
   onCreate: () => void;
   onEdit: (object: ObjectRecord) => void;
@@ -6993,7 +7285,6 @@ function ObjectsView({
           Neues Objekt
         </button>
       </div>
-      {notice && <p className="archive-notice">{notice}</p>}
       <div className="active-fold-group">
         <button className="job-fold-toggle" onClick={() => setActiveObjectsOpen((open) => !open)} type="button">
           {activeObjectsOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
@@ -7094,7 +7385,6 @@ function ObjectThumbnail({ object }: { object: ObjectRecord }) {
 function CustomersView({
   archivedCustomers,
   customers,
-  notice,
   objects,
   onCreate,
   onEdit,
@@ -7102,7 +7392,6 @@ function CustomersView({
 }: {
   archivedCustomers: CustomerRecord[];
   customers: CustomerRecord[];
-  notice: string;
   objects: ObjectRecord[];
   onCreate: () => void;
   onEdit: (customer: CustomerRecord) => void;
@@ -7152,7 +7441,6 @@ function CustomersView({
           Neuer Kunde
         </button>
       </div>
-      {notice && <p className="archive-notice">{notice}</p>}
       <div className="list-toolbar">
         <label>
           <span>Kunden suchen</span>
@@ -8228,71 +8516,158 @@ function FieldView({
 
 function BillingView({
   billing,
+  customers,
   jobs,
   objects,
+  onCancelInvoice,
   onCollectBillable,
+  onDownloadInvoice,
   onMarkExported,
   onMarkInvoiced,
+  onMarkPaid,
+  onMarkSent,
   reports,
   services,
 }: {
   billing: BillingRecord[];
+  customers: CustomerRecord[];
   jobs: JobRecord[];
   objects: ObjectRecord[];
+  onCancelInvoice: (item: BillingRecord) => void;
   onCollectBillable: () => void;
+  onDownloadInvoice: (item: BillingRecord) => void;
   onMarkExported: (item: BillingRecord) => void;
   onMarkInvoiced: (item: BillingRecord) => void;
+  onMarkPaid: (item: BillingRecord) => void;
+  onMarkSent: (item: BillingRecord) => void;
   reports: ReportRecord[];
   services: ServiceItem[];
 }) {
   const billableJobs = billableCompletedJobs(jobs, billing);
+  const outgoingBook = billing
+    .filter((item) => item.invoicedAt || item.outgoingBookNumber)
+    .sort((first, second) => (second.invoiceDate || "").localeCompare(first.invoiceDate || ""));
+  const bookedInvoices = billing.filter((item) => ["gebucht", "gesendet", "bezahlt", "überfällig"].includes(effectiveInvoiceStatus(item)));
+  const openInvoiceTotal = billing
+    .filter((item) => ["gebucht", "gesendet", "überfällig"].includes(effectiveInvoiceStatus(item)))
+    .reduce((sum, item) => sum + invoiceTotals(item).gross, 0);
 
   return (
     <section className="panel">
       <div className="panel-title">
         <div>
           <p>Finanzen</p>
-          <h2>Abrechnung</h2>
-          <span>Workflow: Offerte &gt; Auftrag &gt; Einsatzbericht &gt; abrechenbar &gt; Rechnung / Spiris-Visma.</span>
+          <h2>Rechnungsprozess</h2>
+          <span>Homecare erstellt Rechnung und Ausgangsbuch; Visma erhält die vollständigen Buchhaltungsdaten.</span>
         </div>
         <button className="primary-button" onClick={onCollectBillable} type="button">
           <Euro size={16} />
           Erledigte Aufträge übernehmen
         </button>
       </div>
+      <div className="billing-summary-grid">
+        <div>
+          <span>Entwürfe</span>
+          <strong>{billing.filter((item) => effectiveInvoiceStatus(item) === "entwurf").length}</strong>
+        </div>
+        <div>
+          <span>Gebucht</span>
+          <strong>{bookedInvoices.length}</strong>
+        </div>
+        <div>
+          <span>Offen</span>
+          <strong>{formatMoney(openInvoiceTotal, "SEK")}</strong>
+        </div>
+        <div>
+          <span>Visma Übergabe</span>
+          <strong>{billing.filter((item) => item.externalExportStatus === "gesendet").length}/{billing.length}</strong>
+        </div>
+      </div>
       {billableJobs.length > 0 && (
         <div className="warning-line">{billableJobs.length} erledigte Aufträge sind noch nicht in der Abrechnung.</div>
       )}
       <div className="table-list">
-        {billing.map((item) => (
-          <article key={item.id}>
-            <div>
-              <strong>{item.label}</strong>
-              <span>{item.source} · erstellt {formatCreatedAt(item.createdAt)}</span>
-              <small>Rechnung {item.invoiceNumber || "-"} · Rechnungsdatum {item.invoiceDate || "-"} · Leistungsdatum {item.serviceDate || "-"}</small>
-              {item.lines && item.lines.length > 0 && (
-                <small>
-                  {item.lines.map((line) => `${line.kind}: ${line.name} · ${line.quantity} ${line.unit} · ${line.unitPrice} ${line.currency} · Moms ${line.taxRate}%`).join(" | ")}
-                </small>
-              )}
-            </div>
-            <span>{objects.find((object) => object.id === item.objectId)?.name}</span>
-            <strong>{item.amount}</strong>
-            <Badge value={item.status} />
-            <div className="row-actions">
-              <IconAction label={`Exportstatus ${item.label} für Spiris / Visma vormerken`} onClick={() => onMarkExported(item)}><Send size={16} /></IconAction>
-              {item.status === "abrechenbar" && (
-                <IconAction label={`Abrechnung ${item.label} als abgerechnet markieren`} onClick={() => onMarkInvoiced(item)}><Check size={16} /></IconAction>
-              )}
-            </div>
-            <footer className="message-meta">
-              <span>Export: {item.externalExportStatus || "nicht gesendet"} · Ziel: {item.externalExportSystem || "Spiris / Visma"}</span>
-              <span>Bericht: {reports.find((report) => report.id === item.reportId)?.title ?? "-"}</span>
-              <span>Preisquelle: {services.length} Leistungsstammdaten verfügbar</span>
-            </footer>
-          </article>
-        ))}
+        {billing.map((item) => {
+          const object = objects.find((entry) => entry.id === item.objectId);
+          const customer = customers.find((entry) => entry.id === item.customerId || entry.id === object?.ownerCustomerId || entry.name === object?.owner);
+          const invoiceStatus = effectiveInvoiceStatus(item);
+          const totals = invoiceTotals(item);
+          const transferRows = vismaTransferRows(item, customer);
+
+          return (
+            <article className="billing-row" key={item.id}>
+              <div>
+                <strong>{item.invoiceNumber || item.label}</strong>
+                <span>{customer?.name || object?.owner || "Kunde fehlt"} · Kundennr. {billingCustomerNumber(customer)} · {object?.name || "Objekt fehlt"}</span>
+                <small>Rechnungsdatum {item.invoiceDate || "-"} · fällig {item.dueDate || "-"} · Leistungsdatum {item.serviceDate || "-"}</small>
+                {item.lines && item.lines.length > 0 && (
+                  <small>
+                    {item.lines.map((line) => `${line.kind}: ${line.name} · ${line.quantity} ${line.unit} · ${line.unitPrice} ${line.currency} · Moms ${line.taxRate}%`).join(" | ")}
+                  </small>
+                )}
+                {transferRows.length > 0 && (
+                  <small className="accounting-preview">
+                    Kontierung: {transferRows.map((row) => `${row.account} ${row.label} · ${row.amount} · ${row.currency} · Moms ${row.moms}`).join(" | ")}
+                  </small>
+                )}
+              </div>
+              <span>{item.outgoingBookNumber || "noch nicht gebucht"}</span>
+              <strong>{formatMoney(totals.gross, totals.currency)}</strong>
+              <Badge value={invoiceStatus} />
+              <div className="row-actions">
+                <IconAction label={`Rechnung ${item.invoiceNumber || item.label} als PDF herunterladen`} onClick={() => onDownloadInvoice(item)}><FileDown size={16} /></IconAction>
+                {invoiceStatus === "entwurf" && (
+                  <IconAction label={`Rechnung ${item.invoiceNumber || item.label} buchen`} onClick={() => onMarkInvoiced(item)}><Check size={16} /></IconAction>
+                )}
+                {["gebucht", "gesendet", "überfällig"].includes(invoiceStatus) && (
+                  <IconAction label={`Rechnung ${item.invoiceNumber || item.label} an Visma Buchhaltung übergeben`} onClick={() => onMarkExported(item)}><Send size={16} /></IconAction>
+                )}
+                {invoiceStatus === "gebucht" && (
+                  <IconAction label={`Rechnung ${item.invoiceNumber || item.label} als versendet markieren`} onClick={() => onMarkSent(item)}><Mail size={16} /></IconAction>
+                )}
+                {["gebucht", "gesendet", "überfällig"].includes(invoiceStatus) && (
+                  <IconAction label={`Rechnung ${item.invoiceNumber || item.label} als bezahlt markieren`} onClick={() => onMarkPaid(item)}><Euro size={16} /></IconAction>
+                )}
+                {!["bezahlt", "storniert"].includes(invoiceStatus) && (
+                  <IconAction label={`Rechnung ${item.invoiceNumber || item.label} stornieren`} onClick={() => onCancelInvoice(item)}><X size={16} /></IconAction>
+                )}
+              </div>
+              <footer className="message-meta">
+                <span>Visma: {item.externalExportStatus || "nicht gesendet"} · Ziel: {item.externalExportSystem || "Visma Buchhaltung"}</span>
+                <span>Bericht: {reports.find((report) => report.id === item.reportId)?.title ?? "-"}</span>
+                <span>Preisquelle: {services.length} Leistungsstammdaten verfügbar</span>
+              </footer>
+            </article>
+          );
+        })}
         {billing.length === 0 && <p>Noch keine Abrechnungspositionen vorhanden.</p>}
+      </div>
+      <div className="outgoing-book">
+        <div className="panel-title compact-title">
+          <div>
+            <p>Buchhaltung</p>
+            <h3>Rechnungsausgangsbuch</h3>
+          </div>
+        </div>
+        <div className="table-list compact-list">
+          {outgoingBook.map((item) => {
+            const object = objects.find((entry) => entry.id === item.objectId);
+            const customer = customers.find((entry) => entry.id === item.customerId || entry.id === object?.ownerCustomerId || entry.name === object?.owner);
+            const totals = invoiceTotals(item);
+
+            return (
+              <article key={`book-${item.id}`}>
+                <div>
+                  <strong>{item.outgoingBookNumber || item.invoiceNumber}</strong>
+                  <span>{item.invoiceNumber} · {customer?.name || "Kunde fehlt"} · Kundennr. {billingCustomerNumber(customer)}</span>
+                  <small>{item.invoiceDate || "-"} · {formatMoney(totals.net, totals.currency)} netto · {formatMoney(totals.tax, totals.currency)} Moms · {formatMoney(totals.gross, totals.currency)} brutto</small>
+                </div>
+                <Badge value={effectiveInvoiceStatus(item)} />
+              </article>
+            );
+          })}
+          {outgoingBook.length === 0 && <p>Noch keine gebuchten Ausgangsrechnungen vorhanden.</p>}
+        </div>
       </div>
     </section>
   );
@@ -8302,13 +8677,11 @@ function CommunicationView({
   customers,
   messages,
   objects,
-  notice,
   onSendReply,
 }: {
   customers: CustomerRecord[];
   messages: PortalMessageRecord[];
   objects: ObjectRecord[];
-  notice: string;
   onSendReply: (messageId: string, body: string) => Promise<{ error?: string; mailSent: boolean }>;
 }) {
   const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
@@ -8380,7 +8753,6 @@ function CommunicationView({
           <span>Gespeicherte Nachrichten aus dem Kundenportal inklusive Mailstatus.</span>
         </div>
       </div>
-      {notice && <p className="archive-notice">{notice}</p>}
       <div className="list-toolbar communication-toolbar">
         <label>
           <span>Nachrichten filtern</span>
@@ -9930,7 +10302,7 @@ function MasterDataView({
             <div>
               <p>Stammdaten</p>
               <h2>Firma</h2>
-              <span>Diese Angaben erscheinen in der Fußzeile von Offerten und werden später für Rechnungen und Spiris / Visma verwendet.</span>
+              <span>Diese Angaben erscheinen in Offerten, Rechnungen und der späteren Übergabe an Visma Buchhaltung.</span>
             </div>
           </div>
           <div className="form-grid compact-form">

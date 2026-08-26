@@ -199,6 +199,19 @@ button {
   justify-content: flex-end;
 }
 
+.toolbar-notice {
+  background: color-mix(in srgb, var(--warning), var(--paper) 90%);
+  border: 1px solid color-mix(in srgb, var(--warning), var(--paper) 66%);
+  border-radius: 8px;
+  color: var(--foreground);
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1.25;
+  margin: 0;
+  max-width: min(420px, 100%);
+  padding: 8px 10px;
+}
+
 .search,
 .select-field,
 .ghost-button,
@@ -632,6 +645,59 @@ button {
 
 .dashboard-work-list {
   gap: 6px;
+}
+
+.billing-summary-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-bottom: 10px;
+}
+
+.billing-summary-grid div {
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 4px;
+  min-height: 64px;
+  padding: 10px 12px;
+}
+
+.billing-summary-grid span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.billing-summary-grid strong {
+  font-size: 20px;
+}
+
+.billing-row {
+  grid-template-columns: minmax(0, 1fr) minmax(130px, auto) auto auto auto;
+}
+
+.accounting-preview {
+  color: var(--brand);
+}
+
+.outgoing-book {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 12px;
+}
+
+.compact-title {
+  margin-bottom: 0;
+}
+
+.compact-title h3 {
+  font-size: 18px;
+  margin: 0;
 }
 
 .dashboard-work-list article {
@@ -4251,6 +4317,7 @@ button.media-thumb {
 
   .topbar,
   .quickbar,
+  .billing-summary-grid,
   .workboard,
   .planning-grid,
   .service-catalog,
@@ -4271,6 +4338,11 @@ button.media-thumb {
     justify-content: stretch;
   }
 
+  .toolbar-notice {
+    flex: 1 1 100%;
+    text-align: center;
+  }
+
   .search,
   .select-field,
   .ghost-button,
@@ -4280,6 +4352,7 @@ button.media-thumb {
   }
 
   .table-list article,
+  .billing-row,
   .object-list article,
   .object-row-main,
   .media-list article {
