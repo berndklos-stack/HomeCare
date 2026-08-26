@@ -4,6 +4,13 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.211.0 - 2026-08-26
+
+- Abrechnung zum Rechnungsprozess mit Rechnungs-PDF, Ausgangsbuch, Zahlungsstatus und Storno erweitert.
+- Visma wird als Buchhaltungsprogramm für die vollständige Datenübergabe geführt.
+- Kontierungsvorschau für Arbeit, Material, Rabatte, Währung, Moms und Kundennummern ergänzt.
+- Globale Aktualisierungshinweise erscheinen kompakt in der Kopfleiste statt in der Kundenübersicht.
+
 ## 1.89.0 - 2026-08-17
 
 - Aktive Kunden, aktive Objekte und aktive Aufträge sind jetzt ebenfalls per Pfeil einklappbar.

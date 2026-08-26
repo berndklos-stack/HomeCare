@@ -1,10 +1,20 @@
 export const appVersion = {
-  version: "1.210.0",
-  releaseDate: "2026-08-25",
+  version: "1.211.0",
+  releaseDate: "2026-08-26",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.211.0",
+    date: "2026-08-26",
+    changes: [
+      "Abrechnung zum Rechnungsprozess mit Rechnungs-PDF, Ausgangsbuch, Zahlungsstatus und Storno erweitert",
+      "Visma wird als Buchhaltungsprogramm fuer die vollstaendige Datenuebergabe gefuehrt",
+      "Kontierungsvorschau fuer Arbeit, Material, Rabatte, Waehrung, Moms und Kundennummern ergaenzt",
+      "Globale Aktualisierungshinweise erscheinen kompakt in der Kopfleiste statt in der Kundenuebersicht",
+    ],
+  },
   {
     version: "1.210.0",
     date: "2026-08-25",
