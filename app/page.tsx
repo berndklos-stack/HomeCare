@@ -417,6 +417,7 @@ type ResourceRecord = {
   odometerYearStart: string;
   odometerYearEnd: string;
   logbook: VehicleLogEntry[];
+  deletedLogbookEntryIds?: string[];
   archived?: boolean;
 };
 
@@ -1375,8 +1376,10 @@ function mergeObjectsById(primaryObjects: ObjectRecord[], secondaryObjects: Obje
   return merged;
 }
 
-function mergeVehicleLogbook(primaryLogbook: VehicleLogEntry[] = [], secondaryLogbook: VehicleLogEntry[] = []) {
+function mergeVehicleLogbook(primaryLogbook: VehicleLogEntry[] = [], secondaryLogbook: VehicleLogEntry[] = [], deletedEntryIds: string[] = []) {
+  const deletedIds = new Set(deletedEntryIds);
   return mergeRecordsById(primaryLogbook, secondaryLogbook)
+    .filter((entry) => !deletedIds.has(entry.id))
     .sort((first, second) => first.date.localeCompare(second.date));
 }
 
@@ -1386,10 +1389,15 @@ function mergeResourcesById(primaryResources: ResourceRecord[] = [], secondaryRe
   const merged = primaryResources.map((primaryResource) => {
     const secondaryResource = secondaryById.get(primaryResource.id);
     if (!secondaryResource) return primaryResource;
+    const deletedLogbookEntryIds = Array.from(new Set([
+      ...(secondaryResource.deletedLogbookEntryIds ?? []),
+      ...(primaryResource.deletedLogbookEntryIds ?? []),
+    ]));
     return {
       ...secondaryResource,
       ...primaryResource,
-      logbook: mergeVehicleLogbook(primaryResource.logbook, secondaryResource.logbook),
+      deletedLogbookEntryIds,
+      logbook: mergeVehicleLogbook(primaryResource.logbook, secondaryResource.logbook, deletedLogbookEntryIds),
     };
   });
 
@@ -10034,6 +10042,7 @@ function MasterDataView({
 
       return {
         ...resource,
+        deletedLogbookEntryIds: (resource.deletedLogbookEntryIds ?? []).filter((id) => id !== logbookId),
         logbook: nextLogbook.sort((first, second) => first.date.localeCompare(second.date)),
       };
     });
@@ -10047,7 +10056,11 @@ function MasterDataView({
     if (!selectedResource) return;
     const nextResources = resources.map((resource) => (
       resource.id === selectedResource.id
-        ? { ...resource, logbook: resource.logbook.filter((entry) => entry.id !== entryId) }
+        ? {
+            ...resource,
+            deletedLogbookEntryIds: Array.from(new Set([...(resource.deletedLogbookEntryIds ?? []), entryId])),
+            logbook: resource.logbook.filter((entry) => entry.id !== entryId),
+          }
         : resource
     ));
     setResources(nextResources);

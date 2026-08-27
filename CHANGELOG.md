@@ -4,6 +4,11 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.213.0 - 2026-08-27
+
+- Gelöschte Fahrten im Fahrtenbuch werden beim Sync zwischen Geräten nicht mehr wiederhergestellt.
+- Der Ressourcen-Abgleich merkt gelöschte Fahrten und filtert sie auch serverseitig aus.
+
 ## 1.212.0 - 2026-08-26
 
 - Kontenplan für Spiris / Visma in den Stammdaten hinterlegt.

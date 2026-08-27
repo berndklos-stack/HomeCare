@@ -116,7 +116,14 @@ function mergeRecordsById(existingRecords: unknown, patchRecords: unknown, key?:
         }
       }
       if (key === "resources" && (Array.isArray(existing.logbook) || Array.isArray(patch.logbook))) {
-        merged.logbook = mergeRecordsById(existing.logbook, patch.logbook);
+        const deletedLogbookEntryIds = Array.from(new Set([
+          ...(Array.isArray(existing.deletedLogbookEntryIds) ? existing.deletedLogbookEntryIds.map(String) : []),
+          ...(Array.isArray(patch.deletedLogbookEntryIds) ? patch.deletedLogbookEntryIds.map(String) : []),
+        ]));
+        merged.deletedLogbookEntryIds = deletedLogbookEntryIds;
+        const mergedLogbook = mergeRecordsById(existing.logbook, patch.logbook) as JsonObject[];
+        merged.logbook = mergedLogbook
+          .filter((entry: JsonObject) => entry && typeof entry === "object" && !deletedLogbookEntryIds.includes(String(entry.id)));
       }
       recordsById.set(id, merged);
     }

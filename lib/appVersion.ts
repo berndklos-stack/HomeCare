@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.212.0",
-  releaseDate: "2026-08-26",
+  version: "1.213.0",
+  releaseDate: "2026-08-27",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.213.0",
+    date: "2026-08-27",
+    changes: [
+      "Geloeschte Fahrten im Fahrtenbuch werden beim Sync zwischen Geraeten nicht mehr wiederhergestellt",
+      "Der Ressourcen-Abgleich merkt geloeschte Fahrten und filtert sie auch serverseitig aus",
+    ],
+  },
   {
     version: "1.212.0",
     date: "2026-08-26",
