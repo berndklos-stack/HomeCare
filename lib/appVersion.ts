@@ -1,10 +1,17 @@
 export const appVersion = {
-  version: "1.215.0",
+  version: "1.216.0",
   releaseDate: "2026-08-28",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.216.0",
+    date: "2026-08-28",
+    changes: [
+      "Checklistenpunkte einer Leistung koennen im Leistungskatalog jetzt bearbeitet und wieder uebernommen werden",
+    ],
+  },
   {
     version: "1.215.0",
     date: "2026-08-28",

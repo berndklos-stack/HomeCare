@@ -10072,6 +10072,7 @@ function MasterDataView({
     note: "",
     defaultMinutes: "",
   });
+  const [editingServiceChecklistItemId, setEditingServiceChecklistItemId] = useState<string | null>(null);
   const [packageForm, setPackageForm] = useState({
     name: "",
     price: "",
@@ -10490,6 +10491,7 @@ function MasterDataView({
 
   function resetServiceForm() {
     setEditingServiceId(null);
+    setEditingServiceChecklistItemId(null);
     setServiceForm({ accountingAccount: "3041", name: "", category: "", unit: "", price: "", currency: "SEK", taxRate: "25", showWorkTimeInReports: true, description: "", checklist: [] });
     setServiceChecklistForm({ title: "", note: "", defaultMinutes: "" });
   }
@@ -10516,6 +10518,25 @@ function MasterDataView({
       return;
     }
 
+    if (editingServiceChecklistItemId) {
+      setServiceForm({
+        ...serviceForm,
+        checklist: serviceForm.checklist.map((item) => (
+          item.id === editingServiceChecklistItemId
+            ? {
+                ...item,
+                title: serviceChecklistForm.title.trim(),
+                note: serviceChecklistForm.note.trim() || "Hinweis vor Ort ergänzen.",
+                defaultMinutes: Number(serviceChecklistForm.defaultMinutes) || 0,
+              }
+            : item
+        )),
+      });
+      setEditingServiceChecklistItemId(null);
+      setServiceChecklistForm({ title: "", note: "", defaultMinutes: "" });
+      return;
+    }
+
     setServiceForm({
       ...serviceForm,
       checklist: [
@@ -10531,11 +10552,26 @@ function MasterDataView({
     setServiceChecklistForm({ title: "", note: "", defaultMinutes: "" });
   }
 
+  function editServiceChecklistItem(item: ServiceChecklistItem) {
+    setEditingServiceChecklistItemId(item.id);
+    setServiceChecklistForm({
+      title: item.title,
+      note: item.note,
+      defaultMinutes: item.defaultMinutes ? String(item.defaultMinutes) : "",
+    });
+  }
+
+  function cancelServiceChecklistEdit() {
+    setEditingServiceChecklistItemId(null);
+    setServiceChecklistForm({ title: "", note: "", defaultMinutes: "" });
+  }
+
   function removeServiceChecklistItem(id: string) {
     setServiceForm({
       ...serviceForm,
       checklist: serviceForm.checklist.filter((item) => item.id !== id),
     });
+    if (editingServiceChecklistItemId === id) cancelServiceChecklistEdit();
   }
 
   function saveService() {
@@ -11349,9 +11385,15 @@ function MasterDataView({
               <label><span>Standardzeit min.</span><input inputMode="numeric" min="0" type="number" value={serviceChecklistForm.defaultMinutes} onChange={(event) => setServiceChecklistForm({ ...serviceChecklistForm, defaultMinutes: event.target.value })} /></label>
               <label className="wide"><span>Hinweis / Info</span><textarea value={serviceChecklistForm.note} onChange={(event) => setServiceChecklistForm({ ...serviceChecklistForm, note: event.target.value })} placeholder="Was soll vor Ort geprüft oder dokumentiert werden?" /></label>
               <button className="ghost-button wide" onClick={addServiceChecklistItem} type="button">
-                <Plus size={16} />
-                Checklistenpunkt hinzufügen
+                {editingServiceChecklistItemId ? <Check size={16} /> : <Plus size={16} />}
+                {editingServiceChecklistItemId ? "Checklistenpunkt übernehmen" : "Checklistenpunkt hinzufügen"}
               </button>
+              {editingServiceChecklistItemId && (
+                <button className="ghost-button wide" onClick={cancelServiceChecklistEdit} type="button">
+                  <RotateCcw size={16} />
+                  Checklistenpunkt-Bearbeitung abbrechen
+                </button>
+              )}
             </div>
             <div className="checklist-preview">
               {serviceForm.checklist.map((item) => (
@@ -11360,6 +11402,7 @@ function MasterDataView({
                     <strong>{item.title}</strong>
                     <small>{item.note} · {item.defaultMinutes} min.</small>
                   </div>
+                  <IconAction label={`Checklistenpunkt ${item.title} bearbeiten`} onClick={() => editServiceChecklistItem(item)}><Pencil size={16} /></IconAction>
                   <IconAction danger label={`Checklistenpunkt ${item.title} entfernen`} onClick={() => removeServiceChecklistItem(item.id)}><Trash2 size={16} /></IconAction>
                 </article>
               ))}
