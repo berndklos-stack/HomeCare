@@ -207,12 +207,25 @@ test("new operations workspace supports core property and job flows", async ({ p
   await page.getByLabel("Zeit Außenrunde durchführen").fill("18");
   await page.getByLabel("Hinweis Außenrunde durchführen").fill("Außenrunde geprüft, keine Auffälligkeiten.");
   await page.getByLabel("Bild zu Zugang prüfen erfassen").setInputFiles({
-    name: "einsatzfoto.jpg",
+    name: "einsatzfoto-1.jpg",
     mimeType: "image/jpeg",
     buffer: Buffer.from("demo"),
   });
-  await expect(page.getByText("Foto übernommen")).toBeVisible();
-  await page.waitForFunction(() => window.localStorage.getItem("kolaretorp-field-progress")?.includes("einsatzfoto.jpg"));
+  await expect(page.getByRole("dialog", { name: "Kurze Info zum Bild" })).toBeVisible();
+  await page.getByRole("dialog", { name: "Kurze Info zum Bild" }).locator("textarea").fill("Schlüsselsafe frontal dokumentiert.");
+  await page.getByRole("button", { name: "Info speichern" }).click();
+  await page.getByLabel("Bild zu Zugang prüfen erfassen").setInputFiles({
+    name: "einsatzfoto-2.jpg",
+    mimeType: "image/jpeg",
+    buffer: Buffer.from("demo 2"),
+  });
+  await expect(page.getByRole("dialog", { name: "Kurze Info zum Bild" })).toBeVisible();
+  await page.getByRole("button", { name: "Überspringen" }).click();
+  await expect(page.getByText("Foto übernommen")).toHaveCount(2);
+  await page.waitForFunction(() => {
+    const progress = window.localStorage.getItem("kolaretorp-field-progress") ?? "";
+    return progress.includes("einsatzfoto-1.jpg") && progress.includes("einsatzfoto-2.jpg") && progress.includes("Schlüsselsafe frontal dokumentiert.");
+  });
   await page.reload();
   await expect(page.locator("main")).toHaveAttribute("data-ready", "true");
   await page.getByTestId("nav-field").click();
@@ -227,7 +240,9 @@ test("new operations workspace supports core property and job flows", async ({ p
   await expect(page.getByLabel("Zeit Zugang prüfen")).toHaveValue("22");
   await expect(page.getByLabel("Hinweis Zugang prüfen")).toHaveValue("Schlüsselsafe geprüft, Zugang ohne Problem.");
   await expect(page.getByRole("article").filter({ hasText: "Außenrunde durchführen" }).locator("input[type='checkbox']")).toBeChecked();
-  await expect(page.getByText("einsatzfoto.jpg")).toBeVisible();
+  await expect(page.getByText("einsatzfoto-1.jpg")).toBeVisible();
+  await expect(page.getByText("einsatzfoto-2.jpg")).toBeVisible();
+  await expect(page.getByText("Schlüsselsafe frontal dokumentiert.")).toBeVisible();
   await page.getByTestId("nav-planning").click();
   await page.getByRole("button", { name: /Bearbeiteter Testauftrag/ }).click();
   await expect(page.getByLabel("Zeit Zugang prüfen")).toHaveValue("22");

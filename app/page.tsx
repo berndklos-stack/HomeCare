@@ -25,6 +25,7 @@ import {
   List,
   LogOut,
   Mail,
+  Mic,
   Moon,
   Paperclip,
   Pencil,
@@ -137,6 +138,7 @@ type CustomerRecord = {
   portalStatus: "aktiv" | "einladen" | "gesperrt";
   notes: string;
   reportMailBody: string;
+  workTimeVisibility?: "service" | "show" | "hide";
   archived?: boolean;
 };
 
@@ -245,6 +247,7 @@ type FieldTaskResult = {
   description: string;
   completed: boolean;
   minutes: number;
+  showWorkTimeInReport?: boolean;
   note: string;
   photos: FieldPhoto[];
 };
@@ -255,17 +258,22 @@ type FieldTask = {
   meta: string;
   description: string;
   defaultMinutes: number;
+  defaultShowWorkTimeInReport?: boolean;
 };
 
 type FieldPhoto = {
+  id?: string;
   name: string;
   accepted: boolean;
+  note?: string;
   previewUrl?: string;
+  createdAt?: string;
 };
 
 type FieldTaskProgress = {
   completed: boolean;
   minutes: string;
+  showWorkTimeInReport?: boolean;
   note: string;
   photos: FieldPhoto[];
   updatedAt?: string;
@@ -401,6 +409,16 @@ type VehicleLogEntry = {
   visited: string;
   fuelOrCharge: string;
   notes: string;
+  odometerPhotos?: VehicleOdometerPhoto[];
+};
+
+type VehicleOdometerPhoto = {
+  address?: string;
+  capturedAt: string;
+  id: string;
+  name: string;
+  previewUrl?: string;
+  source: "start" | "end";
 };
 
 type ResourceRecord = {
@@ -465,6 +483,7 @@ type ServiceItem = {
   price: string;
   currency: string;
   taxRate?: string;
+  showWorkTimeInReports?: boolean;
   description: string;
   checklist: ServiceChecklistItem[];
   archived?: boolean;
@@ -594,6 +613,7 @@ type CustomerFormState = {
   objects: string[];
   notes: string;
   reportMailBody: string;
+  workTimeVisibility: "service" | "show" | "hide";
 };
 
 const labels = {
@@ -1123,6 +1143,7 @@ function reportResultsFromProgress(job: JobRecord, services: ServiceItem[], prog
         meta: job.type,
         description: "Aufgabe aus der Auftragscheckliste dokumentieren.",
         defaultMinutes: 0,
+        defaultShowWorkTimeInReport: true,
       }));
 
   const taskById = new Map(fieldTasks.map((task) => [task.id, task]));
@@ -1136,6 +1157,7 @@ function reportResultsFromProgress(job: JobRecord, services: ServiceItem[], prog
       description: fieldTask?.description ?? "Aus gespeicherten Einsatzdaten wiederhergestellt.",
       completed: task.completed,
       minutes: Number(task.minutes) || 0,
+      showWorkTimeInReport: task.showWorkTimeInReport ?? fieldTask?.defaultShowWorkTimeInReport ?? true,
       note: task.note.trim(),
       photos: task.photos,
     };
@@ -1376,9 +1398,20 @@ function mergeObjectsById(primaryObjects: ObjectRecord[], secondaryObjects: Obje
   return merged;
 }
 
+function mergeOdometerPhotos(primaryPhotos: VehicleOdometerPhoto[] = [], secondaryPhotos: VehicleOdometerPhoto[] = []) {
+  const photosById = new Map<string, VehicleOdometerPhoto>();
+  [...secondaryPhotos, ...primaryPhotos].forEach((photo) => photosById.set(photo.id, { ...photosById.get(photo.id), ...photo }));
+  return Array.from(photosById.values()).sort((first, second) => first.capturedAt.localeCompare(second.capturedAt));
+}
+
 function mergeVehicleLogbook(primaryLogbook: VehicleLogEntry[] = [], secondaryLogbook: VehicleLogEntry[] = [], deletedEntryIds: string[] = []) {
   const deletedIds = new Set(deletedEntryIds);
+  const secondaryById = new Map(secondaryLogbook.map((entry) => [entry.id, entry]));
   return mergeRecordsById(primaryLogbook, secondaryLogbook)
+    .map((entry) => ({
+      ...entry,
+      odometerPhotos: mergeOdometerPhotos(entry.odometerPhotos, secondaryById.get(entry.id)?.odometerPhotos),
+    }))
     .filter((entry) => !deletedIds.has(entry.id))
     .sort((first, second) => first.date.localeCompare(second.date));
 }
@@ -1432,7 +1465,7 @@ function mergeFieldProgress(
       const fallbackTask = newestTask === primaryTask ? secondaryTask : primaryTask;
       const photoKeys = new Set<string>();
       const photos = [...(fallbackTask.photos ?? []), ...(newestTask.photos ?? [])].filter((photo) => {
-        const key = `${photo.name}|${photo.previewUrl ?? ""}`;
+        const key = photo.id ? `id:${photo.id}` : `${photo.name}|${photo.previewUrl ?? ""}`;
         if (photoKeys.has(key)) return false;
         photoKeys.add(key);
         return true;
@@ -1934,6 +1967,7 @@ function serviceToFieldTasks(service: ServiceItem): FieldTask[] {
       meta: `${service.category} · ${serviceRate(service)}`,
       description: service.description,
       defaultMinutes: 0,
+      defaultShowWorkTimeInReport: service.showWorkTimeInReports ?? true,
     }];
   }
 
@@ -1943,6 +1977,7 @@ function serviceToFieldTasks(service: ServiceItem): FieldTask[] {
     meta: `${service.name} · ${service.category} · ${serviceRate(service)}`,
     description: item.note,
     defaultMinutes: item.defaultMinutes,
+    defaultShowWorkTimeInReport: service.showWorkTimeInReports ?? true,
   }));
 }
 
@@ -2536,8 +2571,10 @@ async function createReportPdfBlob(report: ReportRecord, object: ObjectRecord, j
     pdf.setFont("helvetica", "normal");
     pdf.setTextColor(item.completed ? 34 : 150);
     pdf.text(item.completed ? (swedish ? "utfört" : "ausgeführt") : (swedish ? "ej utfört" : "nicht ausgeführt"), pageWidth - margin - 4, y + 6, { align: "right" });
-    pdf.setTextColor(80);
-    pdf.text(`${item.minutes || 0} min.`, pageWidth - margin - 4, y + 13, { align: "right" });
+    if (item.showWorkTimeInReport !== false) {
+      pdf.setTextColor(80);
+      pdf.text(`${item.minutes || 0} min.`, pageWidth - margin - 4, y + 13, { align: "right" });
+    }
     y += 23;
     if (item.description) addWrappedText(item.description, margin + 4, pageWidth - margin * 2 - 8, 4.2);
     if (item.note) {
@@ -2555,6 +2592,12 @@ async function createReportPdfBlob(report: ReportRecord, object: ObjectRecord, j
         pdf.addImage(previewUrl, "JPEG", margin + 4, y, 42, 28, undefined, "FAST");
       } catch {
         pdf.rect(margin + 4, y, 42, 28);
+      }
+      if (photo.note?.trim()) {
+        pdf.setFont("helvetica", "normal");
+        pdf.setTextColor(80);
+        const noteLines = pdf.splitTextToSize(photo.note.trim(), pageWidth - margin * 2 - 56);
+        pdf.text(noteLines, margin + 50, y + 5);
       }
       y += 33;
     });
@@ -3147,6 +3190,132 @@ async function fileToFieldPhotoPreview(file: File) {
   return previewUrl;
 }
 
+function readAscii(view: DataView, offset: number, length: number) {
+  let value = "";
+  for (let index = 0; index < length; index += 1) value += String.fromCharCode(view.getUint8(offset + index));
+  return value.replace(/\0+$/, "");
+}
+
+function readExifValue(view: DataView, tiffOffset: number, valueOffset: number, type: number, count: number, littleEndian: boolean) {
+  const byteLength = type === 2 ? count : type === 5 ? count * 8 : count * 2;
+  const offset = byteLength <= 4 ? valueOffset : tiffOffset + view.getUint32(valueOffset, littleEndian);
+
+  if (type === 2) return readAscii(view, offset, count);
+  if (type === 3) return view.getUint16(offset, littleEndian);
+  if (type === 4) return view.getUint32(offset, littleEndian);
+  if (type === 5) {
+    return Array.from({ length: count }, (_, index) => {
+      const numerator = view.getUint32(offset + index * 8, littleEndian);
+      const denominator = view.getUint32(offset + index * 8 + 4, littleEndian) || 1;
+      return numerator / denominator;
+    });
+  }
+  return undefined;
+}
+
+function readExifGpsCoordinates(buffer: ArrayBuffer) {
+  const view = new DataView(buffer);
+  if (view.byteLength < 4 || view.getUint16(0) !== 0xffd8) return null;
+
+  let offset = 2;
+  while (offset + 4 < view.byteLength) {
+    const marker = view.getUint16(offset);
+    const length = view.getUint16(offset + 2);
+    if (marker === 0xffe1 && readAscii(view, offset + 4, 6) === "Exif") {
+      const tiffOffset = offset + 10;
+      const littleEndian = readAscii(view, tiffOffset, 2) === "II";
+      const firstIfdOffset = tiffOffset + view.getUint32(tiffOffset + 4, littleEndian);
+      const entries = view.getUint16(firstIfdOffset, littleEndian);
+      let gpsIfdOffset = 0;
+
+      for (let index = 0; index < entries; index += 1) {
+        const entryOffset = firstIfdOffset + 2 + index * 12;
+        if (view.getUint16(entryOffset, littleEndian) === 0x8825) {
+          gpsIfdOffset = tiffOffset + view.getUint32(entryOffset + 8, littleEndian);
+          break;
+        }
+      }
+      if (!gpsIfdOffset) return null;
+
+      const gpsEntries = view.getUint16(gpsIfdOffset, littleEndian);
+      let latRef = "";
+      let lonRef = "";
+      let lat: number[] | undefined;
+      let lon: number[] | undefined;
+
+      for (let index = 0; index < gpsEntries; index += 1) {
+        const entryOffset = gpsIfdOffset + 2 + index * 12;
+        const tag = view.getUint16(entryOffset, littleEndian);
+        const type = view.getUint16(entryOffset + 2, littleEndian);
+        const count = view.getUint32(entryOffset + 4, littleEndian);
+        const value = readExifValue(view, tiffOffset, entryOffset + 8, type, count, littleEndian);
+        if (tag === 1 && typeof value === "string") latRef = value;
+        if (tag === 2 && Array.isArray(value)) lat = value;
+        if (tag === 3 && typeof value === "string") lonRef = value;
+        if (tag === 4 && Array.isArray(value)) lon = value;
+      }
+
+      if (!lat || !lon) return null;
+      const latitude = (lat[0] ?? 0) + (lat[1] ?? 0) / 60 + (lat[2] ?? 0) / 3600;
+      const longitude = (lon[0] ?? 0) + (lon[1] ?? 0) / 60 + (lon[2] ?? 0) / 3600;
+      return {
+        latitude: latRef === "S" ? -latitude : latitude,
+        longitude: lonRef === "W" ? -longitude : longitude,
+      };
+    }
+    offset += 2 + length;
+  }
+
+  return null;
+}
+
+async function reverseGeocode(latitude: number, longitude: number) {
+  const fallback = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+  try {
+    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`, {
+      headers: { Accept: "application/json" },
+    });
+    if (!response.ok) return fallback;
+    const result = await response.json() as { display_name?: string };
+    return result.display_name || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function currentDeviceCoordinates() {
+  return new Promise<{ latitude: number; longitude: number } | null>((resolve) => {
+    if (!navigator.geolocation) {
+      resolve(null);
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (position) => resolve({
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+      }),
+      () => resolve(null),
+      { enableHighAccuracy: true, maximumAge: 60000, timeout: 9000 },
+    );
+  });
+}
+
+async function addressFromTripPhoto(file: File) {
+  const [previewUrl, buffer] = await Promise.all([
+    fileToFieldPhotoPreview(file),
+    file.arrayBuffer(),
+  ]);
+  const photoCoordinates = readExifGpsCoordinates(buffer);
+  const coordinates = photoCoordinates ?? await currentDeviceCoordinates();
+  const address = coordinates ? await reverseGeocode(coordinates.latitude, coordinates.longitude) : "";
+
+  return {
+    address,
+    previewUrl,
+    source: photoCoordinates ? "Fotodaten" : coordinates ? "Geräteposition" : "manuell",
+  };
+}
+
 async function fileToDocumentPreview(file: File) {
   if (file.type.startsWith("image/")) return fileToImagePreview(file, 1100, 0.7);
   if (file.size > 2_000_000) return undefined;
@@ -3232,6 +3401,7 @@ function emptyCustomerForm(): CustomerFormState {
     objects: [],
     notes: "",
     reportMailBody: defaultReportMailBody,
+    workTimeVisibility: "service",
   };
 }
 
@@ -3256,6 +3426,7 @@ function customerToForm(customer: CustomerRecord): CustomerFormState {
     objects: customer.objects,
     notes: customer.notes,
     reportMailBody: customer.reportMailBody || defaultReportMailBody,
+    workTimeVisibility: customer.workTimeVisibility ?? "service",
   };
 }
 
@@ -3289,6 +3460,7 @@ function formToCustomer(form: CustomerFormState, id: string, existingCustomer?: 
     portalStatus: form.portalStatus,
     notes: form.notes.trim(),
     reportMailBody: form.reportMailBody.trim() || defaultReportMailBody,
+    workTimeVisibility: form.workTimeVisibility,
   };
 }
 
@@ -4577,6 +4749,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     startOdometer: "",
     tripType: "Dienstfahrt" as VehicleLogEntry["tripType"],
     visited: "",
+    odometerPhotos: [] as VehicleOdometerPhoto[],
   });
   const [recordNotice, setRecordNotice] = useState("");
   const [newObject, setNewObject] = useState<NewObjectFormState>(emptyObjectForm());
@@ -5604,6 +5777,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
         {
           completed: item.completed,
           minutes: String(item.minutes || ""),
+          showWorkTimeInReport: item.showWorkTimeInReport ?? true,
           note: item.note,
           photos: item.photos,
         },
@@ -6066,6 +6240,79 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     setQuickTripOpen(true);
   }
 
+  async function captureQuickTripPhoto(file: File, source: VehicleOdometerPhoto["source"]) {
+    setRecordNotice(source === "start" ? "Startfoto wird verarbeitet..." : "Endfoto wird verarbeitet...");
+    try {
+      const result = await addressFromTripPhoto(file);
+      const photo: VehicleOdometerPhoto = {
+        address: result.address,
+        capturedAt: new Date().toISOString(),
+        id: globalThis.crypto?.randomUUID?.() ?? `TRIP-PHOTO-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        name: file.name,
+        previewUrl: result.previewUrl,
+        source,
+      };
+
+      setQuickTripForm((current) => ({
+        ...current,
+        [source === "start" ? "startAddress" : "endAddress"]: result.address || current[source === "start" ? "startAddress" : "endAddress"],
+        odometerPhotos: [
+          ...current.odometerPhotos.filter((item) => item.source !== source),
+          photo,
+        ],
+      }));
+      setRecordNotice(result.address ? `${source === "start" ? "Startadresse" : "Zieladresse"} aus ${result.source} übernommen.` : "Foto gespeichert. Adresse bitte manuell ergänzen.");
+    } catch (error) {
+      console.warn("Tachofoto konnte nicht verarbeitet werden.", error);
+      setRecordNotice("Foto konnte nicht verarbeitet werden. Bitte Adresse manuell erfassen.");
+    }
+  }
+
+  function dictateQuickTripVisited() {
+    const SpeechRecognition = (window as unknown as {
+      SpeechRecognition?: new () => {
+        interimResults: boolean;
+        lang: string;
+        maxAlternatives: number;
+        onerror: (() => void) | null;
+        onresult: ((event: { results: { 0?: { 0?: { transcript?: string } } } }) => void) | null;
+        start: () => void;
+      };
+      webkitSpeechRecognition?: new () => {
+        interimResults: boolean;
+        lang: string;
+        maxAlternatives: number;
+        onerror: (() => void) | null;
+        onresult: ((event: { results: { 0?: { 0?: { transcript?: string } } } }) => void) | null;
+        start: () => void;
+      };
+    }).SpeechRecognition
+      ?? (window as unknown as {
+        webkitSpeechRecognition?: new () => {
+          interimResults: boolean;
+          lang: string;
+          maxAlternatives: number;
+          onerror: (() => void) | null;
+          onresult: ((event: { results: { 0?: { 0?: { transcript?: string } } } }) => void) | null;
+          start: () => void;
+        };
+      }).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setRecordNotice("Spracheingabe ist in diesem Browser nicht verfügbar.");
+      return;
+    }
+    const recognition = new SpeechRecognition();
+    recognition.lang = "de-DE";
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    recognition.onresult = (event) => {
+      const transcript = event.results[0]?.[0]?.transcript?.trim();
+      if (transcript) setQuickTripForm((current) => ({ ...current, visited: transcript }));
+    };
+    recognition.onerror = () => setRecordNotice("Spracheingabe konnte nicht abgeschlossen werden.");
+    recognition.start();
+  }
+
   function saveQuickTrip() {
     const vehicle = resources.find((resource) => resource.id === quickTripForm.resourceId && resource.type === "Fahrzeug");
     if (!vehicle) {
@@ -6083,9 +6330,10 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       quickTripForm.endOdometer,
       kilometers,
       quickTripForm.purpose,
+      quickTripForm.tripType === "Privatfahrt" ? "privat" : quickTripForm.visited,
     ];
     if (requiredFields.some((field) => !field.trim())) {
-      setRecordNotice("Für die Quickfahrt bitte Datum, Start/Ziel, Kilometerstände, Kilometer und Zweck erfassen.");
+      setRecordNotice("Für die Quickfahrt bitte Datum, Start/Ziel, Kilometerstände, Kilometer, Zweck und Namen erfassen.");
       return;
     }
 
@@ -6098,6 +6346,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       id: `LOG-${vehicle.id}-${quickTripForm.date.replace(/\D/g, "")}-${vehicle.logbook.length + 1}`,
       kilometers,
       notes: "Über Quickbutton erfasst.",
+      odometerPhotos: quickTripForm.odometerPhotos,
       purpose: quickTripForm.purpose.trim(),
       startAddress: quickTripForm.startAddress.trim(),
       startOdometer: quickTripForm.startOdometer.trim(),
@@ -6126,6 +6375,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       startOdometer: entry.endOdometer,
       tripType: "Dienstfahrt",
       visited: "",
+      odometerPhotos: [],
     });
   }
 
@@ -6450,6 +6700,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
               <FieldView
                 activeJobId={activeJobId}
                 allJobs={jobs}
+                customers={customers}
                 objects={activeObjects}
                 packages={servicePackages}
                 services={services}
@@ -6565,6 +6816,30 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
               <label><span>Start-Km</span><input inputMode="numeric" value={quickTripForm.startOdometer} onChange={(event) => setQuickTripForm({ ...quickTripForm, startOdometer: event.target.value })} /></label>
               <label><span>End-Km</span><input inputMode="numeric" value={quickTripForm.endOdometer} onChange={(event) => setQuickTripForm({ ...quickTripForm, endOdometer: event.target.value })} /></label>
               <label><span>Kilometer</span><input inputMode="numeric" placeholder="wird aus Km-Ständen berechnet" value={quickTripForm.kilometers} onChange={(event) => setQuickTripForm({ ...quickTripForm, kilometers: event.target.value })} /></label>
+              <div className="wide trip-photo-grid">
+                {(["start", "end"] as const).map((source) => {
+                  const photo = quickTripForm.odometerPhotos.find((item) => item.source === source);
+                  return (
+                    <label className="trip-photo-capture" key={source}>
+                      <span>{source === "start" ? "Startfoto Tacho" : "Endfoto Tacho"}</span>
+                      <strong>{photo ? photo.name : source === "start" ? "Beim Losfahren aufnehmen" : "Beim Abstellen aufnehmen"}</strong>
+                      {photo?.previewUrl ? <img alt={`${source === "start" ? "Start" : "Ende"} Tachofoto`} src={photo.previewUrl} /> : <Camera size={18} />}
+                      {photo?.address && <small>{photo.address}</small>}
+                      <input
+                        accept="image/*"
+                        aria-label={source === "start" ? "Startfoto Tacho aufnehmen" : "Endfoto Tacho aufnehmen"}
+                        capture="environment"
+                        type="file"
+                        onChange={(event) => {
+                          const file = event.target.files?.[0];
+                          if (file) void captureQuickTripPhoto(file, source);
+                          event.currentTarget.value = "";
+                        }}
+                      />
+                    </label>
+                  );
+                })}
+              </div>
               <label><span>Zweck / Ärende</span><input list="quick-trip-purpose-options" value={quickTripForm.purpose} onChange={(event) => setQuickTripForm({ ...quickTripForm, purpose: event.target.value })} /></label>
               <datalist id="quick-trip-purpose-options">
                 {quickTripPurposeOptions.map((purpose) => <option key={purpose} value={purpose} />)}
@@ -6574,7 +6849,12 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
               <datalist id="quick-trip-address-options">
                 {quickTripAddressOptions.map((address) => <option key={address} value={address} />)}
               </datalist>
-              <label className="wide"><span>Besucht bei</span><input disabled={quickTripForm.tripType === "Privatfahrt"} value={quickTripForm.visited} onChange={(event) => setQuickTripForm({ ...quickTripForm, visited: event.target.value })} /></label>
+              <div className="wide voice-input-row">
+                <label><span>Name / besucht bei</span><input disabled={quickTripForm.tripType === "Privatfahrt"} value={quickTripForm.visited} onChange={(event) => setQuickTripForm({ ...quickTripForm, visited: event.target.value })} /></label>
+                <button aria-label="Name per Sprache eingeben" className="icon-button" disabled={quickTripForm.tripType === "Privatfahrt"} onClick={dictateQuickTripVisited} type="button">
+                  <Mic size={16} />
+                </button>
+              </div>
             </div>
             <div className="modal-actions">
               <button className="ghost-button" onClick={() => setQuickTripOpen(false)} type="button">Abbrechen</button>
@@ -7167,6 +7447,9 @@ function CustomerReportCard({
 }) {
   const objectImage = primaryObjectImage(object);
   const reportKind = report.id.startsWith("WEEK-") ? "Wochenbericht" : "Einsatzbericht";
+  const visibleWorkMinutes = report.checklistResults
+    .filter((item) => item.showWorkTimeInReport !== false)
+    .reduce((sum, item) => sum + item.minutes, 0);
 
   return (
     <article className="customer-report-card printable-report">
@@ -7228,7 +7511,7 @@ function CustomerReportCard({
           <dl>
             {job && <div><dt>Priorität</dt><dd>{job.priority}</dd></div>}
             {job && <div><dt>Bearbeiter</dt><dd>{job.assignedTo}</dd></div>}
-            {job && <div><dt>Zeit / Material</dt><dd>{job.workMinutes} min. · {job.material}</dd></div>}
+            {job && <div><dt>Zeit / Material</dt><dd>{visibleWorkMinutes > 0 ? `${visibleWorkMinutes} min. · ` : ""}{job.material}</dd></div>}
           </dl>
         </section>
       </div>
@@ -7255,14 +7538,14 @@ function CustomerReportCard({
                 </div>
                 <p>{item.description}</p>
                 <dl>
-                  <div><dt>Zeit</dt><dd>{item.minutes} min.</dd></div>
+                  {item.showWorkTimeInReport !== false && <div><dt>Zeit</dt><dd>{item.minutes} min.</dd></div>}
                   <div><dt>Hinweis / Info</dt><dd>{item.note || "Keine zusätzliche Info erfasst."}</dd></div>
                   <div><dt>Bilder</dt><dd>{item.photos.length > 0 ? item.photos.map((photo) => photo.name).join(", ") : "Keine Bilder erfasst."}</dd></div>
                 </dl>
                 {item.photos.length > 0 && (
                   <div className="report-point-photos">
                     {item.photos.map((photo) => (
-                      <figure key={`${item.id}-${photo.name}-inline`}>
+                      <figure key={`${item.id}-${photo.id ?? photo.name}-inline`}>
                         {photo.previewUrl ? (
                           <img alt={`Kontrollfoto ${photo.name}`} src={photo.previewUrl} />
                         ) : (
@@ -7271,7 +7554,7 @@ function CustomerReportCard({
                             <span>Foto erfasst</span>
                           </div>
                         )}
-                        <figcaption>{photo.name}</figcaption>
+                        <figcaption>{photo.note?.trim() ? `${photo.name}: ${photo.note.trim()}` : photo.name}</figcaption>
                       </figure>
                     ))}
                   </div>
@@ -8117,6 +8400,7 @@ function PlanningView({
 function FieldView({
   activeJobId,
   allJobs,
+  customers,
   editingReportId,
   objects,
   packages,
@@ -8136,6 +8420,7 @@ function FieldView({
 }: {
   activeJobId: string | null;
   allJobs: JobRecord[];
+  customers: CustomerRecord[];
   editingReportId: string | null;
   objects: ObjectRecord[];
   packages: ServicePackage[];
@@ -8155,6 +8440,14 @@ function FieldView({
 }) {
   const [showCompletedReports, setShowCompletedReports] = useState(false);
   const [showSentReports, setShowSentReports] = useState(false);
+  const [photoNoteDraft, setPhotoNoteDraft] = useState("");
+  const [photoNoteEditor, setPhotoNoteEditor] = useState<{ photoId: string; taskId: string } | null>(null);
+  const progressRef = useRef(progress);
+
+  useEffect(() => {
+    progressRef.current = progress;
+  }, [progress]);
+
   const fieldOpenJobs = dashboardWorkJobs(allJobs);
   const completedReports = dedupeReports(reports).filter((report) => {
     const job = allJobs.find((item) => item.id === report.jobId);
@@ -8250,11 +8543,13 @@ function FieldView({
   }
   const activeJob = active;
   const object = objects.find((item) => item.id === activeJob.objectId) ?? objects[0];
+  const customer = customers.find((item) => item.id === activeJob.customerId) ?? customers.find((item) => object?.ownerCustomerId && item.id === object.ownerCustomerId);
   const workDates = jobWorkDates(activeJob);
   const activeWorkDate = selectedWorkDate && workDates.includes(selectedWorkDate) ? selectedWorkDate : workDates[0];
   const reportedWorkDates = new Set(reports.filter((report) => report.jobId === activeJob.id).map((report) => normalizeReportDate(report.date)));
   const isLastOpenWorkDate = workDates.length > 1 && workDates.every((date) => date === activeWorkDate || reportedWorkDates.has(date));
   void packages;
+
   const jobServices = jobSelectedServices(activeJob, services);
   const fieldTasks = jobServices.length > 0
     ? jobServices.flatMap(serviceToFieldTasks)
@@ -8264,14 +8559,25 @@ function FieldView({
         meta: activeJob.type,
         description: "Aufgabe aus der Auftragscheckliste dokumentieren.",
         defaultMinutes: 0,
+        defaultShowWorkTimeInReport: true,
       }));
 
+  function defaultTimeVisibilityForTask(task: FieldTask) {
+    return customer?.workTimeVisibility === "show"
+      ? true
+      : customer?.workTimeVisibility === "hide"
+        ? false
+        : task.defaultShowWorkTimeInReport ?? true;
+  }
+
   function valueForTask(task: FieldTask, index: number) {
+    const customerDefault = defaultTimeVisibilityForTask(task);
     return progress[task.id] ?? {
       completed: index < 1,
       minutes: task.defaultMinutes ? String(task.defaultMinutes) : "",
       note: "",
       photos: [],
+      showWorkTimeInReport: customerDefault,
       updatedAt: undefined,
     };
   }
@@ -8281,7 +8587,50 @@ function FieldView({
     patch: Partial<FieldTaskProgress>,
     currentTask: FieldTaskProgress,
   ) {
-    onProgressChange(fieldProgressKey(activeJob, activeWorkDate), { ...progress, [id]: { ...currentTask, ...patch, updatedAt: new Date().toISOString() } });
+    const latestProgress = progressRef.current;
+    const latestTask = latestProgress[id] ?? currentTask;
+    const nextProgress = { ...latestProgress, [id]: { ...latestTask, ...patch, updatedAt: new Date().toISOString() } };
+    progressRef.current = nextProgress;
+    onProgressChange(fieldProgressKey(activeJob, activeWorkDate), nextProgress);
+  }
+
+  function updateTaskPhotos(
+    id: string,
+    currentTask: FieldTaskProgress,
+    updater: (photos: FieldPhoto[]) => FieldPhoto[],
+  ) {
+    const latestTask = progressRef.current[id] ?? currentTask;
+    updateTask(id, { photos: updater(latestTask.photos ?? []) }, latestTask);
+  }
+
+  function createFieldPhoto(file: File, previewUrl?: string): FieldPhoto {
+    const photoId = globalThis.crypto?.randomUUID?.() ?? `PHOTO-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    return {
+      accepted: true,
+      createdAt: new Date().toISOString(),
+      id: photoId,
+      name: file.name,
+      ...(previewUrl ? { previewUrl } : {}),
+    };
+  }
+
+  function openPhotoNoteEditor(taskId: string, photo: FieldPhoto) {
+    if (!photo.id) return;
+    setPhotoNoteDraft(photo.note ?? "");
+    setPhotoNoteEditor({ photoId: photo.id, taskId });
+  }
+
+  function savePhotoNote() {
+    if (!photoNoteEditor) return;
+    const { photoId, taskId } = photoNoteEditor;
+    const latestTask = progressRef.current[taskId];
+    if (latestTask) {
+      updateTaskPhotos(taskId, latestTask, (photos) => photos.map((photo) => (
+        photo.id === photoId ? { ...photo, note: photoNoteDraft.trim() } : photo
+      )));
+    }
+    setPhotoNoteEditor(null);
+    setPhotoNoteDraft("");
   }
 
   function updateFieldNote(note: string) {
@@ -8298,6 +8647,7 @@ function FieldView({
         description: task.description,
         completed: currentTask.completed,
         minutes: Number(currentTask.minutes) || 0,
+        showWorkTimeInReport: currentTask.showWorkTimeInReport ?? defaultTimeVisibilityForTask(task),
         note: currentTask.note.trim(),
         photos: currentTask.photos,
       };
@@ -8460,15 +8810,15 @@ function FieldView({
                       if (!file) return;
                       void fileToFieldPhotoPreview(file)
                         .then((previewUrl) => {
-                          updateTask(task.id, {
-                            photos: [...currentTask.photos, { name: file.name, accepted: true, previewUrl }],
-                          }, currentTask);
+                          const photo = createFieldPhoto(file, previewUrl);
+                          updateTaskPhotos(task.id, currentTask, (photos) => [...photos, photo]);
+                          openPhotoNoteEditor(task.id, photo);
                         })
                         .catch((error) => {
                           console.warn("Einsatzfoto konnte nicht gespeichert werden.", error);
-                          updateTask(task.id, {
-                            photos: [...currentTask.photos, { name: file.name, accepted: true }],
-                          }, currentTask);
+                          const photo = createFieldPhoto(file);
+                          updateTaskPhotos(task.id, currentTask, (photos) => [...photos, photo]);
+                          openPhotoNoteEditor(task.id, photo);
                         });
                       event.currentTarget.value = "";
                     }}
@@ -8515,9 +8865,18 @@ function FieldView({
                     onBlur={(event) => updateTask(task.id, { note: event.currentTarget.value }, currentTask)}
                   />
                 </label>
+                <label className="checkbox-line field-time-visibility">
+                  <input
+                    checked={currentTask.showWorkTimeInReport ?? task.defaultShowWorkTimeInReport ?? true}
+                    disabled={reportLocked}
+                    onChange={(event) => updateTask(task.id, { showWorkTimeInReport: event.target.checked }, currentTask)}
+                    type="checkbox"
+                  />
+                  <span>Zeit im Bericht anzeigen</span>
+                </label>
               </div>
               {currentTask.photos.map((photo, photoIndex) => (
-                <div className="captured-photo-card" key={`${task.id}-${photo.name}-${photoIndex}`}>
+                <div className="captured-photo-card" key={`${task.id}-${photo.id ?? photo.name}-${photoIndex}`}>
                   {photo.previewUrl ? (
                     <img alt={`Vorschau ${photo.name}`} src={photo.previewUrl} />
                   ) : (
@@ -8528,15 +8887,23 @@ function FieldView({
                   <div>
                     <strong>{photo.accepted ? "Foto übernommen" : "Neues Foto erfasst"}</strong>
                     <span>{photo.name}</span>
+                    {photo.note?.trim() && <small>{photo.note.trim()}</small>}
                   </div>
                   <div className="row-actions">
+                    <button
+                      aria-label={`Info zu Foto ${photo.name} bearbeiten`}
+                      className="icon-button"
+                      disabled={reportLocked || !photo.id}
+                      onClick={() => openPhotoNoteEditor(task.id, photo)}
+                      type="button"
+                    >
+                      <Pencil size={16} />
+                    </button>
                     <button
                       aria-label="Foto benutzen"
                       className="icon-button"
                       disabled={reportLocked}
-                      onClick={() => updateTask(task.id, {
-                        photos: currentTask.photos.map((item, index) => (index === photoIndex ? { ...item, accepted: true } : item)),
-                      }, currentTask)}
+                      onClick={() => updateTaskPhotos(task.id, currentTask, (photos) => photos.map((item, index) => (index === photoIndex ? { ...item, accepted: true } : item)))}
                       type="button"
                     >
                       <Check size={16} />
@@ -8545,9 +8912,7 @@ function FieldView({
                       aria-label="Neues Foto aufnehmen"
                       className="icon-button"
                       disabled={reportLocked}
-                      onClick={() => updateTask(task.id, {
-                        photos: currentTask.photos.filter((_, index) => index !== photoIndex),
-                      }, currentTask)}
+                      onClick={() => updateTaskPhotos(task.id, currentTask, (photos) => photos.filter((_, index) => index !== photoIndex))}
                       type="button"
                     >
                       <RotateCcw size={16} />
@@ -8559,6 +8924,34 @@ function FieldView({
             );
           })}
         </div>
+        {photoNoteEditor && (
+          <div className="modal-backdrop">
+            <article aria-labelledby="photo-note-title" aria-modal="true" className="modal photo-note-modal" role="dialog">
+              <header>
+                <div>
+                  <p>Foto-Info</p>
+                  <h2 id="photo-note-title">Kurze Info zum Bild</h2>
+                </div>
+                <button aria-label="Foto-Info schließen" onClick={() => { setPhotoNoteEditor(null); setPhotoNoteDraft(""); }} type="button">
+                  <X size={18} />
+                </button>
+              </header>
+              <label>
+                <span>Info</span>
+                <textarea
+                  autoFocus
+                  onChange={(event) => setPhotoNoteDraft(event.target.value)}
+                  placeholder="z.B. linke Terrassentür, Schaden am Rahmen, Wasserfleck..."
+                  value={photoNoteDraft}
+                />
+              </label>
+              <div className="modal-actions">
+                <button className="ghost-button" onClick={() => { setPhotoNoteEditor(null); setPhotoNoteDraft(""); }} type="button">Überspringen</button>
+                <button className="primary-button" onClick={savePhotoNote} type="button">Info speichern</button>
+              </div>
+            </article>
+          </div>
+        )}
         <textarea
           disabled={reportLocked}
           value={fieldNote}
@@ -9648,6 +10041,7 @@ function MasterDataView({
     startOdometer: "",
     tripType: "Dienstfahrt" as VehicleLogEntry["tripType"],
     visited: "",
+    odometerPhotos: [] as VehicleOdometerPhoto[],
   });
   const [mailSettingsForm, setMailSettingsForm] = useState(dailyMailSettings);
   const [companySettingsForm, setCompanySettingsForm] = useState(companySettings);
@@ -9659,6 +10053,7 @@ function MasterDataView({
     price: "",
     currency: "SEK",
     taxRate: "25",
+    showWorkTimeInReports: true,
     description: "",
     checklist: [] as ServiceChecklistItem[],
   });
@@ -9986,12 +10381,13 @@ function MasterDataView({
       startOdometer: latestEntry?.endOdometer ?? selectedResource?.odometerYearStart ?? "",
       tripType: "Dienstfahrt",
       visited: "",
+      odometerPhotos: [],
     });
   }
 
   function editLogbookEntry(entry: VehicleLogEntry) {
     setEditingLogEntryId(entry.id);
-    setLogbookForm({ ...entry });
+    setLogbookForm({ ...entry, odometerPhotos: entry.odometerPhotos ?? [] });
   }
 
   function saveLogbookEntry() {
@@ -10010,9 +10406,10 @@ function MasterDataView({
       logbookForm.endOdometer,
       kilometers,
       logbookForm.purpose,
+      logbookForm.tripType === "Privatfahrt" ? "privat" : logbookForm.visited,
     ];
     if (requiredFields.some((field) => !field.trim())) {
-      setArchiveNotice("Für das Fahrtenbuch bitte Datum, Start/Ziel, Kilometerstände, Kilometer und Zweck erfassen.");
+      setArchiveNotice("Für das Fahrtenbuch bitte Datum, Start/Ziel, Kilometerstände, Kilometer, Zweck und Namen erfassen.");
       return;
     }
 
@@ -10028,6 +10425,7 @@ function MasterDataView({
       fuelOrCharge: logbookForm.fuelOrCharge.trim(),
       kilometers,
       notes: logbookForm.notes.trim(),
+      odometerPhotos: logbookForm.odometerPhotos,
       purpose: logbookForm.purpose.trim(),
       startAddress: logbookForm.startAddress.trim(),
       startOdometer: logbookForm.startOdometer.trim(),
@@ -10092,7 +10490,7 @@ function MasterDataView({
 
   function resetServiceForm() {
     setEditingServiceId(null);
-    setServiceForm({ accountingAccount: "3041", name: "", category: "", unit: "", price: "", currency: "SEK", taxRate: "25", description: "", checklist: [] });
+    setServiceForm({ accountingAccount: "3041", name: "", category: "", unit: "", price: "", currency: "SEK", taxRate: "25", showWorkTimeInReports: true, description: "", checklist: [] });
     setServiceChecklistForm({ title: "", note: "", defaultMinutes: "" });
   }
 
@@ -10105,6 +10503,7 @@ function MasterDataView({
       price: service.price,
       currency: service.currency || "SEK",
       taxRate: service.taxRate || "25",
+      showWorkTimeInReports: service.showWorkTimeInReports ?? true,
       accountingAccount: service.accountingAccount || defaultAccountingAccount("Leistung", service.name),
       description: service.description,
       checklist: service.checklist ?? [],
@@ -10154,6 +10553,7 @@ function MasterDataView({
       price: serviceForm.price.trim() || "0",
       currency: serviceForm.currency,
       taxRate: serviceForm.taxRate.trim() || "25",
+      showWorkTimeInReports: serviceForm.showWorkTimeInReports,
       accountingAccount: serviceForm.accountingAccount || defaultAccountingAccount("Leistung", serviceForm.name),
       description: serviceForm.description.trim() || "Beschreibung ergänzen.",
       checklist: serviceForm.checklist,
@@ -10764,6 +11164,9 @@ function MasterDataView({
                       <strong>{entry.date} · {entry.kilometers} km · {entry.tripType}</strong>
                       <span>{entry.startAddress} → {entry.endAddress}</span>
                       <span>{entry.startOdometer} → {entry.endOdometer} km · {entry.purpose}{entry.visited ? ` · ${entry.visited}` : ""}</span>
+                      {entry.odometerPhotos?.length ? (
+                        <span>{entry.odometerPhotos.map((photo) => `${photo.source === "start" ? "Startfoto" : "Endfoto"}: ${photo.address || photo.name}`).join(" · ")}</span>
+                      ) : null}
                     </div>
                     <Badge value={personName(entry.driverId)} />
                     <div className="row-actions">
@@ -10933,6 +11336,10 @@ function MasterDataView({
                 <option key={account.account} value={account.account}>{account.account} · {account.label}</option>
               ))}
             </select>
+          </label>
+          <label className="checkbox-line">
+            <input checked={serviceForm.showWorkTimeInReports} onChange={(event) => setServiceForm({ ...serviceForm, showWorkTimeInReports: event.target.checked })} type="checkbox" />
+            <span>Arbeitszeit im Bericht anzeigen</span>
           </label>
           <label className="wide"><span>Beschreibung</span><textarea value={serviceForm.description} onChange={(event) => setServiceForm({ ...serviceForm, description: event.target.value })} /></label>
           <div className="wide service-checklist-editor">
@@ -12070,6 +12477,14 @@ function CustomerForm({
       </div>
       <label><span>Saldo</span><input value={customer.balance} onChange={(event) => update("balance", event.target.value)} /></label>
       <label className="wide"><span>Notizen / interne Info</span><textarea value={customer.notes} onChange={(event) => update("notes", event.target.value)} /></label>
+      <label>
+        <span>Zeit im Bericht</span>
+        <select value={customer.workTimeVisibility} onChange={(event) => update("workTimeVisibility", event.target.value)}>
+          <option value="service">Aus Leistung übernehmen</option>
+          <option value="show">Immer anzeigen</option>
+          <option value="hide">Immer ausblenden</option>
+        </select>
+      </label>
       <label className="wide">
         <span>Mailtext Einsatzbericht</span>
         <textarea

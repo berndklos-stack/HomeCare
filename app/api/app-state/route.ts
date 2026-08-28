@@ -121,7 +121,7 @@ function mergeRecordsById(existingRecords: unknown, patchRecords: unknown, key?:
           ...(Array.isArray(patch.deletedLogbookEntryIds) ? patch.deletedLogbookEntryIds.map(String) : []),
         ]));
         merged.deletedLogbookEntryIds = deletedLogbookEntryIds;
-        const mergedLogbook = mergeRecordsById(existing.logbook, patch.logbook) as JsonObject[];
+        const mergedLogbook = mergeVehicleLogbook(existing.logbook, patch.logbook) as JsonObject[];
         merged.logbook = mergedLogbook
           .filter((entry: JsonObject) => entry && typeof entry === "object" && !deletedLogbookEntryIds.includes(String(entry.id)));
       }
@@ -130,6 +130,34 @@ function mergeRecordsById(existingRecords: unknown, patchRecords: unknown, key?:
   });
 
   return Array.from(recordsById.values());
+}
+
+function mergeOdometerPhotos(existingPhotos: unknown, patchPhotos: unknown) {
+  const photosById = new Map<string, JsonObject>();
+  [
+    ...(Array.isArray(existingPhotos) ? existingPhotos : []),
+    ...(Array.isArray(patchPhotos) ? patchPhotos : []),
+  ].forEach((photo) => {
+    if (!photo || typeof photo !== "object" || !("id" in photo)) return;
+    const item = photo as JsonObject;
+    const id = String(item.id);
+    photosById.set(id, { ...(photosById.get(id) ?? {}), ...item });
+  });
+
+  return Array.from(photosById.values()).sort((first, second) => String(first.capturedAt ?? "").localeCompare(String(second.capturedAt ?? "")));
+}
+
+function mergeVehicleLogbook(existingLogbook: unknown, patchLogbook: unknown) {
+  const existingEntries = Array.isArray(existingLogbook) ? existingLogbook : [];
+  const patchEntries = Array.isArray(patchLogbook) ? patchLogbook : [];
+  const existingById = new Map(existingEntries
+    .filter((entry) => entry && typeof entry === "object" && "id" in entry)
+    .map((entry) => [String((entry as JsonObject).id), entry as JsonObject]));
+
+  return (mergeRecordsById(existingEntries, patchEntries) as JsonObject[]).map((entry) => ({
+    ...entry,
+    odometerPhotos: mergeOdometerPhotos(existingById.get(String(entry.id))?.odometerPhotos, entry.odometerPhotos),
+  }));
 }
 
 function mergeObjectsByKey(existingValue: unknown, patchValue: unknown) {
@@ -146,7 +174,7 @@ function mergeFieldPhotos(existingPhotos: unknown, patchPhotos: unknown) {
   ].filter((photo) => {
     if (!photo || typeof photo !== "object") return false;
     const item = photo as JsonObject;
-    const key = `${String(item.name ?? "")}|${String(item.previewUrl ?? "")}`;
+    const key = item.id ? `id:${String(item.id)}` : `${String(item.name ?? "")}|${String(item.previewUrl ?? "")}`;
     if (photoKeys.has(key)) return false;
     photoKeys.add(key);
     return true;

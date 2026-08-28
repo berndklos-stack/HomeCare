@@ -1,10 +1,29 @@
 export const appVersion = {
-  version: "1.213.0",
-  releaseDate: "2026-08-27",
+  version: "1.215.0",
+  releaseDate: "2026-08-28",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.215.0",
+    date: "2026-08-28",
+    changes: [
+      "Quick-Fahrt kann Start- und Endfoto vom Tacho speichern und Adressen aus Fotodaten oder Geraeteposition uebernehmen",
+      "Name / besucht bei kann in der Quick-Fahrt per Sprache oder Tastatur erfasst werden",
+      "Dienstfahrten verlangen jetzt einen Namen zusaetzlich zu Zweck, Strecke und Kilometerstaenden",
+      "Arbeitszeiten koennen pro Leistung, Kunde und mobiler Checklistenposition fuer den Kundenbericht ein- oder ausgeblendet werden",
+    ],
+  },
+  {
+    version: "1.214.0",
+    date: "2026-08-28",
+    changes: [
+      "Mehrere Fotos an derselben mobilen Checklistenposition bleiben beim asynchronen Speichern erhalten",
+      "Vor-Ort-Fotos bekommen eindeutige IDs und werden beim Geraeteabgleich nicht mehr versehentlich zusammengelegt",
+      "Zu jedem Vor-Ort-Foto kann direkt nach der Aufnahme oder spaeter eine kurze Info gespeichert werden",
+    ],
+  },
   {
     version: "1.213.0",
     date: "2026-08-27",

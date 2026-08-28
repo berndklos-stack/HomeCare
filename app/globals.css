@@ -1828,6 +1828,16 @@ mark.neutral {
   white-space: nowrap;
 }
 
+.captured-photo-card small {
+  color: var(--foreground);
+  display: -webkit-box;
+  font-size: 12px;
+  line-height: 1.25;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
 .captured-photo-card .row-actions {
   display: flex;
   gap: 6px;
@@ -1836,6 +1846,102 @@ mark.neutral {
 .captured-photo-card .icon-button {
   height: 34px;
   width: 34px;
+}
+
+.trip-photo-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.trip-photo-capture {
+  align-items: start;
+  background: var(--paper-soft);
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  color: var(--foreground);
+  display: grid;
+  gap: 6px;
+  min-height: 116px;
+  padding: 10px;
+}
+
+.trip-photo-capture input {
+  display: none;
+}
+
+.trip-photo-capture > span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.trip-photo-capture strong {
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.trip-photo-capture img {
+  aspect-ratio: 4 / 3;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  object-fit: cover;
+  width: 100%;
+}
+
+.trip-photo-capture small {
+  color: var(--muted);
+  display: -webkit-box;
+  font-size: 11px;
+  line-height: 1.25;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.voice-input-row {
+  align-items: end;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) 40px;
+}
+
+.voice-input-row label {
+  min-width: 0;
+}
+
+.field-time-visibility {
+  align-self: center;
+}
+
+.photo-note-modal {
+  max-width: 440px;
+}
+
+.photo-note-modal label {
+  display: grid;
+  gap: 6px;
+}
+
+.photo-note-modal label span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.photo-note-modal textarea {
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--foreground);
+  min-height: 96px;
+  outline: 0;
+  padding: 10px;
+  resize: vertical;
 }
 
 .service-catalog {
