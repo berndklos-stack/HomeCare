@@ -1,10 +1,20 @@
 export const appVersion = {
-  version: "1.224.0",
+  version: "1.225.0",
   releaseDate: "2026-08-29",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.225.0",
+    date: "2026-08-29",
+    changes: [
+      "Neue Vor-Ort-Fotos werden in Supabase Storage gespeichert und im App-State nur noch als URL referenziert",
+      "Neue Berichtsanhaenge werden ausgelagert und beim Mailversand bei Bedarf geladen",
+      "Neue Objekt- und Ressourcenbilder sowie Dokumente werden nicht mehr als grosse Base64-Daten im Snapshot abgelegt",
+      "PDF-Berichte koennen Bilder aus Storage-URLs und alten Data-URLs darstellen",
+    ],
+  },
   {
     version: "1.224.0",
     date: "2026-08-29",

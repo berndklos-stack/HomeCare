@@ -222,6 +222,7 @@ function mergeReportPair(first: JsonObject, second: JsonObject) {
   return {
     ...fallback,
     ...primary,
+    attachments: mergeRecordsById(fallback.attachments, primary.attachments),
     checklistResults: Array.from(checklistById.values()),
     customerComment: chooseReportText(primary.customerComment, fallback.customerComment, primaryTime, fallbackTime),
     date: normalizeReportDate(primary.date),

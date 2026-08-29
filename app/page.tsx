@@ -114,6 +114,7 @@ type MediaItem = {
   description: string;
   source: "Upload" | "Kamera";
   previewUrl?: string;
+  storagePath?: string;
   isPrimary?: boolean;
 };
 
@@ -231,10 +232,12 @@ type ReportRecord = {
 
 type ReportAttachment = {
   createdAt: string;
-  dataUrl: string;
+  dataUrl?: string;
   id: string;
   name: string;
   size: number;
+  storagePath?: string;
+  storageUrl?: string;
   type: string;
 };
 
@@ -279,6 +282,7 @@ type FieldPhoto = {
   accepted: boolean;
   note?: string;
   previewUrl?: string;
+  storagePath?: string;
   createdAt?: string;
 };
 
@@ -1592,6 +1596,19 @@ async function fileToReportAttachment(file: File): Promise<ReportAttachment> {
     throw new Error(`"${file.name}" ist größer als 15 MB.`);
   }
 
+  const uploaded = await uploadMediaFile(file, "report-attachments");
+  if (uploaded) {
+    return {
+      createdAt: new Date().toISOString(),
+      id: globalThis.crypto?.randomUUID?.() ?? `REPORT-FILE-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      name: file.name,
+      size: file.size,
+      storagePath: uploaded.path,
+      storageUrl: uploaded.url,
+      type: file.type || "application/octet-stream",
+    };
+  }
+
   return {
     createdAt: new Date().toISOString(),
     dataUrl: await readFileAsDataUrl(file),
@@ -1604,6 +1621,39 @@ async function fileToReportAttachment(file: File): Promise<ReportAttachment> {
 
 function dataUrlToBase64(dataUrl: string) {
   return dataUrl.includes(",") ? dataUrl.split(",", 2)[1] : dataUrl;
+}
+
+type UploadedMedia = {
+  contentType: string;
+  name: string;
+  path: string;
+  size: number;
+  url: string;
+};
+
+async function uploadMediaFile(file: File | Blob, scope: string, fileName?: string): Promise<UploadedMedia | null> {
+  try {
+    const formData = new FormData();
+    formData.append("scope", scope);
+    formData.append("file", file, fileName);
+    const response = await fetch("/api/media", {
+      body: formData,
+      method: "POST",
+    });
+    if (!response.ok) return null;
+    return await response.json() as UploadedMedia;
+  } catch (error) {
+    console.warn("Medien-Upload ist nicht verfügbar, speichere lokal weiter.", error);
+    return null;
+  }
+}
+
+async function mediaSourceToDataUrl(source: string) {
+  if (!source || source.startsWith("data:")) return source;
+  const response = await fetch(source);
+  if (!response.ok) throw new Error("Mediendatei konnte nicht geladen werden.");
+  const blob = await response.blob();
+  return await readFileAsDataUrl(blob);
 }
 
 async function withTimeout<T>(promise: Promise<T>, timeoutMs = 8000): Promise<T> {
@@ -2567,8 +2617,9 @@ async function createReportPdfBlob(report: ReportRecord, object: ObjectRecord, j
     return `${dateMatch ?? `${index + 1}.`} · ${item.title}`;
   }
 
-  async function addContainedImage(dataUrl: string, x: number, boxY: number, boxWidth: number, boxHeight: number) {
-    const image = await loadImage(dataUrl);
+  async function addContainedImage(source: string, x: number, boxY: number, boxWidth: number, boxHeight: number) {
+    const imageDataUrl = await mediaSourceToDataUrl(source);
+    const image = await loadImage(imageDataUrl);
     const ratio = image?.naturalWidth && image?.naturalHeight ? image.naturalWidth / image.naturalHeight : boxWidth / boxHeight;
     const fitWidth = ratio > boxWidth / boxHeight ? boxWidth : boxHeight * ratio;
     const fitHeight = ratio > boxWidth / boxHeight ? boxWidth / ratio : boxHeight;
@@ -2577,7 +2628,7 @@ async function createReportPdfBlob(report: ReportRecord, object: ObjectRecord, j
 
     pdf.setDrawColor(220);
     pdf.rect(x, boxY, boxWidth, boxHeight);
-    pdf.addImage(dataUrl, "JPEG", drawX, drawY, fitWidth, fitHeight, undefined, "FAST");
+    pdf.addImage(imageDataUrl, "JPEG", drawX, drawY, fitWidth, fitHeight, undefined, "FAST");
   }
 
   function drawCard(x: number, cardY: number, width: number, height: number, fill: [number, number, number] = [250, 250, 251]) {
@@ -2672,7 +2723,7 @@ async function createReportPdfBlob(report: ReportRecord, object: ObjectRecord, j
   const objectImageHeight = 30;
 
   const objectImage = primaryObjectImage(object);
-  if (objectImage?.previewUrl?.startsWith("data:image")) {
+  if (objectImage?.previewUrl) {
     try {
       await addContainedImage(objectImage.previewUrl, imageX, imageY, objectImageWidth, objectImageHeight);
     } catch {
@@ -2735,7 +2786,7 @@ async function createReportPdfBlob(report: ReportRecord, object: ObjectRecord, j
   for (const [index, item] of report.checklistResults.entries()) {
     const noteLines = pdf.splitTextToSize(item.note || "Keine zusätzliche Info erfasst.", contentWidth - 8) as string[];
     const descriptionLines = item.description ? pdf.splitTextToSize(item.description, contentWidth - 8) as string[] : [];
-    const imagePhotos = item.photos.filter((photo) => photo.previewUrl?.startsWith("data:image"));
+    const imagePhotos = item.photos.filter((photo) => photo.previewUrl);
     const photoRows = Math.ceil(imagePhotos.length / 3);
     const taskHeight = 31 + descriptionLines.length * 3.6 + noteLines.length * 3.8 + photoRows * 35;
     ensureSpace(taskHeight + 4);
@@ -2782,7 +2833,7 @@ async function createReportPdfBlob(report: ReportRecord, object: ObjectRecord, j
         const rowPhotos = imagePhotos.slice(photoIndex, photoIndex + 3);
         for (const [rowIndex, photo] of rowPhotos.entries()) {
           const previewUrl = photo.previewUrl;
-          if (!previewUrl?.startsWith("data:image")) continue;
+          if (!previewUrl) continue;
           const photoX = margin + 4 + rowIndex * (photoBoxWidth + photoGap);
           try {
             await addContainedImage(previewUrl, photoX, innerY, photoBoxWidth, photoBoxHeight);
@@ -3044,13 +3095,16 @@ async function sendCustomerReportMail(report: ReportRecord, object: ObjectRecord
   const pdfBlob = await createReportPdfBlob(report, object, job, customer);
   const fileName = `${safeFileName(customerReportSendSubject(report, object, customer))}.pdf`;
   const attachmentBase64 = await blobToBase64(pdfBlob);
-  const extraAttachments = (report.attachments ?? [])
-    .filter((attachment) => attachment.dataUrl)
-    .map((attachment) => ({
-      content: dataUrlToBase64(attachment.dataUrl),
+  const extraAttachments = (await Promise.all((report.attachments ?? []).map(async (attachment) => {
+    const source = attachment.dataUrl || attachment.storageUrl;
+    if (!source) return null;
+    const dataUrl = await mediaSourceToDataUrl(source);
+    return {
+      content: dataUrlToBase64(dataUrl),
       contentType: attachment.type,
       filename: attachment.name,
-    }));
+    };
+  }))).filter((attachment): attachment is { content: string; contentType: string; filename: string } => Boolean(attachment));
   const response = await fetch("/api/reports/send", {
     body: JSON.stringify({
       attachmentBase64,
@@ -3326,13 +3380,18 @@ async function notifyPortalActivity(subject: string, body: string, replyTo?: str
   }
 }
 
-function readFileAsDataUrl(file: File) {
+function readFileAsDataUrl(file: Blob) {
   return new Promise<string>((resolve) => {
     const reader = new FileReader();
     reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
     reader.onerror = () => resolve("");
     reader.readAsDataURL(file);
   });
+}
+
+async function dataUrlToBlob(dataUrl: string) {
+  const response = await fetch(dataUrl);
+  return await response.blob();
 }
 
 async function fetchAssetAsDataUrl(path: string) {
@@ -3398,10 +3457,14 @@ async function fileToFieldPhotoPreview(file: File) {
   let previewUrl = "";
   for (const attempt of attempts) {
     previewUrl = await fileToImagePreview(file, attempt.maxSize, attempt.quality);
-    if (previewByteSize(previewUrl) <= 260_000) return previewUrl;
+    if (previewByteSize(previewUrl) <= 260_000) {
+      const uploaded = await uploadMediaFile(await dataUrlToBlob(previewUrl), "field-photos", file.name);
+      return uploaded?.url ?? previewUrl;
+    }
   }
 
-  return previewUrl;
+  const uploaded = previewUrl ? await uploadMediaFile(await dataUrlToBlob(previewUrl), "field-photos", file.name) : null;
+  return uploaded?.url ?? previewUrl;
 }
 
 function readAscii(view: DataView, offset: number, length: number) {
@@ -3532,6 +3595,8 @@ async function addressFromTripPhoto(file: File) {
 
 async function fileToDocumentPreview(file: File) {
   if (file.type.startsWith("image/")) return fileToImagePreview(file, 1100, 0.7);
+  const uploaded = await uploadMediaFile(file, "object-documents");
+  if (uploaded) return uploaded.url;
   if (file.size > 2_000_000) return undefined;
   return readFileAsDataUrl(file);
 }
@@ -10983,15 +11048,20 @@ function MasterDataView({
   async function addResourcePhotos(files: FileList | null) {
     if (!files || files.length === 0) return;
     const currentImages = resourceForm.mediaItems.filter((item) => item.type === "Bild");
-    const added = await Promise.all(Array.from(files).map(async (file, index) => ({
-      description: "",
-      id: `RES-MED-${resourceForm.identifier.trim() || resourceForm.name.trim() || "neu"}-${file.name}-${currentImages.length + index + 1}`,
-      isPrimary: currentImages.length === 0 && index === 0,
-      name: file.name,
-      previewUrl: await fileToImagePreview(file, 900, 0.62),
-      source: "Kamera" as const,
-      type: "Bild" as const,
-    })));
+    const added = await Promise.all(Array.from(files).map(async (file, index) => {
+      const previewUrl = await fileToImagePreview(file, 900, 0.62);
+      const uploaded = previewUrl ? await uploadMediaFile(await dataUrlToBlob(previewUrl), "resource-photos", file.name) : null;
+      return {
+        description: "",
+        id: `RES-MED-${resourceForm.identifier.trim() || resourceForm.name.trim() || "neu"}-${file.name}-${currentImages.length + index + 1}`,
+        isPrimary: currentImages.length === 0 && index === 0,
+        name: file.name,
+        previewUrl: uploaded?.url ?? previewUrl,
+        source: "Kamera" as const,
+        storagePath: uploaded?.path,
+        type: "Bild" as const,
+      };
+    }));
 
     setResourceForm({
       ...resourceForm,
@@ -12698,15 +12768,32 @@ function ObjectForm({
     if (!files?.length) return;
 
     const hasPrimaryImage = newObject.mediaItems.some((item) => item.type === "Bild" && item.isPrimary);
-    const added = await Promise.all(Array.from(files).map(async (file, index) => ({
-      id: `MED-${Date.now()}-${index}-${file.name}`,
-      type,
-      name: file.name,
-      description: type === "Dokument" ? newObject.documentDescription.trim() : "",
-      source,
-      previewUrl: type === "Bild" ? await fileToImagePreview(file, 900, 0.62) : await fileToDocumentPreview(file),
-      isPrimary: type === "Bild" && !hasPrimaryImage && index === 0,
-    })));
+    const added = await Promise.all(Array.from(files).map(async (file, index) => {
+      if (type === "Bild") {
+        const previewUrl = await fileToImagePreview(file, 900, 0.62);
+        const uploaded = previewUrl ? await uploadMediaFile(await dataUrlToBlob(previewUrl), "object-photos", file.name) : null;
+        return {
+          id: `MED-${Date.now()}-${index}-${file.name}`,
+          type,
+          name: file.name,
+          description: "",
+          source,
+          previewUrl: uploaded?.url ?? previewUrl,
+          storagePath: uploaded?.path,
+          isPrimary: !hasPrimaryImage && index === 0,
+        };
+      }
+      const previewUrl = await fileToDocumentPreview(file);
+      return {
+        id: `MED-${Date.now()}-${index}-${file.name}`,
+        type,
+        name: file.name,
+        description: type === "Dokument" ? newObject.documentDescription.trim() : "",
+        source,
+        previewUrl,
+        isPrimary: false,
+      };
+    }));
     const mediaItems = [...newObject.mediaItems, ...added];
 
     setNewObject({
@@ -13003,9 +13090,9 @@ function ObjectForm({
 function DocumentPreview({ item }: { item: MediaItem }) {
   const source = item.previewUrl ?? "";
   const lowerName = item.name.toLowerCase();
-  const isImage = source.startsWith("data:image/");
+  const isImage = source.startsWith("data:image/") || /\.(avif|gif|jpe?g|png|webp)(\?|$)/i.test(source) || /\.(avif|gif|jpe?g|png|webp)$/i.test(lowerName);
   const isPdf = source.startsWith("data:application/pdf") || lowerName.endsWith(".pdf");
-  const isText = source.startsWith("data:text/");
+  const isText = source.startsWith("data:text/") || lowerName.endsWith(".txt");
 
   if (isImage && source) {
     return <img alt={`Vorschau ${item.name}`} className="document-preview-image" src={source} />;
