@@ -222,9 +222,19 @@ type ReportRecord = {
   summary: string;
   internalNotes: string;
   media: string[];
+  attachments?: ReportAttachment[];
   checklistResults: FieldTaskResult[];
   customerComment: string;
   sentAt?: string;
+};
+
+type ReportAttachment = {
+  createdAt: string;
+  dataUrl: string;
+  id: string;
+  name: string;
+  size: number;
+  type: string;
 };
 
 type SeriesWeekReport = {
@@ -402,6 +412,7 @@ type VehicleLogEntry = {
   tripType: "Dienstfahrt" | "Privatfahrt";
   startAddress: string;
   endAddress: string;
+  waypoints?: VehicleWaypoint[];
   startOdometer: string;
   endOdometer: string;
   kilometers: string;
@@ -410,6 +421,12 @@ type VehicleLogEntry = {
   fuelOrCharge: string;
   notes: string;
   odometerPhotos?: VehicleOdometerPhoto[];
+};
+
+type VehicleWaypoint = {
+  address: string;
+  id: string;
+  note: string;
 };
 
 type VehicleOdometerPhoto = {
@@ -1179,7 +1196,7 @@ function recoverReportsFromFieldProgress(snapshot: AppSnapshot): AppSnapshot {
       const checklistResults = reportResultsFromProgress(job, snapshot.services, progress);
       const completedCount = checklistResults.filter((item) => item.completed).length;
       const photoCount = checklistResults.reduce((sum, item) => sum + item.photos.length, 0);
-      const workMinutes = checklistResults.reduce((sum, item) => sum + item.minutes, 0);
+      const visibleMinutes = visibleReportWorkMinutes(checklistResults);
       const fieldNote = snapshot.fieldNotes[fieldProgressKey(job, date)]?.trim();
 
       return [{
@@ -1191,7 +1208,7 @@ function recoverReportsFromFieldProgress(snapshot: AppSnapshot): AppSnapshot {
         visibleToCustomer: true,
         summary: `${workDates.length > 1 ? `Tagesbericht ${date}: ` : ""}${completedCount} von ${checklistResults.length} Checklistenpunkten ausgeführt.${fieldNote ? ` ${fieldNote}` : ""}`,
         internalNotes: job.internalNotes,
-        media: [`${photoCount} Fotos`, `${workMinutes} Minuten dokumentiert`, "aus Einsatzdaten wiederhergestellt"],
+        media: reportMediaLabels(photoCount, visibleMinutes, ["aus Einsatzdaten wiederhergestellt"]),
         checklistResults,
         customerComment: "",
       }];
@@ -1534,6 +1551,45 @@ function mergeSnapshots(remoteSnapshot: AppSnapshot, localSnapshot: AppSnapshot)
 
 function reportSummaryNote(summary: string) {
   return summary.replace(/^\d+ von \d+ Checklistenpunkten ausgeführt\.\s*/, "").trim();
+}
+
+function visibleReportWorkMinutes(checklistResults: FieldTaskResult[]) {
+  return checklistResults
+    .filter((item) => item.showWorkTimeInReport !== false)
+    .reduce((sum, item) => sum + item.minutes, 0);
+}
+
+function reportMediaLabels(photoCount: number, visibleMinutes: number, extraLabels: string[] = []) {
+  return [
+    `${photoCount} Fotos`,
+    ...(visibleMinutes > 0 ? [`${visibleMinutes} Minuten dokumentiert`] : []),
+    ...extraLabels,
+  ];
+}
+
+function reportAttachmentsLabel(report: ReportRecord) {
+  const count = report.attachments?.length ?? 0;
+  if (!count) return "";
+  return `${count} ${count === 1 ? "Dateianhang" : "Dateianhänge"}`;
+}
+
+async function fileToReportAttachment(file: File): Promise<ReportAttachment> {
+  if (file.size > 15_000_000) {
+    throw new Error(`"${file.name}" ist größer als 15 MB.`);
+  }
+
+  return {
+    createdAt: new Date().toISOString(),
+    dataUrl: await readFileAsDataUrl(file),
+    id: globalThis.crypto?.randomUUID?.() ?? `REPORT-FILE-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    name: file.name,
+    size: file.size,
+    type: file.type || "application/octet-stream",
+  };
+}
+
+function dataUrlToBase64(dataUrl: string) {
+  return dataUrl.includes(",") ? dataUrl.split(",", 2)[1] : dataUrl;
 }
 
 async function withTimeout<T>(promise: Promise<T>, timeoutMs = 8000): Promise<T> {
@@ -2491,8 +2547,21 @@ async function createReportPdfBlob(report: ReportRecord, object: ObjectRecord, j
     addWrappedText(value, x, width, 4.5);
   }
 
+  async function addContainedImage(dataUrl: string, x: number, boxY: number, boxWidth: number, boxHeight: number) {
+    const image = await loadImage(dataUrl);
+    const ratio = image?.naturalWidth && image?.naturalHeight ? image.naturalWidth / image.naturalHeight : boxWidth / boxHeight;
+    const fitWidth = ratio > boxWidth / boxHeight ? boxWidth : boxHeight * ratio;
+    const fitHeight = ratio > boxWidth / boxHeight ? boxWidth / ratio : boxHeight;
+    const drawX = x + (boxWidth - fitWidth) / 2;
+    const drawY = boxY + (boxHeight - fitHeight) / 2;
+
+    pdf.setDrawColor(220);
+    pdf.rect(x, boxY, boxWidth, boxHeight);
+    pdf.addImage(dataUrl, "JPEG", drawX, drawY, fitWidth, fitHeight, undefined, "FAST");
+  }
+
   pdf.setFillColor(246, 247, 249);
-  pdf.rect(0, 0, pageWidth, 38, "F");
+  pdf.rect(0, 0, pageWidth, 42, "F");
   pdf.setTextColor(20);
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(18);
@@ -2512,9 +2581,13 @@ async function createReportPdfBlob(report: ReportRecord, object: ObjectRecord, j
     pdf.setFont("helvetica", "normal");
     pdf.text("Kolaretorp Service AB", margin, 26);
   }
-  pdf.text(`${swedish ? "Rapport" : "Bericht"} ${report.id}`, pageWidth - margin, 18, { align: "right" });
-  pdf.text(report.date, pageWidth - margin, 26, { align: "right" });
-  y = 46;
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(8.5);
+  const reportLabelLines = (pdf.splitTextToSize(`${swedish ? "Rapport" : "Bericht"} ${report.id}`, 96) as string[]).slice(0, 2);
+  pdf.text(reportLabelLines, pageWidth - margin, 14, { align: "right" });
+  pdf.setFontSize(10);
+  pdf.text(report.date, pageWidth - margin, 29, { align: "right" });
+  y = 50;
 
   const objectImage = primaryObjectImage(object);
   if (objectImage?.previewUrl?.startsWith("data:image")) {
@@ -2558,7 +2631,7 @@ async function createReportPdfBlob(report: ReportRecord, object: ObjectRecord, j
   pdf.text(swedish ? "Checklista" : "Checkliste", margin, y);
   y += 7;
 
-  report.checklistResults.forEach((item, index) => {
+  for (const [index, item] of report.checklistResults.entries()) {
     ensureSpace(24);
     pdf.setFillColor(250, 250, 251);
     pdf.setDrawColor(225);
@@ -2584,12 +2657,12 @@ async function createReportPdfBlob(report: ReportRecord, object: ObjectRecord, j
       pdf.setFont("helvetica", "normal");
       addWrappedText(item.note, margin + 4, pageWidth - margin * 2 - 8, 4.2);
     }
-    item.photos.forEach((photo) => {
+    for (const photo of item.photos) {
       const previewUrl = photo.previewUrl;
-      if (!previewUrl?.startsWith("data:image")) return;
+      if (!previewUrl?.startsWith("data:image")) continue;
       ensureSpace(38);
       try {
-        pdf.addImage(previewUrl, "JPEG", margin + 4, y, 42, 28, undefined, "FAST");
+        await addContainedImage(previewUrl, margin + 4, y, 42, 28);
       } catch {
         pdf.rect(margin + 4, y, 42, 28);
       }
@@ -2600,10 +2673,24 @@ async function createReportPdfBlob(report: ReportRecord, object: ObjectRecord, j
         pdf.text(noteLines, margin + 50, y + 5);
       }
       y += 33;
-    });
+    }
     if (y === startY) y += 23;
     y += 3;
-  });
+  }
+
+  if (report.attachments?.length) {
+    ensureSpace(18 + report.attachments.length * 5);
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(12);
+    pdf.setTextColor(20);
+    pdf.text(swedish ? "Bilagor" : "Dateianhänge", margin, y);
+    y += 7;
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(9);
+    report.attachments.forEach((attachment) => {
+      addWrappedText(`${attachment.name} (${attachment.type || "Datei"})`, margin + 4, pageWidth - margin * 2 - 8, 4.2);
+    });
+  }
 
   addFooter();
   return pdf.output("blob");
@@ -2839,9 +2926,17 @@ async function sendCustomerReportMail(report: ReportRecord, object: ObjectRecord
   const pdfBlob = await createReportPdfBlob(report, object, job, customer);
   const fileName = `${safeFileName(customerReportSendSubject(report, object, customer))}.pdf`;
   const attachmentBase64 = await blobToBase64(pdfBlob);
+  const extraAttachments = (report.attachments ?? [])
+    .filter((attachment) => attachment.dataUrl)
+    .map((attachment) => ({
+      content: dataUrlToBase64(attachment.dataUrl),
+      contentType: attachment.type,
+      filename: attachment.name,
+    }));
   const response = await fetch("/api/reports/send", {
     body: JSON.stringify({
       attachmentBase64,
+      attachments: extraAttachments,
       body: customerReportSendBody(customer),
       cc: "info@kolaretorp.se",
       filename: fileName,
@@ -4086,6 +4181,7 @@ function reportCompletenessScore(report: ReportRecord) {
     report.customerComment.trim() ? 20 : 0,
     report.checklistResults.length * 4,
     photoCount * 3,
+    (report.attachments?.length ?? 0) * 3,
     noteCount * 2,
     report.summary.trim() ? 1 : 0,
   ].reduce((sum, value) => sum + value, 0);
@@ -4102,6 +4198,10 @@ function mergeReportPair(first: ReportRecord, second: ReportRecord) {
     const itemScore = Number(item.completed) + item.photos.length + Number(Boolean(item.note.trim()));
     if (!existing || itemScore >= existingScore) checklistById.set(item.id, item);
   });
+  const attachmentsById = new Map<string, ReportAttachment>();
+  [...(fallback.attachments ?? []), ...(primary.attachments ?? [])].forEach((attachment) => {
+    attachmentsById.set(attachment.id, { ...attachmentsById.get(attachment.id), ...attachment });
+  });
 
   return {
     ...fallback,
@@ -4110,6 +4210,7 @@ function mergeReportPair(first: ReportRecord, second: ReportRecord) {
     customerComment: primary.customerComment || fallback.customerComment,
     date: normalizeReportDate(primary.date),
     media: Array.from(new Set([...fallback.media, ...primary.media])),
+    attachments: Array.from(attachmentsById.values()).sort((firstAttachment, secondAttachment) => firstAttachment.createdAt.localeCompare(secondAttachment.createdAt)),
     sentAt: primary.sentAt ?? fallback.sentAt,
   };
 }
@@ -4749,6 +4850,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     startOdometer: "",
     tripType: "Dienstfahrt" as VehicleLogEntry["tripType"],
     visited: "",
+    waypoints: [] as VehicleWaypoint[],
     odometerPhotos: [] as VehicleOdometerPhoto[],
   });
   const [recordNotice, setRecordNotice] = useState("");
@@ -5091,7 +5193,11 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   const objectStatusOptions = uniqueSortedValues(objects.map((object) => object.status), ["Saison aktiv", "Kontrolle offen", "Winterruhe"]);
   const activeVehicles = resources.filter((resource) => resource.type === "Fahrzeug" && !resource.archived);
   const quickTripAddressOptions = uniqueSortedValues(
-    resources.flatMap((resource) => resource.logbook.flatMap((entry) => [entry.startAddress, entry.endAddress])),
+    resources.flatMap((resource) => resource.logbook.flatMap((entry) => [
+      entry.startAddress,
+      entry.endAddress,
+      ...(entry.waypoints ?? []).map((waypoint) => waypoint.address),
+    ])),
     objects.map((object) => object.address),
   );
   const quickTripPurposeOptions = uniqueSortedValues(
@@ -5825,6 +5931,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       minutes: item.completed ? item.minutes : 0,
     }));
     const workMinutes = normalizedResults.reduce((sum, item) => sum + item.minutes, 0);
+    const visibleMinutes = visibleReportWorkMinutes(normalizedResults);
     const completedCount = normalizedResults.filter((item) => item.completed).length;
     const photoCount = normalizedResults.reduce((sum, item) => sum + item.photos.length, 0);
     const reportId = existingReport?.id ?? (isMultiDayJob ? `REP-${job.id}-${executionDate}` : `REP-${Date.now()}`);
@@ -5858,9 +5965,10 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       title: job.title,
       date: existingReport?.date ?? executionDate,
       visibleToCustomer: existingReport?.visibleToCustomer ?? true,
-      summary,
+      summary: existingReport?.summary ?? summary,
       internalNotes: job.internalNotes,
-      media: [`${photoCount} Fotos`, `${workMinutes} Minuten dokumentiert`],
+      media: reportMediaLabels(photoCount, visibleMinutes),
+      attachments: existingReport?.attachments ?? [],
       checklistResults: normalizedResults,
       customerComment: existingReport?.customerComment ?? "",
       sentAt: existingReport?.sentAt,
@@ -5997,7 +6105,10 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
 
   function createSeriesWeekReport(master: JobRecord, week: SeriesWeekReport) {
     const object = objects.find((item) => item.id === master.objectId);
-    if (!object) return;
+    if (!object) {
+      setRecordNotice("Wochenbericht konnte nicht erzeugt werden: Objekt fehlt.");
+      return;
+    }
 
     const reportsByJobId = new Map(dedupeReports(reports).map((report) => [report.jobId, report]));
     const checklistResults: FieldTaskResult[] = week.occurrences.map((occurrence) => {
@@ -6017,12 +6128,15 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
         id: `WEEK-${occurrence.id}`,
         meta: `${executionLabel} · ${occurrence.assignedTo || "nicht zugewiesen"} · ${readableJobStatus(occurrence.status)}`,
         minutes,
+        showWorkTimeInReport: occurrenceReport
+          ? occurrenceReport.checklistResults.some((item) => item.showWorkTimeInReport !== false && item.minutes > 0)
+          : true,
         note: reportNotes || occurrenceReport?.summary || "Kein Tagesbericht für diesen Teilauftrag vorhanden.",
         photos: occurrenceReport?.checklistResults.flatMap((item) => item.photos) ?? [],
         title: occurrence.title,
       };
     });
-    const totalMinutes = checklistResults.reduce((sum, item) => sum + item.minutes, 0);
+    const visibleMinutes = visibleReportWorkMinutes(checklistResults);
     const title = `Wochenbericht KW ${week.week} ${week.year} - ${master.title}`;
     const reportId = `WEEK-${master.id}-${week.year}-KW${String(week.week).padStart(2, "0")}`;
     const existingWeekReport = reports.find((report) => report.id === reportId);
@@ -6033,10 +6147,11 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       id: reportId,
       internalNotes: `Automatisch erzeugter Wochenbericht für Serienauftrag ${master.id}. Enthält Teilaufträge: ${week.occurrences.map((item) => item.id).join(", ")}`,
       jobId: master.id,
-      media: [`${week.count} Teilaufträge`, `${week.reportCount} Tagesberichte`, `${totalMinutes} Minuten dokumentiert`],
+      media: reportMediaLabels(0, visibleMinutes, [`${week.count} Teilaufträge`, `${week.reportCount} Tagesberichte`]).filter((item) => item !== "0 Fotos"),
       objectId: master.objectId,
       sentAt: existingWeekReport?.sentAt,
-      summary: `Wochenbericht für ${object.name}: ${week.completed} erledigt, ${week.open} offen, ${week.reportCount} Tagesberichte im Zeitraum ${week.startDate} bis ${week.endDate}.`,
+      summary: existingWeekReport?.summary ?? `Wochenbericht für ${object.name}: ${week.completed} erledigt, ${week.open} offen, ${week.reportCount} Tagesberichte im Zeitraum ${week.startDate} bis ${week.endDate}.`,
+      attachments: existingWeekReport?.attachments ?? [],
       title,
       visibleToCustomer: true,
     };
@@ -6049,6 +6164,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     persistSnapshotNow({ reports: nextReports });
     setSection("reports");
     setSendPreviewReportId(reportId);
+    setRecordNotice(`Wochenbericht KW ${week.week} ${week.year} wurde erzeugt und zum Senden geöffnet.`);
   }
 
   async function createPortalMessage(customer: CustomerRecord, objectId: string, subject: string, message: string) {
@@ -6352,6 +6468,9 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       startOdometer: quickTripForm.startOdometer.trim(),
       tripType: quickTripForm.tripType,
       visited: quickTripForm.tripType === "Privatfahrt" ? "" : quickTripForm.visited.trim(),
+      waypoints: quickTripForm.waypoints
+        .map((waypoint) => ({ ...waypoint, address: waypoint.address.trim(), note: waypoint.note.trim() }))
+        .filter((waypoint) => waypoint.address),
     };
     const nextResources = resources.map((resource) => (
       resource.id === vehicle.id
@@ -6375,6 +6494,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       startOdometer: entry.endOdometer,
       tripType: "Dienstfahrt",
       visited: "",
+      waypoints: [],
       odometerPhotos: [],
     });
   }
@@ -6672,7 +6792,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                 resources={resources}
               />
             )}
-            {section === "reports" && <ReportsView customers={customers} jobs={jobs} objects={objects} onEditInField={editReportInField} onSendReport={sendReportToCustomer} reports={reports} />}
+            {section === "reports" && <ReportsView customers={customers} jobs={jobs} objects={objects} onEditInField={editReportInField} onSendReport={sendReportToCustomer} onUpdateReport={updateReportRecord} reports={reports} />}
             {section === "communication" && (
               <CommunicationView
                 customers={customers}
@@ -6849,6 +6969,60 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
               <datalist id="quick-trip-address-options">
                 {quickTripAddressOptions.map((address) => <option key={address} value={address} />)}
               </datalist>
+              <div className="wide waypoint-editor">
+                <div className="waypoint-editor-head">
+                  <span>Zwischenziele</span>
+                  <button
+                    className="ghost-button"
+                    onClick={() => setQuickTripForm({
+                      ...quickTripForm,
+                      waypoints: [
+                        ...quickTripForm.waypoints,
+                        { address: "", id: globalThis.crypto?.randomUUID?.() ?? `WAY-${Date.now()}`, note: "" },
+                      ],
+                    })}
+                    type="button"
+                  >
+                    <Plus size={14} />
+                    Ziel
+                  </button>
+                </div>
+                {quickTripForm.waypoints.map((waypoint, waypointIndex) => (
+                  <div className="waypoint-row" key={waypoint.id}>
+                    <input
+                      aria-label={`Zwischenziel ${waypointIndex + 1}`}
+                      list="quick-trip-address-options"
+                      placeholder={`Zwischenziel ${waypointIndex + 1}`}
+                      value={waypoint.address}
+                      onChange={(event) => setQuickTripForm({
+                        ...quickTripForm,
+                        waypoints: quickTripForm.waypoints.map((item) => (
+                          item.id === waypoint.id ? { ...item, address: event.target.value } : item
+                        )),
+                      })}
+                    />
+                    <input
+                      aria-label={`Notiz zu Zwischenziel ${waypointIndex + 1}`}
+                      placeholder="Notiz"
+                      value={waypoint.note}
+                      onChange={(event) => setQuickTripForm({
+                        ...quickTripForm,
+                        waypoints: quickTripForm.waypoints.map((item) => (
+                          item.id === waypoint.id ? { ...item, note: event.target.value } : item
+                        )),
+                      })}
+                    />
+                    <button
+                      aria-label={`Zwischenziel ${waypointIndex + 1} löschen`}
+                      className="icon-button"
+                      onClick={() => setQuickTripForm({ ...quickTripForm, waypoints: quickTripForm.waypoints.filter((item) => item.id !== waypoint.id) })}
+                      type="button"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
               <div className="wide voice-input-row">
                 <label><span>Name / besucht bei</span><input disabled={quickTripForm.tripType === "Privatfahrt"} value={quickTripForm.visited} onChange={(event) => setQuickTripForm({ ...quickTripForm, visited: event.target.value })} /></label>
                 <button aria-label="Name per Sprache eingeben" className="icon-button" disabled={quickTripForm.tripType === "Privatfahrt"} onClick={dictateQuickTripVisited} type="button">
@@ -6938,6 +7112,12 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                 <span>PDF-Anhang</span>
                 <strong>{safeFileName(customerReportSendSubject(sendPreviewReport, sendPreviewObject, sendPreviewCustomer))}.pdf</strong>
               </div>
+              {(sendPreviewReport.attachments ?? []).length > 0 && (
+                <div className="wide">
+                  <span>Weitere Anhänge</span>
+                  <strong>{(sendPreviewReport.attachments ?? []).map((attachment) => attachment.name).join(", ")}</strong>
+                </div>
+              )}
               <div className="wide">
                 <span>Nachricht</span>
                 <pre>{customerReportSendBody(sendPreviewCustomer)}</pre>
@@ -7311,6 +7491,7 @@ function ReportsView({
   jobs,
   onEditInField,
   onSendReport,
+  onUpdateReport,
   objects,
   reports,
 }: {
@@ -7318,6 +7499,7 @@ function ReportsView({
   jobs: JobRecord[];
   onEditInField: (report: ReportRecord) => void;
   onSendReport: (report: ReportRecord) => void;
+  onUpdateReport: (report: ReportRecord) => void;
   objects: ObjectRecord[];
   reports: ReportRecord[];
 }) {
@@ -7426,7 +7608,88 @@ function ReportsView({
             </div>
           </div>
           <CustomerReportCard customer={selectedCustomer} job={selectedJob} object={selectedObject} report={selectedReport} sentAt={selectedReport.sentAt} />
+          <label className="report-comment-editor">
+            <span>Berichtstext</span>
+            <textarea
+              disabled={Boolean(selectedReport.sentAt)}
+              value={selectedReport.summary}
+              onChange={(event) => onUpdateReport({ ...selectedReport, summary: event.target.value })}
+              placeholder={selectedReport.sentAt ? "Bericht wurde bereits gesendet und ist gesperrt." : "Berichtstext für den Kundenbericht anpassen."}
+            />
+          </label>
+          <label className="report-comment-editor">
+            <span>Kommentar vor dem Senden</span>
+            <textarea
+              disabled={Boolean(selectedReport.sentAt)}
+              value={selectedReport.customerComment}
+              onChange={(event) => onUpdateReport({ ...selectedReport, customerComment: event.target.value })}
+              placeholder={selectedReport.sentAt ? "Bericht wurde bereits gesendet und ist gesperrt." : "Kommentar ergänzen, der im Kundenbericht erscheinen soll."}
+            />
+          </label>
+          <ReportAttachmentEditor disabled={Boolean(selectedReport.sentAt)} onUpdateReport={onUpdateReport} report={selectedReport} />
         </section>
+      )}
+    </div>
+  );
+}
+
+function ReportAttachmentEditor({
+  disabled,
+  onUpdateReport,
+  report,
+}: {
+  disabled: boolean;
+  onUpdateReport: (report: ReportRecord) => void;
+  report: ReportRecord;
+}) {
+  const [notice, setNotice] = useState("");
+
+  async function addAttachments(files: FileList | null) {
+    const selectedFiles = Array.from(files ?? []);
+    if (!selectedFiles.length) return;
+
+    try {
+      const attachments = await Promise.all(selectedFiles.map((file) => fileToReportAttachment(file)));
+      onUpdateReport({ ...report, attachments: [...(report.attachments ?? []), ...attachments] });
+      setNotice(`${attachments.length} ${attachments.length === 1 ? "Datei wurde" : "Dateien wurden"} angehängt.`);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Datei konnte nicht angehängt werden.");
+    }
+  }
+
+  return (
+    <div className="report-attachment-editor">
+      <label className="report-comment-editor">
+        <span>Dateianhänge</span>
+        <input
+          accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+          disabled={disabled}
+          multiple
+          type="file"
+          onChange={(event) => {
+            void addAttachments(event.target.files);
+            event.currentTarget.value = "";
+          }}
+        />
+      </label>
+      {notice && <small>{notice}</small>}
+      {(report.attachments ?? []).length > 0 && (
+        <div className="history-media">
+          {(report.attachments ?? []).map((attachment) => (
+            <span key={attachment.id}>
+              {attachment.name}
+              {!disabled && (
+                <button
+                  aria-label={`Anhang ${attachment.name} entfernen`}
+                  onClick={() => onUpdateReport({ ...report, attachments: (report.attachments ?? []).filter((item) => item.id !== attachment.id) })}
+                  type="button"
+                >
+                  <X size={12} />
+                </button>
+              )}
+            </span>
+          ))}
+        </div>
       )}
     </div>
   );
@@ -7447,9 +7710,13 @@ function CustomerReportCard({
 }) {
   const objectImage = primaryObjectImage(object);
   const reportKind = report.id.startsWith("WEEK-") ? "Wochenbericht" : "Einsatzbericht";
-  const visibleWorkMinutes = report.checklistResults
-    .filter((item) => item.showWorkTimeInReport !== false)
-    .reduce((sum, item) => sum + item.minutes, 0);
+  const visibleWorkMinutes = visibleReportWorkMinutes(report.checklistResults);
+  const attachmentLabel = reportAttachmentsLabel(report);
+  const visibleMedia = [
+    ...report.media.filter((item) => visibleWorkMinutes > 0 || !/minuten/i.test(item)),
+    ...(attachmentLabel ? [attachmentLabel] : []),
+  ];
+  const materialText = job?.material?.trim() ?? "";
 
   return (
     <article className="customer-report-card printable-report">
@@ -7511,7 +7778,7 @@ function CustomerReportCard({
           <dl>
             {job && <div><dt>Priorität</dt><dd>{job.priority}</dd></div>}
             {job && <div><dt>Bearbeiter</dt><dd>{job.assignedTo}</dd></div>}
-            {job && <div><dt>Zeit / Material</dt><dd>{visibleWorkMinutes > 0 ? `${visibleWorkMinutes} min. · ` : ""}{job.material}</dd></div>}
+            {job && (visibleWorkMinutes > 0 || materialText) && <div><dt>{visibleWorkMinutes > 0 ? "Zeit / Material" : "Material"}</dt><dd>{visibleWorkMinutes > 0 ? `${visibleWorkMinutes} min.${materialText ? " · " : ""}` : ""}{materialText}</dd></div>}
           </dl>
         </section>
       </div>
@@ -7586,8 +7853,16 @@ function CustomerReportCard({
         </div>
       ) : null}
       <div className="history-media">
-        {report.media.map((item) => <span key={item}>{item}</span>)}
+        {visibleMedia.map((item) => <span key={item}>{item}</span>)}
       </div>
+      {(report.attachments ?? []).length > 0 && (
+        <div className="report-attachment-list">
+          <strong>Dateianhänge</strong>
+          {(report.attachments ?? []).map((attachment) => (
+            <span key={attachment.id}>{attachment.name}</span>
+          ))}
+        </div>
+      )}
       <footer className="report-footer">
         <span>Kolaretorp Service AB</span>
         <span>info@kolaretorp.se</span>
@@ -8633,6 +8908,25 @@ function FieldView({
     setPhotoNoteDraft("");
   }
 
+  async function addFieldPhotoFiles(taskId: string, currentTask: FieldTaskProgress, files: FileList | null) {
+    const selectedFiles = Array.from(files ?? []);
+    if (!selectedFiles.length) return;
+
+    const nextPhotos: FieldPhoto[] = [];
+    for (const file of selectedFiles) {
+      try {
+        const previewUrl = await fileToFieldPhotoPreview(file);
+        nextPhotos.push(createFieldPhoto(file, previewUrl));
+      } catch (error) {
+        console.warn("Einsatzfoto konnte nicht gespeichert werden.", error);
+        nextPhotos.push(createFieldPhoto(file));
+      }
+    }
+
+    updateTaskPhotos(taskId, currentTask, (photos) => [...photos, ...nextPhotos]);
+    if (nextPhotos[0]) openPhotoNoteEditor(taskId, nextPhotos[0]);
+  }
+
   function updateFieldNote(note: string) {
     onFieldNoteChange(fieldProgressKey(activeJob, activeWorkDate), note);
   }
@@ -8804,22 +9098,10 @@ function FieldView({
                     accept="image/*"
                     capture="environment"
                     disabled={reportLocked}
+                    multiple
                     type="file"
                     onChange={(event) => {
-                      const file = event.target.files?.[0];
-                      if (!file) return;
-                      void fileToFieldPhotoPreview(file)
-                        .then((previewUrl) => {
-                          const photo = createFieldPhoto(file, previewUrl);
-                          updateTaskPhotos(task.id, currentTask, (photos) => [...photos, photo]);
-                          openPhotoNoteEditor(task.id, photo);
-                        })
-                        .catch((error) => {
-                          console.warn("Einsatzfoto konnte nicht gespeichert werden.", error);
-                          const photo = createFieldPhoto(file);
-                          updateTaskPhotos(task.id, currentTask, (photos) => [...photos, photo]);
-                          openPhotoNoteEditor(task.id, photo);
-                        });
+                      void addFieldPhotoFiles(task.id, currentTask, event.target.files);
                       event.currentTarget.value = "";
                     }}
                   />
@@ -10041,6 +10323,7 @@ function MasterDataView({
     startOdometer: "",
     tripType: "Dienstfahrt" as VehicleLogEntry["tripType"],
     visited: "",
+    waypoints: [] as VehicleWaypoint[],
     odometerPhotos: [] as VehicleOdometerPhoto[],
   });
   const [mailSettingsForm, setMailSettingsForm] = useState(dailyMailSettings);
@@ -10117,7 +10400,11 @@ function MasterDataView({
     };
   }, { businessKm: 0, privateKm: 0, privateTrips: 0, totalKm: 0 });
   const logbookAddressOptions = uniqueSortedValues(
-    resources.flatMap((resource) => resource.logbook.flatMap((entry) => [entry.startAddress, entry.endAddress])),
+    resources.flatMap((resource) => resource.logbook.flatMap((entry) => [
+      entry.startAddress,
+      entry.endAddress,
+      ...(entry.waypoints ?? []).map((waypoint) => waypoint.address),
+    ])),
     objects.map((object) => object.address),
   );
   const logbookPurposeOptions = uniqueSortedValues(
@@ -10382,13 +10669,14 @@ function MasterDataView({
       startOdometer: latestEntry?.endOdometer ?? selectedResource?.odometerYearStart ?? "",
       tripType: "Dienstfahrt",
       visited: "",
+      waypoints: [],
       odometerPhotos: [],
     });
   }
 
   function editLogbookEntry(entry: VehicleLogEntry) {
     setEditingLogEntryId(entry.id);
-    setLogbookForm({ ...entry, odometerPhotos: entry.odometerPhotos ?? [] });
+    setLogbookForm({ ...entry, odometerPhotos: entry.odometerPhotos ?? [], waypoints: entry.waypoints ?? [] });
   }
 
   function saveLogbookEntry() {
@@ -10431,6 +10719,9 @@ function MasterDataView({
       startAddress: logbookForm.startAddress.trim(),
       startOdometer: logbookForm.startOdometer.trim(),
       visited: logbookForm.tripType === "Privatfahrt" ? "" : logbookForm.visited.trim(),
+      waypoints: logbookForm.waypoints
+        .map((waypoint) => ({ ...waypoint, address: waypoint.address.trim(), note: waypoint.note.trim() }))
+        .filter((waypoint) => waypoint.address),
     };
 
     const nextResources = resources.map((resource) => {
@@ -11183,6 +11474,60 @@ function MasterDataView({
                 <datalist id="logbook-address-options">
                   {logbookAddressOptions.map((address) => <option key={address} value={address} />)}
                 </datalist>
+                <div className="wide waypoint-editor">
+                  <div className="waypoint-editor-head">
+                    <span>Zwischenziele</span>
+                    <button
+                      className="ghost-button"
+                      onClick={() => setLogbookForm({
+                        ...logbookForm,
+                        waypoints: [
+                          ...logbookForm.waypoints,
+                          { address: "", id: globalThis.crypto?.randomUUID?.() ?? `WAY-${Date.now()}`, note: "" },
+                        ],
+                      })}
+                      type="button"
+                    >
+                      <Plus size={14} />
+                      Ziel
+                    </button>
+                  </div>
+                  {logbookForm.waypoints.map((waypoint, waypointIndex) => (
+                    <div className="waypoint-row" key={waypoint.id}>
+                      <input
+                        aria-label={`Zwischenziel ${waypointIndex + 1}`}
+                        list="logbook-address-options"
+                        placeholder={`Zwischenziel ${waypointIndex + 1}`}
+                        value={waypoint.address}
+                        onChange={(event) => setLogbookForm({
+                          ...logbookForm,
+                          waypoints: logbookForm.waypoints.map((item) => (
+                            item.id === waypoint.id ? { ...item, address: event.target.value } : item
+                          )),
+                        })}
+                      />
+                      <input
+                        aria-label={`Notiz zu Zwischenziel ${waypointIndex + 1}`}
+                        placeholder="Notiz"
+                        value={waypoint.note}
+                        onChange={(event) => setLogbookForm({
+                          ...logbookForm,
+                          waypoints: logbookForm.waypoints.map((item) => (
+                            item.id === waypoint.id ? { ...item, note: event.target.value } : item
+                          )),
+                        })}
+                      />
+                      <button
+                        aria-label={`Zwischenziel ${waypointIndex + 1} löschen`}
+                        className="icon-button"
+                        onClick={() => setLogbookForm({ ...logbookForm, waypoints: logbookForm.waypoints.filter((item) => item.id !== waypoint.id) })}
+                        type="button"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
                 <label><span>Zweck / Ärende</span><input list="logbook-purpose-options" value={logbookForm.purpose} onChange={(event) => setLogbookForm({ ...logbookForm, purpose: event.target.value })} /></label>
                 <datalist id="logbook-purpose-options">
                   {logbookPurposeOptions.map((purpose) => <option key={purpose} value={purpose} />)}
@@ -11199,6 +11544,9 @@ function MasterDataView({
                     <div>
                       <strong>{entry.date} · {entry.kilometers} km · {entry.tripType}</strong>
                       <span>{entry.startAddress} → {entry.endAddress}</span>
+                      {entry.waypoints?.length ? (
+                        <span>Zwischenziele: {entry.waypoints.map((waypoint) => waypoint.note ? `${waypoint.address} (${waypoint.note})` : waypoint.address).join(" → ")}</span>
+                      ) : null}
                       <span>{entry.startOdometer} → {entry.endOdometer} km · {entry.purpose}{entry.visited ? ` · ${entry.visited}` : ""}</span>
                       {entry.odometerPhotos?.length ? (
                         <span>{entry.odometerPhotos.map((photo) => `${photo.source === "start" ? "Startfoto" : "Endfoto"}: ${photo.address || photo.name}`).join(" · ")}</span>
@@ -11813,6 +12161,15 @@ function ObjectHistory({
                 <p>{selectedReport.internalNotes}</p>
               </div>
               <label className="report-comment-editor">
+                <span>Berichtstext</span>
+                <textarea
+                  disabled={Boolean(sentAt)}
+                  value={selectedReport.summary}
+                  onChange={(event) => onUpdateReport({ ...selectedReport, summary: event.target.value })}
+                  placeholder={sentAt ? "Bericht wurde bereits gesendet und ist gesperrt." : "Berichtstext für den Kundenbericht anpassen."}
+                />
+              </label>
+              <label className="report-comment-editor">
                 <span>Kommentar vor dem Senden</span>
                 <textarea
                   disabled={Boolean(sentAt)}
@@ -11821,6 +12178,7 @@ function ObjectHistory({
                   placeholder={sentAt ? "Bericht wurde bereits gesendet und ist gesperrt." : "Kommentar ergänzen, der im Kundenbericht erscheinen soll."}
                 />
               </label>
+              <ReportAttachmentEditor disabled={Boolean(sentAt)} onUpdateReport={onUpdateReport} report={selectedReport} />
               <div className="send-status">
                 <strong>{sentAt ? "Gesendet" : "Noch nicht an Kunden gesendet"}</strong>
                 <span>Betreff: {reportSubject}</span>

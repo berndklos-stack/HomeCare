@@ -4,6 +4,11 @@ export const runtime = "nodejs";
 
 type SendReportPayload = {
   attachmentBase64?: string;
+  attachments?: Array<{
+    content?: string;
+    contentType?: string;
+    filename?: string;
+  }>;
   body?: string;
   cc?: string;
   filename?: string;
@@ -22,7 +27,7 @@ function htmlBody(text: string) {
     .join("");
 }
 
-async function sendResendReportMail(payload: Required<Pick<SendReportPayload, "attachmentBase64" | "body" | "filename" | "subject" | "to">> & { cc?: string }) {
+async function sendResendReportMail(payload: Required<Pick<SendReportPayload, "attachmentBase64" | "body" | "filename" | "subject" | "to">> & { attachments?: SendReportPayload["attachments"]; cc?: string }) {
   const resendApiKey = process.env.RESEND_API_KEY;
   const fromAddress = process.env.REPORT_SENDER_EMAIL || "info@kolaretorp.se";
 
@@ -36,10 +41,19 @@ async function sendResendReportMail(payload: Required<Pick<SendReportPayload, "a
 
   const response = await fetch("https://api.resend.com/emails", {
     body: JSON.stringify({
-      attachments: [{
-        content: payload.attachmentBase64,
-        filename: payload.filename,
-      }],
+      attachments: [
+        {
+          content: payload.attachmentBase64,
+          filename: payload.filename,
+        },
+        ...(payload.attachments ?? [])
+          .filter((attachment) => attachment.content && attachment.filename)
+          .map((attachment) => ({
+            content: attachment.content,
+            content_type: attachment.contentType,
+            filename: attachment.filename,
+          })),
+      ],
       cc: cc && cc !== to ? [cc] : undefined,
       from: `Kolaretorp Service AB <${fromAddress}>`,
       html: htmlBody(payload.body),
@@ -72,7 +86,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: `Pflichtfelder fehlen: ${missing.join(", ")}` }, { status: 400 });
     }
 
-    const delivery = await sendResendReportMail(payload as Required<Pick<SendReportPayload, "attachmentBase64" | "body" | "filename" | "subject" | "to">> & { cc?: string });
+    const delivery = await sendResendReportMail(payload as Required<Pick<SendReportPayload, "attachmentBase64" | "body" | "filename" | "subject" | "to">> & { attachments?: SendReportPayload["attachments"]; cc?: string });
     return NextResponse.json({ delivery, sent: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Bericht konnte nicht gesendet werden.";

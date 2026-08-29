@@ -1,10 +1,24 @@
 export const appVersion = {
-  version: "1.216.0",
+  version: "1.217.0",
   releaseDate: "2026-08-28",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.217.0",
+    date: "2026-08-28",
+    changes: [
+      "Kundenberichte blenden Minuten-Badges aus, wenn keine Arbeitszeit an Kunden gezeigt werden soll",
+      "Berichtstext und Kundenkommentar koennen vor dem Senden direkt in Berichtsuebersicht und Objektverlauf bearbeitet werden",
+      "Manuell angepasste Berichtszusammenfassungen bleiben beim mobilen Nachbearbeiten erhalten",
+      "PDF-Berichte stellen Hochkantfotos proportional dar und kuerzen lange Berichtskopfzeilen sauber ein",
+      "Berichte koennen vor dem Versand zusaetzliche Dateien wie PDF, Video oder Bilder als Mailanhaenge speichern",
+      "Mobil vor Ort kann am Mac mehrere Fotos in einem Schritt an eine Checklistenposition haengen",
+      "Fahrtenbuch und Quick-Fahrt unterstuetzen Zwischenziele mit optionaler Notiz",
+      "Wochenberichte melden fehlende Objektdaten klar und oeffnen die Versandvorschau nach dem Erzeugen robuster",
+    ],
+  },
   {
     version: "1.216.0",
     date: "2026-08-28",
