@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.226.0",
+  version: "1.227.0",
   releaseDate: "2026-08-29",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.227.0",
+    date: "2026-08-29",
+    changes: [
+      "Redeploy fuer neu gesetzten Supabase Service Role Key angestossen",
+      "Medien-Storage kann nach Vercel-Environment-Aktualisierung den Bucket automatisch vorbereiten",
+    ],
+  },
   {
     version: "1.226.0",
     date: "2026-08-29",
