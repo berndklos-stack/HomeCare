@@ -1,10 +1,24 @@
 export const appVersion = {
-  version: "1.220.0",
-  releaseDate: "2026-08-28",
+  version: "1.222.0",
+  releaseDate: "2026-08-29",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.222.0",
+    date: "2026-08-29",
+    changes: [
+      "PDF-Berichte orientieren sich optisch staerker an der Berichtsvorschau mit Kopf-, Objekt-, Info- und Checklisten-Karten",
+      "PDF-Checklistenbilder werden als kompakte Galerie im Vorschau-Stil gesetzt",
+      "Bericht- und Wochenbericht-Versanddialoge koennen zusaetzliche Dateianhaenge mit Bueroklammer-Icon speichern und mitsenden",
+      "Mobil vor Ort kann Material, beschriftete Einsatznotizen und Berichtsanhaenge erfassen",
+      "Berichte oeffnen aus der Berichtsuebersicht als Popup statt unterhalb der Liste",
+      "Objektuebersichten sortieren inaktive Objekte nach unten",
+      "Leistungs- und Materialpreise zeigen klar inkl. oder zzgl. Moms an",
+      "Buchhaltungsrelevante Faktura-PDFs werden immer schwedisch erstellt",
+    ],
+  },
   {
     version: "1.220.0",
     date: "2026-08-28",

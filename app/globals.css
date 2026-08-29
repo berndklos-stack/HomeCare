@@ -3338,6 +3338,12 @@ mark.neutral {
   gap: 8px;
 }
 
+.inline-icon-label {
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+}
+
 .report-attachment-list {
   border-top: 1px solid var(--line);
   display: flex;
@@ -3590,6 +3596,11 @@ mark.neutral {
 .send-preview-modal {
   max-width: 980px;
   width: min(100%, 980px);
+}
+
+.report-detail-modal {
+  max-height: min(92vh, 980px);
+  overflow: auto;
 }
 
 .customer-message-modal {

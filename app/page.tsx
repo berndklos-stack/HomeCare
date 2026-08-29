@@ -2377,8 +2377,8 @@ function nextOutgoingBookNumber(billing: BillingRecord[], invoiceDate: string) {
 }
 
 function invoiceSubject(item: BillingRecord, object: ObjectRecord, customer?: CustomerRecord) {
-  const label = isSwedishCustomerLanguage(customer?.language) ? "Faktura" : "Rechnung";
-  return `${label} ${item.invoiceNumber || item.id} - ${object.name}`;
+  void customer;
+  return `Faktura ${item.invoiceNumber || item.id} - ${object.name}`;
 }
 
 const vismaChartOfAccounts = [
@@ -2580,132 +2580,220 @@ async function createReportPdfBlob(report: ReportRecord, object: ObjectRecord, j
     pdf.addImage(dataUrl, "JPEG", drawX, drawY, fitWidth, fitHeight, undefined, "FAST");
   }
 
-  pdf.setFillColor(246, 247, 249);
-  pdf.rect(0, 0, pageWidth, 46, "F");
-  pdf.setTextColor(20);
-  pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(18);
+  function drawCard(x: number, cardY: number, width: number, height: number, fill: [number, number, number] = [250, 250, 251]) {
+    pdf.setFillColor(...fill);
+    pdf.setDrawColor(225, 228, 233);
+    pdf.roundedRect(x, cardY, width, height, 2.2, 2.2, "FD");
+  }
+
+  function drawBadge(text: string, x: number, badgeY: number, width = 28) {
+    pdf.setFillColor(236, 245, 241);
+    pdf.setDrawColor(192, 220, 207);
+    pdf.roundedRect(x, badgeY, width, 7, 3.5, 3.5, "FD");
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(6.8);
+    pdf.setTextColor(41, 111, 85);
+    pdf.text(text, x + width / 2, badgeY + 4.7, { align: "center" });
+  }
+
+  function drawSectionTitle(title: string) {
+    ensureSpace(12);
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(10.8);
+    pdf.setTextColor(18, 22, 28);
+    pdf.text(title, margin, y);
+    y += 5;
+  }
+
+  function drawInfoBox(title: string, rows: Array<[string, string]>, x: number, cardY: number, width: number, height: number) {
+    drawCard(x, cardY, width, height);
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(7.8);
+    pdf.setTextColor(18, 22, 28);
+    pdf.text(title, x + 3.5, cardY + 5.5);
+    let rowY = cardY + 10.5;
+    rows.forEach(([label, value]) => {
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(6.3);
+      pdf.setTextColor(105, 111, 122);
+      pdf.text(label, x + 3.5, rowY);
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(7.1);
+      pdf.setTextColor(18, 22, 28);
+      const lines = (pdf.splitTextToSize(value || "-", width - 7) as string[]).slice(0, 2);
+      pdf.text(lines, x + 3.5, rowY + 3.4);
+      rowY += 8.5 + Math.max(0, lines.length - 1) * 3;
+    });
+  }
+
+  const contentWidth = pageWidth - margin * 2;
   const reportKind = report.id.startsWith("WEEK-") ? (swedish ? "Veckorapport" : "Wochenbericht") : (swedish ? "Uppdragsrapport" : "Einsatzbericht");
-  pdf.text(reportKind, margin, 22);
+  const customerComment = visibleReportCustomerComment(report);
+  pdf.setFillColor(255, 255, 255);
+  pdf.rect(0, 0, pageWidth, pageHeight, "F");
+
+  drawCard(margin, y, contentWidth, 28, [255, 255, 255]);
   const logoDataUrl = await fetchAssetAsDataUrl("/kolaretorp-logo.png");
   if (logoDataUrl) {
     try {
-      pdf.addImage(logoDataUrl, "PNG", margin, 30, 54, 5.6, undefined, "FAST");
+      pdf.addImage(logoDataUrl, "PNG", margin + 4, y + 4, 48, 5, undefined, "FAST");
     } catch {
-      pdf.setFontSize(10);
-      pdf.setFont("helvetica", "normal");
-      pdf.text("Kolaretorp Service AB", margin, 34);
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(9);
+      pdf.setTextColor(18, 22, 28);
+      pdf.text("Kolaretorp Service AB", margin + 4, y + 8);
     }
   } else {
-    pdf.setFontSize(10);
-    pdf.setFont("helvetica", "normal");
-    pdf.text("Kolaretorp Service AB", margin, 34);
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(9);
+    pdf.setTextColor(18, 22, 28);
+    pdf.text("Kolaretorp Service AB", margin + 4, y + 8);
   }
   pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(15);
+  pdf.setTextColor(18, 22, 28);
+  pdf.text(reportKind, margin + 4, y + 15);
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(7.5);
+  pdf.setTextColor(105, 111, 122);
+  pdf.text(`${swedish ? "Rapportnummer" : "Berichtsnummer"} ${report.id}`, margin + 4, y + 21);
+  drawBadge(job?.status ?? "Bericht", pageWidth - margin - 34, y + 4, 30);
+  pdf.setFont("helvetica", "bold");
   pdf.setFontSize(8.5);
-  const reportLabelLines = (pdf.splitTextToSize(`${swedish ? "Rapport" : "Bericht"} ${report.id}`, 96) as string[]).slice(0, 1);
-  pdf.text(reportLabelLines, pageWidth - margin, 20, { align: "right" });
-  pdf.setFontSize(10);
-  pdf.text(report.date, pageWidth - margin, 34, { align: "right" });
-  y = 58;
+  pdf.setTextColor(18, 22, 28);
+  pdf.text(report.date, pageWidth - margin - 4, y + 21, { align: "right" });
+  y += 34;
+
+  const heroY = y;
+  drawCard(margin, heroY, contentWidth, 38);
+  const imageX = margin + 4;
+  const imageY = heroY + 4;
+  const objectImageWidth = 48;
+  const objectImageHeight = 30;
 
   const objectImage = primaryObjectImage(object);
   if (objectImage?.previewUrl?.startsWith("data:image")) {
     try {
-      await addContainedImage(objectImage.previewUrl, margin, y, 48, 32);
+      await addContainedImage(objectImage.previewUrl, imageX, imageY, objectImageWidth, objectImageHeight);
     } catch {
       pdf.setDrawColor(210);
-      pdf.rect(margin, y, 48, 32);
+      pdf.rect(imageX, imageY, objectImageWidth, objectImageHeight);
     }
   } else {
     pdf.setDrawColor(210);
-    pdf.rect(margin, y, 48, 32);
+    pdf.rect(imageX, imageY, objectImageWidth, objectImageHeight);
   }
 
-  const infoX = margin + 56;
-  addKeyValue(swedish ? "Objekt" : "Objekt", `${object.name} · ${displayAddress(object.address)}`, infoX, pageWidth - infoX - margin);
-  addKeyValue(swedish ? "Ägare" : "Eigentümer", `${customer?.name ?? object.owner} · ${reportRecipientEmail(object, customer) || "-"}`, infoX, pageWidth - infoX - margin);
-  if (job) addKeyValue(swedish ? "Uppdrag" : "Auftrag", `${job.title} · ${job.assignedTo} · ${job.status}`, infoX, pageWidth - infoX - margin);
-  y = Math.max(y, 94);
-
+  const heroTextX = margin + 58;
   pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(12);
-  pdf.setTextColor(20);
-  pdf.text(swedish ? "Sammanfattning" : "Zusammenfassung", margin, y);
-  y += 7;
+  pdf.setFontSize(6.8);
+  pdf.setTextColor(33, 111, 148);
+  pdf.text(reportKind.toUpperCase(), heroTextX, heroY + 9);
+  pdf.setFontSize(13);
+  pdf.setTextColor(18, 22, 28);
+  pdf.text(object.name, heroTextX, heroY + 17, { maxWidth: contentWidth - 64 });
   pdf.setFont("helvetica", "normal");
-  pdf.setFontSize(10);
-  addWrappedText(report.summary, margin, pageWidth - margin * 2);
-  const customerComment = visibleReportCustomerComment(report);
-  if (customerComment) {
-    y += 4;
-    pdf.setFont("helvetica", "bold");
-    pdf.text(swedish ? "Kommentar" : "Kommentar", margin, y);
-    y += 6;
-    pdf.setFont("helvetica", "normal");
-    addWrappedText(customerComment, margin, pageWidth - margin * 2);
-  }
+  pdf.setFontSize(8);
+  pdf.setTextColor(105, 111, 122);
+  pdf.text(displayAddress(object.address), heroTextX, heroY + 24, { maxWidth: contentWidth - 64 });
+  pdf.text(`${report.title} · ${report.date}`, heroTextX, heroY + 31, { maxWidth: contentWidth - 64 });
+  y += 44;
 
-  y += 5;
-  pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(12);
-  pdf.text(swedish ? "Checklista" : "Checkliste", margin, y);
-  y += 7;
+  ensureSpace(34);
+  const gap = 3;
+  const infoBoxWidth = (contentWidth - gap * 3) / 4;
+  const infoY = y;
+  drawInfoBox("Objekt", [["Objekt", object.name], ["Adresse", displayAddress(object.address)], ["Eigentümer", object.owner]], margin, infoY, infoBoxWidth, 32);
+  drawInfoBox("Kunde", [["Kunde", customer?.name ?? object.owner], ["Kontakt", customer?.contact ?? object.owner], ["E-Mail", reportRecipientEmail(object, customer) || "-"]], margin + (infoBoxWidth + gap), infoY, infoBoxWidth, 32);
+  drawInfoBox("Auftrag", [["Auftrag", report.title], ["Datum", report.date], ["Rhythmus", job ? scheduleLabel(job.schedule) : "-"]], margin + (infoBoxWidth + gap) * 2, infoY, infoBoxWidth, 32);
+  drawInfoBox("Leistung", [["Priorität", job?.priority ?? "-"], ["Bearbeiter", job?.assignedTo ?? "-"], [visibleReportWorkMinutes(report.checklistResults) > 0 ? "Zeit / Material" : "Material", `${visibleReportWorkMinutes(report.checklistResults) > 0 ? `${visibleReportWorkMinutes(report.checklistResults)} min.` : ""}${job?.material?.trim() && job.material.trim() !== "-" ? ` ${job.material.trim()}` : ""}`.trim() || "-"]], margin + (infoBoxWidth + gap) * 3, infoY, infoBoxWidth, 32);
+  y += 38;
+
+  const summaryBoxes = customerComment
+    ? [{ title: swedish ? "Sammanfattning" : "Zusammenfassung", text: report.summary }, { title: "Kommentar an den Kunden", text: customerComment }]
+    : [{ title: swedish ? "Sammanfattning" : "Zusammenfassung", text: report.summary }];
+  const summaryWidth = customerComment ? (contentWidth - gap) / 2 : contentWidth;
+  const summaryLines = summaryBoxes.map((box) => pdf.splitTextToSize(box.text || "-", summaryWidth - 8) as string[]);
+  const summaryHeight = Math.max(22, ...summaryLines.map((lines) => 11 + lines.length * 4));
+  ensureSpace(summaryHeight + 8);
+  summaryBoxes.forEach((box, index) => {
+    const x = margin + index * (summaryWidth + gap);
+    drawCard(x, y, summaryWidth, summaryHeight);
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(8);
+    pdf.setTextColor(18, 22, 28);
+    pdf.text(box.title, x + 4, y + 6);
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(8);
+    pdf.setTextColor(105, 111, 122);
+    pdf.text(summaryLines[index], x + 4, y + 11);
+  });
+  y += summaryHeight + 8;
+
+  drawSectionTitle(swedish ? "Kontroll på plats" : "Kontrolle vor Ort");
 
   for (const [index, item] of report.checklistResults.entries()) {
-    ensureSpace(24);
-    pdf.setFillColor(250, 250, 251);
-    pdf.setDrawColor(225);
-    const startY = y;
-    pdf.roundedRect(margin, y, pageWidth - margin * 2, 18, 2, 2, "FD");
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(10);
-    pdf.setTextColor(20);
-    pdf.text(reportItemLabel(item, index), margin + 4, y + 6, { maxWidth: pageWidth - margin * 2 - 52 });
-    pdf.setFont("helvetica", "normal");
-    pdf.setTextColor(item.completed ? 34 : 150);
-    pdf.text(item.completed ? (swedish ? "utfört" : "ausgeführt") : (swedish ? "ej utfört" : "nicht ausgeführt"), pageWidth - margin - 4, y + 6, { align: "right" });
-    if (item.showWorkTimeInReport !== false) {
-      pdf.setTextColor(80);
-      pdf.text(`${item.minutes || 0} min.`, pageWidth - margin - 4, y + 13, { align: "right" });
-    }
-    y += 23;
-    if (item.description) addWrappedText(item.description, margin + 4, pageWidth - margin * 2 - 8, 4.2);
-    if (item.note) {
-      pdf.setFont("helvetica", "bold");
-      pdf.text(swedish ? "Anmärkning" : "Hinweis", margin + 4, y);
-      y += 5;
-      pdf.setFont("helvetica", "normal");
-      addWrappedText(item.note, margin + 4, pageWidth - margin * 2 - 8, 4.2);
-    }
+    const noteLines = pdf.splitTextToSize(item.note || "Keine zusätzliche Info erfasst.", contentWidth - 8) as string[];
+    const descriptionLines = item.description ? pdf.splitTextToSize(item.description, contentWidth - 8) as string[] : [];
     const imagePhotos = item.photos.filter((photo) => photo.previewUrl?.startsWith("data:image"));
-    for (let photoIndex = 0; photoIndex < imagePhotos.length; photoIndex += 2) {
-      const rowPhotos = imagePhotos.slice(photoIndex, photoIndex + 2);
-      const photoBoxWidth = 58;
-      const photoBoxHeight = 38;
-      const noteWidth = pageWidth - margin * 2 - rowPhotos.length * photoBoxWidth - 12;
-      ensureSpace(photoBoxHeight + 8);
-      for (const [rowIndex, photo] of rowPhotos.entries()) {
-        const previewUrl = photo.previewUrl;
-        if (!previewUrl?.startsWith("data:image")) continue;
-        const photoX = margin + 4 + rowIndex * (photoBoxWidth + 4);
-        try {
-          await addContainedImage(previewUrl, photoX, y, photoBoxWidth, photoBoxHeight);
-        } catch {
-          pdf.rect(photoX, y, photoBoxWidth, photoBoxHeight);
-        }
-        if (photo.note?.trim()) {
-          pdf.setFont("helvetica", "normal");
-          pdf.setTextColor(80);
-          const noteX = margin + 4 + rowPhotos.length * (photoBoxWidth + 4);
-          const noteLines = pdf.splitTextToSize(photo.note.trim(), Math.max(36, noteWidth));
-          pdf.text(noteLines, noteX, y + 5);
-        }
-      }
-      y += photoBoxHeight + 6;
+    const photoRows = Math.ceil(imagePhotos.length / 3);
+    const taskHeight = 19 + descriptionLines.length * 3.6 + noteLines.length * 3.8 + photoRows * 35 + (photoRows ? 4 : 0);
+    ensureSpace(taskHeight + 4);
+    const taskY = y;
+    drawCard(margin, taskY, contentWidth, taskHeight);
+    drawBadge(item.completed ? (swedish ? "utfört" : "ausgeführt") : (swedish ? "ej utfört" : "nicht ausgeführt"), margin + 4, taskY + 4, item.completed ? 28 : 34);
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(8.7);
+    pdf.setTextColor(18, 22, 28);
+    pdf.text(reportItemLabel(item, index), margin + 36, taskY + 9, { maxWidth: contentWidth - 78 });
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(7);
+    pdf.setTextColor(105, 111, 122);
+    pdf.text(item.meta, margin + 36, taskY + 14, { maxWidth: contentWidth - 78 });
+    if (item.showWorkTimeInReport !== false) {
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(7.2);
+      pdf.setTextColor(105, 111, 122);
+      pdf.text(`${item.minutes || 0} min.`, pageWidth - margin - 4, taskY + 9, { align: "right" });
     }
-    if (y === startY) y += 23;
-    y += 3;
+    let innerY = taskY + 21;
+    if (descriptionLines.length) {
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(7.5);
+      pdf.setTextColor(105, 111, 122);
+      pdf.text(descriptionLines, margin + 4, innerY);
+      innerY += descriptionLines.length * 3.6 + 2;
+    }
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(6.8);
+    pdf.setTextColor(105, 111, 122);
+    pdf.text("Hinweis / Info", margin + 4, innerY);
+    innerY += 3.8;
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(7.5);
+    pdf.text(noteLines, margin + 4, innerY);
+    innerY += noteLines.length * 3.8 + 4;
+
+    if (imagePhotos.length) {
+      const photoGap = 3;
+      const photoBoxWidth = (contentWidth - 8 - photoGap * 2) / 3;
+      const photoBoxHeight = 30;
+      for (let photoIndex = 0; photoIndex < imagePhotos.length; photoIndex += 3) {
+        const rowPhotos = imagePhotos.slice(photoIndex, photoIndex + 3);
+        for (const [rowIndex, photo] of rowPhotos.entries()) {
+          const previewUrl = photo.previewUrl;
+          if (!previewUrl?.startsWith("data:image")) continue;
+          const photoX = margin + 4 + rowIndex * (photoBoxWidth + photoGap);
+          try {
+            await addContainedImage(previewUrl, photoX, innerY, photoBoxWidth, photoBoxHeight);
+          } catch {
+            pdf.rect(photoX, innerY, photoBoxWidth, photoBoxHeight);
+          }
+        }
+        innerY += photoBoxHeight + 5;
+      }
+    }
+    y += taskHeight + 4;
   }
 
   if (report.attachments?.length) {
@@ -3056,7 +3144,8 @@ async function createInvoicePdfBlob(item: BillingRecord, object: ObjectRecord, c
     unitPrice: String(decimalValue(item.amount)),
   }];
   const totals = invoiceTotals({ ...item, lines });
-  const swedish = isSwedishCustomerLanguage(customer?.language);
+  void customer;
+  const swedish = true;
   let y = margin;
 
   function ensureSpace(height: number) {
@@ -4122,7 +4211,18 @@ function serviceRate(service: ServiceItem) {
   const price = service.price.trim();
   const hasCurrency = /\b(SEK|EUR|USD|NOK|DKK)\b/i.test(price);
   const amount = price.toLowerCase() === "inklusive" || hasCurrency ? price : `${price} ${service.currency || "SEK"}`;
-  return `${amount}/${service.unit}`;
+  const priceIncludesTax = /inkl|moms|vat/i.test(price);
+  const taxLabel = priceIncludesTax ? "inkl. Moms" : `zzgl. ${service.taxRate || "25"}% Moms`;
+  return `${amount}/${service.unit} ${taxLabel}`;
+}
+
+function materialRate(material: Pick<MaterialItem | JobMaterialItem, "currency" | "price" | "taxRate" | "unit">) {
+  const price = material.price.trim();
+  const hasCurrency = /\b(SEK|EUR|USD|NOK|DKK)\b/i.test(price);
+  const amount = price.toLowerCase() === "inklusive" || hasCurrency ? price : `${price} ${material.currency || "SEK"}`;
+  const priceIncludesTax = /inkl|moms|vat/i.test(price);
+  const taxLabel = priceIncludesTax ? "inkl. Moms" : `zzgl. ${material.taxRate || "25"}% Moms`;
+  return `${amount}/${material.unit} ${taxLabel}`;
 }
 
 const monthNames = [
@@ -5249,12 +5349,16 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   const selectedObject = activeObjects.find((object) => object.id === selectedObjectId) ?? activeObjects[0] ?? objects[0];
   const editingObject = objects.find((object) => object.id === editingObjectId);
   const editingCustomer = customers.find((customer) => customer.id === editingCustomerId);
+  const isInactiveObject = (object: ObjectRecord) => /inaktiv|pausiert|winterruhe|verkauft|gekündigt|gekuendigt/i.test(object.status);
   const filteredObjects = activeObjects.filter((object) =>
     [object.name, object.owner, object.address, object.region, object.carePackage]
       .join(" ")
       .toLowerCase()
       .includes(query.toLowerCase()),
-  );
+  ).sort((first, second) => (
+    Number(isInactiveObject(first)) - Number(isInactiveObject(second))
+    || first.name.localeCompare(second.name, "de")
+  ));
   const currentFieldJobId = activeJobId
     ?? upcomingOperationalJobs.find((job) => job.status === "in Arbeit")?.id
     ?? upcomingOperationalJobs.find((job) => !["offerte", "erledigt", "abgerechnet", "storniert"].includes(job.status))?.id
@@ -6001,8 +6105,16 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     persistSnapshotNow({ activeJobId: null, jobs: nextJobs }, { forceRemote: true });
   }
 
-  function completeJob(job: JobRecord, checklistResults: FieldTaskResult[], fieldNote: string, workDate?: string) {
+  function updateJobMaterial(job: JobRecord, material: string) {
+    const savedMaterial = material.trim() || "-";
+    const nextJobs = jobs.map((item) => (item.id === job.id ? { ...item, material: savedMaterial } : item));
+    setJobs(nextJobs);
+    persistSnapshotNow({ jobs: nextJobs }, { forceRemote: true });
+  }
+
+  function completeJob(job: JobRecord, checklistResults: FieldTaskResult[], fieldNote: string, workDate?: string, reportAttachments: ReportAttachment[] = [], fieldMaterial?: string) {
     const executionDate = normalizeReportDate(workDate || jobExecutionDate(job));
+    const savedMaterial = fieldMaterial?.trim() || job.material?.trim() || "-";
     const workDates = jobWorkDates(job);
     const isMultiDayJob = workDates.length > 1;
     const existingReport = editingFieldReportId
@@ -6041,7 +6153,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
         : job.schedule.type === "serie" && nextDueDate ? "geplant" as const : "erledigt" as const;
     const nextJobs = jobs.map((item) => (
       item.id === job.id
-        ? { ...item, dueDate: nextDueDate ?? item.dueDate, schedule: nextSchedule, status: nextJobStatus, statusUpdatedAt, workMinutes }
+        ? { ...item, dueDate: nextDueDate ?? item.dueDate, material: savedMaterial, schedule: nextSchedule, status: nextJobStatus, statusUpdatedAt, workMinutes }
         : item
     ));
     const savedReport: ReportRecord = {
@@ -6054,7 +6166,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       summary: existingReport?.summary ?? summary,
       internalNotes: job.internalNotes,
       media: reportMediaLabels(photoCount, visibleMinutes),
-      attachments: existingReport?.attachments ?? [],
+      attachments: existingReport?.attachments ?? reportAttachments,
       checklistResults: normalizedResults,
       customerComment: existingReport?.customerComment ?? "",
       sentAt: existingReport?.sentAt,
@@ -6938,6 +7050,8 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                 onSelectJob={startJob}
                 onSelectReport={editReportInField}
                 onSendReport={sendReportToCustomer}
+                onUpdateJobMaterial={updateJobMaterial}
+                onUpdateReport={updateReportRecord}
                 onClearActiveJob={clearActiveJob}
                 onSelectWorkDate={(jobId, date) => setFieldWorkDates((current) => ({ ...current, [jobId]: date }))}
                 onProgressChange={(jobId, progress) => setFieldProgress((current) => {
@@ -7233,6 +7347,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                 />
               </div>
             </div>
+            <ReportAttachmentEditor disabled={Boolean(sendPreviewReport.sentAt)} onUpdateReport={updateReportRecord} report={sendPreviewReport} />
             <div className="send-preview-report">
               <CustomerReportCard
                 customer={sendPreviewCustomer}
@@ -7706,42 +7821,48 @@ function ReportsView({
         </div>
       </section>
       {selectedReport && selectedObject && (
-        <section className="panel report-detail-panel">
-          <div className="history-detail-head">
-            <div>
-              <h3>{selectedReport.title}</h3>
-              <span>{selectedObject.name} · {displayAddress(selectedObject.address)}</span>
+        <div className="modal-backdrop">
+          <section className="modal send-preview-modal report-detail-modal" role="dialog" aria-modal="true" aria-labelledby="report-detail-title">
+            <header>
+              <div>
+                <p>{selectedObject.name} · {displayAddress(selectedObject.address)}</p>
+                <h2 id="report-detail-title">{selectedReport.title}</h2>
+              </div>
+              <div className="modal-header-actions">
+                <IconAction label={`Bericht ${selectedReport.title} mobil nachbearbeiten`} onClick={() => { onEditInField(selectedReport); setSelectedReportId(""); }}><Pencil size={16} /></IconAction>
+                <IconAction label={`PDF für ${selectedReport.title} herunterladen`} onClick={() => void downloadCustomerReportPdf(selectedReport, selectedObject, selectedJob, selectedCustomer)}><FileDown size={16} /></IconAction>
+                <IconAction label={`Bericht ${selectedReport.title} an Kunden senden`} onClick={() => { onSendReport(selectedReport); setSelectedReportId(""); }}><Send size={16} /></IconAction>
+                <button aria-label={`Bericht ${selectedReport.title} schließen`} onClick={() => { onUpdateReport(currentSelectedReport() ?? selectedReport, { forceRemote: true }); setSelectedReportId(""); }} type="button">
+                  <X size={18} />
+                </button>
+              </div>
+            </header>
+            <div className="send-preview-report">
+              <CustomerReportCard customer={selectedCustomer} job={selectedJob} object={selectedObject} report={selectedReport} sentAt={selectedReport.sentAt} />
             </div>
-            <div className="row-actions">
-              <IconAction label={`Bericht ${selectedReport.title} mobil nachbearbeiten`} onClick={() => onEditInField(selectedReport)}><Pencil size={16} /></IconAction>
-              <IconAction label={`PDF für ${selectedReport.title} herunterladen`} onClick={() => void downloadCustomerReportPdf(selectedReport, selectedObject, selectedJob, selectedCustomer)}><FileDown size={16} /></IconAction>
-              <IconAction label={`Bericht ${selectedReport.title} an Kunden senden`} onClick={() => onSendReport(selectedReport)}><Send size={16} /></IconAction>
-              <IconAction label={`Bericht ${selectedReport.title} schließen`} onClick={() => { onUpdateReport(currentSelectedReport() ?? selectedReport, { forceRemote: true }); setSelectedReportId(""); }}><X size={16} /></IconAction>
-            </div>
-          </div>
-          <CustomerReportCard customer={selectedCustomer} job={selectedJob} object={selectedObject} report={selectedReport} sentAt={selectedReport.sentAt} />
-          <label className="report-comment-editor">
-            <span>Berichtstext</span>
-            <textarea
-              disabled={Boolean(selectedReport.sentAt)}
-              value={selectedReport.summary}
-              onChange={(event) => onUpdateReport({ ...(currentSelectedReport() ?? selectedReport), summary: event.target.value })}
-              onBlur={(event) => onUpdateReport({ ...(currentSelectedReport() ?? selectedReport), summary: event.currentTarget.value }, { forceRemote: true })}
-              placeholder={selectedReport.sentAt ? "Bericht wurde bereits gesendet und ist gesperrt." : "Berichtstext für den Kundenbericht anpassen."}
-            />
-          </label>
-          <label className="report-comment-editor">
-            <span>Kommentar vor dem Senden</span>
-            <textarea
-              disabled={Boolean(selectedReport.sentAt)}
-              value={visibleReportCustomerComment(selectedReport)}
-              onChange={(event) => onUpdateReport({ ...(currentSelectedReport() ?? selectedReport), customerComment: event.target.value })}
-              onBlur={(event) => onUpdateReport({ ...(currentSelectedReport() ?? selectedReport), customerComment: event.currentTarget.value }, { forceRemote: true })}
-              placeholder={selectedReport.sentAt ? "Bericht wurde bereits gesendet und ist gesperrt." : "Kommentar ergänzen, der im Kundenbericht erscheinen soll."}
-            />
-          </label>
-          <ReportAttachmentEditor disabled={Boolean(selectedReport.sentAt)} onUpdateReport={onUpdateReport} report={selectedReport} />
-        </section>
+            <label className="report-comment-editor">
+              <span>Berichtstext</span>
+              <textarea
+                disabled={Boolean(selectedReport.sentAt)}
+                value={selectedReport.summary}
+                onChange={(event) => onUpdateReport({ ...(currentSelectedReport() ?? selectedReport), summary: event.target.value })}
+                onBlur={(event) => onUpdateReport({ ...(currentSelectedReport() ?? selectedReport), summary: event.currentTarget.value }, { forceRemote: true })}
+                placeholder={selectedReport.sentAt ? "Bericht wurde bereits gesendet und ist gesperrt." : "Berichtstext für den Kundenbericht anpassen."}
+              />
+            </label>
+            <label className="report-comment-editor">
+              <span>Kommentar vor dem Senden</span>
+              <textarea
+                disabled={Boolean(selectedReport.sentAt)}
+                value={visibleReportCustomerComment(selectedReport)}
+                onChange={(event) => onUpdateReport({ ...(currentSelectedReport() ?? selectedReport), customerComment: event.target.value })}
+                onBlur={(event) => onUpdateReport({ ...(currentSelectedReport() ?? selectedReport), customerComment: event.currentTarget.value }, { forceRemote: true })}
+                placeholder={selectedReport.sentAt ? "Bericht wurde bereits gesendet und ist gesperrt." : "Kommentar ergänzen, der im Kundenbericht erscheinen soll."}
+              />
+            </label>
+            <ReportAttachmentEditor disabled={Boolean(selectedReport.sentAt)} onUpdateReport={onUpdateReport} report={selectedReport} />
+          </section>
+        </div>
       )}
     </div>
   );
@@ -7774,7 +7895,7 @@ function ReportAttachmentEditor({
   return (
     <div className="report-attachment-editor">
       <label className="report-comment-editor">
-        <span>Dateianhänge</span>
+        <span className="inline-icon-label"><Paperclip size={14} /> Dateianhänge</span>
         <input
           accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
           disabled={disabled}
@@ -8813,6 +8934,8 @@ function FieldView({
   onFieldNoteChange,
   onProgressChange,
   onSendReport,
+  onUpdateJobMaterial,
+  onUpdateReport,
   onComplete,
 }: {
   activeJobId: string | null;
@@ -8833,10 +8956,15 @@ function FieldView({
   onFieldNoteChange: (jobId: string, note: string) => void;
   onProgressChange: (jobId: string, progress: Record<string, FieldTaskProgress>) => void;
   onSendReport: (report: ReportRecord) => void;
-  onComplete: (job: JobRecord, checklistResults: FieldTaskResult[], fieldNote: string, workDate?: string) => void;
+  onUpdateJobMaterial: (job: JobRecord, material: string) => void;
+  onUpdateReport: (report: ReportRecord, options?: { forceRemote?: boolean }) => void;
+  onComplete: (job: JobRecord, checklistResults: FieldTaskResult[], fieldNote: string, workDate?: string, reportAttachments?: ReportAttachment[], fieldMaterial?: string) => void;
 }) {
   const [showCompletedReports, setShowCompletedReports] = useState(false);
   const [showSentReports, setShowSentReports] = useState(false);
+  const [materialDraft, setMaterialDraft] = useState("");
+  const [pendingReportAttachments, setPendingReportAttachments] = useState<ReportAttachment[]>([]);
+  const [pendingAttachmentNotice, setPendingAttachmentNotice] = useState("");
   const [photoNoteDraft, setPhotoNoteDraft] = useState("");
   const [photoNoteEditor, setPhotoNoteEditor] = useState<{ photoId: string; taskId: string } | null>(null);
   const progressRef = useRef(progress);
@@ -8844,6 +8972,13 @@ function FieldView({
   useEffect(() => {
     progressRef.current = progress;
   }, [progress]);
+
+  useEffect(() => {
+    const active = activeJobId ? allJobs.find((job) => job.id === activeJobId) : undefined;
+    setMaterialDraft(active?.material?.trim() === "-" ? "" : active?.material ?? "");
+    setPendingReportAttachments([]);
+    setPendingAttachmentNotice("");
+  }, [activeJobId, allJobs]);
 
   const fieldOpenJobs = dashboardWorkJobs(allJobs);
   const completedReports = dedupeReports(reports).filter((report) => {
@@ -9053,6 +9188,19 @@ function FieldView({
     onFieldNoteChange(fieldProgressKey(activeJob, activeWorkDate), note);
   }
 
+  async function addPendingReportAttachments(files: FileList | null) {
+    const selectedFiles = Array.from(files ?? []);
+    if (!selectedFiles.length) return;
+
+    try {
+      const attachments = await Promise.all(selectedFiles.map((file) => fileToReportAttachment(file)));
+      setPendingReportAttachments((current) => [...current, ...attachments]);
+      setPendingAttachmentNotice(`${attachments.length} ${attachments.length === 1 ? "Datei wurde" : "Dateien wurden"} vorbereitet.`);
+    } catch (error) {
+      setPendingAttachmentNotice(error instanceof Error ? error.message : "Datei konnte nicht angehängt werden.");
+    }
+  }
+
   function completeActiveJob() {
     const results = fieldTasks.map((task, index) => {
       const currentTask = valueForTask(task, index);
@@ -9070,7 +9218,9 @@ function FieldView({
       };
     });
 
-    onComplete(activeJob, results, fieldNote, activeWorkDate);
+    onComplete(activeJob, results, fieldNote, activeWorkDate, pendingReportAttachments, materialDraft);
+    setPendingReportAttachments([]);
+    setPendingAttachmentNotice("");
   }
 
   return (
@@ -9357,13 +9507,63 @@ function FieldView({
             </article>
           </div>
         )}
-        <textarea
-          disabled={reportLocked}
-          value={fieldNote}
-          onBlur={(event) => updateFieldNote(event.currentTarget.value)}
-          onChange={(event) => updateFieldNote(event.target.value)}
-          aria-label="Einsatznotiz"
-        />
+        <label className="report-comment-editor">
+          <span>Material</span>
+          <textarea
+            disabled={reportLocked}
+            value={materialDraft}
+            onBlur={(event) => onUpdateJobMaterial(activeJob, event.currentTarget.value)}
+            onChange={(event) => setMaterialDraft(event.target.value)}
+            placeholder="Verbrauchtes Material oder Besonderheiten"
+          />
+        </label>
+        <label className="report-comment-editor">
+          <span>Einsatznotiz / Kommentar</span>
+          <textarea
+            disabled={reportLocked}
+            value={fieldNote}
+            onBlur={(event) => updateFieldNote(event.currentTarget.value)}
+            onChange={(event) => updateFieldNote(event.target.value)}
+            aria-label="Einsatznotiz"
+            placeholder="Kommentar für den Bericht"
+          />
+        </label>
+        {activeReport ? (
+          <ReportAttachmentEditor disabled={reportLocked} onUpdateReport={onUpdateReport} report={activeReport} />
+        ) : (
+          <div className="report-attachment-editor">
+            <label className="report-comment-editor">
+              <span className="inline-icon-label"><Paperclip size={14} /> Dateianhänge</span>
+              <input
+                accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+                disabled={reportLocked}
+                multiple
+                type="file"
+                onChange={(event) => {
+                  void addPendingReportAttachments(event.target.files);
+                  event.currentTarget.value = "";
+                }}
+              />
+            </label>
+            {pendingAttachmentNotice && <small>{pendingAttachmentNotice}</small>}
+            {pendingReportAttachments.length > 0 && (
+              <div className="history-media">
+                {pendingReportAttachments.map((attachment) => (
+                  <span key={attachment.id}>
+                    {attachment.name}
+                    <button
+                      aria-label={`Anhang ${attachment.name} entfernen`}
+                      onClick={() => setPendingReportAttachments((current) => current.filter((item) => item.id !== attachment.id))}
+                      type="button"
+                    >
+                      <X size={12} />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         <button className="primary-button" disabled={reportLocked} onClick={completeActiveJob} type="button">
           {editingReportId ? "Bericht speichern" : workDates.length > 1 ? (isLastOpenWorkDate ? "Letzten Tag speichern und Auftrag abschließen" : "Tagesbericht zwischenspeichern") : "Einsatz abschließen"}
         </button>
@@ -11750,7 +11950,7 @@ function MasterDataView({
               <article key={material.id}>
                 <div>
                   <strong>{material.name}</strong>
-                  <span>{material.category} · {material.price} {material.currency}/{material.unit} · Moms {material.taxRate || "25"}% · Konto {material.accountingAccount || defaultAccountingAccount("Material", material.name)}</span>
+                  <span>{material.category} · {materialRate(material)} · Konto {material.accountingAccount || defaultAccountingAccount("Material", material.name)}</span>
                 </div>
                 <span>{material.description}</span>
                 <div className="row-actions">
@@ -11769,7 +11969,7 @@ function MasterDataView({
                   <article key={material.id}>
                     <div>
                       <strong>{material.name}</strong>
-                      <span>{material.category} · {material.price} {material.currency}/{material.unit}</span>
+                      <span>{material.category} · {materialRate(material)}</span>
                     </div>
                     <Badge value="archiviert" />
                     <div className="row-actions">
@@ -11824,7 +12024,7 @@ function MasterDataView({
             {serviceUnits.map((unit) => <option key={unit} value={unit} />)}
           </datalist>
           <div className="price-currency-row">
-            <label><span>Preis</span><input value={serviceForm.price} onChange={(event) => setServiceForm({ ...serviceForm, price: event.target.value })} placeholder="z.B. 595" /></label>
+            <label><span>Preis netto</span><input value={serviceForm.price} onChange={(event) => setServiceForm({ ...serviceForm, price: event.target.value })} placeholder="z.B. 595" /></label>
             <label>
               <span>Währung</span>
               <select value={serviceForm.currency} onChange={(event) => setServiceForm({ ...serviceForm, currency: event.target.value })}>
@@ -13384,7 +13584,7 @@ function JobForm({
                 <article key={service.id}>
                   <div className="material-position-main">
                     <strong>{service.name}</strong>
-                    <span>{service.category} · {serviceRate(service)} · Moms {service.taxRate || "25"}%</span>
+                    <span>{service.category} · {serviceRate(service)}</span>
                   </div>
                   <label className="material-position-quantity"><span>Menge</span><input inputMode="decimal" value={newJob.serviceQuantities[service.id] || "1"} onChange={(event) => updateServiceQuantity(service.id, event.target.value)} /></label>
                   <strong className="material-position-total">{formatMoney(serviceLineAmount(service, newJob.serviceQuantities[service.id] || "1"), service.currency)}</strong>
@@ -13432,7 +13632,7 @@ function JobForm({
                 ))}
               </datalist>
               <label><span>Menge</span><input inputMode="decimal" value={newJob.customServiceQuantity} onChange={(event) => update("customServiceQuantity", event.target.value)} /></label>
-              <label><span>Preis</span><input value={newJob.customServicePrice} onChange={(event) => update("customServicePrice", event.target.value)} /></label>
+              <label><span>Preis netto</span><input value={newJob.customServicePrice} onChange={(event) => update("customServicePrice", event.target.value)} /></label>
               <label><span>Währung</span><select value={newJob.customServiceCurrency} onChange={(event) => update("customServiceCurrency", event.target.value)}><option>SEK</option><option>EUR</option><option>NOK</option><option>DKK</option></select></label>
               <label><span>Moms %</span><input inputMode="decimal" value={newJob.customServiceTaxRate} onChange={(event) => update("customServiceTaxRate", event.target.value)} /></label>
               <div className="wide line-discount-editor">
@@ -13502,7 +13702,7 @@ function JobForm({
               }}>
                 <option value="">Material auswählen...</option>
                 {materials.filter((material) => !material.archived).map((material) => (
-                  <option key={material.id} value={material.id}>{material.name} · {material.price} {material.currency}/{material.unit}</option>
+                  <option key={material.id} value={material.id}>{material.name} · {materialRate(material)}</option>
                 ))}
               </select>
             </label>
@@ -13516,7 +13716,7 @@ function JobForm({
             <label><span>Menge</span><input inputMode="decimal" value={newJob.materialQuantity} onChange={(event) => update("materialQuantity", event.target.value)} /></label>
             <label><span>Moms %</span><input inputMode="decimal" value={newJob.materialTaxRate} onChange={(event) => update("materialTaxRate", event.target.value)} /></label>
             <div className="price-currency-row">
-              <label><span>Preis</span><input inputMode="decimal" value={newJob.materialPrice} onChange={(event) => update("materialPrice", event.target.value)} /></label>
+              <label><span>Preis netto</span><input inputMode="decimal" value={newJob.materialPrice} onChange={(event) => update("materialPrice", event.target.value)} /></label>
               <label><span>Währung</span><select value={newJob.materialCurrency} onChange={(event) => update("materialCurrency", event.target.value)}><option>SEK</option><option>EUR</option><option>NOK</option><option>DKK</option></select></label>
             </div>
             <label className="checkbox-line wide">
@@ -13535,7 +13735,7 @@ function JobForm({
               <article key={item.id}>
                 <div className="material-position-main">
                   <strong>{item.name}</strong>
-                  <span>{item.category} · {item.quantity} {item.unit} · {item.price} {item.currency}/{item.unit} · Moms {item.taxRate || "25"}%</span>
+                  <span>{item.category} · {item.quantity} {item.unit} · {materialRate(item)}</span>
                 </div>
                 <label className="material-position-quantity"><span>Menge</span><input value={item.quantity} onChange={(event) => updateMaterialItem(item.id, { quantity: event.target.value })} /></label>
                 <strong className="material-position-total">{Math.round(materialLineAmount(item)).toLocaleString("sv-SE")} {item.currency}</strong>
