@@ -2919,7 +2919,7 @@ async function downloadCustomerReportPdf(report: ReportRecord, object: ObjectRec
   URL.revokeObjectURL(url);
 }
 
-async function sendCustomerReportMail(report: ReportRecord, object: ObjectRecord, job: JobRecord | undefined, customer: CustomerRecord | undefined) {
+async function sendCustomerReportMail(report: ReportRecord, object: ObjectRecord, job: JobRecord | undefined, customer: CustomerRecord | undefined, body?: string) {
   const recipientEmail = reportRecipientEmail(object, customer);
   if (!recipientEmail) throw new Error("Keine Empfängeradresse in den Objekt- oder Kundendaten gefunden.");
 
@@ -2937,7 +2937,7 @@ async function sendCustomerReportMail(report: ReportRecord, object: ObjectRecord
     body: JSON.stringify({
       attachmentBase64,
       attachments: extraAttachments,
-      body: customerReportSendBody(customer),
+      body: body?.trim() || customerReportSendBody(customer),
       cc: "info@kolaretorp.se",
       filename: fileName,
       subject: customerReportSendSubject(report, object, customer),
@@ -4827,6 +4827,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   const [editingFieldReportId, setEditingFieldReportId] = useState<string | null>(null);
   const [completedReportPromptId, setCompletedReportPromptId] = useState<string | null>(null);
   const [sendPreviewReportId, setSendPreviewReportId] = useState<string | null>(null);
+  const [sendPreviewReportBody, setSendPreviewReportBody] = useState("");
   const [sendPreviewOfferId, setSendPreviewOfferId] = useState<string | null>(null);
   const [sendPreviewOfferBody, setSendPreviewOfferBody] = useState("");
   const [sendPreviewConfirmationId, setSendPreviewConfirmationId] = useState<string | null>(null);
@@ -6021,6 +6022,11 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   }
 
   function sendReportToCustomer(report: ReportRecord) {
+    const object = objects.find((item) => item.id === report.objectId);
+    const customer = object
+      ? customers.find((item) => item.id === object.ownerCustomerId || item.name === object.owner)
+      : undefined;
+    setSendPreviewReportBody(customerReportSendBody(customer));
     setSendPreviewReportId(report.id);
   }
 
@@ -6163,6 +6169,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     setReports(nextReports);
     persistSnapshotNow({ reports: nextReports });
     setSection("reports");
+    setSendPreviewReportBody(customerReportSendBody(customers.find((customer) => customer.id === object.ownerCustomerId || customer.name === object.owner)));
     setSendPreviewReportId(reportId);
     setRecordNotice(`Wochenbericht KW ${week.week} ${week.year} wurde erzeugt und zum Senden geöffnet.`);
   }
@@ -6553,9 +6560,10 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     const nextReport = { ...report, sentAt: report.sentAt ?? timestamp };
 
     try {
-      await sendCustomerReportMail(nextReport, reportObject, reportJob, reportCustomer);
+      await sendCustomerReportMail(nextReport, reportObject, reportJob, reportCustomer, sendPreviewReportBody);
       updateReportRecord(nextReport);
       setSendPreviewReportId(null);
+      setSendPreviewReportBody("");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Bericht konnte nicht gesendet werden.";
       window.alert(message);
@@ -7071,6 +7079,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                 className="primary-button"
                 onClick={() => {
                   setCompletedReportPromptId(null);
+                  setSendPreviewReportBody(customerReportSendBody(completedPromptCustomer));
                   setSendPreviewReportId(completedPromptReport.id);
                 }}
                 type="button"
@@ -7091,7 +7100,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                 <p>Versandvorschau</p>
                 <h2 id="send-preview-title">Bericht senden</h2>
               </div>
-              <button aria-label="Versandvorschau schließen" onClick={() => setSendPreviewReportId(null)} type="button">
+              <button aria-label="Versandvorschau schließen" onClick={() => { setSendPreviewReportId(null); setSendPreviewReportBody(""); }} type="button">
                 <X size={18} />
               </button>
             </header>
@@ -7120,7 +7129,10 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
               )}
               <div className="wide">
                 <span>Nachricht</span>
-                <pre>{customerReportSendBody(sendPreviewCustomer)}</pre>
+                <textarea
+                  value={sendPreviewReportBody}
+                  onChange={(event) => setSendPreviewReportBody(event.target.value)}
+                />
               </div>
             </div>
             <div className="send-preview-report">
@@ -7133,7 +7145,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
               />
             </div>
             <div className="modal-actions">
-              <button className="ghost-button" onClick={() => setSendPreviewReportId(null)} type="button">Abbrechen</button>
+              <button className="ghost-button" onClick={() => { setSendPreviewReportId(null); setSendPreviewReportBody(""); }} type="button">Abbrechen</button>
               <button className="primary-button" onClick={() => void confirmSendReportToCustomer(sendPreviewReport)} type="button">
                 <Send size={16} />
                 Jetzt senden
