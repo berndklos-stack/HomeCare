@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.225.0",
+  version: "1.226.0",
   releaseDate: "2026-08-29",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.226.0",
+    date: "2026-08-29",
+    changes: [
+      "Berichtstexte und Checklisten-Bemerkungen werden zusaetzlich in kleinen separaten Backup-Zeilen gesichert",
+      "Beim Laden und Synchronisieren werden Bericht-Backups ueber den grossen Snapshot gelegt",
+      "Die Medien-Upload-API meldet fehlende Supabase-Storage-Rechte klarer",
+    ],
+  },
   {
     version: "1.225.0",
     date: "2026-08-29",

@@ -25,12 +25,19 @@ function safePathPart(value: string) {
 }
 
 async function ensureMediaBucket(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
-  const { data: bucket } = await supabase.storage.getBucket(mediaBucket);
+  const { data: bucket, error: getError } = await supabase.storage.getBucket(mediaBucket);
   if (bucket) return;
-  await supabase.storage.createBucket(mediaBucket, {
+  const { error: createError } = await supabase.storage.createBucket(mediaBucket, {
     fileSizeLimit: 25 * 1024 * 1024,
     public: true,
   });
+  if (createError) {
+    throw new Error(
+      `Storage-Bucket "${mediaBucket}" fehlt und konnte nicht automatisch angelegt werden. `
+      + `Bitte Bucket in Supabase anlegen oder SUPABASE_SERVICE_ROLE_KEY in Vercel setzen. `
+      + `Details: ${createError.message || getError?.message || "unbekannt"}`,
+    );
+  }
 }
 
 export async function POST(request: Request) {
@@ -48,7 +55,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Datei ist größer als 25 MB." }, { status: 413 });
   }
 
-  await ensureMediaBucket(supabase);
+  try {
+    await ensureMediaBucket(supabase);
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Storage-Bucket fehlt." }, { status: 500 });
+  }
 
   const scope = safePathPart(String(formData.get("scope") || "uploads"));
   const name = safePathPart(file.name);

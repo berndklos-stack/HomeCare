@@ -1774,6 +1774,85 @@ async function saveSupabasePatch(overrides: Partial<AppSnapshot>) {
   return saveSupabaseSnapshot(snapshot as unknown as AppSnapshot);
 }
 
+type ReportTextBackup = Pick<ReportRecord, "checklistResults" | "customerComment" | "date" | "id" | "jobId" | "objectId" | "summary" | "title" | "updatedAt" | "visibleToCustomer">;
+
+function reportTextBackup(report: ReportRecord): ReportTextBackup {
+  return {
+    checklistResults: report.checklistResults.map((item) => ({
+      completed: item.completed,
+      description: item.description,
+      id: item.id,
+      meta: item.meta,
+      minutes: item.minutes,
+      note: item.note,
+      photos: [],
+      showWorkTimeInReport: item.showWorkTimeInReport,
+      title: item.title,
+      updatedAt: item.updatedAt,
+    })),
+    customerComment: report.customerComment,
+    date: normalizeReportDate(report.date),
+    id: report.id,
+    jobId: report.jobId,
+    objectId: report.objectId,
+    summary: report.summary,
+    title: report.title,
+    updatedAt: report.updatedAt,
+    visibleToCustomer: report.visibleToCustomer,
+  };
+}
+
+function applyReportTextBackups(reports: ReportRecord[], backups: ReportTextBackup[]) {
+  if (backups.length === 0) return reports;
+  return dedupeReports([
+    ...backups.map((backup) => ({
+      attachments: [],
+      checklistResults: backup.checklistResults,
+      customerComment: backup.customerComment,
+      date: normalizeReportDate(backup.date),
+      id: backup.id,
+      internalNotes: "Text-Sicherung aus Bericht-Backup.",
+      jobId: backup.jobId,
+      media: [],
+      objectId: backup.objectId,
+      summary: backup.summary,
+      title: backup.title,
+      updatedAt: backup.updatedAt,
+      visibleToCustomer: backup.visibleToCustomer,
+    })),
+    ...reports,
+  ]);
+}
+
+async function loadReportTextBackups() {
+  try {
+    const response = await withTimeout(fetch("/api/report-backups", {
+      cache: "no-store",
+      headers: { Accept: "application/json" },
+    }), 6000);
+    const payload = await response.json() as { data?: ReportTextBackup[]; error?: string };
+    if (!response.ok) throw new Error(payload.error || "Bericht-Backups konnten nicht geladen werden.");
+    return payload.data ?? [];
+  } catch (error) {
+    console.warn("Bericht-Backups konnten nicht geladen werden.", error);
+    return [];
+  }
+}
+
+async function saveReportTextBackup(report: ReportRecord) {
+  try {
+    const response = await withTimeout(fetch("/api/report-backups", {
+      body: JSON.stringify(reportTextBackup(report)),
+      headers: { "Content-Type": "application/json" },
+      method: "PUT",
+    }), 6000);
+    const payload = await response.json() as { error?: string };
+    if (!response.ok) throw new Error(payload.error || "Bericht-Backup konnte nicht gespeichert werden.");
+  } catch (error) {
+    console.warn("Bericht-Backup konnte nicht gespeichert werden.", error);
+  }
+}
+
 async function loadLiveAppVersion() {
   const response = await withTimeout(fetch("/api/version", {
     cache: "no-store",
@@ -5182,7 +5261,12 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
         if (remoteSnapshot) {
           lastRemoteSnapshotKeyRef.current = snapshotContentKey(remoteSnapshot);
           skipNextAutoSaveRef.current = true;
-          const mergedSnapshot = mergeSnapshots(remoteSnapshot, localSnapshot);
+          const reportBackups = await loadReportTextBackups();
+          const baseMergedSnapshot = mergeSnapshots(remoteSnapshot, localSnapshot);
+          const mergedSnapshot = {
+            ...baseMergedSnapshot,
+            reports: applyReportTextBackups(baseMergedSnapshot.reports, reportBackups),
+          };
           applySnapshot(mergedSnapshot);
           persistLocalSnapshot(mergedSnapshot);
           if (JSON.stringify(mergedSnapshot) !== JSON.stringify(remoteSnapshot)) {
@@ -5298,7 +5382,12 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       const remoteHasNewerData = Number.isFinite(remoteTime) && (!Number.isFinite(localTime) || remoteTime > localTime);
       const localHasNewerData = Number.isFinite(localTime) && (!Number.isFinite(remoteTime) || localTime > remoteTime);
       const remoteHasMoreData = snapshotWeight(remoteSnapshot) > snapshotWeight(localSnapshot);
-      const mergedSnapshot = mergeSnapshots(remoteSnapshot, localSnapshot);
+      const reportBackups = await loadReportTextBackups();
+      const baseMergedSnapshot = mergeSnapshots(remoteSnapshot, localSnapshot);
+      const mergedSnapshot = {
+        ...baseMergedSnapshot,
+        reports: applyReportTextBackups(baseMergedSnapshot.reports, reportBackups),
+      };
       const mergedDiffersFromRemote = JSON.stringify(mergedSnapshot) !== JSON.stringify(remoteSnapshot);
       const mergedDiffersFromLocal = JSON.stringify(mergedSnapshot) !== JSON.stringify(localSnapshot);
       const missingReports = missingLocalReports(remoteSnapshot.reports, localSnapshot.reports);
@@ -6249,6 +6338,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       savedReport,
       ...reports.filter((report) => report.id !== reportId && (job.schedule.type === "serie" || isMultiDayJob || report.jobId !== job.id)),
     ]);
+    void saveReportTextBackup(savedReport);
     const nextObjects = objects.map((object) => (object.id === job.objectId ? { ...object, lastVisit: executionDate } : object));
     const nextBilling = ensureBillingForJobs(nextJobs, billing, nextReports);
     const nextFieldProgress = { ...fieldProgress };
@@ -6296,6 +6386,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       : [stampedReport, ...baseReports]);
     reportsRef.current = nextReports;
     setReports(nextReports);
+    void saveReportTextBackup(stampedReport);
     persistSnapshotNow({ reports: nextReports }, { forceRemote: options.forceRemote });
   }
 
@@ -6461,6 +6552,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       nextReport,
       ...reports.filter((report) => report.id !== reportId),
     ]);
+    void saveReportTextBackup(nextReport);
 
     setReports(nextReports);
     persistSnapshotNow({ reports: nextReports });
