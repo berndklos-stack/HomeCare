@@ -3148,11 +3148,12 @@ mark.neutral {
   aspect-ratio: 4 / 3;
   background-color: color-mix(in srgb, var(--brand), var(--paper) 90%);
   background-position: center;
-  background-size: cover;
+  background-repeat: no-repeat;
+  background-size: contain;
   border: 1px solid var(--line);
   border-radius: 8px;
   min-height: 86px;
-  object-fit: cover;
+  object-fit: contain;
   width: 100%;
 }
 

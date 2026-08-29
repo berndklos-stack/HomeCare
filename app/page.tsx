@@ -1571,6 +1571,16 @@ function reportMediaLabels(photoCount: number, visibleMinutes: number, extraLabe
   ];
 }
 
+function isGeneratedWeekCustomerComment(comment: string) {
+  return /^\d+\s+von\s+\d+\s+geplanten\s+Einsätzen\s+in\s+KW\s+\d+\s+erledigt\.\s+Zeitraum:\s+\d{4}-\d{2}-\d{2}\s+bis\s+\d{4}-\d{2}-\d{2}\.?$/i.test(comment.trim());
+}
+
+function visibleReportCustomerComment(report: ReportRecord) {
+  const comment = report.customerComment.trim();
+  if (!comment || (report.id.startsWith("WEEK-") && isGeneratedWeekCustomerComment(comment))) return "";
+  return comment;
+}
+
 function reportAttachmentsLabel(report: ReportRecord) {
   const count = report.attachments?.length ?? 0;
   if (!count) return "";
@@ -2551,6 +2561,12 @@ async function createReportPdfBlob(report: ReportRecord, object: ObjectRecord, j
     addWrappedText(value, x, width, 4.5);
   }
 
+  function reportItemLabel(item: FieldTaskResult, index: number) {
+    if (!report.id.startsWith("WEEK-")) return `${index + 1}. ${item.title}`;
+    const dateMatch = item.meta.match(/\d{4}-\d{2}-\d{2}/)?.[0] ?? item.id.match(/\d{8}/)?.[0]?.replace(/(\d{4})(\d{2})(\d{2})/, "$1-$2-$3");
+    return `${dateMatch ?? `${index + 1}.`} · ${item.title}`;
+  }
+
   async function addContainedImage(dataUrl: string, x: number, boxY: number, boxWidth: number, boxHeight: number) {
     const image = await loadImage(dataUrl);
     const ratio = image?.naturalWidth && image?.naturalHeight ? image.naturalWidth / image.naturalHeight : boxWidth / boxHeight;
@@ -2565,38 +2581,38 @@ async function createReportPdfBlob(report: ReportRecord, object: ObjectRecord, j
   }
 
   pdf.setFillColor(246, 247, 249);
-  pdf.rect(0, 0, pageWidth, 42, "F");
+  pdf.rect(0, 0, pageWidth, 46, "F");
   pdf.setTextColor(20);
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(18);
   const reportKind = report.id.startsWith("WEEK-") ? (swedish ? "Veckorapport" : "Wochenbericht") : (swedish ? "Uppdragsrapport" : "Einsatzbericht");
-  pdf.text(reportKind, margin, 18);
+  pdf.text(reportKind, margin, 22);
   const logoDataUrl = await fetchAssetAsDataUrl("/kolaretorp-logo.png");
   if (logoDataUrl) {
     try {
-      pdf.addImage(logoDataUrl, "PNG", margin, 22, 54, 5.6, undefined, "FAST");
+      pdf.addImage(logoDataUrl, "PNG", margin, 30, 54, 5.6, undefined, "FAST");
     } catch {
       pdf.setFontSize(10);
       pdf.setFont("helvetica", "normal");
-      pdf.text("Kolaretorp Service AB", margin, 26);
+      pdf.text("Kolaretorp Service AB", margin, 34);
     }
   } else {
     pdf.setFontSize(10);
     pdf.setFont("helvetica", "normal");
-    pdf.text("Kolaretorp Service AB", margin, 26);
+    pdf.text("Kolaretorp Service AB", margin, 34);
   }
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(8.5);
-  const reportLabelLines = (pdf.splitTextToSize(`${swedish ? "Rapport" : "Bericht"} ${report.id}`, 96) as string[]).slice(0, 2);
-  pdf.text(reportLabelLines, pageWidth - margin, 14, { align: "right" });
+  const reportLabelLines = (pdf.splitTextToSize(`${swedish ? "Rapport" : "Bericht"} ${report.id}`, 96) as string[]).slice(0, 1);
+  pdf.text(reportLabelLines, pageWidth - margin, 20, { align: "right" });
   pdf.setFontSize(10);
-  pdf.text(report.date, pageWidth - margin, 29, { align: "right" });
-  y = 50;
+  pdf.text(report.date, pageWidth - margin, 34, { align: "right" });
+  y = 58;
 
   const objectImage = primaryObjectImage(object);
   if (objectImage?.previewUrl?.startsWith("data:image")) {
     try {
-      pdf.addImage(objectImage.previewUrl, "JPEG", margin, y, 48, 32, undefined, "FAST");
+      await addContainedImage(objectImage.previewUrl, margin, y, 48, 32);
     } catch {
       pdf.setDrawColor(210);
       pdf.rect(margin, y, 48, 32);
@@ -2610,7 +2626,7 @@ async function createReportPdfBlob(report: ReportRecord, object: ObjectRecord, j
   addKeyValue(swedish ? "Objekt" : "Objekt", `${object.name} · ${displayAddress(object.address)}`, infoX, pageWidth - infoX - margin);
   addKeyValue(swedish ? "Ägare" : "Eigentümer", `${customer?.name ?? object.owner} · ${reportRecipientEmail(object, customer) || "-"}`, infoX, pageWidth - infoX - margin);
   if (job) addKeyValue(swedish ? "Uppdrag" : "Auftrag", `${job.title} · ${job.assignedTo} · ${job.status}`, infoX, pageWidth - infoX - margin);
-  y = Math.max(y, 84);
+  y = Math.max(y, 94);
 
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(12);
@@ -2620,13 +2636,14 @@ async function createReportPdfBlob(report: ReportRecord, object: ObjectRecord, j
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(10);
   addWrappedText(report.summary, margin, pageWidth - margin * 2);
-  if (report.customerComment) {
+  const customerComment = visibleReportCustomerComment(report);
+  if (customerComment) {
     y += 4;
     pdf.setFont("helvetica", "bold");
     pdf.text(swedish ? "Kommentar" : "Kommentar", margin, y);
     y += 6;
     pdf.setFont("helvetica", "normal");
-    addWrappedText(report.customerComment, margin, pageWidth - margin * 2);
+    addWrappedText(customerComment, margin, pageWidth - margin * 2);
   }
 
   y += 5;
@@ -2644,7 +2661,7 @@ async function createReportPdfBlob(report: ReportRecord, object: ObjectRecord, j
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(10);
     pdf.setTextColor(20);
-    pdf.text(`${index + 1}. ${item.title}`, margin + 4, y + 6);
+    pdf.text(reportItemLabel(item, index), margin + 4, y + 6, { maxWidth: pageWidth - margin * 2 - 52 });
     pdf.setFont("helvetica", "normal");
     pdf.setTextColor(item.completed ? 34 : 150);
     pdf.text(item.completed ? (swedish ? "utfört" : "ausgeführt") : (swedish ? "ej utfört" : "nicht ausgeführt"), pageWidth - margin - 4, y + 6, { align: "right" });
@@ -2661,22 +2678,31 @@ async function createReportPdfBlob(report: ReportRecord, object: ObjectRecord, j
       pdf.setFont("helvetica", "normal");
       addWrappedText(item.note, margin + 4, pageWidth - margin * 2 - 8, 4.2);
     }
-    for (const photo of item.photos) {
-      const previewUrl = photo.previewUrl;
-      if (!previewUrl?.startsWith("data:image")) continue;
-      ensureSpace(38);
-      try {
-        await addContainedImage(previewUrl, margin + 4, y, 42, 28);
-      } catch {
-        pdf.rect(margin + 4, y, 42, 28);
+    const imagePhotos = item.photos.filter((photo) => photo.previewUrl?.startsWith("data:image"));
+    for (let photoIndex = 0; photoIndex < imagePhotos.length; photoIndex += 2) {
+      const rowPhotos = imagePhotos.slice(photoIndex, photoIndex + 2);
+      const photoBoxWidth = 58;
+      const photoBoxHeight = 38;
+      const noteWidth = pageWidth - margin * 2 - rowPhotos.length * photoBoxWidth - 12;
+      ensureSpace(photoBoxHeight + 8);
+      for (const [rowIndex, photo] of rowPhotos.entries()) {
+        const previewUrl = photo.previewUrl;
+        if (!previewUrl?.startsWith("data:image")) continue;
+        const photoX = margin + 4 + rowIndex * (photoBoxWidth + 4);
+        try {
+          await addContainedImage(previewUrl, photoX, y, photoBoxWidth, photoBoxHeight);
+        } catch {
+          pdf.rect(photoX, y, photoBoxWidth, photoBoxHeight);
+        }
+        if (photo.note?.trim()) {
+          pdf.setFont("helvetica", "normal");
+          pdf.setTextColor(80);
+          const noteX = margin + 4 + rowPhotos.length * (photoBoxWidth + 4);
+          const noteLines = pdf.splitTextToSize(photo.note.trim(), Math.max(36, noteWidth));
+          pdf.text(noteLines, noteX, y + 5);
+        }
       }
-      if (photo.note?.trim()) {
-        pdf.setFont("helvetica", "normal");
-        pdf.setTextColor(80);
-        const noteLines = pdf.splitTextToSize(photo.note.trim(), pageWidth - margin * 2 - 56);
-        pdf.text(noteLines, margin + 50, y + 5);
-      }
-      y += 33;
+      y += photoBoxHeight + 6;
     }
     if (y === startY) y += 23;
     y += 3;
@@ -6214,9 +6240,12 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     const title = `Wochenbericht KW ${week.week} ${week.year} - ${master.title}`;
     const reportId = `WEEK-${master.id}-${week.year}-KW${String(week.week).padStart(2, "0")}`;
     const existingWeekReport = reports.find((report) => report.id === reportId);
+    const existingCustomerComment = existingWeekReport && !isGeneratedWeekCustomerComment(existingWeekReport.customerComment)
+      ? existingWeekReport.customerComment
+      : "";
     const nextReport: ReportRecord = {
       checklistResults,
-      customerComment: existingWeekReport?.customerComment || `${week.completed} von ${week.count} geplanten Einsätzen in KW ${week.week} erledigt. Zeitraum: ${week.startDate} bis ${week.endDate}.`,
+      customerComment: existingCustomerComment,
       date: week.startDate,
       id: reportId,
       internalNotes: `Automatisch erzeugter Wochenbericht für Serienauftrag ${master.id}. Enthält Teilaufträge: ${week.occurrences.map((item) => item.id).join(", ")}`,
@@ -7705,7 +7734,7 @@ function ReportsView({
             <span>Kommentar vor dem Senden</span>
             <textarea
               disabled={Boolean(selectedReport.sentAt)}
-              value={selectedReport.customerComment}
+              value={visibleReportCustomerComment(selectedReport)}
               onChange={(event) => onUpdateReport({ ...(currentSelectedReport() ?? selectedReport), customerComment: event.target.value })}
               onBlur={(event) => onUpdateReport({ ...(currentSelectedReport() ?? selectedReport), customerComment: event.currentTarget.value }, { forceRemote: true })}
               placeholder={selectedReport.sentAt ? "Bericht wurde bereits gesendet und ist gesperrt." : "Kommentar ergänzen, der im Kundenbericht erscheinen soll."}
@@ -7802,6 +7831,12 @@ function CustomerReportCard({
     ...(attachmentLabel ? [attachmentLabel] : []),
   ];
   const materialText = job?.material?.trim() ?? "";
+  const customerComment = visibleReportCustomerComment(report);
+  const reportTaskTitle = (item: FieldTaskResult) => {
+    if (!report.id.startsWith("WEEK-")) return item.title;
+    const dateMatch = item.meta.match(/\d{4}-\d{2}-\d{2}/)?.[0] ?? item.id.match(/\d{8}/)?.[0]?.replace(/(\d{4})(\d{2})(\d{2})/, "$1-$2-$3");
+    return dateMatch ? `${dateMatch} · ${item.title}` : item.title;
+  };
 
   return (
     <article className="customer-report-card printable-report">
@@ -7872,10 +7907,12 @@ function CustomerReportCard({
           <strong>Zusammenfassung</strong>
           <p>{report.summary}</p>
         </section>
-        <section>
-          <strong>Kommentar an den Kunden</strong>
-          <p>{report.customerComment || "Noch kein Kundenkommentar hinterlegt."}</p>
-        </section>
+        {customerComment && (
+          <section>
+            <strong>Kommentar an den Kunden</strong>
+            <p>{customerComment}</p>
+          </section>
+        )}
       </div>
       {report.checklistResults.length > 0 ? (
         <div className="report-checklist">
@@ -7885,7 +7922,7 @@ function CustomerReportCard({
               <article key={item.id}>
                 <div>
                   <Badge value={item.completed ? "ausgeführt" : "nicht ausgeführt"} />
-                  <strong>{item.title}</strong>
+                  <strong>{reportTaskTitle(item)}</strong>
                   <span>{item.meta}</span>
                 </div>
                 <p>{item.description}</p>
@@ -12262,7 +12299,7 @@ function ObjectHistory({
                 <span>Kommentar vor dem Senden</span>
                 <textarea
                   disabled={Boolean(sentAt)}
-                  value={selectedReport.customerComment}
+                  value={visibleReportCustomerComment(selectedReport)}
                   onChange={(event) => onUpdateReport({ ...(currentSelectedReport() ?? selectedReport), customerComment: event.target.value })}
                   onBlur={(event) => onUpdateReport({ ...(currentSelectedReport() ?? selectedReport), customerComment: event.currentTarget.value }, { forceRemote: true })}
                   placeholder={sentAt ? "Bericht wurde bereits gesendet und ist gesperrt." : "Kommentar ergänzen, der im Kundenbericht erscheinen soll."}

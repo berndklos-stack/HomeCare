@@ -1,10 +1,21 @@
 export const appVersion = {
-  version: "1.219.0",
+  version: "1.220.0",
   releaseDate: "2026-08-28",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.220.0",
+    date: "2026-08-28",
+    changes: [
+      "PDF-Berichtskopf ist niedriger und in zwei geordneten Zeilen gesetzt",
+      "Wochenberichte zeigen nur noch manuell erfasste Kundenkommentare",
+      "Wochenbericht-Checkpunkte werden mit echtem Datum statt laufender Nummer dargestellt",
+      "Objektbilder und Berichtsfotos werden proportional ohne Verzerrung dargestellt",
+      "PDF-Fotos werden platzsparender nebeneinander angeordnet",
+    ],
+  },
   {
     version: "1.219.0",
     date: "2026-08-28",
