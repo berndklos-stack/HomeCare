@@ -2737,7 +2737,7 @@ async function createReportPdfBlob(report: ReportRecord, object: ObjectRecord, j
     const descriptionLines = item.description ? pdf.splitTextToSize(item.description, contentWidth - 8) as string[] : [];
     const imagePhotos = item.photos.filter((photo) => photo.previewUrl?.startsWith("data:image"));
     const photoRows = Math.ceil(imagePhotos.length / 3);
-    const taskHeight = 19 + descriptionLines.length * 3.6 + noteLines.length * 3.8 + photoRows * 35 + (photoRows ? 4 : 0);
+    const taskHeight = 31 + descriptionLines.length * 3.6 + noteLines.length * 3.8 + photoRows * 35;
     ensureSpace(taskHeight + 4);
     const taskY = y;
     drawCard(margin, taskY, contentWidth, taskHeight);
@@ -4295,9 +4295,10 @@ function normalizeReportDate(value: string) {
 }
 
 function reportDedupeKey(report: ReportRecord) {
+  const reportType = report.id.startsWith("WEEK-") ? "week" : "day";
   return [
-    report.objectId,
-    report.title.trim().toLowerCase(),
+    reportType,
+    report.jobId,
     normalizeReportDate(report.date),
   ].join("|");
 }
@@ -4322,6 +4323,12 @@ function reportChangedTime(report: ReportRecord) {
 }
 
 function chooseReportText(primaryText: string, fallbackText: string, primaryTime: number, fallbackTime: number) {
+  const primaryClean = primaryText.trim();
+  const fallbackClean = fallbackText.trim();
+  if (!primaryClean && fallbackClean) return fallbackText;
+  if (primaryClean && !fallbackClean) return primaryText;
+  if (primaryClean.length < fallbackClean.length && fallbackClean.includes(primaryClean)) return fallbackText;
+  if (fallbackClean.length < primaryClean.length && primaryClean.includes(fallbackClean)) return primaryText;
   if (Number.isFinite(primaryTime) && Number.isFinite(fallbackTime) && primaryTime !== fallbackTime) {
     return primaryTime > fallbackTime ? primaryText : fallbackText;
   }
@@ -6092,12 +6099,13 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     setSection("field");
   }
 
-  function clearActiveJob(job?: JobRecord) {
+  function clearActiveJob(job?: JobRecord, nextStatus: JobRecord["status"] = "geplant", material?: string) {
     const targetJobId = job?.id ?? activeJobId ?? jobs.find((item) => item.status === "in Arbeit")?.id;
     if (!targetJobId) return;
     const statusUpdatedAt = new Date().toISOString();
+    const savedMaterial = material?.trim() || job?.material?.trim() || "-";
     const nextJobs = jobs.map((item) => (
-      item.id === targetJobId && item.status === "in Arbeit" ? { ...item, status: "geplant" as const, statusUpdatedAt } : item
+      item.id === targetJobId ? { ...item, material: savedMaterial, status: nextStatus, statusUpdatedAt } : item
     ));
     setJobs(nextJobs);
     setActiveJobId(null);
@@ -6324,11 +6332,23 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     const reportsByJobId = new Map(dedupeReports(reports).map((report) => [report.jobId, report]));
     const checklistResults: FieldTaskResult[] = week.occurrences.map((occurrence) => {
       const occurrenceReport = reportsByJobId.get(occurrence.id);
-      const minutes = occurrenceReport?.checklistResults.reduce((sum, item) => sum + (item.minutes || 0), 0) ?? occurrence.workMinutes ?? 0;
-      const reportNotes = occurrenceReport?.checklistResults
+      const occurrenceDate = normalizeReportDate(occurrence.seriesOccurrenceDate || occurrence.dueDate);
+      const occurrenceProgress = fieldProgress[fieldProgressKey(occurrence, occurrenceDate)];
+      const progressResults = occurrenceProgress && progressHasReportContent(occurrenceProgress)
+        ? reportResultsFromProgress(occurrence, services, occurrenceProgress)
+        : [];
+      const sourceResults = occurrenceReport?.checklistResults.length ? occurrenceReport.checklistResults : progressResults;
+      const minutes = sourceResults.length > 0
+        ? sourceResults.reduce((sum, item) => sum + (item.minutes || 0), 0)
+        : occurrence.workMinutes ?? 0;
+      const reportNotes = sourceResults
         .map((item) => item.note.trim())
         .filter(Boolean)
         .join(" · ");
+      const progressUpdatedAt = progressResults
+        .map((item) => Date.parse(item.updatedAt ?? ""))
+        .filter(Number.isFinite)
+        .sort((first, second) => second - first)[0];
       const executionLabel = jobDateRangeLabel(occurrence) === jobOriginalDateRangeLabel(occurrence)
         ? jobDateRangeLabel(occurrence)
         : `Einsatz ${jobDateRangeLabel(occurrence)} · Original ${jobOriginalDateRangeLabel(occurrence)}`;
@@ -6343,9 +6363,10 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
           ? occurrenceReport.checklistResults.some((item) => item.showWorkTimeInReport !== false && item.minutes > 0)
           : true,
         note: reportNotes || occurrenceReport?.summary || "Kein Tagesbericht für diesen Teilauftrag vorhanden.",
-        photos: occurrenceReport?.checklistResults.flatMap((item) => item.photos) ?? [],
+        photos: sourceResults.flatMap((item) => item.photos),
         title: occurrence.title,
-        updatedAt: occurrenceReport?.updatedAt ?? new Date().toISOString(),
+        updatedAt: occurrenceReport?.updatedAt
+          ?? (progressUpdatedAt ? new Date(progressUpdatedAt).toISOString() : new Date().toISOString()),
       };
     });
     const visibleMinutes = visibleReportWorkMinutes(checklistResults);
@@ -8952,7 +8973,7 @@ function FieldView({
   onSelectJob: (job: JobRecord) => void;
   onSelectReport: (report: ReportRecord) => void;
   onSelectWorkDate: (jobId: string, date: string) => void;
-  onClearActiveJob: (job: JobRecord) => void;
+  onClearActiveJob: (job: JobRecord, nextStatus?: JobRecord["status"], material?: string) => void;
   onFieldNoteChange: (jobId: string, note: string) => void;
   onProgressChange: (jobId: string, progress: Record<string, FieldTaskProgress>) => void;
   onSendReport: (report: ReportRecord) => void;
@@ -8962,6 +8983,7 @@ function FieldView({
 }) {
   const [showCompletedReports, setShowCompletedReports] = useState(false);
   const [showSentReports, setShowSentReports] = useState(false);
+  const [closeStatusPrompt, setCloseStatusPrompt] = useState(false);
   const [materialDraft, setMaterialDraft] = useState("");
   const [pendingReportAttachments, setPendingReportAttachments] = useState<ReportAttachment[]>([]);
   const [pendingAttachmentNotice, setPendingAttachmentNotice] = useState("");
@@ -9223,6 +9245,11 @@ function FieldView({
     setPendingAttachmentNotice("");
   }
 
+  function closeActiveJobWithStatus(nextStatus: JobRecord["status"]) {
+    onClearActiveJob(activeJob, nextStatus, materialDraft);
+    setCloseStatusPrompt(false);
+  }
+
   return (
     <section className="field-shell">
       <div className="phone-card">
@@ -9301,15 +9328,17 @@ function FieldView({
           })}
           {showSentReports && sentReports.length === 0 && <span>Noch keine gesendeten Berichte.</span>}
         </div>
+        <div className="modal-backdrop">
+          <section className="modal field-work-modal" role="dialog" aria-modal="true" aria-labelledby="field-work-title">
         <div className="field-active-head">
-          <h2>{editingReportId ? "Bericht nachbearbeiten" : activeJob.title}</h2>
+          <h2 id="field-work-title">{editingReportId ? "Bericht nachbearbeiten" : activeJob.title}</h2>
           <div className="row-actions">
             {activeReport && (
               <IconAction label={`Bericht ${activeReport.title} senden`} onClick={() => onSendReport(activeReport)}>
                 <Send size={16} />
               </IconAction>
             )}
-            <IconAction label={`Auftrag ${activeJob.title} abwählen`} onClick={() => onClearActiveJob(activeJob)}>
+            <IconAction label={`Auftrag ${activeJob.title} schließen`} onClick={() => setCloseStatusPrompt(true)}>
               <X size={16} />
             </IconAction>
           </div>
@@ -9567,6 +9596,33 @@ function FieldView({
         <button className="primary-button" disabled={reportLocked} onClick={completeActiveJob} type="button">
           {editingReportId ? "Bericht speichern" : workDates.length > 1 ? (isLastOpenWorkDate ? "Letzten Tag speichern und Auftrag abschließen" : "Tagesbericht zwischenspeichern") : "Einsatz abschließen"}
         </button>
+          </section>
+        </div>
+        {closeStatusPrompt && (
+          <div className="modal-backdrop field-status-backdrop">
+            <section className="modal field-status-modal" role="dialog" aria-modal="true" aria-labelledby="field-status-title">
+              <header>
+                <div>
+                  <p>Mobil vor Ort</p>
+                  <h2 id="field-status-title">Status beim Schließen</h2>
+                </div>
+                <button aria-label="Statusauswahl schließen" onClick={() => setCloseStatusPrompt(false)} type="button">
+                  <X size={18} />
+                </button>
+              </header>
+              <div className="send-preview-grid">
+                <button className="status-choice-button" onClick={() => closeActiveJobWithStatus("in Arbeit")} type="button">
+                  <strong>In Arbeit</strong>
+                  <span>Der Auftrag bleibt als laufender Einsatz markiert.</span>
+                </button>
+                <button className="status-choice-button" onClick={() => closeActiveJobWithStatus("geplant")} type="button">
+                  <strong>Geplant</strong>
+                  <span>Der Auftrag wird wieder in die Planung zurückgelegt.</span>
+                </button>
+              </div>
+            </section>
+          </div>
+        )}
       </div>
     </section>
   );

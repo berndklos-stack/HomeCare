@@ -1,10 +1,28 @@
 export const appVersion = {
-  version: "1.222.0",
+  version: "1.224.0",
   releaseDate: "2026-08-29",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.224.0",
+    date: "2026-08-29",
+    changes: [
+      "Berichte mit gleichem Auftrag und Datum werden client- und serverseitig zusammengefuehrt",
+      "Vorhandene Bemerkungen werden nicht mehr durch leere oder kuerzere Rueckschreibungen verdraengt",
+      "Wochenberichte uebernehmen fehlende Tagesnotizen auch aus dem mobilen Zwischenspeicher",
+      "PDF-Bildgalerien reservieren genug Platz innerhalb der Checklisten-Karte",
+    ],
+  },
+  {
+    version: "1.223.0",
+    date: "2026-08-29",
+    changes: [
+      "Mobil vor Ort oeffnet Auftraege und Berichte als Popup",
+      "Beim Schliessen eines mobilen Einsatzes wird der Status In Arbeit oder Geplant abgefragt",
+    ],
+  },
   {
     version: "1.222.0",
     date: "2026-08-29",

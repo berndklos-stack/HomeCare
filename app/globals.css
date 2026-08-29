@@ -3603,6 +3603,41 @@ mark.neutral {
   overflow: auto;
 }
 
+.field-work-modal {
+  max-height: min(94vh, 980px);
+  max-width: 760px;
+  width: min(100%, 760px);
+}
+
+.field-status-backdrop {
+  z-index: 30;
+}
+
+.field-status-modal {
+  max-width: 560px;
+}
+
+.status-choice-button {
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  cursor: pointer;
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  text-align: left;
+}
+
+.status-choice-button:hover {
+  border-color: var(--brand);
+}
+
+.status-choice-button span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .customer-message-modal {
   max-width: 1120px;
   width: min(100%, 1120px);

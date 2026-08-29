@@ -132,6 +132,127 @@ function mergeRecordsById(existingRecords: unknown, patchRecords: unknown, key?:
   return Array.from(recordsById.values());
 }
 
+function normalizeReportDate(value: unknown) {
+  const text = String(value ?? "").trim();
+  const isoDate = text.match(/^\d{4}-\d{2}-\d{2}$/);
+  if (isoDate) return text;
+  const germanDate = text.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+  if (germanDate) {
+    const [, day, month, year] = germanDate;
+    return `${year}-${month}-${day}`;
+  }
+  return text;
+}
+
+function reportDedupeKey(record: JsonObject) {
+  const id = String(record.id ?? "");
+  const reportType = id.startsWith("WEEK-") ? "week" : "day";
+  return [reportType, String(record.jobId ?? ""), normalizeReportDate(record.date)].join("|");
+}
+
+function reportChangedTime(record: JsonObject) {
+  return Date.parse(String(record.updatedAt ?? record.sentAt ?? ""));
+}
+
+function chooseReportText(primaryText: unknown, fallbackText: unknown, primaryTime: number, fallbackTime: number) {
+  const primary = String(primaryText ?? "");
+  const fallback = String(fallbackText ?? "");
+  const primaryClean = primary.trim();
+  const fallbackClean = fallback.trim();
+  if (!primaryClean && fallbackClean) return fallback;
+  if (primaryClean && !fallbackClean) return primary;
+  if (primaryClean.length < fallbackClean.length && fallbackClean.includes(primaryClean)) return fallback;
+  if (fallbackClean.length < primaryClean.length && primaryClean.includes(fallbackClean)) return primary;
+  if (Number.isFinite(primaryTime) && Number.isFinite(fallbackTime) && primaryTime !== fallbackTime) {
+    return primaryTime > fallbackTime ? primary : fallback;
+  }
+  return primary.length >= fallback.length ? primary : fallback;
+}
+
+function reportCompletenessScore(record: JsonObject) {
+  const checklist = Array.isArray(record.checklistResults) ? record.checklistResults as JsonObject[] : [];
+  const photoCount = checklist.reduce((sum, item) => sum + (Array.isArray(item.photos) ? item.photos.length : 0), 0);
+  const noteCount = checklist.filter((item) => String(item.note ?? "").trim()).length;
+  return [
+    record.sentAt ? 100 : 0,
+    String(record.customerComment ?? "").trim() ? 20 : 0,
+    checklist.length * 4,
+    photoCount * 3,
+    Array.isArray(record.attachments) ? record.attachments.length * 3 : 0,
+    noteCount * 2,
+    String(record.summary ?? "").trim() ? 1 : 0,
+  ].reduce((sum, value) => sum + value, 0);
+}
+
+function mergeReportChecklist(existingItem: JsonObject | undefined, patchItem: JsonObject) {
+  if (!existingItem) return patchItem;
+  const existingTime = Date.parse(String(existingItem.updatedAt ?? ""));
+  const patchTime = Date.parse(String(patchItem.updatedAt ?? ""));
+  const patchIsNewer = Number.isFinite(patchTime)
+    ? !Number.isFinite(existingTime) || patchTime >= existingTime
+    : true;
+  const newest = patchIsNewer ? patchItem : existingItem;
+  const fallback = patchIsNewer ? existingItem : patchItem;
+
+  return {
+    ...fallback,
+    ...newest,
+    completed: Boolean(newest.completed) || Boolean(fallback.completed),
+    minutes: newest.minutes || fallback.minutes || 0,
+    note: chooseReportText(newest.note, fallback.note, Date.parse(String(newest.updatedAt ?? "")), Date.parse(String(fallback.updatedAt ?? ""))),
+    photos: mergeFieldPhotos(fallback.photos, newest.photos),
+  };
+}
+
+function mergeReportPair(first: JsonObject, second: JsonObject) {
+  const primary = reportCompletenessScore(second) >= reportCompletenessScore(first) ? second : first;
+  const fallback = primary === first ? second : first;
+  const primaryTime = reportChangedTime(primary);
+  const fallbackTime = reportChangedTime(fallback);
+  const checklistById = new Map<string, JsonObject>();
+
+  (Array.isArray(fallback.checklistResults) ? fallback.checklistResults as JsonObject[] : []).forEach((item) => {
+    checklistById.set(String(item.id ?? item.title ?? checklistById.size), item);
+  });
+  (Array.isArray(primary.checklistResults) ? primary.checklistResults as JsonObject[] : []).forEach((item) => {
+    const id = String(item.id ?? item.title ?? checklistById.size);
+    checklistById.set(id, mergeReportChecklist(checklistById.get(id), item));
+  });
+
+  return {
+    ...fallback,
+    ...primary,
+    checklistResults: Array.from(checklistById.values()),
+    customerComment: chooseReportText(primary.customerComment, fallback.customerComment, primaryTime, fallbackTime),
+    date: normalizeReportDate(primary.date),
+    media: Array.from(new Set([
+      ...(Array.isArray(fallback.media) ? fallback.media : []),
+      ...(Array.isArray(primary.media) ? primary.media : []),
+    ])),
+    summary: chooseReportText(primary.summary, fallback.summary, primaryTime, fallbackTime),
+    sentAt: primary.sentAt ?? fallback.sentAt,
+    updatedAt: Number.isFinite(primaryTime) && Number.isFinite(fallbackTime)
+      ? (primaryTime >= fallbackTime ? primary.updatedAt ?? primary.sentAt : fallback.updatedAt ?? fallback.sentAt)
+      : primary.updatedAt ?? fallback.updatedAt,
+  };
+}
+
+function mergeReports(existingRecords: unknown, patchRecords: unknown) {
+  const reportsByKey = new Map<string, JsonObject>();
+  [
+    ...(Array.isArray(existingRecords) ? existingRecords : []),
+    ...(Array.isArray(patchRecords) ? patchRecords : []),
+  ].forEach((record) => {
+    if (!record || typeof record !== "object") return;
+    const report = record as JsonObject;
+    const key = reportDedupeKey(report);
+    const existing = reportsByKey.get(key);
+    reportsByKey.set(key, existing ? mergeReportPair(existing, report) : { ...report, date: normalizeReportDate(report.date) });
+  });
+
+  return Array.from(reportsByKey.values());
+}
+
 function mergeOdometerPhotos(existingPhotos: unknown, patchPhotos: unknown) {
   const photosById = new Map<string, JsonObject>();
   [
@@ -231,6 +352,10 @@ function mergeSnapshotPatch(existingSnapshot: unknown, patch: unknown) {
 
   Object.entries(patchObject).forEach(([key, value]) => {
     if (Array.isArray(value)) {
+      if (key === "reports") {
+        merged[key] = mergeReports(existing[key], value);
+        return;
+      }
       merged[key] = mergeRecordsById(existing[key], value, key);
       return;
     }
