@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.218.0",
+  version: "1.219.0",
   releaseDate: "2026-08-28",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.219.0",
+    date: "2026-08-28",
+    changes: [
+      "Berichtsaenderungen erhalten Zeitstempel und werden beim Verlassen des Feldes sofort online gespeichert",
+      "Berichtszusammenfuehrung bevorzugt neuere Texte und erhaelt Checkpunkte aus parallelen Berichtsversionen",
+      "Berichtsuebersicht und Objektverlauf zeigen zusammengefuehrte Berichte statt roher Doppelversionen",
+    ],
+  },
   {
     version: "1.218.0",
     date: "2026-08-28",

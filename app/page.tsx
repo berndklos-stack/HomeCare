@@ -226,6 +226,7 @@ type ReportRecord = {
   checklistResults: FieldTaskResult[];
   customerComment: string;
   sentAt?: string;
+  updatedAt?: string;
 };
 
 type ReportAttachment = {
@@ -260,6 +261,7 @@ type FieldTaskResult = {
   showWorkTimeInReport?: boolean;
   note: string;
   photos: FieldPhoto[];
+  updatedAt?: string;
 };
 
 type FieldTask = {
@@ -1177,6 +1179,7 @@ function reportResultsFromProgress(job: JobRecord, services: ServiceItem[], prog
       showWorkTimeInReport: task.showWorkTimeInReport ?? fieldTask?.defaultShowWorkTimeInReport ?? true,
       note: task.note.trim(),
       photos: task.photos,
+      updatedAt: task.updatedAt,
     };
   });
 }
@@ -1211,6 +1214,7 @@ function recoverReportsFromFieldProgress(snapshot: AppSnapshot): AppSnapshot {
         media: reportMediaLabels(photoCount, visibleMinutes, ["aus Einsatzdaten wiederhergestellt"]),
         checklistResults,
         customerComment: "",
+        updatedAt: new Date().toISOString(),
       }];
     });
   });
@@ -4187,16 +4191,58 @@ function reportCompletenessScore(report: ReportRecord) {
   ].reduce((sum, value) => sum + value, 0);
 }
 
+function reportChangedTime(report: ReportRecord) {
+  return Date.parse(report.updatedAt ?? report.sentAt ?? "");
+}
+
+function chooseReportText(primaryText: string, fallbackText: string, primaryTime: number, fallbackTime: number) {
+  if (Number.isFinite(primaryTime) && Number.isFinite(fallbackTime) && primaryTime !== fallbackTime) {
+    return primaryTime > fallbackTime ? primaryText : fallbackText;
+  }
+  if (Number.isFinite(primaryTime) && !Number.isFinite(fallbackTime)) return primaryText || fallbackText;
+  if (!Number.isFinite(primaryTime) && Number.isFinite(fallbackTime)) return fallbackText || primaryText;
+  return primaryText.length >= fallbackText.length ? primaryText : fallbackText;
+}
+
+function chooseReportChecklistItem(existing: FieldTaskResult | undefined, item: FieldTaskResult, reportIsPrimary: boolean) {
+  if (!existing) return item;
+  const existingTime = Date.parse(existing.updatedAt ?? "");
+  const itemTime = Date.parse(item.updatedAt ?? "");
+  const newerItem = Number.isFinite(existingTime) || Number.isFinite(itemTime)
+    ? !Number.isFinite(existingTime) || (Number.isFinite(itemTime) && itemTime >= existingTime) ? item : existing
+    : reportIsPrimary ? item : existing;
+  const fallbackItem = newerItem === item ? existing : item;
+  const photoKeys = new Set<string>();
+  const photos = [...(fallbackItem.photos ?? []), ...(newerItem.photos ?? [])].filter((photo) => {
+    const key = photo.id ? `id:${photo.id}` : `${photo.name}|${photo.previewUrl ?? ""}`;
+    if (photoKeys.has(key)) return false;
+    photoKeys.add(key);
+    return true;
+  });
+
+  return {
+    ...fallbackItem,
+    ...newerItem,
+    completed: newerItem.completed || fallbackItem.completed,
+    minutes: newerItem.minutes || fallbackItem.minutes,
+    note: chooseReportText(newerItem.note, fallbackItem.note, Date.parse(newerItem.updatedAt ?? ""), Date.parse(fallbackItem.updatedAt ?? "")),
+    photos,
+  };
+}
+
 function mergeReportPair(first: ReportRecord, second: ReportRecord) {
   const primary = reportCompletenessScore(second) >= reportCompletenessScore(first) ? second : first;
   const fallback = primary === first ? second : first;
+  const primaryTime = reportChangedTime(primary);
+  const fallbackTime = reportChangedTime(fallback);
   const checklistById = new Map<string, FieldTaskResult>();
 
-  [...fallback.checklistResults, ...primary.checklistResults].forEach((item) => {
+  fallback.checklistResults.forEach((item) => {
+    checklistById.set(item.id, item);
+  });
+  primary.checklistResults.forEach((item) => {
     const existing = checklistById.get(item.id);
-    const existingScore = existing ? Number(existing.completed) + existing.photos.length + Number(Boolean(existing.note.trim())) : -1;
-    const itemScore = Number(item.completed) + item.photos.length + Number(Boolean(item.note.trim()));
-    if (!existing || itemScore >= existingScore) checklistById.set(item.id, item);
+    checklistById.set(item.id, chooseReportChecklistItem(existing, item, true));
   });
   const attachmentsById = new Map<string, ReportAttachment>();
   [...(fallback.attachments ?? []), ...(primary.attachments ?? [])].forEach((attachment) => {
@@ -4207,11 +4253,15 @@ function mergeReportPair(first: ReportRecord, second: ReportRecord) {
     ...fallback,
     ...primary,
     checklistResults: Array.from(checklistById.values()),
-    customerComment: primary.customerComment || fallback.customerComment,
+    customerComment: chooseReportText(primary.customerComment, fallback.customerComment, primaryTime, fallbackTime),
     date: normalizeReportDate(primary.date),
     media: Array.from(new Set([...fallback.media, ...primary.media])),
+    summary: chooseReportText(primary.summary, fallback.summary, primaryTime, fallbackTime),
     attachments: Array.from(attachmentsById.values()).sort((firstAttachment, secondAttachment) => firstAttachment.createdAt.localeCompare(secondAttachment.createdAt)),
     sentAt: primary.sentAt ?? fallback.sentAt,
+    updatedAt: Number.isFinite(primaryTime) && Number.isFinite(fallbackTime)
+      ? (primaryTime >= fallbackTime ? primary.updatedAt ?? primary.sentAt : fallback.updatedAt ?? fallback.sentAt)
+      : primary.updatedAt ?? fallback.updatedAt,
   };
 }
 
@@ -4806,6 +4856,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   const [customers, setCustomers] = useState(seedCustomers);
   const [jobs, setJobs] = useState(seedJobs);
   const [reports, setReports] = useState(seedReports);
+  const reportsRef = useRef(seedReports);
   const [billing, setBilling] = useState(seedBilling);
   const [companySettings, setCompanySettings] = useState(seedCompanySettings);
   const [materials, setMaterials] = useState(seedMaterials);
@@ -4901,6 +4952,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     setCustomers(snapshot.customers);
     setJobs(normalizedJobs);
     setMaterials(snapshot.materials ?? seedMaterials);
+    reportsRef.current = normalizedReports;
     setReports(normalizedReports);
     setServices(snapshot.services);
     setServicePackages(snapshot.packages);
@@ -4913,6 +4965,10 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     setActiveJobId(snapshot.activeJobId && normalizedJobs.some((job) => job.id === snapshot.activeJobId) ? snapshot.activeJobId : null);
     setAppUpdatedAt(snapshot.updatedAt);
   }
+
+  useEffect(() => {
+    reportsRef.current = reports;
+  }, [reports]);
 
   useEffect(() => {
     let cancelled = false;
@@ -5887,6 +5943,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
           showWorkTimeInReport: item.showWorkTimeInReport ?? true,
           note: item.note,
           photos: item.photos,
+          updatedAt: item.updatedAt,
         },
       ]),
     ) as Record<string, FieldTaskProgress>;
@@ -5927,9 +5984,11 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       : reports.find((report) => report.jobId === job.id && report.date === executionDate);
     const isReportEdit = Boolean(editingFieldReportId && existingReport);
     const nextDueDate = isReportEdit || isMultiDayJob ? null : nextSeriesDueDate(job);
+    const reportUpdatedAt = new Date().toISOString();
     const normalizedResults = checklistResults.map((item) => ({
       ...item,
       minutes: item.completed ? item.minutes : 0,
+      updatedAt: item.updatedAt ?? reportUpdatedAt,
     }));
     const workMinutes = normalizedResults.reduce((sum, item) => sum + item.minutes, 0);
     const visibleMinutes = visibleReportWorkMinutes(normalizedResults);
@@ -5973,6 +6032,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       checklistResults: normalizedResults,
       customerComment: existingReport?.customerComment ?? "",
       sentAt: existingReport?.sentAt,
+      updatedAt: reportUpdatedAt,
     };
     const nextReports = dedupeReports([
       savedReport,
@@ -5987,6 +6047,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
 
     setJobs(nextJobs);
     setBilling(nextBilling);
+    reportsRef.current = nextReports;
     setReports(nextReports);
     setObjects(nextObjects);
     setFieldNotes(nextFieldNotes);
@@ -6015,10 +6076,16 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     }
   }
 
-  function updateReportRecord(report: ReportRecord) {
-    const nextReports = dedupeReports(reports.map((item) => (item.id === report.id ? report : item)));
+  function updateReportRecord(report: ReportRecord, options: { forceRemote?: boolean } = {}) {
+    const stampedReport = { ...report, updatedAt: new Date().toISOString() };
+    const baseReports = reportsRef.current.length ? reportsRef.current : reports;
+    const replaced = baseReports.some((item) => item.id === stampedReport.id);
+    const nextReports = dedupeReports(replaced
+      ? baseReports.map((item) => (item.id === stampedReport.id ? stampedReport : item))
+      : [stampedReport, ...baseReports]);
+    reportsRef.current = nextReports;
     setReports(nextReports);
-    persistSnapshotNow({ reports: nextReports });
+    persistSnapshotNow({ reports: nextReports }, { forceRemote: options.forceRemote });
   }
 
   function sendReportToCustomer(report: ReportRecord) {
@@ -6140,6 +6207,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
         note: reportNotes || occurrenceReport?.summary || "Kein Tagesbericht für diesen Teilauftrag vorhanden.",
         photos: occurrenceReport?.checklistResults.flatMap((item) => item.photos) ?? [],
         title: occurrence.title,
+        updatedAt: occurrenceReport?.updatedAt ?? new Date().toISOString(),
       };
     });
     const visibleMinutes = visibleReportWorkMinutes(checklistResults);
@@ -6159,6 +6227,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       summary: existingWeekReport?.summary ?? `Wochenbericht für ${object.name}: ${week.completed} erledigt, ${week.open} offen, ${week.reportCount} Tagesberichte im Zeitraum ${week.startDate} bis ${week.endDate}.`,
       attachments: existingWeekReport?.attachments ?? [],
       title,
+      updatedAt: new Date().toISOString(),
       visibleToCustomer: true,
     };
     const nextReports = dedupeReports([
@@ -6557,7 +6626,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       dateStyle: "medium",
       timeStyle: "short",
     });
-    const nextReport = { ...report, sentAt: report.sentAt ?? timestamp };
+    const nextReport = { ...report, sentAt: report.sentAt ?? timestamp, updatedAt: new Date().toISOString() };
 
     try {
       await sendCustomerReportMail(nextReport, reportObject, reportJob, reportCustomer, sendPreviewReportBody);
@@ -7511,7 +7580,7 @@ function ReportsView({
   jobs: JobRecord[];
   onEditInField: (report: ReportRecord) => void;
   onSendReport: (report: ReportRecord) => void;
-  onUpdateReport: (report: ReportRecord) => void;
+  onUpdateReport: (report: ReportRecord, options?: { forceRemote?: boolean }) => void;
   objects: ObjectRecord[];
   reports: ReportRecord[];
 }) {
@@ -7519,7 +7588,8 @@ function ReportsView({
   const [reportQuery, setReportQuery] = useState("");
   const [reportStatusFilter, setReportStatusFilter] = useState("alle");
   const [reportSort, setReportSort] = useState("date-desc");
-  const filteredReports = dedupeReports(reports)
+  const normalizedReports = dedupeReports(reports);
+  const filteredReports = normalizedReports
     .filter((report) => {
       const object = objects.find((item) => item.id === report.objectId);
       const job = jobs.find((item) => item.id === report.jobId);
@@ -7542,12 +7612,13 @@ function ReportsView({
       if (reportSort === "status") return (firstJob?.status ?? "").localeCompare(secondJob?.status ?? "", "de");
       return normalizeReportDate(second.date).localeCompare(normalizeReportDate(first.date));
     });
-  const selectedReport = reports.find((report) => report.id === selectedReportId);
+  const selectedReport = normalizedReports.find((report) => report.id === selectedReportId);
   const selectedObject = selectedReport ? objects.find((object) => object.id === selectedReport.objectId) : undefined;
   const selectedJob = selectedReport ? jobs.find((job) => job.id === selectedReport.jobId) : undefined;
   const selectedCustomer = selectedObject
     ? customers.find((customer) => customer.id === selectedObject.ownerCustomerId || customer.name === selectedObject.owner)
     : undefined;
+  const currentSelectedReport = () => dedupeReports(reports).find((report) => report.id === selectedReportId) ?? selectedReport;
 
   return (
     <div className="stack">
@@ -7616,7 +7687,7 @@ function ReportsView({
               <IconAction label={`Bericht ${selectedReport.title} mobil nachbearbeiten`} onClick={() => onEditInField(selectedReport)}><Pencil size={16} /></IconAction>
               <IconAction label={`PDF für ${selectedReport.title} herunterladen`} onClick={() => void downloadCustomerReportPdf(selectedReport, selectedObject, selectedJob, selectedCustomer)}><FileDown size={16} /></IconAction>
               <IconAction label={`Bericht ${selectedReport.title} an Kunden senden`} onClick={() => onSendReport(selectedReport)}><Send size={16} /></IconAction>
-              <IconAction label={`Bericht ${selectedReport.title} schließen`} onClick={() => setSelectedReportId("")}><X size={16} /></IconAction>
+              <IconAction label={`Bericht ${selectedReport.title} schließen`} onClick={() => { onUpdateReport(currentSelectedReport() ?? selectedReport, { forceRemote: true }); setSelectedReportId(""); }}><X size={16} /></IconAction>
             </div>
           </div>
           <CustomerReportCard customer={selectedCustomer} job={selectedJob} object={selectedObject} report={selectedReport} sentAt={selectedReport.sentAt} />
@@ -7625,7 +7696,8 @@ function ReportsView({
             <textarea
               disabled={Boolean(selectedReport.sentAt)}
               value={selectedReport.summary}
-              onChange={(event) => onUpdateReport({ ...selectedReport, summary: event.target.value })}
+              onChange={(event) => onUpdateReport({ ...(currentSelectedReport() ?? selectedReport), summary: event.target.value })}
+              onBlur={(event) => onUpdateReport({ ...(currentSelectedReport() ?? selectedReport), summary: event.currentTarget.value }, { forceRemote: true })}
               placeholder={selectedReport.sentAt ? "Bericht wurde bereits gesendet und ist gesperrt." : "Berichtstext für den Kundenbericht anpassen."}
             />
           </label>
@@ -7634,7 +7706,8 @@ function ReportsView({
             <textarea
               disabled={Boolean(selectedReport.sentAt)}
               value={selectedReport.customerComment}
-              onChange={(event) => onUpdateReport({ ...selectedReport, customerComment: event.target.value })}
+              onChange={(event) => onUpdateReport({ ...(currentSelectedReport() ?? selectedReport), customerComment: event.target.value })}
+              onBlur={(event) => onUpdateReport({ ...(currentSelectedReport() ?? selectedReport), customerComment: event.currentTarget.value }, { forceRemote: true })}
               placeholder={selectedReport.sentAt ? "Bericht wurde bereits gesendet und ist gesperrt." : "Kommentar ergänzen, der im Kundenbericht erscheinen soll."}
             />
           </label>
@@ -7651,7 +7724,7 @@ function ReportAttachmentEditor({
   report,
 }: {
   disabled: boolean;
-  onUpdateReport: (report: ReportRecord) => void;
+  onUpdateReport: (report: ReportRecord, options?: { forceRemote?: boolean }) => void;
   report: ReportRecord;
 }) {
   const [notice, setNotice] = useState("");
@@ -7662,7 +7735,7 @@ function ReportAttachmentEditor({
 
     try {
       const attachments = await Promise.all(selectedFiles.map((file) => fileToReportAttachment(file)));
-      onUpdateReport({ ...report, attachments: [...(report.attachments ?? []), ...attachments] });
+      onUpdateReport({ ...report, attachments: [...(report.attachments ?? []), ...attachments] }, { forceRemote: true });
       setNotice(`${attachments.length} ${attachments.length === 1 ? "Datei wurde" : "Dateien wurden"} angehängt.`);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Datei konnte nicht angehängt werden.");
@@ -7693,7 +7766,7 @@ function ReportAttachmentEditor({
               {!disabled && (
                 <button
                   aria-label={`Anhang ${attachment.name} entfernen`}
-                  onClick={() => onUpdateReport({ ...report, attachments: (report.attachments ?? []).filter((item) => item.id !== attachment.id) })}
+                  onClick={() => onUpdateReport({ ...report, attachments: (report.attachments ?? []).filter((item) => item.id !== attachment.id) }, { forceRemote: true })}
                   type="button"
                 >
                   <X size={12} />
@@ -8956,6 +9029,7 @@ function FieldView({
         showWorkTimeInReport: currentTask.showWorkTimeInReport ?? defaultTimeVisibilityForTask(task),
         note: currentTask.note.trim(),
         photos: currentTask.photos,
+        updatedAt: currentTask.updatedAt,
       };
     });
 
@@ -11947,7 +12021,7 @@ function ObjectEditorPage({
   onRestore?: () => void;
   onSendReport: (report: ReportRecord) => void;
   onSubmit: () => void;
-  onUpdateReport: (report: ReportRecord) => void;
+  onUpdateReport: (report: ReportRecord, options?: { forceRemote?: boolean }) => void;
   packages: ServicePackage[];
   reports: ReportRecord[];
   newObject: NewObjectFormState;
@@ -12030,11 +12104,12 @@ function ObjectHistory({
   jobs: JobRecord[];
   object: ObjectRecord;
   onSendReport: (report: ReportRecord) => void;
-  onUpdateReport: (report: ReportRecord) => void;
+  onUpdateReport: (report: ReportRecord, options?: { forceRemote?: boolean }) => void;
   reports: ReportRecord[];
 }) {
   const objectJobs = jobs.filter((job) => job.objectId === object.id);
-  const objectReports = reports.filter((report) => report.objectId === object.id);
+  const normalizedReports = dedupeReports(reports);
+  const objectReports = normalizedReports.filter((report) => report.objectId === object.id);
   const history = [
     ...objectJobs.map((job) => ({
       id: `job-${job.id}`,
@@ -12075,6 +12150,7 @@ function ObjectHistory({
   const [selectedHistoryId, setSelectedHistoryId] = useState("");
   const selectedHistory = history.find((item) => item.id === selectedHistoryId);
   const selectedReport = selectedHistory?.report;
+  const currentSelectedReport = () => selectedReport ? dedupeReports(reports).find((report) => report.id === selectedReport.id) ?? selectedReport : undefined;
   const selectedJob = selectedHistory?.job;
   const reportCustomer = customers.find((customer) => customer.id === object.ownerCustomerId || customer.name === object.owner);
   const reportSubject = selectedReport ? customerReportSendSubject(selectedReport, object, reportCustomer) : "";
@@ -12177,7 +12253,8 @@ function ObjectHistory({
                 <textarea
                   disabled={Boolean(sentAt)}
                   value={selectedReport.summary}
-                  onChange={(event) => onUpdateReport({ ...selectedReport, summary: event.target.value })}
+                  onChange={(event) => onUpdateReport({ ...(currentSelectedReport() ?? selectedReport), summary: event.target.value })}
+                  onBlur={(event) => onUpdateReport({ ...(currentSelectedReport() ?? selectedReport), summary: event.currentTarget.value }, { forceRemote: true })}
                   placeholder={sentAt ? "Bericht wurde bereits gesendet und ist gesperrt." : "Berichtstext für den Kundenbericht anpassen."}
                 />
               </label>
@@ -12186,7 +12263,8 @@ function ObjectHistory({
                 <textarea
                   disabled={Boolean(sentAt)}
                   value={selectedReport.customerComment}
-                  onChange={(event) => onUpdateReport({ ...selectedReport, customerComment: event.target.value })}
+                  onChange={(event) => onUpdateReport({ ...(currentSelectedReport() ?? selectedReport), customerComment: event.target.value })}
+                  onBlur={(event) => onUpdateReport({ ...(currentSelectedReport() ?? selectedReport), customerComment: event.currentTarget.value }, { forceRemote: true })}
                   placeholder={sentAt ? "Bericht wurde bereits gesendet und ist gesperrt." : "Kommentar ergänzen, der im Kundenbericht erscheinen soll."}
                 />
               </label>
