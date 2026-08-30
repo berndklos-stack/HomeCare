@@ -1125,6 +1125,14 @@ function isSuspiciouslyEmptyLocalSnapshot(snapshot: AppSnapshot) {
   return !hasCoreBusinessData(snapshot) && snapshot.services.length === 0 && snapshot.reports.length === 0;
 }
 
+function isSeedOnlySnapshot(snapshot: AppSnapshot) {
+  return snapshot.customers.length <= seedCustomers.length
+    && snapshot.objects.length <= seedObjects.length
+    && snapshot.jobs.length <= seedJobs.length
+    && snapshot.reports.length <= seedReports.length
+    && Object.keys(snapshot.fieldProgress ?? {}).length === 0;
+}
+
 function stableStringHash(value: string) {
   let hash = 5381;
   for (let index = 0; index < value.length; index += 1) {
@@ -5331,7 +5339,9 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
         ...localSnapshot,
         reports: applyReportTextBackups(localSnapshot.reports, reportBackups),
       };
-      const localSnapshotIsSuspiciouslyEmpty = !hasLocalData || isSuspiciouslyEmptyLocalSnapshot(localSnapshotWithBackups);
+      const localSnapshotIsSuspiciouslyEmpty = !hasLocalData
+        || isSuspiciouslyEmptyLocalSnapshot(localSnapshotWithBackups)
+        || isSeedOnlySnapshot(localSnapshotWithBackups);
       if (!cancelled && !localSnapshotIsSuspiciouslyEmpty) applySnapshot(localSnapshotWithBackups);
       let remoteSnapshotWasApplied = false;
 

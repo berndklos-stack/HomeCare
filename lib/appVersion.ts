@@ -1,10 +1,17 @@
 export const appVersion = {
-  version: "1.237.0",
+  version: "1.238.0",
   releaseDate: "2026-08-30",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.238.0",
+    date: "2026-08-30",
+    changes: [
+      "Lokal gespeicherte Demo-Fallbackdaten werden beim Start als ungueltig erkannt und nicht mehr angezeigt",
+    ],
+  },
   {
     version: "1.237.0",
     date: "2026-08-30",
