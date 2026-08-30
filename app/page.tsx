@@ -5252,7 +5252,12 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
 
     async function loadSnapshot() {
       const localSnapshot = readLocalSnapshot();
-      if (!cancelled) applySnapshot(localSnapshot);
+      const reportBackups = await loadReportTextBackups();
+      const localSnapshotWithBackups = {
+        ...localSnapshot,
+        reports: applyReportTextBackups(localSnapshot.reports, reportBackups),
+      };
+      if (!cancelled) applySnapshot(localSnapshotWithBackups);
 
       try {
         const remoteSnapshot = await loadSupabaseSnapshot();
@@ -5261,8 +5266,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
         if (remoteSnapshot) {
           lastRemoteSnapshotKeyRef.current = snapshotContentKey(remoteSnapshot);
           skipNextAutoSaveRef.current = true;
-          const reportBackups = await loadReportTextBackups();
-          const baseMergedSnapshot = mergeSnapshots(remoteSnapshot, localSnapshot);
+          const baseMergedSnapshot = mergeSnapshots(remoteSnapshot, localSnapshotWithBackups);
           const mergedSnapshot = {
             ...baseMergedSnapshot,
             reports: applyReportTextBackups(baseMergedSnapshot.reports, reportBackups),
@@ -5275,8 +5279,8 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
             if (!cancelled) setAppUpdatedAt(savedAt);
           }
         } else {
-          const savedAt = await saveSupabaseSnapshot(localSnapshot);
-          lastRemoteSnapshotKeyRef.current = snapshotContentKey(localSnapshot);
+          const savedAt = await saveSupabaseSnapshot(localSnapshotWithBackups);
+          lastRemoteSnapshotKeyRef.current = snapshotContentKey(localSnapshotWithBackups);
           if (!cancelled) setAppUpdatedAt(savedAt);
         }
       } catch (error) {

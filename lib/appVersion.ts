@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.228.0",
+  version: "1.229.0",
   releaseDate: "2026-08-29",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.229.0",
+    date: "2026-08-30",
+    changes: [
+      "Bericht-Backups werden direkt beim Start ueber lokale Daten gelegt",
+      "Gunnabo 26./27./28.08 wurden als kleine Bericht-Backups gesichert",
+    ],
+  },
   {
     version: "1.228.0",
     date: "2026-08-29",
