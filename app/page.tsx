@@ -5362,10 +5362,16 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
           applySnapshot(mergedSnapshot);
           remoteSnapshotWasApplied = true;
           persistLocalSnapshot(mergedSnapshot);
+          if (!cancelled) setAppStorageReady(true);
           if (JSON.stringify(mergedSnapshot) !== JSON.stringify(remoteSnapshot)) {
-            const savedAt = await saveSupabasePatch(snapshotPatch(mergedSnapshot));
-            lastRemoteSnapshotKeyRef.current = snapshotContentKey(mergedSnapshot);
-            if (!cancelled) setAppUpdatedAt(savedAt);
+            void saveSupabasePatch(snapshotPatch(mergedSnapshot))
+              .then((savedAt) => {
+                lastRemoteSnapshotKeyRef.current = snapshotContentKey(mergedSnapshot);
+                if (!cancelled && savedAt) setAppUpdatedAt(savedAt);
+              })
+              .catch((error) => {
+                console.warn("Zusammengeführter App-Stand konnte nicht sofort online gespeichert werden.", error);
+              });
           }
         } else {
           if (localSnapshotIsSuspiciouslyEmpty) {

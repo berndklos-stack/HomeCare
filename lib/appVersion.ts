@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.245.0",
+  version: "1.246.0",
   releaseDate: "2026-08-30",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.246.0",
+    date: "2026-08-30",
+    changes: [
+      "Die App zeigt den geladenen Online-Datenbestand sofort an und wartet beim Start nicht mehr auf einen Hintergrund-Speicherabgleich",
+      "Der Startbildschirm kann dadurch nicht mehr durch Backup- oder Sync-Arbeit blockieren",
+    ],
+  },
   {
     version: "1.245.0",
     date: "2026-08-30",
