@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.234.0",
+  version: "1.235.0",
   releaseDate: "2026-08-30",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.235.0",
+    date: "2026-08-30",
+    changes: [
+      "Server-Backups werden komprimiert als JSON-Gzip gespeichert, damit auch grosse App-Staende gesichert werden koennen",
+      "Backup-Wiederherstellung kann komprimierte Backup-Dateien lesen",
+      "Backup-Anzeige zeigt gespeicherte und originale Groesse",
+    ],
+  },
   {
     version: "1.234.0",
     date: "2026-08-30",

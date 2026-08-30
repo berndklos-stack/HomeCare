@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { gzipSync, gunzipSync } from "node:zlib";
 
 export const runtime = "nodejs";
 
@@ -90,11 +91,12 @@ async function createCurrentBackup(reason: string) {
   const snapshot = normalizeSnapshot(current.data);
   const createdAt = new Date().toISOString();
   const backupId = `${appBackupPrefix}${createdAt}`;
-  const storagePath = `app-state/${createdAt.slice(0, 10)}/${safePathPart(createdAt)}.json`;
+  const storagePath = `app-state/${createdAt.slice(0, 10)}/${safePathPart(createdAt)}.json.gz`;
   const serialized = JSON.stringify(snapshot);
+  const compressed = gzipSync(Buffer.from(serialized));
   const { error: uploadError } = await supabase.storage
     .from(appBackupBucket)
-    .upload(storagePath, Buffer.from(serialized), {
+    .upload(storagePath, compressed, {
       cacheControl: "0",
       contentType: "application/json",
       upsert: false,
@@ -109,6 +111,7 @@ async function createCurrentBackup(reason: string) {
     createdAt,
     id: backupId,
     reason,
+    compressedSizeBytes: compressed.byteLength,
     sizeBytes: Buffer.byteLength(serialized),
     sourceUpdatedAt: current.updated_at,
     storageBucket: appBackupBucket,
@@ -200,7 +203,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: downloadError?.message || "Backup-Datei konnte nicht geladen werden." }, { status: 500 });
   }
 
-  const snapshot = JSON.parse(await file.text());
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const snapshotText = path.endsWith(".gz") ? gunzipSync(buffer).toString("utf8") : buffer.toString("utf8");
+  const snapshot = JSON.parse(snapshotText);
   const restoredAt = new Date().toISOString();
   const { error: restoreError } = await supabase
     .from("app_state")

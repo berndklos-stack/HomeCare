@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { gzipSync } from "node:zlib";
 
 export const runtime = "nodejs";
 
@@ -132,11 +133,12 @@ async function createAppStateBackup(supabase: NonNullable<ReturnType<typeof getS
 
   const createdAt = new Date().toISOString();
   const backupId = `${appBackupPrefix}${createdAt}`;
-  const storagePath = `app-state/${createdAt.slice(0, 10)}/${safePathPart(createdAt)}.json`;
+  const storagePath = `app-state/${createdAt.slice(0, 10)}/${safePathPart(createdAt)}.json.gz`;
   const serialized = JSON.stringify(snapshot);
+  const compressed = gzipSync(Buffer.from(serialized));
   const { error: uploadError } = await supabase.storage
     .from(appBackupBucket)
-    .upload(storagePath, Buffer.from(serialized), {
+    .upload(storagePath, compressed, {
       cacheControl: "0",
       contentType: "application/json",
       upsert: false,
@@ -152,6 +154,7 @@ async function createAppStateBackup(supabase: NonNullable<ReturnType<typeof getS
         createdAt,
         id: backupId,
         reason,
+        compressedSizeBytes: compressed.byteLength,
         sizeBytes: Buffer.byteLength(serialized),
         sourceUpdatedAt: current.updated_at,
         storageBucket: appBackupBucket,

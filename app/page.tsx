@@ -1800,6 +1800,7 @@ type AppBackupRecord = {
   };
   createdAt: string;
   id: string;
+  compressedSizeBytes?: number;
   reason?: string;
   sizeBytes?: number;
   sourceUpdatedAt?: string;
@@ -11811,7 +11812,7 @@ function MasterDataView({
                   <div>
                     <strong>{formatCreatedAt(backup.createdAt)}</strong>
                     <span>{counts.customers ?? 0} Kunden · {counts.objects ?? 0} Objekte · {counts.jobs ?? 0} Aufträge · {counts.reports ?? 0} Berichte · {counts.fieldProgress ?? 0} mobile Daten</span>
-                    <span>{formatFileSize(backup.sizeBytes)} · Quelle: {backup.sourceUpdatedAt ? formatCreatedAt(backup.sourceUpdatedAt) : "unbekannt"} · {backup.reason || "automatisch"}</span>
+                    <span>{formatFileSize(backup.compressedSizeBytes ?? backup.sizeBytes)} gespeichert · Original {formatFileSize(backup.sizeBytes)} · Quelle: {backup.sourceUpdatedAt ? formatCreatedAt(backup.sourceUpdatedAt) : "unbekannt"} · {backup.reason || "automatisch"}</span>
                   </div>
                   <div className="row-actions">
                     <IconAction label={`Backup vom ${formatCreatedAt(backup.createdAt)} wiederherstellen`} onClick={() => void handleRestoreBackup(backup)}>
