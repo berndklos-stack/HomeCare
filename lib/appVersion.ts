@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.229.0",
-  releaseDate: "2026-08-29",
+  version: "1.230.0",
+  releaseDate: "2026-08-30",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.230.0",
+    date: "2026-08-30",
+    changes: [
+      "Leerer lokaler Browser-Speicher wird beim Start nicht mehr als gueltiger Datenbestand angezeigt",
+      "Nach einem fehlgeschlagenen Serverabruf wird ein leerer lokaler Stand nicht automatisch als geladen markiert",
+    ],
+  },
   {
     version: "1.229.0",
     date: "2026-08-30",

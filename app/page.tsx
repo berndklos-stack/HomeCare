@@ -1107,6 +1107,14 @@ function snapshotWeight(snapshot: AppSnapshot) {
   ].reduce((sum, value) => sum + value, 0);
 }
 
+function hasCoreBusinessData(snapshot: AppSnapshot) {
+  return snapshot.customers.length > 0 || snapshot.objects.length > 0 || snapshot.jobs.length > 0;
+}
+
+function isSuspiciouslyEmptyLocalSnapshot(snapshot: AppSnapshot) {
+  return !hasCoreBusinessData(snapshot) && snapshot.services.length === 0 && snapshot.reports.length === 0;
+}
+
 function stableStringHash(value: string) {
   let hash = 5381;
   for (let index = 0; index < value.length; index += 1) {
@@ -5257,7 +5265,9 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
         ...localSnapshot,
         reports: applyReportTextBackups(localSnapshot.reports, reportBackups),
       };
-      if (!cancelled) applySnapshot(localSnapshotWithBackups);
+      const localSnapshotIsSuspiciouslyEmpty = isSuspiciouslyEmptyLocalSnapshot(localSnapshotWithBackups);
+      if (!cancelled && !localSnapshotIsSuspiciouslyEmpty) applySnapshot(localSnapshotWithBackups);
+      let remoteSnapshotWasApplied = false;
 
       try {
         const remoteSnapshot = await loadSupabaseSnapshot();
@@ -5272,6 +5282,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
             reports: applyReportTextBackups(baseMergedSnapshot.reports, reportBackups),
           };
           applySnapshot(mergedSnapshot);
+          remoteSnapshotWasApplied = true;
           persistLocalSnapshot(mergedSnapshot);
           if (JSON.stringify(mergedSnapshot) !== JSON.stringify(remoteSnapshot)) {
             const savedAt = await saveSupabasePatch(snapshotPatch(mergedSnapshot));
@@ -5279,15 +5290,20 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
             if (!cancelled) setAppUpdatedAt(savedAt);
           }
         } else {
+          if (localSnapshotIsSuspiciouslyEmpty) {
+            console.warn("Leerer lokaler Speicher wurde nicht als Online-Datenbestand gespeichert.");
+            return;
+          }
           const savedAt = await saveSupabaseSnapshot(localSnapshotWithBackups);
           lastRemoteSnapshotKeyRef.current = snapshotContentKey(localSnapshotWithBackups);
           if (!cancelled) setAppUpdatedAt(savedAt);
         }
       } catch (error) {
         console.warn("Supabase-Synchronisation ist nicht verfügbar. Lokaler Speicher bleibt aktiv.", error);
+        if (localSnapshotIsSuspiciouslyEmpty) return;
         if (!cancelled && !isRetryableSyncError(error)) setSupabaseSyncDisabled(true);
       } finally {
-        if (!cancelled) setAppStorageReady(true);
+        if (!cancelled && (!localSnapshotIsSuspiciouslyEmpty || remoteSnapshotWasApplied)) setAppStorageReady(true);
       }
     }
 
