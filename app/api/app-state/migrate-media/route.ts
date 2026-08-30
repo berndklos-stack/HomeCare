@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 export const runtime = "nodejs";
 
 const appStateRowId = "kolaretorp-service-app";
-const mediaBucket = "homecare-media";
+const privateMediaBucket = "homecare-private-media";
 
 type JsonObject = Record<string, unknown>;
 
@@ -55,15 +55,15 @@ function dataUrlInfo(value: string) {
   return { buffer, contentType, extension };
 }
 
-async function ensureMediaBucket(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
-  const { data: bucket, error: getError } = await supabase.storage.getBucket(mediaBucket);
+async function ensurePrivateMediaBucket(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
+  const { data: bucket, error: getError } = await supabase.storage.getBucket(privateMediaBucket);
   if (bucket) return;
-  const { error: createError } = await supabase.storage.createBucket(mediaBucket, {
+  const { error: createError } = await supabase.storage.createBucket(privateMediaBucket, {
     fileSizeLimit: 25 * 1024 * 1024,
-    public: true,
+    public: false,
   });
   if (createError) {
-    throw new Error(createError.message || getError?.message || "Media-Bucket konnte nicht angelegt werden.");
+    throw new Error(createError.message || getError?.message || "Privater Media-Bucket konnte nicht angelegt werden.");
   }
 }
 
@@ -81,27 +81,31 @@ async function migrateValue(
     }
     const storagePath = `migrated-app-state/${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}-${safePathPart(path.join("-"))}.${info.extension}`;
     const { error } = await supabase.storage
-      .from(mediaBucket)
+      .from(privateMediaBucket)
       .upload(storagePath, info.buffer, {
         cacheControl: "31536000",
         contentType: info.contentType,
         upsert: false,
       });
     if (error) throw new Error(error.message);
-    const { data } = supabase.storage.from(mediaBucket).getPublicUrl(storagePath);
     stats.migrated += 1;
-    return data.publicUrl;
+    return `/api/private-media?path=${encodeURIComponent(storagePath)}`;
   }
 
   if (Array.isArray(value)) {
-    return await Promise.all(value.map((item, index) => migrateValue(supabase, item, [...path, String(index)], stats)));
+    const migratedItems = [];
+    for (let index = 0; index < value.length; index += 1) {
+      migratedItems.push(await migrateValue(supabase, value[index], [...path, String(index)], stats));
+    }
+    return migratedItems;
   }
 
   if (!value || typeof value !== "object") return value;
 
-  const entries = await Promise.all(
-    Object.entries(value as JsonObject).map(async ([key, item]) => [key, await migrateValue(supabase, item, [...path, key], stats)] as const),
-  );
+  const entries: Array<readonly [string, unknown]> = [];
+  for (const [key, item] of Object.entries(value as JsonObject)) {
+    entries.push([key, await migrateValue(supabase, item, [...path, key], stats)] as const);
+  }
   return Object.fromEntries(entries);
 }
 
@@ -112,7 +116,7 @@ export async function POST() {
   }
 
   try {
-    await ensureMediaBucket(supabase);
+    await ensurePrivateMediaBucket(supabase);
     const { data: current, error } = await supabase
       .from("app_state")
       .select("data")

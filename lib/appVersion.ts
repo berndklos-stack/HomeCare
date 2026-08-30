@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.244.0",
+  version: "1.245.0",
   releaseDate: "2026-08-30",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.245.0",
+    date: "2026-08-30",
+    changes: [
+      "Private Medienroute fuer geschuetzte Fotos aus Supabase Storage ergaenzt",
+      "Base64-Migration nutzt einen privaten Medien-Bucket und ersetzt alte Bilddaten durch geschuetzte App-URLs",
+    ],
+  },
   {
     version: "1.244.0",
     date: "2026-08-30",
