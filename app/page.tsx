@@ -1286,11 +1286,18 @@ function formatCreatedAt(value?: string) {
   return parsed.toLocaleString("de-DE", { dateStyle: "medium", timeStyle: "short" });
 }
 
+function formatCreatedAtWithSeconds(value?: string) {
+  if (!value) return "wird beim Speichern erstellt";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleString("de-DE", { dateStyle: "medium", timeStyle: "medium" });
+}
+
 function formatUpdatedTime(value?: string) {
   if (!value) return "";
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return "";
-  return parsed.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+  return parsed.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
 function formatFileSize(value?: number) {
@@ -1823,6 +1830,7 @@ type AppBackupRecord = {
   sizeBytes?: number;
   sourceUpdatedAt?: string;
   storagePath?: string;
+  storagePaths?: string[];
 };
 
 function reportTextBackup(report: ReportRecord): ReportTextBackup {
@@ -11182,7 +11190,7 @@ function MasterDataView({
   }
 
   async function handleRestoreBackup(backup: AppBackupRecord) {
-    const confirmed = window.confirm(`Backup vom ${formatCreatedAt(backup.createdAt)} wiederherstellen? Der aktuelle Online-Stand wird dadurch ersetzt.`);
+    const confirmed = window.confirm(`Backup vom ${formatCreatedAtWithSeconds(backup.createdAt)} wiederherstellen? Der aktuelle Online-Stand wird dadurch ersetzt.`);
     if (!confirmed) return;
 
     setBackupError("");
@@ -11908,10 +11916,10 @@ function MasterDataView({
           <div className="summary-grid">
             <article>
               <span>Letztes Backup</span>
-              <strong>{backups[0] ? formatCreatedAt(backups[0].createdAt) : backupBusy ? "wird geladen..." : "kein Backup vorhanden"}</strong>
+              <strong>{backups[0] ? formatCreatedAtWithSeconds(backups[0].createdAt) : backupBusy ? "wird geladen..." : "kein Backup vorhanden"}</strong>
             </article>
             <article>
-              <span>Backup-Anzahl</span>
+              <span>Echte Backups</span>
               <strong>{backups.length}</strong>
             </article>
             <article>
@@ -11925,12 +11933,13 @@ function MasterDataView({
               return (
                 <article key={backup.id}>
                   <div>
-                    <strong>{formatCreatedAt(backup.createdAt)}</strong>
+                    <strong>{formatCreatedAtWithSeconds(backup.createdAt)}</strong>
                     <span>{counts.customers ?? 0} Kunden · {counts.objects ?? 0} Objekte · {counts.jobs ?? 0} Aufträge · {counts.reports ?? 0} Berichte · {counts.fieldProgress ?? 0} mobile Daten</span>
-                    <span>{formatFileSize(backup.compressedSizeBytes ?? backup.sizeBytes)} gespeichert · Original {formatFileSize(backup.sizeBytes)} · Quelle: {backup.sourceUpdatedAt ? formatCreatedAt(backup.sourceUpdatedAt) : "unbekannt"} · {backup.reason || "automatisch"}</span>
+                    <span>{formatFileSize(backup.compressedSizeBytes ?? backup.sizeBytes)} gespeichert · Original {formatFileSize(backup.sizeBytes)} · Quelle: {backup.sourceUpdatedAt ? formatCreatedAtWithSeconds(backup.sourceUpdatedAt) : "unbekannt"} · {backup.reason || "automatisch"}</span>
+                    <span>Wiederherstellung nutzt automatisch alle zugehörigen technischen Teile.</span>
                   </div>
                   <div className="row-actions">
-                    <IconAction label={`Backup vom ${formatCreatedAt(backup.createdAt)} wiederherstellen`} onClick={() => void handleRestoreBackup(backup)}>
+                    <IconAction label={`Backup vom ${formatCreatedAtWithSeconds(backup.createdAt)} wiederherstellen`} onClick={() => void handleRestoreBackup(backup)}>
                       <RotateCcw size={16} />
                     </IconAction>
                   </div>

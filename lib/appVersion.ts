@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.249.0",
+  version: "1.250.0",
   releaseDate: "2026-08-30",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.250.0",
+    date: "2026-08-30",
+    changes: [
+      "Aktualisiert- und Backup-Zeitpunkte zeigen Sekunden an",
+      "Backup-Anzeige stellt klar, dass technische Backup-Teile automatisch zusammengehoeren",
+    ],
+  },
   {
     version: "1.249.0",
     date: "2026-08-30",
