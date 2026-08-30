@@ -1,10 +1,17 @@
 export const appVersion = {
-  version: "1.238.0",
+  version: "1.239.0",
   releaseDate: "2026-08-30",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.239.0",
+    date: "2026-08-30",
+    changes: [
+      "Backup-Teildateien werden auf 512 KB begrenzt, damit Supabase-Groessengrenzen eingehalten werden",
+    ],
+  },
   {
     version: "1.238.0",
     date: "2026-08-30",

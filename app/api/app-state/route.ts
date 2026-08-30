@@ -9,7 +9,7 @@ const appBackupPrefix = "app-backup:";
 const appBackupBucket = "homecare-backups";
 const cacheTtlMs = 30000;
 const backupIntervalMs = 10 * 60 * 1000;
-const backupChunkSizeBytes = 4 * 1024 * 1024;
+const backupChunkSizeBytes = 512 * 1024;
 
 type JsonObject = Record<string, unknown>;
 type CachedAppState = {

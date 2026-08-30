@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 const appStateRowId = "kolaretorp-service-app";
 const appBackupPrefix = "app-backup:";
 const appBackupBucket = "homecare-backups";
-const backupChunkSizeBytes = 4 * 1024 * 1024;
+const backupChunkSizeBytes = 512 * 1024;
 
 type JsonObject = Record<string, unknown>;
 
