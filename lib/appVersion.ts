@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.241.0",
+  version: "1.242.0",
   releaseDate: "2026-08-30",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.242.0",
+    date: "2026-08-30",
+    changes: [
+      "Verdächtige lokale Demo- oder Teilstände werden beim Start nicht mehr mit dem Online-Datenbestand zusammengeführt",
+      "Bei erreichbarem Server gilt der Online-Datenbestand als führender App-Stand",
+    ],
+  },
   {
     version: "1.241.0",
     date: "2026-08-30",

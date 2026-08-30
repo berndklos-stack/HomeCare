@@ -5352,7 +5352,9 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
         if (remoteSnapshot) {
           lastRemoteSnapshotKeyRef.current = snapshotContentKey(remoteSnapshot);
           skipNextAutoSaveRef.current = true;
-          const baseMergedSnapshot = mergeSnapshots(remoteSnapshot, localSnapshotWithBackups);
+          const baseMergedSnapshot = localSnapshotIsSuspiciouslyEmpty
+            ? recoverReportsFromFieldProgress(remoteSnapshot)
+            : mergeSnapshots(remoteSnapshot, localSnapshotWithBackups);
           const mergedSnapshot = {
             ...baseMergedSnapshot,
             reports: applyReportTextBackups(baseMergedSnapshot.reports, reportBackups),
