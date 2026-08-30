@@ -155,9 +155,15 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
-  const body = await request.json().catch(() => ({}));
-  const { response } = await createCurrentBackup(String(body?.reason ?? "manual"));
-  return response;
+  try {
+    const body = await request.json().catch(() => ({}));
+    const { response } = await createCurrentBackup(String(body?.reason ?? "manual"));
+    return response;
+  } catch (error) {
+    return NextResponse.json({
+      error: error instanceof Error ? error.message : "Backup konnte nicht erstellt werden.",
+    }, { status: 500 });
+  }
 }
 
 export async function POST(request: Request) {
