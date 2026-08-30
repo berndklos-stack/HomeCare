@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { createHash } from "node:crypto";
 import { gzipSync } from "node:zlib";
 
 export const runtime = "nodejs";
@@ -9,7 +10,7 @@ const appBackupPrefix = "app-backup:";
 const appBackupChunkPrefix = "app-backup-chunk:";
 const appBackupBucket = "homecare-backups";
 const cacheTtlMs = 30000;
-const backupIntervalMs = 10 * 60 * 1000;
+const backupIntervalMs = 30 * 60 * 1000;
 const backupChunkSizeChars = 384 * 1024;
 
 type JsonObject = Record<string, unknown>;
@@ -106,6 +107,10 @@ function snapshotCounts(snapshot: unknown) {
   };
 }
 
+function snapshotContentHash(serialized: string) {
+  return createHash("sha256").update(serialized).digest("hex");
+}
+
 async function ensureBackupBucket(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
   const { data: bucket, error: getError } = await supabase.storage.getBucket(appBackupBucket);
   if (bucket) return;
@@ -119,21 +124,23 @@ async function ensureBackupBucket(supabase: NonNullable<ReturnType<typeof getSup
   }
 }
 
-async function hasRecentBackup(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>, currentUpdatedAt?: string | null) {
+async function hasRecentBackup(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>, contentHash: string) {
   const { data } = await supabase
     .from("app_state")
     .select("data, updated_at")
     .like("id", `${appBackupPrefix}%`)
     .order("updated_at", { ascending: false })
-    .limit(1);
+    .limit(10);
 
-  const latest = data?.[0];
-  if (!latest) return false;
+  if (!data?.length) return false;
+  if (data.some((row) => {
+    const backupData = row.data && typeof row.data === "object" ? row.data as JsonObject : {};
+    return backupData.contentHash === contentHash;
+  })) return true;
+
+  const latest = data[0];
   const latestTime = Date.parse(String(latest.updated_at ?? ""));
-  if (!Number.isFinite(latestTime) || Date.now() - latestTime > backupIntervalMs) return false;
-
-  const backupData = latest.data && typeof latest.data === "object" ? latest.data as JsonObject : {};
-  return !currentUpdatedAt || backupData.sourceUpdatedAt === currentUpdatedAt;
+  return Number.isFinite(latestTime) && Date.now() - latestTime <= backupIntervalMs;
 }
 
 async function createAppStateBackup(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>, reason: string) {
@@ -147,11 +154,12 @@ async function createAppStateBackup(supabase: NonNullable<ReturnType<typeof getS
 
   const snapshot = normalizeSnapshot(current.data);
   if (!hasBackupableData(snapshot)) return;
-  if (await hasRecentBackup(supabase, current.updated_at)) return;
+  const serialized = JSON.stringify(snapshot);
+  const contentHash = snapshotContentHash(serialized);
+  if (await hasRecentBackup(supabase, contentHash)) return;
 
   const createdAt = new Date().toISOString();
   const backupId = `${appBackupPrefix}${createdAt}`;
-  const serialized = JSON.stringify(snapshot);
   const compressed = gzipSync(Buffer.from(serialized));
   const chunks: string[] = [];
   const compressedBase64 = compressed.toString("base64");
@@ -185,6 +193,7 @@ async function createAppStateBackup(supabase: NonNullable<ReturnType<typeof getS
         compressed: true,
         id: backupId,
         reason,
+        contentHash,
         compressedSizeBytes: compressed.byteLength,
         sizeBytes: Buffer.byteLength(serialized),
         sourceUpdatedAt: current.updated_at,

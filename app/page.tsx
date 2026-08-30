@@ -10014,6 +10014,7 @@ function BillingView({
   reports: ReportRecord[];
   services: ServiceItem[];
 }) {
+  const [previewInvoiceId, setPreviewInvoiceId] = useState<string | null>(null);
   const billableJobs = billableCompletedJobs(jobs, billing);
   const outgoingBook = billing
     .filter((item) => item.invoicedAt || item.outgoingBookNumber)
@@ -10022,6 +10023,26 @@ function BillingView({
   const openInvoiceTotal = billing
     .filter((item) => ["gebucht", "gesendet", "überfällig"].includes(effectiveInvoiceStatus(item)))
     .reduce((sum, item) => sum + invoiceTotals(item).gross, 0);
+  const previewInvoice = billing.find((item) => item.id === previewInvoiceId) ?? null;
+  const previewObject = previewInvoice ? objects.find((entry) => entry.id === previewInvoice.objectId) : undefined;
+  const previewCustomer = previewInvoice
+    ? customers.find((entry) => entry.id === previewInvoice.customerId || entry.id === previewObject?.ownerCustomerId || entry.name === previewObject?.owner)
+    : undefined;
+  const previewLines = previewInvoice
+    ? previewInvoice.lines?.length
+      ? previewInvoice.lines
+      : [{
+        currency: "SEK",
+        id: `${previewInvoice.id}-LINE`,
+        kind: "Leistung" as const,
+        name: previewInvoice.label,
+        quantity: "1",
+        taxRate: "0",
+        unit: "Position",
+        unitPrice: String(decimalValue(previewInvoice.amount)),
+      }]
+    : [];
+  const previewTotals = previewInvoice ? invoiceTotals({ ...previewInvoice, lines: previewLines }) : null;
 
   return (
     <section className="panel">
@@ -10064,51 +10085,70 @@ function BillingView({
           const invoiceStatus = effectiveInvoiceStatus(item);
           const totals = invoiceTotals(item);
           const transferRows = vismaTransferRows(item, customer);
+          const invoiceLabel = item.invoiceNumber || item.label;
+          const reportTitle = reports.find((report) => report.id === item.reportId)?.title ?? "-";
 
           return (
             <article className="billing-row" key={item.id}>
-              <div>
-                <strong>{item.invoiceNumber || item.label}</strong>
-                <span>{customer?.name || object?.owner || "Kunde fehlt"} · Kundennr. {billingCustomerNumber(customer)} · {object?.name || "Objekt fehlt"}</span>
-                <small>Rechnungsdatum {item.invoiceDate || "-"} · fällig {item.dueDate || "-"} · Leistungsdatum {item.serviceDate || "-"}</small>
+              <div className="billing-row-main">
+                <div className="billing-row-heading">
+                  <strong>{invoiceLabel}</strong>
+                  <Badge value={invoiceStatus} />
+                </div>
+                <div className="billing-meta-grid">
+                  <span><small>Kunde</small>{customer?.name || object?.owner || "Kunde fehlt"}</span>
+                  <span><small>Kundennr.</small>{billingCustomerNumber(customer)}</span>
+                  <span><small>Objekt</small>{object?.name || "Objekt fehlt"}</span>
+                  <span><small>Rechnungsdatum</small>{item.invoiceDate || "-"}</span>
+                  <span><small>Fällig</small>{item.dueDate || "-"}</span>
+                  <span><small>Leistungsdatum</small>{item.serviceDate || "-"}</span>
+                  <span><small>Ausgangsbuch</small>{item.outgoingBookNumber || "noch nicht gebucht"}</span>
+                  <span><small>Bericht</small>{reportTitle}</span>
+                </div>
                 {item.lines && item.lines.length > 0 && (
-                  <small>
-                    {item.lines.map((line) => `${line.kind}: ${line.name} · ${line.quantity} ${line.unit} · ${line.unitPrice} ${line.currency} · Moms ${line.taxRate}%`).join(" | ")}
-                  </small>
+                  <div className="billing-lines-preview">
+                    {item.lines.map((line) => (
+                      <span key={line.id}>{line.kind}: {line.name} · {line.quantity} {line.unit} · {line.unitPrice} {line.currency} · Moms {line.taxRate}%</span>
+                    ))}
+                  </div>
                 )}
                 {transferRows.length > 0 && (
-                  <small className="accounting-preview">
-                    Kontierung: {transferRows.map((row) => `${row.account} ${row.label} · ${row.amount} · ${row.currency} · Moms ${row.moms}`).join(" | ")}
-                  </small>
+                  <div className="accounting-preview">
+                    <span>Kontierung</span>
+                    {transferRows.map((row) => (
+                      <small key={`${item.id}-${row.account}-${row.name}`}>{row.account} {row.label} · {row.amount} · {row.currency} · Moms {row.moms}</small>
+                    ))}
+                  </div>
                 )}
               </div>
-              <span>{item.outgoingBookNumber || "noch nicht gebucht"}</span>
-              <strong>{formatMoney(totals.gross, totals.currency)}</strong>
-              <Badge value={invoiceStatus} />
-              <div className="row-actions">
-                <IconAction label={`Rechnung ${item.invoiceNumber || item.label} als PDF herunterladen`} onClick={() => onDownloadInvoice(item)}><FileDown size={16} /></IconAction>
+              <div className="billing-row-side">
+                <strong>{formatMoney(totals.gross, totals.currency)}</strong>
+                <span>{formatMoney(totals.net, totals.currency)} netto · {formatMoney(totals.tax, totals.currency)} Moms</span>
+              </div>
+              <div className="row-actions billing-actions">
+                <IconAction label={`Rechnungsvorschau ${invoiceLabel} öffnen`} onClick={() => setPreviewInvoiceId(item.id)}><FileText size={16} /></IconAction>
+                <IconAction label={`Rechnung ${invoiceLabel} als PDF herunterladen`} onClick={() => onDownloadInvoice(item)}><FileDown size={16} /></IconAction>
                 {invoiceStatus === "entwurf" && (
-                  <IconAction label={`Rechnung ${item.invoiceNumber || item.label} buchen`} onClick={() => onMarkInvoiced(item)}><Check size={16} /></IconAction>
+                  <IconAction label={`Rechnung ${invoiceLabel} buchen`} onClick={() => onMarkInvoiced(item)}><Check size={16} /></IconAction>
                 )}
                 {["gebucht", "gesendet", "überfällig"].includes(invoiceStatus) && item.externalExportStatus !== "gesendet" && (
-                  <IconAction label={`Rechnung ${item.invoiceNumber || item.label} an Spiris / Visma Buchhaltung übergeben`} onClick={() => onMarkExported(item)}><Send size={16} /></IconAction>
+                  <IconAction label={`Rechnung ${invoiceLabel} an Spiris / Visma Buchhaltung übergeben`} onClick={() => onMarkExported(item)}><Send size={16} /></IconAction>
                 )}
                 {item.externalExportStatus === "gesendet" && (
-                  <IconAction label={`Spiris-Übergabe ${item.invoiceNumber || item.label} zurücksetzen`} onClick={() => onResetExport(item)}><RotateCcw size={16} /></IconAction>
+                  <IconAction label={`Spiris-Übergabe ${invoiceLabel} zurücksetzen`} onClick={() => onResetExport(item)}><RotateCcw size={16} /></IconAction>
                 )}
                 {invoiceStatus === "gebucht" && (
-                  <IconAction label={`Rechnung ${item.invoiceNumber || item.label} als versendet markieren`} onClick={() => onMarkSent(item)}><Mail size={16} /></IconAction>
+                  <IconAction label={`Rechnung ${invoiceLabel} als versendet markieren`} onClick={() => onMarkSent(item)}><Mail size={16} /></IconAction>
                 )}
                 {["gebucht", "gesendet", "überfällig"].includes(invoiceStatus) && (
-                  <IconAction label={`Rechnung ${item.invoiceNumber || item.label} als bezahlt markieren`} onClick={() => onMarkPaid(item)}><Euro size={16} /></IconAction>
+                  <IconAction label={`Rechnung ${invoiceLabel} als bezahlt markieren`} onClick={() => onMarkPaid(item)}><Euro size={16} /></IconAction>
                 )}
                 {!["bezahlt", "storniert"].includes(invoiceStatus) && (
-                  <IconAction label={`Rechnung ${item.invoiceNumber || item.label} stornieren`} onClick={() => onCancelInvoice(item)}><X size={16} /></IconAction>
+                  <IconAction label={`Rechnung ${invoiceLabel} stornieren`} onClick={() => onCancelInvoice(item)}><X size={16} /></IconAction>
                 )}
               </div>
               <footer className="message-meta">
                 <span>Spiris: {item.externalExportStatus || "nicht gesendet"} · {item.externalExportedAt ? `übergeben ${formatCreatedAt(item.externalExportedAt)}` : "noch nicht übergeben"} · Ziel: {item.externalExportSystem || "Spiris / Visma Buchhaltung"}</span>
-                <span>Bericht: {reports.find((report) => report.id === item.reportId)?.title ?? "-"}</span>
                 <span>Preisquelle: {services.length} Leistungsstammdaten verfügbar</span>
               </footer>
             </article>
@@ -10143,6 +10183,83 @@ function BillingView({
           {outgoingBook.length === 0 && <p>Noch keine gebuchten Ausgangsrechnungen vorhanden.</p>}
         </div>
       </div>
+      {previewInvoice && previewTotals && (
+        <div className="modal-backdrop">
+          <section className="modal invoice-preview-modal" role="dialog" aria-modal="true" aria-labelledby="invoice-preview-title">
+            <header>
+              <div>
+                <p>Rechnungsvorschau</p>
+                <h2 id="invoice-preview-title">Faktura {previewInvoice.invoiceNumber || previewInvoice.id}</h2>
+              </div>
+              <button aria-label="Rechnungsvorschau schließen" onClick={() => setPreviewInvoiceId(null)} type="button">
+                <X size={18} />
+              </button>
+            </header>
+            <div className="invoice-preview-sheet">
+              <div className="invoice-preview-top">
+                <div>
+                  <strong>Kolaretorp Service AB</strong>
+                  <span>Faktura</span>
+                </div>
+                <div>
+                  <span>Fakturanr.</span>
+                  <strong>{previewInvoice.invoiceNumber || previewInvoice.id}</strong>
+                </div>
+              </div>
+              <div className="invoice-preview-addresses">
+                <section>
+                  <small>Från</small>
+                  <strong>Kolaretorp Service AB</strong>
+                </section>
+                <section>
+                  <small>Kund</small>
+                  <strong>{previewCustomer?.name || previewObject?.owner || "Kunde fehlt"}</strong>
+                  <span>{displayAddress(previewCustomer?.billingAddress || previewCustomer?.address || previewObject?.billingAddress || previewObject?.address || "")}</span>
+                  <span>{previewCustomer?.email || previewObject?.ownerEmail || ""}</span>
+                </section>
+              </div>
+              <div className="invoice-preview-meta">
+                <span><small>Fakturadatum</small>{previewInvoice.invoiceDate || new Date().toISOString().slice(0, 10)}</span>
+                <span><small>Förfallodatum</small>{previewInvoice.dueDate || addDays(previewInvoice.invoiceDate || new Date().toISOString().slice(0, 10), 30)}</span>
+                <span><small>Utfört datum</small>{previewInvoice.serviceDate || "-"}</span>
+                <span><small>Objekt</small>{previewObject?.name || "Objekt fehlt"}</span>
+              </div>
+              <div className="invoice-preview-lines">
+                <div className="invoice-preview-line invoice-preview-line-head">
+                  <span>Rad</span>
+                  <span>Antal</span>
+                  <span>Pris</span>
+                  <span>Moms</span>
+                  <span>Netto</span>
+                </div>
+                {previewLines.map((line) => (
+                  <div className="invoice-preview-line" key={line.id}>
+                    <span>{line.name}</span>
+                    <span>{line.quantity} {localizedUnit(line.unit, true)}</span>
+                    <span>{formatMoney(decimalValue(line.unitPrice), line.currency)}</span>
+                    <span>{line.taxRate}%</span>
+                    <span>{formatMoney(lineNetAmount(line), line.currency)}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="invoice-preview-totals">
+                <span><small>Netto</small>{formatMoney(previewTotals.net, previewTotals.currency)}</span>
+                {Object.entries(previewTotals.taxByRate).map(([rate, value]) => (
+                  <span key={rate}><small>Moms {rate}%</small>{formatMoney(value, previewTotals.currency)}</span>
+                ))}
+                <strong><small>Brutto</small>{formatMoney(previewTotals.gross, previewTotals.currency)}</strong>
+              </div>
+            </div>
+            <div className="modal-actions">
+              <button className="ghost-button" onClick={() => setPreviewInvoiceId(null)} type="button">Schließen</button>
+              <button className="primary-button" onClick={() => onDownloadInvoice(previewInvoice)} type="button">
+                <FileDown size={16} />
+                PDF laden
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </section>
   );
 }
@@ -11899,7 +12016,7 @@ function MasterDataView({
             <div>
               <p>Sicherheit</p>
               <h2>Backups</h2>
-              <span>Server-Backups sichern den kompletten Online-Datenstand vor Änderungen und können wiederhergestellt werden.</span>
+              <span>Server-Backups sichern den kompletten Online-Datenstand. Automatische Backups werden nur noch gebündelt angelegt; manuelle Backups sind jederzeit möglich.</span>
             </div>
             <div className="row-actions">
               <button className="ghost-button" disabled={backupBusy} onClick={() => void refreshBackups()} type="button">
@@ -11919,7 +12036,7 @@ function MasterDataView({
               <strong>{backups[0] ? formatCreatedAtWithSeconds(backups[0].createdAt) : backupBusy ? "wird geladen..." : "kein Backup vorhanden"}</strong>
             </article>
             <article>
-              <span>Echte Backups</span>
+              <span>Vorhandene Backups</span>
               <strong>{backups.length}</strong>
             </article>
             <article>
@@ -11936,7 +12053,7 @@ function MasterDataView({
                     <strong>{formatCreatedAtWithSeconds(backup.createdAt)}</strong>
                     <span>{counts.customers ?? 0} Kunden · {counts.objects ?? 0} Objekte · {counts.jobs ?? 0} Aufträge · {counts.reports ?? 0} Berichte · {counts.fieldProgress ?? 0} mobile Daten</span>
                     <span>{formatFileSize(backup.compressedSizeBytes ?? backup.sizeBytes)} gespeichert · Original {formatFileSize(backup.sizeBytes)} · Quelle: {backup.sourceUpdatedAt ? formatCreatedAtWithSeconds(backup.sourceUpdatedAt) : "unbekannt"} · {backup.reason || "automatisch"}</span>
-                    <span>Wiederherstellung nutzt automatisch alle zugehörigen technischen Teile.</span>
+                    <span>Das ist ein kompletter Datenstand; technische Teile werden bei der Wiederherstellung automatisch zusammengesetzt.</span>
                   </div>
                   <div className="row-actions">
                     <IconAction label={`Backup vom ${formatCreatedAtWithSeconds(backup.createdAt)} wiederherstellen`} onClick={() => void handleRestoreBackup(backup)}>

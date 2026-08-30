@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.250.0",
+  version: "1.251.0",
   releaseDate: "2026-08-30",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.251.0",
+    date: "2026-08-30",
+    changes: [
+      "Abrechnungsliste uebersichtlicher strukturiert und Rechnungsvorschau als Popup ergaenzt",
+      "Automatische Server-Backups werden gedrosselt und gleiche Datenstaende nicht erneut gesichert",
+    ],
+  },
   {
     version: "1.250.0",
     date: "2026-08-30",
