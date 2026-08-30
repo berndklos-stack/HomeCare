@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.240.0",
+  version: "1.241.0",
   releaseDate: "2026-08-30",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.241.0",
+    date: "2026-08-30",
+    changes: [
+      "Beim Start wird kein Demo-Datenbestand mehr angezeigt, solange der Online-Datenstand noch lädt",
+      "Der Online-Datenabruf wartet länger auf den großen aktuellen App-State",
+      "Backups werden in kleine Supabase-Teilzeilen gespeichert und können daraus wiederhergestellt werden",
+    ],
+  },
   {
     version: "1.240.0",
     date: "2026-08-30",

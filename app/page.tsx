@@ -1709,7 +1709,7 @@ async function loadSupabaseSnapshot() {
   const response = await withTimeout(fetch("/api/app-state", {
     cache: "no-store",
     headers: { Accept: "application/json" },
-  }));
+  }), 30000);
   const payload = await response.json() as { data?: AppSnapshot | null; error?: string; updatedAt?: string | null };
 
   if (!response.ok) {
@@ -7108,6 +7108,35 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
             reports={reports}
             setCustomerId={setPortalCustomerId}
           />
+        </section>
+      </main>
+    );
+  }
+
+  if (!appStorageReady) {
+    return (
+      <main className="app" data-ready="false" data-theme={theme}>
+        <section className="workspace">
+          <header className="topbar">
+            <div>
+              <h1>Homecare</h1>
+              <p>Online-Daten werden geladen...</p>
+            </div>
+            <div className="toolbar">
+              <button aria-label={theme === "dark" ? t.light : t.dark} className="ghost-button icon-button theme-toggle" data-tooltip={theme === "dark" ? t.light : t.dark} onClick={() => setTheme(theme === "dark" ? "light" : "dark")} type="button">
+                {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+              </button>
+            </div>
+          </header>
+          <section className="panel">
+            <div className="panel-title">
+              <div>
+                <p>Datenbestand</p>
+                <h2>Serverdaten werden geladen</h2>
+                <span>Der lokale Startzustand wird nicht angezeigt, damit keine Demo-Daten mit echten Daten verwechselt werden.</span>
+              </div>
+            </div>
+          </section>
         </section>
       </main>
     );
