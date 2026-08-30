@@ -140,6 +140,7 @@ type CustomerRecord = {
   notes: string;
   reportMailBody: string;
   workTimeVisibility?: "service" | "show" | "hide";
+  billable?: boolean;
   archived?: boolean;
 };
 
@@ -604,6 +605,7 @@ type NewJobFormState = {
   discountType: "amount" | "percent";
   discountValue: string;
   discountReason: string;
+  billable: boolean;
   scheduleType: JobSchedule["type"];
   scheduleFrequency: JobSchedule["frequency"];
   scheduleInterval: string;
@@ -637,6 +639,7 @@ type CustomerFormState = {
   notes: string;
   reportMailBody: string;
   workTimeVisibility: "service" | "show" | "hide";
+  billable: boolean;
 };
 
 const labels = {
@@ -2041,6 +2044,7 @@ function emptyJobForm(): NewJobFormState {
     discountType: "amount",
     discountValue: "",
     discountReason: "",
+    billable: true,
     scheduleType: "einmalig",
     scheduleFrequency: "wöchentlich",
     scheduleInterval: "1",
@@ -2397,10 +2401,14 @@ function jobBillingLines(job: JobRecord, services: ServiceItem[]): BillingLineIt
   return [...baseLines, discountLine];
 }
 
+function jobBillingEnabled(job: JobRecord) {
+  return job.billable;
+}
+
 function billableCompletedJobs(jobs: JobRecord[], billing: BillingRecord[]) {
   const billedJobIds = new Set(billing.map((item) => item.jobId || item.source));
   return visibleOperationalJobs(jobs).filter((job) => (
-    job.billable
+    jobBillingEnabled(job)
     && job.status === "erledigt"
     && !isSeriesMaster(job)
     && !billedJobIds.has(job.id)
@@ -2438,6 +2446,7 @@ function jobToForm(job: JobRecord): NewJobFormState {
     discountType: job.discountType ?? "amount",
     discountValue: job.discountValue ?? "",
     discountReason: job.discountReason ?? "",
+    billable: job.billable,
     scheduleType: job.schedule.type,
     scheduleFrequency: job.schedule.frequency,
     scheduleInterval: String(job.schedule.interval),
@@ -3860,6 +3869,7 @@ function emptyCustomerForm(): CustomerFormState {
     notes: "",
     reportMailBody: defaultReportMailBody,
     workTimeVisibility: "service",
+    billable: true,
   };
 }
 
@@ -3885,6 +3895,7 @@ function customerToForm(customer: CustomerRecord): CustomerFormState {
     notes: customer.notes,
     reportMailBody: customer.reportMailBody || defaultReportMailBody,
     workTimeVisibility: customer.workTimeVisibility ?? "service",
+    billable: customer.billable ?? true,
   };
 }
 
@@ -3919,6 +3930,7 @@ function formToCustomer(form: CustomerFormState, id: string, existingCustomer?: 
     notes: form.notes.trim(),
     reportMailBody: form.reportMailBody.trim() || defaultReportMailBody,
     workTimeVisibility: form.workTimeVisibility,
+    billable: form.billable,
   };
 }
 
@@ -5970,9 +5982,18 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   }
 
   function openCreateJob() {
+    const ownerCustomer = customers.find((customer) => customer.id === selectedObject.ownerCustomerId || customer.name === selectedObject.owner);
     setEditingJobId(null);
-    setNewJob(emptyJobForm());
+    setNewJob({ ...emptyJobForm(), billable: ownerCustomer?.billable ?? true });
     setModal("job");
+  }
+
+  function selectJobObject(id: string) {
+    setSelectedObjectId(id);
+    if (editingJobId) return;
+    const object = activeObjects.find((entry) => entry.id === id) ?? objects.find((entry) => entry.id === id);
+    const ownerCustomer = customers.find((customer) => customer.id === object?.ownerCustomerId || customer.name === object?.owner);
+    setNewJob((current) => ({ ...current, billable: ownerCustomer?.billable ?? true }));
   }
 
   function openEditJob(job: JobRecord) {
@@ -6048,6 +6069,10 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   function moveJobToBilling(job: JobRecord) {
     const statusUpdatedAt = new Date().toISOString();
     const normalizedJob = job.status === "erledigt" ? job : { ...job, status: "erledigt" as const, statusUpdatedAt };
+    if (!jobBillingEnabled(normalizedJob)) {
+      setRecordNotice(`Auftrag "${job.title}" ist von der Abrechnung ausgeschlossen.`);
+      return;
+    }
     const nextJobs = jobs.map((item) => (item.id === job.id ? normalizedJob : item));
     const nextBilling = ensureBillingForJobs(nextJobs, billing, reports);
     setJobs(nextJobs);
@@ -6261,7 +6286,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       offerSentAt: existingJob?.offerSentAt,
       orderConfirmationNumber: existingJob?.orderConfirmationNumber,
       orderConfirmationSentAt: existingJob?.orderConfirmationSentAt,
-      billable: existingJob?.billable ?? true,
+      billable: newJob.billable,
       material: existingJob?.material ?? "-",
       workMinutes: existingJob?.workMinutes ?? 0,
       schedule: {
@@ -7904,7 +7929,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                 materials={materials}
                 services={services}
                 setNewJob={setNewJob}
-                setSelectedObjectId={setSelectedObjectId}
+                setSelectedObjectId={selectJobObject}
                 onSubmit={saveJob}
                 submitLabel={editingJobId ? t.saveJob : t.createJob}
               />
@@ -8900,7 +8925,7 @@ function JobsView({
                 <IconAction label={`Auftrag ${job.title} starten`} onClick={() => onStart(job)}><PlayCircle size={16} /></IconAction>
               </>
             )}
-            {!isRecurring && job.status === "erledigt" && (
+            {!isRecurring && job.status === "erledigt" && jobBillingEnabled(job) && (
               <IconAction label={`Auftrag ${job.title} in die Abrechnung übernehmen`} onClick={() => onMoveToBilling(job)}><Euro size={16} /></IconAction>
             )}
             {job.status === "storniert" ? (
@@ -8955,7 +8980,7 @@ function JobsView({
                     {occurrence.status !== "storniert" && !["offerte", "erledigt", "abgerechnet"].includes(occurrence.status) && (
                       <IconAction label={`Teilauftrag ${occurrenceExecutionDate} starten`} onClick={() => onStart(occurrence)}><PlayCircle size={16} /></IconAction>
                     )}
-                    {occurrence.status === "erledigt" && (
+                    {occurrence.status === "erledigt" && jobBillingEnabled(occurrence) && (
                       <IconAction label={`Teilauftrag ${occurrenceExecutionDate} in die Abrechnung übernehmen`} onClick={() => onMoveToBilling(occurrence)}><Euro size={16} /></IconAction>
                     )}
                     {occurrence.status === "storniert" ? (
@@ -10015,6 +10040,9 @@ function BillingView({
   services: ServiceItem[];
 }) {
   const [previewInvoiceId, setPreviewInvoiceId] = useState<string | null>(null);
+  const [billingQuery, setBillingQuery] = useState("");
+  const [billingStatusFilter, setBillingStatusFilter] = useState("alle");
+  const [groupBillingByStatus, setGroupBillingByStatus] = useState(false);
   const billableJobs = billableCompletedJobs(jobs, billing);
   const outgoingBook = billing
     .filter((item) => item.invoicedAt || item.outgoingBookNumber)
@@ -10043,6 +10071,119 @@ function BillingView({
       }]
     : [];
   const previewTotals = previewInvoice ? invoiceTotals({ ...previewInvoice, lines: previewLines }) : null;
+  const billingStatusOptions = ["alle", "entwurf", "gebucht", "gesendet", "überfällig", "bezahlt", "storniert"];
+  const billingStatusCounts = billing.reduce<Record<string, number>>((counts, item) => {
+    const status = effectiveInvoiceStatus(item);
+    counts[status] = (counts[status] ?? 0) + 1;
+    counts.alle = (counts.alle ?? 0) + 1;
+    return counts;
+  }, { alle: 0 });
+  const billingSearchValue = billingQuery.trim().toLowerCase();
+  const billingMatchesFilter = (item: BillingRecord) => {
+    const object = objects.find((entry) => entry.id === item.objectId);
+    const customer = customers.find((entry) => entry.id === item.customerId || entry.id === object?.ownerCustomerId || entry.name === object?.owner);
+    const report = reports.find((entry) => entry.id === item.reportId);
+    const status = effectiveInvoiceStatus(item);
+    if (billingStatusFilter !== "alle" && status !== billingStatusFilter) return false;
+    if (!billingSearchValue) return true;
+    return [
+      item.invoiceNumber,
+      item.label,
+      item.outgoingBookNumber,
+      item.invoiceDate,
+      item.dueDate,
+      item.serviceDate,
+      customer?.name,
+      billingCustomerNumber(customer),
+      object?.name,
+      object?.address,
+      report?.title,
+      item.lines?.map((line) => line.name).join(" "),
+    ].filter(Boolean).join(" ").toLowerCase().includes(billingSearchValue);
+  };
+  const filteredBilling = billing.filter(billingMatchesFilter);
+  const groupedBilling = billingStatusOptions
+    .filter((status) => status !== "alle")
+    .map((status) => ({
+      items: filteredBilling.filter((item) => effectiveInvoiceStatus(item) === status),
+      status,
+    }))
+    .filter((group) => group.items.length > 0);
+  const renderBillingRow = (item: BillingRecord) => {
+    const object = objects.find((entry) => entry.id === item.objectId);
+    const customer = customers.find((entry) => entry.id === item.customerId || entry.id === object?.ownerCustomerId || entry.name === object?.owner);
+    const invoiceStatus = effectiveInvoiceStatus(item);
+    const totals = invoiceTotals(item);
+    const transferRows = vismaTransferRows(item, customer);
+    const invoiceLabel = item.invoiceNumber || item.label;
+    const reportTitle = reports.find((report) => report.id === item.reportId)?.title ?? "-";
+
+    return (
+      <article className="billing-row" key={item.id}>
+        <div className="billing-row-main">
+          <div className="billing-row-heading">
+            <strong>{invoiceLabel}</strong>
+            <Badge value={invoiceStatus} />
+          </div>
+          <div className="billing-meta-grid">
+            <span><small>Kunde</small>{customer?.name || object?.owner || "Kunde fehlt"}</span>
+            <span><small>Kundennr.</small>{billingCustomerNumber(customer)}</span>
+            <span><small>Objekt</small>{object?.name || "Objekt fehlt"}</span>
+            <span><small>Rechnungsdatum</small>{item.invoiceDate || "-"}</span>
+            <span><small>Fällig</small>{item.dueDate || "-"}</span>
+            <span><small>Leistungsdatum</small>{item.serviceDate || "-"}</span>
+            <span><small>Ausgangsbuch</small>{item.outgoingBookNumber || "noch nicht gebucht"}</span>
+            <span><small>Bericht</small>{reportTitle}</span>
+          </div>
+          {item.lines && item.lines.length > 0 && (
+            <div className="billing-lines-preview">
+              {item.lines.map((line) => (
+                <span key={line.id}>{line.kind}: {line.name} · {line.quantity} {line.unit} · {line.unitPrice} {line.currency} · Moms {line.taxRate}%</span>
+              ))}
+            </div>
+          )}
+          {transferRows.length > 0 && (
+            <div className="accounting-preview">
+              <span>Kontierung</span>
+              {transferRows.map((row) => (
+                <small key={`${item.id}-${row.account}-${row.name}`}>{row.account} {row.label} · {row.amount} · {row.currency} · Moms {row.moms}</small>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="billing-row-side">
+          <strong>{formatMoney(totals.gross, totals.currency)}</strong>
+          <span>{formatMoney(totals.net, totals.currency)} netto · {formatMoney(totals.tax, totals.currency)} Moms</span>
+        </div>
+        <div className="row-actions billing-actions">
+          <IconAction label={`Rechnungsvorschau ${invoiceLabel} öffnen`} onClick={() => setPreviewInvoiceId(item.id)}><FileText size={16} /></IconAction>
+          <IconAction label={`Rechnung ${invoiceLabel} als PDF herunterladen`} onClick={() => onDownloadInvoice(item)}><FileDown size={16} /></IconAction>
+          {invoiceStatus === "entwurf" && (
+            <IconAction label={`Rechnung ${invoiceLabel} buchen`} onClick={() => onMarkInvoiced(item)}><Check size={16} /></IconAction>
+          )}
+          {["gebucht", "gesendet", "überfällig"].includes(invoiceStatus) && item.externalExportStatus !== "gesendet" && (
+            <IconAction label={`Rechnung ${invoiceLabel} an Spiris / Visma Buchhaltung übergeben`} onClick={() => onMarkExported(item)}><Send size={16} /></IconAction>
+          )}
+          {item.externalExportStatus === "gesendet" && (
+            <IconAction label={`Spiris-Übergabe ${invoiceLabel} zurücksetzen`} onClick={() => onResetExport(item)}><RotateCcw size={16} /></IconAction>
+          )}
+          {invoiceStatus === "gebucht" && (
+            <IconAction label={`Rechnung ${invoiceLabel} als versendet markieren`} onClick={() => onMarkSent(item)}><Mail size={16} /></IconAction>
+          )}
+          {["gebucht", "gesendet", "überfällig"].includes(invoiceStatus) && (
+            <IconAction label={`Rechnung ${invoiceLabel} als bezahlt markieren`} onClick={() => onMarkPaid(item)}><Euro size={16} /></IconAction>
+          )}
+          {!["bezahlt", "storniert"].includes(invoiceStatus) && (
+            <IconAction label={`Rechnung ${invoiceLabel} stornieren`} onClick={() => onCancelInvoice(item)}><X size={16} /></IconAction>
+          )}
+        </div>
+        <footer className="message-meta">
+          <span>Spiris: {item.externalExportStatus || "nicht gesendet"} · {item.externalExportedAt ? `übergeben ${formatCreatedAt(item.externalExportedAt)}` : "noch nicht übergeben"} · Ziel: {item.externalExportSystem || "Spiris / Visma Buchhaltung"}</span>
+          <span>Preisquelle: {services.length} Leistungsstammdaten verfügbar</span>
+        </footer>
+      </article>
+    );
+  };
 
   return (
     <section className="panel">
@@ -10078,83 +10219,52 @@ function BillingView({
       {billableJobs.length > 0 && (
         <div className="warning-line">{billableJobs.length} erledigte Aufträge sind noch nicht in der Abrechnung.</div>
       )}
+      <div className="list-toolbar billing-toolbar">
+        <label>
+          <span>Rechnungen filtern</span>
+          <input
+            aria-label="Rechnungen filtern"
+            onChange={(event) => setBillingQuery(event.target.value)}
+            placeholder="Kunde, Objekt, Rechnung, Bericht..."
+            type="search"
+            value={billingQuery}
+          />
+        </label>
+        <div>
+          <span>Status</span>
+          <div className="status-filter-bar billing-status-filter" aria-label="Rechnungen nach Status filtern">
+            {billingStatusOptions.map((status) => (
+              <button
+                className={billingStatusFilter === status ? "active" : ""}
+                key={status}
+                onClick={() => setBillingStatusFilter(status)}
+                type="button"
+              >
+                {status} ({billingStatusCounts[status] ?? 0})
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <span>Gruppieren</span>
+          <div className="segmented-control billing-group-toggle">
+            <button className={!groupBillingByStatus ? "active" : ""} onClick={() => setGroupBillingByStatus(false)} type="button">Liste</button>
+            <button className={groupBillingByStatus ? "active" : ""} onClick={() => setGroupBillingByStatus(true)} type="button">Status</button>
+          </div>
+        </div>
+      </div>
       <div className="table-list">
-        {billing.map((item) => {
-          const object = objects.find((entry) => entry.id === item.objectId);
-          const customer = customers.find((entry) => entry.id === item.customerId || entry.id === object?.ownerCustomerId || entry.name === object?.owner);
-          const invoiceStatus = effectiveInvoiceStatus(item);
-          const totals = invoiceTotals(item);
-          const transferRows = vismaTransferRows(item, customer);
-          const invoiceLabel = item.invoiceNumber || item.label;
-          const reportTitle = reports.find((report) => report.id === item.reportId)?.title ?? "-";
-
-          return (
-            <article className="billing-row" key={item.id}>
-              <div className="billing-row-main">
-                <div className="billing-row-heading">
-                  <strong>{invoiceLabel}</strong>
-                  <Badge value={invoiceStatus} />
-                </div>
-                <div className="billing-meta-grid">
-                  <span><small>Kunde</small>{customer?.name || object?.owner || "Kunde fehlt"}</span>
-                  <span><small>Kundennr.</small>{billingCustomerNumber(customer)}</span>
-                  <span><small>Objekt</small>{object?.name || "Objekt fehlt"}</span>
-                  <span><small>Rechnungsdatum</small>{item.invoiceDate || "-"}</span>
-                  <span><small>Fällig</small>{item.dueDate || "-"}</span>
-                  <span><small>Leistungsdatum</small>{item.serviceDate || "-"}</span>
-                  <span><small>Ausgangsbuch</small>{item.outgoingBookNumber || "noch nicht gebucht"}</span>
-                  <span><small>Bericht</small>{reportTitle}</span>
-                </div>
-                {item.lines && item.lines.length > 0 && (
-                  <div className="billing-lines-preview">
-                    {item.lines.map((line) => (
-                      <span key={line.id}>{line.kind}: {line.name} · {line.quantity} {line.unit} · {line.unitPrice} {line.currency} · Moms {line.taxRate}%</span>
-                    ))}
-                  </div>
-                )}
-                {transferRows.length > 0 && (
-                  <div className="accounting-preview">
-                    <span>Kontierung</span>
-                    {transferRows.map((row) => (
-                      <small key={`${item.id}-${row.account}-${row.name}`}>{row.account} {row.label} · {row.amount} · {row.currency} · Moms {row.moms}</small>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div className="billing-row-side">
-                <strong>{formatMoney(totals.gross, totals.currency)}</strong>
-                <span>{formatMoney(totals.net, totals.currency)} netto · {formatMoney(totals.tax, totals.currency)} Moms</span>
-              </div>
-              <div className="row-actions billing-actions">
-                <IconAction label={`Rechnungsvorschau ${invoiceLabel} öffnen`} onClick={() => setPreviewInvoiceId(item.id)}><FileText size={16} /></IconAction>
-                <IconAction label={`Rechnung ${invoiceLabel} als PDF herunterladen`} onClick={() => onDownloadInvoice(item)}><FileDown size={16} /></IconAction>
-                {invoiceStatus === "entwurf" && (
-                  <IconAction label={`Rechnung ${invoiceLabel} buchen`} onClick={() => onMarkInvoiced(item)}><Check size={16} /></IconAction>
-                )}
-                {["gebucht", "gesendet", "überfällig"].includes(invoiceStatus) && item.externalExportStatus !== "gesendet" && (
-                  <IconAction label={`Rechnung ${invoiceLabel} an Spiris / Visma Buchhaltung übergeben`} onClick={() => onMarkExported(item)}><Send size={16} /></IconAction>
-                )}
-                {item.externalExportStatus === "gesendet" && (
-                  <IconAction label={`Spiris-Übergabe ${invoiceLabel} zurücksetzen`} onClick={() => onResetExport(item)}><RotateCcw size={16} /></IconAction>
-                )}
-                {invoiceStatus === "gebucht" && (
-                  <IconAction label={`Rechnung ${invoiceLabel} als versendet markieren`} onClick={() => onMarkSent(item)}><Mail size={16} /></IconAction>
-                )}
-                {["gebucht", "gesendet", "überfällig"].includes(invoiceStatus) && (
-                  <IconAction label={`Rechnung ${invoiceLabel} als bezahlt markieren`} onClick={() => onMarkPaid(item)}><Euro size={16} /></IconAction>
-                )}
-                {!["bezahlt", "storniert"].includes(invoiceStatus) && (
-                  <IconAction label={`Rechnung ${invoiceLabel} stornieren`} onClick={() => onCancelInvoice(item)}><X size={16} /></IconAction>
-                )}
-              </div>
-              <footer className="message-meta">
-                <span>Spiris: {item.externalExportStatus || "nicht gesendet"} · {item.externalExportedAt ? `übergeben ${formatCreatedAt(item.externalExportedAt)}` : "noch nicht übergeben"} · Ziel: {item.externalExportSystem || "Spiris / Visma Buchhaltung"}</span>
-                <span>Preisquelle: {services.length} Leistungsstammdaten verfügbar</span>
-              </footer>
-            </article>
-          );
-        })}
+        {groupBillingByStatus ? groupedBilling.map((group) => (
+          <section className="billing-status-group" key={group.status}>
+            <header>
+              <strong>{group.status}</strong>
+              <span>{group.items.length} {group.items.length === 1 ? "Rechnung" : "Rechnungen"}</span>
+            </header>
+            <div className="table-list">{group.items.map(renderBillingRow)}</div>
+          </section>
+        )) : filteredBilling.map(renderBillingRow)}
         {billing.length === 0 && <p>Noch keine Abrechnungspositionen vorhanden.</p>}
+        {billing.length > 0 && filteredBilling.length === 0 && <p>Keine Rechnungen zum aktuellen Filter gefunden.</p>}
       </div>
       <div className="outgoing-book">
         <div className="panel-title compact-title">
@@ -13803,6 +13913,14 @@ function CustomerForm({
           <option>gesperrt</option>
         </select>
       </label>
+      <label className="checkbox-line wide">
+        <input
+          checked={customer.billable}
+          onChange={(event) => setCustomer({ ...customer, billable: event.target.checked })}
+          type="checkbox"
+        />
+        <span>Neue Aufträge dieses Kunden standardmäßig in die Abrechnung übernehmen</span>
+      </label>
       <h3>Portalzugang</h3>
       <label><span>Login-E-Mail</span><input type="email" value={customer.portalLoginEmail} onChange={(event) => update("portalLoginEmail", event.target.value)} /></label>
       <label><span>Portal-Passwort</span><input value={customer.portalPassword} onChange={(event) => update("portalPassword", event.target.value)} /></label>
@@ -14203,6 +14321,14 @@ function JobForm({
           </select>
         </label>
       )}
+      <label className="checkbox-line wide">
+        <input
+          checked={newJob.billable}
+          onChange={(event) => setNewJob({ ...newJob, billable: event.target.checked })}
+          type="checkbox"
+        />
+        <span>Diesen Auftrag in die Abrechnung übernehmen</span>
+      </label>
       <div className="wide job-date-row">
         <label><span>Startet am</span><input type="date" value={newJob.startDate} onChange={(event) => updateStartDate(event.target.value)} /></label>
         <label><span>Endet am</span><input min={newJob.startDate} type="date" value={newJob.endDate} onChange={(event) => updateEndDate(event.target.value)} /></label>

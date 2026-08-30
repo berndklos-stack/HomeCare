@@ -399,6 +399,16 @@ button {
   grid-template-columns: minmax(220px, 1fr) minmax(150px, 190px) minmax(170px, 220px);
 }
 
+.billing-toolbar {
+  align-items: start;
+  grid-template-columns: minmax(240px, 1fr) minmax(360px, 1.4fr) minmax(160px, 190px);
+}
+
+.billing-toolbar > div {
+  display: grid;
+  gap: 5px;
+}
+
 .empty-list-note {
   color: var(--muted);
   font-weight: 700;
@@ -762,6 +772,31 @@ button {
   grid-column: 1 / -1;
 }
 
+.billing-status-group {
+  display: grid;
+  gap: 8px;
+}
+
+.billing-status-group > header {
+  align-items: center;
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  min-height: 40px;
+  padding: 8px 12px;
+  text-transform: capitalize;
+}
+
+.billing-status-group > header span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: none;
+}
+
 .invoice-preview-modal {
   max-width: 980px;
   width: min(100%, 980px);
@@ -1066,6 +1101,10 @@ button {
   background: var(--accent);
   border-color: var(--accent);
   color: white;
+}
+
+.billing-status-filter {
+  margin: 0;
 }
 
 .job-row {
@@ -4759,6 +4798,7 @@ button.media-thumb {
   }
 
   .billing-meta-grid,
+  .billing-toolbar,
   .invoice-preview-top,
   .invoice-preview-addresses,
   .invoice-preview-meta {
