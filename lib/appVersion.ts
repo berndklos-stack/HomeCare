@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.230.0",
+  version: "1.231.0",
   releaseDate: "2026-08-30",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.231.0",
+    date: "2026-08-30",
+    changes: [
+      "Vor dem Online-Speichern wird automatisch ein Server-Backup des vorherigen App-Stands erstellt",
+      "Backups werden als Dateien in Supabase Storage abgelegt und ueber eine Backup-API wieder auffindbar",
+      "Ein gespeichertes Backup kann serverseitig wieder als aktueller App-Stand hergestellt werden",
+    ],
+  },
   {
     version: "1.230.0",
     date: "2026-08-30",

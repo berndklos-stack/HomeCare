@@ -4,7 +4,10 @@ import { NextResponse } from "next/server";
 export const runtime = "nodejs";
 
 const appStateRowId = "kolaretorp-service-app";
+const appBackupPrefix = "app-backup:";
+const appBackupBucket = "homecare-backups";
 const cacheTtlMs = 30000;
+const backupIntervalMs = 10 * 60 * 1000;
 
 type JsonObject = Record<string, unknown>;
 type CachedAppState = {
@@ -50,6 +53,113 @@ function retryableSupabaseResponse(error: { message: string }) {
 
 async function wait(ms: number) {
   await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function safePathPart(value: string) {
+  return value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 90) || "backup";
+}
+
+function hasBackupableData(snapshot: unknown) {
+  if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) return false;
+  const data = snapshot as JsonObject;
+  return ["customers", "objects", "jobs", "reports"].some((key) => Array.isArray(data[key]) && (data[key] as unknown[]).length > 0);
+}
+
+function snapshotCounts(snapshot: unknown) {
+  const data = snapshot && typeof snapshot === "object" && !Array.isArray(snapshot) ? snapshot as JsonObject : {};
+  const fieldProgress = data.fieldProgress && typeof data.fieldProgress === "object" && !Array.isArray(data.fieldProgress)
+    ? data.fieldProgress as JsonObject
+    : {};
+
+  return {
+    customers: Array.isArray(data.customers) ? data.customers.length : 0,
+    fieldProgress: Object.keys(fieldProgress).length,
+    jobs: Array.isArray(data.jobs) ? data.jobs.length : 0,
+    objects: Array.isArray(data.objects) ? data.objects.length : 0,
+    reports: Array.isArray(data.reports) ? data.reports.length : 0,
+  };
+}
+
+async function ensureBackupBucket(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
+  const { data: bucket, error: getError } = await supabase.storage.getBucket(appBackupBucket);
+  if (bucket) return;
+
+  const { error: createError } = await supabase.storage.createBucket(appBackupBucket, {
+    fileSizeLimit: 60 * 1024 * 1024,
+    public: false,
+  });
+  if (createError) {
+    throw new Error(createError.message || getError?.message || "Backup-Bucket konnte nicht angelegt werden.");
+  }
+}
+
+async function hasRecentBackup(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>, currentUpdatedAt?: string | null) {
+  const { data } = await supabase
+    .from("app_state")
+    .select("data, updated_at")
+    .like("id", `${appBackupPrefix}%`)
+    .order("updated_at", { ascending: false })
+    .limit(1);
+
+  const latest = data?.[0];
+  if (!latest) return false;
+  const latestTime = Date.parse(String(latest.updated_at ?? ""));
+  if (!Number.isFinite(latestTime) || Date.now() - latestTime > backupIntervalMs) return false;
+
+  const backupData = latest.data && typeof latest.data === "object" ? latest.data as JsonObject : {};
+  return !currentUpdatedAt || backupData.sourceUpdatedAt === currentUpdatedAt;
+}
+
+async function createAppStateBackup(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>, reason: string) {
+  const { data: current, error } = await supabase
+    .from("app_state")
+    .select("data, updated_at")
+    .eq("id", appStateRowId)
+    .maybeSingle();
+
+  if (error || !current?.data) return;
+
+  const snapshot = normalizeSnapshot(current.data);
+  if (!hasBackupableData(snapshot)) return;
+  if (await hasRecentBackup(supabase, current.updated_at)) return;
+
+  await ensureBackupBucket(supabase);
+
+  const createdAt = new Date().toISOString();
+  const backupId = `${appBackupPrefix}${createdAt}`;
+  const storagePath = `app-state/${createdAt.slice(0, 10)}/${safePathPart(createdAt)}.json`;
+  const serialized = JSON.stringify(snapshot);
+  const { error: uploadError } = await supabase.storage
+    .from(appBackupBucket)
+    .upload(storagePath, Buffer.from(serialized), {
+      cacheControl: "0",
+      contentType: "application/json",
+      upsert: false,
+    });
+
+  if (uploadError) throw new Error(uploadError.message);
+
+  await supabase
+    .from("app_state")
+    .upsert({
+      data: {
+        counts: snapshotCounts(snapshot),
+        createdAt,
+        id: backupId,
+        reason,
+        sizeBytes: Buffer.byteLength(serialized),
+        sourceUpdatedAt: current.updated_at,
+        storageBucket: appBackupBucket,
+        storagePath,
+      },
+      id: backupId,
+      updated_at: createdAt,
+    }, { onConflict: "id" });
 }
 
 function mergeJobStatus(existing: JsonObject, patch: JsonObject) {
@@ -382,6 +492,12 @@ async function saveSnapshotToSupabase(snapshot: unknown) {
 
   const updatedAt = new Date().toISOString();
   let lastError: { message: string } | null = null;
+
+  try {
+    await createAppStateBackup(supabase, "before-app-state-save");
+  } catch (error) {
+    console.warn("App-State-Backup konnte nicht erstellt werden.", error);
+  }
 
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const { error } = await supabase
