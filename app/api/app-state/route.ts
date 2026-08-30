@@ -141,7 +141,7 @@ async function createAppStateBackup(supabase: NonNullable<ReturnType<typeof getS
   for (let offset = 0; offset < compressed.byteLength; offset += backupChunkSizeBytes) {
     const chunkIndex = chunks.length + 1;
     const chunkPath = `${storageBasePath}.part-${String(chunkIndex).padStart(3, "0")}`;
-    const chunk = compressed.subarray(offset, Math.min(offset + backupChunkSizeBytes, compressed.byteLength));
+    const chunk = Buffer.from(compressed.subarray(offset, Math.min(offset + backupChunkSizeBytes, compressed.byteLength)));
     const { error: uploadError } = await supabase.storage
       .from(appBackupBucket)
       .upload(chunkPath, chunk, {

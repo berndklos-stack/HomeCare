@@ -1,10 +1,17 @@
 export const appVersion = {
-  version: "1.236.0",
+  version: "1.237.0",
   releaseDate: "2026-08-30",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.237.0",
+    date: "2026-08-30",
+    changes: [
+      "Backup-Teildateien werden als echte kleine Buffer hochgeladen",
+    ],
+  },
   {
     version: "1.236.0",
     date: "2026-08-30",
