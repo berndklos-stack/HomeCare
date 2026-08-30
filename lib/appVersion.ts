@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.231.0",
+  version: "1.232.0",
   releaseDate: "2026-08-30",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.232.0",
+    date: "2026-08-30",
+    changes: [
+      "Backup-API kann ein Server-Backup manuell erzeugen und gibt dabei konkrete Fehler zurueck",
+      "Fehler beim Schreiben des Backup-Index werden nicht mehr still ignoriert",
+    ],
+  },
   {
     version: "1.231.0",
     date: "2026-08-30",

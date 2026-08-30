@@ -144,7 +144,7 @@ async function createAppStateBackup(supabase: NonNullable<ReturnType<typeof getS
 
   if (uploadError) throw new Error(uploadError.message);
 
-  await supabase
+  const { error: indexError } = await supabase
     .from("app_state")
     .upsert({
       data: {
@@ -160,6 +160,8 @@ async function createAppStateBackup(supabase: NonNullable<ReturnType<typeof getS
       id: backupId,
       updated_at: createdAt,
     }, { onConflict: "id" });
+
+  if (indexError) throw new Error(indexError.message);
 }
 
 function mergeJobStatus(existing: JsonObject, patch: JsonObject) {
