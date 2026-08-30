@@ -6,10 +6,11 @@ export const runtime = "nodejs";
 
 const appStateRowId = "kolaretorp-service-app";
 const appBackupPrefix = "app-backup:";
+const appBackupChunkPrefix = "app-backup-chunk:";
 const appBackupBucket = "homecare-backups";
 const cacheTtlMs = 30000;
 const backupIntervalMs = 10 * 60 * 1000;
-const backupChunkSizeBytes = 512 * 1024;
+const backupChunkSizeChars = 384 * 1024;
 
 type JsonObject = Record<string, unknown>;
 type CachedAppState = {
@@ -130,29 +131,32 @@ async function createAppStateBackup(supabase: NonNullable<ReturnType<typeof getS
   if (!hasBackupableData(snapshot)) return;
   if (await hasRecentBackup(supabase, current.updated_at)) return;
 
-  await ensureBackupBucket(supabase);
-
   const createdAt = new Date().toISOString();
   const backupId = `${appBackupPrefix}${createdAt}`;
-  const storageBasePath = `app-state/${createdAt.slice(0, 10)}/${safePathPart(createdAt)}.json.gz`;
   const serialized = JSON.stringify(snapshot);
   const compressed = gzipSync(Buffer.from(serialized));
   const chunks: string[] = [];
-  for (let offset = 0; offset < compressed.byteLength; offset += backupChunkSizeBytes) {
+  const compressedBase64 = compressed.toString("base64");
+  for (let offset = 0; offset < compressedBase64.length; offset += backupChunkSizeChars) {
     const chunkIndex = chunks.length + 1;
-    const chunkPath = `${storageBasePath}.part-${String(chunkIndex).padStart(3, "0")}`;
-    const chunk = Buffer.from(compressed.subarray(offset, Math.min(offset + backupChunkSizeBytes, compressed.byteLength)));
-    const { error: uploadError } = await supabase.storage
-      .from(appBackupBucket)
-      .upload(chunkPath, chunk, {
-        cacheControl: "0",
-        contentType: "application/octet-stream",
-        upsert: false,
-      });
-
-    if (uploadError) throw new Error(uploadError.message);
-    chunks.push(chunkPath);
+    const chunkId = `${appBackupChunkPrefix}${createdAt}:${String(chunkIndex).padStart(3, "0")}`;
+    chunks.push(chunkId);
   }
+  const chunkRows = chunks.map((chunkId, index) => ({
+    data: {
+      backupId,
+      content: compressedBase64.slice(index * backupChunkSizeChars, (index + 1) * backupChunkSizeChars),
+      index,
+      total: chunks.length,
+    },
+    id: chunkId,
+    updated_at: createdAt,
+  }));
+  const { error: chunkError } = await supabase
+    .from("app_state")
+    .upsert(chunkRows, { onConflict: "id" });
+
+  if (chunkError) throw new Error(chunkError.message);
 
   const { error: indexError } = await supabase
     .from("app_state")
@@ -160,12 +164,13 @@ async function createAppStateBackup(supabase: NonNullable<ReturnType<typeof getS
       data: {
         counts: snapshotCounts(snapshot),
         createdAt,
+        compressed: true,
         id: backupId,
         reason,
         compressedSizeBytes: compressed.byteLength,
         sizeBytes: Buffer.byteLength(serialized),
         sourceUpdatedAt: current.updated_at,
-        storageBucket: appBackupBucket,
+        storageBucket: "app_state",
         storagePath: chunks[0],
         storagePaths: chunks,
       },

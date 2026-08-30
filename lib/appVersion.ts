@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.239.0",
+  version: "1.240.0",
   releaseDate: "2026-08-30",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.240.0",
+    date: "2026-08-30",
+    changes: [
+      "Grosse Backups werden als komprimierte Teilzeilen in Supabase gespeichert, wenn Storage-Grenzen greifen",
+      "Backup-Wiederherstellung erkennt komprimierte Teilzeilen eindeutig",
+    ],
+  },
   {
     version: "1.239.0",
     date: "2026-08-30",

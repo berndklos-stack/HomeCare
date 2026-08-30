@@ -6,8 +6,9 @@ export const runtime = "nodejs";
 
 const appStateRowId = "kolaretorp-service-app";
 const appBackupPrefix = "app-backup:";
+const appBackupChunkPrefix = "app-backup-chunk:";
 const appBackupBucket = "homecare-backups";
-const backupChunkSizeBytes = 512 * 1024;
+const backupChunkSizeChars = 384 * 1024;
 
 type JsonObject = Record<string, unknown>;
 
@@ -87,42 +88,45 @@ async function createCurrentBackup(reason: string) {
     return { response: NextResponse.json({ error: currentError?.message || "Aktueller App-Stand wurde nicht gefunden." }, { status: 404 }) };
   }
 
-  await ensureBackupBucket(supabase);
-
   const snapshot = normalizeSnapshot(current.data);
   const createdAt = new Date().toISOString();
   const backupId = `${appBackupPrefix}${createdAt}`;
-  const storageBasePath = `app-state/${createdAt.slice(0, 10)}/${safePathPart(createdAt)}.json.gz`;
   const serialized = JSON.stringify(snapshot);
   const compressed = gzipSync(Buffer.from(serialized));
   const chunks: string[] = [];
-  for (let offset = 0; offset < compressed.byteLength; offset += backupChunkSizeBytes) {
+  const compressedBase64 = compressed.toString("base64");
+  for (let offset = 0; offset < compressedBase64.length; offset += backupChunkSizeChars) {
     const chunkIndex = chunks.length + 1;
-    const chunkPath = `${storageBasePath}.part-${String(chunkIndex).padStart(3, "0")}`;
-    const chunk = Buffer.from(compressed.subarray(offset, Math.min(offset + backupChunkSizeBytes, compressed.byteLength)));
-    const { error: uploadError } = await supabase.storage
-      .from(appBackupBucket)
-      .upload(chunkPath, chunk, {
-        cacheControl: "0",
-        contentType: "application/octet-stream",
-        upsert: false,
-      });
+    chunks.push(`${appBackupChunkPrefix}${createdAt}:${String(chunkIndex).padStart(3, "0")}`);
+  }
+  const chunkRows = chunks.map((chunkId, index) => ({
+    data: {
+      backupId,
+      content: compressedBase64.slice(index * backupChunkSizeChars, (index + 1) * backupChunkSizeChars),
+      index,
+      total: chunks.length,
+    },
+    id: chunkId,
+    updated_at: createdAt,
+  }));
+  const { error: chunkError } = await supabase
+    .from("app_state")
+    .upsert(chunkRows, { onConflict: "id" });
 
-    if (uploadError) {
-      return { response: NextResponse.json({ error: uploadError.message }, { status: 500 }) };
-    }
-    chunks.push(chunkPath);
+  if (chunkError) {
+    return { response: NextResponse.json({ error: chunkError.message }, { status: 500 }) };
   }
 
   const backup = {
     counts: snapshotCounts(snapshot),
     createdAt,
+    compressed: true,
     id: backupId,
     reason,
     compressedSizeBytes: compressed.byteLength,
     sizeBytes: Buffer.byteLength(serialized),
     sourceUpdatedAt: current.updated_at,
-    storageBucket: appBackupBucket,
+    storageBucket: "app_state",
     storagePath: chunks[0],
     storagePaths: chunks,
   };
@@ -207,17 +211,34 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Backup-Datei fehlt im Index." }, { status: 400 });
   }
 
-  const buffers: Buffer[] = [];
-  for (const path of paths) {
-    const { data: file, error: downloadError } = await supabase.storage.from(bucket).download(path);
-    if (downloadError || !file) {
-      return NextResponse.json({ error: downloadError?.message || "Backup-Datei konnte nicht geladen werden." }, { status: 500 });
+  let buffer: Buffer;
+  if (bucket === "app_state") {
+    const { data: chunkRows, error: chunkError } = await supabase
+      .from("app_state")
+      .select("data")
+      .in("id", paths);
+    if (chunkError || !chunkRows) {
+      return NextResponse.json({ error: chunkError?.message || "Backup-Teile konnten nicht geladen werden." }, { status: 500 });
     }
-    buffers.push(Buffer.from(await file.arrayBuffer()));
+    const base64 = chunkRows
+      .map((row) => row.data && typeof row.data === "object" ? row.data as JsonObject : {})
+      .sort((first, second) => Number(first.index ?? 0) - Number(second.index ?? 0))
+      .map((chunk) => String(chunk.content ?? ""))
+      .join("");
+    buffer = Buffer.from(base64, "base64");
+  } else {
+    const buffers: Buffer[] = [];
+    for (const path of paths) {
+      const { data: file, error: downloadError } = await supabase.storage.from(bucket).download(path);
+      if (downloadError || !file) {
+        return NextResponse.json({ error: downloadError?.message || "Backup-Datei konnte nicht geladen werden." }, { status: 500 });
+      }
+      buffers.push(Buffer.from(await file.arrayBuffer()));
+    }
+    buffer = Buffer.concat(buffers);
   }
 
-  const buffer = Buffer.concat(buffers);
-  const isGzip = paths[0]?.includes(".json.gz");
+  const isGzip = backup.compressed === true || paths[0]?.includes(".json.gz");
   const snapshotText = isGzip ? gunzipSync(buffer).toString("utf8") : buffer.toString("utf8");
   const snapshot = JSON.parse(snapshotText);
   const restoredAt = new Date().toISOString();
