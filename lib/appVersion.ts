@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.242.0",
+  version: "1.243.0",
   releaseDate: "2026-08-30",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.243.0",
+    date: "2026-08-30",
+    changes: [
+      "Der App-Start lädt den Online-Datenbestand schlank ohne alte eingebettete Bilddaten",
+      "Kunden, Objekte und Aufträge werden dadurch wieder schnell angezeigt",
+    ],
+  },
   {
     version: "1.242.0",
     date: "2026-08-30",

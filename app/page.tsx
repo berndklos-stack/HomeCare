@@ -1706,7 +1706,7 @@ async function loadSupabaseSnapshot() {
     return null;
   }
 
-  const response = await withTimeout(fetch("/api/app-state", {
+  const response = await withTimeout(fetch("/api/app-state?compact=1", {
     cache: "no-store",
     headers: { Accept: "application/json" },
   }), 30000);

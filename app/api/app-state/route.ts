@@ -47,6 +47,24 @@ function normalizeSnapshot(payload: unknown) {
   return payload;
 }
 
+function compactLargeEmbeddedMedia(value: unknown): unknown {
+  if (typeof value === "string") {
+    return value.startsWith("data:") && value.length > 12000 ? undefined : value;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(compactLargeEmbeddedMedia).filter((item) => item !== undefined);
+  }
+
+  if (!value || typeof value !== "object") return value;
+
+  return Object.fromEntries(
+    Object.entries(value as JsonObject)
+      .map(([key, item]) => [key, compactLargeEmbeddedMedia(item)] as const)
+      .filter(([, item]) => item !== undefined),
+  );
+}
+
 function retryableSupabaseResponse(error: { message: string }) {
   return NextResponse.json(
     { data: cachedAppState?.data ?? null, error: `Supabase aktuell überlastet: ${error.message}`, retry: true, stale: Boolean(cachedAppState), updatedAt: cachedAppState?.updatedAt ?? null },
@@ -550,15 +568,16 @@ async function saveSnapshotToSupabase(snapshot: unknown) {
   );
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const supabase = getSupabaseServerClient();
   if (!supabase) {
     return NextResponse.json({ data: null, error: "Supabase-Zugangsdaten fehlen." }, { status: 500 });
   }
+  const compact = new URL(request.url).searchParams.get("compact") === "1";
 
   if (cachedAppState && Date.now() - cachedAppState.cachedAt < cacheTtlMs) {
     return NextResponse.json(
-      { data: cachedAppState.data, cached: true, updatedAt: cachedAppState.updatedAt },
+      { data: compact ? compactLargeEmbeddedMedia(cachedAppState.data) : cachedAppState.data, cached: true, updatedAt: cachedAppState.updatedAt },
       { headers: { "Cache-Control": "private, max-age=3, stale-while-revalidate=20" } },
     );
   }
@@ -581,7 +600,7 @@ export async function GET() {
   };
 
   return NextResponse.json(
-    { data: snapshot, updatedAt: data?.updated_at ?? null },
+    { data: compact ? compactLargeEmbeddedMedia(snapshot) : snapshot, updatedAt: data?.updated_at ?? null },
     { headers: { "Cache-Control": "no-store, max-age=0, must-revalidate" } },
   );
 }
