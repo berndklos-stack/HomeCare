@@ -1275,6 +1275,12 @@ function formatUpdatedTime(value?: string) {
   return parsed.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
 }
 
+function formatFileSize(value?: number) {
+  if (!value || value < 0) return "unbekannt";
+  if (value < 1024 * 1024) return `${Math.round(value / 1024)} KB`;
+  return `${(value / 1024 / 1024).toFixed(1)} MB`;
+}
+
 function mergeRecordsById<T extends { id: string }>(primaryRecords: T[], secondaryRecords: T[]) {
   const recordsById = new Map<string, T>();
 
@@ -1783,6 +1789,22 @@ async function saveSupabasePatch(overrides: Partial<AppSnapshot>) {
 }
 
 type ReportTextBackup = Pick<ReportRecord, "checklistResults" | "customerComment" | "date" | "id" | "jobId" | "objectId" | "summary" | "title" | "updatedAt" | "visibleToCustomer">;
+type AppBackupRecord = {
+  backupUpdatedAt?: string;
+  counts?: {
+    customers?: number;
+    fieldProgress?: number;
+    jobs?: number;
+    objects?: number;
+    reports?: number;
+  };
+  createdAt: string;
+  id: string;
+  reason?: string;
+  sizeBytes?: number;
+  sourceUpdatedAt?: string;
+  storagePath?: string;
+};
 
 function reportTextBackup(report: ReportRecord): ReportTextBackup {
   return {
@@ -1859,6 +1881,38 @@ async function saveReportTextBackup(report: ReportRecord) {
   } catch (error) {
     console.warn("Bericht-Backup konnte nicht gespeichert werden.", error);
   }
+}
+
+async function loadAppBackups() {
+  const response = await withTimeout(fetch("/api/app-backups", {
+    cache: "no-store",
+    headers: { Accept: "application/json" },
+  }), 8000);
+  const payload = await response.json() as { data?: AppBackupRecord[]; error?: string };
+  if (!response.ok) throw new Error(payload.error || "Backups konnten nicht geladen werden.");
+  return payload.data ?? [];
+}
+
+async function createAppBackup(reason = "manual") {
+  const response = await withTimeout(fetch("/api/app-backups", {
+    body: JSON.stringify({ reason }),
+    headers: { "Content-Type": "application/json" },
+    method: "PUT",
+  }), 20000);
+  const payload = await response.json() as { backup?: AppBackupRecord; error?: string };
+  if (!response.ok) throw new Error(payload.error || "Backup konnte nicht erstellt werden.");
+  return payload.backup;
+}
+
+async function restoreAppBackup(backupId: string) {
+  const response = await withTimeout(fetch("/api/app-backups", {
+    body: JSON.stringify({ id: backupId }),
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  }), 20000);
+  const payload = await response.json() as { error?: string; restoredAt?: string };
+  if (!response.ok) throw new Error(payload.error || "Backup konnte nicht wiederhergestellt werden.");
+  return payload.restoredAt;
 }
 
 async function loadLiveAppVersion() {
@@ -10828,7 +10882,7 @@ function MasterDataView({
   translate: (value: string) => string;
 }) {
   const tt = translate;
-  const [masterDataTab, setMasterDataTab] = useState<"company" | "personal" | "resources" | "services" | "materials" | "mail">("company");
+  const [masterDataTab, setMasterDataTab] = useState<"company" | "personal" | "resources" | "services" | "materials" | "mail" | "backups">("company");
   const [editingPersonId, setEditingPersonId] = useState<string | null>(null);
   const [editingResourceId, setEditingResourceId] = useState<string | null>(null);
   const [editingLogEntryId, setEditingLogEntryId] = useState<string | null>(null);
@@ -10841,6 +10895,9 @@ function MasterDataView({
   const [resourceViewMode, setResourceViewMode] = useState<"cards" | "list">("list");
   const [servicePickerOpen, setServicePickerOpen] = useState(false);
   const [archiveNotice, setArchiveNotice] = useState("");
+  const [backupBusy, setBackupBusy] = useState(false);
+  const [backupError, setBackupError] = useState("");
+  const [backups, setBackups] = useState<AppBackupRecord[]>([]);
   const [personForm, setPersonForm] = useState({
     createdAt: "",
     email: "",
@@ -10975,6 +11032,54 @@ function MasterDataView({
   useEffect(() => {
     setMailSettingsForm(dailyMailSettings);
   }, [dailyMailSettings]);
+
+  useEffect(() => {
+    if (masterDataTab !== "backups") return;
+    void refreshBackups();
+  }, [masterDataTab]);
+
+  async function refreshBackups() {
+    setBackupError("");
+    setBackupBusy(true);
+    try {
+      setBackups(await loadAppBackups());
+    } catch (error) {
+      setBackupError(error instanceof Error ? error.message : "Backups konnten nicht geladen werden.");
+    } finally {
+      setBackupBusy(false);
+    }
+  }
+
+  async function handleCreateBackup() {
+    setBackupError("");
+    setBackupBusy(true);
+    try {
+      await createAppBackup("manual-master-data");
+      const nextBackups = await loadAppBackups();
+      setBackups(nextBackups);
+      setArchiveNotice("Backup wurde erstellt.");
+    } catch (error) {
+      setBackupError(error instanceof Error ? error.message : "Backup konnte nicht erstellt werden.");
+    } finally {
+      setBackupBusy(false);
+    }
+  }
+
+  async function handleRestoreBackup(backup: AppBackupRecord) {
+    const confirmed = window.confirm(`Backup vom ${formatCreatedAt(backup.createdAt)} wiederherstellen? Der aktuelle Online-Stand wird dadurch ersetzt.`);
+    if (!confirmed) return;
+
+    setBackupError("");
+    setBackupBusy(true);
+    try {
+      await restoreAppBackup(backup.id);
+      Object.values(storageKeys).forEach((key) => window.localStorage.removeItem(key));
+      window.location.reload();
+    } catch (error) {
+      setBackupError(error instanceof Error ? error.message : "Backup konnte nicht wiederhergestellt werden.");
+      setBackupBusy(false);
+    }
+  }
 
   function personName(personId: string) {
     const person = personnel.find((item) => item.id === personId);
@@ -11656,9 +11761,71 @@ function MasterDataView({
           <Mail size={16} />
           {tt("Tagesmail")}
         </button>
+        <button className={masterDataTab === "backups" ? "active" : ""} onClick={() => setMasterDataTab("backups")} type="button">
+          <Archive size={16} />
+          Backups
+        </button>
       </div>
 
       {archiveNotice && <p className="archive-notice">{archiveNotice}</p>}
+
+      {masterDataTab === "backups" && (
+        <section className="panel">
+          <div className="panel-title">
+            <div>
+              <p>Sicherheit</p>
+              <h2>Backups</h2>
+              <span>Server-Backups sichern den kompletten Online-Datenstand vor Änderungen und können wiederhergestellt werden.</span>
+            </div>
+            <div className="row-actions">
+              <button className="ghost-button" disabled={backupBusy} onClick={() => void refreshBackups()} type="button">
+                <RefreshCw size={16} />
+                Aktualisieren
+              </button>
+              <button className="primary-button" disabled={backupBusy} onClick={() => void handleCreateBackup()} type="button">
+                <Archive size={16} />
+                Backup erstellen
+              </button>
+            </div>
+          </div>
+          {backupError && <p className="archive-notice danger">{backupError}</p>}
+          <div className="summary-grid">
+            <article>
+              <span>Letztes Backup</span>
+              <strong>{backups[0] ? formatCreatedAt(backups[0].createdAt) : backupBusy ? "wird geladen..." : "kein Backup vorhanden"}</strong>
+            </article>
+            <article>
+              <span>Backup-Anzahl</span>
+              <strong>{backups.length}</strong>
+            </article>
+            <article>
+              <span>Aktueller Live-Stand</span>
+              <strong>{customers.length} Kunden · {objects.length} Objekte · {services.length} Leistungen</strong>
+            </article>
+          </div>
+          <div className="table-list compact-list">
+            {backups.map((backup) => {
+              const counts = backup.counts ?? {};
+              return (
+                <article key={backup.id}>
+                  <div>
+                    <strong>{formatCreatedAt(backup.createdAt)}</strong>
+                    <span>{counts.customers ?? 0} Kunden · {counts.objects ?? 0} Objekte · {counts.jobs ?? 0} Aufträge · {counts.reports ?? 0} Berichte · {counts.fieldProgress ?? 0} mobile Daten</span>
+                    <span>{formatFileSize(backup.sizeBytes)} · Quelle: {backup.sourceUpdatedAt ? formatCreatedAt(backup.sourceUpdatedAt) : "unbekannt"} · {backup.reason || "automatisch"}</span>
+                  </div>
+                  <div className="row-actions">
+                    <IconAction label={`Backup vom ${formatCreatedAt(backup.createdAt)} wiederherstellen`} onClick={() => void handleRestoreBackup(backup)}>
+                      <RotateCcw size={16} />
+                    </IconAction>
+                  </div>
+                </article>
+              );
+            })}
+            {!backupBusy && backups.length === 0 && <p>Noch kein Server-Backup vorhanden.</p>}
+            {backupBusy && backups.length === 0 && <p>Backups werden geladen...</p>}
+          </div>
+        </section>
+      )}
 
       {masterDataTab === "company" && (
         <section className="panel">

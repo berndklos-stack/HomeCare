@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.233.0",
+  version: "1.234.0",
   releaseDate: "2026-08-30",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.234.0",
+    date: "2026-08-30",
+    changes: [
+      "Stammdaten zeigen einen Backup-Bereich mit aktuellem Server-Backup-Stand",
+      "Backups koennen in den Stammdaten manuell erstellt und gezielt wiederhergestellt werden",
+      "Nach einer Wiederherstellung wird der lokale Browser-Speicher geleert und die App neu geladen",
+    ],
+  },
   {
     version: "1.233.0",
     date: "2026-08-30",
