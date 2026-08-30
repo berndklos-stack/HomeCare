@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.246.0",
+  version: "1.247.0",
   releaseDate: "2026-08-30",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.247.0",
+    date: "2026-08-30",
+    changes: [
+      "Bericht-Backups mit fehlenden Foto-Feldern werden beim Start robust normalisiert",
+      "Die Ladeansicht zeigt bei Fehlern eine konkrete Meldung mit Neu-laden und Cache-leeren Aktionen",
+    ],
+  },
   {
     version: "1.246.0",
     date: "2026-08-30",

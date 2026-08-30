@@ -1856,18 +1856,29 @@ function applyReportTextBackups(reports: ReportRecord[], backups: ReportTextBack
   return dedupeReports([
     ...backups.map((backup) => ({
       attachments: [],
-      checklistResults: backup.checklistResults,
-      customerComment: backup.customerComment,
+      checklistResults: (backup.checklistResults ?? []).map((item) => ({
+        completed: item.completed ?? false,
+        description: item.description ?? "",
+        id: item.id ?? item.title ?? createEntityId("BKP-SCL"),
+        meta: item.meta ?? "",
+        minutes: item.minutes ?? 0,
+        note: item.note ?? "",
+        photos: item.photos ?? [],
+        showWorkTimeInReport: item.showWorkTimeInReport ?? true,
+        title: item.title ?? "",
+        updatedAt: item.updatedAt,
+      })),
+      customerComment: backup.customerComment ?? "",
       date: normalizeReportDate(backup.date),
       id: backup.id,
       internalNotes: "Text-Sicherung aus Bericht-Backup.",
       jobId: backup.jobId,
       media: [],
       objectId: backup.objectId,
-      summary: backup.summary,
-      title: backup.title,
+      summary: backup.summary ?? "",
+      title: backup.title ?? "Bericht",
       updatedAt: backup.updatedAt,
-      visibleToCustomer: backup.visibleToCustomer,
+      visibleToCustomer: backup.visibleToCustomer ?? true,
     })),
     ...reports,
   ]);
@@ -4529,17 +4540,18 @@ function reportDedupeKey(report: ReportRecord) {
 }
 
 function reportCompletenessScore(report: ReportRecord) {
-  const photoCount = report.checklistResults.reduce((sum, item) => sum + item.photos.length, 0);
-  const noteCount = report.checklistResults.filter((item) => item.note.trim()).length;
+  const checklistResults = report.checklistResults ?? [];
+  const photoCount = checklistResults.reduce((sum, item) => sum + (item.photos ?? []).length, 0);
+  const noteCount = checklistResults.filter((item) => (item.note ?? "").trim()).length;
 
   return [
     report.sentAt ? 100 : 0,
-    report.customerComment.trim() ? 20 : 0,
-    report.checklistResults.length * 4,
+    (report.customerComment ?? "").trim() ? 20 : 0,
+    checklistResults.length * 4,
     photoCount * 3,
     (report.attachments?.length ?? 0) * 3,
     noteCount * 2,
-    report.summary.trim() ? 1 : 0,
+    (report.summary ?? "").trim() ? 1 : 0,
   ].reduce((sum, value) => sum + value, 0);
 }
 
@@ -4583,7 +4595,7 @@ function chooseReportChecklistItem(existing: FieldTaskResult | undefined, item: 
     ...newerItem,
     completed: newerItem.completed || fallbackItem.completed,
     minutes: newerItem.minutes || fallbackItem.minutes,
-    note: chooseReportText(newerItem.note, fallbackItem.note, Date.parse(newerItem.updatedAt ?? ""), Date.parse(fallbackItem.updatedAt ?? "")),
+    note: chooseReportText(newerItem.note ?? "", fallbackItem.note ?? "", Date.parse(newerItem.updatedAt ?? ""), Date.parse(fallbackItem.updatedAt ?? "")),
     photos,
   };
 }
@@ -4595,10 +4607,10 @@ function mergeReportPair(first: ReportRecord, second: ReportRecord) {
   const fallbackTime = reportChangedTime(fallback);
   const checklistById = new Map<string, FieldTaskResult>();
 
-  fallback.checklistResults.forEach((item) => {
+  (fallback.checklistResults ?? []).forEach((item) => {
     checklistById.set(item.id, item);
   });
-  primary.checklistResults.forEach((item) => {
+  (primary.checklistResults ?? []).forEach((item) => {
     const existing = checklistById.get(item.id);
     checklistById.set(item.id, chooseReportChecklistItem(existing, item, true));
   });
@@ -4611,11 +4623,11 @@ function mergeReportPair(first: ReportRecord, second: ReportRecord) {
     ...fallback,
     ...primary,
     checklistResults: Array.from(checklistById.values()),
-    customerComment: chooseReportText(primary.customerComment, fallback.customerComment, primaryTime, fallbackTime),
+    customerComment: chooseReportText(primary.customerComment ?? "", fallback.customerComment ?? "", primaryTime, fallbackTime),
     date: normalizeReportDate(primary.date),
-    media: Array.from(new Set([...fallback.media, ...primary.media])),
-    summary: chooseReportText(primary.summary, fallback.summary, primaryTime, fallbackTime),
-    attachments: Array.from(attachmentsById.values()).sort((firstAttachment, secondAttachment) => firstAttachment.createdAt.localeCompare(secondAttachment.createdAt)),
+    media: Array.from(new Set([...(fallback.media ?? []), ...(primary.media ?? [])])),
+    summary: chooseReportText(primary.summary ?? "", fallback.summary ?? "", primaryTime, fallbackTime),
+    attachments: Array.from(attachmentsById.values()).sort((firstAttachment, secondAttachment) => (firstAttachment.createdAt ?? "").localeCompare(secondAttachment.createdAt ?? "")),
     sentAt: primary.sentAt ?? fallback.sentAt,
     updatedAt: Number.isFinite(primaryTime) && Number.isFinite(fallbackTime)
       ? (primaryTime >= fallbackTime ? primary.updatedAt ?? primary.sentAt : fallback.updatedAt ?? fallback.sentAt)
@@ -5209,6 +5221,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   const [selectedObjectId, setSelectedObjectId] = useState("OBJ-1001");
   const [objects, setObjects] = useState<ObjectRecord[]>(seedObjects);
   const [appStorageReady, setAppStorageReady] = useState(false);
+  const [appLoadError, setAppLoadError] = useState("");
   const [appUpdatedAt, setAppUpdatedAt] = useState<string | undefined>(undefined);
   const [supabaseSyncDisabled, setSupabaseSyncDisabled] = useState(false);
   const [customers, setCustomers] = useState(seedCustomers);
@@ -5332,6 +5345,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     let cancelled = false;
 
     async function loadSnapshot() {
+      setAppLoadError("");
       const hasLocalData = hasSavedLocalSnapshot();
       const localSnapshot = readLocalSnapshot();
       const reportBackups = await loadReportTextBackups();
@@ -5384,7 +5398,10 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
         }
       } catch (error) {
         console.warn("Supabase-Synchronisation ist nicht verfügbar. Lokaler Speicher bleibt aktiv.", error);
-        if (localSnapshotIsSuspiciouslyEmpty) return;
+        if (localSnapshotIsSuspiciouslyEmpty) {
+          if (!cancelled) setAppLoadError(error instanceof Error ? error.message : "Online-Daten konnten nicht geladen werden.");
+          return;
+        }
         if (!cancelled && !isRetryableSyncError(error)) setSupabaseSyncDisabled(true);
       } finally {
         if (!cancelled && (!localSnapshotIsSuspiciouslyEmpty || remoteSnapshotWasApplied)) setAppStorageReady(true);
@@ -7140,10 +7157,29 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
             <div className="panel-title">
               <div>
                 <p>Datenbestand</p>
-                <h2>Serverdaten werden geladen</h2>
-                <span>Der lokale Startzustand wird nicht angezeigt, damit keine Demo-Daten mit echten Daten verwechselt werden.</span>
+                <h2>{appLoadError ? "Online-Daten konnten nicht geladen werden" : "Serverdaten werden geladen"}</h2>
+                <span>{appLoadError || "Der lokale Startzustand wird nicht angezeigt, damit keine Demo-Daten mit echten Daten verwechselt werden."}</span>
               </div>
             </div>
+            {appLoadError && (
+              <div className="row-actions">
+                <button className="primary-button" onClick={() => window.location.reload()} type="button">
+                  <RefreshCw size={16} />
+                  Neu laden
+                </button>
+                <button
+                  className="ghost-button"
+                  onClick={() => {
+                    Object.values(storageKeys).forEach((key) => window.localStorage.removeItem(key));
+                    window.location.reload();
+                  }}
+                  type="button"
+                >
+                  <Trash2 size={16} />
+                  Lokalen Cache leeren
+                </button>
+              </div>
+            )}
           </section>
         </section>
       </main>
