@@ -3617,6 +3617,10 @@ mark.neutral {
   max-width: 560px;
 }
 
+.field-status-modal .send-preview-grid {
+  grid-template-columns: 1fr;
+}
+
 .status-choice-button {
   background: var(--paper-soft);
   border: 1px solid var(--line);

@@ -1,10 +1,17 @@
 export const appVersion = {
-  version: "1.248.0",
+  version: "1.249.0",
   releaseDate: "2026-08-30",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.249.0",
+    date: "2026-08-30",
+    changes: [
+      "Statusoptionen im Mobil-vor-Ort-Schliessen-Dialog werden untereinander angezeigt",
+    ],
+  },
   {
     version: "1.248.0",
     date: "2026-08-30",
