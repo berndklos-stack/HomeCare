@@ -1051,6 +1051,16 @@ function readLocalSnapshot(): AppSnapshot {
   });
 }
 
+function hasSavedLocalSnapshot() {
+  return [
+    storageKeys.customers,
+    storageKeys.objects,
+    storageKeys.jobs,
+    storageKeys.reports,
+    storageKeys.fieldProgress,
+  ].some((key) => window.localStorage.getItem(key) !== null);
+}
+
 function persistLocalSnapshot(snapshot: AppSnapshot) {
   const updatedAt = snapshot.updatedAt ?? new Date().toISOString();
   window.localStorage.setItem(storageKeys.objects, JSON.stringify(snapshot.objects));
@@ -5314,13 +5324,14 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     let cancelled = false;
 
     async function loadSnapshot() {
+      const hasLocalData = hasSavedLocalSnapshot();
       const localSnapshot = readLocalSnapshot();
       const reportBackups = await loadReportTextBackups();
       const localSnapshotWithBackups = {
         ...localSnapshot,
         reports: applyReportTextBackups(localSnapshot.reports, reportBackups),
       };
-      const localSnapshotIsSuspiciouslyEmpty = isSuspiciouslyEmptyLocalSnapshot(localSnapshotWithBackups);
+      const localSnapshotIsSuspiciouslyEmpty = !hasLocalData || isSuspiciouslyEmptyLocalSnapshot(localSnapshotWithBackups);
       if (!cancelled && !localSnapshotIsSuspiciouslyEmpty) applySnapshot(localSnapshotWithBackups);
       let remoteSnapshotWasApplied = false;
 

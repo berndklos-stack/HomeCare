@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.235.0",
+  version: "1.236.0",
   releaseDate: "2026-08-30",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.236.0",
+    date: "2026-08-30",
+    changes: [
+      "Demo-Fallback-Daten werden beim Start nicht mehr als aktueller Datenstand angezeigt, wenn kein lokaler Speicher existiert",
+      "Sehr grosse Server-Backups werden in mehrere kleine komprimierte Teile zerlegt",
+      "Backup-Wiederherstellung setzt geteilte Backup-Dateien wieder zusammen",
+    ],
+  },
   {
     version: "1.235.0",
     date: "2026-08-30",
