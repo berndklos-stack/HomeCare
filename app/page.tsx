@@ -6377,10 +6377,16 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   function clearActiveJob(job?: JobRecord, nextStatus: JobRecord["status"] = "geplant", material?: string) {
     const targetJobId = job?.id ?? activeJobId ?? jobs.find((item) => item.status === "in Arbeit")?.id;
     if (!targetJobId) return;
-    const statusUpdatedAt = new Date().toISOString();
     const savedMaterial = material?.trim() || job?.material?.trim() || "-";
     const nextJobs = jobs.map((item) => (
-      item.id === targetJobId ? { ...item, material: savedMaterial, status: nextStatus, statusUpdatedAt } : item
+      item.id === targetJobId
+        ? {
+            ...item,
+            material: savedMaterial,
+            status: nextStatus,
+            statusUpdatedAt: item.status === nextStatus ? item.statusUpdatedAt : new Date().toISOString(),
+          }
+        : item
     ));
     setJobs(nextJobs);
     setActiveJobId(null);
@@ -6429,14 +6435,21 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     const nextOpenWorkDate = workDates.find((date) => date > executionDate && !coveredReportDates.has(date))
       ?? workDates.find((date) => !coveredReportDates.has(date))
       ?? executionDate;
-    const statusUpdatedAt = new Date().toISOString();
     const nextJobStatus = isReportEdit
       ? job.status
       : isMultiDayJob && !allWorkDatesReported ? "in Arbeit" as const
         : job.schedule.type === "serie" && nextDueDate ? "geplant" as const : "erledigt" as const;
     const nextJobs = jobs.map((item) => (
       item.id === job.id
-        ? { ...item, dueDate: nextDueDate ?? item.dueDate, material: savedMaterial, schedule: nextSchedule, status: nextJobStatus, statusUpdatedAt, workMinutes }
+        ? {
+            ...item,
+            dueDate: nextDueDate ?? item.dueDate,
+            material: savedMaterial,
+            schedule: nextSchedule,
+            status: nextJobStatus,
+            statusUpdatedAt: isReportEdit || item.status === nextJobStatus ? item.statusUpdatedAt : new Date().toISOString(),
+            workMinutes,
+          }
         : item
     ));
     const savedReport: ReportRecord = {
@@ -9576,6 +9589,10 @@ function FieldView({
     setCloseStatusPrompt(false);
   }
 
+  function closeActiveJobKeepingStatus() {
+    closeActiveJobWithStatus(activeJob.status);
+  }
+
   return (
     <section className="field-shell">
       <div className="phone-card">
@@ -9937,11 +9954,15 @@ function FieldView({
                 </button>
               </header>
               <div className="send-preview-grid">
-                <button className="status-choice-button" onClick={() => closeActiveJobWithStatus("in Arbeit")} type="button">
+                <button className="status-choice-button active" onClick={closeActiveJobKeepingStatus} type="button">
+                  <strong>Aktuellen Status beibehalten</strong>
+                  <span>Der Auftrag bleibt auf „{activeJob.status}“.</span>
+                </button>
+                <button className="status-choice-button" disabled={activeJob.status === "in Arbeit"} onClick={() => closeActiveJobWithStatus("in Arbeit")} type="button">
                   <strong>In Arbeit</strong>
                   <span>Der Auftrag bleibt als laufender Einsatz markiert.</span>
                 </button>
-                <button className="status-choice-button" onClick={() => closeActiveJobWithStatus("geplant")} type="button">
+                <button className="status-choice-button" disabled={activeJob.status === "geplant"} onClick={() => closeActiveJobWithStatus("geplant")} type="button">
                   <strong>Geplant</strong>
                   <span>Der Auftrag wird wieder in die Planung zurückgelegt.</span>
                 </button>

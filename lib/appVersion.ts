@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.247.0",
+  version: "1.248.0",
   releaseDate: "2026-08-30",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.248.0",
+    date: "2026-08-30",
+    changes: [
+      "Beim Nachbearbeiten von Berichten bleibt der aktuelle Auftragsstatus vorausgewaehlt und unveraendert",
+      "Der Statusdialog zeigt den aktuellen Status als erste Option und deaktiviert bereits aktive Statusoptionen",
+    ],
+  },
   {
     version: "1.247.0",
     date: "2026-08-30",

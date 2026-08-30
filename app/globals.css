@@ -3633,6 +3633,20 @@ mark.neutral {
   border-color: var(--brand);
 }
 
+.status-choice-button.active {
+  background: color-mix(in srgb, var(--brand) 8%, var(--paper-soft));
+  border-color: var(--brand);
+}
+
+.status-choice-button:disabled {
+  cursor: default;
+  opacity: 0.58;
+}
+
+.status-choice-button:disabled:hover {
+  border-color: var(--line);
+}
+
 .status-choice-button span {
   color: var(--muted);
   font-size: 12px;
