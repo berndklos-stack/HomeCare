@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.243.0",
+  version: "1.244.0",
   releaseDate: "2026-08-30",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.244.0",
+    date: "2026-08-30",
+    changes: [
+      "Admin-Migration lagert alte eingebettete Base64-Medien aus dem App-State in Supabase Storage aus",
+      "Der App-State speichert nach der Migration nur noch Medien-URLs statt grosser eingebetteter Bilddaten",
+    ],
+  },
   {
     version: "1.243.0",
     date: "2026-08-30",
