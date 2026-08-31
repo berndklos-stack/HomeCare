@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.259.0",
+  version: "1.260.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.260.0",
+    date: "2026-08-31",
+    changes: [
+      "Spiris-Uebergabe erstellt jetzt eine SIE-Importdatei pro gebuchter Rechnung",
+      "Exportstatus wird erst nach Erstellung der Datei gesetzt und der Button als Datei-Export beschriftet",
+    ],
+  },
   {
     version: "1.259.0",
     date: "2026-08-31",

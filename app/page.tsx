@@ -2624,6 +2624,98 @@ function invoiceTotals(item: BillingRecord) {
   return { currency: "SEK", gross, net: gross, tax: 0, taxByRate: {} as Record<string, number> };
 }
 
+function sieDate(value: string | undefined) {
+  return (value || new Date().toISOString().slice(0, 10)).replaceAll("-", "");
+}
+
+function sieText(value: string | undefined) {
+  return (value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[åä]/gi, "a")
+    .replace(/[ö]/gi, "o")
+    .replace(/[ü]/gi, "u")
+    .replace(/[ß]/g, "ss")
+    .replace(/"/g, "'")
+    .replace(/[^\x20-\x7E]/g, "")
+    .trim();
+}
+
+function sieAmount(value: number) {
+  const rounded = Math.round(value * 100) / 100;
+  return rounded.toFixed(2);
+}
+
+function sieFiscalYear(dateString: string | undefined) {
+  const year = Number((dateString || new Date().toISOString().slice(0, 10)).slice(0, 4)) || new Date().getFullYear();
+  return {
+    end: `${year}1231`,
+    start: `${year}0101`,
+  };
+}
+
+function createSpirisSieFile(item: BillingRecord, object: ObjectRecord, customer: CustomerRecord | undefined, settings: CompanySettings) {
+  const lines = item.lines?.length
+    ? item.lines
+    : [{
+      accountingAccount: "3041",
+      currency: "SEK",
+      id: `${item.id}-LINE`,
+      kind: "Leistung" as const,
+      name: item.label,
+      quantity: "1",
+      taxRate: "0",
+      unit: "Position",
+      unitPrice: String(decimalValue(item.amount)),
+    }];
+  const totals = invoiceTotals({ ...item, lines });
+  const invoiceDate = item.invoiceDate || new Date().toISOString().slice(0, 10);
+  const fiscalYear = sieFiscalYear(invoiceDate);
+  const accounts = new Map<string, string>([
+    ["1510", "Kundfordringar"],
+    ["2611", "Utgaende moms 25%"],
+  ]);
+
+  lines.forEach((line) => {
+    const accounting = lineAccounting(line);
+    accounts.set(accounting.account, accounting.label);
+  });
+
+  const heading = `${item.invoiceNumber || item.id} ${customer?.name || object.owner || object.name}`;
+  const rows = [
+    "#FLAGGA 0",
+    '#PROGRAM "Homecare" "1.0"',
+    "#FORMAT PC8",
+    "#SIETYP 4I",
+    `#GEN ${sieDate(new Date().toISOString().slice(0, 10))}`,
+    settings.organizationNumber ? `#ORGNR ${sieText(settings.organizationNumber)}` : "",
+    `#FNAMN "${sieText(settings.name || "Kolaretorp Service AB")}"`,
+    `#RAR 0 ${fiscalYear.start} ${fiscalYear.end}`,
+    "#KPTYP BAS2026",
+    "#VALUTA SEK",
+    ...Array.from(accounts.entries()).map(([account, label]) => `#KONTO ${account} "${sieText(label)}"`),
+    `#VER "" "" ${sieDate(invoiceDate)} "${sieText(heading)}"`,
+    "{",
+    `#TRANS 1510 {} ${sieAmount(totals.gross)}`,
+    ...lines.map((line) => {
+      const account = lineAccounting(line).account;
+      return `#TRANS ${account} {} ${sieAmount(-lineNetAmount(line))}`;
+    }),
+    ...Object.entries(totals.taxByRate)
+      .filter(([, amount]) => Math.abs(amount) > 0.004)
+      .map(([, amount]) => `#TRANS 2611 {} ${sieAmount(-amount)}`),
+    "}",
+  ].filter(Boolean);
+
+  return `${rows.join("\r\n")}\r\n`;
+}
+
+function downloadSpirisSieFile(item: BillingRecord, object: ObjectRecord, customer: CustomerRecord | undefined, settings: CompanySettings) {
+  const content = createSpirisSieFile(item, object, customer, settings);
+  const fileName = `${safeFileName(`Spiris-SIE-${item.invoiceNumber || item.id}`)}.si`;
+  downloadBlob(new Blob([content], { type: "text/plain;charset=ibm437" }), fileName);
+}
+
 function effectiveInvoiceStatus(item: BillingRecord) {
   if (item.cancelledAt || item.invoiceStatus === "storniert") return "storniert";
   if (item.paidAt || item.invoiceStatus === "bezahlt") return "bezahlt";
@@ -3289,6 +3381,17 @@ function blobToBase64(blob: Blob) {
     reader.onerror = () => reject(reader.error ?? new Error("PDF konnte nicht gelesen werden."));
     reader.readAsDataURL(blob);
   });
+}
+
+function downloadBlob(blob: Blob, fileName: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 }
 
 async function downloadCustomerReportPdf(report: ReportRecord, object: ObjectRecord, job: JobRecord | undefined, customer: CustomerRecord | undefined) {
@@ -6170,6 +6273,15 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       return;
     }
 
+    const object = objects.find((entry) => entry.id === item.objectId);
+    const customer = customers.find((entry) => entry.id === item.customerId || entry.id === object?.ownerCustomerId || entry.name === object?.owner);
+    if (!object) {
+      setRecordNotice(`Spiris-Datei konnte nicht erstellt werden: Objekt zur Rechnung "${item.invoiceNumber || item.label}" fehlt.`);
+      return;
+    }
+
+    downloadSpirisSieFile(item, object, customer, companySettings);
+
     const nextBilling = billing.map((entry) => (
       entry.id === item.id
         ? {
@@ -6182,7 +6294,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     ));
     setBilling(nextBilling);
     persistSnapshotNow({ billing: nextBilling }, { forceRemote: true });
-    setRecordNotice(`Rechnung "${item.invoiceNumber || item.label}" wurde an Spiris / Visma Buchhaltung übergeben.`);
+    setRecordNotice(`Spiris-SIE-Datei für Rechnung "${item.invoiceNumber || item.label}" wurde erstellt und die Übergabe markiert.`);
   }
 
   function resetBillingExport(item: BillingRecord) {
@@ -10252,7 +10364,7 @@ function BillingView({
             </>
           )}
           {["gebucht", "gesendet", "überfällig"].includes(invoiceStatus) && item.externalExportStatus !== "gesendet" && (
-            <IconAction label={`Rechnung ${invoiceLabel} an Spiris / Visma Buchhaltung übergeben`} onClick={() => onMarkExported(item)}><Send size={16} /></IconAction>
+            <IconAction label={`SIE-Datei für Rechnung ${invoiceLabel} für Spiris erstellen`} onClick={() => onMarkExported(item)}><FileDown size={16} /></IconAction>
           )}
           {item.externalExportStatus === "gesendet" && (
             <IconAction label={`Spiris-Übergabe ${invoiceLabel} zurücksetzen`} onClick={() => onResetExport(item)}><RotateCcw size={16} /></IconAction>
