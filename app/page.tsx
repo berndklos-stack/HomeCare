@@ -2415,6 +2415,13 @@ function billableCompletedJobs(jobs: JobRecord[], billing: BillingRecord[]) {
   ));
 }
 
+function removableBillingDraftForJobIds(item: BillingRecord, jobIds: Set<string>) {
+  if (effectiveInvoiceStatus(item) !== "entwurf") return false;
+  const itemJobId = item.jobId || "";
+  if (itemJobId && jobIds.has(itemJobId)) return true;
+  return Array.from(jobIds).some((jobId) => item.source === jobId || item.source.startsWith(`${jobId} ·`));
+}
+
 function jobToForm(job: JobRecord): NewJobFormState {
   return {
     ...emptyJobForm(),
@@ -4878,11 +4885,16 @@ function makeSeriesOccurrence(master: JobRecord, date: string): JobRecord {
 function syncSeriesOccurrenceFromMaster(master: JobRecord, occurrence: JobRecord, reports: ReportRecord[]) {
   const hasReport = reports.some((report) => report.jobId === occurrence.id);
   if (hasReport) {
-    return ["erledigt", "abgerechnet", "storniert"].includes(occurrence.status)
+    const syncedOccurrence = ["erledigt", "abgerechnet", "storniert"].includes(occurrence.status)
       ? occurrence
       : { ...occurrence, status: "erledigt" as const };
+    return syncedOccurrence.billable === master.billable
+      ? syncedOccurrence
+      : { ...syncedOccurrence, billable: master.billable };
   }
-  if (["erledigt", "abgerechnet", "storniert"].includes(occurrence.status)) return occurrence;
+  if (["erledigt", "abgerechnet", "storniert"].includes(occurrence.status)) {
+    return occurrence.billable === master.billable ? occurrence : { ...occurrence, billable: master.billable };
+  }
 
   return {
     ...occurrence,
@@ -6314,10 +6326,24 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
         : [saved, ...withoutOldOccurrences],
       reports,
     );
+    const nonBillableJobIds = new Set<string>();
+    if (!saved.billable) {
+      if (isSeriesMaster(saved)) {
+        nextJobs
+          .filter((job) => job.seriesMasterId === saved.id)
+          .forEach((job) => nonBillableJobIds.add(job.id));
+      } else {
+        nonBillableJobIds.add(saved.id);
+      }
+    }
+    const nextBilling = nonBillableJobIds.size > 0
+      ? billing.filter((item) => !removableBillingDraftForJobIds(item, nonBillableJobIds))
+      : billing;
 
     if (newMasterMaterials.length > 0) setMaterials(nextMaterials);
     setJobs(nextJobs);
-    persistSnapshotNow({ jobs: nextJobs, materials: nextMaterials }, { forceRemote: true });
+    if (nextBilling !== billing) setBilling(nextBilling);
+    persistSnapshotNow({ billing: nextBilling, jobs: nextJobs, materials: nextMaterials }, { forceRemote: true });
     setEditingJobId(null);
     setSection("jobs");
     setModal(null);

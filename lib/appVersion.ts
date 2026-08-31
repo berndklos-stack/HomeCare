@@ -1,10 +1,25 @@
 export const appVersion = {
-  version: "1.253.0",
-  releaseDate: "2026-08-30",
+  version: "1.255.0",
+  releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.255.0",
+    date: "2026-08-31",
+    changes: [
+      "Serienauftraege vererben die Abrechnungsfreigabe auch auf bestehende Teilauftraege",
+      "Beim Ausschliessen aus der Abrechnung werden offene Abrechnungsentwuerfe der betroffenen Teilauftraege entfernt",
+    ],
+  },
+  {
+    version: "1.254.0",
+    date: "2026-08-30",
+    changes: [
+      "Abrechnungs-Haken im Kunden- und Auftragsformular bleiben kompakt und sauber in einer Reihe",
+    ],
+  },
   {
     version: "1.253.0",
     date: "2026-08-30",
