@@ -7317,33 +7317,30 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   }
 
   function dictateQuickTripVisited() {
+    type SpeechRecognitionResultEvent = {
+      resultIndex?: number;
+      results: ArrayLike<{
+        isFinal?: boolean;
+        0?: { transcript?: string };
+      }>;
+    };
+    type SpeechRecognitionInstance = {
+      interimResults: boolean;
+      lang: string;
+      maxAlternatives: number;
+      onend: (() => void) | null;
+      onerror: (() => void) | null;
+      onresult: ((event: SpeechRecognitionResultEvent) => void) | null;
+      onstart: (() => void) | null;
+      start: () => void;
+    };
+    type SpeechRecognitionConstructor = new () => SpeechRecognitionInstance;
     const SpeechRecognition = (window as unknown as {
-      SpeechRecognition?: new () => {
-        interimResults: boolean;
-        lang: string;
-        maxAlternatives: number;
-        onerror: (() => void) | null;
-        onresult: ((event: { results: { 0?: { 0?: { transcript?: string } } } }) => void) | null;
-        start: () => void;
-      };
-      webkitSpeechRecognition?: new () => {
-        interimResults: boolean;
-        lang: string;
-        maxAlternatives: number;
-        onerror: (() => void) | null;
-        onresult: ((event: { results: { 0?: { 0?: { transcript?: string } } } }) => void) | null;
-        start: () => void;
-      };
+      SpeechRecognition?: SpeechRecognitionConstructor;
+      webkitSpeechRecognition?: SpeechRecognitionConstructor;
     }).SpeechRecognition
       ?? (window as unknown as {
-        webkitSpeechRecognition?: new () => {
-          interimResults: boolean;
-          lang: string;
-          maxAlternatives: number;
-          onerror: (() => void) | null;
-          onresult: ((event: { results: { 0?: { 0?: { transcript?: string } } } }) => void) | null;
-          start: () => void;
-        };
+        webkitSpeechRecognition?: SpeechRecognitionConstructor;
       }).webkitSpeechRecognition;
     if (!SpeechRecognition) {
       setRecordNotice("Spracheingabe ist in diesem Browser nicht verfügbar.");
@@ -7351,11 +7348,25 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     }
     const recognition = new SpeechRecognition();
     recognition.lang = "de-DE";
-    recognition.interimResults = false;
+    recognition.interimResults = true;
     recognition.maxAlternatives = 1;
+    let lastTranscript = "";
     recognition.onresult = (event) => {
-      const transcript = event.results[0]?.[0]?.transcript?.trim();
-      if (transcript) setQuickTripForm((current) => ({ ...current, visited: transcript }));
+      const results = Array.from(event.results);
+      const transcript = results
+        .slice(event.resultIndex ?? 0)
+        .map((result) => result[0]?.transcript?.trim() ?? "")
+        .filter(Boolean)
+        .join(" ")
+        .trim();
+      if (!transcript) return;
+      lastTranscript = transcript;
+      setQuickTripForm((current) => ({ ...current, visited: transcript }));
+      setRecordNotice(`Spracheingabe übernommen: ${transcript}`);
+    };
+    recognition.onstart = () => setRecordNotice("Spracheingabe läuft...");
+    recognition.onend = () => {
+      if (!lastTranscript) setRecordNotice("Keine Sprache erkannt. Bitte erneut versuchen oder per Tastatur eingeben.");
     };
     recognition.onerror = () => setRecordNotice("Spracheingabe konnte nicht abgeschlossen werden.");
     recognition.start();

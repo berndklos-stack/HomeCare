@@ -1,10 +1,17 @@
 export const appVersion = {
-  version: "1.265.0",
+  version: "1.266.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.266.0",
+    date: "2026-08-31",
+    changes: [
+      "Spracheingabe fuer Name / besucht bei schreibt erkannte Ergebnisse jetzt zuverlaessig direkt ins Feld",
+    ],
+  },
   {
     version: "1.265.0",
     date: "2026-08-31",
