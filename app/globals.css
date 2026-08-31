@@ -1171,15 +1171,19 @@ button {
 }
 
 .billing-status-filter {
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
+  gap: 5px;
   margin: 0;
   overflow: visible;
   padding-bottom: 0;
-  white-space: nowrap;
+  white-space: normal;
 }
 
 .billing-status-filter button {
   flex: 0 0 auto;
+  font-size: 11px;
+  min-height: 26px;
+  padding: 4px 8px;
 }
 
 .job-row {
@@ -2161,6 +2165,19 @@ mark.neutral {
 
 .trip-photo-capture input {
   display: none;
+}
+
+.trip-photo-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.trip-photo-actions .ghost-button {
+  flex: 1 1 118px;
+  justify-content: center;
+  min-height: 30px;
+  padding: 6px 8px;
 }
 
 .trip-photo-capture > span {
@@ -5042,8 +5059,8 @@ button.media-thumb {
   }
 
   .billing-status-filter {
-    overflow-x: auto;
-    padding-bottom: 2px;
+    overflow: visible;
+    padding-bottom: 0;
   }
 
   .billing-meta-grid,

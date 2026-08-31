@@ -35,6 +35,7 @@ import {
   Printer,
   RefreshCw,
   RotateCcw,
+  ScanLine,
   Search,
   Send,
   Sun,
@@ -1019,6 +1020,7 @@ const storageKeys = {
   fieldProgress: "kolaretorp-field-progress",
   activeJobId: "kolaretorp-active-job-id",
   quickTripDraft: "kolaretorp-quick-trip-draft",
+  odometerOcrUsage: "kolaretorp-odometer-ocr-usage",
   updatedAt: "kolaretorp-updated-at",
 };
 
@@ -3926,6 +3928,17 @@ async function addressFromTripPhoto(file: File) {
 
 async function odometerFromTripPhoto(file: File) {
   const imageDataUrl = await fileToImagePreview(file, 1100, 0.72);
+  return odometerFromImageDataUrl(imageDataUrl);
+}
+
+async function odometerFromImageSource(source: string) {
+  if (source.startsWith("data:image/")) return odometerFromImageDataUrl(source);
+  const response = await fetch(source);
+  if (!response.ok) throw new Error("Tachofoto konnte nicht geladen werden.");
+  return odometerFromImageDataUrl(await readFileAsDataUrl(await response.blob()));
+}
+
+async function odometerFromImageDataUrl(imageDataUrl: string) {
   const response = await fetch("/api/odometer", {
     body: JSON.stringify({ imageDataUrl }),
     headers: { "Content-Type": "application/json" },
@@ -7173,15 +7186,72 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     setQuickTripOpen(true);
   }
 
+  function reserveOdometerOcrUse() {
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const current = JSON.parse(window.localStorage.getItem(storageKeys.odometerOcrUsage) || "{}") as { count?: number; date?: string };
+      const count = current.date === today ? current.count ?? 0 : 0;
+      if (count >= 20) {
+        setRecordNotice("Tageslimit für automatische KM-Erkennung erreicht. Bitte KM-Stand manuell eintragen.");
+        return false;
+      }
+      window.localStorage.setItem(storageKeys.odometerOcrUsage, JSON.stringify({ count: count + 1, date: today }));
+      return true;
+    } catch {
+      return true;
+    }
+  }
+
+  function applyQuickTripOdometer(source: VehicleOdometerPhoto["source"], odometerReading: string) {
+    setQuickTripForm((current) => {
+      const nextStartOdometer = source === "start" ? odometerReading : current.startOdometer;
+      const nextEndOdometer = source === "end" ? odometerReading : current.endOdometer;
+      const nextKilometers = calculatedTripKilometers(nextStartOdometer, nextEndOdometer) || current.kilometers;
+      return {
+        ...current,
+        [source === "start" ? "startOdometer" : "endOdometer"]: odometerReading,
+        kilometers: nextKilometers,
+        odometerPhotos: current.odometerPhotos.map((photo) => (
+          photo.source === source ? { ...photo, odometerReading } : photo
+        )),
+      };
+    });
+  }
+
+  async function readQuickTripOdometerFromPhoto(source: VehicleOdometerPhoto["source"]) {
+    const photo = quickTripForm.odometerPhotos.find((item) => item.source === source);
+    if (!photo?.previewUrl) {
+      setRecordNotice("Bitte zuerst ein Tachofoto aufnehmen.");
+      return;
+    }
+    if (!reserveOdometerOcrUse()) return;
+    setRecordNotice("KM-Stand wird aus Tachofoto gelesen...");
+    try {
+      const odometerReading = await odometerFromImageSource(photo.previewUrl);
+      if (!odometerReading) {
+        setRecordNotice("Kein eindeutiger KM-Stand erkannt. Bitte manuell eintragen.");
+        return;
+      }
+      applyQuickTripOdometer(source, odometerReading);
+      setRecordNotice(`KM-Stand ${odometerReading} aus Tachofoto übernommen.`);
+    } catch (error) {
+      console.warn("Kilometerstand konnte nicht gelesen werden.", error);
+      setRecordNotice("KM-Stand konnte nicht gelesen werden. Bitte manuell eintragen.");
+    }
+  }
+
   async function captureQuickTripPhoto(file: File, source: VehicleOdometerPhoto["source"]) {
     setRecordNotice(source === "start" ? "Startfoto wird verarbeitet..." : "Endfoto wird verarbeitet...");
     try {
       const result = await addressFromTripPhoto(file);
       let odometerReading = "";
-      try {
-        odometerReading = await odometerFromTripPhoto(file);
-      } catch (error) {
-        console.warn("Kilometerstand konnte nicht automatisch gelesen werden.", error);
+      const targetOdometer = source === "start" ? quickTripForm.startOdometer : quickTripForm.endOdometer;
+      if (!targetOdometer.trim() && reserveOdometerOcrUse()) {
+        try {
+          odometerReading = await odometerFromTripPhoto(file);
+        } catch (error) {
+          console.warn("Kilometerstand konnte nicht automatisch gelesen werden.", error);
+        }
       }
       const photo: VehicleOdometerPhoto = {
         address: result.address,
@@ -7853,24 +7923,36 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                 {(["start", "end"] as const).map((source) => {
                   const photo = quickTripForm.odometerPhotos.find((item) => item.source === source);
                   return (
-                    <label className="trip-photo-capture" key={source}>
+                    <div className="trip-photo-capture" key={source}>
                       <span>{source === "start" ? "Startfoto Tacho" : "Endfoto Tacho"}</span>
                       <strong>{photo ? photo.name : source === "start" ? "Beim Losfahren aufnehmen" : "Beim Abstellen aufnehmen"}</strong>
                       {photo?.previewUrl ? <img alt={`${source === "start" ? "Start" : "Ende"} Tachofoto`} src={photo.previewUrl} /> : <Camera size={18} />}
                       {photo?.odometerReading && <small>KM-Stand: {photo.odometerReading}</small>}
                       {photo?.address && <small>{photo.address}</small>}
-                      <input
-                        accept="image/*"
-                        aria-label={source === "start" ? "Startfoto Tacho aufnehmen" : "Endfoto Tacho aufnehmen"}
-                        capture="environment"
-                        type="file"
-                        onChange={(event) => {
-                          const file = event.target.files?.[0];
-                          if (file) void captureQuickTripPhoto(file, source);
-                          event.currentTarget.value = "";
-                        }}
-                      />
-                    </label>
+                      <div className="trip-photo-actions">
+                        <label className="ghost-button">
+                          <Camera size={15} />
+                          Foto wählen
+                          <input
+                            accept="image/*"
+                            aria-label={source === "start" ? "Startfoto Tacho aufnehmen" : "Endfoto Tacho aufnehmen"}
+                            capture="environment"
+                            type="file"
+                            onChange={(event) => {
+                              const file = event.target.files?.[0];
+                              if (file) void captureQuickTripPhoto(file, source);
+                              event.currentTarget.value = "";
+                            }}
+                          />
+                        </label>
+                        {photo?.previewUrl && (
+                          <button className="ghost-button" type="button" onClick={() => void readQuickTripOdometerFromPhoto(source)}>
+                            <ScanLine size={15} />
+                            KM lesen
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   );
                 })}
               </div>
