@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.266.0",
+  version: "1.267.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.267.0",
+    date: "2026-08-31",
+    changes: [
+      "Separaten Mikrofonbutton bei Name / besucht bei entfernt, damit die mobile Tastatur-Spracheingabe genutzt wird",
+      "Zwischenziel-Felder auf Mobiltelefonen breiter und besser bedienbar angeordnet",
+    ],
+  },
   {
     version: "1.266.0",
     date: "2026-08-31",

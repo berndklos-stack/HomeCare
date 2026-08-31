@@ -26,7 +26,6 @@ import {
   List,
   LogOut,
   Mail,
-  Mic,
   Moon,
   Paperclip,
   Pencil,
@@ -7316,62 +7315,6 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     }
   }
 
-  function dictateQuickTripVisited() {
-    type SpeechRecognitionResultEvent = {
-      resultIndex?: number;
-      results: ArrayLike<{
-        isFinal?: boolean;
-        0?: { transcript?: string };
-      }>;
-    };
-    type SpeechRecognitionInstance = {
-      interimResults: boolean;
-      lang: string;
-      maxAlternatives: number;
-      onend: (() => void) | null;
-      onerror: (() => void) | null;
-      onresult: ((event: SpeechRecognitionResultEvent) => void) | null;
-      onstart: (() => void) | null;
-      start: () => void;
-    };
-    type SpeechRecognitionConstructor = new () => SpeechRecognitionInstance;
-    const SpeechRecognition = (window as unknown as {
-      SpeechRecognition?: SpeechRecognitionConstructor;
-      webkitSpeechRecognition?: SpeechRecognitionConstructor;
-    }).SpeechRecognition
-      ?? (window as unknown as {
-        webkitSpeechRecognition?: SpeechRecognitionConstructor;
-      }).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      setRecordNotice("Spracheingabe ist in diesem Browser nicht verfügbar.");
-      return;
-    }
-    const recognition = new SpeechRecognition();
-    recognition.lang = "de-DE";
-    recognition.interimResults = true;
-    recognition.maxAlternatives = 1;
-    let lastTranscript = "";
-    recognition.onresult = (event) => {
-      const results = Array.from(event.results);
-      const transcript = results
-        .slice(event.resultIndex ?? 0)
-        .map((result) => result[0]?.transcript?.trim() ?? "")
-        .filter(Boolean)
-        .join(" ")
-        .trim();
-      if (!transcript) return;
-      lastTranscript = transcript;
-      setQuickTripForm((current) => ({ ...current, visited: transcript }));
-      setRecordNotice(`Spracheingabe übernommen: ${transcript}`);
-    };
-    recognition.onstart = () => setRecordNotice("Spracheingabe läuft...");
-    recognition.onend = () => {
-      if (!lastTranscript) setRecordNotice("Keine Sprache erkannt. Bitte erneut versuchen oder per Tastatur eingeben.");
-    };
-    recognition.onerror = () => setRecordNotice("Spracheingabe konnte nicht abgeschlossen werden.");
-    recognition.start();
-  }
-
   function saveQuickTrip() {
     const vehicle = resources.find((resource) => resource.id === quickTripForm.resourceId && resource.type === "Fahrzeug");
     if (!vehicle) {
@@ -8064,9 +8007,6 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
               </div>
               <div className="wide voice-input-row">
                 <label><span>Name / besucht bei</span><input disabled={quickTripForm.tripType === "Privatfahrt"} value={quickTripForm.visited} onChange={(event) => setQuickTripForm({ ...quickTripForm, visited: event.target.value })} /></label>
-                <button aria-label="Name per Sprache eingeben" className="icon-button" disabled={quickTripForm.tripType === "Privatfahrt"} onClick={dictateQuickTripVisited} type="button">
-                  <Mic size={16} />
-                </button>
               </div>
             </div>
             <div className="modal-actions">

@@ -2210,7 +2210,7 @@ mark.neutral {
   align-items: end;
   display: grid;
   gap: 8px;
-  grid-template-columns: minmax(0, 1fr) 40px;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .voice-input-row label {
@@ -5059,6 +5059,21 @@ button.media-thumb {
   .billing-status-filter {
     overflow: visible;
     padding-bottom: 0;
+  }
+
+  .waypoint-row,
+  .waypoint-row-with-photo {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .waypoint-row input {
+    grid-column: 1 / -1;
+    min-height: 42px;
+  }
+
+  .waypoint-row .icon-button {
+    min-height: 42px;
+    width: 100%;
   }
 
   .billing-meta-grid,
