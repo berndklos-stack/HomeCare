@@ -466,6 +466,7 @@ type ResourceRecord = {
 type DailyMailSettings = {
   birthdaySources: string;
   calendarSources: string;
+  reminderSources: string;
 };
 
 type CompanySettings = {
@@ -1038,7 +1039,7 @@ function readLocalSnapshot(): AppSnapshot {
     billing: readStoredValue<BillingRecord[]>(storageKeys.billing, seedBilling),
     companySettings: readStoredValue<CompanySettings>(storageKeys.companySettings, seedCompanySettings),
     customers: readStoredValue<CustomerRecord[]>(storageKeys.customers, seedCustomers),
-    dailyMailSettings: readStoredValue<DailyMailSettings>(storageKeys.dailyMailSettings, seedDailyMailSettings),
+    dailyMailSettings: normalizeDailyMailSettings(readStoredValue<Partial<DailyMailSettings>>(storageKeys.dailyMailSettings, seedDailyMailSettings)),
     fieldNotes: readStoredValue<Record<string, string>>(storageKeys.fieldNotes, {}),
     fieldProgress: readStoredValue<Record<string, Record<string, FieldTaskProgress>>>(storageKeys.fieldProgress, {}),
     jobs: readStoredValue<JobRecord[]>(storageKeys.jobs, seedJobs),
@@ -1077,7 +1078,7 @@ function persistLocalSnapshot(snapshot: AppSnapshot) {
   window.localStorage.setItem(storageKeys.packages, JSON.stringify(snapshot.packages));
   window.localStorage.setItem(storageKeys.personnel, JSON.stringify(snapshot.personnel));
   window.localStorage.setItem(storageKeys.resources, JSON.stringify(snapshot.resources));
-  window.localStorage.setItem(storageKeys.dailyMailSettings, JSON.stringify(snapshot.dailyMailSettings ?? seedDailyMailSettings));
+  window.localStorage.setItem(storageKeys.dailyMailSettings, JSON.stringify(normalizeDailyMailSettings(snapshot.dailyMailSettings)));
   window.localStorage.setItem(storageKeys.portalMessages, JSON.stringify(snapshot.portalMessages));
   window.localStorage.setItem(storageKeys.fieldNotes, JSON.stringify(snapshot.fieldNotes));
   window.localStorage.setItem(storageKeys.fieldProgress, JSON.stringify(snapshot.fieldProgress));
@@ -1110,7 +1111,7 @@ function snapshotWeight(snapshot: AppSnapshot) {
     snapshot.packages.length,
     snapshot.personnel?.length ?? 0,
     snapshot.resources?.length ?? 0,
-    snapshot.dailyMailSettings ? snapshot.dailyMailSettings.calendarSources.length + snapshot.dailyMailSettings.birthdaySources.length : 0,
+    snapshot.dailyMailSettings ? snapshot.dailyMailSettings.calendarSources.length + snapshot.dailyMailSettings.birthdaySources.length + snapshot.dailyMailSettings.reminderSources.length : 0,
     snapshot.portalMessages?.length ?? 0,
     Object.keys(fieldNotes).length,
     Object.keys(fieldProgress).length,
@@ -1580,7 +1581,7 @@ function mergeSnapshots(remoteSnapshot: AppSnapshot, localSnapshot: AppSnapshot)
     billing: mergeRecordsById(primarySnapshot.billing ?? seedBilling, secondarySnapshot.billing ?? seedBilling),
     companySettings: { ...seedCompanySettings, ...(secondarySnapshot.companySettings ?? {}), ...(primarySnapshot.companySettings ?? {}) },
     customers: mergeCustomersById(primarySnapshot.customers, secondarySnapshot.customers),
-    dailyMailSettings: primarySnapshot.dailyMailSettings ?? secondarySnapshot.dailyMailSettings ?? seedDailyMailSettings,
+    dailyMailSettings: normalizeDailyMailSettings(primarySnapshot.dailyMailSettings ?? secondarySnapshot.dailyMailSettings ?? seedDailyMailSettings),
     fieldNotes: mergeFieldNotes(primarySnapshot.fieldNotes, secondarySnapshot.fieldNotes),
     fieldProgress: mergeFieldProgress(primarySnapshot.fieldProgress, secondarySnapshot.fieldProgress),
     jobs,
@@ -4451,7 +4452,16 @@ const seedResources: ResourceRecord[] = [
 const seedDailyMailSettings: DailyMailSettings = {
   birthdaySources: "",
   calendarSources: "",
+  reminderSources: "",
 };
+
+function normalizeDailyMailSettings(settings?: Partial<DailyMailSettings>): DailyMailSettings {
+  return {
+    birthdaySources: settings?.birthdaySources ?? "",
+    calendarSources: settings?.calendarSources ?? "",
+    reminderSources: settings?.reminderSources ?? "",
+  };
+}
 
 const seedCompanySettings: CompanySettings = {
   address: "Kolaretorp 106, 382 93 Nybro",
@@ -5361,7 +5371,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     setServicePackages(snapshot.packages);
     setPersonnel(snapshot.personnel ?? seedPersonnel);
     setResources(snapshot.resources ?? seedResources);
-    setDailyMailSettings(snapshot.dailyMailSettings ?? seedDailyMailSettings);
+    setDailyMailSettings(normalizeDailyMailSettings(snapshot.dailyMailSettings));
     setPortalMessages(snapshot.portalMessages ?? []);
     setFieldNotes(snapshot.fieldNotes ?? {});
     setFieldProgress(snapshot.fieldProgress);
@@ -11806,8 +11816,9 @@ function MasterDataView({
     setDailyMailSettings({
       birthdaySources: mailSettingsForm.birthdaySources.trim(),
       calendarSources: mailSettingsForm.calendarSources.trim(),
+      reminderSources: mailSettingsForm.reminderSources.trim(),
     });
-    setArchiveNotice("Tagesmail-Kalenderquellen wurden gespeichert.");
+    setArchiveNotice("Tagesmail-Quellen für Kalender, Geburtstage und Erinnerungen wurden gespeichert.");
   }
 
   function saveCompanySettings() {
@@ -12255,9 +12266,18 @@ function MasterDataView({
                 onChange={(event) => setMailSettingsForm({ ...mailSettingsForm, birthdaySources: event.target.value })}
               />
             </label>
+            <label className="wide">
+              <span>Apple Erinnerungen / Aufgaben nächste 5 Tage</span>
+              <textarea
+                placeholder={"Erinnerungen|https://..."}
+                value={mailSettingsForm.reminderSources}
+                onChange={(event) => setMailSettingsForm({ ...mailSettingsForm, reminderSources: event.target.value })}
+              />
+            </label>
             <div className="wide mail-settings-help">
               <strong>{tt("Format pro Zeile: Name|ICS-Link")}</strong>
               <span>{tt("Beispiel: Privat|https://calendar.google.com/calendar/ical/.../basic.ics")}</span>
+              <span>Erinnerungen werden aus VTODO/ICS-Quellen gelesen und mit Fälligkeitsdatum bis 5 Tage im Voraus in die Tagesmail aufgenommen.</span>
             </div>
             <button className="primary-button wide" onClick={saveMailSettings} type="button">
               <Check size={16} />

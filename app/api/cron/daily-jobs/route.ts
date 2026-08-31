@@ -40,6 +40,7 @@ type AppSnapshot = {
 type DailyMailSettings = {
   birthdaySources?: string;
   calendarSources?: string;
+  reminderSources?: string;
 };
 
 type CalendarEvent = {
@@ -47,6 +48,13 @@ type CalendarEvent = {
   date: string;
   endDate: string;
   location: string;
+  title: string;
+};
+
+type ReminderItem = {
+  date: string;
+  list: string;
+  notes: string;
   title: string;
 };
 
@@ -238,6 +246,42 @@ function parseIcsEvents(ics: string, calendar: string, fromDate: string, toDate:
   return events.sort((first, second) => first.date.localeCompare(second.date) || first.title.localeCompare(second.title, "de"));
 }
 
+function parseIcsReminders(ics: string, list: string, fromDate: string, toDate: string): ReminderItem[] {
+  const lines = unfoldIcsLines(ics);
+  const reminders: ReminderItem[] = [];
+  let current: Record<string, string> | null = null;
+
+  lines.forEach((line) => {
+    if (line === "BEGIN:VTODO") {
+      current = {};
+      return;
+    }
+    if (line === "END:VTODO") {
+      if (current) {
+        const status = (current.STATUS ?? "").toUpperCase();
+        const completed = current.COMPLETED || status === "COMPLETED" || status === "CANCELLED";
+        const date = parseIcsDate(current.DUE ?? current.DTSTART ?? "");
+        if (!completed && date >= fromDate && date <= toDate) {
+          reminders.push({
+            date,
+            list,
+            notes: cleanIcsValue(current.DESCRIPTION ?? ""),
+            title: cleanIcsValue(current.SUMMARY ?? "Erinnerung ohne Titel"),
+          });
+        }
+      }
+      current = null;
+      return;
+    }
+    if (!current || !line.includes(":")) return;
+    const [rawKey, ...valueParts] = line.split(":");
+    const key = rawKey.split(";")[0];
+    current[key] = valueParts.join(":");
+  });
+
+  return reminders.sort((first, second) => first.date.localeCompare(second.date) || first.title.localeCompare(second.title, "de"));
+}
+
 function configuredCalendarSources(value: string | undefined) {
   return (value ?? "")
     .split(/\n|,/)
@@ -265,17 +309,25 @@ function mergeCalendarSourceText(primary = "", fallback = "") {
 
 async function loadCalendarEvents(today: string, settings?: DailyMailSettings) {
   const toDate = addDays(today, 3);
+  const reminderToDate = addDays(today, 5);
   const sources = configuredCalendarSources(mergeCalendarSourceText(settings?.calendarSources, process.env.DAILY_CALENDAR_ICS_URLS));
   const birthdaySources = configuredCalendarSources(mergeCalendarSourceText(settings?.birthdaySources, process.env.DAILY_BIRTHDAY_ICS_URLS || process.env.FACEBOOK_BIRTHDAY_ICS_URL));
+  const reminderSources = configuredCalendarSources(mergeCalendarSourceText(settings?.reminderSources, process.env.DAILY_REMINDER_ICS_URLS || process.env.APPLE_REMINDER_ICS_URLS));
   const load = async (source: { name: string; url: string }) => {
     const response = await fetch(source.url, { cache: "no-store" });
     if (!response.ok) throw new Error(`${source.name}: ${response.status}`);
     return parseIcsEvents(await response.text(), source.name, today, toDate);
   };
+  const loadReminders = async (source: { name: string; url: string }) => {
+    const response = await fetch(source.url, { cache: "no-store" });
+    if (!response.ok) throw new Error(`${source.name}: ${response.status}`);
+    return parseIcsReminders(await response.text(), source.name, today, reminderToDate);
+  };
 
-  const [calendarResults, birthdayResults] = await Promise.all([
+  const [calendarResults, birthdayResults, reminderResults] = await Promise.all([
     Promise.allSettled(sources.map(load)),
     Promise.allSettled(birthdaySources.map(load)),
+    Promise.allSettled(reminderSources.map(loadReminders)),
   ]);
 
   return {
@@ -284,6 +336,9 @@ async function loadCalendarEvents(today: string, settings?: DailyMailSettings) {
     calendarErrors: calendarResults.filter((result) => result.status === "rejected").map((result) => result.reason instanceof Error ? result.reason.message : String(result.reason)),
     calendarSources: sources.length,
     calendars: calendarResults.flatMap((result) => result.status === "fulfilled" ? result.value : []),
+    reminderErrors: reminderResults.filter((result) => result.status === "rejected").map((result) => result.reason instanceof Error ? result.reason.message : String(result.reason)),
+    reminderSources: reminderSources.length,
+    reminders: reminderResults.flatMap((result) => result.status === "fulfilled" ? result.value : []),
   };
 }
 
@@ -335,6 +390,23 @@ async function buildDailyJobMail(snapshot: AppSnapshot, today: string) {
       </table>
     ` : `<p style="margin:18px 0;color:#1d1d1f;">Keine Geburtstagsquelle verbunden oder keine Geburtstage im Zeitraum.</p>`}
   `;
+  const reminderHtml = `
+    <h2 style="font-size:16px;margin:28px 0 10px;color:#1d1d1f;">Erinnerungen nächste 5 Tage</h2>
+    ${calendarData.reminders.length > 0 ? `
+      <table role="presentation" style="border-collapse:collapse;width:100%;">
+        ${calendarData.reminders.map((reminder) => `
+          <tr>
+            <td style="border:1px solid #d2d2d7;border-radius:8px;padding:12px 14px;">
+              <strong style="display:block;font-size:15px;color:#1d1d1f;">${escapeHtml(reminder.title)}</strong>
+              <span style="display:block;margin-top:4px;color:#6e6e73;">${displayDate(reminder.date)} · ${escapeHtml(reminder.list)}</span>
+              ${reminder.notes ? `<p style="margin:8px 0 0;color:#1d1d1f;">${escapeHtml(reminder.notes)}</p>` : ""}
+            </td>
+          </tr>
+          <tr><td style="height:8px;"></td></tr>
+        `).join("")}
+      </table>
+    ` : `<p style="margin:18px 0;color:#1d1d1f;">Keine fälligen Erinnerungen in den nächsten 5 Tagen${calendarData.reminderSources === 0 ? " - es sind noch keine Erinnerungsquellen konfiguriert." : "."}</p>`}
+  `;
   const listHtml = grouped
     .filter((group) => group.jobs.length > 0)
     .map((group) => `
@@ -370,6 +442,7 @@ async function buildDailyJobMail(snapshot: AppSnapshot, today: string) {
         <h1 style="margin:0;color:#1d1d1f;font-size:28px;line-height:1.15;">Tägliche Auftragsliste</h1>
         <p style="margin:8px 0 20px;color:#6e6e73;">Stand ${displayDate(today)} um 08:00 Uhr · ${summary}</p>
         ${jobs.length > 0 ? listHtml : `<p style="margin:18px 0;color:#1d1d1f;">Aktuell sind keine aktiven Aufträge vorhanden.</p>`}
+        ${reminderHtml}
         ${calendarHtml}
         ${birthdayHtml}
       </main>
@@ -389,11 +462,14 @@ async function buildDailyJobMail(snapshot: AppSnapshot, today: string) {
     "Kalender heute plus 3 Tage",
     ...(calendarData.calendars.length > 0 ? calendarData.calendars.map((event) => `${displayDate(event.date)} | ${event.calendar} | ${event.title}${event.location ? ` | ${event.location}` : ""}`) : ["Keine Kalendertermine gefunden."]),
     "",
+    "Erinnerungen nächste 5 Tage",
+    ...(calendarData.reminders.length > 0 ? calendarData.reminders.map((reminder) => `${displayDate(reminder.date)} | ${reminder.list} | ${reminder.title}${reminder.notes ? ` | ${reminder.notes}` : ""}`) : ["Keine fälligen Erinnerungen in den nächsten 5 Tagen."]),
+    "",
     "Geburtstage",
     ...(calendarData.birthdays.length > 0 ? calendarData.birthdays.map((event) => `${displayDate(event.date)} | ${event.title}`) : ["Keine Geburtstagsquelle verbunden oder keine Geburtstage im Zeitraum."]),
   ].join("\n");
 
-  return { calendarCount: calendarData.calendars.length, birthdayCount: calendarData.birthdays.length, html, openJobCount: jobs.length, text };
+  return { calendarCount: calendarData.calendars.length, birthdayCount: calendarData.birthdays.length, html, openJobCount: jobs.length, reminderCount: calendarData.reminders.length, text };
 }
 
 async function sendResendMail({ html, subject, text }: { html: string; subject: string; text: string }) {
@@ -494,6 +570,7 @@ async function sendDailyMail(request: Request, manual = false) {
         lastOpenJobCount: mail.openJobCount,
         lastBirthdayCount: mail.birthdayCount,
         lastCalendarEventCount: mail.calendarCount,
+        lastReminderCount: mail.reminderCount,
         lastSentAt: new Date().toISOString(),
         lastSentDate: today,
       },
@@ -510,6 +587,7 @@ async function sendDailyMail(request: Request, manual = false) {
     delivery,
     manual,
     openJobCount: mail.openJobCount,
+    reminderCount: mail.reminderCount,
     sent: true,
     stockholmHour: hour,
     today,
