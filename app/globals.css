@@ -3711,7 +3711,11 @@ mark.neutral {
 }
 
 .waypoint-row {
-  grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.8fr) 34px 34px;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.8fr) minmax(72px, 92px) 34px;
+}
+
+.waypoint-row-with-photo {
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.75fr) minmax(72px, 92px) 34px 34px;
 }
 
 .waypoint-photo-button {

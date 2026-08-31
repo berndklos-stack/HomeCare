@@ -438,6 +438,7 @@ type VehicleLogEntry = {
 type VehicleWaypoint = {
   address: string;
   id: string;
+  odometer?: string;
   note: string;
   photo?: VehicleWaypointPhoto;
 };
@@ -7400,7 +7401,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       tripType: quickTripForm.tripType,
       visited: quickTripForm.tripType === "Privatfahrt" ? "" : quickTripForm.visited.trim(),
       waypoints: quickTripForm.waypoints
-        .map((waypoint) => ({ ...waypoint, address: waypoint.address.trim(), note: waypoint.note.trim() }))
+        .map((waypoint) => ({ ...waypoint, address: waypoint.address.trim(), note: waypoint.note.trim(), odometer: (waypoint.odometer ?? "").trim() }))
         .filter((waypoint) => waypoint.address),
     };
     const nextResources = resources.map((resource) => (
@@ -7974,7 +7975,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                       ...quickTripForm,
                       waypoints: [
                         ...quickTripForm.waypoints,
-                        { address: "", id: globalThis.crypto?.randomUUID?.() ?? `WAY-${Date.now()}`, note: "" },
+                        { address: "", id: globalThis.crypto?.randomUUID?.() ?? `WAY-${Date.now()}`, note: "", odometer: "" },
                       ],
                     })}
                     type="button"
@@ -7985,7 +7986,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                 </div>
                 {quickTripForm.waypoints.map((waypoint, waypointIndex) => (
                   <div className="waypoint-row-wrap" key={waypoint.id}>
-                    <div className="waypoint-row">
+                    <div className="waypoint-row waypoint-row-with-photo">
                       <input
                         aria-label={`Zwischenziel ${waypointIndex + 1}`}
                         list="quick-trip-address-options"
@@ -8006,6 +8007,18 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                           ...quickTripForm,
                           waypoints: quickTripForm.waypoints.map((item) => (
                             item.id === waypoint.id ? { ...item, note: event.target.value } : item
+                          )),
+                        })}
+                      />
+                      <input
+                        aria-label={`KM-Stand zu Zwischenziel ${waypointIndex + 1}`}
+                        inputMode="numeric"
+                        placeholder="KM"
+                        value={waypoint.odometer ?? ""}
+                        onChange={(event) => setQuickTripForm({
+                          ...quickTripForm,
+                          waypoints: quickTripForm.waypoints.map((item) => (
+                            item.id === waypoint.id ? { ...item, odometer: event.target.value } : item
                           )),
                         })}
                       />
@@ -12129,7 +12142,7 @@ function MasterDataView({
       startOdometer: logbookForm.startOdometer.trim(),
       visited: logbookForm.tripType === "Privatfahrt" ? "" : logbookForm.visited.trim(),
       waypoints: logbookForm.waypoints
-        .map((waypoint) => ({ ...waypoint, address: waypoint.address.trim(), note: waypoint.note.trim() }))
+        .map((waypoint) => ({ ...waypoint, address: waypoint.address.trim(), note: waypoint.note.trim(), odometer: (waypoint.odometer ?? "").trim() }))
         .filter((waypoint) => waypoint.address),
     };
 
@@ -12965,7 +12978,7 @@ function MasterDataView({
                         ...logbookForm,
                         waypoints: [
                           ...logbookForm.waypoints,
-                          { address: "", id: globalThis.crypto?.randomUUID?.() ?? `WAY-${Date.now()}`, note: "" },
+                          { address: "", id: globalThis.crypto?.randomUUID?.() ?? `WAY-${Date.now()}`, note: "", odometer: "" },
                         ],
                       })}
                       type="button"
@@ -12999,6 +13012,18 @@ function MasterDataView({
                           )),
                         })}
                       />
+                      <input
+                        aria-label={`KM-Stand zu Zwischenziel ${waypointIndex + 1}`}
+                        inputMode="numeric"
+                        placeholder="KM"
+                        value={waypoint.odometer ?? ""}
+                        onChange={(event) => setLogbookForm({
+                          ...logbookForm,
+                          waypoints: logbookForm.waypoints.map((item) => (
+                            item.id === waypoint.id ? { ...item, odometer: event.target.value } : item
+                          )),
+                        })}
+                      />
                       <button
                         aria-label={`Zwischenziel ${waypointIndex + 1} löschen`}
                         className="icon-button"
@@ -13027,7 +13052,10 @@ function MasterDataView({
                       <strong>{entry.date} · {entry.kilometers} km · {entry.tripType}</strong>
                       <span>{entry.startAddress} → {entry.endAddress}</span>
                       {entry.waypoints?.length ? (
-                        <span>Zwischenziele: {entry.waypoints.map((waypoint) => waypoint.note ? `${waypoint.address} (${waypoint.note})` : waypoint.address).join(" → ")}</span>
+                        <span>Zwischenziele: {entry.waypoints.map((waypoint) => {
+                          const details = [waypoint.odometer ? `${waypoint.odometer} km` : "", waypoint.note].filter(Boolean).join(", ");
+                          return details ? `${waypoint.address} (${details})` : waypoint.address;
+                        }).join(" → ")}</span>
                       ) : null}
                       <span>{entry.startOdometer} → {entry.endOdometer} km · {entry.purpose}{entry.visited ? ` · ${entry.visited}` : ""}</span>
                       {entry.odometerPhotos?.length ? (

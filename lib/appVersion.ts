@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.264.0",
+  version: "1.265.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.265.0",
+    date: "2026-08-31",
+    changes: [
+      "Zwischenziele im Fahrtenbuch koennen jetzt eigene KM-Staende erfassen",
+      "KM-Staende der Zwischenziele werden beim Speichern und in der Fahrtenbuchliste mitgefuehrt",
+    ],
+  },
   {
     version: "1.264.0",
     date: "2026-08-31",
