@@ -715,7 +715,7 @@ button {
 
 .billing-row {
   align-items: start;
-  grid-template-columns: minmax(0, 1fr) minmax(190px, auto) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(190px, auto) minmax(220px, auto);
 }
 
 .billing-row-main {
@@ -792,8 +792,9 @@ button {
 
 .billing-actions {
   align-content: start;
-  flex-wrap: wrap;
-  max-width: 176px;
+  flex-wrap: nowrap;
+  max-width: none;
+  min-width: max-content;
 }
 
 .billing-row > footer {
@@ -1132,7 +1133,15 @@ button {
 }
 
 .billing-status-filter {
+  flex-wrap: nowrap;
   margin: 0;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  white-space: nowrap;
+}
+
+.billing-status-filter button {
+  flex: 0 0 auto;
 }
 
 .job-row {

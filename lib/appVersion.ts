@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.260.0",
+  version: "1.261.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.261.0",
+    date: "2026-08-31",
+    changes: [
+      "Abrechnungsfilter bleibt einzeilig und horizontal scrollbar",
+      "Rechnungsaktionen bleiben in einer Iconzeile und SIE-Export nutzt ein eigenes Datei-Ausgabe-Icon",
+    ],
+  },
   {
     version: "1.260.0",
     date: "2026-08-31",

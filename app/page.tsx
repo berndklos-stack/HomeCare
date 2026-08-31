@@ -17,6 +17,7 @@ import {
   ClipboardList,
   Euro,
   FileDown,
+  FileOutput,
   FileText,
   Home,
   KeyRound,
@@ -10364,7 +10365,7 @@ function BillingView({
             </>
           )}
           {["gebucht", "gesendet", "überfällig"].includes(invoiceStatus) && item.externalExportStatus !== "gesendet" && (
-            <IconAction label={`SIE-Datei für Rechnung ${invoiceLabel} für Spiris erstellen`} onClick={() => onMarkExported(item)}><FileDown size={16} /></IconAction>
+            <IconAction label={`SIE-Datei für Rechnung ${invoiceLabel} für Spiris erstellen`} onClick={() => onMarkExported(item)}><FileOutput size={16} /></IconAction>
           )}
           {item.externalExportStatus === "gesendet" && (
             <IconAction label={`Spiris-Übergabe ${invoiceLabel} zurücksetzen`} onClick={() => onResetExport(item)}><RotateCcw size={16} /></IconAction>
