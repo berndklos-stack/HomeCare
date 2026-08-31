@@ -2206,6 +2206,66 @@ mark.neutral {
   -webkit-line-clamp: 2;
 }
 
+.waypoint-photo-preview {
+  align-items: center;
+  display: grid;
+  gap: 6px;
+  grid-template-columns: 56px minmax(0, 1fr);
+}
+
+.waypoint-photo-preview img {
+  aspect-ratio: 4 / 3;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  object-fit: cover;
+  width: 56px;
+}
+
+.waypoint-photo-preview small {
+  color: var(--muted);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.receipt-photo-field {
+  display: grid;
+  gap: 8px;
+}
+
+.receipt-photo-field input[type="file"] {
+  display: none;
+}
+
+.receipt-photo-preview {
+  align-items: center;
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 72px minmax(0, 1fr);
+  padding: 8px;
+}
+
+.receipt-photo-preview img {
+  aspect-ratio: 4 / 3;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  object-fit: cover;
+  width: 72px;
+}
+
+.receipt-photo-preview small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .voice-input-row {
   align-items: end;
   display: grid;
@@ -2302,6 +2362,36 @@ mark.neutral {
 
 .logbook-list article {
   grid-template-columns: minmax(0, 1fr) auto auto;
+}
+
+.logbook-photo-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(118px, 150px));
+  margin-top: 8px;
+}
+
+.logbook-photo-grid figure {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+}
+
+.logbook-photo-grid img {
+  aspect-ratio: 4 / 3;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  object-fit: cover;
+  width: 100%;
+}
+
+.logbook-photo-grid figcaption {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .mail-settings-help {

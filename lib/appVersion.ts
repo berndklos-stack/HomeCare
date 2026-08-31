@@ -1,10 +1,35 @@
 export const appVersion = {
-  version: "1.267.0",
+  version: "1.270.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.270.0",
+    date: "2026-08-31",
+    changes: [
+      "Tank- und Ladebelege koennen in der mobilen Fahrterfassung und im Fahrtenbuch als Foto gespeichert werden",
+      "Fahrtenbuch zeigt Belegfotos zusammen mit Tachofotos und Zwischenziel-Fotos an",
+    ],
+  },
+  {
+    version: "1.269.0",
+    date: "2026-08-31",
+    changes: [
+      "Fahrtenbuch zeigt gespeicherte Start-, End- und Zwischenziel-Fotos jetzt als Bildvorschau an",
+      "Zwischenziele mit Foto bleiben auch ohne erkannte Adresse beim Speichern erhalten",
+      "Mobile Fahrterfassung enthaelt jetzt ebenfalls Tanken / Laden und speichert den Wert im Fahrtenbuch",
+    ],
+  },
+  {
+    version: "1.268.0",
+    date: "2026-08-31",
+    changes: [
+      "Fahrtenbuch zeigt gespeicherte Start-, End- und Zwischenziel-Fotos jetzt als Bildvorschau an",
+      "Zwischenziele mit Foto bleiben auch ohne erkannte Adresse beim Speichern erhalten",
+    ],
+  },
   {
     version: "1.267.0",
     date: "2026-08-31",

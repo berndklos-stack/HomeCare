@@ -430,6 +430,7 @@ type VehicleLogEntry = {
   purpose: string;
   visited: string;
   fuelOrCharge: string;
+  fuelReceiptPhoto?: VehicleFuelReceiptPhoto;
   notes: string;
   odometerPhotos?: VehicleOdometerPhoto[];
 };
@@ -444,6 +445,13 @@ type VehicleWaypoint = {
 
 type VehicleWaypointPhoto = {
   address?: string;
+  capturedAt: string;
+  id: string;
+  name: string;
+  previewUrl?: string;
+};
+
+type VehicleFuelReceiptPhoto = {
   capturedAt: string;
   id: string;
   name: string;
@@ -5484,6 +5492,8 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     driverId: "",
     endAddress: "",
     endOdometer: "",
+    fuelOrCharge: "",
+    fuelReceiptPhoto: undefined as VehicleFuelReceiptPhoto | undefined,
     kilometers: "",
     purpose: "",
     resourceId: "",
@@ -7315,6 +7325,23 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     }
   }
 
+  async function captureQuickTripFuelReceipt(file: File) {
+    setRecordNotice("Tank-/Ladebeleg wird gespeichert...");
+    try {
+      const photo: VehicleFuelReceiptPhoto = {
+        capturedAt: new Date().toISOString(),
+        id: globalThis.crypto?.randomUUID?.() ?? `FUEL-RECEIPT-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        name: file.name,
+        previewUrl: await fileToImagePreview(file, 1100, 0.7),
+      };
+      setQuickTripForm((current) => ({ ...current, fuelReceiptPhoto: photo }));
+      setRecordNotice("Tank-/Ladebeleg wurde zur Fahrt gespeichert.");
+    } catch (error) {
+      console.warn("Tank-/Ladebeleg konnte nicht gespeichert werden.", error);
+      setRecordNotice("Tank-/Ladebeleg konnte nicht gespeichert werden.");
+    }
+  }
+
   function saveQuickTrip() {
     const vehicle = resources.find((resource) => resource.id === quickTripForm.resourceId && resource.type === "Fahrzeug");
     if (!vehicle) {
@@ -7344,7 +7371,8 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       driverId: quickTripForm.driverId,
       endAddress: quickTripForm.endAddress.trim(),
       endOdometer: quickTripForm.endOdometer.trim(),
-      fuelOrCharge: "",
+      fuelOrCharge: quickTripForm.fuelOrCharge.trim(),
+      fuelReceiptPhoto: quickTripForm.fuelReceiptPhoto,
       id: `LOG-${vehicle.id}-${quickTripForm.date.replace(/\D/g, "")}-${vehicle.logbook.length + 1}`,
       kilometers,
       notes: "Über Quickbutton erfasst.",
@@ -7356,7 +7384,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       visited: quickTripForm.tripType === "Privatfahrt" ? "" : quickTripForm.visited.trim(),
       waypoints: quickTripForm.waypoints
         .map((waypoint) => ({ ...waypoint, address: waypoint.address.trim(), note: waypoint.note.trim(), odometer: (waypoint.odometer ?? "").trim() }))
-        .filter((waypoint) => waypoint.address),
+        .filter((waypoint) => waypoint.address || waypoint.photo?.previewUrl),
     };
     const nextResources = resources.map((resource) => (
       resource.id === vehicle.id
@@ -7373,6 +7401,8 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       driverId: quickTripForm.driverId,
       endAddress: "",
       endOdometer: entry.endOdometer,
+      fuelOrCharge: "",
+      fuelReceiptPhoto: undefined,
       kilometers: "",
       purpose: "",
       resourceId: vehicle.id,
@@ -8000,13 +8030,40 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                       </button>
                     </div>
                     {waypoint.photo && (
-                      <small>{waypoint.photo.address || waypoint.photo.name}</small>
+                      <div className="waypoint-photo-preview">
+                        {waypoint.photo.previewUrl && <img alt={`Foto zu Zwischenziel ${waypointIndex + 1}`} src={waypoint.photo.previewUrl} />}
+                        <small>{waypoint.photo.address || waypoint.photo.name}</small>
+                      </div>
                     )}
                   </div>
                 ))}
               </div>
               <div className="wide voice-input-row">
                 <label><span>Name / besucht bei</span><input disabled={quickTripForm.tripType === "Privatfahrt"} value={quickTripForm.visited} onChange={(event) => setQuickTripForm({ ...quickTripForm, visited: event.target.value })} /></label>
+              </div>
+              <label className="wide"><span>Tanken / Laden</span><input placeholder="z.B. Diesel 42 l, laddning 18 kWh" value={quickTripForm.fuelOrCharge} onChange={(event) => setQuickTripForm({ ...quickTripForm, fuelOrCharge: event.target.value })} /></label>
+              <div className="wide receipt-photo-field">
+                <label className="ghost-button">
+                  <Paperclip size={15} />
+                  Tank-/Ladebeleg scannen
+                  <input
+                    accept="image/*"
+                    aria-label="Tank- oder Ladebeleg scannen"
+                    capture="environment"
+                    type="file"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (file) void captureQuickTripFuelReceipt(file);
+                      event.currentTarget.value = "";
+                    }}
+                  />
+                </label>
+                {quickTripForm.fuelReceiptPhoto?.previewUrl && (
+                  <div className="receipt-photo-preview">
+                    <img alt="Tank- oder Ladebeleg" src={quickTripForm.fuelReceiptPhoto.previewUrl} />
+                    <small>{quickTripForm.fuelReceiptPhoto.name}</small>
+                  </div>
+                )}
               </div>
             </div>
             <div className="modal-actions">
@@ -11636,6 +11693,7 @@ function MasterDataView({
     endAddress: "",
     endOdometer: "",
     fuelOrCharge: "",
+    fuelReceiptPhoto: undefined as VehicleFuelReceiptPhoto | undefined,
     kilometers: "",
     notes: "",
     purpose: "",
@@ -12035,6 +12093,7 @@ function MasterDataView({
       endAddress: "",
       endOdometer: "",
       fuelOrCharge: "",
+      fuelReceiptPhoto: undefined,
       kilometers: "",
       notes: "",
       purpose: "",
@@ -12049,7 +12108,24 @@ function MasterDataView({
 
   function editLogbookEntry(entry: VehicleLogEntry) {
     setEditingLogEntryId(entry.id);
-    setLogbookForm({ ...entry, odometerPhotos: entry.odometerPhotos ?? [], waypoints: entry.waypoints ?? [] });
+    setLogbookForm({ ...entry, fuelReceiptPhoto: entry.fuelReceiptPhoto, odometerPhotos: entry.odometerPhotos ?? [], waypoints: entry.waypoints ?? [] });
+  }
+
+  async function captureLogbookFuelReceipt(file: File) {
+    setArchiveNotice("Tank-/Ladebeleg wird gespeichert...");
+    try {
+      const photo: VehicleFuelReceiptPhoto = {
+        capturedAt: new Date().toISOString(),
+        id: globalThis.crypto?.randomUUID?.() ?? `FUEL-RECEIPT-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        name: file.name,
+        previewUrl: await fileToImagePreview(file, 1100, 0.7),
+      };
+      setLogbookForm((current) => ({ ...current, fuelReceiptPhoto: photo }));
+      setArchiveNotice("Tank-/Ladebeleg wurde zur Fahrt gespeichert.");
+    } catch (error) {
+      console.warn("Tank-/Ladebeleg konnte nicht gespeichert werden.", error);
+      setArchiveNotice("Tank-/Ladebeleg konnte nicht gespeichert werden.");
+    }
   }
 
   function saveLogbookEntry() {
@@ -12094,7 +12170,7 @@ function MasterDataView({
       visited: logbookForm.tripType === "Privatfahrt" ? "" : logbookForm.visited.trim(),
       waypoints: logbookForm.waypoints
         .map((waypoint) => ({ ...waypoint, address: waypoint.address.trim(), note: waypoint.note.trim(), odometer: (waypoint.odometer ?? "").trim() }))
-        .filter((waypoint) => waypoint.address),
+        .filter((waypoint) => waypoint.address || waypoint.photo?.previewUrl),
     };
 
     const nextResources = resources.map((resource) => {
@@ -12992,6 +13068,29 @@ function MasterDataView({
                 </datalist>
                 <label><span>Besucht bei</span><input disabled={logbookForm.tripType === "Privatfahrt"} value={logbookForm.visited} onChange={(event) => setLogbookForm({ ...logbookForm, visited: event.target.value })} /></label>
                 <label><span>Tanken / Laden</span><input value={logbookForm.fuelOrCharge} onChange={(event) => setLogbookForm({ ...logbookForm, fuelOrCharge: event.target.value })} /></label>
+                <div className="wide receipt-photo-field">
+                  <label className="ghost-button">
+                    <Paperclip size={15} />
+                    Tank-/Ladebeleg scannen
+                    <input
+                      accept="image/*"
+                      aria-label="Tank- oder Ladebeleg scannen"
+                      capture="environment"
+                      type="file"
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        if (file) void captureLogbookFuelReceipt(file);
+                        event.currentTarget.value = "";
+                      }}
+                    />
+                  </label>
+                  {logbookForm.fuelReceiptPhoto?.previewUrl && (
+                    <div className="receipt-photo-preview">
+                      <img alt="Tank- oder Ladebeleg" src={logbookForm.fuelReceiptPhoto.previewUrl} />
+                      <small>{logbookForm.fuelReceiptPhoto.name}</small>
+                    </div>
+                  )}
+                </div>
                 <label className="wide"><span>Notiz</span><textarea value={logbookForm.notes} onChange={(event) => setLogbookForm({ ...logbookForm, notes: event.target.value })} /></label>
                 <button className="primary-button wide" onClick={saveLogbookEntry} type="button">{editingLogEntryId ? "Fahrt speichern" : "Fahrt eintragen"}</button>
                 {editingLogEntryId && <button className="ghost-button wide" onClick={resetLogbookForm} type="button">Fahrt-Bearbeitung abbrechen</button>}
@@ -13005,12 +13104,35 @@ function MasterDataView({
                       {entry.waypoints?.length ? (
                         <span>Zwischenziele: {entry.waypoints.map((waypoint) => {
                           const details = [waypoint.odometer ? `${waypoint.odometer} km` : "", waypoint.note].filter(Boolean).join(", ");
-                          return details ? `${waypoint.address} (${details})` : waypoint.address;
+                          const waypointLabel = waypoint.address || waypoint.photo?.name || "Zwischenziel";
+                          return details ? `${waypointLabel} (${details})` : waypointLabel;
                         }).join(" → ")}</span>
                       ) : null}
                       <span>{entry.startOdometer} → {entry.endOdometer} km · {entry.purpose}{entry.visited ? ` · ${entry.visited}` : ""}</span>
                       {entry.odometerPhotos?.length ? (
                         <span>{entry.odometerPhotos.map((photo) => `${photo.source === "start" ? "Startfoto" : "Endfoto"}: ${photo.address || photo.name}`).join(" · ")}</span>
+                      ) : null}
+                      {(entry.odometerPhotos?.some((photo) => photo.previewUrl) || entry.waypoints?.some((waypoint) => waypoint.photo?.previewUrl) || entry.fuelReceiptPhoto?.previewUrl) ? (
+                        <div className="logbook-photo-grid">
+                          {entry.odometerPhotos?.filter((photo) => photo.previewUrl).map((photo) => (
+                            <figure key={photo.id}>
+                              <img alt={photo.source === "start" ? "Startfoto Tacho" : "Endfoto Tacho"} src={photo.previewUrl} />
+                              <figcaption>{photo.source === "start" ? "Startfoto" : "Endfoto"}{photo.odometerReading ? ` · ${photo.odometerReading} km` : ""}</figcaption>
+                            </figure>
+                          ))}
+                          {entry.waypoints?.filter((waypoint) => waypoint.photo?.previewUrl).map((waypoint, waypointIndex) => (
+                            <figure key={waypoint.photo?.id ?? waypoint.id}>
+                              <img alt={`Foto zu Zwischenziel ${waypointIndex + 1}`} src={waypoint.photo?.previewUrl} />
+                              <figcaption>{waypoint.address || `Zwischenziel ${waypointIndex + 1}`}{waypoint.odometer ? ` · ${waypoint.odometer} km` : ""}</figcaption>
+                            </figure>
+                          ))}
+                          {entry.fuelReceiptPhoto?.previewUrl && (
+                            <figure key={entry.fuelReceiptPhoto.id}>
+                              <img alt="Tank- oder Ladebeleg" src={entry.fuelReceiptPhoto.previewUrl} />
+                              <figcaption>Tank-/Ladebeleg</figcaption>
+                            </figure>
+                          )}
+                        </div>
                       ) : null}
                     </div>
                     <Badge value={personName(entry.driverId)} />
