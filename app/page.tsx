@@ -139,6 +139,9 @@ type CustomerRecord = {
   portalStatus: "aktiv" | "einladen" | "gesperrt";
   notes: string;
   reportMailBody: string;
+  weeklyReportMailBody?: string;
+  offerMailBody?: string;
+  orderConfirmationMailBody?: string;
   workTimeVisibility?: "service" | "show" | "hide";
   billable?: boolean;
   archived?: boolean;
@@ -639,6 +642,9 @@ type CustomerFormState = {
   objects: string[];
   notes: string;
   reportMailBody: string;
+  weeklyReportMailBody: string;
+  offerMailBody: string;
+  orderConfirmationMailBody: string;
   workTimeVisibility: "service" | "show" | "hide";
   billable: boolean;
 };
@@ -2473,6 +2479,9 @@ function firstNameFromName(name: string) {
 }
 
 const defaultReportMailBody = "Hallo {Vorname}, anbei der Bericht vom aktuellen Einsatz. Für Rückfragen stehen wir gerne zur Verfügung.";
+const defaultWeeklyReportMailBody = "Hallo {Vorname}, anbei der Wochenbericht der letzten Einsätze. Für Rückfragen stehen wir gerne zur Verfügung.";
+const defaultOfferMailBody = "Hej {Vorname},\n\nvielen Dank für deine Anfrage und dein Vertrauen.\n\nAnbei findest du unsere Offerte als PDF. Wir haben die vorgesehenen Leistungen und Materialien übersichtlich zusammengestellt, damit du in Ruhe prüfen kannst, ob alles so für dich passt.\n\nWenn du Fragen hast oder etwas angepasst werden soll, melde dich gerne jederzeit. Wenn alles passt, reicht uns eine kurze Bestätigung, dann planen wir den Auftrag verbindlich ein.\n\nLiebe Grüße\nKolaretorp Service AB";
+const defaultOrderConfirmationMailBody = "Hej {Vorname},\n\nvielen Dank für deine Bestätigung.\n\nAnbei findest du unsere Auftragsbestätigung als PDF. Darin sind die geplanten Leistungen, Materialien und der geplante Zeitraum zusammengefasst.\n\nWenn etwas nicht passt oder vor der Ausführung noch angepasst werden soll, melde dich gerne jederzeit.\n\nLiebe Grüße\nKolaretorp Service AB";
 
 function isSwedishCustomerLanguage(language: string | undefined) {
   const normalized = (language || "").trim().toLowerCase();
@@ -2483,16 +2492,23 @@ function customerLocale(customer: CustomerRecord | CustomerFormState | undefined
   return isSwedishCustomerLanguage(customer?.language) ? "sv-SE" : "de-DE";
 }
 
-function customerReportSendBody(customer: CustomerRecord | undefined) {
+function fillCustomerMailTemplate(template: string, customer: CustomerRecord | undefined) {
   const firstName = firstNameFromName(customer?.contact || customer?.name || "");
-  const customBody = customer?.reportMailBody?.trim();
-  if (customBody && customBody !== defaultReportMailBody) {
-    return customBody.replaceAll("{Vorname}", firstName).replaceAll("{Förnamn}", firstName);
-  }
+  return template.replaceAll("{Vorname}", firstName).replaceAll("{Förnamn}", firstName);
+}
+
+function customerReportSendBody(customer: CustomerRecord | undefined, report?: ReportRecord) {
+  const customBody = report?.id.startsWith("WEEK-")
+    ? customer?.weeklyReportMailBody?.trim()
+    : customer?.reportMailBody?.trim();
+  if (customBody) return fillCustomerMailTemplate(customBody, customer);
+  const firstName = firstNameFromName(customer?.contact || customer?.name || "");
   if (isSwedishCustomerLanguage(customer?.language)) {
-    return `Hej ${firstName},\n\nbifogat hittar du rapporten från det senaste uppdraget.\nTack för ditt förtroende.\n\nMed vänliga hälsningar\nKolaretorp Service AB`;
+    return report?.id.startsWith("WEEK-")
+      ? `Hej ${firstName},\n\nbifogat hittar du veckorapporten från de senaste uppdragen.\nTack för ditt förtroende.\n\nMed vänliga hälsningar\nKolaretorp Service AB`
+      : `Hej ${firstName},\n\nbifogat hittar du rapporten från det senaste uppdraget.\nTack för ditt förtroende.\n\nMed vänliga hälsningar\nKolaretorp Service AB`;
   }
-  return `Hej ${firstName},\n\nanbei der Bericht vom letzten Einsatz.\nLieben Dank fuer deinen Auftrag.\n\nHejdå`;
+  return fillCustomerMailTemplate(report?.id.startsWith("WEEK-") ? defaultWeeklyReportMailBody : defaultReportMailBody, customer);
 }
 
 function customerReportSendSubject(report: ReportRecord, object: ObjectRecord, customer?: CustomerRecord) {
@@ -2530,19 +2546,23 @@ function orderConfirmationSendSubject(job: JobRecord, object: ObjectRecord, cust
 }
 
 function offerSendBody(customer: CustomerRecord | undefined) {
+  const customBody = customer?.offerMailBody?.trim();
+  if (customBody) return fillCustomerMailTemplate(customBody, customer);
   const firstName = firstNameFromName(customer?.contact || customer?.name || "");
   if (isSwedishCustomerLanguage(customer?.language)) {
     return `Hej ${firstName},\n\nstort tack för din förfrågan och ditt förtroende.\n\nBifogat hittar du vår offert som PDF. Vi har sammanställt planerade tjänster och material så att du i lugn och ro kan kontrollera att allt stämmer.\n\nHör gärna av dig om du har frågor eller om något ska justeras. Om allt ser bra ut räcker det med en kort bekräftelse, så planerar vi in uppdraget.\n\nMed vänliga hälsningar\nKolaretorp Service AB`;
   }
-  return `Hej ${firstName},\n\nvielen Dank für deine Anfrage und dein Vertrauen.\n\nAnbei findest du unsere Offerte als PDF. Wir haben die vorgesehenen Leistungen und Materialien übersichtlich zusammengestellt, damit du in Ruhe prüfen kannst, ob alles so für dich passt.\n\nWenn du Fragen hast oder etwas angepasst werden soll, melde dich gerne jederzeit. Wenn alles passt, reicht uns eine kurze Bestätigung, dann planen wir den Auftrag verbindlich ein.\n\nLiebe Grüße\nKolaretorp Service AB`;
+  return fillCustomerMailTemplate(defaultOfferMailBody, customer);
 }
 
 function orderConfirmationSendBody(customer: CustomerRecord | undefined) {
+  const customBody = customer?.orderConfirmationMailBody?.trim();
+  if (customBody) return fillCustomerMailTemplate(customBody, customer);
   const firstName = firstNameFromName(customer?.contact || customer?.name || "");
   if (isSwedishCustomerLanguage(customer?.language)) {
     return `Hej ${firstName},\n\nstort tack för din bekräftelse.\n\nBifogat hittar du vår orderbekräftelse som PDF. Där framgår de planerade tjänsterna, materialen och den planerade tidsperioden.\n\nHör gärna av dig om något inte stämmer eller om något ska ändras före utförandet.\n\nMed vänliga hälsningar\nKolaretorp Service AB`;
   }
-  return `Hej ${firstName},\n\nvielen Dank für deine Bestätigung.\n\nAnbei findest du unsere Auftragsbestätigung als PDF. Darin sind die geplanten Leistungen, Materialien und der geplante Zeitraum zusammengefasst.\n\nWenn etwas nicht passt oder vor der Ausführung noch angepasst werden soll, melde dich gerne jederzeit.\n\nLiebe Grüße\nKolaretorp Service AB`;
+  return fillCustomerMailTemplate(defaultOrderConfirmationMailBody, customer);
 }
 
 function defaultCustomerMessageSubject(customer: CustomerRecord | undefined) {
@@ -3305,7 +3325,7 @@ async function sendCustomerReportMail(report: ReportRecord, object: ObjectRecord
     body: JSON.stringify({
       attachmentBase64,
       attachments: extraAttachments,
-      body: body?.trim() || customerReportSendBody(customer),
+      body: body?.trim() || customerReportSendBody(customer, report),
       cc: "info@kolaretorp.se",
       filename: fileName,
       subject: customerReportSendSubject(report, object, customer),
@@ -3876,6 +3896,9 @@ function emptyCustomerForm(): CustomerFormState {
     objects: [],
     notes: "",
     reportMailBody: defaultReportMailBody,
+    weeklyReportMailBody: defaultWeeklyReportMailBody,
+    offerMailBody: defaultOfferMailBody,
+    orderConfirmationMailBody: defaultOrderConfirmationMailBody,
     workTimeVisibility: "service",
     billable: true,
   };
@@ -3902,6 +3925,9 @@ function customerToForm(customer: CustomerRecord): CustomerFormState {
     objects: customer.objects,
     notes: customer.notes,
     reportMailBody: customer.reportMailBody || defaultReportMailBody,
+    weeklyReportMailBody: customer.weeklyReportMailBody || defaultWeeklyReportMailBody,
+    offerMailBody: customer.offerMailBody || defaultOfferMailBody,
+    orderConfirmationMailBody: customer.orderConfirmationMailBody || defaultOrderConfirmationMailBody,
     workTimeVisibility: customer.workTimeVisibility ?? "service",
     billable: customer.billable ?? true,
   };
@@ -3937,6 +3963,9 @@ function formToCustomer(form: CustomerFormState, id: string, existingCustomer?: 
     portalStatus: form.portalStatus,
     notes: form.notes.trim(),
     reportMailBody: form.reportMailBody.trim() || defaultReportMailBody,
+    weeklyReportMailBody: form.weeklyReportMailBody.trim() || defaultWeeklyReportMailBody,
+    offerMailBody: form.offerMailBody.trim() || defaultOfferMailBody,
+    orderConfirmationMailBody: form.orderConfirmationMailBody.trim() || defaultOrderConfirmationMailBody,
     workTimeVisibility: form.workTimeVisibility,
     billable: form.billable,
   };
@@ -6615,7 +6644,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     const customer = object
       ? customers.find((item) => item.id === object.ownerCustomerId || item.name === object.owner)
       : undefined;
-    setSendPreviewReportBody(customerReportSendBody(customer));
+    setSendPreviewReportBody(customerReportSendBody(customer, report));
     setSendPreviewReportId(report.id);
   }
 
@@ -6777,7 +6806,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     setReports(nextReports);
     persistSnapshotNow({ reports: nextReports });
     setSection("reports");
-    setSendPreviewReportBody(customerReportSendBody(customers.find((customer) => customer.id === object.ownerCustomerId || customer.name === object.owner)));
+    setSendPreviewReportBody(customerReportSendBody(customers.find((customer) => customer.id === object.ownerCustomerId || customer.name === object.owner), nextReport));
     setSendPreviewReportId(reportId);
     setRecordNotice(`Wochenbericht KW ${week.week} ${week.year} wurde erzeugt und zum Senden geöffnet.`);
   }
@@ -7738,7 +7767,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                 className="primary-button"
                 onClick={() => {
                   setCompletedReportPromptId(null);
-                  setSendPreviewReportBody(customerReportSendBody(completedPromptCustomer));
+                  setSendPreviewReportBody(customerReportSendBody(completedPromptCustomer, completedPromptReport));
                   setSendPreviewReportId(completedPromptReport.id);
                 }}
                 type="button"
@@ -13218,7 +13247,7 @@ function ObjectHistory({
   const reportCustomer = customers.find((customer) => customer.id === object.ownerCustomerId || customer.name === object.owner);
   const reportSubject = selectedReport ? customerReportSendSubject(selectedReport, object, reportCustomer) : "";
   const reportPdfName = selectedHistory ? `Einsatzbericht-${object.name}-${selectedHistory.title}.pdf` : "";
-  const mailBody = selectedReport ? customerReportSendBody(reportCustomer) : "";
+  const mailBody = selectedReport ? customerReportSendBody(reportCustomer, selectedReport) : "";
   const sentAt = selectedReport?.sentAt ?? "";
   function toggleHistoryGroup(groupId: string) {
     setExpandedHistoryGroups((current) => (
@@ -13841,6 +13870,7 @@ function CustomerForm({
   submitLabel: string;
 }) {
   const [loginHistoryOpen, setLoginHistoryOpen] = useState(false);
+  const [mailTextsOpen, setMailTextsOpen] = useState(false);
   const [portalInvitePreview, setPortalInvitePreview] = useState<{ body: string; subject: string; to: string } | null>(null);
   const [portalInviteNotice, setPortalInviteNotice] = useState("");
   const [portalInviteSending, setPortalInviteSending] = useState(false);
@@ -13982,14 +14012,20 @@ function CustomerForm({
           <option>gesperrt</option>
         </select>
       </label>
-      <label className="checkbox-line wide">
-        <input
-          checked={customer.billable}
-          onChange={(event) => setCustomer({ ...customer, billable: event.target.checked })}
-          type="checkbox"
-        />
-        <span>Neue Aufträge dieses Kunden standardmäßig in die Abrechnung übernehmen</span>
-      </label>
+      <section className="wide customer-preference-card">
+        <div>
+          <strong>Abrechnung</strong>
+          <span>Standard für neue Aufträge dieses Kunden.</span>
+        </div>
+        <label className="checkbox-line">
+          <input
+            checked={customer.billable}
+            onChange={(event) => setCustomer({ ...customer, billable: event.target.checked })}
+            type="checkbox"
+          />
+          <span>Neue Aufträge in Abrechnung übernehmen</span>
+        </label>
+      </section>
       <h3>Portalzugang</h3>
       <label><span>Login-E-Mail</span><input type="email" value={customer.portalLoginEmail} onChange={(event) => update("portalLoginEmail", event.target.value)} /></label>
       <label><span>Portal-Passwort</span><input value={customer.portalPassword} onChange={(event) => update("portalPassword", event.target.value)} /></label>
@@ -14064,14 +14100,50 @@ function CustomerForm({
           <option value="hide">Immer ausblenden</option>
         </select>
       </label>
-      <label className="wide">
-        <span>Mailtext Einsatzbericht</span>
-        <textarea
-          value={customer.reportMailBody}
-          onChange={(event) => update("reportMailBody", event.target.value)}
-          placeholder={defaultReportMailBody}
-        />
-      </label>
+      <section className="wide customer-fold-section">
+        <button className="job-fold-toggle" onClick={() => setMailTextsOpen((open) => !open)} type="button">
+          {mailTextsOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+          <span>Mailtexte</span>
+          <small>Einzelbericht, Wochenbericht, Offerte, Auftragsbestätigung</small>
+        </button>
+        {mailTextsOpen && (
+          <div className="customer-mail-text-grid">
+            <label className="wide">
+              <span>Einzelbericht</span>
+              <textarea
+                value={customer.reportMailBody}
+                onChange={(event) => update("reportMailBody", event.target.value)}
+                placeholder={defaultReportMailBody}
+              />
+            </label>
+            <label className="wide">
+              <span>Wochenbericht</span>
+              <textarea
+                value={customer.weeklyReportMailBody}
+                onChange={(event) => update("weeklyReportMailBody", event.target.value)}
+                placeholder={defaultWeeklyReportMailBody}
+              />
+            </label>
+            <label className="wide">
+              <span>Offerte</span>
+              <textarea
+                value={customer.offerMailBody}
+                onChange={(event) => update("offerMailBody", event.target.value)}
+                placeholder={defaultOfferMailBody}
+              />
+            </label>
+            <label className="wide">
+              <span>Auftragsbestätigung</span>
+              <textarea
+                value={customer.orderConfirmationMailBody}
+                onChange={(event) => update("orderConfirmationMailBody", event.target.value)}
+                placeholder={defaultOrderConfirmationMailBody}
+              />
+            </label>
+            <p className="customer-mail-text-hint">Platzhalter: {"{Vorname}"} wird beim Versand automatisch ersetzt.</p>
+          </div>
+        )}
+      </section>
       <label className="wide">
         <span>Objekt zuordnen</span>
         <select value="" onChange={(event) => assignObject(event.target.value)}>
