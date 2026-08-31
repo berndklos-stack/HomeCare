@@ -429,12 +429,22 @@ button {
 
 .billing-toolbar {
   align-items: start;
-  grid-template-columns: minmax(240px, 1fr) minmax(360px, 1.4fr) minmax(160px, 190px);
+  grid-template-columns: minmax(260px, 1fr) minmax(160px, 190px);
 }
 
 .billing-toolbar > div {
   display: grid;
   gap: 5px;
+}
+
+.billing-toolbar > div:nth-child(2) {
+  grid-column: 1 / -1;
+  grid-row: 2;
+}
+
+.billing-toolbar > div:nth-child(3) {
+  grid-column: 2;
+  grid-row: 1;
 }
 
 .empty-list-note {
@@ -715,12 +725,14 @@ button {
 
 .billing-row {
   align-items: start;
-  grid-template-columns: minmax(0, 1fr) minmax(190px, auto) minmax(220px, auto);
+  gap: 18px;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, auto);
+  padding: 14px 16px;
 }
 
 .billing-row-main {
   display: grid;
-  gap: 10px;
+  gap: 12px;
   min-width: 0;
 }
 
@@ -737,7 +749,7 @@ button {
 
 .billing-meta-grid {
   display: grid;
-  gap: 8px;
+  gap: 10px 18px;
   grid-template-columns: repeat(4, minmax(120px, 1fr));
 }
 
@@ -760,6 +772,16 @@ button {
   text-transform: uppercase;
 }
 
+.billing-detail-strip {
+  background: color-mix(in srgb, var(--paper-soft), var(--paper) 35%);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 10px 12px;
+}
+
 .billing-lines-preview,
 .accounting-preview {
   color: var(--muted);
@@ -767,25 +789,41 @@ button {
   gap: 3px;
   font-size: 12px;
   line-height: 1.35;
+  min-width: 0;
 }
 
+.billing-lines-preview > span,
 .accounting-preview > span {
   color: var(--brand);
   font-weight: 800;
 }
 
+.billing-lines-preview small,
+.accounting-preview small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .billing-row-side {
+  align-content: start;
   display: grid;
-  gap: 4px;
+  gap: 12px;
   justify-items: end;
   text-align: right;
 }
 
-.billing-row-side strong {
+.billing-total-box {
+  display: grid;
+  gap: 3px;
+  justify-items: end;
+}
+
+.billing-total-box strong {
   font-size: 18px;
 }
 
-.billing-row-side span {
+.billing-total-box span {
   color: var(--muted);
   font-size: 12px;
 }
@@ -1135,8 +1173,8 @@ button {
 .billing-status-filter {
   flex-wrap: nowrap;
   margin: 0;
-  overflow-x: auto;
-  padding-bottom: 2px;
+  overflow: visible;
+  padding-bottom: 0;
   white-space: nowrap;
 }
 
@@ -3646,8 +3684,30 @@ mark.neutral {
   font-weight: 800;
 }
 
+.waypoint-row-wrap {
+  display: grid;
+  gap: 4px;
+}
+
+.waypoint-row-wrap > small {
+  color: var(--muted);
+  font-size: 11px;
+  overflow: hidden;
+  padding-left: 2px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .waypoint-row {
-  grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.8fr) auto;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.8fr) 34px 34px;
+}
+
+.waypoint-photo-button {
+  cursor: pointer;
+}
+
+.waypoint-photo-button input {
+  display: none;
 }
 
 .report-gallery,
@@ -4975,8 +5035,20 @@ button.media-thumb {
     grid-template-columns: 1fr;
   }
 
+  .billing-toolbar > div:nth-child(2),
+  .billing-toolbar > div:nth-child(3) {
+    grid-column: auto;
+    grid-row: auto;
+  }
+
+  .billing-status-filter {
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+
   .billing-meta-grid,
   .billing-toolbar,
+  .billing-detail-strip,
   .invoice-preview-top,
   .invoice-preview-addresses,
   .invoice-preview-meta {

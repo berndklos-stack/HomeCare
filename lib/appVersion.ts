@@ -1,10 +1,20 @@
 export const appVersion = {
-  version: "1.261.0",
+  version: "1.262.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.262.0",
+    date: "2026-08-31",
+    changes: [
+      "Abrechnungsansicht mit zweizeiliger Toolbar und voll sichtbaren Statusfiltern aufgeraeumt",
+      "Rechnungskarten strukturieren Details, Betrag und Aktionen klarer fuer eine professionellere Darstellung",
+      "Fahrten-Entwurf wird laufend lokal gesichert und Tachofotos koennen KM-Staende automatisch uebernehmen",
+      "Zwischenziele koennen Fotos mit Standortauslesung erhalten",
+    ],
+  },
   {
     version: "1.261.0",
     date: "2026-08-31",

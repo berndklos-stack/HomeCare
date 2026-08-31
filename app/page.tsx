@@ -438,6 +438,15 @@ type VehicleWaypoint = {
   address: string;
   id: string;
   note: string;
+  photo?: VehicleWaypointPhoto;
+};
+
+type VehicleWaypointPhoto = {
+  address?: string;
+  capturedAt: string;
+  id: string;
+  name: string;
+  previewUrl?: string;
 };
 
 type VehicleOdometerPhoto = {
@@ -445,6 +454,7 @@ type VehicleOdometerPhoto = {
   capturedAt: string;
   id: string;
   name: string;
+  odometerReading?: string;
   previewUrl?: string;
   source: "start" | "end";
 };
@@ -1008,6 +1018,7 @@ const storageKeys = {
   fieldNotes: "kolaretorp-field-notes",
   fieldProgress: "kolaretorp-field-progress",
   activeJobId: "kolaretorp-active-job-id",
+  quickTripDraft: "kolaretorp-quick-trip-draft",
   updatedAt: "kolaretorp-updated-at",
 };
 
@@ -3913,6 +3924,25 @@ async function addressFromTripPhoto(file: File) {
   };
 }
 
+async function odometerFromTripPhoto(file: File) {
+  const imageDataUrl = await fileToImagePreview(file, 1100, 0.72);
+  const response = await fetch("/api/odometer", {
+    body: JSON.stringify({ imageDataUrl }),
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  });
+  const payload = await response.json() as { error?: string; odometer?: string };
+  if (!response.ok) throw new Error(payload.error || "Kilometerstand konnte nicht gelesen werden.");
+  return payload.odometer?.trim() || "";
+}
+
+function calculatedTripKilometers(startOdometer: string, endOdometer: string) {
+  const start = Number(startOdometer);
+  const end = Number(endOdometer);
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return "";
+  return String(Math.round(end - start));
+}
+
 async function fileToDocumentPreview(file: File) {
   if (file.type.startsWith("image/")) return fileToImagePreview(file, 1100, 0.7);
   const uploaded = await uploadMediaFile(file, "object-documents");
@@ -5451,6 +5481,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     waypoints: [] as VehicleWaypoint[],
     odometerPhotos: [] as VehicleOdometerPhoto[],
   });
+  const [quickTripDraftLoaded, setQuickTripDraftLoaded] = useState(false);
   const [recordNotice, setRecordNotice] = useState("");
   const [newObject, setNewObject] = useState<NewObjectFormState>(emptyObjectForm());
   const [newCustomer, setNewCustomer] = useState<CustomerFormState>(emptyCustomerForm());
@@ -5488,6 +5519,35 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   useEffect(() => () => {
     if (remoteSaveTimerRef.current) window.clearTimeout(remoteSaveTimerRef.current);
   }, []);
+
+  useEffect(() => {
+    if (!appStorageReady || quickTripDraftLoaded) return;
+    try {
+      const savedDraft = window.localStorage.getItem(storageKeys.quickTripDraft);
+      if (savedDraft) {
+        const parsed = JSON.parse(savedDraft) as Partial<typeof quickTripForm>;
+        setQuickTripForm((current) => ({
+          ...current,
+          ...parsed,
+          odometerPhotos: parsed.odometerPhotos ?? [],
+          waypoints: parsed.waypoints ?? [],
+        }));
+      }
+    } catch (error) {
+      console.warn("Fahrten-Entwurf konnte nicht geladen werden.", error);
+    } finally {
+      setQuickTripDraftLoaded(true);
+    }
+  }, [appStorageReady, quickTripDraftLoaded, quickTripForm]);
+
+  useEffect(() => {
+    if (!appStorageReady || !quickTripDraftLoaded) return;
+    try {
+      window.localStorage.setItem(storageKeys.quickTripDraft, JSON.stringify(quickTripForm));
+    } catch (error) {
+      console.warn("Fahrten-Entwurf konnte nicht gespeichert werden.", error);
+    }
+  }, [appStorageReady, quickTripDraftLoaded, quickTripForm]);
 
   function applySnapshot(snapshot: AppSnapshot) {
     const normalizedReports = dedupeReports(snapshot.reports);
@@ -7117,27 +7177,71 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     setRecordNotice(source === "start" ? "Startfoto wird verarbeitet..." : "Endfoto wird verarbeitet...");
     try {
       const result = await addressFromTripPhoto(file);
+      let odometerReading = "";
+      try {
+        odometerReading = await odometerFromTripPhoto(file);
+      } catch (error) {
+        console.warn("Kilometerstand konnte nicht automatisch gelesen werden.", error);
+      }
       const photo: VehicleOdometerPhoto = {
         address: result.address,
         capturedAt: new Date().toISOString(),
         id: globalThis.crypto?.randomUUID?.() ?? `TRIP-PHOTO-${Date.now()}-${Math.random().toString(36).slice(2)}`,
         name: file.name,
+        odometerReading,
         previewUrl: result.previewUrl,
         source,
       };
 
-      setQuickTripForm((current) => ({
-        ...current,
-        [source === "start" ? "startAddress" : "endAddress"]: result.address || current[source === "start" ? "startAddress" : "endAddress"],
-        odometerPhotos: [
-          ...current.odometerPhotos.filter((item) => item.source !== source),
-          photo,
-        ],
-      }));
-      setRecordNotice(result.address ? `${source === "start" ? "Startadresse" : "Zieladresse"} aus ${result.source} übernommen.` : "Foto gespeichert. Adresse bitte manuell ergänzen.");
+      setQuickTripForm((current) => {
+        const nextStartOdometer = source === "start" && odometerReading ? odometerReading : current.startOdometer;
+        const nextEndOdometer = source === "end" && odometerReading ? odometerReading : current.endOdometer;
+        const nextKilometers = calculatedTripKilometers(nextStartOdometer, nextEndOdometer) || current.kilometers;
+        return {
+          ...current,
+          [source === "start" ? "startAddress" : "endAddress"]: result.address || current[source === "start" ? "startAddress" : "endAddress"],
+          [source === "start" ? "startOdometer" : "endOdometer"]: odometerReading || current[source === "start" ? "startOdometer" : "endOdometer"],
+          kilometers: nextKilometers,
+          odometerPhotos: [
+            ...current.odometerPhotos.filter((item) => item.source !== source),
+            photo,
+          ],
+        };
+      });
+      const parts = [
+        result.address ? `${source === "start" ? "Startadresse" : "Zieladresse"} aus ${result.source}` : "Foto gespeichert",
+        odometerReading ? `KM-Stand ${odometerReading} übernommen` : "KM-Stand bitte prüfen/ergänzen",
+      ];
+      setRecordNotice(`${parts.join(" · ")}.`);
     } catch (error) {
       console.warn("Tachofoto konnte nicht verarbeitet werden.", error);
       setRecordNotice("Foto konnte nicht verarbeitet werden. Bitte Adresse manuell erfassen.");
+    }
+  }
+
+  async function captureQuickTripWaypointPhoto(file: File, waypointId: string) {
+    setRecordNotice("Zwischenziel-Foto wird verarbeitet...");
+    try {
+      const result = await addressFromTripPhoto(file);
+      const photo: VehicleWaypointPhoto = {
+        address: result.address,
+        capturedAt: new Date().toISOString(),
+        id: globalThis.crypto?.randomUUID?.() ?? `WAY-PHOTO-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        name: file.name,
+        previewUrl: result.previewUrl,
+      };
+      setQuickTripForm((current) => ({
+        ...current,
+        waypoints: current.waypoints.map((waypoint) => (
+          waypoint.id === waypointId
+            ? { ...waypoint, address: result.address || waypoint.address, photo }
+            : waypoint
+        )),
+      }));
+      setRecordNotice(result.address ? "Zwischenziel-Adresse aus Foto übernommen." : "Zwischenziel-Foto gespeichert. Adresse bitte manuell ergänzen.");
+    } catch (error) {
+      console.warn("Zwischenziel-Foto konnte nicht verarbeitet werden.", error);
+      setRecordNotice("Zwischenziel-Foto konnte nicht verarbeitet werden. Bitte Adresse manuell erfassen.");
     }
   }
 
@@ -7753,6 +7857,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                       <span>{source === "start" ? "Startfoto Tacho" : "Endfoto Tacho"}</span>
                       <strong>{photo ? photo.name : source === "start" ? "Beim Losfahren aufnehmen" : "Beim Abstellen aufnehmen"}</strong>
                       {photo?.previewUrl ? <img alt={`${source === "start" ? "Start" : "Ende"} Tachofoto`} src={photo.previewUrl} /> : <Camera size={18} />}
+                      {photo?.odometerReading && <small>KM-Stand: {photo.odometerReading}</small>}
                       {photo?.address && <small>{photo.address}</small>}
                       <input
                         accept="image/*"
@@ -7797,38 +7902,57 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                   </button>
                 </div>
                 {quickTripForm.waypoints.map((waypoint, waypointIndex) => (
-                  <div className="waypoint-row" key={waypoint.id}>
-                    <input
-                      aria-label={`Zwischenziel ${waypointIndex + 1}`}
-                      list="quick-trip-address-options"
-                      placeholder={`Zwischenziel ${waypointIndex + 1}`}
-                      value={waypoint.address}
-                      onChange={(event) => setQuickTripForm({
-                        ...quickTripForm,
-                        waypoints: quickTripForm.waypoints.map((item) => (
-                          item.id === waypoint.id ? { ...item, address: event.target.value } : item
-                        )),
-                      })}
-                    />
-                    <input
-                      aria-label={`Notiz zu Zwischenziel ${waypointIndex + 1}`}
-                      placeholder="Notiz"
-                      value={waypoint.note}
-                      onChange={(event) => setQuickTripForm({
-                        ...quickTripForm,
-                        waypoints: quickTripForm.waypoints.map((item) => (
-                          item.id === waypoint.id ? { ...item, note: event.target.value } : item
-                        )),
-                      })}
-                    />
-                    <button
-                      aria-label={`Zwischenziel ${waypointIndex + 1} löschen`}
-                      className="icon-button"
-                      onClick={() => setQuickTripForm({ ...quickTripForm, waypoints: quickTripForm.waypoints.filter((item) => item.id !== waypoint.id) })}
-                      type="button"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                  <div className="waypoint-row-wrap" key={waypoint.id}>
+                    <div className="waypoint-row">
+                      <input
+                        aria-label={`Zwischenziel ${waypointIndex + 1}`}
+                        list="quick-trip-address-options"
+                        placeholder={`Zwischenziel ${waypointIndex + 1}`}
+                        value={waypoint.address}
+                        onChange={(event) => setQuickTripForm({
+                          ...quickTripForm,
+                          waypoints: quickTripForm.waypoints.map((item) => (
+                            item.id === waypoint.id ? { ...item, address: event.target.value } : item
+                          )),
+                        })}
+                      />
+                      <input
+                        aria-label={`Notiz zu Zwischenziel ${waypointIndex + 1}`}
+                        placeholder="Notiz"
+                        value={waypoint.note}
+                        onChange={(event) => setQuickTripForm({
+                          ...quickTripForm,
+                          waypoints: quickTripForm.waypoints.map((item) => (
+                            item.id === waypoint.id ? { ...item, note: event.target.value } : item
+                          )),
+                        })}
+                      />
+                      <label className="icon-button waypoint-photo-button" data-tooltip={`Foto zu Zwischenziel ${waypointIndex + 1}`}>
+                        <Camera size={14} />
+                        <input
+                          accept="image/*"
+                          aria-label={`Foto zu Zwischenziel ${waypointIndex + 1} aufnehmen`}
+                          capture="environment"
+                          type="file"
+                          onChange={(event) => {
+                            const file = event.target.files?.[0];
+                            if (file) void captureQuickTripWaypointPhoto(file, waypoint.id);
+                            event.currentTarget.value = "";
+                          }}
+                        />
+                      </label>
+                      <button
+                        aria-label={`Zwischenziel ${waypointIndex + 1} löschen`}
+                        className="icon-button"
+                        onClick={() => setQuickTripForm({ ...quickTripForm, waypoints: quickTripForm.waypoints.filter((item) => item.id !== waypoint.id) })}
+                        type="button"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                    {waypoint.photo && (
+                      <small>{waypoint.photo.address || waypoint.photo.name}</small>
+                    )}
                   </div>
                 ))}
               </div>
@@ -10335,50 +10459,56 @@ function BillingView({
             <span><small>Ausgangsbuch</small>{item.outgoingBookNumber || "noch nicht gebucht"}</span>
             <span><small>Bericht</small>{reportTitle}</span>
           </div>
-          {item.lines && item.lines.length > 0 && (
-            <div className="billing-lines-preview">
-              {item.lines.map((line) => (
-                <span key={line.id}>{line.kind}: {line.name} · {line.quantity} {line.unit} · {line.unitPrice} {line.currency} · Moms {line.taxRate}%</span>
-              ))}
-            </div>
-          )}
-          {transferRows.length > 0 && (
-            <div className="accounting-preview">
-              <span>Kontierung</span>
-              {transferRows.map((row) => (
-                <small key={`${item.id}-${row.account}-${row.name}`}>{row.account} {row.label} · {row.amount} · {row.currency} · Moms {row.moms}</small>
-              ))}
-            </div>
-          )}
+          <div className="billing-detail-strip">
+            {item.lines && item.lines.length > 0 && (
+              <div className="billing-lines-preview">
+                <span>Positionen</span>
+                {item.lines.map((line) => (
+                  <small key={line.id}>{line.kind}: {line.name} · {line.quantity} {line.unit} · {line.unitPrice} {line.currency} · Moms {line.taxRate}%</small>
+                ))}
+              </div>
+            )}
+            {transferRows.length > 0 && (
+              <div className="accounting-preview">
+                <span>Kontierung</span>
+                {transferRows.map((row) => (
+                  <small key={`${item.id}-${row.account}-${row.name}`}>{row.account} {row.label} · {row.amount} · {row.currency} · Moms {row.moms}</small>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
         <div className="billing-row-side">
-          <strong>{formatMoney(totals.gross, totals.currency)}</strong>
-          <span>{formatMoney(totals.net, totals.currency)} netto · {formatMoney(totals.tax, totals.currency)} Moms</span>
-        </div>
-        <div className="row-actions billing-actions">
-          <IconAction label={`Rechnungsvorschau ${invoiceLabel} öffnen`} onClick={() => setPreviewInvoiceId(item.id)}><FileText size={16} /></IconAction>
-          <IconAction label={`Rechnung ${invoiceLabel} als PDF herunterladen`} onClick={() => onDownloadInvoice(item)}><FileDown size={16} /></IconAction>
-          {invoiceStatus === "entwurf" && (
-            <>
-              <IconAction label={`Rechnung ${invoiceLabel} buchen`} onClick={() => onMarkInvoiced(item)}><Check size={16} /></IconAction>
-              <IconAction label={`Rechnung ${invoiceLabel} aus Abrechnung entfernen`} onClick={() => onRemoveBillingDraft(item)}><Trash2 size={16} /></IconAction>
-            </>
-          )}
-          {["gebucht", "gesendet", "überfällig"].includes(invoiceStatus) && item.externalExportStatus !== "gesendet" && (
-            <IconAction label={`SIE-Datei für Rechnung ${invoiceLabel} für Spiris erstellen`} onClick={() => onMarkExported(item)}><FileOutput size={16} /></IconAction>
-          )}
-          {item.externalExportStatus === "gesendet" && (
-            <IconAction label={`Spiris-Übergabe ${invoiceLabel} zurücksetzen`} onClick={() => onResetExport(item)}><RotateCcw size={16} /></IconAction>
-          )}
-          {invoiceStatus === "gebucht" && (
-            <IconAction label={`Rechnung ${invoiceLabel} als versendet markieren`} onClick={() => onMarkSent(item)}><Mail size={16} /></IconAction>
-          )}
-          {["gebucht", "gesendet", "überfällig"].includes(invoiceStatus) && (
-            <IconAction label={`Rechnung ${invoiceLabel} als bezahlt markieren`} onClick={() => onMarkPaid(item)}><Euro size={16} /></IconAction>
-          )}
-          {!["bezahlt", "storniert"].includes(invoiceStatus) && (
-            <IconAction label={`Rechnung ${invoiceLabel} stornieren`} onClick={() => onCancelInvoice(item)}><X size={16} /></IconAction>
-          )}
+          <div className="billing-total-box">
+            <strong>{formatMoney(totals.gross, totals.currency)}</strong>
+            <span>{formatMoney(totals.net, totals.currency)} netto</span>
+            <span>{formatMoney(totals.tax, totals.currency)} Moms</span>
+          </div>
+          <div className="row-actions billing-actions">
+            <IconAction label={`Rechnungsvorschau ${invoiceLabel} öffnen`} onClick={() => setPreviewInvoiceId(item.id)}><FileText size={16} /></IconAction>
+            <IconAction label={`Rechnung ${invoiceLabel} als PDF herunterladen`} onClick={() => onDownloadInvoice(item)}><FileDown size={16} /></IconAction>
+            {invoiceStatus === "entwurf" && (
+              <>
+                <IconAction label={`Rechnung ${invoiceLabel} buchen`} onClick={() => onMarkInvoiced(item)}><Check size={16} /></IconAction>
+                <IconAction label={`Rechnung ${invoiceLabel} aus Abrechnung entfernen`} onClick={() => onRemoveBillingDraft(item)}><Trash2 size={16} /></IconAction>
+              </>
+            )}
+            {["gebucht", "gesendet", "überfällig"].includes(invoiceStatus) && item.externalExportStatus !== "gesendet" && (
+              <IconAction label={`SIE-Datei für Rechnung ${invoiceLabel} für Spiris erstellen`} onClick={() => onMarkExported(item)}><FileOutput size={16} /></IconAction>
+            )}
+            {item.externalExportStatus === "gesendet" && (
+              <IconAction label={`Spiris-Übergabe ${invoiceLabel} zurücksetzen`} onClick={() => onResetExport(item)}><RotateCcw size={16} /></IconAction>
+            )}
+            {invoiceStatus === "gebucht" && (
+              <IconAction label={`Rechnung ${invoiceLabel} als versendet markieren`} onClick={() => onMarkSent(item)}><Mail size={16} /></IconAction>
+            )}
+            {["gebucht", "gesendet", "überfällig"].includes(invoiceStatus) && (
+              <IconAction label={`Rechnung ${invoiceLabel} als bezahlt markieren`} onClick={() => onMarkPaid(item)}><Euro size={16} /></IconAction>
+            )}
+            {!["bezahlt", "storniert"].includes(invoiceStatus) && (
+              <IconAction label={`Rechnung ${invoiceLabel} stornieren`} onClick={() => onCancelInvoice(item)}><X size={16} /></IconAction>
+            )}
+          </div>
         </div>
         <footer className="message-meta">
           <span>Spiris: {item.externalExportStatus || "nicht gesendet"} · {item.externalExportedAt ? `übergeben ${formatCreatedAt(item.externalExportedAt)}` : "noch nicht übergeben"} · Ziel: {item.externalExportSystem || "Spiris / Visma Buchhaltung"}</span>
