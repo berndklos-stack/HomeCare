@@ -429,7 +429,7 @@ button {
 
 .billing-toolbar {
   align-items: start;
-  grid-template-columns: minmax(260px, 1fr) minmax(160px, 190px);
+  grid-template-columns: minmax(260px, 1fr);
 }
 
 .billing-toolbar > div {
@@ -440,11 +440,6 @@ button {
 .billing-toolbar > div:nth-child(2) {
   grid-column: 1 / -1;
   grid-row: 2;
-}
-
-.billing-toolbar > div:nth-child(3) {
-  grid-column: 2;
-  grid-row: 1;
 }
 
 .empty-list-note {
@@ -5052,8 +5047,7 @@ button.media-thumb {
     grid-template-columns: 1fr;
   }
 
-  .billing-toolbar > div:nth-child(2),
-  .billing-toolbar > div:nth-child(3) {
+  .billing-toolbar > div:nth-child(2) {
     grid-column: auto;
     grid-row: auto;
   }

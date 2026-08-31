@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.263.0",
+  version: "1.264.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.264.0",
+    date: "2026-08-31",
+    changes: [
+      "Gruppieren-Umschaltung aus der Abrechnungsansicht entfernt",
+      "SIE-Export setzt #SIETYP jetzt auf 4 fuer Visma-kompatible SIE4-Dateien",
+    ],
+  },
   {
     version: "1.263.0",
     date: "2026-08-31",

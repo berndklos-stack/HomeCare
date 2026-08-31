@@ -2700,7 +2700,7 @@ function createSpirisSieFile(item: BillingRecord, object: ObjectRecord, customer
     "#FLAGGA 0",
     '#PROGRAM "Homecare" "1.0"',
     "#FORMAT PC8",
-    "#SIETYP 4I",
+    "#SIETYP 4",
     `#GEN ${sieDate(new Date().toISOString().slice(0, 10))}`,
     settings.organizationNumber ? `#ORGNR ${sieText(settings.organizationNumber)}` : "",
     `#FNAMN "${sieText(settings.name || "Kolaretorp Service AB")}"`,
@@ -10448,7 +10448,6 @@ function BillingView({
   const [previewInvoiceId, setPreviewInvoiceId] = useState<string | null>(null);
   const [billingQuery, setBillingQuery] = useState("");
   const [billingStatusFilter, setBillingStatusFilter] = useState("entwurf");
-  const [groupBillingByStatus, setGroupBillingByStatus] = useState(false);
   const billableJobs = billableCompletedJobs(jobs, billing);
   const outgoingBook = billing
     .filter((item) => item.invoicedAt || item.outgoingBookNumber)
@@ -10508,13 +10507,6 @@ function BillingView({
     ].filter(Boolean).join(" ").toLowerCase().includes(billingSearchValue);
   };
   const filteredBilling = billing.filter(billingMatchesFilter);
-  const groupedBilling = billingStatusOptions
-    .filter((status) => status !== "alle")
-    .map((status) => ({
-      items: filteredBilling.filter((item) => effectiveInvoiceStatus(item) === status),
-      status,
-    }))
-    .filter((group) => group.items.length > 0);
   const renderBillingRow = (item: BillingRecord) => {
     const object = objects.find((entry) => entry.id === item.objectId);
     const customer = customers.find((entry) => entry.id === item.customerId || entry.id === object?.ownerCustomerId || entry.name === object?.owner);
@@ -10660,24 +10652,9 @@ function BillingView({
             ))}
           </div>
         </div>
-        <div>
-          <span>Gruppieren</span>
-          <div className="segmented-control billing-group-toggle">
-            <button className={!groupBillingByStatus ? "active" : ""} onClick={() => setGroupBillingByStatus(false)} type="button">Liste</button>
-            <button className={groupBillingByStatus ? "active" : ""} onClick={() => setGroupBillingByStatus(true)} type="button">Status</button>
-          </div>
-        </div>
       </div>
       <div className="table-list">
-        {groupBillingByStatus ? groupedBilling.map((group) => (
-          <section className="billing-status-group" key={group.status}>
-            <header>
-              <strong>{group.status}</strong>
-              <span>{group.items.length} {group.items.length === 1 ? "Rechnung" : "Rechnungen"}</span>
-            </header>
-            <div className="table-list">{group.items.map(renderBillingRow)}</div>
-          </section>
-        )) : filteredBilling.map(renderBillingRow)}
+        {filteredBilling.map(renderBillingRow)}
         {billing.length === 0 && <p>Noch keine Abrechnungspositionen vorhanden.</p>}
         {billing.length > 0 && filteredBilling.length === 0 && <p>Keine Rechnungen zum aktuellen Filter gefunden.</p>}
       </div>
