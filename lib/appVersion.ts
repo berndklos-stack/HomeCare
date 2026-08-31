@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.258.0",
+  version: "1.259.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.259.0",
+    date: "2026-08-31",
+    changes: [
+      "Auftragskarten richten Datum, Prioritaet und Status in einer gemeinsamen Kopfzeile aus",
+      "Abrechnung startet standardmaessig mit dem Statusfilter Entwurf",
+    ],
+  },
   {
     version: "1.258.0",
     date: "2026-08-31",

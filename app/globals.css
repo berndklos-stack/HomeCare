@@ -1177,19 +1177,29 @@ button {
 }
 
 .job-row-meta {
-  align-items: start;
+  align-items: end;
   display: grid;
   gap: 6px;
   grid-column: 2 / 3;
   grid-row: 1 / 3;
-  grid-template-columns: repeat(3, auto);
-  grid-template-rows: auto 30px;
+  grid-template-columns: 1fr;
+  grid-template-rows: 26px 30px;
   justify-items: end;
   min-width: 260px;
   white-space: nowrap;
 }
 
-.job-row-meta > span {
+.job-row-meta-line {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  line-height: 1;
+  min-height: 26px;
+  width: 100%;
+}
+
+.job-row-meta-line > span {
   color: var(--muted);
   font-size: 13px;
   font-weight: 650;
@@ -4988,7 +4998,7 @@ button.media-thumb {
 
   .job-row-meta {
     grid-column: 1 / -1;
-    grid-template-columns: repeat(3, auto);
+    grid-template-columns: 1fr;
     justify-content: end;
     justify-items: end;
     min-width: 0;

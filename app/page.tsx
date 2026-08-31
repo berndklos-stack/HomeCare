@@ -8984,9 +8984,11 @@ function JobsView({
           )}
         </div>
         <div className="job-row-meta">
-          <span>{isRecurring ? `${occurrences.length} Teilaufträge` : jobDateRangeLabel(job)}</span>
-          <span>{job.priority}</span>
-          {!isRecurring && <Badge value={job.status} />}
+          <div className="job-row-meta-line">
+            <span>{isRecurring ? `${occurrences.length} Teilaufträge` : jobDateRangeLabel(job)}</span>
+            <span>{job.priority}</span>
+            {!isRecurring && <Badge value={job.status} />}
+          </div>
           <div className="row-actions">
             {isRecurring && (
               <IconAction label={`${job.title} Teilaufträge ${isExpanded ? "ausblenden" : "anzeigen"}`} onClick={() => toggleSeries(job.id)}>
@@ -10126,7 +10128,7 @@ function BillingView({
 }) {
   const [previewInvoiceId, setPreviewInvoiceId] = useState<string | null>(null);
   const [billingQuery, setBillingQuery] = useState("");
-  const [billingStatusFilter, setBillingStatusFilter] = useState("alle");
+  const [billingStatusFilter, setBillingStatusFilter] = useState("entwurf");
   const [groupBillingByStatus, setGroupBillingByStatus] = useState(false);
   const billableJobs = billableCompletedJobs(jobs, billing);
   const outgoingBook = billing
@@ -14462,14 +14464,20 @@ function JobForm({
           </select>
         </label>
       )}
-      <label className="checkbox-line wide">
-        <input
-          checked={newJob.billable}
-          onChange={(event) => setNewJob({ ...newJob, billable: event.target.checked })}
-          type="checkbox"
-        />
-        <span>Diesen Auftrag in die Abrechnung übernehmen</span>
-      </label>
+      <section className="wide customer-preference-card job-billing-card">
+        <div>
+          <strong>Abrechnung</strong>
+          <span>Steuert, ob dieser Auftrag als Rechnungsentwurf vorbereitet wird.</span>
+        </div>
+        <label className="checkbox-line">
+          <input
+            checked={newJob.billable}
+            onChange={(event) => setNewJob({ ...newJob, billable: event.target.checked })}
+            type="checkbox"
+          />
+          <span>Auftrag in Abrechnung übernehmen</span>
+        </label>
+      </section>
       <div className="wide job-date-row">
         <label><span>Startet am</span><input type="date" value={newJob.startDate} onChange={(event) => updateStartDate(event.target.value)} /></label>
         <label><span>Endet am</span><input min={newJob.startDate} type="date" value={newJob.endDate} onChange={(event) => updateEndDate(event.target.value)} /></label>
