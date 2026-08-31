@@ -6209,6 +6209,23 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     setRecordNotice(`Rechnung "${item.invoiceNumber || item.label}" wurde storniert.`);
   }
 
+  function removeBillingDraft(item: BillingRecord) {
+    if (effectiveInvoiceStatus(item) !== "entwurf") {
+      setRecordNotice("Nur noch nicht gebuchte Abrechnungseinträge können direkt entfernt werden. Gebuchte Rechnungen bitte stornieren.");
+      return;
+    }
+
+    const relatedJobId = item.jobId || item.source.split(" · ")[0];
+    const nextBilling = billing.filter((entry) => entry.id !== item.id);
+    const nextJobs = relatedJobId
+      ? jobs.map((job) => (job.id === relatedJobId ? { ...job, billable: false } : job))
+      : jobs;
+    setBilling(nextBilling);
+    setJobs(nextJobs);
+    persistSnapshotNow({ billing: nextBilling, jobs: nextJobs }, { forceRemote: true });
+    setRecordNotice(`"${item.invoiceNumber || item.label}" wurde aus der Abrechnung entfernt und der Auftrag ist nicht mehr abrechenbar.`);
+  }
+
   function saveJob() {
     const id = editingJobId ?? `JOB-${2410 + jobs.length}`;
     const existingJob = jobs.find((job) => job.id === editingJobId);
@@ -7509,6 +7526,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                 onMarkInvoiced={markBillingInvoiced}
                 onMarkPaid={markInvoicePaid}
                 onMarkSent={markInvoiceSent}
+                onRemoveBillingDraft={removeBillingDraft}
                 onResetExport={resetBillingExport}
                 reports={reports}
                 services={services}
@@ -10056,6 +10074,7 @@ function BillingView({
   onMarkInvoiced,
   onMarkPaid,
   onMarkSent,
+  onRemoveBillingDraft,
   onResetExport,
   reports,
   services,
@@ -10071,6 +10090,7 @@ function BillingView({
   onMarkInvoiced: (item: BillingRecord) => void;
   onMarkPaid: (item: BillingRecord) => void;
   onMarkSent: (item: BillingRecord) => void;
+  onRemoveBillingDraft: (item: BillingRecord) => void;
   onResetExport: (item: BillingRecord) => void;
   reports: ReportRecord[];
   services: ServiceItem[];
@@ -10195,7 +10215,10 @@ function BillingView({
           <IconAction label={`Rechnungsvorschau ${invoiceLabel} öffnen`} onClick={() => setPreviewInvoiceId(item.id)}><FileText size={16} /></IconAction>
           <IconAction label={`Rechnung ${invoiceLabel} als PDF herunterladen`} onClick={() => onDownloadInvoice(item)}><FileDown size={16} /></IconAction>
           {invoiceStatus === "entwurf" && (
-            <IconAction label={`Rechnung ${invoiceLabel} buchen`} onClick={() => onMarkInvoiced(item)}><Check size={16} /></IconAction>
+            <>
+              <IconAction label={`Rechnung ${invoiceLabel} buchen`} onClick={() => onMarkInvoiced(item)}><Check size={16} /></IconAction>
+              <IconAction label={`Rechnung ${invoiceLabel} aus Abrechnung entfernen`} onClick={() => onRemoveBillingDraft(item)}><Trash2 size={16} /></IconAction>
+            </>
           )}
           {["gebucht", "gesendet", "überfällig"].includes(invoiceStatus) && item.externalExportStatus !== "gesendet" && (
             <IconAction label={`Rechnung ${invoiceLabel} an Spiris / Visma Buchhaltung übergeben`} onClick={() => onMarkExported(item)}><Send size={16} /></IconAction>

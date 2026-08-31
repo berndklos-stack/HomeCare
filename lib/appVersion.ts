@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.256.0",
+  version: "1.257.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.257.0",
+    date: "2026-08-31",
+    changes: [
+      "Offene Abrechnungsentwuerfe koennen direkt aus der Abrechnung entfernt werden",
+      "Beim Entfernen eines Entwurfs wird der zugehoerige Auftrag auf nicht abrechenbar gesetzt",
+    ],
+  },
   {
     version: "1.256.0",
     date: "2026-08-31",
