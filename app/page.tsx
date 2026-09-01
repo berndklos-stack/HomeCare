@@ -1181,7 +1181,6 @@ function snapshotContentKey(snapshot: AppSnapshot) {
 
 function snapshotPatch(snapshot: AppSnapshot): Partial<AppSnapshot> {
   return {
-    activeJobId: snapshot.activeJobId,
     billing: snapshot.billing,
     companySettings: snapshot.companySettings,
     customers: snapshot.customers,
@@ -1615,11 +1614,9 @@ function mergeSnapshots(remoteSnapshot: AppSnapshot, localSnapshot: AppSnapshot)
   const secondarySnapshot = localIsNewer ? remoteSnapshot : localSnapshot;
   const reports = dedupeReports([...(secondarySnapshot.reports ?? []), ...(primarySnapshot.reports ?? [])]);
   const jobs = mergeJobsById(primarySnapshot.jobs, secondarySnapshot.jobs);
-  const activeJobId = primarySnapshot.activeJobId && jobs.some((job) => job.id === primarySnapshot.activeJobId)
-    ? primarySnapshot.activeJobId
-    : secondarySnapshot.activeJobId && jobs.some((job) => job.id === secondarySnapshot.activeJobId)
-      ? secondarySnapshot.activeJobId
-      : null;
+  const activeJobId = localSnapshot.activeJobId && jobs.some((job) => job.id === localSnapshot.activeJobId && canRestoreActiveFieldJob(job))
+    ? localSnapshot.activeJobId
+    : null;
 
   return recoverReportsFromFieldProgress({
     activeJobId,
@@ -5387,6 +5384,11 @@ function defaultFieldWorkDate(job: JobRecord) {
   return jobCoversExecutionDate(job, today) ? today : jobExecutionDate(job);
 }
 
+function canRestoreActiveFieldJob(job: JobRecord) {
+  const today = new Date().toISOString().slice(0, 10);
+  return job.status === "in Arbeit" && jobExecutionEndDate(job) >= today;
+}
+
 function fieldProgressKey(job: JobRecord, date: string) {
   return jobWorkDates(job).length > 1 ? `${job.id}::${date}` : job.id;
 }
@@ -5663,6 +5665,9 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   function applySnapshot(snapshot: AppSnapshot) {
     const normalizedReports = dedupeReports(snapshot.reports);
     const normalizedJobs = ensureSeriesOccurrences(snapshot.jobs, normalizedReports);
+    const restoredActiveJob = snapshot.activeJobId
+      ? normalizedJobs.find((job) => job.id === snapshot.activeJobId && canRestoreActiveFieldJob(job))
+      : undefined;
     setObjects(snapshot.objects);
     setBilling(snapshot.billing ?? seedBilling);
     setCompanySettings({ ...seedCompanySettings, ...(snapshot.companySettings ?? {}) });
@@ -5679,7 +5684,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     setPortalMessages(snapshot.portalMessages ?? []);
     setFieldNotes(snapshot.fieldNotes ?? {});
     setFieldProgress(snapshot.fieldProgress);
-    setActiveJobId(snapshot.activeJobId && normalizedJobs.some((job) => job.id === snapshot.activeJobId) ? snapshot.activeJobId : null);
+    setActiveJobId(restoredActiveJob?.id ?? null);
     setAppUpdatedAt(snapshot.updatedAt);
   }
 

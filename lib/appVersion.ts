@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.275.0",
+  version: "1.276.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.276.0",
+    date: "2026-09-01",
+    changes: [
+      "Mobil vor Ort uebernimmt den zuletzt aktiven Einsatz nicht mehr als gemeinsamen Serverzustand fuer alle Geraete",
+      "Alte aktive Einsaetze werden beim Laden nur wiederhergestellt, wenn sie wirklich noch in Arbeit sind",
+    ],
+  },
   {
     version: "1.275.0",
     date: "2026-09-01",
