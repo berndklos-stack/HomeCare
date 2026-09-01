@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.276.0",
+  version: "1.277.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.277.0",
+    date: "2026-09-01",
+    changes: [
+      "Mobil vor Ort zeigt neue Einsatzfotos sofort als lokale Vorschau an, waehrend Supabase-Upload und Komprimierung im Hintergrund laufen",
+      "Fotokacheln nutzen auch private Medienpfade als Bildquelle",
+      "Mobil vor Ort trennt Auftraege in Arbeit klar von offenen Auftraegen und abgeschlossenen Berichten",
+    ],
+  },
   {
     version: "1.276.0",
     date: "2026-09-01",

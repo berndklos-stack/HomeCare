@@ -9917,11 +9917,21 @@ function FieldView({
   const [pendingAttachmentNotice, setPendingAttachmentNotice] = useState("");
   const [photoNoteDraft, setPhotoNoteDraft] = useState("");
   const [photoNoteEditor, setPhotoNoteEditor] = useState<{ photoId: string; taskId: string } | null>(null);
+  const [localPhotoPreviewUrls, setLocalPhotoPreviewUrls] = useState<Record<string, string>>({});
   const progressRef = useRef(progress);
+  const localPhotoPreviewUrlsRef = useRef(localPhotoPreviewUrls);
 
   useEffect(() => {
     progressRef.current = progress;
   }, [progress]);
+
+  useEffect(() => {
+    localPhotoPreviewUrlsRef.current = localPhotoPreviewUrls;
+  }, [localPhotoPreviewUrls]);
+
+  useEffect(() => () => {
+    Object.values(localPhotoPreviewUrlsRef.current).forEach((url) => URL.revokeObjectURL(url));
+  }, []);
 
   useEffect(() => {
     const active = activeJobId ? allJobs.find((job) => job.id === activeJobId) : undefined;
@@ -9931,9 +9941,11 @@ function FieldView({
   }, [activeJobId, allJobs]);
 
   const fieldOpenJobs = dashboardWorkJobs(allJobs);
+  const fieldInProgressJobs = fieldOpenJobs.filter((job) => job.status === "in Arbeit");
+  const fieldPlannedJobs = fieldOpenJobs.filter((job) => job.status !== "in Arbeit");
   const completedReports = dedupeReports(reports).filter((report) => {
     const job = allJobs.find((item) => item.id === report.jobId);
-    return job ? ["erledigt", "geplant", "in Arbeit"].includes(job.status) : true;
+    return job ? ["erledigt", "geplant"].includes(job.status) : true;
   });
   const editableCompletedReports = completedReports.filter((report) => !report.sentAt);
   const sentReports = completedReports.filter((report) => report.sentAt);
@@ -9957,8 +9969,8 @@ function FieldView({
         <div className="phone-card">
           <p>Mobil vor Ort</p>
           <div className="field-job-picker">
-            <strong>Offene Aufträge</strong>
-            {fieldOpenJobs.map((job) => {
+            <strong>In Arbeit</strong>
+            {fieldInProgressJobs.map((job) => {
               const jobObject = objects.find((item) => item.id === job.objectId);
               const dateLabel = jobDateRangeLabel(job) === jobOriginalDateRangeLabel(job) ? jobDateRangeLabel(job) : `Einsatz ${jobDateRangeLabel(job)} · Original ${jobOriginalDateRangeLabel(job)}`;
               return (
@@ -9971,7 +9983,24 @@ function FieldView({
                 </button>
               );
             })}
-            {fieldOpenJobs.length === 0 && <span>Keine offenen Aufträge.</span>}
+            {fieldInProgressJobs.length === 0 && <span>Kein Auftrag in Arbeit.</span>}
+          </div>
+          <div className="field-job-picker">
+            <strong>Offene Aufträge</strong>
+            {fieldPlannedJobs.map((job) => {
+              const jobObject = objects.find((item) => item.id === job.objectId);
+              const dateLabel = jobDateRangeLabel(job) === jobOriginalDateRangeLabel(job) ? jobDateRangeLabel(job) : `Einsatz ${jobDateRangeLabel(job)} · Original ${jobOriginalDateRangeLabel(job)}`;
+              return (
+                <button key={job.id} onClick={() => onSelectJob(job)} type="button">
+                  <span>
+                    <strong>{job.title}</strong>
+                    <small>{jobObject?.name ?? "Objekt unbekannt"} · {dateLabel} · {recurringJobHint(job, allJobs) || job.assignedTo}</small>
+                  </span>
+                  <Badge value={job.status} />
+                </button>
+              );
+            })}
+            {fieldPlannedJobs.length === 0 && <span>Keine offenen Aufträge.</span>}
           </div>
           <div className="field-job-picker">
             <button className="field-picker-toggle" onClick={() => setShowCompletedReports((current) => !current)} type="button">
@@ -10135,22 +10164,32 @@ function FieldView({
     const selectedFiles = Array.from(files ?? []);
     if (!selectedFiles.length) return;
 
-    const nextPhotos: FieldPhoto[] = [];
-    for (const file of selectedFiles) {
-      try {
-        const previewUrl = await fileToFieldPhotoPreview(file);
-        nextPhotos.push(createFieldPhoto(file, previewUrl));
-      } catch (error) {
-        console.warn("Einsatzfoto konnte nicht gespeichert werden.", error);
-        nextPhotos.push(createFieldPhoto(file));
+    const nextPhotos = selectedFiles.map((file) => createFieldPhoto(file));
+    const objectUrls: Record<string, string> = {};
+    selectedFiles.forEach((file, index) => {
+      const photoId = nextPhotos[index]?.id;
+      if (photoId && typeof URL !== "undefined") {
+        objectUrls[photoId] = URL.createObjectURL(file);
       }
-    }
+    });
 
     updateTaskPhotos(taskId, currentTask, (photos) => [...photos, ...nextPhotos]);
+    if (Object.keys(objectUrls).length > 0) {
+      setLocalPhotoPreviewUrls((current) => ({ ...current, ...objectUrls }));
+    }
     if (nextPhotos[0]) openPhotoNoteEditor(taskId, nextPhotos[0]);
     nextPhotos.forEach((photo, index) => {
       const file = selectedFiles[index];
       if (photo.id && file) {
+        void fileToFieldPhotoPreview(file)
+          .then((previewUrl) => {
+            updateTaskPhotos(taskId, progressRef.current[taskId] ?? { completed: false, minutes: "", note: "", photos: [] }, (photos) => (
+              photos.map((item) => (item.id === photo.id ? { ...item, previewUrl } : item))
+            ));
+          })
+          .catch((error) => {
+            console.warn("Einsatzfoto-Vorschau konnte nicht erstellt werden.", error);
+          });
         void uploadFieldPhotoInBackground(taskId, photo.id, file);
       }
     });
@@ -10209,8 +10248,8 @@ function FieldView({
       <div className="phone-card">
         <p>Mobil vor Ort</p>
         <div className="field-job-picker">
-          <strong>Offene Aufträge</strong>
-          {fieldOpenJobs.map((job) => {
+          <strong>In Arbeit</strong>
+          {fieldInProgressJobs.map((job) => {
             const jobObject = objects.find((item) => item.id === job.objectId);
             const dateLabel = jobDateRangeLabel(job) === jobOriginalDateRangeLabel(job) ? jobDateRangeLabel(job) : `Einsatz ${jobDateRangeLabel(job)} · Original ${jobOriginalDateRangeLabel(job)}`;
             return (
@@ -10228,7 +10267,29 @@ function FieldView({
               </button>
             );
           })}
-          {fieldOpenJobs.length === 0 && <span>Keine offenen Aufträge.</span>}
+          {fieldInProgressJobs.length === 0 && <span>Kein Auftrag in Arbeit.</span>}
+        </div>
+        <div className="field-job-picker">
+          <strong>Offene Aufträge</strong>
+          {fieldPlannedJobs.map((job) => {
+            const jobObject = objects.find((item) => item.id === job.objectId);
+            const dateLabel = jobDateRangeLabel(job) === jobOriginalDateRangeLabel(job) ? jobDateRangeLabel(job) : `Einsatz ${jobDateRangeLabel(job)} · Original ${jobOriginalDateRangeLabel(job)}`;
+            return (
+              <button
+                className={job.id === activeJob.id ? "active" : ""}
+                key={job.id}
+                onClick={() => onSelectJob(job)}
+                type="button"
+              >
+                <span>
+                  <strong>{job.title}</strong>
+                  <small>{jobObject?.name ?? "Objekt unbekannt"} · {dateLabel} · {recurringJobHint(job, allJobs) || job.assignedTo}</small>
+                </span>
+                <Badge value={job.status} />
+              </button>
+            );
+          })}
+          {fieldPlannedJobs.length === 0 && <span>Keine offenen Aufträge.</span>}
         </div>
         <div className="field-job-picker">
           <button className="field-picker-toggle" onClick={() => setShowCompletedReports((current) => !current)} type="button">
@@ -10415,8 +10476,8 @@ function FieldView({
               </div>
               {currentTask.photos.map((photo, photoIndex) => (
                 <div className="captured-photo-card" key={`${task.id}-${photo.id ?? photo.name}-${photoIndex}`}>
-                  {photo.previewUrl ? (
-                    <img alt={`Vorschau ${photo.name}`} src={photo.previewUrl} />
+                  {(photo.id ? localPhotoPreviewUrls[photo.id] : "") || fieldPhotoSource(photo) ? (
+                    <img alt={`Vorschau ${photo.name}`} src={(photo.id ? localPhotoPreviewUrls[photo.id] : "") || fieldPhotoSource(photo)} />
                   ) : (
                     <div className="captured-photo-placeholder">
                       <Camera size={18} />
