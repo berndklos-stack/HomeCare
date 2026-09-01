@@ -1662,6 +1662,16 @@ function reportAttachmentsLabel(report: ReportRecord) {
   return `${count} ${count === 1 ? "Dateianhang" : "Dateianhänge"}`;
 }
 
+function reportPhotos(report: ReportRecord) {
+  return report.checklistResults.flatMap((item) => (
+    item.photos.map((photo) => ({ ...photo, taskTitle: item.title }))
+  ));
+}
+
+function reportPhotoCount(report: ReportRecord) {
+  return reportPhotos(report).length;
+}
+
 async function fileToReportAttachment(file: File): Promise<ReportAttachment> {
   if (file.size > 15_000_000) {
     throw new Error(`"${file.name}" ist größer als 15 MB.`);
@@ -8627,7 +8637,7 @@ function ReportsView({
                 <FileText size={16} />
                 <span>
                   <strong>{report.title}</strong>
-                  <small>{object?.name ?? "Objekt unbekannt"} · {report.date} · {job?.assignedTo ?? "ohne Bearbeiter"}</small>
+                  <small>{object?.name ?? "Objekt unbekannt"} · {report.date} · {job?.assignedTo ?? "ohne Bearbeiter"} · {reportPhotoCount(report)} Fotos</small>
                 </span>
                 <Badge value={job?.status ?? "Bericht"} />
               </button>
@@ -8763,6 +8773,7 @@ function CustomerReportCard({
   const reportKind = report.id.startsWith("WEEK-") ? "Wochenbericht" : "Einsatzbericht";
   const visibleWorkMinutes = visibleReportWorkMinutes(report.checklistResults);
   const attachmentLabel = reportAttachmentsLabel(report);
+  const photos = reportPhotos(report);
   const visibleMedia = [
     ...report.media.filter((item) => visibleWorkMinutes > 0 || !/minuten/i.test(item)),
     ...(attachmentLabel ? [attachmentLabel] : []),
@@ -8839,6 +8850,26 @@ function CustomerReportCard({
           </dl>
         </section>
       </div>
+      {photos.length > 0 && (
+        <div className="report-photo-summary">
+          <strong>Bilder</strong>
+          <div>
+            {photos.map((photo, photoIndex) => (
+              <figure key={`${photo.id ?? photo.name}-${photoIndex}-summary`}>
+                {photo.previewUrl ? (
+                  <img alt={`Berichtsfoto ${photo.name}`} src={photo.previewUrl} />
+                ) : (
+                  <div className="report-gallery-placeholder">
+                    <Camera size={18} />
+                    <span>Foto erfasst</span>
+                  </div>
+                )}
+                <figcaption>{photo.taskTitle}</figcaption>
+              </figure>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="report-summary-grid">
         <section>
           <strong>Zusammenfassung</strong>
@@ -8866,7 +8897,7 @@ function CustomerReportCard({
                 <dl>
                   {item.showWorkTimeInReport !== false && <div><dt>Zeit</dt><dd>{item.minutes} min.</dd></div>}
                   <div><dt>Hinweis / Info</dt><dd>{item.note || "Keine zusätzliche Info erfasst."}</dd></div>
-                  <div><dt>Bilder</dt><dd>{item.photos.length > 0 ? item.photos.map((photo) => photo.name).join(", ") : "Keine Bilder erfasst."}</dd></div>
+                  <div><dt>Bilder</dt><dd>{item.photos.length > 0 ? `${item.photos.length} ${item.photos.length === 1 ? "Foto" : "Fotos"} erfasst` : "Keine Bilder erfasst."}</dd></div>
                 </dl>
                 {item.photos.length > 0 && (
                   <div className="report-point-photos">

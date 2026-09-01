@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.270.0",
+  version: "1.271.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.271.0",
+    date: "2026-09-01",
+    changes: [
+      "Berichte zeigen die Fotoanzahl direkt in der Berichtsliste",
+      "Berichtsvorschau zeigt alle Berichtsfotos zusaetzlich oben als eigene Bilduebersicht",
+      "Checklistenpunkte zeigen Fotoanzahlen statt mehrfacher Standard-Dateinamen wie image.jpg",
+    ],
+  },
   {
     version: "1.270.0",
     date: "2026-08-31",

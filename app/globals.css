@@ -3699,6 +3699,43 @@ mark.neutral {
   padding: 4px 5px;
 }
 
+.report-photo-summary {
+  display: grid;
+  gap: 8px;
+}
+
+.report-photo-summary > strong {
+  font-size: 16px;
+}
+
+.report-photo-summary > div {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+}
+
+.report-photo-summary figure {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin: 0;
+  overflow: hidden;
+}
+
+.report-photo-summary img {
+  aspect-ratio: 4 / 3;
+  background: var(--paper-soft);
+  display: block;
+  object-fit: contain;
+  width: 100%;
+}
+
+.report-photo-summary figcaption {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  padding: 4px 5px;
+}
+
 .history-media {
   display: flex;
   flex-wrap: wrap;
