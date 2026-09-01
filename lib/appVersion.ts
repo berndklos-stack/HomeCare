@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.273.0",
+  version: "1.274.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.274.0",
+    date: "2026-09-01",
+    changes: [
+      "Foto-Zusammenfuehrung bevorzugt vollstaendige Bildquellen gegenueber lokalen Platzhaltern",
+      "Bericht-Textbackups sichern Bildquellen mit und erzeugen keine leeren Fotoplatzhalter mehr",
+    ],
+  },
   {
     version: "1.273.0",
     date: "2026-09-01",

@@ -1559,13 +1559,7 @@ function mergeFieldProgress(
         ? primaryTime >= secondaryTime ? primaryTask : secondaryTask
         : primaryTask;
       const fallbackTask = newestTask === primaryTask ? secondaryTask : primaryTask;
-      const photoKeys = new Set<string>();
-      const photos = [...(fallbackTask.photos ?? []), ...(newestTask.photos ?? [])].filter((photo) => {
-        const key = photo.id ? `id:${photo.id}` : `${photo.name}|${photo.previewUrl ?? ""}`;
-        if (photoKeys.has(key)) return false;
-        photoKeys.add(key);
-        return true;
-      });
+      const photos = mergeFieldPhotos(newestTask.photos ?? [], fallbackTask.photos ?? []);
 
       return [taskId, {
         ...fallbackTask,
@@ -1894,7 +1888,15 @@ function reportTextBackup(report: ReportRecord): ReportTextBackup {
       meta: item.meta,
       minutes: item.minutes,
       note: item.note,
-      photos: [],
+      photos: item.photos?.map((photo) => ({
+        accepted: photo.accepted,
+        createdAt: photo.createdAt,
+        id: photo.id,
+        name: photo.name,
+        note: photo.note,
+        previewUrl: photo.previewUrl,
+        storagePath: photo.storagePath,
+      })) ?? [],
       showWorkTimeInReport: item.showWorkTimeInReport,
       title: item.title,
       updatedAt: item.updatedAt,
@@ -1923,7 +1925,7 @@ function applyReportTextBackups(reports: ReportRecord[], backups: ReportTextBack
         meta: item.meta ?? "",
         minutes: item.minutes ?? 0,
         note: item.note ?? "",
-        photos: item.photos ?? [],
+        photos: (item.photos ?? []).filter((photo) => photo.previewUrl || photo.storagePath || photo.id),
         showWorkTimeInReport: item.showWorkTimeInReport ?? true,
         title: item.title ?? "",
         updatedAt: item.updatedAt,
@@ -4813,6 +4815,57 @@ function chooseReportText(primaryText: string, fallbackText: string, primaryTime
   return primaryText.length >= fallbackText.length ? primaryText : fallbackText;
 }
 
+function fieldPhotoHasSource(photo: FieldPhoto) {
+  return Boolean(photo.previewUrl || photo.storagePath);
+}
+
+function fieldPhotoScore(photo: FieldPhoto) {
+  return [
+    fieldPhotoHasSource(photo) ? 20 : 0,
+    photo.previewUrl?.startsWith("data:") ? 8 : 0,
+    photo.storagePath ? 6 : 0,
+    photo.note?.trim() ? 3 : 0,
+    photo.createdAt ? 1 : 0,
+  ].reduce((sum, value) => sum + value, 0);
+}
+
+function mergeFieldPhotos(primaryPhotos: FieldPhoto[] = [], secondaryPhotos: FieldPhoto[] = []) {
+  const merged: FieldPhoto[] = [];
+  [...secondaryPhotos, ...primaryPhotos]
+    .sort((first, second) => fieldPhotoScore(second) - fieldPhotoScore(first))
+    .forEach((photo) => {
+      const idIndex = photo.id ? merged.findIndex((item) => item.id === photo.id) : -1;
+      if (idIndex >= 0) {
+        merged[idIndex] = {
+          ...photo,
+          ...merged[idIndex],
+          previewUrl: merged[idIndex].previewUrl || photo.previewUrl,
+          storagePath: merged[idIndex].storagePath || photo.storagePath,
+          note: merged[idIndex].note || photo.note,
+          createdAt: merged[idIndex].createdAt || photo.createdAt,
+        };
+        return;
+      }
+
+      const sourceLessDuplicateIndex = !fieldPhotoHasSource(photo)
+        ? -1
+        : merged.findIndex((item) => !fieldPhotoHasSource(item) && item.name === photo.name && item.createdAt === photo.createdAt);
+      if (sourceLessDuplicateIndex >= 0) {
+        merged[sourceLessDuplicateIndex] = { ...merged[sourceLessDuplicateIndex], ...photo };
+        return;
+      }
+
+      const sourcedDuplicateIndex = !fieldPhotoHasSource(photo)
+        ? merged.findIndex((item) => fieldPhotoHasSource(item) && item.name === photo.name && item.createdAt === photo.createdAt)
+        : -1;
+      if (sourcedDuplicateIndex >= 0) return;
+
+      merged.push(photo);
+    });
+
+  return merged.sort((first, second) => (first.createdAt ?? "").localeCompare(second.createdAt ?? ""));
+}
+
 function chooseReportChecklistItem(existing: FieldTaskResult | undefined, item: FieldTaskResult, reportIsPrimary: boolean) {
   if (!existing) return item;
   const existingTime = Date.parse(existing.updatedAt ?? "");
@@ -4821,13 +4874,7 @@ function chooseReportChecklistItem(existing: FieldTaskResult | undefined, item: 
     ? !Number.isFinite(existingTime) || (Number.isFinite(itemTime) && itemTime >= existingTime) ? item : existing
     : reportIsPrimary ? item : existing;
   const fallbackItem = newerItem === item ? existing : item;
-  const photoKeys = new Set<string>();
-  const photos = [...(fallbackItem.photos ?? []), ...(newerItem.photos ?? [])].filter((photo) => {
-    const key = photo.id ? `id:${photo.id}` : `${photo.name}|${photo.previewUrl ?? ""}`;
-    if (photoKeys.has(key)) return false;
-    photoKeys.add(key);
-    return true;
-  });
+  const photos = mergeFieldPhotos(newerItem.photos ?? [], fallbackItem.photos ?? []);
 
   return {
     ...fallbackItem,
