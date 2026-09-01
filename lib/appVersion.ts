@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.271.0",
+  version: "1.272.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.272.0",
+    date: "2026-09-01",
+    changes: [
+      "Einsatzfotos erscheinen nach der Aufnahme sofort lokal in der mobilen Vorschau",
+      "Foto-Upload laeuft im Hintergrund weiter, ohne die Notiz-Eingabe zu blockieren",
+    ],
+  },
   {
     version: "1.271.0",
     date: "2026-09-01",

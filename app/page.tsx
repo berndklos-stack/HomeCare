@@ -3809,13 +3809,11 @@ async function fileToFieldPhotoPreview(file: File) {
   for (const attempt of attempts) {
     previewUrl = await fileToImagePreview(file, attempt.maxSize, attempt.quality);
     if (previewByteSize(previewUrl) <= 260_000) {
-      const uploaded = await uploadMediaFile(await dataUrlToBlob(previewUrl), "field-photos", file.name);
-      return uploaded?.url ?? previewUrl;
+      return previewUrl;
     }
   }
 
-  const uploaded = previewUrl ? await uploadMediaFile(await dataUrlToBlob(previewUrl), "field-photos", file.name) : null;
-  return uploaded?.url ?? previewUrl;
+  return previewUrl;
 }
 
 function readAscii(view: DataView, offset: number, length: number) {
@@ -9996,6 +9994,22 @@ function FieldView({
     };
   }
 
+  async function uploadFieldPhotoInBackground(taskId: string, photoId: string, previewUrl: string, fileName: string) {
+    try {
+      const uploaded = await uploadMediaFile(await dataUrlToBlob(previewUrl), "field-photos", fileName);
+      if (!uploaded) return;
+      updateTaskPhotos(taskId, progressRef.current[taskId] ?? { completed: false, minutes: "", note: "", photos: [] }, (photos) => (
+        photos.map((photo) => (
+          photo.id === photoId
+            ? { ...photo, previewUrl: uploaded.url, storagePath: uploaded.path }
+            : photo
+        ))
+      ));
+    } catch (error) {
+      console.warn("Einsatzfoto konnte nicht im Hintergrund hochgeladen werden.", error);
+    }
+  }
+
   function openPhotoNoteEditor(taskId: string, photo: FieldPhoto) {
     if (!photo.id) return;
     setPhotoNoteDraft(photo.note ?? "");
@@ -10032,6 +10046,11 @@ function FieldView({
 
     updateTaskPhotos(taskId, currentTask, (photos) => [...photos, ...nextPhotos]);
     if (nextPhotos[0]) openPhotoNoteEditor(taskId, nextPhotos[0]);
+    nextPhotos.forEach((photo) => {
+      if (photo.id && photo.previewUrl?.startsWith("data:")) {
+        void uploadFieldPhotoInBackground(taskId, photo.id, photo.previewUrl, photo.name);
+      }
+    });
   }
 
   function updateFieldNote(note: string) {
