@@ -1248,6 +1248,31 @@ function reportResultsFromProgress(job: JobRecord, services: ServiceItem[], prog
 
 function recoverReportsFromFieldProgress(snapshot: AppSnapshot): AppSnapshot {
   const existingReportKeys = new Set(snapshot.reports.map((report) => `${report.jobId}|${normalizeReportDate(report.date)}`));
+  const repairedReports = snapshot.reports.map((report) => {
+    const job = snapshot.jobs.find((item) => item.id === report.jobId);
+    if (!job) return report;
+    const progress = snapshot.fieldProgress[fieldProgressKey(job, normalizeReportDate(report.date))];
+    if (!progress) return report;
+
+    let changed = false;
+    const checklistResults = report.checklistResults.map((item) => {
+      const taskProgress = progress[item.id];
+      if (!taskProgress?.photos?.length) return item;
+      const photos = mergeFieldPhotos(item.photos ?? [], taskProgress.photos);
+      if (JSON.stringify(photos) === JSON.stringify(item.photos ?? [])) return item;
+      changed = true;
+      return { ...item, photos, updatedAt: item.updatedAt ?? taskProgress.updatedAt };
+    });
+
+    if (!changed) return report;
+    const photoCount = checklistResults.reduce((sum, item) => sum + item.photos.length, 0);
+    const visibleMinutes = visibleReportWorkMinutes(checklistResults);
+    return {
+      ...report,
+      checklistResults,
+      media: Array.from(new Set([...(report.media ?? []), ...reportMediaLabels(photoCount, visibleMinutes)])),
+    };
+  });
   const recoveredReports = snapshot.jobs.flatMap((job) => {
     const workDates = jobWorkDates(job);
     const progressEntries = workDates
@@ -1281,11 +1306,9 @@ function recoverReportsFromFieldProgress(snapshot: AppSnapshot): AppSnapshot {
     });
   });
 
-  if (recoveredReports.length === 0) return snapshot;
-
   return {
     ...snapshot,
-    reports: dedupeReports([...recoveredReports, ...snapshot.reports]),
+    reports: dedupeReports([...recoveredReports, ...repairedReports]),
   };
 }
 
@@ -1590,7 +1613,7 @@ function mergeSnapshots(remoteSnapshot: AppSnapshot, localSnapshot: AppSnapshot)
     : snapshotWeight(localSnapshot) >= snapshotWeight(remoteSnapshot);
   const primarySnapshot = localIsNewer ? localSnapshot : remoteSnapshot;
   const secondarySnapshot = localIsNewer ? remoteSnapshot : localSnapshot;
-  const reports = dedupeReports(mergeRecordsById(primarySnapshot.reports, secondarySnapshot.reports));
+  const reports = dedupeReports([...(secondarySnapshot.reports ?? []), ...(primarySnapshot.reports ?? [])]);
   const jobs = mergeJobsById(primarySnapshot.jobs, secondarySnapshot.jobs);
   const activeJobId = primarySnapshot.activeJobId && jobs.some((job) => job.id === primarySnapshot.activeJobId)
     ? primarySnapshot.activeJobId
@@ -10068,9 +10091,9 @@ function FieldView({
     };
   }
 
-  async function uploadFieldPhotoInBackground(taskId: string, photoId: string, previewUrl: string, fileName: string) {
+  async function uploadFieldPhotoInBackground(taskId: string, photoId: string, file: File) {
     try {
-      const uploaded = await uploadMediaFile(await dataUrlToBlob(previewUrl), "field-photos", fileName);
+      const uploaded = await uploadMediaFile(file, "field-photos", file.name);
       if (!uploaded) return;
       updateTaskPhotos(taskId, progressRef.current[taskId] ?? { completed: false, minutes: "", note: "", photos: [] }, (photos) => (
         photos.map((photo) => (
@@ -10120,9 +10143,10 @@ function FieldView({
 
     updateTaskPhotos(taskId, currentTask, (photos) => [...photos, ...nextPhotos]);
     if (nextPhotos[0]) openPhotoNoteEditor(taskId, nextPhotos[0]);
-    nextPhotos.forEach((photo) => {
-      if (photo.id && photo.previewUrl?.startsWith("data:")) {
-        void uploadFieldPhotoInBackground(taskId, photo.id, photo.previewUrl, photo.name);
+    nextPhotos.forEach((photo, index) => {
+      const file = selectedFiles[index];
+      if (photo.id && file) {
+        void uploadFieldPhotoInBackground(taskId, photo.id, file);
       }
     });
   }

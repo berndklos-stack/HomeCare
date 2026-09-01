@@ -1,10 +1,20 @@
 export const appVersion = {
-  version: "1.274.0",
+  version: "1.275.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.275.0",
+    date: "2026-09-01",
+    changes: [
+      "Berichte ergaenzen fehlende Bildquellen beim Laden aus den gespeicherten Mobil-vor-Ort-Fotos",
+      "Berichte werden beim lokalen/online Zusammenfuehren fachlich statt nur nach ID zusammengefuehrt",
+      "Server-Speicherung bevorzugt bei gleicher Foto-ID Eintraege mit echter Bildquelle",
+      "Neue Einsatzfotos werden direkt als Originaldatei in Supabase gespeichert; Base64 bleibt nur Sofort-Vorschau",
+    ],
+  },
   {
     version: "1.274.0",
     date: "2026-09-01",

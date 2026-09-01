@@ -445,18 +445,41 @@ function mergeObjectsByKey(existingValue: unknown, patchValue: unknown) {
 }
 
 function mergeFieldPhotos(existingPhotos: unknown, patchPhotos: unknown) {
-  const photoKeys = new Set<string>();
-  return [
+  const photosByKey = new Map<string, JsonObject>();
+  const photoScore = (photo: JsonObject) => [
+    photo.previewUrl || photo.storagePath ? 20 : 0,
+    String(photo.previewUrl ?? "").startsWith("data:") ? 8 : 0,
+    photo.storagePath ? 6 : 0,
+    String(photo.note ?? "").trim() ? 3 : 0,
+    photo.createdAt ? 1 : 0,
+  ].reduce((sum, value) => sum + value, 0);
+
+  [
     ...(Array.isArray(existingPhotos) ? existingPhotos : []),
     ...(Array.isArray(patchPhotos) ? patchPhotos : []),
-  ].filter((photo) => {
+  ].forEach((photo) => {
     if (!photo || typeof photo !== "object") return false;
     const item = photo as JsonObject;
     const key = item.id ? `id:${String(item.id)}` : `${String(item.name ?? "")}|${String(item.previewUrl ?? "")}`;
-    if (photoKeys.has(key)) return false;
-    photoKeys.add(key);
+    const existing = photosByKey.get(key);
+    if (!existing) {
+      photosByKey.set(key, item);
+      return true;
+    }
+    const betterSource = photoScore(item) > photoScore(existing) ? item : existing;
+    const fallback = betterSource === item ? existing : item;
+    photosByKey.set(key, {
+      ...fallback,
+      ...betterSource,
+      previewUrl: String(betterSource.previewUrl ?? "") || fallback.previewUrl,
+      storagePath: String(betterSource.storagePath ?? "") || fallback.storagePath,
+      note: String(betterSource.note ?? "") || fallback.note,
+      createdAt: betterSource.createdAt ?? fallback.createdAt,
+    });
     return true;
   });
+
+  return Array.from(photosByKey.values()).sort((first, second) => String(first.createdAt ?? "").localeCompare(String(second.createdAt ?? "")));
 }
 
 function mergeFieldTaskProgress(existingTask: unknown, patchTask: unknown) {
