@@ -87,3 +87,27 @@ export async function POST(request: Request) {
     url: data.publicUrl,
   });
 }
+
+export async function GET(request: Request) {
+  const supabase = getSupabaseServerClient();
+  if (!supabase) {
+    return NextResponse.json({ error: "Supabase-Zugangsdaten fehlen." }, { status: 500 });
+  }
+
+  const path = new URL(request.url).searchParams.get("path") ?? "";
+  if (!path || path.includes("..")) {
+    return NextResponse.json({ error: "Mediendatei fehlt oder ist ungültig." }, { status: 400 });
+  }
+
+  const { data, error } = await supabase.storage.from(mediaBucket).download(path);
+  if (error || !data) {
+    return NextResponse.json({ error: error?.message || "Mediendatei wurde nicht gefunden." }, { status: 404 });
+  }
+
+  return new NextResponse(data, {
+    headers: {
+      "Cache-Control": "public, max-age=31536000, immutable",
+      "Content-Type": data.type || "application/octet-stream",
+    },
+  });
+}

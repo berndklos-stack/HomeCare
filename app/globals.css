@@ -3891,6 +3891,10 @@ mark.neutral {
   justify-items: center;
 }
 
+.report-gallery-placeholder.error-placeholder {
+  color: var(--muted);
+}
+
 .report-gallery figcaption,
 .report-documents span {
   color: var(--muted);

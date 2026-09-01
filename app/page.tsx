@@ -1672,6 +1672,16 @@ function reportPhotoCount(report: ReportRecord) {
   return reportPhotos(report).length;
 }
 
+function mediaSourceFromStoragePath(storagePath?: string) {
+  if (!storagePath) return "";
+  if (/^(data:|https?:|\/)/i.test(storagePath)) return storagePath;
+  return `/api/media?path=${encodeURIComponent(storagePath)}`;
+}
+
+function fieldPhotoSource(photo: FieldPhoto) {
+  return photo.previewUrl || mediaSourceFromStoragePath(photo.storagePath);
+}
+
 async function fileToReportAttachment(file: File): Promise<ReportAttachment> {
   if (file.size > 15_000_000) {
     throw new Error(`"${file.name}" ist größer als 15 MB.`);
@@ -3126,7 +3136,7 @@ async function createReportPdfBlob(report: ReportRecord, object: ObjectRecord, j
   for (const [index, item] of report.checklistResults.entries()) {
     const noteLines = pdf.splitTextToSize(item.note || "Keine zusätzliche Info erfasst.", contentWidth - 8) as string[];
     const descriptionLines = item.description ? pdf.splitTextToSize(item.description, contentWidth - 8) as string[] : [];
-    const imagePhotos = item.photos.filter((photo) => photo.previewUrl);
+    const imagePhotos = item.photos.filter((photo) => fieldPhotoSource(photo));
     const photoRows = Math.ceil(imagePhotos.length / 3);
     const taskHeight = 31 + descriptionLines.length * 3.6 + noteLines.length * 3.8 + photoRows * 35;
     ensureSpace(taskHeight + 4);
@@ -3172,7 +3182,7 @@ async function createReportPdfBlob(report: ReportRecord, object: ObjectRecord, j
       for (let photoIndex = 0; photoIndex < imagePhotos.length; photoIndex += 3) {
         const rowPhotos = imagePhotos.slice(photoIndex, photoIndex + 3);
         for (const [rowIndex, photo] of rowPhotos.entries()) {
-          const previewUrl = photo.previewUrl;
+          const previewUrl = fieldPhotoSource(photo);
           if (!previewUrl) continue;
           const photoX = margin + 4 + rowIndex * (photoBoxWidth + photoGap);
           try {
@@ -8754,6 +8764,33 @@ function ReportAttachmentEditor({
   );
 }
 
+function ReportPhotoFigure({
+  alt,
+  caption,
+  photo,
+}: {
+  alt: string;
+  caption: string;
+  photo: FieldPhoto;
+}) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const source = fieldPhotoSource(photo);
+
+  return (
+    <figure>
+      {source && !imageFailed ? (
+        <img alt={alt} src={source} onError={() => setImageFailed(true)} />
+      ) : (
+        <div className="report-gallery-placeholder error-placeholder">
+          <Camera size={18} />
+          <span>{source ? "Bild nicht lesbar" : "Bildquelle fehlt"}</span>
+        </div>
+      )}
+      <figcaption>{caption}</figcaption>
+    </figure>
+  );
+}
+
 function CustomerReportCard({
   customer,
   job,
@@ -8853,17 +8890,12 @@ function CustomerReportCard({
           <strong>Bilder</strong>
           <div>
             {photos.map((photo, photoIndex) => (
-              <figure key={`${photo.id ?? photo.name}-${photoIndex}-summary`}>
-                {photo.previewUrl ? (
-                  <img alt={`Berichtsfoto ${photo.name}`} src={photo.previewUrl} />
-                ) : (
-                  <div className="report-gallery-placeholder">
-                    <Camera size={18} />
-                    <span>Foto erfasst</span>
-                  </div>
-                )}
-                <figcaption>{photo.taskTitle}</figcaption>
-              </figure>
+              <ReportPhotoFigure
+                alt={`Berichtsfoto ${photo.name}`}
+                caption={photo.taskTitle}
+                key={`${photo.id ?? photo.name}-${photoIndex}-summary`}
+                photo={photo}
+              />
             ))}
           </div>
         </div>
@@ -8900,17 +8932,12 @@ function CustomerReportCard({
                 {item.photos.length > 0 && (
                   <div className="report-point-photos">
                     {item.photos.map((photo) => (
-                      <figure key={`${item.id}-${photo.id ?? photo.name}-inline`}>
-                        {photo.previewUrl ? (
-                          <img alt={`Kontrollfoto ${photo.name}`} src={photo.previewUrl} />
-                        ) : (
-                          <div className="report-gallery-placeholder">
-                            <Camera size={18} />
-                            <span>Foto erfasst</span>
-                          </div>
-                        )}
-                        <figcaption>{photo.note?.trim() ? `${photo.name}: ${photo.note.trim()}` : photo.name}</figcaption>
-                      </figure>
+                      <ReportPhotoFigure
+                        alt={`Kontrollfoto ${photo.name}`}
+                        caption={photo.note?.trim() ? `${photo.name}: ${photo.note.trim()}` : photo.name}
+                        key={`${item.id}-${photo.id ?? photo.name}-inline`}
+                        photo={photo}
+                      />
                     ))}
                   </div>
                 )}

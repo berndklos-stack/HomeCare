@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.272.0",
+  version: "1.273.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.273.0",
+    date: "2026-09-01",
+    changes: [
+      "Berichtsfotos nutzen zusaetzlich gespeicherte Medienpfade, wenn keine direkte Vorschau-URL vorhanden ist",
+      "Fehlende oder defekte Bildquellen werden in der Berichtsvorschau klar gekennzeichnet",
+      "Medien-Endpunkt kann gespeicherte Dateien per Pfad ausliefern",
+    ],
+  },
   {
     version: "1.272.0",
     date: "2026-09-01",
