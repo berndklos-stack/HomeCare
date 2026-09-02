@@ -2350,14 +2350,17 @@ mark.neutral {
 }
 
 .logbook-summary span {
+  align-content: center;
   background: var(--paper-soft);
   border: 1px solid var(--line);
   border-radius: 8px;
   color: var(--muted);
   display: grid;
   gap: 3px;
+  justify-items: center;
   min-height: 62px;
   padding: 10px;
+  text-align: center;
 }
 
 .logbook-summary strong {
@@ -2475,8 +2478,12 @@ mark.neutral {
 
 .logbook-table .number-cell {
   font-weight: 800;
-  text-align: right;
+  text-align: center;
   white-space: nowrap;
+}
+
+.logbook-table th:nth-child(6) {
+  text-align: center;
 }
 
 .logbook-table .row-actions {

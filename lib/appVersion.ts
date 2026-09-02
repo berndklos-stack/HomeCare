@@ -1,10 +1,17 @@
 export const appVersion = {
-  version: "1.290.0",
+  version: "1.291.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.291.0",
+    date: "2026-09-02",
+    changes: [
+      "Kennzahlenboxen im Fahrtenbuch werden pro Box zentriert dargestellt",
+    ],
+  },
   {
     version: "1.290.0",
     date: "2026-09-02",
