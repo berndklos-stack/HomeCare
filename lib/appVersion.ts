@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.278.0",
+  version: "1.279.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.279.0",
+    date: "2026-09-02",
+    changes: [
+      "Mobil-vor-Ort-Popup passt auf iPhone-Breite und nutzt kompaktere Innenabstaende",
+      "Fotozeilen im mobilen Einsatzdialog brechen sauber um, damit keine Breite erzwungen wird",
+    ],
+  },
   {
     version: "1.278.0",
     date: "2026-09-02",
