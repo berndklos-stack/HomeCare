@@ -538,6 +538,13 @@ function mergeSnapshotPatch(existingSnapshot: unknown, patch: unknown) {
   const merged: JsonObject = { ...existing };
 
   Object.entries(patchObject).forEach(([key, value]) => {
+    if (key === "deletedReportIds") {
+      merged[key] = Array.from(new Set([
+        ...(Array.isArray(existing[key]) ? existing[key].map(String) : []),
+        ...(Array.isArray(value) ? value.map(String) : []),
+      ]));
+      return;
+    }
     if (Array.isArray(value)) {
       if (key === "reports") {
         merged[key] = mergeReports(existing[key], value);
@@ -556,6 +563,14 @@ function mergeSnapshotPatch(existingSnapshot: unknown, patch: unknown) {
     }
     merged[key] = value;
   });
+
+  const deletedReportIds = new Set(Array.isArray(merged.deletedReportIds) ? merged.deletedReportIds.map(String) : []);
+  if (deletedReportIds.size > 0 && Array.isArray(merged.reports)) {
+    merged.reports = (merged.reports as unknown[]).filter((report) => {
+      if (!report || typeof report !== "object") return true;
+      return !deletedReportIds.has(String((report as JsonObject).id ?? ""));
+    });
+  }
 
   const activeJobId = typeof merged.activeJobId === "string" ? merged.activeJobId : "";
   if (activeJobId && Array.isArray(merged.jobs)) {

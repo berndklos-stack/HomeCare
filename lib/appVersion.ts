@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.285.0",
+  version: "1.286.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.286.0",
+    date: "2026-09-02",
+    changes: [
+      "Wieder geoeffnete Mobil-vor-Ort-Berichte erhalten eine dauerhafte Loeschmarke und kommen beim naechsten Sync nicht zurueck",
+      "Laufender Field-Progress erzeugt keinen abgeschlossenen Bericht mehr, solange der Auftrag In Arbeit ist",
+      "Supabase filtert geloeschte Berichtsversionen beim App-State-Merge serverseitig aus",
+    ],
+  },
   {
     version: "1.285.0",
     date: "2026-09-02",
