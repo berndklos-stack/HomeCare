@@ -538,6 +538,23 @@ function mergeSnapshotPatch(existingSnapshot: unknown, patch: unknown) {
   const merged: JsonObject = { ...existing };
 
   Object.entries(patchObject).forEach(([key, value]) => {
+    if (key === "deletedEntityIds") {
+      const existingDeleted = existing[key] && typeof existing[key] === "object" && !Array.isArray(existing[key])
+        ? existing[key] as JsonObject
+        : {};
+      const patchDeleted = value && typeof value === "object" && !Array.isArray(value)
+        ? value as JsonObject
+        : {};
+      const keys = new Set([...Object.keys(existingDeleted), ...Object.keys(patchDeleted)]);
+      merged[key] = Object.fromEntries(Array.from(keys).map((deletedKey) => [
+        deletedKey,
+        Array.from(new Set([
+          ...(Array.isArray(existingDeleted[deletedKey]) ? existingDeleted[deletedKey].map(String) : []),
+          ...(Array.isArray(patchDeleted[deletedKey]) ? patchDeleted[deletedKey].map(String) : []),
+        ])),
+      ]));
+      return;
+    }
     if (key === "deletedReportIds") {
       merged[key] = Array.from(new Set([
         ...(Array.isArray(existing[key]) ? existing[key].map(String) : []),
@@ -564,7 +581,23 @@ function mergeSnapshotPatch(existingSnapshot: unknown, patch: unknown) {
     merged[key] = value;
   });
 
-  const deletedReportIds = new Set(Array.isArray(merged.deletedReportIds) ? merged.deletedReportIds.map(String) : []);
+  const deletedEntityIds = merged.deletedEntityIds && typeof merged.deletedEntityIds === "object" && !Array.isArray(merged.deletedEntityIds)
+    ? merged.deletedEntityIds as JsonObject
+    : {};
+  const deletedReportIds = new Set([
+    ...(Array.isArray(merged.deletedReportIds) ? merged.deletedReportIds.map(String) : []),
+    ...(Array.isArray(deletedEntityIds.reports) ? (deletedEntityIds.reports as unknown[]).map(String) : []),
+  ]);
+  function filterDeletedRecordArray(key: string) {
+    const ids = new Set(Array.isArray(deletedEntityIds[key]) ? (deletedEntityIds[key] as unknown[]).map(String) : []);
+    if (ids.size === 0 || !Array.isArray(merged[key])) return;
+    merged[key] = (merged[key] as unknown[]).filter((record) => {
+      if (!record || typeof record !== "object") return true;
+      return !ids.has(String((record as JsonObject).id ?? ""));
+    });
+  }
+
+  ["billing", "customers", "jobs", "objects", "portalMessages"].forEach(filterDeletedRecordArray);
   if (deletedReportIds.size > 0 && Array.isArray(merged.reports)) {
     merged.reports = (merged.reports as unknown[]).filter((report) => {
       if (!report || typeof report !== "object") return true;

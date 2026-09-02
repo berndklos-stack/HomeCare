@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.286.0",
+  version: "1.287.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.287.0",
+    date: "2026-09-02",
+    changes: [
+      "Geloeschte Demo-Kunden, Demo-Objekte, Demo-Auftraege und Demo-Abrechnungseintraege werden dauerhaft gegen Ruecksynchronisation geschuetzt",
+      "App-State-Merge filtert allgemeine Tombstones server- und clientseitig aus",
+    ],
+  },
   {
     version: "1.286.0",
     date: "2026-09-02",

@@ -508,6 +508,7 @@ type AppSnapshot = {
   customers: CustomerRecord[];
   companySettings?: CompanySettings;
   dailyMailSettings?: DailyMailSettings;
+  deletedEntityIds?: Record<string, string[]>;
   deletedReportIds?: string[];
   fieldNotes: Record<string, string>;
   fieldProgress: Record<string, Record<string, FieldTaskProgress>>;
@@ -1023,6 +1024,7 @@ const storageKeys = {
   personnel: "kolaretorp-personnel",
   resources: "kolaretorp-resources",
   dailyMailSettings: "kolaretorp-daily-mail-settings",
+  deletedEntityIds: "kolaretorp-deleted-entity-ids",
   deletedReportIds: "kolaretorp-deleted-report-ids",
   billing: "kolaretorp-billing",
   portalMessages: "kolaretorp-portal-messages",
@@ -1070,6 +1072,7 @@ function readLocalSnapshot(): AppSnapshot {
     companySettings: readStoredValue<CompanySettings>(storageKeys.companySettings, seedCompanySettings),
     customers: readStoredValue<CustomerRecord[]>(storageKeys.customers, seedCustomers),
     dailyMailSettings: normalizeDailyMailSettings(readStoredValue<Partial<DailyMailSettings>>(storageKeys.dailyMailSettings, seedDailyMailSettings)),
+    deletedEntityIds: readStoredValue<Record<string, string[]>>(storageKeys.deletedEntityIds, {}),
     deletedReportIds: readStoredValue<string[]>(storageKeys.deletedReportIds, []),
     fieldNotes: readStoredValue<Record<string, string>>(storageKeys.fieldNotes, {}),
     fieldProgress: readStoredValue<Record<string, Record<string, FieldTaskProgress>>>(storageKeys.fieldProgress, {}),
@@ -1110,6 +1113,7 @@ function persistLocalSnapshot(snapshot: AppSnapshot) {
   window.localStorage.setItem(storageKeys.personnel, JSON.stringify(snapshot.personnel));
   window.localStorage.setItem(storageKeys.resources, JSON.stringify(snapshot.resources));
   window.localStorage.setItem(storageKeys.dailyMailSettings, JSON.stringify(normalizeDailyMailSettings(snapshot.dailyMailSettings)));
+  window.localStorage.setItem(storageKeys.deletedEntityIds, JSON.stringify(snapshot.deletedEntityIds ?? {}));
   window.localStorage.setItem(storageKeys.deletedReportIds, JSON.stringify(snapshot.deletedReportIds ?? []));
   window.localStorage.setItem(storageKeys.portalMessages, JSON.stringify(snapshot.portalMessages));
   window.localStorage.setItem(storageKeys.fieldNotes, JSON.stringify(snapshot.fieldNotes));
@@ -1189,6 +1193,7 @@ function snapshotPatch(snapshot: AppSnapshot): Partial<AppSnapshot> {
     companySettings: snapshot.companySettings,
     customers: snapshot.customers,
     dailyMailSettings: snapshot.dailyMailSettings,
+    deletedEntityIds: snapshot.deletedEntityIds ?? {},
     deletedReportIds: snapshot.deletedReportIds ?? [],
     fieldNotes: snapshot.fieldNotes,
     fieldProgress: snapshot.fieldProgress,
@@ -1611,6 +1616,27 @@ function mergeFieldNotes(
   return { ...(secondaryNotes ?? {}), ...(primaryNotes ?? {}) };
 }
 
+function mergeDeletedEntityIds(
+  primaryDeleted: AppSnapshot["deletedEntityIds"] | undefined,
+  secondaryDeleted: AppSnapshot["deletedEntityIds"] | undefined,
+) {
+  const keys = new Set([...Object.keys(primaryDeleted ?? {}), ...Object.keys(secondaryDeleted ?? {})]);
+  return Object.fromEntries(Array.from(keys).map((key) => [
+    key,
+    Array.from(new Set([...(secondaryDeleted?.[key] ?? []), ...(primaryDeleted?.[key] ?? [])])),
+  ]));
+}
+
+function deletedIdSet(deletedEntityIds: AppSnapshot["deletedEntityIds"] | undefined, key: string) {
+  return new Set(deletedEntityIds?.[key] ?? []);
+}
+
+function filterDeletedRecords<T extends { id: string }>(records: T[], deletedEntityIds: AppSnapshot["deletedEntityIds"] | undefined, key: string) {
+  const ids = deletedIdSet(deletedEntityIds, key);
+  if (ids.size === 0) return records;
+  return records.filter((record) => !ids.has(record.id));
+}
+
 function mergeSnapshots(remoteSnapshot: AppSnapshot, localSnapshot: AppSnapshot): AppSnapshot {
   const remoteTime = Date.parse(remoteSnapshot.updatedAt ?? "");
   const localTime = Date.parse(localSnapshot.updatedAt ?? "");
@@ -1619,33 +1645,36 @@ function mergeSnapshots(remoteSnapshot: AppSnapshot, localSnapshot: AppSnapshot)
     : snapshotWeight(localSnapshot) >= snapshotWeight(remoteSnapshot);
   const primarySnapshot = localIsNewer ? localSnapshot : remoteSnapshot;
   const secondarySnapshot = localIsNewer ? remoteSnapshot : localSnapshot;
+  const deletedEntityIds = mergeDeletedEntityIds(primarySnapshot.deletedEntityIds, secondarySnapshot.deletedEntityIds);
   const deletedReportIds = Array.from(new Set([
     ...(secondarySnapshot.deletedReportIds ?? []),
     ...(primarySnapshot.deletedReportIds ?? []),
+    ...(deletedEntityIds.reports ?? []),
   ]));
   const deletedReportIdSet = new Set(deletedReportIds);
   const reports = dedupeReports([...(secondarySnapshot.reports ?? []), ...(primarySnapshot.reports ?? [])])
     .filter((report) => !deletedReportIdSet.has(report.id));
-  const jobs = mergeJobsById(primarySnapshot.jobs, secondarySnapshot.jobs);
+  const jobs = filterDeletedRecords(mergeJobsById(primarySnapshot.jobs, secondarySnapshot.jobs), deletedEntityIds, "jobs");
   const activeJobId = localSnapshot.activeJobId && jobs.some((job) => job.id === localSnapshot.activeJobId && canRestoreActiveFieldJob(job))
     ? localSnapshot.activeJobId
     : null;
 
   return recoverReportsFromFieldProgress({
     activeJobId,
-    billing: mergeRecordsById(primarySnapshot.billing ?? seedBilling, secondarySnapshot.billing ?? seedBilling),
+    billing: filterDeletedRecords(mergeRecordsById(primarySnapshot.billing ?? seedBilling, secondarySnapshot.billing ?? seedBilling), deletedEntityIds, "billing"),
     companySettings: { ...seedCompanySettings, ...(secondarySnapshot.companySettings ?? {}), ...(primarySnapshot.companySettings ?? {}) },
-    customers: mergeCustomersById(primarySnapshot.customers, secondarySnapshot.customers),
+    customers: filterDeletedRecords(mergeCustomersById(primarySnapshot.customers, secondarySnapshot.customers), deletedEntityIds, "customers"),
     dailyMailSettings: normalizeDailyMailSettings(primarySnapshot.dailyMailSettings ?? secondarySnapshot.dailyMailSettings ?? seedDailyMailSettings),
+    deletedEntityIds,
     deletedReportIds,
     fieldNotes: mergeFieldNotes(primarySnapshot.fieldNotes, secondarySnapshot.fieldNotes),
     fieldProgress: mergeFieldProgress(primarySnapshot.fieldProgress, secondarySnapshot.fieldProgress),
     jobs,
     materials: mergeRecordsById(primarySnapshot.materials ?? seedMaterials, secondarySnapshot.materials ?? seedMaterials),
-    objects: mergeObjectsById(primarySnapshot.objects, secondarySnapshot.objects),
+    objects: filterDeletedRecords(mergeObjectsById(primarySnapshot.objects, secondarySnapshot.objects), deletedEntityIds, "objects"),
     packages: mergeRecordsById(primarySnapshot.packages, secondarySnapshot.packages),
     personnel: mergeRecordsById(primarySnapshot.personnel ?? [], secondarySnapshot.personnel ?? []),
-    portalMessages: mergeRecordsById(primarySnapshot.portalMessages ?? [], secondarySnapshot.portalMessages ?? []),
+    portalMessages: filterDeletedRecords(mergeRecordsById(primarySnapshot.portalMessages ?? [], secondarySnapshot.portalMessages ?? []), deletedEntityIds, "portalMessages"),
     reports,
     resources: mergeResourcesById(primarySnapshot.resources ?? [], secondarySnapshot.resources ?? []),
     services: mergeRecordsById(primarySnapshot.services, secondarySnapshot.services),
@@ -5567,6 +5596,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   const [resources, setResources] = useState(seedResources);
   const [dailyMailSettings, setDailyMailSettings] = useState(seedDailyMailSettings);
   const [portalMessages, setPortalMessages] = useState<PortalMessageRecord[]>([]);
+  const [deletedEntityIds, setDeletedEntityIds] = useState<Record<string, string[]>>({});
   const [deletedReportIds, setDeletedReportIds] = useState<string[]>([]);
   const [portalCustomerId, setPortalCustomerId] = useState("");
   const [fieldNotes, setFieldNotes] = useState<Record<string, string>>({});
@@ -5697,6 +5727,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     setResources(snapshot.resources ?? seedResources);
     setDailyMailSettings(normalizeDailyMailSettings(snapshot.dailyMailSettings));
     setPortalMessages(snapshot.portalMessages ?? []);
+    setDeletedEntityIds(snapshot.deletedEntityIds ?? {});
     setDeletedReportIds(snapshot.deletedReportIds ?? []);
     setFieldNotes(snapshot.fieldNotes ?? {});
     setFieldProgress(snapshot.fieldProgress);
@@ -5805,6 +5836,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       companySettings,
       customers,
       dailyMailSettings,
+      deletedEntityIds,
       deletedReportIds,
       fieldNotes,
       fieldProgress,
@@ -5828,7 +5860,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     setAppUpdatedAt(snapshotUpdatedAt);
 
     scheduleRemoteSave(snapshot, 2600);
-  }, [activeJobId, appStorageReady, billing, companySettings, customers, dailyMailSettings, deletedReportIds, fieldNotes, fieldProgress, jobs, materials, objects, personnel, portalMessages, reports, resources, scheduleRemoteSave, servicePackages, services]);
+  }, [activeJobId, appStorageReady, billing, companySettings, customers, dailyMailSettings, deletedEntityIds, deletedReportIds, fieldNotes, fieldProgress, jobs, materials, objects, personnel, portalMessages, reports, resources, scheduleRemoteSave, servicePackages, services]);
 
   const currentSnapshot = useCallback((overrides: Partial<AppSnapshot> = {}): AppSnapshot => ({
     activeJobId,
@@ -5836,6 +5868,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     companySettings,
     customers,
     dailyMailSettings,
+    deletedEntityIds,
     deletedReportIds,
     fieldNotes,
     fieldProgress,
@@ -5850,7 +5883,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     services,
     updatedAt: appUpdatedAt,
     ...overrides,
-  }), [activeJobId, appUpdatedAt, billing, companySettings, customers, dailyMailSettings, deletedReportIds, fieldNotes, fieldProgress, jobs, materials, objects, personnel, portalMessages, reports, resources, servicePackages, services]);
+  }), [activeJobId, appUpdatedAt, billing, companySettings, customers, dailyMailSettings, deletedEntityIds, deletedReportIds, fieldNotes, fieldProgress, jobs, materials, objects, personnel, portalMessages, reports, resources, servicePackages, services]);
 
   const syncRemoteSnapshot = useCallback(async (force = false) => {
     if (!appStorageReady || remoteSyncRunningRef.current) return;
