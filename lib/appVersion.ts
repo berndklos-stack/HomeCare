@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.289.0",
+  version: "1.290.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.290.0",
+    date: "2026-09-02",
+    changes: [
+      "Fahrtenbuch-Popup erhaelt eine manuelle Erfassung fuer neue Fahrten",
+      "Bestehende Fahrten koennen direkt aus der Fahrtenbuch-Tabelle heraus bearbeitet werden",
+      "Zwischenziele und Kilometerstaende sind auch bei manuellen Fahrtenbucheintraegen erfassbar",
+    ],
+  },
   {
     version: "1.289.0",
     date: "2026-09-02",

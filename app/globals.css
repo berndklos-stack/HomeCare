@@ -2369,6 +2369,18 @@ mark.neutral {
   grid-template-columns: minmax(0, 1fr) auto auto;
 }
 
+.logbook-toolbar {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.logbook-entry-editor {
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+}
+
 .logbook-table-wrap {
   border: 1px solid var(--line);
   border-radius: 8px;

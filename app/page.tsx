@@ -12205,6 +12205,7 @@ function MasterDataView({
   const [personEditorOpen, setPersonEditorOpen] = useState(false);
   const [resourceEditorOpen, setResourceEditorOpen] = useState(false);
   const [resourceModalView, setResourceModalView] = useState<"details" | "logbook">("details");
+  const [logbookEntryEditorOpen, setLogbookEntryEditorOpen] = useState(false);
   const [personViewMode, setPersonViewMode] = useState<"cards" | "list">("list");
   const [resourceViewMode, setResourceViewMode] = useState<"cards" | "list">("list");
   const [servicePickerOpen, setServicePickerOpen] = useState(false);
@@ -12479,6 +12480,7 @@ function MasterDataView({
   function resetResourceForm() {
     setEditingResourceId(null);
     setEditingLogEntryId(null);
+    setLogbookEntryEditorOpen(false);
     setResourceEditorOpen(false);
     setResourceModalView("details");
     setResourceForm({
@@ -12662,6 +12664,15 @@ function MasterDataView({
   function editLogbookEntry(entry: VehicleLogEntry) {
     setEditingLogEntryId(entry.id);
     setLogbookForm({ ...entry, fuelReceiptPhoto: entry.fuelReceiptPhoto, odometerPhotos: entry.odometerPhotos ?? [], waypoints: entry.waypoints ?? [] });
+    setLogbookEntryEditorOpen(true);
+    setResourceModalView("logbook");
+  }
+
+  function openCreateLogbookEntry() {
+    resetLogbookForm();
+    setEditingLogEntryId(null);
+    setLogbookEntryEditorOpen(true);
+    setResourceModalView("logbook");
   }
 
   async function captureLogbookFuelReceipt(file: File) {
@@ -12741,6 +12752,7 @@ function MasterDataView({
     setResources(nextResources);
     onPersistResources(nextResources);
     setArchiveNotice(`Fahrt vom ${saved.date} wurde gespeichert.`);
+    setLogbookEntryEditorOpen(false);
     resetLogbookForm();
   }
 
@@ -13470,6 +13482,112 @@ function MasterDataView({
           </div>
           ) : selectedResource?.type === "Fahrzeug" ? (
             <section className="vehicle-logbook resource-modal-logbook">
+              <div className="logbook-toolbar">
+                <button className="primary-button" onClick={openCreateLogbookEntry} type="button">
+                  <Plus size={16} />
+                  Fahrt manuell erfassen
+                </button>
+              </div>
+              {logbookEntryEditorOpen && (
+                <div className="form-grid compact-form logbook-entry-editor">
+                  <label><span>Datum</span><input type="date" value={logbookForm.date} onChange={(event) => setLogbookForm({ ...logbookForm, date: event.target.value })} /></label>
+                  <label><span>Fahrer</span>
+                    <select value={logbookForm.driverId} onChange={(event) => setLogbookForm({ ...logbookForm, driverId: event.target.value })}>
+                      <option value="">Nicht zugeordnet</option>
+                      {activePersonnel.map((person) => <option key={person.id} value={person.id}>{person.firstName} {person.lastName}</option>)}
+                    </select>
+                  </label>
+                  <label><span>Art</span>
+                    <select value={logbookForm.tripType} onChange={(event) => setLogbookForm({ ...logbookForm, tripType: event.target.value as VehicleLogEntry["tripType"] })}>
+                      <option>Dienstfahrt</option>
+                      <option>Privatfahrt</option>
+                    </select>
+                  </label>
+                  <label><span>Start-Km</span><input inputMode="numeric" value={logbookForm.startOdometer} onChange={(event) => setLogbookForm({ ...logbookForm, startOdometer: event.target.value })} /></label>
+                  <label><span>End-Km</span><input inputMode="numeric" value={logbookForm.endOdometer} onChange={(event) => setLogbookForm({ ...logbookForm, endOdometer: event.target.value })} /></label>
+                  <label><span>Kilometer</span><input inputMode="numeric" value={logbookForm.kilometers} onChange={(event) => setLogbookForm({ ...logbookForm, kilometers: event.target.value })} /></label>
+                  <label><span>Startadresse</span><input list="logbook-address-options" value={logbookForm.startAddress} onChange={(event) => setLogbookForm({ ...logbookForm, startAddress: event.target.value })} /></label>
+                  <label><span>Zieladresse</span><input list="logbook-address-options" value={logbookForm.endAddress} onChange={(event) => setLogbookForm({ ...logbookForm, endAddress: event.target.value })} /></label>
+                  <datalist id="logbook-address-options">
+                    {logbookAddressOptions.map((address) => <option key={address} value={address} />)}
+                  </datalist>
+                  <label><span>Zweck</span><input list="logbook-purpose-options" value={logbookForm.purpose} onChange={(event) => setLogbookForm({ ...logbookForm, purpose: event.target.value })} /></label>
+                  <datalist id="logbook-purpose-options">
+                    {logbookPurposeOptions.map((purpose) => <option key={purpose} value={purpose} />)}
+                  </datalist>
+                  <label><span>Besucht bei</span><input disabled={logbookForm.tripType === "Privatfahrt"} value={logbookForm.visited} onChange={(event) => setLogbookForm({ ...logbookForm, visited: event.target.value })} /></label>
+                  <label><span>Tanken / Laden</span><input value={logbookForm.fuelOrCharge} onChange={(event) => setLogbookForm({ ...logbookForm, fuelOrCharge: event.target.value })} /></label>
+                  <label className="wide"><span>Notiz</span><textarea value={logbookForm.notes} onChange={(event) => setLogbookForm({ ...logbookForm, notes: event.target.value })} /></label>
+                  <div className="wide waypoint-editor">
+                    <div className="waypoint-editor-head">
+                      <span>Zwischenziele</span>
+                      <button
+                        className="ghost-button"
+                        onClick={() => setLogbookForm({
+                          ...logbookForm,
+                          waypoints: [
+                            ...logbookForm.waypoints,
+                            { address: "", id: globalThis.crypto?.randomUUID?.() ?? `WAY-${Date.now()}`, note: "", odometer: "" },
+                          ],
+                        })}
+                        type="button"
+                      >
+                        <Plus size={14} />
+                        Ziel
+                      </button>
+                    </div>
+                    {logbookForm.waypoints.map((waypoint, waypointIndex) => (
+                      <div className="waypoint-row" key={waypoint.id}>
+                        <input
+                          aria-label={`Zwischenziel ${waypointIndex + 1}`}
+                          list="logbook-address-options"
+                          placeholder={`Zwischenziel ${waypointIndex + 1}`}
+                          value={waypoint.address}
+                          onChange={(event) => setLogbookForm({
+                            ...logbookForm,
+                            waypoints: logbookForm.waypoints.map((item) => (
+                              item.id === waypoint.id ? { ...item, address: event.target.value } : item
+                            )),
+                          })}
+                        />
+                        <input
+                          aria-label={`Notiz zu Zwischenziel ${waypointIndex + 1}`}
+                          placeholder="Notiz"
+                          value={waypoint.note}
+                          onChange={(event) => setLogbookForm({
+                            ...logbookForm,
+                            waypoints: logbookForm.waypoints.map((item) => (
+                              item.id === waypoint.id ? { ...item, note: event.target.value } : item
+                            )),
+                          })}
+                        />
+                        <input
+                          aria-label={`KM-Stand zu Zwischenziel ${waypointIndex + 1}`}
+                          inputMode="numeric"
+                          placeholder="KM"
+                          value={waypoint.odometer ?? ""}
+                          onChange={(event) => setLogbookForm({
+                            ...logbookForm,
+                            waypoints: logbookForm.waypoints.map((item) => (
+                              item.id === waypoint.id ? { ...item, odometer: event.target.value } : item
+                            )),
+                          })}
+                        />
+                        <button
+                          aria-label={`Zwischenziel ${waypointIndex + 1} löschen`}
+                          className="icon-button"
+                          onClick={() => setLogbookForm({ ...logbookForm, waypoints: logbookForm.waypoints.filter((item) => item.id !== waypoint.id) })}
+                          type="button"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <button className="primary-button wide" onClick={saveLogbookEntry} type="button">{editingLogEntryId ? "Fahrt speichern" : "Fahrt eintragen"}</button>
+                  <button className="ghost-button wide" onClick={() => { resetLogbookForm(); setLogbookEntryEditorOpen(false); }} type="button">Bearbeitung abbrechen</button>
+                </div>
+              )}
               <div className="logbook-summary">
                 <span><strong>{logbookStats.totalKm}</strong> km gesamt</span>
                 <span><strong>{logbookStats.businessKm}</strong> km dienstlich</span>
@@ -13525,7 +13643,7 @@ function MasterDataView({
                           </td>
                           <td>
                             <div className="row-actions">
-                              <IconAction label={`Fahrt vom ${entry.date} bearbeiten`} onClick={() => { editLogbookEntry(entry); setResourceModalView("details"); }}><Pencil size={16} /></IconAction>
+                              <IconAction label={`Fahrt vom ${entry.date} bearbeiten`} onClick={() => editLogbookEntry(entry)}><Pencil size={16} /></IconAction>
                               <IconAction danger label={`Fahrt vom ${entry.date} löschen`} onClick={() => deleteLogbookEntry(entry.id)}><Trash2 size={16} /></IconAction>
                             </div>
                           </td>
