@@ -6795,10 +6795,11 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
           }
         : item
     ));
-    const nextReports = activeReport && nextStatus === "geplant"
+    const reopenReportAsWork = activeReport && ["geplant", "in Arbeit"].includes(nextStatus);
+    const nextReports = reopenReportAsWork
       ? reports.filter((report) => report.id !== activeReport.id)
       : reports;
-    const nextBilling = activeReport && nextStatus === "geplant"
+    const nextBilling = reopenReportAsWork
       ? billing.filter((item) => !removableBillingDraftForJobIds(item, new Set([targetJobId])))
       : billing;
     setJobs(nextJobs);
@@ -10022,7 +10023,7 @@ function FieldView({
   const fieldPlannedJobs = fieldOpenJobs.filter((job) => job.status !== "in Arbeit");
   const completedReports = dedupeReports(reports).filter((report) => {
     const job = allJobs.find((item) => item.id === report.jobId);
-    return job ? ["erledigt", "geplant"].includes(job.status) : true;
+    return job ? ["erledigt", "abgerechnet"].includes(job.status) : true;
   });
   const editableCompletedReports = completedReports.filter((report) => !report.sentAt);
   const sentReports = completedReports.filter((report) => report.sentAt);

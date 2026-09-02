@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.284.0",
+  version: "1.285.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.285.0",
+    date: "2026-09-02",
+    changes: [
+      "Aktueller Status im Mobil-vor-Ort-Schliessen-Dialog wird als flache Infozeile angezeigt",
+      "Statusdialog verhindert auf Mobilgeraeten das vertikale Aufziehen einzelner Statusbereiche",
+      "Wieder geoeffnete Berichte werden aus der abgeschlossenen Mobil-vor-Ort-Liste entfernt und als laufender Fortschritt weitergefuehrt",
+    ],
+  },
   {
     version: "1.284.0",
     date: "2026-09-02",

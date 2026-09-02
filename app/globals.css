@@ -4081,19 +4081,24 @@ mark.neutral {
 }
 
 .field-status-modal {
+  align-content: start;
+  align-self: center;
   gap: 12px;
+  grid-auto-rows: max-content;
   max-width: 520px;
+  width: min(100%, 520px);
 }
 
 .field-current-status {
   align-items: center;
-  background: var(--paper-soft);
-  border: 1px solid var(--line);
-  border-radius: 8px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
   display: flex;
   gap: 8px;
   justify-content: space-between;
-  padding: 8px 10px;
+  min-height: 0;
+  padding: 0 2px 2px;
 }
 
 .field-current-status span {
@@ -4113,6 +4118,7 @@ mark.neutral {
   display: grid;
   gap: 8px;
   grid-auto-rows: max-content;
+  min-height: 0;
 }
 
 .status-choice-button {
@@ -5187,6 +5193,30 @@ button.media-thumb {
 
   .field-work-modal {
     gap: 12px;
+  }
+
+  .field-status-backdrop {
+    align-items: center;
+  }
+
+  .field-status-modal {
+    align-self: center;
+    gap: 10px;
+    height: auto;
+    max-height: calc(100dvh - 16px);
+    padding: 12px;
+  }
+
+  .field-status-modal .field-current-status {
+    flex: 0 0 auto;
+  }
+
+  .field-status-choice-list {
+    flex: 0 0 auto;
+  }
+
+  .status-choice-button {
+    padding: 8px 10px;
   }
 
   .field-active-head {
