@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.292.0",
+  version: "1.293.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.293.0",
+    date: "2026-09-02",
+    changes: [
+      "Fahrzeug-Stammdaten werden kompakter dargestellt",
+      "Ressourcenbilder sitzen oben rechts als kleine Slider-Galerie",
+      "Fahrtenbuch-Kennzahlen, Tabelle, Dokumente und Wartungstermine nutzen dichtere Abstaende",
+    ],
+  },
   {
     version: "1.292.0",
     date: "2026-09-02",

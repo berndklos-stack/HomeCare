@@ -2343,29 +2343,36 @@ mark.neutral {
   padding-top: 18px;
 }
 
+.resource-modal-logbook.vehicle-logbook {
+  border-top: 0;
+  gap: 8px;
+  margin-top: 0;
+  padding-top: 0;
+}
+
 .logbook-summary {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .logbook-summary span {
-  align-content: center;
+  align-items: center;
   background: var(--paper-soft);
   border: 1px solid var(--line);
   border-radius: 8px;
   color: var(--muted);
-  display: grid;
-  gap: 3px;
-  justify-items: center;
-  min-height: 50px;
-  padding: 8px 10px;
+  display: flex;
+  gap: 7px;
+  justify-content: center;
+  min-height: 34px;
+  padding: 5px 8px;
   text-align: center;
 }
 
 .logbook-summary strong {
   color: var(--foreground);
-  font-size: 16px;
+  font-size: 15px;
 }
 
 .logbook-list article {
@@ -2381,7 +2388,8 @@ mark.neutral {
   background: var(--paper-soft);
   border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 10px;
+  gap: 8px;
+  padding: 8px;
 }
 
 .logbook-table-wrap {
@@ -2393,7 +2401,8 @@ mark.neutral {
 
 .logbook-table {
   border-collapse: collapse;
-  font-size: 12px;
+  font-size: 11px;
+  line-height: 1.18;
   table-layout: fixed;
   width: 100%;
 }
@@ -2446,7 +2455,7 @@ mark.neutral {
 .logbook-table th,
 .logbook-table td {
   border-bottom: 1px solid var(--line);
-  padding: 6px 8px;
+  padding: 4px 6px;
   text-align: left;
   vertical-align: top;
   word-break: break-word;
@@ -2473,7 +2482,7 @@ mark.neutral {
 
 .logbook-table td span {
   color: var(--muted);
-  margin-top: 2px;
+  margin-top: 1px;
 }
 
 .logbook-table .number-cell {
@@ -2487,20 +2496,20 @@ mark.neutral {
 }
 
 .logbook-table .row-actions {
-  gap: 6px;
+  gap: 4px;
   justify-content: flex-end;
   white-space: nowrap;
 }
 
 .logbook-table .row-actions .icon-button {
-  min-height: 30px;
-  width: 30px;
+  min-height: 26px;
+  width: 26px;
 }
 
 .resource-document-list,
 .resource-maintenance-list {
   display: grid;
-  gap: 8px;
+  gap: 5px;
 }
 
 .resource-document-list article,
@@ -2509,9 +2518,9 @@ mark.neutral {
   border: 1px solid var(--line);
   border-radius: 8px;
   display: grid;
-  gap: 10px;
+  gap: 8px;
   grid-template-columns: auto minmax(0, 1fr) auto;
-  padding: 8px 10px;
+  padding: 6px 8px;
 }
 
 .resource-document-list article {
@@ -2519,12 +2528,12 @@ mark.neutral {
 }
 
 .resource-document-list input {
-  margin-top: 5px;
+  margin-top: 3px;
 }
 
 .resource-maintenance-form {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   grid-template-columns: minmax(0, 1.5fr) minmax(100px, 0.7fr) minmax(0, 1fr) minmax(0, 1.3fr);
 }
 
@@ -2535,7 +2544,7 @@ mark.neutral {
 .resource-maintenance-list span {
   color: var(--muted);
   display: block;
-  margin-top: 2px;
+  margin-top: 1px;
 }
 
 .status-dot {
@@ -4363,15 +4372,80 @@ mark.neutral {
 
 .resource-editor-modal > header {
   align-items: center;
+  padding-bottom: 10px;
 }
 
 .resource-editor-grid {
   overflow: visible;
+  position: relative;
+}
+
+@media (min-width: 920px) {
+  .resource-editor-grid {
+    padding-right: 190px;
+  }
+}
+
+.resource-corner-gallery {
+  align-items: center;
+  display: grid;
+  gap: 5px;
+  justify-items: center;
+}
+
+@media (min-width: 920px) {
+  .resource-corner-gallery {
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 170px;
+  }
+}
+
+.resource-corner-image {
+  align-items: center;
+  aspect-ratio: 4 / 3;
+  background-color: var(--paper-soft);
+  background-position: center;
+  background-size: cover;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  display: flex;
+  justify-content: center;
+  overflow: hidden;
+  width: 100%;
+}
+
+.resource-corner-image.placeholder {
+  border-style: dashed;
+}
+
+.resource-corner-actions {
+  display: flex;
+  gap: 5px;
+  justify-content: center;
+}
+
+.resource-corner-actions .icon-button {
+  min-height: 28px;
+  width: 28px;
+}
+
+.resource-corner-gallery small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.resource-document-section,
+.resource-maintenance-section {
+  padding: 10px;
 }
 
 .resource-modal-logbook {
   display: grid;
-  gap: 12px;
+  gap: 8px;
 }
 
 .communication-detail-modal {

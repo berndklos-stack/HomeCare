@@ -6,6 +6,7 @@ import Image from "next/image";
 import {
   ArrowDown,
   ArrowLeft,
+  ArrowRight,
   ArrowUp,
   Archive,
   CalendarDays,
@@ -12216,6 +12217,7 @@ function MasterDataView({
   const [resourceEditorOpen, setResourceEditorOpen] = useState(false);
   const [resourceModalView, setResourceModalView] = useState<"details" | "logbook">("details");
   const [logbookEntryEditorOpen, setLogbookEntryEditorOpen] = useState(false);
+  const [resourceImageIndex, setResourceImageIndex] = useState(0);
   const [personViewMode, setPersonViewMode] = useState<"cards" | "list">("list");
   const [resourceViewMode, setResourceViewMode] = useState<"cards" | "list">("list");
   const [servicePickerOpen, setServicePickerOpen] = useState(false);
@@ -12320,6 +12322,8 @@ function MasterDataView({
   const archivedResources = resources.filter((resource) => resource.archived);
   const selectedResource = resources.find((resource) => resource.id === editingResourceId);
   const selectedResourceLogbook = selectedResource?.type === "Fahrzeug" ? selectedResource.logbook : [];
+  const resourceImages = resourceForm.mediaItems.filter((item) => item.type === "Bild");
+  const selectedResourceImage = resourceImages[Math.min(resourceImageIndex, Math.max(0, resourceImages.length - 1))];
   const resourceStatusOptions = uniqueSortedValues(resources.map((resource) => resource.status), ["aktiv", "Wartung", "reserviert", "defekt"]);
   const categories = Array.from(new Set(activeServices.map((service) => service.category).filter(Boolean)))
     .sort((first, second) => first.localeCompare(second, "de"));
@@ -12502,6 +12506,7 @@ function MasterDataView({
     setEditingResourceId(null);
     setEditingLogEntryId(null);
     setLogbookEntryEditorOpen(false);
+    setResourceImageIndex(0);
     setResourceEditorOpen(false);
     setResourceModalView("details");
     setResourceForm({
@@ -12545,6 +12550,7 @@ function MasterDataView({
       type: resource.type,
     });
     setEditingLogEntryId(null);
+    setResourceImageIndex(0);
     resetLogbookForm();
     setResourceModalView("details");
     setMasterDataTab("resources");
@@ -12628,6 +12634,7 @@ function MasterDataView({
       ...resourceForm,
       mediaItems: [...resourceForm.mediaItems, ...added],
     });
+    setResourceImageIndex(Math.max(0, resourceImages.length));
   }
 
   async function addResourceDocuments(files: FileList | null) {
@@ -12713,6 +12720,17 @@ function MasterDataView({
       ...resourceForm,
       mediaItems: remainingItems.map((item) => nextPrimaryImageId ? { ...item, isPrimary: item.id === nextPrimaryImageId } : item),
     });
+    setResourceImageIndex(0);
+  }
+
+  function showPreviousResourceImage() {
+    if (resourceImages.length <= 1) return;
+    setResourceImageIndex((current) => (current - 1 + resourceImages.length) % resourceImages.length);
+  }
+
+  function showNextResourceImage() {
+    if (resourceImages.length <= 1) return;
+    setResourceImageIndex((current) => (current + 1) % resourceImages.length);
   }
 
   function latestSelectedLogbookEntry() {
@@ -13467,6 +13485,10 @@ function MasterDataView({
                   <div className="modal-header-actions">
                     {selectedResource?.type === "Fahrzeug" && resourceModalView === "logbook" && (
                       <>
+                        <button className="primary-button" onClick={openCreateLogbookEntry} type="button">
+                          <Plus size={16} />
+                          Fahrt manuell erfassen
+                        </button>
                         <button className="ghost-button" onClick={() => void downloadVehicleLogbookPdf(selectedResource, selectedResourceLogbook, activePersonnel, false)} type="button">
                           <FileDown size={16} />
                           PDF ohne Bilder
@@ -13490,6 +13512,29 @@ function MasterDataView({
                 </header>
           {resourceModalView === "details" ? (
           <div className="form-grid compact-form master-data-editor resource-editor-grid">
+            <aside className="resource-corner-gallery">
+              <div
+                aria-label={selectedResourceImage ? `Ressourcenbild ${selectedResourceImage.name}` : "Kein Ressourcenbild"}
+                className={selectedResourceImage?.previewUrl ? "resource-corner-image" : "resource-corner-image placeholder"}
+                role="img"
+                style={selectedResourceImage?.previewUrl ? { backgroundImage: `url(${selectedResourceImage.previewUrl})` } : undefined}
+              >
+                {!selectedResourceImage?.previewUrl ? <Camera size={22} /> : null}
+              </div>
+              <div className="resource-corner-actions">
+                <button aria-label="Vorheriges Bild" className="icon-button" disabled={resourceImages.length < 2} onClick={showPreviousResourceImage} type="button">
+                  <ArrowLeft size={14} />
+                </button>
+                <label className="icon-button attachment-upload" aria-label="Bild hinzufügen">
+                  <Camera size={14} />
+                  <input aria-label="Bild zur Ressource hinzufügen" accept="image/*" capture="environment" multiple type="file" onChange={(event) => void addResourcePhotos(event.target.files)} />
+                </label>
+                <button aria-label="Nächstes Bild" className="icon-button" disabled={resourceImages.length < 2} onClick={showNextResourceImage} type="button">
+                  <ArrowRight size={14} />
+                </button>
+              </div>
+              <small>{resourceImages.length ? `${Math.min(resourceImageIndex + 1, resourceImages.length)} / ${resourceImages.length}` : "kein Bild"}</small>
+            </aside>
             <label><span>{tt("Typ")}</span>
               <select value={resourceForm.type} onChange={(event) => setResourceForm({ ...resourceForm, type: event.target.value as ResourceRecord["type"] })}>
                 <option>Fahrzeug</option>
@@ -13520,45 +13565,6 @@ function MasterDataView({
               </>
             )}
             <label className="wide"><span>{tt("Notizen")}</span><textarea value={resourceForm.notes} onChange={(event) => setResourceForm({ ...resourceForm, notes: event.target.value })} /></label>
-            <section className="wide object-attachment-section resource-photo-section">
-              <div className="attachment-section-head">
-                <div>
-                  <h3>{tt("Bilder zur Ressource")}</h3>
-                  <span>{resourceForm.mediaItems.filter((item) => item.type === "Bild").length} Bilder</span>
-                </div>
-                <label className="ghost-button attachment-upload">
-                  <Camera size={16} />
-                  {tt("Bild hinzufügen")}
-                  <input aria-label="Bild zur Ressource hinzufügen" accept="image/*" capture="environment" multiple type="file" onChange={(event) => void addResourcePhotos(event.target.files)} />
-                </label>
-              </div>
-              {resourceForm.mediaItems.filter((item) => item.type === "Bild").length > 0 ? (
-                <div className="object-photo-gallery resource-photo-gallery">
-                  {resourceForm.mediaItems.filter((item) => item.type === "Bild").map((item) => (
-                    <article className={item.isPrimary ? "primary" : ""} key={item.id}>
-                      <div
-                        aria-label={`Ressourcenbild ${item.name}`}
-                        className="object-photo-tile"
-                        role="img"
-                        style={{ backgroundImage: `url(${item.previewUrl})` }}
-                      />
-                      <input
-                        aria-label={`Kurzbeschreibung ${item.name}`}
-                        placeholder="Kurzbeschreibung zum Bild"
-                        value={item.description}
-                        onChange={(event) => updateResourceMediaDescription(item.id, event.target.value)}
-                      />
-                      <div className="row-actions">
-                        <IconAction label={`${item.name} als Hauptbild verwenden`} onClick={() => setResourcePrimaryPhoto(item.id)}><CarFront size={16} /></IconAction>
-                        <IconAction danger label={`Bild ${item.name} entfernen`} onClick={() => removeResourcePhoto(item.id)}><Trash2 size={16} /></IconAction>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              ) : (
-                <p className="empty-attachment">Noch keine Bilder zur Ressource vorhanden.</p>
-              )}
-            </section>
             {resourceForm.type === "Fahrzeug" && (
               <>
                 <section className="wide object-attachment-section resource-document-section">
@@ -13647,12 +13653,6 @@ function MasterDataView({
           </div>
           ) : selectedResource?.type === "Fahrzeug" ? (
             <section className="vehicle-logbook resource-modal-logbook">
-              <div className="logbook-toolbar">
-                <button className="primary-button" onClick={openCreateLogbookEntry} type="button">
-                  <Plus size={16} />
-                  Fahrt manuell erfassen
-                </button>
-              </div>
               {logbookEntryEditorOpen && (
                 <div className="form-grid compact-form logbook-entry-editor">
                   <label><span>Datum</span><input type="date" value={logbookForm.date} onChange={(event) => setLogbookForm({ ...logbookForm, date: event.target.value })} /></label>
