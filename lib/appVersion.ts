@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.288.0",
+  version: "1.289.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.289.0",
+    date: "2026-09-02",
+    changes: [
+      "Fahrtenbuch-Popup zeigt im Logbuchmodus Fahrtenbuch als Hauptueberschrift",
+      "Ressourcen-Popup ist breiter und hoeher",
+      "Fahrtenbuch-Tabelle passt auf Desktop ohne horizontalen Scrollbalken in den Dialog",
+    ],
+  },
   {
     version: "1.288.0",
     date: "2026-09-02",

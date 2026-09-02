@@ -13366,8 +13366,9 @@ function MasterDataView({
               <section className="modal resource-editor-modal" role="dialog" aria-modal="true" aria-labelledby="resource-editor-title">
                 <header>
                   <div>
-                    <p>{tt("Ressourcen")}</p>
-                    <h2 id="resource-editor-title">{editingResourceId ? resourceForm.name || tt("Ressource bearbeiten") : tt("Neue Ressource anlegen")}</h2>
+                    <p>{resourceModalView === "logbook" ? "Fahrtenbuch" : tt("Ressourcen")}</p>
+                    <h2 id="resource-editor-title">{resourceModalView === "logbook" ? "Fahrtenbuch" : editingResourceId ? resourceForm.name || tt("Ressource bearbeiten") : tt("Neue Ressource anlegen")}</h2>
+                    {resourceModalView === "logbook" && selectedResource ? <span>{selectedResource.name}</span> : null}
                   </div>
                   <div className="modal-header-actions">
                     {selectedResource?.type === "Fahrzeug" && resourceModalView === "logbook" && (

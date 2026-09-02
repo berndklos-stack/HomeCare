@@ -2372,14 +2372,60 @@ mark.neutral {
 .logbook-table-wrap {
   border: 1px solid var(--line);
   border-radius: 8px;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .logbook-table {
   border-collapse: collapse;
   font-size: 13px;
-  min-width: 980px;
+  table-layout: fixed;
   width: 100%;
+}
+
+.logbook-table th:nth-child(1),
+.logbook-table td:nth-child(1) {
+  width: 10%;
+}
+
+.logbook-table th:nth-child(2),
+.logbook-table td:nth-child(2) {
+  width: 10%;
+}
+
+.logbook-table th:nth-child(3),
+.logbook-table td:nth-child(3) {
+  width: 9%;
+}
+
+.logbook-table th:nth-child(4),
+.logbook-table td:nth-child(4) {
+  width: 22%;
+}
+
+.logbook-table th:nth-child(5),
+.logbook-table td:nth-child(5) {
+  width: 12%;
+}
+
+.logbook-table th:nth-child(6),
+.logbook-table td:nth-child(6) {
+  width: 5%;
+}
+
+.logbook-table th:nth-child(7),
+.logbook-table td:nth-child(7) {
+  width: 16%;
+}
+
+.logbook-table th:nth-child(8),
+.logbook-table td:nth-child(8) {
+  width: 11%;
+}
+
+.logbook-table th:nth-child(9),
+.logbook-table td:nth-child(9) {
+  width: 5%;
 }
 
 .logbook-table th,
@@ -2388,6 +2434,7 @@ mark.neutral {
   padding: 9px 10px;
   text-align: left;
   vertical-align: top;
+  word-break: break-word;
 }
 
 .logbook-table th {
@@ -4231,9 +4278,9 @@ mark.neutral {
 }
 
 .resource-editor-modal {
-  max-height: min(92vh, 960px);
-  max-width: 1120px;
-  width: min(100%, 1120px);
+  max-height: min(96vh, 1120px);
+  max-width: 1480px;
+  width: min(98vw, 1480px);
 }
 
 .resource-editor-modal > header {
