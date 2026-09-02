@@ -4408,6 +4408,16 @@ mark.neutral {
   overflow: visible;
 }
 
+.resource-editor-grid .resource-field {
+  grid-column: span 1;
+  min-width: 0;
+}
+
+.resource-editor-grid .resource-notes {
+  grid-column: 1 / 4;
+  min-width: 0;
+}
+
 .resource-corner-gallery {
   align-items: center;
   display: grid;
@@ -4492,6 +4502,15 @@ mark.neutral {
 .resource-editor-grid > button.wide {
   justify-content: center;
   text-align: center;
+}
+
+.resource-maintenance-form {
+  grid-template-columns: minmax(0, 1.25fr) minmax(120px, 0.75fr) minmax(0, 1fr) minmax(0, 1fr);
+  width: 100%;
+}
+
+.resource-maintenance-form input {
+  width: 100%;
 }
 
 @media (max-width: 919px) {

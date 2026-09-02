@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.295.0",
+  version: "1.296.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.296.0",
+    date: "2026-09-02",
+    changes: [
+      "Fahrtenbuch-Jahr wurde im Ressourcenformular durch Baujahr ersetzt",
+      "Obere Ressourcenfelder nutzen gleichmaessige Formularspalten",
+      "Wartungsfelder nutzen die verfuegbare Blockbreite besser aus",
+    ],
+  },
   {
     version: "1.295.0",
     date: "2026-09-02",
