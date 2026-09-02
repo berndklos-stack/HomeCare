@@ -468,6 +468,15 @@ type VehicleOdometerPhoto = {
   source: "start" | "end";
 };
 
+type ResourceMaintenanceItem = {
+  id: string;
+  title: string;
+  unit: string;
+  target: string;
+  notes: string;
+  status: "offen" | "erledigt";
+};
+
 type ResourceRecord = {
   id: string;
   type: "Fahrzeug" | "Maschine" | "Gerät";
@@ -482,6 +491,7 @@ type ResourceRecord = {
   odometerYearStart: string;
   odometerYearEnd: string;
   logbook: VehicleLogEntry[];
+  maintenanceItems?: ResourceMaintenanceItem[];
   deletedLogbookEntryIds?: string[];
   archived?: boolean;
 };
@@ -12229,6 +12239,7 @@ function MasterDataView({
     identifier: "",
     location: "",
     logbookYear: String(new Date().getFullYear()),
+    maintenanceItems: [] as ResourceMaintenanceItem[],
     mediaItems: [] as MediaItem[],
     name: "",
     notes: "",
@@ -12237,6 +12248,12 @@ function MasterDataView({
     responsiblePersonId: "",
     status: "aktiv",
     type: "Fahrzeug" as ResourceRecord["type"],
+  });
+  const [maintenanceForm, setMaintenanceForm] = useState({
+    notes: "",
+    target: "",
+    title: "",
+    unit: "Datum",
   });
   const [logbookForm, setLogbookForm] = useState({
     date: new Date().toISOString().slice(0, 10),
@@ -12339,6 +12356,10 @@ function MasterDataView({
   const logbookPurposeOptions = uniqueSortedValues(
     resources.flatMap((resource) => resource.logbook.map((entry) => entry.purpose)),
     ["Kundenauftrag", "Material holen", "Besichtigung", "Service / Wartung", "Privatfahrt"],
+  );
+  const maintenanceUnitOptions = uniqueSortedValues(
+    resources.flatMap((resource) => (resource.maintenanceItems ?? []).map((item) => item.unit)),
+    ["Datum", "KM", "Betriebsstunden", "frei"],
   );
 
   useEffect(() => {
@@ -12487,6 +12508,7 @@ function MasterDataView({
       identifier: "",
       location: "",
       logbookYear: String(new Date().getFullYear()),
+      maintenanceItems: [],
       mediaItems: [],
       name: "",
       notes: "",
@@ -12512,6 +12534,7 @@ function MasterDataView({
       identifier: resource.identifier,
       location: resource.location,
       logbookYear: resource.logbookYear || String(new Date().getFullYear()),
+      maintenanceItems: resource.maintenanceItems ?? [],
       mediaItems: resource.media ?? [],
       name: resource.name,
       notes: resource.notes,
@@ -12540,6 +12563,7 @@ function MasterDataView({
       location: resourceForm.location.trim(),
       logbook: existingResource?.logbook ?? [],
       logbookYear: resourceForm.logbookYear.trim() || String(new Date().getFullYear()),
+      maintenanceItems: resourceForm.maintenanceItems,
       media: resourceForm.mediaItems,
       name: resourceForm.name.trim(),
       notes: resourceForm.notes.trim(),
@@ -12606,7 +12630,29 @@ function MasterDataView({
     });
   }
 
-  function updateResourcePhotoDescription(id: string, description: string) {
+  async function addResourceDocuments(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    const currentDocuments = resourceForm.mediaItems.filter((item) => item.type === "Dokument");
+    const added = await Promise.all(Array.from(files).map(async (file, index) => {
+      const uploaded = await uploadMediaFile(file, "resource-documents", file.name);
+      return {
+        description: "",
+        id: `RES-DOC-${resourceForm.identifier.trim() || resourceForm.name.trim() || "neu"}-${file.name}-${currentDocuments.length + index + 1}`,
+        name: file.name,
+        previewUrl: uploaded?.url,
+        source: "Upload" as const,
+        storagePath: uploaded?.path,
+        type: "Dokument" as const,
+      };
+    }));
+
+    setResourceForm({
+      ...resourceForm,
+      mediaItems: [...resourceForm.mediaItems, ...added],
+    });
+  }
+
+  function updateResourceMediaDescription(id: string, description: string) {
     setResourceForm({
       ...resourceForm,
       mediaItems: resourceForm.mediaItems.map((item) => (item.id === id ? { ...item, description } : item)),
@@ -12617,6 +12663,42 @@ function MasterDataView({
     setResourceForm({
       ...resourceForm,
       mediaItems: resourceForm.mediaItems.map((item) => ({ ...item, isPrimary: item.id === id && item.type === "Bild" })),
+    });
+  }
+
+  function saveMaintenanceItem() {
+    if (!maintenanceForm.title.trim() || !maintenanceForm.target.trim()) {
+      setArchiveNotice("Bitte Termin und Zielwert erfassen.");
+      return;
+    }
+    const item: ResourceMaintenanceItem = {
+      id: `RES-MAINT-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      notes: maintenanceForm.notes.trim(),
+      status: "offen",
+      target: maintenanceForm.target.trim(),
+      title: maintenanceForm.title.trim(),
+      unit: maintenanceForm.unit.trim() || "frei",
+    };
+    setResourceForm({
+      ...resourceForm,
+      maintenanceItems: [...resourceForm.maintenanceItems, item],
+    });
+    setMaintenanceForm({ notes: "", target: "", title: "", unit: maintenanceForm.unit || "Datum" });
+  }
+
+  function toggleMaintenanceItem(id: string) {
+    setResourceForm({
+      ...resourceForm,
+      maintenanceItems: resourceForm.maintenanceItems.map((item) => (
+        item.id === id ? { ...item, status: item.status === "erledigt" ? "offen" : "erledigt" } : item
+      )),
+    });
+  }
+
+  function deleteMaintenanceItem(id: string) {
+    setResourceForm({
+      ...resourceForm,
+      maintenanceItems: resourceForm.maintenanceItems.filter((item) => item.id !== id),
     });
   }
 
@@ -13450,9 +13532,9 @@ function MasterDataView({
                   <input aria-label="Bild zur Ressource hinzufügen" accept="image/*" capture="environment" multiple type="file" onChange={(event) => void addResourcePhotos(event.target.files)} />
                 </label>
               </div>
-              {resourceForm.mediaItems.length > 0 ? (
+              {resourceForm.mediaItems.filter((item) => item.type === "Bild").length > 0 ? (
                 <div className="object-photo-gallery resource-photo-gallery">
-                  {resourceForm.mediaItems.map((item) => (
+                  {resourceForm.mediaItems.filter((item) => item.type === "Bild").map((item) => (
                     <article className={item.isPrimary ? "primary" : ""} key={item.id}>
                       <div
                         aria-label={`Ressourcenbild ${item.name}`}
@@ -13464,7 +13546,7 @@ function MasterDataView({
                         aria-label={`Kurzbeschreibung ${item.name}`}
                         placeholder="Kurzbeschreibung zum Bild"
                         value={item.description}
-                        onChange={(event) => updateResourcePhotoDescription(item.id, event.target.value)}
+                        onChange={(event) => updateResourceMediaDescription(item.id, event.target.value)}
                       />
                       <div className="row-actions">
                         <IconAction label={`${item.name} als Hauptbild verwenden`} onClick={() => setResourcePrimaryPhoto(item.id)}><CarFront size={16} /></IconAction>
@@ -13477,6 +13559,89 @@ function MasterDataView({
                 <p className="empty-attachment">Noch keine Bilder zur Ressource vorhanden.</p>
               )}
             </section>
+            {resourceForm.type === "Fahrzeug" && (
+              <>
+                <section className="wide object-attachment-section resource-document-section">
+                  <div className="attachment-section-head">
+                    <div>
+                      <h3>Fahrzeugdokumente</h3>
+                      <span>{resourceForm.mediaItems.filter((item) => item.type === "Dokument").length} Dokumente</span>
+                    </div>
+                    <label className="ghost-button attachment-upload">
+                      <Paperclip size={16} />
+                      Dokument hinzufügen
+                      <input aria-label="Fahrzeugdokument hinzufügen" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,image/*" multiple type="file" onChange={(event) => void addResourceDocuments(event.target.files)} />
+                    </label>
+                  </div>
+                  {resourceForm.mediaItems.filter((item) => item.type === "Dokument").length > 0 ? (
+                    <div className="resource-document-list">
+                      {resourceForm.mediaItems.filter((item) => item.type === "Dokument").map((item) => (
+                        <article key={item.id}>
+                          <FileText size={18} />
+                          <div>
+                            <strong>{item.name}</strong>
+                            <input
+                              aria-label={`Beschreibung ${item.name}`}
+                              placeholder="z.B. Werkstattrechnung, Besiktningsprotokoll"
+                              value={item.description}
+                              onChange={(event) => updateResourceMediaDescription(item.id, event.target.value)}
+                            />
+                          </div>
+                          <div className="row-actions">
+                            {item.previewUrl ? (
+                              <IconAction label={`${item.name} öffnen`} onClick={() => window.open(item.previewUrl, "_blank", "noopener,noreferrer")}><FileDown size={16} /></IconAction>
+                            ) : null}
+                            <IconAction danger label={`Dokument ${item.name} entfernen`} onClick={() => removeResourcePhoto(item.id)}><Trash2 size={16} /></IconAction>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="empty-attachment">Noch keine Fahrzeugdokumente gespeichert.</p>
+                  )}
+                </section>
+                <section className="wide object-attachment-section resource-maintenance-section">
+                  <div className="attachment-section-head">
+                    <div>
+                      <h3>Termine / Wartung</h3>
+                      <span>{resourceForm.maintenanceItems.filter((item) => item.status !== "erledigt").length} offen</span>
+                    </div>
+                    <button className="ghost-button" onClick={saveMaintenanceItem} type="button">
+                      <Plus size={16} />
+                      Termin hinzufügen
+                    </button>
+                  </div>
+                  <div className="resource-maintenance-form">
+                    <input aria-label="Termin" placeholder="Service, Ölwechsel, Besiktning..." value={maintenanceForm.title} onChange={(event) => setMaintenanceForm({ ...maintenanceForm, title: event.target.value })} />
+                    <input aria-label="Einheit" list="resource-maintenance-units" placeholder="Einheit" value={maintenanceForm.unit} onChange={(event) => setMaintenanceForm({ ...maintenanceForm, unit: event.target.value })} />
+                    <datalist id="resource-maintenance-units">
+                      {maintenanceUnitOptions.map((unit) => <option key={unit} value={unit} />)}
+                    </datalist>
+                    <input aria-label="Zielwert" placeholder="Datum, KM oder freier Wert" value={maintenanceForm.target} onChange={(event) => setMaintenanceForm({ ...maintenanceForm, target: event.target.value })} />
+                    <input aria-label="Notiz zum Termin" placeholder="Notiz" value={maintenanceForm.notes} onChange={(event) => setMaintenanceForm({ ...maintenanceForm, notes: event.target.value })} />
+                  </div>
+                  {resourceForm.maintenanceItems.length > 0 ? (
+                    <div className="resource-maintenance-list">
+                      {resourceForm.maintenanceItems.map((item) => (
+                        <article key={item.id}>
+                          <button className={item.status === "erledigt" ? "status-dot done" : "status-dot"} aria-label={`${item.title} als erledigt markieren`} onClick={() => toggleMaintenanceItem(item.id)} type="button">
+                            <Check size={14} />
+                          </button>
+                          <div>
+                            <strong>{item.title}</strong>
+                            <span>{item.unit}: {item.target}{item.notes ? ` · ${item.notes}` : ""}</span>
+                          </div>
+                          <Badge value={item.status} />
+                          <IconAction danger label={`Termin ${item.title} löschen`} onClick={() => deleteMaintenanceItem(item.id)}><Trash2 size={16} /></IconAction>
+                        </article>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="empty-attachment">Noch keine Termine hinterlegt.</p>
+                  )}
+                </section>
+              </>
+            )}
             <button className="primary-button wide" onClick={saveResource} type="button">{editingResourceId ? tt("Ressource speichern") : tt("Ressource anlegen")}</button>
             <button className="ghost-button wide" onClick={resetResourceForm} type="button">{tt("Bearbeitung abbrechen")}</button>
           </div>

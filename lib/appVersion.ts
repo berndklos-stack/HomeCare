@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.291.0",
+  version: "1.292.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.292.0",
+    date: "2026-09-02",
+    changes: [
+      "Fahrtenbuch-Tabelle wird kompakter dargestellt",
+      "Fahrzeugdokumente wie Werkstattrechnungen und Besiktningsprotokolle koennen gespeichert werden",
+      "Fahrzeugtermine fuer Service, Oelwechsel oder Besiktning koennen mit lernender Einheit erfasst werden",
+    ],
+  },
   {
     version: "1.291.0",
     date: "2026-09-02",
