@@ -237,6 +237,13 @@ function mergeJobStatus(existing: JsonObject, patch: JsonObject) {
   if (
     ["erledigt", "abgerechnet"].includes(String(existingStatus)) &&
     !["erledigt", "abgerechnet"].includes(String(patchStatus))
+    && (
+      !Number.isFinite(patchStatusTime)
+      || (
+        Number.isFinite(existingStatusTime)
+        && patchStatusTime <= existingStatusTime
+      )
+    )
   ) {
     return existingStatus;
   }

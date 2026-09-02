@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.279.0",
+  version: "1.280.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.280.0",
+    date: "2026-09-02",
+    changes: [
+      "Statuswechsel von erledigt zurueck auf in Arbeit oder geplant werden serverseitig akzeptiert, wenn sie neuer sind",
+      "Mobil-vor-Ort-Popup bleibt auf iPhone-Breite passend und kompakt",
+    ],
+  },
   {
     version: "1.279.0",
     date: "2026-09-02",
