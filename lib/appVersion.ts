@@ -1,10 +1,17 @@
 export const appVersion = {
-  version: "1.280.0",
+  version: "1.281.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.281.0",
+    date: "2026-09-02",
+    changes: [
+      "Server ignoriert alte oder zeitgleiche Status-Patches, damit in Arbeit nicht wieder auf erledigt zurueckspringt",
+    ],
+  },
   {
     version: "1.280.0",
     date: "2026-09-02",

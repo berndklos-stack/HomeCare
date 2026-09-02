@@ -218,7 +218,7 @@ function mergeJobStatus(existing: JsonObject, patch: JsonObject) {
     Number.isFinite(existingStatusTime)
     && (
       !Number.isFinite(patchStatusTime)
-      || patchStatusTime < existingStatusTime
+      || patchStatusTime <= existingStatusTime
     )
     && patchStatus !== existingStatus
   ) {
