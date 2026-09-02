@@ -4081,10 +4081,12 @@ mark.neutral {
 }
 
 .field-status-modal {
-  max-width: 560px;
+  gap: 12px;
+  max-width: 520px;
 }
 
 .field-status-modal .send-preview-grid {
+  gap: 8px;
   grid-template-columns: 1fr;
 }
 
@@ -4095,9 +4097,15 @@ mark.neutral {
   color: var(--ink);
   cursor: pointer;
   display: grid;
-  gap: 6px;
-  padding: 14px;
+  gap: 3px;
+  min-height: 0;
+  padding: 9px 12px;
   text-align: left;
+}
+
+.status-choice-button strong {
+  font-size: 14px;
+  line-height: 1.2;
 }
 
 .status-choice-button:hover {
@@ -4120,7 +4128,8 @@ mark.neutral {
 
 .status-choice-button span {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11px;
+  line-height: 1.25;
 }
 
 .customer-message-modal {

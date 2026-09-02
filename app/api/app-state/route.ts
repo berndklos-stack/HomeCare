@@ -651,6 +651,7 @@ async function saveAppState(request: Request) {
   }
 
   const body = await request.json();
+  const normalizedBody = normalizeSnapshot(body);
   if (body && typeof body === "object" && "__patch" in body) {
     const { data, error } = await supabase
       .from("app_state")
@@ -665,7 +666,17 @@ async function saveAppState(request: Request) {
     return saveSnapshotToSupabase(mergeSnapshotPatch(normalizeSnapshot(data?.data ?? null), (body as { patch?: unknown }).patch));
   }
 
-  return saveSnapshotToSupabase(normalizeSnapshot(body));
+  const { data, error } = await supabase
+    .from("app_state")
+    .select("data")
+    .eq("id", appStateRowId)
+    .maybeSingle();
+
+  if (error) {
+    return retryableSupabaseResponse(error);
+  }
+
+  return saveSnapshotToSupabase(mergeSnapshotPatch(normalizeSnapshot(data?.data ?? null), normalizedBody));
 }
 
 export async function PUT(request: Request) {

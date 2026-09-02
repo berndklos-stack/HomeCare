@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.281.0",
+  version: "1.282.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.282.0",
+    date: "2026-09-02",
+    changes: [
+      "Komplette App-Speicherungen werden serverseitig konfliktgeschuetzt zusammengefuehrt, statt aeltere Status blind zu ueberschreiben",
+      "Statusauswahl beim Schliessen in Mobil vor Ort ist kompakter und weniger hoch",
+    ],
+  },
   {
     version: "1.281.0",
     date: "2026-09-02",
