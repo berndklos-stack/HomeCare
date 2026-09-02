@@ -1,10 +1,17 @@
 export const appVersion = {
-  version: "1.282.0",
+  version: "1.283.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.283.0",
+    date: "2026-09-02",
+    changes: [
+      "Aktiver Mobil-vor-Ort-Auftrag wird serverseitig gegen Ruecksprung auf erledigt abgesichert",
+    ],
+  },
   {
     version: "1.282.0",
     date: "2026-09-02",

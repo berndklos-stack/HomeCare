@@ -557,6 +557,21 @@ function mergeSnapshotPatch(existingSnapshot: unknown, patch: unknown) {
     merged[key] = value;
   });
 
+  const activeJobId = typeof merged.activeJobId === "string" ? merged.activeJobId : "";
+  if (activeJobId && Array.isArray(merged.jobs)) {
+    merged.jobs = (merged.jobs as unknown[]).map((job) => {
+      if (!job || typeof job !== "object") return job;
+      const item = job as JsonObject;
+      if (String(item.id ?? "") !== activeJobId) return item;
+      if (["abgerechnet", "storniert"].includes(String(item.status ?? ""))) return item;
+      return {
+        ...item,
+        status: "in Arbeit",
+        statusUpdatedAt: new Date().toISOString(),
+      };
+    });
+  }
+
   return merged;
 }
 
