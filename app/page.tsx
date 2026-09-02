@@ -13487,7 +13487,7 @@ function MasterDataView({
                       <>
                         <button className="primary-button" onClick={openCreateLogbookEntry} type="button">
                           <Plus size={16} />
-                          Fahrt manuell erfassen
+                          Neue Fahrt
                         </button>
                         <button className="ghost-button" onClick={() => void downloadVehicleLogbookPdf(selectedResource, selectedResourceLogbook, activePersonnel, false)} type="button">
                           <FileDown size={16} />
@@ -13529,6 +13529,15 @@ function MasterDataView({
                   <Camera size={14} />
                   <input aria-label="Bild zur Ressource hinzufügen" accept="image/*" capture="environment" multiple type="file" onChange={(event) => void addResourcePhotos(event.target.files)} />
                 </label>
+                <button
+                  aria-label={selectedResourceImage ? `Bild ${selectedResourceImage.name} löschen` : "Kein Bild zum Löschen"}
+                  className="icon-button danger"
+                  disabled={!selectedResourceImage}
+                  onClick={() => selectedResourceImage && removeResourcePhoto(selectedResourceImage.id)}
+                  type="button"
+                >
+                  <Trash2 size={14} />
+                </button>
                 <button aria-label="Nächstes Bild" className="icon-button" disabled={resourceImages.length < 2} onClick={showNextResourceImage} type="button">
                   <ArrowRight size={14} />
                 </button>

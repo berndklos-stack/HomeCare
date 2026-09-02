@@ -4372,34 +4372,50 @@ mark.neutral {
 
 .resource-editor-modal > header {
   align-items: center;
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto;
   padding-bottom: 10px;
 }
 
-.resource-editor-grid {
-  overflow: visible;
-  position: relative;
+.resource-editor-modal .modal-header-actions {
+  flex-wrap: nowrap;
 }
 
-@media (min-width: 920px) {
-  .resource-editor-grid {
-    padding-right: 190px;
-  }
+.resource-editor-modal .modal-header-actions .ghost-button,
+.resource-editor-modal .modal-header-actions .primary-button {
+  font-size: 13px;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 10px;
+}
+
+.resource-editor-modal .modal-header-actions .primary-button {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+}
+
+.resource-editor-modal .modal-header-actions .ghost-button {
+  background: var(--paper);
+  border-color: var(--line);
+  color: var(--brand);
+}
+
+.resource-editor-grid {
+  align-items: start;
+  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) 170px;
+  overflow: visible;
 }
 
 .resource-corner-gallery {
   align-items: center;
   display: grid;
   gap: 5px;
+  grid-column: 4;
+  grid-row: 1 / span 4;
   justify-items: center;
-}
-
-@media (min-width: 920px) {
-  .resource-corner-gallery {
-    position: absolute;
-    right: 0;
-    top: 0;
-    width: 170px;
-  }
+  width: 100%;
 }
 
 .resource-corner-image {
@@ -4441,6 +4457,52 @@ mark.neutral {
 .resource-document-section,
 .resource-maintenance-section {
   padding: 10px;
+}
+
+.resource-editor-grid label {
+  gap: 3px;
+}
+
+.resource-editor-grid label.wide,
+.resource-editor-grid .wide {
+  grid-column: 1 / 4;
+}
+
+.resource-editor-grid input,
+.resource-editor-grid select,
+.resource-editor-grid textarea {
+  font-size: 13px;
+  min-height: 34px;
+  padding: 6px 8px;
+}
+
+.resource-editor-grid textarea {
+  min-height: 58px;
+}
+
+@media (max-width: 919px) {
+  .resource-editor-modal > header {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .resource-editor-modal .modal-header-actions {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  .resource-editor-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .resource-corner-gallery,
+  .resource-editor-grid label.wide,
+  .resource-editor-grid .wide {
+    grid-column: 1;
+  }
+
+  .resource-corner-gallery {
+    grid-row: auto;
+  }
 }
 
 .resource-modal-logbook {
@@ -4575,6 +4637,11 @@ mark.neutral {
 }
 
 .modal-header-actions .ghost-button {
+  height: 40px;
+  width: auto;
+}
+
+.modal-header-actions .primary-button {
   height: 40px;
   width: auto;
 }

@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.293.0",
+  version: "1.294.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.294.0",
+    date: "2026-09-02",
+    changes: [
+      "Ressourcenbilder koennen direkt im kleinen Bildslider geloescht werden",
+      "Bildblock ist in das Ressourcenformular integriert statt frei angeheftet",
+      "Fahrtenbuch-Kopfbuttons sind kompakter und werden nicht mehr abgeschnitten",
+    ],
+  },
   {
     version: "1.293.0",
     date: "2026-09-02",
