@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.283.0",
+  version: "1.284.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.284.0",
+    date: "2026-09-02",
+    changes: [
+      "Statusauswahl beim Schliessen in Mobil vor Ort zeigt den aktuellen Status als kompakte Infozeile",
+      "Bewusst gewaehlte Statuswechsel auf In Arbeit oder Geplant werden serverseitig als Nutzerentscheidung uebernommen",
+    ],
+  },
   {
     version: "1.283.0",
     date: "2026-09-02",

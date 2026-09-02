@@ -4085,9 +4085,34 @@ mark.neutral {
   max-width: 520px;
 }
 
-.field-status-modal .send-preview-grid {
+.field-current-status {
+  align-items: center;
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: flex;
   gap: 8px;
-  grid-template-columns: 1fr;
+  justify-content: space-between;
+  padding: 8px 10px;
+}
+
+.field-current-status span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.field-current-status strong {
+  color: var(--foreground);
+  font-size: 14px;
+}
+
+.field-status-choice-list {
+  align-content: start;
+  display: grid;
+  gap: 8px;
+  grid-auto-rows: max-content;
 }
 
 .status-choice-button {
@@ -4099,7 +4124,7 @@ mark.neutral {
   display: grid;
   gap: 3px;
   min-height: 0;
-  padding: 9px 12px;
+  padding: 8px 10px;
   text-align: left;
 }
 

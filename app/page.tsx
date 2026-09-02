@@ -6783,13 +6783,15 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     if (!targetJobId) return;
     const activeReport = editingFieldReportId ? reports.find((report) => report.id === editingFieldReportId) : undefined;
     const savedMaterial = material?.trim() || job?.material?.trim() || "-";
+    const statusChangedAt = new Date().toISOString();
     const nextJobs = jobs.map((item) => (
       item.id === targetJobId
         ? {
             ...item,
+            __forceStatus: true,
             material: savedMaterial,
             status: nextStatus,
-            statusUpdatedAt: item.status === nextStatus ? item.statusUpdatedAt : new Date().toISOString(),
+            statusUpdatedAt: item.status === nextStatus ? item.statusUpdatedAt : statusChangedAt,
           }
         : item
     ));
@@ -10318,6 +10320,9 @@ function FieldView({
     closeActiveJobWithStatus(activeJob.status);
   }
 
+  const activeStatusIsClosed = ["erledigt", "abgerechnet", "storniert"].includes(activeJob.status);
+  const showKeepCurrentStatus = !editingReportId && !activeStatusIsClosed;
+
   return (
     <section className="field-shell">
       <div className="phone-card">
@@ -10700,12 +10705,18 @@ function FieldView({
                   <X size={18} />
                 </button>
               </header>
-              <div className="send-preview-grid">
-                <button className="status-choice-button active" onClick={closeActiveJobKeepingStatus} type="button">
-                  <strong>Aktuellen Status beibehalten</strong>
-                  <span>Der Auftrag bleibt auf „{activeJob.status}“.</span>
-                </button>
-                <button className="status-choice-button" disabled={activeJob.status === "in Arbeit"} onClick={() => closeActiveJobWithStatus("in Arbeit")} type="button">
+              <div className="field-current-status">
+                <span>Aktueller Status</span>
+                <strong>{activeJob.status}</strong>
+              </div>
+              <div className="field-status-choice-list">
+                {showKeepCurrentStatus && (
+                  <button className="status-choice-button" onClick={closeActiveJobKeepingStatus} type="button">
+                    <strong>Beibehalten</strong>
+                    <span>Der Auftrag bleibt auf diesem Status.</span>
+                  </button>
+                )}
+                <button className={`status-choice-button ${activeJob.status === "erledigt" || editingReportId ? "active" : ""}`} disabled={activeJob.status === "in Arbeit"} onClick={() => closeActiveJobWithStatus("in Arbeit")} type="button">
                   <strong>In Arbeit</strong>
                   <span>Der Auftrag bleibt als laufender Einsatz markiert.</span>
                 </button>
@@ -10713,6 +10724,12 @@ function FieldView({
                   <strong>Geplant</strong>
                   <span>Der Auftrag wird wieder in die Planung zurückgelegt.</span>
                 </button>
+                {activeJob.status === "erledigt" && (
+                  <button className="status-choice-button" onClick={closeActiveJobKeepingStatus} type="button">
+                    <strong>Erledigt lassen</strong>
+                    <span>Keine Statusänderung vornehmen.</span>
+                  </button>
+                )}
               </div>
             </section>
           </div>
