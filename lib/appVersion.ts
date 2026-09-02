@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.287.0",
+  version: "1.288.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.288.0",
+    date: "2026-09-02",
+    changes: [
+      "Ressourcen werden beim Anklicken in einem Popup geoeffnet",
+      "Fahrtenbuch wird im Ressourcen-Popup als Tabelle angezeigt",
+      "Fahrtenbuch kann als PDF ohne Bilder oder als PDF mit Bilderanhang heruntergeladen werden",
+    ],
+  },
   {
     version: "1.287.0",
     date: "2026-09-02",

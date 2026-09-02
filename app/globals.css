@@ -2369,6 +2369,68 @@ mark.neutral {
   grid-template-columns: minmax(0, 1fr) auto auto;
 }
 
+.logbook-table-wrap {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: auto;
+}
+
+.logbook-table {
+  border-collapse: collapse;
+  font-size: 13px;
+  min-width: 980px;
+  width: 100%;
+}
+
+.logbook-table th,
+.logbook-table td {
+  border-bottom: 1px solid var(--line);
+  padding: 9px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.logbook-table th {
+  background: var(--paper-soft);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.logbook-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.logbook-table td strong,
+.logbook-table td span {
+  display: block;
+}
+
+.logbook-table td span {
+  color: var(--muted);
+  margin-top: 3px;
+}
+
+.logbook-table .number-cell {
+  font-weight: 800;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.logbook-table .row-actions {
+  gap: 6px;
+  justify-content: flex-end;
+  white-space: nowrap;
+}
+
+.logbook-table .row-actions .icon-button {
+  min-height: 34px;
+  width: 34px;
+}
+
 .logbook-photo-grid {
   display: grid;
   gap: 8px;
@@ -4166,6 +4228,25 @@ mark.neutral {
 .customer-message-modal {
   max-width: 1120px;
   width: min(100%, 1120px);
+}
+
+.resource-editor-modal {
+  max-height: min(92vh, 960px);
+  max-width: 1120px;
+  width: min(100%, 1120px);
+}
+
+.resource-editor-modal > header {
+  align-items: center;
+}
+
+.resource-editor-grid {
+  overflow: visible;
+}
+
+.resource-modal-logbook {
+  display: grid;
+  gap: 12px;
 }
 
 .communication-detail-modal {

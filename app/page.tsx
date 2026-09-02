@@ -3501,6 +3501,193 @@ function downloadBlob(blob: Blob, fileName: string) {
   URL.revokeObjectURL(url);
 }
 
+async function downloadVehicleLogbookPdf(resource: ResourceRecord, entries: VehicleLogEntry[], personnel: PersonnelRecord[], includeImages = false) {
+  const { jsPDF } = await import("jspdf");
+  const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "landscape" });
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const margin = 12;
+  const contentWidth = pageWidth - margin * 2;
+  const columns = [
+    { key: "date", label: "Datum", width: 22 },
+    { key: "driver", label: "Fahrer", width: 28 },
+    { key: "tripType", label: "Art", width: 24 },
+    { key: "route", label: "Start / Ziel / Zwischenziele", width: 70 },
+    { key: "odometer", label: "KM-Stand", width: 32 },
+    { key: "kilometers", label: "KM", width: 16 },
+    { key: "purpose", label: "Zweck / besucht bei", width: 52 },
+    { key: "extras", label: "Belege / Fotos / Notizen", width: 29 },
+  ] as const;
+  const driverName = (driverId: string) => {
+    const person = personnel.find((item) => item.id === driverId);
+    return person ? `${person.firstName} ${person.lastName}`.trim() : "-";
+  };
+  const cleanText = (value: string | undefined) => value?.trim() || "-";
+  const sortedEntries = [...entries].sort((first, second) => `${first.date}-${first.id}`.localeCompare(`${second.date}-${second.id}`));
+  let y = margin;
+
+  const addHeader = () => {
+    pdf.setTextColor(18, 22, 28);
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(16);
+    pdf.text(`Fahrtenbuch ${resource.name}`, margin, y);
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(8);
+    pdf.setTextColor(105, 111, 122);
+    pdf.text(
+      [
+        resource.identifier,
+        resource.logbookYear ? `Jahr ${resource.logbookYear}` : "",
+        resource.odometerYearStart ? `Start ${resource.odometerYearStart} km` : "",
+        resource.odometerYearEnd ? `Ende ${resource.odometerYearEnd} km` : "",
+      ].filter(Boolean).join(" · ") || "Fahrzeugdaten",
+      margin,
+      y + 6,
+    );
+    y += 13;
+  };
+
+  const addTableHeader = () => {
+    let x = margin;
+    pdf.setFillColor(246, 247, 249);
+    pdf.setDrawColor(218, 221, 226);
+    pdf.rect(margin, y, contentWidth, 8, "FD");
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(6.8);
+    pdf.setTextColor(105, 111, 122);
+    columns.forEach((column) => {
+      pdf.text(column.label, x + 1.8, y + 5.2, { maxWidth: column.width - 3 });
+      x += column.width;
+    });
+    y += 8;
+  };
+
+  const ensureSpace = (height: number) => {
+    if (y + height <= pageHeight - margin) return;
+    pdf.addPage();
+    y = margin;
+    addTableHeader();
+  };
+
+  addHeader();
+  addTableHeader();
+
+  if (sortedEntries.length === 0) {
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(9);
+    pdf.setTextColor(105, 111, 122);
+    pdf.text("Noch keine Fahrten erfasst.", margin, y + 8);
+  } else {
+    sortedEntries.forEach((entry) => {
+      const route = [
+        cleanText(entry.startAddress),
+        ...(entry.waypoints ?? []).map((waypoint) => [waypoint.address, waypoint.odometer ? `${waypoint.odometer} km` : ""].filter(Boolean).join(" · ")),
+        cleanText(entry.endAddress),
+      ].filter((item) => item && item !== "-").join(" -> ");
+      const extras = [
+        entry.fuelOrCharge ? `Tanken/Laden: ${entry.fuelOrCharge}` : "",
+        entry.fuelReceiptPhoto?.previewUrl ? "Tankbeleg vorhanden" : "",
+        entry.odometerPhotos?.length ? `${entry.odometerPhotos.length} Tachofoto(s)` : "",
+        (entry.waypoints ?? []).some((waypoint) => waypoint.photo?.previewUrl) ? "Zwischenziel-Foto(s)" : "",
+        entry.notes,
+      ].filter(Boolean).join(" · ") || "-";
+      const row = {
+        date: cleanText(entry.date),
+        driver: driverName(entry.driverId),
+        extras,
+        kilometers: cleanText(entry.kilometers),
+        odometer: `${cleanText(entry.startOdometer)} -> ${cleanText(entry.endOdometer)}`,
+        purpose: [entry.purpose, entry.visited].filter(Boolean).join(" · ") || "-",
+        route: route || "-",
+        tripType: entry.tripType,
+      };
+      const lines = columns.map((column) => pdf.splitTextToSize(row[column.key], column.width - 3) as string[]);
+      const rowHeight = Math.max(9, Math.max(...lines.map((line) => line.length)) * 3.5 + 4);
+      ensureSpace(rowHeight);
+      let x = margin;
+      pdf.setDrawColor(226, 228, 232);
+      pdf.setFillColor(255, 255, 255);
+      pdf.rect(margin, y, contentWidth, rowHeight, "S");
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(7);
+      pdf.setTextColor(33, 37, 43);
+      columns.forEach((column, index) => {
+        pdf.text(lines[index], x + 1.8, y + 4.8, { maxWidth: column.width - 3 });
+        x += column.width;
+      });
+      y += rowHeight;
+    });
+  }
+
+  if (includeImages) {
+    const imageItems = sortedEntries.flatMap((entry) => [
+      ...(entry.odometerPhotos ?? []).filter((photo) => photo.previewUrl).map((photo) => ({
+        caption: `${entry.date} · ${photo.source === "start" ? "Startfoto" : "Endfoto"}${photo.odometerReading ? ` · ${photo.odometerReading} km` : ""}`,
+        src: photo.previewUrl ?? "",
+      })),
+      ...(entry.waypoints ?? []).filter((waypoint) => waypoint.photo?.previewUrl).map((waypoint, index) => ({
+        caption: `${entry.date} · Zwischenziel ${index + 1}${waypoint.address ? ` · ${waypoint.address}` : ""}${waypoint.odometer ? ` · ${waypoint.odometer} km` : ""}`,
+        src: waypoint.photo?.previewUrl ?? "",
+      })),
+      ...(entry.fuelReceiptPhoto?.previewUrl ? [{
+        caption: `${entry.date} · Tank-/Ladebeleg`,
+        src: entry.fuelReceiptPhoto.previewUrl,
+      }] : []),
+    ]);
+    if (imageItems.length > 0) {
+      pdf.addPage();
+      y = margin;
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(14);
+      pdf.setTextColor(18, 22, 28);
+      pdf.text("Bilder zum Fahrtenbuch", margin, y);
+      y += 10;
+      const gap = 6;
+      const imageWidth = (contentWidth - gap * 2) / 3;
+      const imageHeight = 48;
+      imageItems.forEach((item, index) => {
+        const column = index % 3;
+        if (column === 0 && index > 0) y += imageHeight + 12;
+        if (y + imageHeight + 8 > pageHeight - margin) {
+          pdf.addPage();
+          y = margin;
+        }
+        const x = margin + column * (imageWidth + gap);
+        pdf.setDrawColor(220, 223, 228);
+        pdf.rect(x, y, imageWidth, imageHeight);
+        try {
+          const format = item.src.startsWith("data:image/png") ? "PNG" : "JPEG";
+          const properties = pdf.getImageProperties(item.src);
+          const ratio = Math.min(imageWidth / properties.width, imageHeight / properties.height);
+          const drawWidth = properties.width * ratio;
+          const drawHeight = properties.height * ratio;
+          pdf.addImage(item.src, format, x + (imageWidth - drawWidth) / 2, y + (imageHeight - drawHeight) / 2, drawWidth, drawHeight, undefined, "FAST");
+        } catch (error) {
+          console.warn("Fahrtenbuchbild konnte nicht in PDF übernommen werden.", error);
+          pdf.setFont("helvetica", "normal");
+          pdf.setFontSize(8);
+          pdf.setTextColor(120);
+          pdf.text("Bild konnte nicht eingebettet werden.", x + 3, y + 24, { maxWidth: imageWidth - 6 });
+        }
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(6.8);
+        pdf.setTextColor(105, 111, 122);
+        pdf.text(pdf.splitTextToSize(item.caption, imageWidth), x, y + imageHeight + 4);
+      });
+    }
+  }
+
+  const pageCount = pdf.getNumberOfPages();
+  for (let page = 1; page <= pageCount; page += 1) {
+    pdf.setPage(page);
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(7);
+    pdf.setTextColor(120);
+    pdf.text(`Seite ${page} von ${pageCount}`, pageWidth - margin, pageHeight - 6, { align: "right" });
+  }
+  downloadBlob(pdf.output("blob"), `${safeFileName(`Fahrtenbuch-${resource.name}-${resource.logbookYear || new Date().getFullYear()}${includeImages ? "-mit-Bildern" : "-ohne-Bilder"}`)}.pdf`);
+}
+
 async function downloadCustomerReportPdf(report: ReportRecord, object: ObjectRecord, job: JobRecord | undefined, customer: CustomerRecord | undefined) {
   const pdfBlob = await createReportPdfBlob(report, object, job, customer);
   const fileName = `${safeFileName(customerReportSendSubject(report, object, customer))}.pdf`;
@@ -12017,6 +12204,7 @@ function MasterDataView({
   const [editingPackageId, setEditingPackageId] = useState<string | null>(null);
   const [personEditorOpen, setPersonEditorOpen] = useState(false);
   const [resourceEditorOpen, setResourceEditorOpen] = useState(false);
+  const [resourceModalView, setResourceModalView] = useState<"details" | "logbook">("details");
   const [personViewMode, setPersonViewMode] = useState<"cards" | "list">("list");
   const [resourceViewMode, setResourceViewMode] = useState<"cards" | "list">("list");
   const [servicePickerOpen, setServicePickerOpen] = useState(false);
@@ -12292,6 +12480,7 @@ function MasterDataView({
     setEditingResourceId(null);
     setEditingLogEntryId(null);
     setResourceEditorOpen(false);
+    setResourceModalView("details");
     setResourceForm({
       identifier: "",
       location: "",
@@ -12310,6 +12499,7 @@ function MasterDataView({
 
   function openCreateResource() {
     resetResourceForm();
+    setResourceModalView("details");
     setResourceEditorOpen(true);
   }
 
@@ -12331,6 +12521,7 @@ function MasterDataView({
     });
     setEditingLogEntryId(null);
     resetLogbookForm();
+    setResourceModalView("details");
     setMasterDataTab("resources");
   }
 
@@ -13171,7 +13362,39 @@ function MasterDataView({
             </button>
           </div>
           {resourceEditorOpen && (
-          <div className="form-grid compact-form master-data-editor">
+            <div className="modal-backdrop">
+              <section className="modal resource-editor-modal" role="dialog" aria-modal="true" aria-labelledby="resource-editor-title">
+                <header>
+                  <div>
+                    <p>{tt("Ressourcen")}</p>
+                    <h2 id="resource-editor-title">{editingResourceId ? resourceForm.name || tt("Ressource bearbeiten") : tt("Neue Ressource anlegen")}</h2>
+                  </div>
+                  <div className="modal-header-actions">
+                    {selectedResource?.type === "Fahrzeug" && resourceModalView === "logbook" && (
+                      <>
+                        <button className="ghost-button" onClick={() => void downloadVehicleLogbookPdf(selectedResource, selectedResourceLogbook, activePersonnel, false)} type="button">
+                          <FileDown size={16} />
+                          PDF ohne Bilder
+                        </button>
+                        <button className="ghost-button" onClick={() => void downloadVehicleLogbookPdf(selectedResource, selectedResourceLogbook, activePersonnel, true)} type="button">
+                          <FileDown size={16} />
+                          PDF mit Bildern
+                        </button>
+                      </>
+                    )}
+                    {selectedResource?.type === "Fahrzeug" && (
+                      <button className="ghost-button" onClick={() => setResourceModalView(resourceModalView === "logbook" ? "details" : "logbook")} type="button">
+                        <CarFront size={16} />
+                        {resourceModalView === "logbook" ? "Stammdaten" : "Fahrtenbuch"}
+                      </button>
+                    )}
+                    <button aria-label="Ressource schließen" onClick={resetResourceForm} type="button">
+                      <X size={18} />
+                    </button>
+                  </div>
+                </header>
+          {resourceModalView === "details" ? (
+          <div className="form-grid compact-form master-data-editor resource-editor-grid">
             <label><span>{tt("Typ")}</span>
               <select value={resourceForm.type} onChange={(event) => setResourceForm({ ...resourceForm, type: event.target.value as ResourceRecord["type"] })}>
                 <option>Fahrzeug</option>
@@ -13244,6 +13467,77 @@ function MasterDataView({
             <button className="primary-button wide" onClick={saveResource} type="button">{editingResourceId ? tt("Ressource speichern") : tt("Ressource anlegen")}</button>
             <button className="ghost-button wide" onClick={resetResourceForm} type="button">{tt("Bearbeitung abbrechen")}</button>
           </div>
+          ) : selectedResource?.type === "Fahrzeug" ? (
+            <section className="vehicle-logbook resource-modal-logbook">
+              <div className="logbook-summary">
+                <span><strong>{logbookStats.totalKm}</strong> km gesamt</span>
+                <span><strong>{logbookStats.businessKm}</strong> km dienstlich</span>
+                <span><strong>{logbookStats.privateKm}</strong> km privat</span>
+                <span><strong>{logbookStats.privateTrips}</strong> Privatfahrten</span>
+              </div>
+              <div className="logbook-table-wrap">
+                <table className="logbook-table">
+                  <thead>
+                    <tr>
+                      <th>Datum</th>
+                      <th>Fahrer</th>
+                      <th>Art</th>
+                      <th>Route</th>
+                      <th>KM-Stand</th>
+                      <th>KM</th>
+                      <th>Zweck / besucht bei</th>
+                      <th>Belege / Fotos</th>
+                      <th aria-label="Aktionen" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedResourceLogbook.length === 0 ? (
+                      <tr>
+                        <td colSpan={9}>Noch keine Fahrten für dieses Fahrzeug erfasst.</td>
+                      </tr>
+                    ) : selectedResourceLogbook.map((entry) => {
+                      const waypointLabels = (entry.waypoints ?? []).map((waypoint) => [waypoint.address || waypoint.photo?.name || "Zwischenziel", waypoint.odometer ? `${waypoint.odometer} km` : ""].filter(Boolean).join(" · "));
+                      const attachmentLabels = [
+                        entry.fuelReceiptPhoto?.previewUrl ? "Tankbeleg" : "",
+                        entry.odometerPhotos?.length ? `${entry.odometerPhotos.length} Tachofoto(s)` : "",
+                        (entry.waypoints ?? []).some((waypoint) => waypoint.photo?.previewUrl) ? "Zwischenziel-Foto(s)" : "",
+                      ].filter(Boolean);
+                      return (
+                        <tr key={entry.id}>
+                          <td>{entry.date}</td>
+                          <td>{personName(entry.driverId)}</td>
+                          <td>{entry.tripType}</td>
+                          <td>
+                            <strong>{entry.startAddress || "-"}</strong>
+                            <span>{waypointLabels.length ? `über ${waypointLabels.join(" · ")}` : ""}</span>
+                            <span>{entry.endAddress || "-"}</span>
+                          </td>
+                          <td>{entry.startOdometer || "-"} → {entry.endOdometer || "-"}</td>
+                          <td className="number-cell">{entry.kilometers || "-"}</td>
+                          <td>
+                            <strong>{entry.purpose || "-"}</strong>
+                            <span>{entry.visited || ""}</span>
+                          </td>
+                          <td>
+                            <span>{entry.fuelOrCharge || ""}</span>
+                            <span>{attachmentLabels.join(" · ") || "-"}</span>
+                          </td>
+                          <td>
+                            <div className="row-actions">
+                              <IconAction label={`Fahrt vom ${entry.date} bearbeiten`} onClick={() => { editLogbookEntry(entry); setResourceModalView("details"); }}><Pencil size={16} /></IconAction>
+                              <IconAction danger label={`Fahrt vom ${entry.date} löschen`} onClick={() => deleteLogbookEntry(entry.id)}><Trash2 size={16} /></IconAction>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          ) : null}
+              </section>
+            </div>
           )}
           <div className="master-list-toolbar">
             <div className="segmented-control master-view-toggle">
@@ -13322,12 +13616,12 @@ function MasterDataView({
               {activeResources.length === 0 && <p>Noch keine aktiven Ressourcen angelegt.</p>}
             </div>
           )}
-          {resourceEditorOpen && selectedResource?.type === "Fahrzeug" && (
+          {resourceEditorOpen && selectedResource?.type === "Fahrzeug" && false && (
             <section className="vehicle-logbook">
               <div className="panel-title">
                 <div>
                   <p>Fahrtenbuch</p>
-                  <h2>{selectedResource.name}</h2>
+                  <h2>{selectedResource?.name ?? ""}</h2>
                 </div>
               </div>
               <div className="logbook-summary">
@@ -13448,8 +13742,8 @@ function MasterDataView({
                   </label>
                   {logbookForm.fuelReceiptPhoto?.previewUrl && (
                     <div className="receipt-photo-preview">
-                      <img alt="Tank- oder Ladebeleg" src={logbookForm.fuelReceiptPhoto.previewUrl} />
-                      <small>{logbookForm.fuelReceiptPhoto.name}</small>
+                      <img alt="Tank- oder Ladebeleg" src={logbookForm.fuelReceiptPhoto?.previewUrl} />
+                      <small>{logbookForm.fuelReceiptPhoto?.name}</small>
                     </div>
                   )}
                 </div>
