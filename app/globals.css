@@ -4401,7 +4401,7 @@ mark.neutral {
   color: var(--brand);
 }
 
-.resource-editor-grid {
+.form-grid.resource-editor-grid {
   align-items: start;
   gap: 8px;
   grid-template-columns: minmax(0, 1fr) 170px;
@@ -4439,6 +4439,7 @@ mark.neutral {
   grid-column: 2;
   grid-row: 1;
   justify-items: center;
+  max-width: 170px;
   width: 100%;
 }
 

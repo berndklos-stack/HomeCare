@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.297.0",
+  version: "1.298.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.298.0",
+    date: "2026-09-02",
+    changes: [
+      "Ressourcenbild wird wieder kompakt rechts neben den neun Stammdatenfeldern dargestellt",
+      "Ressourcenformular schuetzt seine Spaltenbreiten gegen allgemeine Formularregeln",
+    ],
+  },
   {
     version: "1.297.0",
     date: "2026-09-02",
