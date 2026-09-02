@@ -4471,13 +4471,27 @@ mark.neutral {
 .resource-editor-grid input,
 .resource-editor-grid select,
 .resource-editor-grid textarea {
+  box-sizing: border-box;
   font-size: 13px;
-  min-height: 34px;
+  height: 36px;
+  min-height: 36px;
   padding: 6px 8px;
 }
 
 .resource-editor-grid textarea {
+  height: auto;
   min-height: 58px;
+}
+
+.resource-document-section,
+.resource-maintenance-section,
+.resource-editor-grid > button.wide {
+  grid-column: 1 / -1;
+}
+
+.resource-editor-grid > button.wide {
+  justify-content: center;
+  text-align: center;
 }
 
 @media (max-width: 919px) {
