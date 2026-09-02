@@ -13549,35 +13549,37 @@ function MasterDataView({
               </div>
               <small>{resourceImages.length ? `${Math.min(resourceImageIndex + 1, resourceImages.length)} / ${resourceImages.length}` : "kein Bild"}</small>
             </aside>
-            <label className="resource-field"><span>{tt("Typ")}</span>
-              <select value={resourceForm.type} onChange={(event) => setResourceForm({ ...resourceForm, type: event.target.value as ResourceRecord["type"] })}>
-                <option>Fahrzeug</option>
-                <option>Maschine</option>
-                <option>Gerät</option>
-              </select>
-            </label>
-            <label className="resource-field"><span>{tt("Name")}</span><input value={resourceForm.name} onChange={(event) => setResourceForm({ ...resourceForm, name: event.target.value })} /></label>
-            <label className="resource-field"><span>{tt("Kennzeichen / Inventarnr.")}</span><input value={resourceForm.identifier} onChange={(event) => setResourceForm({ ...resourceForm, identifier: event.target.value })} /></label>
-            <label className="resource-field"><span>{tt("Status")}</span>
-              <input list="resource-status-options" value={resourceForm.status} onChange={(event) => setResourceForm({ ...resourceForm, status: event.target.value })} />
-              <datalist id="resource-status-options">
-                {resourceStatusOptions.map((status) => <option key={status} value={status} />)}
-              </datalist>
-            </label>
-            <label className="resource-field"><span>{tt("Verantwortlich")}</span>
-              <select value={resourceForm.responsiblePersonId} onChange={(event) => setResourceForm({ ...resourceForm, responsiblePersonId: event.target.value })}>
-                <option value="">{tt("Nicht zugeordnet")}</option>
-                {activePersonnel.map((person) => <option key={person.id} value={person.id}>{person.firstName} {person.lastName}</option>)}
-              </select>
-            </label>
-            <label className="resource-field"><span>{tt("Standort")}</span><input value={resourceForm.location} onChange={(event) => setResourceForm({ ...resourceForm, location: event.target.value })} /></label>
-            {resourceForm.type === "Fahrzeug" && (
-              <>
-                <label className="resource-field"><span>Baujahr</span><input inputMode="numeric" value={resourceForm.buildYear} onChange={(event) => setResourceForm({ ...resourceForm, buildYear: event.target.value })} /></label>
-                <label className="resource-field"><span>{tt("Km-Stand Jahresbeginn")}</span><input inputMode="numeric" value={resourceForm.odometerYearStart} onChange={(event) => setResourceForm({ ...resourceForm, odometerYearStart: event.target.value })} /></label>
-                <label className="resource-field"><span>{tt("Km-Stand Jahresende")}</span><input inputMode="numeric" value={resourceForm.odometerYearEnd} onChange={(event) => setResourceForm({ ...resourceForm, odometerYearEnd: event.target.value })} /></label>
-              </>
-            )}
+            <div className="resource-main-fields">
+              <label className="resource-field"><span>{tt("Typ")}</span>
+                <select value={resourceForm.type} onChange={(event) => setResourceForm({ ...resourceForm, type: event.target.value as ResourceRecord["type"] })}>
+                  <option>Fahrzeug</option>
+                  <option>Maschine</option>
+                  <option>Gerät</option>
+                </select>
+              </label>
+              <label className="resource-field"><span>{tt("Name")}</span><input value={resourceForm.name} onChange={(event) => setResourceForm({ ...resourceForm, name: event.target.value })} /></label>
+              <label className="resource-field"><span>{tt("Kennzeichen / Inventarnr.")}</span><input value={resourceForm.identifier} onChange={(event) => setResourceForm({ ...resourceForm, identifier: event.target.value })} /></label>
+              <label className="resource-field"><span>{tt("Status")}</span>
+                <input list="resource-status-options" value={resourceForm.status} onChange={(event) => setResourceForm({ ...resourceForm, status: event.target.value })} />
+                <datalist id="resource-status-options">
+                  {resourceStatusOptions.map((status) => <option key={status} value={status} />)}
+                </datalist>
+              </label>
+              <label className="resource-field"><span>{tt("Verantwortlich")}</span>
+                <select value={resourceForm.responsiblePersonId} onChange={(event) => setResourceForm({ ...resourceForm, responsiblePersonId: event.target.value })}>
+                  <option value="">{tt("Nicht zugeordnet")}</option>
+                  {activePersonnel.map((person) => <option key={person.id} value={person.id}>{person.firstName} {person.lastName}</option>)}
+                </select>
+              </label>
+              <label className="resource-field"><span>{tt("Standort")}</span><input value={resourceForm.location} onChange={(event) => setResourceForm({ ...resourceForm, location: event.target.value })} /></label>
+              {resourceForm.type === "Fahrzeug" && (
+                <>
+                  <label className="resource-field"><span>Baujahr</span><input inputMode="numeric" value={resourceForm.buildYear} onChange={(event) => setResourceForm({ ...resourceForm, buildYear: event.target.value })} /></label>
+                  <label className="resource-field"><span>{tt("Km-Stand Jahresbeginn")}</span><input inputMode="numeric" value={resourceForm.odometerYearStart} onChange={(event) => setResourceForm({ ...resourceForm, odometerYearStart: event.target.value })} /></label>
+                  <label className="resource-field"><span>{tt("Km-Stand Jahresende")}</span><input inputMode="numeric" value={resourceForm.odometerYearEnd} onChange={(event) => setResourceForm({ ...resourceForm, odometerYearEnd: event.target.value })} /></label>
+                </>
+              )}
+            </div>
             <label className="resource-notes"><span>{tt("Notizen")}</span><textarea value={resourceForm.notes} onChange={(event) => setResourceForm({ ...resourceForm, notes: event.target.value })} /></label>
             {resourceForm.type === "Fahrzeug" && (
               <>
