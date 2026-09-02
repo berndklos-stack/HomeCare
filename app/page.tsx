@@ -6781,6 +6781,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   function clearActiveJob(job?: JobRecord, nextStatus: JobRecord["status"] = "geplant", material?: string) {
     const targetJobId = job?.id ?? activeJobId ?? jobs.find((item) => item.status === "in Arbeit")?.id;
     if (!targetJobId) return;
+    const activeReport = editingFieldReportId ? reports.find((report) => report.id === editingFieldReportId) : undefined;
     const savedMaterial = material?.trim() || job?.material?.trim() || "-";
     const nextJobs = jobs.map((item) => (
       item.id === targetJobId
@@ -6792,10 +6793,21 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
           }
         : item
     ));
+    const nextReports = activeReport && nextStatus === "geplant"
+      ? reports.filter((report) => report.id !== activeReport.id)
+      : reports;
+    const nextBilling = activeReport && nextStatus === "geplant"
+      ? billing.filter((item) => !removableBillingDraftForJobIds(item, new Set([targetJobId])))
+      : billing;
     setJobs(nextJobs);
+    if (nextReports !== reports) {
+      reportsRef.current = nextReports;
+      setReports(nextReports);
+    }
+    if (nextBilling !== billing) setBilling(nextBilling);
     setActiveJobId(null);
     setEditingFieldReportId(null);
-    persistSnapshotNow({ activeJobId: null, jobs: nextJobs }, { forceRemote: true });
+    persistSnapshotNow({ activeJobId: null, billing: nextBilling, jobs: nextJobs, reports: nextReports }, { forceRemote: true });
   }
 
   function updateJobMaterial(job: JobRecord, material: string) {
@@ -7840,6 +7852,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
             {section === "planning" && (
               <PlanningView
                 allJobs={jobs}
+                customers={customers}
                 jobs={jobs}
                 objects={activeObjects}
                 onAssignPersonnel={assignJobPersonnel}
@@ -7847,6 +7860,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                 onEdit={openEditJob}
                 onMoveJob={moveJobExecution}
                 personnel={personnel}
+                reports={reports}
                 resources={resources}
               />
             )}
@@ -9608,6 +9622,7 @@ function JobsView({
 
 function PlanningView({
   allJobs,
+  customers,
   jobs,
   objects,
   onAssignPersonnel,
@@ -9615,9 +9630,11 @@ function PlanningView({
   onEdit,
   onMoveJob,
   personnel,
+  reports,
   resources,
 }: {
   allJobs: JobRecord[];
+  customers: CustomerRecord[];
   jobs: JobRecord[];
   objects: ObjectRecord[];
   onAssignPersonnel: (job: JobRecord, assignedTo: string) => void;
@@ -9625,16 +9642,25 @@ function PlanningView({
   onEdit: (job: JobRecord) => void;
   onMoveJob: (job: JobRecord, toDate: string, assignedTo: string) => void;
   personnel: PersonnelRecord[];
+  reports: ReportRecord[];
   resources: ResourceRecord[];
 }) {
   const today = new Date().toISOString().slice(0, 10);
   const currentWeekStart = startOfIsoWeekValue(today);
   const [planningStartDate, setPlanningStartDate] = useState(currentWeekStart);
+  const [selectedDispatchReportId, setSelectedDispatchReportId] = useState("");
   const planningDateInputRef = useRef<HTMLInputElement>(null);
   const activeJobs = visibleOperationalJobs(jobs)
-    .filter((job) => !["offerte", "erledigt", "abgerechnet", "storniert"].includes(job.status))
+    .filter((job) => !["offerte", "abgerechnet", "storniert"].includes(job.status))
     .sort((first, second) => jobExecutionDate(first).localeCompare(jobExecutionDate(second)) || first.title.localeCompare(second.title, "de"));
-  const overdueJobs = activeJobs.filter((job) => jobExecutionEndDate(job) < today);
+  const overdueJobs = activeJobs.filter((job) => job.status !== "erledigt" && jobExecutionEndDate(job) < today);
+  const normalizedReports = dedupeReports(reports);
+  const selectedDispatchReport = normalizedReports.find((report) => report.id === selectedDispatchReportId);
+  const selectedDispatchObject = selectedDispatchReport ? objects.find((object) => object.id === selectedDispatchReport.objectId) : undefined;
+  const selectedDispatchJob = selectedDispatchReport ? allJobs.find((job) => job.id === selectedDispatchReport.jobId) : undefined;
+  const selectedDispatchCustomer = selectedDispatchObject
+    ? customers.find((customer) => customer.id === selectedDispatchObject.ownerCustomerId || customer.name === selectedDispatchObject.owner)
+    : undefined;
   const weekNumber = isoWeekNumber(planningStartDate);
   const calendarDays = Array.from({ length: 7 }, (_, index) => {
     const date = new Date(`${planningStartDate}T12:00:00`);
@@ -9683,13 +9709,20 @@ function PlanningView({
     event.preventDefault();
     const jobId = event.dataTransfer.getData("text/plain");
     const job = activeJobs.find((item) => item.id === jobId);
-    if (!job) return;
+    if (!job || job.status === "erledigt") return;
     onMoveJob(job, date, assignedToForRow(row));
+  }
+
+  function reportForDispatchJob(job: JobRecord) {
+    const jobDate = jobExecutionDate(job);
+    return normalizedReports.find((report) => report.jobId === job.id && normalizeReportDate(report.date) === jobDate)
+      ?? normalizedReports.find((report) => report.jobId === job.id);
   }
 
   function renderDispatchJob(job: JobRecord) {
     const object = objects.find((item) => item.id === job.objectId);
     const assignedResourceIds = job.resourceIds ?? [];
+    const dispatchReport = job.status === "erledigt" ? reportForDispatchJob(job) : undefined;
     const assignedResources = assignedResourceIds
       .map((id) => resources.find((resource) => resource.id === id))
       .filter(Boolean) as ResourceRecord[];
@@ -9710,15 +9743,20 @@ function PlanningView({
 
     return (
       <article
-        className={`dispatch-job-card ${job.status === "in Arbeit" ? "active" : ""}`}
-        draggable
+        className={`dispatch-job-card ${job.status === "in Arbeit" ? "active" : ""} ${job.status === "erledigt" ? "completed" : ""}`}
+        draggable={job.status !== "erledigt"}
         key={job.id}
         onDragStart={(event) => {
+          if (job.status === "erledigt") return;
           event.dataTransfer.effectAllowed = "move";
           event.dataTransfer.setData("text/plain", job.id);
         }}
       >
-        <button className="dispatch-job-main" onClick={() => onEdit(job)} type="button">
+        <button
+          className="dispatch-job-main"
+          onClick={() => dispatchReport ? setSelectedDispatchReportId(dispatchReport.id) : onEdit(job)}
+          type="button"
+        >
           <span>{job.priority}</span>
           <strong>{job.title}</strong>
           <small>{object?.name ?? "Objekt offen"}</small>
@@ -9726,36 +9764,41 @@ function PlanningView({
           {jobDateRangeLabel(job) !== jobOriginalDateRangeLabel(job) && (
             <small>Ausführung {jobDateRangeLabel(job)} · Original {jobOriginalDateRangeLabel(job)}</small>
           )}
+          {job.status === "erledigt" && !dispatchReport && <small>Bericht noch nicht gefunden</small>}
           <Badge value={readableJobStatus(job.status)} />
         </button>
-        <div className="dispatch-assignment-picker">
-          <select aria-label={`Personal für ${job.title} zuweisen`} value={isUnassignedJobAssignee(job.assignedTo) ? "" : job.assignedTo} onChange={(event) => assignPersonnel(event.target.value)}>
-            <option value="">Personal +</option>
-            {activePersonnel.map((person) => {
-              const name = `${person.firstName} ${person.lastName}`.trim();
-              return <option key={person.id} value={name}>{name}</option>;
-            })}
-          </select>
-        </div>
-        <div className="dispatch-resource-picker">
-          <select aria-label={`Ressource für ${job.title} zuordnen`} value="" onChange={(event) => addResource(event.target.value)}>
-            <option value="">Ressource +</option>
-            {availableResources.map((resource) => (
-              <option key={resource.id} value={resource.id}>{resource.name}</option>
-            ))}
-          </select>
-          {assignedResources.length > 0 && (
-            <div className="dispatch-resource-tags">
-              {assignedResources.map((resource) => (
-                <button aria-label={`${resource.name} entfernen`} key={resource.id} onClick={() => removeResource(resource.id)} type="button">
-                  <Wrench size={12} />
-                  {resource.name}
-                  <X size={12} />
-                </button>
-              ))}
+        {job.status !== "erledigt" && (
+          <>
+            <div className="dispatch-assignment-picker">
+              <select aria-label={`Personal für ${job.title} zuweisen`} value={isUnassignedJobAssignee(job.assignedTo) ? "" : job.assignedTo} onChange={(event) => assignPersonnel(event.target.value)}>
+                <option value="">Personal +</option>
+                {activePersonnel.map((person) => {
+                  const name = `${person.firstName} ${person.lastName}`.trim();
+                  return <option key={person.id} value={name}>{name}</option>;
+                })}
+              </select>
             </div>
-          )}
-        </div>
+            <div className="dispatch-resource-picker">
+              <select aria-label={`Ressource für ${job.title} zuordnen`} value="" onChange={(event) => addResource(event.target.value)}>
+                <option value="">Ressource +</option>
+                {availableResources.map((resource) => (
+                  <option key={resource.id} value={resource.id}>{resource.name}</option>
+                ))}
+              </select>
+              {assignedResources.length > 0 && (
+                <div className="dispatch-resource-tags">
+                  {assignedResources.map((resource) => (
+                    <button aria-label={`${resource.name} entfernen`} key={resource.id} onClick={() => removeResource(resource.id)} type="button">
+                      <Wrench size={12} />
+                      {resource.name}
+                      <X size={12} />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
+        )}
       </article>
     );
   }
@@ -9860,6 +9903,38 @@ function PlanningView({
           ))}
         </div>
       </div>
+      {selectedDispatchReport && selectedDispatchObject && (
+        <div className="modal-backdrop">
+          <section className="modal send-preview-modal report-detail-modal" role="dialog" aria-modal="true" aria-labelledby="dispatch-report-title">
+            <header>
+              <div>
+                <p>{selectedDispatchObject.name} · {displayAddress(selectedDispatchObject.address)}</p>
+                <h2 id="dispatch-report-title">{selectedDispatchReport.title}</h2>
+              </div>
+              <div className="modal-header-actions">
+                <IconAction
+                  label={`PDF für ${selectedDispatchReport.title} herunterladen`}
+                  onClick={() => void downloadCustomerReportPdf(selectedDispatchReport, selectedDispatchObject, selectedDispatchJob, selectedDispatchCustomer)}
+                >
+                  <FileDown size={16} />
+                </IconAction>
+                <button aria-label={`Bericht ${selectedDispatchReport.title} schließen`} onClick={() => setSelectedDispatchReportId("")} type="button">
+                  <X size={18} />
+                </button>
+              </div>
+            </header>
+            <div className="send-preview-report">
+              <CustomerReportCard
+                customer={selectedDispatchCustomer}
+                job={selectedDispatchJob}
+                object={selectedDispatchObject}
+                report={selectedDispatchReport}
+                sentAt={selectedDispatchReport.sentAt}
+              />
+            </div>
+          </section>
+        </div>
+      )}
     </section>
   );
 }

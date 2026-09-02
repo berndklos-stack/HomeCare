@@ -1581,6 +1581,11 @@ mark.neutral {
   border-color: var(--warning);
 }
 
+.dispatch-job-card.completed {
+  background: color-mix(in srgb, var(--success) 9%, var(--paper));
+  cursor: pointer;
+}
+
 .dispatch-job-main {
   background: transparent;
   border: 0;

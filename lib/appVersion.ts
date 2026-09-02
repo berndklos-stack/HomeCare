@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.277.0",
+  version: "1.278.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.278.0",
+    date: "2026-09-02",
+    changes: [
+      "Mobil vor Ort setzt nachbearbeitete Berichte beim Status Geplant wieder sauber in die Planung zurueck",
+      "Dispokalender zeigt erledigte Auftraege in der Wochenansicht und oeffnet beim Klick den zugehoerigen Bericht",
+      "Erledigte Kalenderkarten sind nicht mehr verschiebbar und optisch klarer markiert",
+    ],
+  },
   {
     version: "1.277.0",
     date: "2026-09-01",
