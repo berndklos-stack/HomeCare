@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.298.0",
+  version: "1.299.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.299.0",
+    date: "2026-09-03",
+    changes: [
+      "Kontenplan in den Stammdaten kann erweitert, bearbeitet und archiviert werden",
+      "Neue Konten stehen direkt bei Leistungen und Material als Erloeskonto zur Auswahl",
+      "SIE-Export und Kontierungsvorschau verwenden den aktuellen Kontenplan",
+    ],
+  },
   {
     version: "1.298.0",
     date: "2026-09-02",

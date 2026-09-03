@@ -343,6 +343,13 @@ type BillingLineItem = {
   discountValue?: string;
 };
 
+type AccountingAccount = {
+  account: string;
+  category: "Leistung" | "Material" | "Rabatt" | "Sonstiges";
+  label: string;
+  archived?: boolean;
+};
+
 type LineDiscount = {
   type: "amount" | "percent";
   value: string;
@@ -516,6 +523,7 @@ type CompanySettings = {
 
 type AppSnapshot = {
   activeJobId: string | null;
+  accountingAccounts?: AccountingAccount[];
   billing?: BillingRecord[];
   customers: CustomerRecord[];
   companySettings?: CompanySettings;
@@ -1025,6 +1033,7 @@ const swedishUiText: Record<string, string> = {
 };
 
 const storageKeys = {
+  accountingAccounts: "kolaretorp-accounting-accounts",
   objects: "kolaretorp-objects",
   customers: "kolaretorp-customers",
   jobs: "kolaretorp-jobs",
@@ -1080,6 +1089,7 @@ function readStoredValue<T>(key: string, fallback: T): T {
 function readLocalSnapshot(): AppSnapshot {
   return recoverReportsFromFieldProgress({
     activeJobId: readStoredValue<string | null>(storageKeys.activeJobId, null),
+    accountingAccounts: readStoredValue<AccountingAccount[]>(storageKeys.accountingAccounts, defaultVismaChartOfAccounts),
     billing: readStoredValue<BillingRecord[]>(storageKeys.billing, seedBilling),
     companySettings: readStoredValue<CompanySettings>(storageKeys.companySettings, seedCompanySettings),
     customers: readStoredValue<CustomerRecord[]>(storageKeys.customers, seedCustomers),
@@ -1113,6 +1123,7 @@ function hasSavedLocalSnapshot() {
 
 function persistLocalSnapshot(snapshot: AppSnapshot) {
   const updatedAt = snapshot.updatedAt ?? new Date().toISOString();
+  window.localStorage.setItem(storageKeys.accountingAccounts, JSON.stringify(snapshot.accountingAccounts ?? defaultVismaChartOfAccounts));
   window.localStorage.setItem(storageKeys.objects, JSON.stringify(snapshot.objects));
   window.localStorage.setItem(storageKeys.billing, JSON.stringify(snapshot.billing ?? seedBilling));
   window.localStorage.setItem(storageKeys.companySettings, JSON.stringify(snapshot.companySettings ?? seedCompanySettings));
@@ -1201,6 +1212,7 @@ function snapshotContentKey(snapshot: AppSnapshot) {
 
 function snapshotPatch(snapshot: AppSnapshot): Partial<AppSnapshot> {
   return {
+    accountingAccounts: snapshot.accountingAccounts,
     billing: snapshot.billing,
     companySettings: snapshot.companySettings,
     customers: snapshot.customers,
@@ -1395,6 +1407,23 @@ function mergeRecordsById<T extends { id: string }>(primaryRecords: T[], seconda
   });
 
   return Array.from(recordsById.values());
+}
+
+function mergeAccountingAccounts(primaryAccounts: AccountingAccount[], secondaryAccounts: AccountingAccount[]) {
+  const accountsByNumber = new Map<string, AccountingAccount>();
+
+  secondaryAccounts.forEach((account) => {
+    accountsByNumber.set(account.account, account);
+  });
+  primaryAccounts.forEach((account) => {
+    accountsByNumber.set(account.account, { ...accountsByNumber.get(account.account), ...account });
+  });
+
+  return Array.from(accountsByNumber.values()).sort((first, second) => first.account.localeCompare(second.account, "de"));
+}
+
+function allAccountingAccounts(accounts: AccountingAccount[] = defaultVismaChartOfAccounts) {
+  return mergeAccountingAccounts(defaultVismaChartOfAccounts, accounts);
 }
 
 function hasUsefulContactValue(value?: string) {
@@ -1673,6 +1702,7 @@ function mergeSnapshots(remoteSnapshot: AppSnapshot, localSnapshot: AppSnapshot)
 
   return recoverReportsFromFieldProgress({
     activeJobId,
+    accountingAccounts: allAccountingAccounts(mergeAccountingAccounts(primarySnapshot.accountingAccounts ?? defaultVismaChartOfAccounts, secondarySnapshot.accountingAccounts ?? defaultVismaChartOfAccounts)),
     billing: filterDeletedRecords(mergeRecordsById(primarySnapshot.billing ?? seedBilling, secondarySnapshot.billing ?? seedBilling), deletedEntityIds, "billing"),
     companySettings: { ...seedCompanySettings, ...(secondarySnapshot.companySettings ?? {}), ...(primarySnapshot.companySettings ?? {}) },
     customers: filterDeletedRecords(mergeCustomersById(primarySnapshot.customers, secondarySnapshot.customers), deletedEntityIds, "customers"),
@@ -2773,7 +2803,7 @@ function sieFiscalYear(dateString: string | undefined) {
   };
 }
 
-function createSpirisSieFile(item: BillingRecord, object: ObjectRecord, customer: CustomerRecord | undefined, settings: CompanySettings) {
+function createSpirisSieFile(item: BillingRecord, object: ObjectRecord, customer: CustomerRecord | undefined, settings: CompanySettings, accountingAccounts: AccountingAccount[] = defaultVismaChartOfAccounts) {
   const lines = item.lines?.length
     ? item.lines
     : [{
@@ -2796,7 +2826,7 @@ function createSpirisSieFile(item: BillingRecord, object: ObjectRecord, customer
   ]);
 
   lines.forEach((line) => {
-    const accounting = lineAccounting(line);
+    const accounting = lineAccounting(line, accountingAccounts);
     accounts.set(accounting.account, accounting.label);
   });
 
@@ -2817,7 +2847,7 @@ function createSpirisSieFile(item: BillingRecord, object: ObjectRecord, customer
     "{",
     `#TRANS 1510 {} ${sieAmount(totals.gross)}`,
     ...lines.map((line) => {
-      const account = lineAccounting(line).account;
+      const account = lineAccounting(line, accountingAccounts).account;
       return `#TRANS ${account} {} ${sieAmount(-lineNetAmount(line))}`;
     }),
     ...Object.entries(totals.taxByRate)
@@ -2829,8 +2859,8 @@ function createSpirisSieFile(item: BillingRecord, object: ObjectRecord, customer
   return `${rows.join("\r\n")}\r\n`;
 }
 
-function downloadSpirisSieFile(item: BillingRecord, object: ObjectRecord, customer: CustomerRecord | undefined, settings: CompanySettings) {
-  const content = createSpirisSieFile(item, object, customer, settings);
+function downloadSpirisSieFile(item: BillingRecord, object: ObjectRecord, customer: CustomerRecord | undefined, settings: CompanySettings, accountingAccounts: AccountingAccount[] = defaultVismaChartOfAccounts) {
+  const content = createSpirisSieFile(item, object, customer, settings, accountingAccounts);
   const fileName = `${safeFileName(`Spiris-SIE-${item.invoiceNumber || item.id}`)}.si`;
   downloadBlob(new Blob([content], { type: "text/plain;charset=ibm437" }), fileName);
 }
@@ -2858,7 +2888,7 @@ function invoiceSubject(item: BillingRecord, object: ObjectRecord, customer?: Cu
   return `Faktura ${item.invoiceNumber || item.id} - ${object.name}`;
 }
 
-const vismaChartOfAccounts = [
+const defaultVismaChartOfAccounts: AccountingAccount[] = [
   { account: "3041", category: "Leistung", label: "Arbeitsleistung / Service" },
   { account: "3051", category: "Leistung", label: "Kommunikation / Bericht" },
   { account: "3055", category: "Leistung", label: "Reinigung" },
@@ -2875,8 +2905,12 @@ const legacyAccountingRules = [
   { account: "3058", match: /material|ersatzteil|filter|chemie|farbe|holz|schraube/i, type: "Material" },
 ];
 
-function accountingAccountLabel(account: string | undefined) {
-  return vismaChartOfAccounts.find((entry) => entry.account === account)?.label || "Konto nicht im Kontenplan";
+function activeAccountingAccounts(accounts: AccountingAccount[] = defaultVismaChartOfAccounts) {
+  return allAccountingAccounts(accounts).filter((entry) => !entry.archived);
+}
+
+function accountingAccountLabel(account: string | undefined, accounts: AccountingAccount[] = defaultVismaChartOfAccounts) {
+  return activeAccountingAccounts(accounts).find((entry) => entry.account === account)?.label || "Konto nicht im Kontenplan";
 }
 
 function defaultAccountingAccount(kind: BillingLineItem["kind"], name = "") {
@@ -2886,18 +2920,18 @@ function defaultAccountingAccount(kind: BillingLineItem["kind"], name = "") {
   return kind === "Material" ? "3058" : "3041";
 }
 
-function lineAccounting(line: BillingLineItem) {
+function lineAccounting(line: BillingLineItem, accounts: AccountingAccount[] = defaultVismaChartOfAccounts) {
   const account = line.accountingAccount || defaultAccountingAccount(line.kind, line.name);
-  return { account, label: accountingAccountLabel(account) };
+  return { account, label: accountingAccountLabel(account, accounts) };
 }
 
 function billingCustomerNumber(customer: CustomerRecord | undefined) {
   return normalizeReadableNumber(customer?.personalNumber) || customer?.id || "Kundennummer fehlt";
 }
 
-function vismaTransferRows(item: BillingRecord, customer: CustomerRecord | undefined) {
+function vismaTransferRows(item: BillingRecord, customer: CustomerRecord | undefined, accounts: AccountingAccount[] = defaultVismaChartOfAccounts) {
   return (item.lines ?? []).map((line) => {
-    const accounting = lineAccounting(line);
+    const accounting = lineAccounting(line, accounts);
     return {
       account: accounting.account,
       amount: formatMoney(lineNetAmount(line), line.currency),
@@ -5782,6 +5816,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   const [appLoadError, setAppLoadError] = useState("");
   const [appUpdatedAt, setAppUpdatedAt] = useState<string | undefined>(undefined);
   const [supabaseSyncDisabled, setSupabaseSyncDisabled] = useState(false);
+  const [accountingAccounts, setAccountingAccounts] = useState(defaultVismaChartOfAccounts);
   const [customers, setCustomers] = useState(seedCustomers);
   const [jobs, setJobs] = useState(seedJobs);
   const [reports, setReports] = useState(seedReports);
@@ -5913,6 +5948,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       ? normalizedJobs.find((job) => job.id === snapshot.activeJobId && canRestoreActiveFieldJob(job))
       : undefined;
     setObjects(snapshot.objects);
+    setAccountingAccounts(allAccountingAccounts(snapshot.accountingAccounts ?? defaultVismaChartOfAccounts));
     setBilling(snapshot.billing ?? seedBilling);
     setCompanySettings({ ...seedCompanySettings, ...(snapshot.companySettings ?? {}) });
     setCustomers(snapshot.customers);
@@ -6031,6 +6067,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     const snapshotUpdatedAt = new Date().toISOString();
     const snapshot: AppSnapshot = {
       activeJobId,
+      accountingAccounts,
       billing,
       companySettings,
       customers,
@@ -6059,10 +6096,11 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     setAppUpdatedAt(snapshotUpdatedAt);
 
     scheduleRemoteSave(snapshot, 2600);
-  }, [activeJobId, appStorageReady, billing, companySettings, customers, dailyMailSettings, deletedEntityIds, deletedReportIds, fieldNotes, fieldProgress, jobs, materials, objects, personnel, portalMessages, reports, resources, scheduleRemoteSave, servicePackages, services]);
+  }, [accountingAccounts, activeJobId, appStorageReady, billing, companySettings, customers, dailyMailSettings, deletedEntityIds, deletedReportIds, fieldNotes, fieldProgress, jobs, materials, objects, personnel, portalMessages, reports, resources, scheduleRemoteSave, servicePackages, services]);
 
   const currentSnapshot = useCallback((overrides: Partial<AppSnapshot> = {}): AppSnapshot => ({
     activeJobId,
+    accountingAccounts,
     billing,
     companySettings,
     customers,
@@ -6082,7 +6120,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     services,
     updatedAt: appUpdatedAt,
     ...overrides,
-  }), [activeJobId, appUpdatedAt, billing, companySettings, customers, dailyMailSettings, deletedEntityIds, deletedReportIds, fieldNotes, fieldProgress, jobs, materials, objects, personnel, portalMessages, reports, resources, servicePackages, services]);
+  }), [accountingAccounts, activeJobId, appUpdatedAt, billing, companySettings, customers, dailyMailSettings, deletedEntityIds, deletedReportIds, fieldNotes, fieldProgress, jobs, materials, objects, personnel, portalMessages, reports, resources, servicePackages, services]);
 
   const syncRemoteSnapshot = useCallback(async (force = false) => {
     if (!appStorageReady || remoteSyncRunningRef.current) return;
@@ -6707,7 +6745,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       return;
     }
 
-    downloadSpirisSieFile(item, object, customer, companySettings);
+    downloadSpirisSieFile(item, object, customer, companySettings, accountingAccounts);
 
     const nextBilling = billing.map((entry) => (
       entry.id === item.id
@@ -8180,6 +8218,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
             )}
             {section === "billing" && (
               <BillingView
+                accountingAccounts={accountingAccounts}
                 billing={billing}
                 customers={customers}
                 jobs={jobs}
@@ -8199,6 +8238,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
             )}
             {section === "masterData" && (
               <MasterDataView
+                accountingAccounts={accountingAccounts}
                 companySettings={companySettings}
                 customers={activeCustomers}
                 dailyMailSettings={dailyMailSettings}
@@ -8212,6 +8252,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                 dailyMailSending={dailyMailSending}
                 translate={tx}
                 setCompanySettings={setCompanySettings}
+                setAccountingAccounts={setAccountingAccounts}
                 setMaterials={setMaterials}
                 setPackages={setServicePackages}
                 setPersonnel={setPersonnel}
@@ -10995,6 +11036,7 @@ function FieldView({
 }
 
 function BillingView({
+  accountingAccounts,
   billing,
   customers,
   jobs,
@@ -11011,6 +11053,7 @@ function BillingView({
   reports,
   services,
 }: {
+  accountingAccounts: AccountingAccount[];
   billing: BillingRecord[];
   customers: CustomerRecord[];
   jobs: JobRecord[];
@@ -11094,7 +11137,7 @@ function BillingView({
     const customer = customers.find((entry) => entry.id === item.customerId || entry.id === object?.ownerCustomerId || entry.name === object?.owner);
     const invoiceStatus = effectiveInvoiceStatus(item);
     const totals = invoiceTotals(item);
-    const transferRows = vismaTransferRows(item, customer);
+    const transferRows = vismaTransferRows(item, customer, accountingAccounts);
     const invoiceLabel = item.invoiceNumber || item.label;
     const reportTitle = reports.find((report) => report.id === item.reportId)?.title ?? "-";
 
@@ -12164,6 +12207,7 @@ function CustomerPortalView({
 }
 
 function MasterDataView({
+  accountingAccounts,
   companySettings,
   customers,
   dailyMailSettings,
@@ -12175,6 +12219,7 @@ function MasterDataView({
   resources,
   services,
   setPersonnel,
+  setAccountingAccounts,
   onPersistResources,
   setResources,
   setServices,
@@ -12185,6 +12230,7 @@ function MasterDataView({
   setPackages,
   translate,
 }: {
+  accountingAccounts: AccountingAccount[];
   companySettings: CompanySettings;
   customers: CustomerRecord[];
   dailyMailSettings: DailyMailSettings;
@@ -12196,6 +12242,7 @@ function MasterDataView({
   resources: ResourceRecord[];
   services: ServiceItem[];
   setPersonnel: (personnel: PersonnelRecord[]) => void;
+  setAccountingAccounts: (accounts: AccountingAccount[]) => void;
   onPersistResources: (resources: ResourceRecord[]) => void;
   setResources: (resources: ResourceRecord[]) => void;
   setServices: (services: ServiceItem[]) => void;
@@ -12213,6 +12260,7 @@ function MasterDataView({
   const [editingLogEntryId, setEditingLogEntryId] = useState<string | null>(null);
   const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
   const [editingMaterialId, setEditingMaterialId] = useState<string | null>(null);
+  const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
   const [editingPackageId, setEditingPackageId] = useState<string | null>(null);
   const [personEditorOpen, setPersonEditorOpen] = useState(false);
   const [resourceEditorOpen, setResourceEditorOpen] = useState(false);
@@ -12300,6 +12348,11 @@ function MasterDataView({
     taxRate: "25",
     unit: "Stück",
   });
+  const [accountForm, setAccountForm] = useState({
+    account: "",
+    category: "Leistung" as AccountingAccount["category"],
+    label: "",
+  });
   const [serviceChecklistForm, setServiceChecklistForm] = useState({
     title: "",
     note: "",
@@ -12316,6 +12369,9 @@ function MasterDataView({
   const archivedServices = services.filter((service) => service.archived);
   const activeMaterials = materials.filter((material) => !material.archived);
   const archivedMaterials = materials.filter((material) => material.archived);
+  const availableAccountingAccounts = activeAccountingAccounts(accountingAccounts);
+  const activeAccountingAccountList = availableAccountingAccounts.filter((account) => !account.archived);
+  const archivedAccountingAccountList = accountingAccounts.filter((account) => account.archived);
   const activePackages = packages.filter((servicePackage) => !servicePackage.archived);
   const archivedPackages = packages.filter((servicePackage) => servicePackage.archived);
   const activePersonnel = personnel.filter((person) => !person.archived);
@@ -12898,6 +12954,68 @@ function MasterDataView({
       vatNumber: companySettingsForm.vatNumber.trim(),
     });
     setArchiveNotice("Firmenstammdaten wurden gespeichert.");
+  }
+
+  function resetAccountForm() {
+    setEditingAccountId(null);
+    setAccountForm({ account: "", category: "Leistung", label: "" });
+  }
+
+  function editAccountingAccount(account: AccountingAccount) {
+    setEditingAccountId(account.account);
+    setAccountForm({
+      account: account.account,
+      category: account.category,
+      label: account.label,
+    });
+  }
+
+  function saveAccountingAccount() {
+    const accountNumber = accountForm.account.trim();
+    const label = accountForm.label.trim();
+    if (!accountNumber || !label) {
+      setArchiveNotice("Bitte Kontonummer und Bezeichnung erfassen.");
+      return;
+    }
+
+    const existingAccount = accountingAccounts.find((account) => account.account === editingAccountId || account.account === accountNumber);
+    const saved: AccountingAccount = {
+      account: accountNumber,
+      category: accountForm.category,
+      label,
+      archived: existingAccount?.archived ?? false,
+    };
+    const nextAccounts = editingAccountId
+      ? accountingAccounts.map((account) => (account.account === editingAccountId ? saved : account))
+      : accountingAccounts.some((account) => account.account === accountNumber)
+        ? accountingAccounts.map((account) => (account.account === accountNumber ? saved : account))
+        : [saved, ...accountingAccounts];
+
+    setAccountingAccounts(nextAccounts);
+    setArchiveNotice(`Konto ${saved.account} wurde gespeichert.`);
+    resetAccountForm();
+  }
+
+  function archiveAccountingAccount(account: AccountingAccount) {
+    if (defaultVismaChartOfAccounts.some((defaultAccount) => defaultAccount.account === account.account)) {
+      setArchiveNotice(`Standardkonto ${account.account} bleibt im Kontenplan aktiv.`);
+      return;
+    }
+    setAccountingAccounts(accountingAccounts.map((item) => (item.account === account.account ? { ...item, archived: true } : item)));
+    setArchiveNotice(`Konto ${account.account} wurde archiviert.`);
+    if (editingAccountId === account.account) resetAccountForm();
+  }
+
+  function restoreAccountingAccount(account: AccountingAccount) {
+    setAccountingAccounts(accountingAccounts.map((item) => (item.account === account.account ? { ...item, archived: false } : item)));
+    setArchiveNotice(`Konto ${account.account} wurde wieder aktiviert.`);
+  }
+
+  function deleteArchivedAccountingAccount(account: AccountingAccount) {
+    if (!account.archived) return;
+    setAccountingAccounts(accountingAccounts.filter((item) => item.account !== account.account));
+    setArchiveNotice(`Archiviertes Konto ${account.account} wurde gelöscht.`);
+    if (editingAccountId === account.account) resetAccountForm();
   }
 
   function resetServiceForm() {
@@ -14152,7 +14270,7 @@ function MasterDataView({
             <label><span>Moms %</span><input inputMode="decimal" value={materialForm.taxRate} onChange={(event) => setMaterialForm({ ...materialForm, taxRate: event.target.value })} /></label>
             <label><span>Erlöskonto</span>
               <select value={materialForm.accountingAccount} onChange={(event) => setMaterialForm({ ...materialForm, accountingAccount: event.target.value })}>
-                {vismaChartOfAccounts.filter((account) => account.category === "Material").map((account) => (
+                {availableAccountingAccounts.filter((account) => account.category === "Material" || account.category === "Sonstiges").map((account) => (
                   <option key={account.account} value={account.account}>{account.account} · {account.label}</option>
                 ))}
               </select>
@@ -14208,19 +14326,58 @@ function MasterDataView({
               <div>
                 <p>Buchhaltung</p>
                 <h2>Kontenplan für Spiris / Visma</h2>
-                <span>Diese Konten werden bei Leistungen und Material ausgewählt und anschließend in die Rechnungsposition übernommen.</span>
+                <span>Konten können ergänzt und anschließend bei Leistungen oder Material ausgewählt werden.</span>
               </div>
             </div>
+            <div className="form-grid compact-form">
+              <label><span>Konto</span><input inputMode="numeric" value={accountForm.account} onChange={(event) => setAccountForm({ ...accountForm, account: event.target.value })} placeholder="z.B. 3042" /></label>
+              <label><span>Bereich</span>
+                <select value={accountForm.category} onChange={(event) => setAccountForm({ ...accountForm, category: event.target.value as AccountingAccount["category"] })}>
+                  <option>Leistung</option>
+                  <option>Material</option>
+                  <option>Rabatt</option>
+                  <option>Sonstiges</option>
+                </select>
+              </label>
+              <label className="wide"><span>Bezeichnung</span><input value={accountForm.label} onChange={(event) => setAccountForm({ ...accountForm, label: event.target.value })} placeholder="z.B. Vermietungsservice" /></label>
+              <button className="primary-button wide" onClick={saveAccountingAccount} type="button">{editingAccountId ? "Konto speichern" : "Konto hinzufügen"}</button>
+              {editingAccountId && <button className="ghost-button wide" onClick={resetAccountForm} type="button">Bearbeitung abbrechen</button>}
+            </div>
             <div className="table-list compact-list chart-of-accounts-list">
-              {vismaChartOfAccounts.map((account) => (
+              {activeAccountingAccountList.map((account) => (
                 <article key={account.account}>
                   <div>
                     <strong>{account.account} · {account.label}</strong>
                     <span>{account.category}</span>
                   </div>
+                  <div className="row-actions">
+                    <IconAction label={`Konto ${account.account} bearbeiten`} onClick={() => editAccountingAccount(account)}><Pencil size={16} /></IconAction>
+                    <IconAction danger label={`Konto ${account.account} archivieren`} onClick={() => archiveAccountingAccount(account)}><Archive size={16} /></IconAction>
+                  </div>
                 </article>
               ))}
             </div>
+            {archivedAccountingAccountList.length > 0 && (
+              <div className="archive-section">
+                <h3>Archivierte Konten</h3>
+                <div className="table-list compact-list archive-list">
+                  {archivedAccountingAccountList.map((account) => (
+                    <article key={account.account}>
+                      <div>
+                        <strong>{account.account} · {account.label}</strong>
+                        <span>{account.category}</span>
+                      </div>
+                      <Badge value="archiviert" />
+                      <div className="row-actions">
+                        <IconAction label={`Konto ${account.account} bearbeiten`} onClick={() => editAccountingAccount(account)}><Pencil size={16} /></IconAction>
+                        <IconAction label={`Konto ${account.account} reaktivieren`} onClick={() => restoreAccountingAccount(account)}><RotateCcw size={16} /></IconAction>
+                        <IconAction danger label={`Konto ${account.account} löschen`} onClick={() => deleteArchivedAccountingAccount(account)}><Trash2 size={16} /></IconAction>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </div>
+            )}
           </section>
           <section className="panel">
         <div className="panel-title">
@@ -14255,7 +14412,7 @@ function MasterDataView({
           <label><span>Moms %</span><input inputMode="decimal" value={serviceForm.taxRate} onChange={(event) => setServiceForm({ ...serviceForm, taxRate: event.target.value })} /></label>
           <label><span>Erlöskonto</span>
             <select value={serviceForm.accountingAccount} onChange={(event) => setServiceForm({ ...serviceForm, accountingAccount: event.target.value })}>
-              {vismaChartOfAccounts.filter((account) => account.category === "Leistung").map((account) => (
+              {availableAccountingAccounts.filter((account) => account.category === "Leistung" || account.category === "Sonstiges").map((account) => (
                 <option key={account.account} value={account.account}>{account.account} · {account.label}</option>
               ))}
             </select>
