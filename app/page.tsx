@@ -12262,6 +12262,7 @@ function MasterDataView({
   const [editingMaterialId, setEditingMaterialId] = useState<string | null>(null);
   const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
   const [editingPackageId, setEditingPackageId] = useState<string | null>(null);
+  const [accountEditorOpen, setAccountEditorOpen] = useState(false);
   const [personEditorOpen, setPersonEditorOpen] = useState(false);
   const [resourceEditorOpen, setResourceEditorOpen] = useState(false);
   const [resourceModalView, setResourceModalView] = useState<"details" | "logbook">("details");
@@ -12958,11 +12959,19 @@ function MasterDataView({
 
   function resetAccountForm() {
     setEditingAccountId(null);
+    setAccountEditorOpen(false);
     setAccountForm({ account: "", category: "Leistung", label: "" });
+  }
+
+  function openCreateAccountingAccount() {
+    setEditingAccountId(null);
+    setAccountForm({ account: "", category: "Leistung", label: "" });
+    setAccountEditorOpen(true);
   }
 
   function editAccountingAccount(account: AccountingAccount) {
     setEditingAccountId(account.account);
+    setAccountEditorOpen(true);
     setAccountForm({
       account: account.account,
       category: account.category,
@@ -14328,20 +14337,10 @@ function MasterDataView({
                 <h2>Kontenplan für Spiris / Visma</h2>
                 <span>Konten können ergänzt und anschließend bei Leistungen oder Material ausgewählt werden.</span>
               </div>
-            </div>
-            <div className="form-grid compact-form">
-              <label><span>Konto</span><input inputMode="numeric" value={accountForm.account} onChange={(event) => setAccountForm({ ...accountForm, account: event.target.value })} placeholder="z.B. 3042" /></label>
-              <label><span>Bereich</span>
-                <select value={accountForm.category} onChange={(event) => setAccountForm({ ...accountForm, category: event.target.value as AccountingAccount["category"] })}>
-                  <option>Leistung</option>
-                  <option>Material</option>
-                  <option>Rabatt</option>
-                  <option>Sonstiges</option>
-                </select>
-              </label>
-              <label className="wide"><span>Bezeichnung</span><input value={accountForm.label} onChange={(event) => setAccountForm({ ...accountForm, label: event.target.value })} placeholder="z.B. Vermietungsservice" /></label>
-              <button className="primary-button wide" onClick={saveAccountingAccount} type="button">{editingAccountId ? "Konto speichern" : "Konto hinzufügen"}</button>
-              {editingAccountId && <button className="ghost-button wide" onClick={resetAccountForm} type="button">Bearbeitung abbrechen</button>}
+              <button className="primary-button" onClick={openCreateAccountingAccount} type="button">
+                <Plus size={16} />
+                Neues Konto anlegen
+              </button>
             </div>
             <div className="table-list compact-list chart-of-accounts-list">
               {activeAccountingAccountList.map((account) => (
@@ -14446,8 +14445,10 @@ function MasterDataView({
                     <strong>{item.title}</strong>
                     <small>{item.note} · {item.defaultMinutes} min.</small>
                   </div>
-                  <IconAction label={`Checklistenpunkt ${item.title} bearbeiten`} onClick={() => editServiceChecklistItem(item)}><Pencil size={16} /></IconAction>
-                  <IconAction danger label={`Checklistenpunkt ${item.title} entfernen`} onClick={() => removeServiceChecklistItem(item.id)}><Trash2 size={16} /></IconAction>
+                  <div className="row-actions">
+                    <IconAction label={`Checklistenpunkt ${item.title} bearbeiten`} onClick={() => editServiceChecklistItem(item)}><Pencil size={16} /></IconAction>
+                    <IconAction danger label={`Checklistenpunkt ${item.title} entfernen`} onClick={() => removeServiceChecklistItem(item.id)}><Trash2 size={16} /></IconAction>
+                  </div>
                 </article>
               ))}
               {serviceForm.checklist.length === 0 && <p>Noch keine Checklistenpunkte hinterlegt.</p>}
@@ -14563,6 +14564,40 @@ function MasterDataView({
         )}
       </section>
         </>
+      )}
+      {accountEditorOpen && masterDataTab === "services" && (
+        <div className="modal-backdrop nested-backdrop">
+          <section aria-labelledby="account-editor-title" aria-modal="true" className="modal send-preview-modal account-editor-modal" role="dialog">
+            <header>
+              <div>
+                <p>Buchhaltung</p>
+                <h2 id="account-editor-title">{editingAccountId ? "Konto bearbeiten" : "Neues Konto anlegen"}</h2>
+              </div>
+              <button aria-label="Konto-Dialog schließen" onClick={resetAccountForm} type="button">
+                <X size={18} />
+              </button>
+            </header>
+            <div className="form-grid compact-form">
+              <label><span>Konto</span><input inputMode="numeric" value={accountForm.account} onChange={(event) => setAccountForm({ ...accountForm, account: event.target.value })} placeholder="z.B. 3042" /></label>
+              <label><span>Bereich</span>
+                <select value={accountForm.category} onChange={(event) => setAccountForm({ ...accountForm, category: event.target.value as AccountingAccount["category"] })}>
+                  <option>Leistung</option>
+                  <option>Material</option>
+                  <option>Rabatt</option>
+                  <option>Sonstiges</option>
+                </select>
+              </label>
+              <label className="wide"><span>Bezeichnung</span><input value={accountForm.label} onChange={(event) => setAccountForm({ ...accountForm, label: event.target.value })} placeholder="z.B. Vermietungsservice" /></label>
+            </div>
+            <div className="message-actions">
+              <button className="ghost-button" onClick={resetAccountForm} type="button">Abbrechen</button>
+              <button className="primary-button" onClick={saveAccountingAccount} type="button">
+                <Check size={16} />
+                {editingAccountId ? "Konto speichern" : "Konto anlegen"}
+              </button>
+            </div>
+          </section>
+        </div>
       )}
       {servicePickerOpen && masterDataTab === "services" && (
         <div className="modal-backdrop nested-backdrop">

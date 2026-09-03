@@ -3108,7 +3108,43 @@ mark.neutral {
   display: grid;
   gap: 10px;
   grid-template-columns: minmax(0, 1fr) auto;
-  padding: 10px;
+  min-height: 44px;
+  padding: 6px 8px;
+}
+
+.checklist-preview article > div:first-child {
+  align-items: baseline;
+  display: flex;
+  gap: 4px;
+  min-width: 0;
+}
+
+.checklist-preview article strong,
+.checklist-preview article small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.checklist-preview article strong {
+  flex: 0 0 auto;
+  max-width: 38%;
+}
+
+.checklist-preview article small {
+  color: var(--muted);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.checklist-preview article .row-actions {
+  flex-wrap: nowrap;
+  gap: 6px;
+  justify-self: end;
+}
+
+.account-editor-modal {
+  max-width: 680px;
 }
 
 .checklist-preview p {

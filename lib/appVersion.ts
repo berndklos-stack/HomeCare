@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.299.0",
+  version: "1.300.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.300.0",
+    date: "2026-09-03",
+    changes: [
+      "Kontenplan zeigt nur noch einen Button zum Anlegen neuer Konten und oeffnet die Eingabe im Popup",
+      "Konten koennen im selben Popup bearbeitet werden",
+      "Checklistenpunkte bei Leistungen werden kompakt einzeilig mit festen Aktionsicons dargestellt",
+    ],
+  },
   {
     version: "1.299.0",
     date: "2026-09-03",
