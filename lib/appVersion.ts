@@ -1,10 +1,20 @@
 export const appVersion = {
-  version: "1.315.0",
+  version: "1.316.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.316.0",
+    date: "2026-09-06",
+    changes: [
+      "Die Lagerverwaltung zeigt den Bestandswert als eigene Kennzahl an",
+      "Artikel zeigen den aktuellen Bestandswert nach FIFO-Berechnung",
+      "Ausgaenge reduzieren den Lagerwert rechnerisch aus den aeltesten Eingangsschichten",
+      "Eingaenge und Ausgaenge duerfen nur noch auf angelegte Lagerorte gebucht werden",
+    ],
+  },
   {
     version: "1.315.0",
     date: "2026-09-06",

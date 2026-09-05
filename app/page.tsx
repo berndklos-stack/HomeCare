@@ -1457,6 +1457,43 @@ function materialInventoryByLocation(entries: MaterialInventoryEntry[]) {
   }, {});
 }
 
+function materialInventoryFifoValue(material: Pick<MaterialItem, "currency" | "inventoryEntries" | "purchasePrice">) {
+  const layers: { quantity: number; unitNet: number }[] = [];
+  const entries = [...(material.inventoryEntries ?? [])].sort((first, second) => first.createdAt.localeCompare(second.createdAt));
+  const fallbackUnitNet = decimalValue(material.purchasePrice);
+
+  function entryUnitNet(entry: MaterialInventoryEntry) {
+    if (entry.purchaseNet) return decimalValue(entry.purchaseNet) / Math.max(Math.abs(entry.quantity), 1);
+    if (entry.purchasePrice) return decimalValue(entry.purchasePrice) / Math.max(Math.abs(entry.quantity), 1);
+    if (entry.purchaseGross) {
+      return purchaseAmountsFromGross(entry.purchaseGross, entry.purchaseTaxRate || "25").net / Math.max(Math.abs(entry.quantity), 1);
+    }
+    return fallbackUnitNet;
+  }
+
+  function consume(quantity: number) {
+    let remaining = Math.abs(quantity);
+    while (remaining > 0 && layers.length > 0) {
+      const layer = layers[0];
+      const used = Math.min(layer.quantity, remaining);
+      layer.quantity -= used;
+      remaining -= used;
+      if (layer.quantity <= 0.000001) layers.shift();
+    }
+  }
+
+  entries.forEach((entry) => {
+    const signedQuantity = signedMaterialInventoryQuantity(entry);
+    if (signedQuantity > 0) {
+      layers.push({ quantity: signedQuantity, unitNet: entryUnitNet(entry) });
+    } else if (signedQuantity < 0) {
+      consume(signedQuantity);
+    }
+  });
+
+  return layers.reduce((total, layer) => total + (layer.quantity * layer.unitNet), 0);
+}
+
 function purchaseAmountsFromGross(grossValue: string, taxRateValue: string) {
   const gross = decimalValue(grossValue);
   const taxRate = decimalValue(taxRateValue);
@@ -11515,6 +11552,8 @@ function InventoryView({
   const activeMaterials = materials.filter((material) => !material.archived);
   const activeServices = services.filter((service) => !service.archived);
   const activeInventoryLocations = inventoryLocations.filter((location) => !location.archived);
+  const activeInventoryLocationNames = activeInventoryLocations.map((location) => location.name);
+  const activeInventoryLocationNameSet = new Set(activeInventoryLocationNames.map((name) => name.trim().toLowerCase()));
   const materialLocations = uniqueSortedValues([
     ...activeInventoryLocations.map((location) => location.name),
     ...materials.flatMap((material) => [
@@ -11553,13 +11592,14 @@ function InventoryView({
   });
   const selectedMaterial = activeMaterials.find((material) => material.id === selectedMaterialId) ?? activeMaterials[0] ?? null;
   const selectedMaterialLocationsWithStock = Object.entries(materialInventoryByLocation(selectedMaterial?.inventoryEntries ?? []))
-    .filter(([, quantity]) => quantity > 0)
+    .filter(([location, quantity]) => quantity > 0 && activeInventoryLocationNameSet.has(location.trim().toLowerCase()))
     .sort(([firstLocation], [secondLocation]) => firstLocation.localeCompare(secondLocation, "de"));
   const historyMaterials = historyMaterialId ? activeMaterials.filter((material) => material.id === historyMaterialId) : activeMaterials;
   const historyEntries = historyMaterials.flatMap((material) => (
     (material.inventoryEntries ?? []).map((entry) => ({ entry, material }))
   )).sort((first, second) => second.entry.createdAt.localeCompare(first.entry.createdAt));
   const currentPurchaseAmounts = purchaseAmountsFromGross(form.purchaseGross, form.purchaseTaxRate);
+  const inventoryValue = activeMaterials.reduce((sum, material) => sum + materialInventoryFifoValue(material), 0);
   const normalizedInventoryFilter = inventoryFilter.trim().toLowerCase();
   const filteredMaterials = normalizedInventoryFilter
     ? activeMaterials.filter((material) => [
@@ -11577,15 +11617,18 @@ function InventoryView({
     const target = material ?? selectedMaterial ?? activeMaterials[0];
     if (!target) return;
     const positiveLocations = Object.entries(materialInventoryByLocation(target.inventoryEntries ?? []))
-      .filter(([, quantity]) => quantity > 0)
+      .filter(([location, quantity]) => quantity > 0 && activeInventoryLocationNameSet.has(location.trim().toLowerCase()))
       .sort(([firstLocation], [secondLocation]) => firstLocation.localeCompare(secondLocation, "de"));
+    const defaultLocation = activeInventoryLocationNameSet.has((target.primaryLocation ?? "").trim().toLowerCase())
+      ? target.primaryLocation ?? ""
+      : activeInventoryLocationNames[0] ?? "";
     setSelectedMaterialId(target.id);
     setForm({
       billableAsService: false,
       customerId: "",
       location: type === "Ausgang"
         ? positiveLocations[0]?.[0] ?? ""
-        : target.primaryLocation || materialLocations[0] || "Hauptlager",
+        : defaultLocation,
       note: "",
       purchaseGross: type === "Eingang" ? target.purchasePrice ?? "" : "",
       purchaseTaxRate: type === "Eingang" ? target.taxRate || "25" : "25",
@@ -11621,6 +11664,10 @@ function InventoryView({
     }
     if (!Number.isFinite(quantity) || quantity === 0) {
       setNotice("Bitte eine Menge ungleich 0 erfassen.");
+      return;
+    }
+    if (!activeInventoryLocationNameSet.has(location.toLowerCase())) {
+      setNotice("Bitte einen angelegten Lagerort auswählen. Freie Lagerorte können hier nicht bebucht werden.");
       return;
     }
     if (form.type === "Ausgang") {
@@ -11752,6 +11799,10 @@ function InventoryView({
           <span>Bestandseinheiten gesamt</span>
         </article>
         <article>
+          <strong>{formatMoney(inventoryValue, "SEK")}</strong>
+          <span>Bestandswert FIFO</span>
+        </article>
+        <article>
           <strong>{activeMaterials.filter((material) => {
             const minStock = Number(String(material.minStock ?? "").replace(",", "."));
             return Number.isFinite(minStock) && minStock > 0 && materialInventoryTotal(material) <= minStock;
@@ -11777,6 +11828,7 @@ function InventoryView({
       <div className="table-list compact-list inventory-overview-list">
         {filteredMaterials.map((material) => {
           const stock = materialInventoryTotal(material);
+          const stockValue = materialInventoryFifoValue(material);
           const minStock = Number(String(material.minStock ?? "").replace(",", "."));
           const belowMinimum = Number.isFinite(minStock) && minStock > 0 && stock <= minStock;
           const locationSummary = Object.entries(materialInventoryByLocation(material.inventoryEntries ?? []))
@@ -11791,6 +11843,7 @@ function InventoryView({
               </div>
               <div>
                 <strong>{formatInventoryQuantity(stock)} {material.unit}</strong>
+                <span>{formatMoney(stockValue, material.currency || "SEK")} FIFO</span>
                 <span>Min {material.minStock || "-"} · Max {material.maxStock || "-"}</span>
                 <span>{locationSummary || `${material.primaryLocation || "Hauptlager"}: ${formatInventoryQuantity(stock)}`}</span>
               </div>
@@ -11824,14 +11877,17 @@ function InventoryView({
                 <select value={selectedMaterialId} onChange={(event) => {
                   const nextMaterial = activeMaterials.find((material) => material.id === event.target.value);
                   const nextPositiveLocations = Object.entries(materialInventoryByLocation(nextMaterial?.inventoryEntries ?? []))
-                    .filter(([, stock]) => stock > 0)
+                    .filter(([location, stock]) => stock > 0 && activeInventoryLocationNameSet.has(location.trim().toLowerCase()))
                     .sort(([firstLocation], [secondLocation]) => firstLocation.localeCompare(secondLocation, "de"));
+                  const nextDefaultLocation = activeInventoryLocationNameSet.has((nextMaterial?.primaryLocation ?? "").trim().toLowerCase())
+                    ? nextMaterial?.primaryLocation ?? ""
+                    : activeInventoryLocationNames[0] ?? "";
                   setSelectedMaterialId(event.target.value);
                   setForm({
                     ...form,
                     location: form.type === "Ausgang"
                       ? nextPositiveLocations[0]?.[0] ?? ""
-                      : nextMaterial?.primaryLocation || form.location,
+                      : nextDefaultLocation,
                     purchaseGross: form.type === "Eingang" ? nextMaterial?.purchasePrice ?? form.purchaseGross : form.purchaseGross,
                     purchaseTaxRate: form.type === "Eingang" ? nextMaterial?.taxRate || form.purchaseTaxRate : form.purchaseTaxRate,
                     supplier: form.type === "Eingang" ? nextMaterial?.supplier ?? form.supplier : form.supplier,
@@ -11847,7 +11903,9 @@ function InventoryView({
                     ...form,
                     location: nextType === "Ausgang"
                       ? selectedMaterialLocationsWithStock[0]?.[0] ?? ""
-                      : selectedMaterial.primaryLocation || materialLocations[0] || "Hauptlager",
+                      : activeInventoryLocationNameSet.has((selectedMaterial.primaryLocation ?? "").trim().toLowerCase())
+                        ? selectedMaterial.primaryLocation ?? ""
+                        : activeInventoryLocationNames[0] ?? "",
                     type: nextType,
                   });
                 }}>
@@ -11868,12 +11926,15 @@ function InventoryView({
                   {selectedMaterialLocationsWithStock.length === 0 && <small>Für dieses Material ist kein Ausgang möglich, weil kein Lagerort positiven Bestand hat.</small>}
                 </label>
               ) : (
-                <>
-                  <label><span>Lagerort</span><input list="inventory-page-locations" value={form.location} onChange={(event) => setForm({ ...form, location: event.target.value })} /></label>
-                  <datalist id="inventory-page-locations">
-                    {materialLocations.map((location) => <option key={location} value={location} />)}
-                  </datalist>
-                </>
+                <label><span>Lagerort</span>
+                  <select value={form.location} onChange={(event) => setForm({ ...form, location: event.target.value })}>
+                    {activeInventoryLocations.map((location) => (
+                      <option key={location.id} value={location.name}>{location.name}{location.site ? ` · ${location.site}` : ""}</option>
+                    ))}
+                    {activeInventoryLocations.length === 0 && <option value="">kein Lagerort angelegt</option>}
+                  </select>
+                  {activeInventoryLocations.length === 0 && <small>Bitte zuerst im Lagerorte-Popup einen Lagerort anlegen.</small>}
+                </label>
               )}
               {form.type === "Eingang" && (
                 <>

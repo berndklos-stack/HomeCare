@@ -5466,7 +5466,7 @@ button.media-thumb {
 .inventory-summary-grid {
   display: grid;
   gap: 8px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   margin-bottom: 12px;
 }
 
@@ -5519,7 +5519,7 @@ button.media-thumb {
 }
 
 .inventory-overview-list article {
-  grid-template-columns: minmax(260px, 1fr) 160px auto auto;
+  grid-template-columns: minmax(260px, 1fr) 220px auto auto;
   min-height: 58px;
 }
 
