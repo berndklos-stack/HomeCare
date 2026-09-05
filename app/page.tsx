@@ -397,6 +397,13 @@ type MaterialInventoryEntry = {
   receipt?: ReportAttachment;
 };
 
+type InventoryLocation = {
+  id: string;
+  name: string;
+  note?: string;
+  archived?: boolean;
+};
+
 type JobMaterialItem = {
   id: string;
   accountingAccount?: string;
@@ -561,6 +568,7 @@ type AppSnapshot = {
   fieldNotes: Record<string, string>;
   fieldProgress: Record<string, Record<string, FieldTaskProgress>>;
   jobs: JobRecord[];
+  inventoryLocations?: InventoryLocation[];
   materials?: MaterialItem[];
   objects: ObjectRecord[];
   packages: ServicePackage[];
@@ -1072,6 +1080,7 @@ const storageKeys = {
   reports: "kolaretorp-reports",
   services: "kolaretorp-services",
   materials: "kolaretorp-materials",
+  inventoryLocations: "kolaretorp-inventory-locations",
   companySettings: "kolaretorp-company-settings",
   packages: "kolaretorp-packages",
   personnel: "kolaretorp-personnel",
@@ -1131,6 +1140,7 @@ function readLocalSnapshot(): AppSnapshot {
     fieldNotes: readStoredValue<Record<string, string>>(storageKeys.fieldNotes, {}),
     fieldProgress: readStoredValue<Record<string, Record<string, FieldTaskProgress>>>(storageKeys.fieldProgress, {}),
     jobs: readStoredValue<JobRecord[]>(storageKeys.jobs, seedJobs),
+    inventoryLocations: readStoredValue<InventoryLocation[]>(storageKeys.inventoryLocations, seedInventoryLocations),
     materials: readStoredValue<MaterialItem[]>(storageKeys.materials, seedMaterials),
     objects: readStoredValue<ObjectRecord[]>(storageKeys.objects, seedObjects),
     packages: readStoredValue<ServicePackage[]>(storageKeys.packages, seedPackages),
@@ -1161,6 +1171,7 @@ function persistLocalSnapshot(snapshot: AppSnapshot) {
   window.localStorage.setItem(storageKeys.companySettings, JSON.stringify(snapshot.companySettings ?? seedCompanySettings));
   window.localStorage.setItem(storageKeys.customers, JSON.stringify(snapshot.customers));
   window.localStorage.setItem(storageKeys.jobs, JSON.stringify(snapshot.jobs));
+  window.localStorage.setItem(storageKeys.inventoryLocations, JSON.stringify(snapshot.inventoryLocations ?? seedInventoryLocations));
   window.localStorage.setItem(storageKeys.materials, JSON.stringify(snapshot.materials ?? seedMaterials));
   window.localStorage.setItem(storageKeys.reports, JSON.stringify(snapshot.reports));
   window.localStorage.setItem(storageKeys.services, JSON.stringify(snapshot.services));
@@ -1254,6 +1265,7 @@ function snapshotPatch(snapshot: AppSnapshot): Partial<AppSnapshot> {
     fieldNotes: snapshot.fieldNotes,
     fieldProgress: snapshot.fieldProgress,
     jobs: snapshot.jobs,
+    inventoryLocations: snapshot.inventoryLocations,
     materials: snapshot.materials,
     objects: snapshot.objects,
     packages: snapshot.packages,
@@ -1774,6 +1786,7 @@ function mergeSnapshots(remoteSnapshot: AppSnapshot, localSnapshot: AppSnapshot)
     fieldNotes: mergeFieldNotes(primarySnapshot.fieldNotes, secondarySnapshot.fieldNotes),
     fieldProgress: mergeFieldProgress(primarySnapshot.fieldProgress, secondarySnapshot.fieldProgress),
     jobs,
+    inventoryLocations: mergeRecordsById(primarySnapshot.inventoryLocations ?? seedInventoryLocations, secondarySnapshot.inventoryLocations ?? seedInventoryLocations),
     materials: mergeRecordsById(primarySnapshot.materials ?? seedMaterials, secondarySnapshot.materials ?? seedMaterials),
     objects: filterDeletedRecords(mergeObjectsById(primarySnapshot.objects, secondarySnapshot.objects), deletedEntityIds, "objects"),
     packages: mergeRecordsById(primarySnapshot.packages, secondarySnapshot.packages),
@@ -4930,6 +4943,13 @@ const seedMaterials: MaterialItem[] = [
   { id: "MAT-3", accountingAccount: "3058", name: "Rasenmäherbenzin", category: "Garten", unit: "Liter", price: "24", currency: "SEK", description: "Kraftstoff für Gartenarbeiten" },
 ];
 
+const seedInventoryLocations: InventoryLocation[] = [
+  { id: "LOC-1", name: "Hauptlager", note: "Standardlager" },
+  { id: "LOC-2", name: "Auto", note: "Material im Fahrzeug" },
+  { id: "LOC-3", name: "Werkstatt", note: "Werkstattbestand" },
+  { id: "LOC-4", name: "Objekt", note: "Beim Kundenobjekt gelagert" },
+];
+
 const seedPackages: ServicePackage[] = [
   { id: "PKG-1", name: "Basis", price: "2.990 SEK/Jahr", description: "Grundbetreuung mit 4 Kontrollen pro Jahr", serviceIds: ["SVC-1", "SVC-2", "SVC-3"] },
   { id: "PKG-2", name: "Plus", price: "5.490 SEK/Jahr", description: "Erweiterte Betreuung mit 8 Kontrollen und Briefkastenservice", serviceIds: ["SVC-1", "SVC-2", "SVC-3", "SVC-4"] },
@@ -5886,6 +5906,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   const [billing, setBilling] = useState(seedBilling);
   const [companySettings, setCompanySettings] = useState(seedCompanySettings);
   const [materials, setMaterials] = useState(seedMaterials);
+  const [inventoryLocations, setInventoryLocations] = useState<InventoryLocation[]>(seedInventoryLocations);
   const [services, setServices] = useState(seedServices);
   const [servicePackages, setServicePackages] = useState(seedPackages);
   const [personnel, setPersonnel] = useState(seedPersonnel);
@@ -6015,6 +6036,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     setCompanySettings({ ...seedCompanySettings, ...(snapshot.companySettings ?? {}) });
     setCustomers(snapshot.customers);
     setJobs(normalizedJobs);
+    setInventoryLocations(snapshot.inventoryLocations ?? seedInventoryLocations);
     setMaterials(snapshot.materials ?? seedMaterials);
     reportsRef.current = normalizedReports;
     setReports(normalizedReports);
@@ -6139,6 +6161,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       fieldNotes,
       fieldProgress,
       jobs,
+      inventoryLocations,
       materials,
       objects,
       packages: servicePackages,
@@ -6158,7 +6181,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     setAppUpdatedAt(snapshotUpdatedAt);
 
     scheduleRemoteSave(snapshot, 2600);
-  }, [accountingAccounts, activeJobId, appStorageReady, billing, companySettings, customers, dailyMailSettings, deletedEntityIds, deletedReportIds, fieldNotes, fieldProgress, jobs, materials, objects, personnel, portalMessages, reports, resources, scheduleRemoteSave, servicePackages, services]);
+  }, [accountingAccounts, activeJobId, appStorageReady, billing, companySettings, customers, dailyMailSettings, deletedEntityIds, deletedReportIds, fieldNotes, fieldProgress, inventoryLocations, jobs, materials, objects, personnel, portalMessages, reports, resources, scheduleRemoteSave, servicePackages, services]);
 
   const currentSnapshot = useCallback((overrides: Partial<AppSnapshot> = {}): AppSnapshot => ({
     activeJobId,
@@ -6172,6 +6195,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     fieldNotes,
     fieldProgress,
     jobs,
+    inventoryLocations,
     materials,
     objects,
     packages: servicePackages,
@@ -6182,7 +6206,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     services,
     updatedAt: appUpdatedAt,
     ...overrides,
-  }), [accountingAccounts, activeJobId, appUpdatedAt, billing, companySettings, customers, dailyMailSettings, deletedEntityIds, deletedReportIds, fieldNotes, fieldProgress, jobs, materials, objects, personnel, portalMessages, reports, resources, servicePackages, services]);
+  }), [accountingAccounts, activeJobId, appUpdatedAt, billing, companySettings, customers, dailyMailSettings, deletedEntityIds, deletedReportIds, fieldNotes, fieldProgress, inventoryLocations, jobs, materials, objects, personnel, portalMessages, reports, resources, servicePackages, services]);
 
   const syncRemoteSnapshot = useCallback(async (force = false) => {
     if (!appStorageReady || remoteSyncRunningRef.current) return;
@@ -8301,9 +8325,12 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
             {section === "inventory" && (
               <InventoryView
                 customers={activeCustomers}
+                inventoryLocations={inventoryLocations}
                 materials={materials}
+                onPersistInventoryLocations={(nextLocations) => persistSnapshotNow({ inventoryLocations: nextLocations }, { forceRemote: true })}
                 onPersistMaterials={(nextMaterials) => persistSnapshotNow({ materials: nextMaterials }, { forceRemote: true })}
                 services={services}
+                setInventoryLocations={setInventoryLocations}
                 setMaterials={setMaterials}
               />
             )}
@@ -11464,29 +11491,41 @@ function BillingView({
 
 function InventoryView({
   customers,
+  inventoryLocations,
   materials,
+  onPersistInventoryLocations,
   onPersistMaterials,
   services,
+  setInventoryLocations,
   setMaterials,
 }: {
   customers: CustomerRecord[];
+  inventoryLocations: InventoryLocation[];
   materials: MaterialItem[];
+  onPersistInventoryLocations: (locations: InventoryLocation[]) => void;
   onPersistMaterials: (materials: MaterialItem[]) => void;
   services: ServiceItem[];
+  setInventoryLocations: (locations: InventoryLocation[]) => void;
   setMaterials: (materials: MaterialItem[]) => void;
 }) {
   const activeMaterials = materials.filter((material) => !material.archived);
   const activeServices = services.filter((service) => !service.archived);
-  const materialLocations = uniqueSortedValues(materials.flatMap((material) => [
-    material.primaryLocation ?? "",
-    ...(material.inventoryEntries ?? []).map((entry) => entry.location),
-  ]), ["Hauptlager", "Auto", "Werkstatt", "Objekt"]);
+  const activeInventoryLocations = inventoryLocations.filter((location) => !location.archived);
+  const materialLocations = uniqueSortedValues([
+    ...activeInventoryLocations.map((location) => location.name),
+    ...materials.flatMap((material) => [
+      material.primaryLocation ?? "",
+      ...(material.inventoryEntries ?? []).map((entry) => entry.location),
+    ]),
+  ], ["Hauptlager", "Auto", "Werkstatt", "Objekt"]);
   const materialSuppliers = uniqueSortedValues(materials.map((material) => material.supplier ?? ""), ["Bauhaus", "Biltema", "Byggmax", "Ahlsell"]);
   const [selectedMaterialId, setSelectedMaterialId] = useState(activeMaterials[0]?.id ?? "");
   const [bookingOpen, setBookingOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [locationEditorOpen, setLocationEditorOpen] = useState(false);
   const [historyMaterialId, setHistoryMaterialId] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
+  const [locationForm, setLocationForm] = useState({ name: "", note: "" });
   const [form, setForm] = useState({
     billableAsService: false,
     customerId: "",
@@ -11501,6 +11540,9 @@ function InventoryView({
     receipt: undefined as ReportAttachment | undefined,
   });
   const selectedMaterial = activeMaterials.find((material) => material.id === selectedMaterialId) ?? activeMaterials[0] ?? null;
+  const selectedMaterialLocationsWithStock = Object.entries(materialInventoryByLocation(selectedMaterial?.inventoryEntries ?? []))
+    .filter(([, quantity]) => quantity > 0)
+    .sort(([firstLocation], [secondLocation]) => firstLocation.localeCompare(secondLocation, "de"));
   const historyMaterials = historyMaterialId ? activeMaterials.filter((material) => material.id === historyMaterialId) : activeMaterials;
   const historyEntries = historyMaterials.flatMap((material) => (
     (material.inventoryEntries ?? []).map((entry) => ({ entry, material }))
@@ -11510,11 +11552,16 @@ function InventoryView({
   function openBooking(material?: MaterialItem, type: MaterialInventoryEntry["type"] = "Eingang") {
     const target = material ?? selectedMaterial ?? activeMaterials[0];
     if (!target) return;
+    const positiveLocations = Object.entries(materialInventoryByLocation(target.inventoryEntries ?? []))
+      .filter(([, quantity]) => quantity > 0)
+      .sort(([firstLocation], [secondLocation]) => firstLocation.localeCompare(secondLocation, "de"));
     setSelectedMaterialId(target.id);
     setForm({
       billableAsService: false,
       customerId: "",
-      location: target.primaryLocation || materialLocations[0] || "Hauptlager",
+      location: type === "Ausgang"
+        ? positiveLocations[0]?.[0] ?? ""
+        : target.primaryLocation || materialLocations[0] || "Hauptlager",
       note: "",
       purchaseGross: type === "Eingang" ? target.purchasePrice ?? "" : "",
       purchaseTaxRate: type === "Eingang" ? target.taxRate || "25" : "25",
@@ -11551,6 +11598,17 @@ function InventoryView({
     if (!Number.isFinite(quantity) || quantity === 0) {
       setNotice("Bitte eine Menge ungleich 0 erfassen.");
       return;
+    }
+    if (form.type === "Ausgang") {
+      const locationStock = materialInventoryByLocation(material.inventoryEntries ?? [])[location] ?? 0;
+      if (locationStock <= 0) {
+        setNotice("Ausgänge sind nur von Lagerorten mit positivem Bestand möglich.");
+        return;
+      }
+      if (Math.abs(quantity) > locationStock) {
+        setNotice(`Am Lagerort "${location}" sind nur ${formatInventoryQuantity(locationStock)} ${material.unit} verfügbar.`);
+        return;
+      }
     }
 
     const purchaseAmounts = purchaseAmountsFromGross(form.purchaseGross, form.purchaseTaxRate);
@@ -11599,6 +11657,32 @@ function InventoryView({
     setHistoryOpen(true);
   }
 
+  function openCreateInventoryLocation() {
+    setLocationForm({ name: "", note: "" });
+    setNotice("");
+    setLocationEditorOpen(true);
+  }
+
+  function saveInventoryLocation() {
+    const name = locationForm.name.trim();
+    if (!name) {
+      setNotice("Bitte einen Lagerort erfassen.");
+      return;
+    }
+    if (activeInventoryLocations.some((location) => location.name.trim().toLowerCase() === name.toLowerCase())) {
+      setNotice(`Der Lagerort "${name}" ist bereits vorhanden.`);
+      return;
+    }
+    const nextLocations = [
+      { id: createEntityId("LOC"), name, note: locationForm.note.trim() },
+      ...inventoryLocations,
+    ];
+    setInventoryLocations(nextLocations);
+    onPersistInventoryLocations(nextLocations);
+    setNotice(`Lagerort "${name}" wurde angelegt.`);
+    setLocationEditorOpen(false);
+  }
+
   return (
     <section className="panel inventory-page">
       <div className="panel-title">
@@ -11640,6 +11724,24 @@ function InventoryView({
           <span>Lagerorte</span>
         </article>
       </div>
+      <section className="inventory-location-master">
+        <div className="section-heading">
+          <div>
+            <span>Lagerorte</span>
+            <strong>{activeInventoryLocations.length} Stammdaten</strong>
+          </div>
+          <button className="ghost-button" onClick={openCreateInventoryLocation} type="button">
+            <Plus size={16} />
+            Lagerort anlegen
+          </button>
+        </div>
+        <div className="inventory-location-chips">
+          {activeInventoryLocations.map((location) => (
+            <span key={location.id}>{location.name}{location.note ? ` · ${location.note}` : ""}</span>
+          ))}
+          {activeInventoryLocations.length === 0 && <p>Noch keine Lagerorte angelegt.</p>}
+        </div>
+      </section>
       <div className="table-list compact-list inventory-overview-list">
         {activeMaterials.map((material) => {
           const stock = materialInventoryTotal(material);
@@ -11686,22 +11788,60 @@ function InventoryView({
             </header>
             <div className="form-grid compact-form inventory-booking-form">
               <label><span>Material</span>
-                <select value={selectedMaterialId} onChange={(event) => setSelectedMaterialId(event.target.value)}>
+                <select value={selectedMaterialId} onChange={(event) => {
+                  const nextMaterial = activeMaterials.find((material) => material.id === event.target.value);
+                  const nextPositiveLocations = Object.entries(materialInventoryByLocation(nextMaterial?.inventoryEntries ?? []))
+                    .filter(([, stock]) => stock > 0)
+                    .sort(([firstLocation], [secondLocation]) => firstLocation.localeCompare(secondLocation, "de"));
+                  setSelectedMaterialId(event.target.value);
+                  setForm({
+                    ...form,
+                    location: form.type === "Ausgang"
+                      ? nextPositiveLocations[0]?.[0] ?? ""
+                      : nextMaterial?.primaryLocation || form.location,
+                    purchaseGross: form.type === "Eingang" ? nextMaterial?.purchasePrice ?? form.purchaseGross : form.purchaseGross,
+                    purchaseTaxRate: form.type === "Eingang" ? nextMaterial?.taxRate || form.purchaseTaxRate : form.purchaseTaxRate,
+                    supplier: form.type === "Eingang" ? nextMaterial?.supplier ?? form.supplier : form.supplier,
+                  });
+                }}>
                   {activeMaterials.map((material) => <option key={material.id} value={material.id}>{material.name}</option>)}
                 </select>
               </label>
               <label><span>Buchung</span>
-                <select value={form.type} onChange={(event) => setForm({ ...form, type: event.target.value as MaterialInventoryEntry["type"] })}>
+                <select value={form.type} onChange={(event) => {
+                  const nextType = event.target.value as MaterialInventoryEntry["type"];
+                  setForm({
+                    ...form,
+                    location: nextType === "Ausgang"
+                      ? selectedMaterialLocationsWithStock[0]?.[0] ?? ""
+                      : selectedMaterial.primaryLocation || materialLocations[0] || "Hauptlager",
+                    type: nextType,
+                  });
+                }}>
                   <option>Eingang</option>
                   <option>Ausgang</option>
                   <option>Korrektur</option>
                 </select>
               </label>
               <label><span>Menge</span><input inputMode="decimal" value={form.quantity} onChange={(event) => setForm({ ...form, quantity: event.target.value })} placeholder="z.B. 10" /></label>
-              <label><span>Lagerort</span><input list="inventory-page-locations" value={form.location} onChange={(event) => setForm({ ...form, location: event.target.value })} /></label>
-              <datalist id="inventory-page-locations">
-                {materialLocations.map((location) => <option key={location} value={location} />)}
-              </datalist>
+              {form.type === "Ausgang" ? (
+                <label><span>Lagerort mit Bestand</span>
+                  <select value={form.location} onChange={(event) => setForm({ ...form, location: event.target.value })}>
+                    {selectedMaterialLocationsWithStock.map(([location, stock]) => (
+                      <option key={location} value={location}>{location} · {formatInventoryQuantity(stock)} {selectedMaterial.unit}</option>
+                    ))}
+                  {selectedMaterialLocationsWithStock.length === 0 && <option value="">kein positiver Bestand</option>}
+                  </select>
+                  {selectedMaterialLocationsWithStock.length === 0 && <small>Für dieses Material ist kein Ausgang möglich, weil kein Lagerort positiven Bestand hat.</small>}
+                </label>
+              ) : (
+                <>
+                  <label><span>Lagerort</span><input list="inventory-page-locations" value={form.location} onChange={(event) => setForm({ ...form, location: event.target.value })} /></label>
+                  <datalist id="inventory-page-locations">
+                    {materialLocations.map((location) => <option key={location} value={location} />)}
+                  </datalist>
+                </>
+              )}
               {form.type === "Eingang" && (
                 <>
                   <label><span>Kaufpreis brutto</span><input inputMode="decimal" value={form.purchaseGross} onChange={(event) => setForm({ ...form, purchaseGross: event.target.value })} /></label>
@@ -11758,6 +11898,33 @@ function InventoryView({
               <button className="primary-button" onClick={saveBooking} type="button">
                 <Check size={16} />
                 Buchung speichern
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {locationEditorOpen && (
+        <div className="modal-backdrop nested-backdrop">
+          <section aria-labelledby="inventory-location-title" aria-modal="true" className="modal send-preview-modal account-editor-modal" role="dialog">
+            <header>
+              <div>
+                <p>Lagerverwaltung</p>
+                <h2 id="inventory-location-title">Neuer Lagerort</h2>
+              </div>
+              <button aria-label="Lagerort-Dialog schließen" onClick={() => setLocationEditorOpen(false)} type="button">
+                <X size={18} />
+              </button>
+            </header>
+            <div className="form-grid compact-form">
+              <label><span>Lagerort</span><input autoFocus value={locationForm.name} onChange={(event) => setLocationForm({ ...locationForm, name: event.target.value })} placeholder="z.B. Auto Bernd" /></label>
+              <label><span>Notiz</span><input value={locationForm.note} onChange={(event) => setLocationForm({ ...locationForm, note: event.target.value })} placeholder="z.B. Fahrzeugbestand" /></label>
+            </div>
+            <div className="message-actions">
+              <button className="ghost-button" onClick={() => setLocationEditorOpen(false)} type="button">Abbrechen</button>
+              <button className="primary-button" onClick={saveInventoryLocation} type="button">
+                <Check size={16} />
+                Lagerort speichern
               </button>
             </div>
           </section>

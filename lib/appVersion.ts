@@ -1,10 +1,28 @@
 export const appVersion = {
-  version: "1.310.0",
+  version: "1.312.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.312.0",
+    date: "2026-09-05",
+    changes: [
+      "Lagerorte koennen direkt in der Lagerverwaltung als Stammdaten angelegt werden",
+      "Buchungsdialoge verwenden gepflegte Lagerorte plus vorhandene historische Lagerorte",
+      "Lagerort-Stammdaten werden lokal und online synchronisiert",
+    ],
+  },
+  {
+    version: "1.311.0",
+    date: "2026-09-05",
+    changes: [
+      "Ausgangsbuchungen zeigen nur Lagerorte mit positivem Bestand fuer das ausgewaehlte Material",
+      "Lagerort-Auswahl zeigt den aktuellen Bestand je Lagerort direkt an",
+      "Ausgangsbuchungen werden blockiert, wenn Menge oder Lagerort den verfuegbaren Bestand ueberschreiten",
+    ],
+  },
   {
     version: "1.310.0",
     date: "2026-09-05",
