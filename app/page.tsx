@@ -366,7 +366,17 @@ type MaterialItem = {
   currency: string;
   taxRate?: string;
   description: string;
+  inventoryEntries?: MaterialInventoryEntry[];
   archived?: boolean;
+};
+
+type MaterialInventoryEntry = {
+  id: string;
+  createdAt: string;
+  location: string;
+  type: "Eingang" | "Ausgang" | "Korrektur";
+  quantity: number;
+  note?: string;
 };
 
 type JobMaterialItem = {
@@ -1388,6 +1398,10 @@ function formatUpdatedTime(value?: string) {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return "";
   return parsed.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+}
+
+function formatInventoryQuantity(value: number) {
+  return value.toLocaleString("sv-SE", { maximumFractionDigits: 2 });
 }
 
 function formatFileSize(value?: number) {
@@ -5805,8 +5819,15 @@ type HomePageProps = {
   portalOnly?: boolean;
 };
 
+type MasterDataJump = {
+  focusInventory?: boolean;
+  tab: "company" | "personal" | "resources" | "services" | "materials" | "accounting" | "mail" | "backups";
+  token: number;
+};
+
 export default function HomePage({ initialSection = "dashboard", portalOnly = false }: HomePageProps = {}) {
   const [section, setSection] = useState<Section>(initialSection);
+  const [masterDataJump, setMasterDataJump] = useState<MasterDataJump | null>(null);
   const [language, setLanguage] = useState<Language>("de");
   const [theme, setTheme] = useState<Theme>("light");
   const [query, setQuery] = useState("");
@@ -8048,6 +8069,17 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
               <CarFront size={16} />
               {tx("Fahrt")}
             </button>
+            <button
+              className="ghost-button"
+              onClick={() => {
+                setMasterDataJump({ focusInventory: true, tab: "materials", token: Date.now() });
+                setSection("masterData");
+              }}
+              type="button"
+            >
+              <ClipboardList size={16} />
+              Lager
+            </button>
             <button className={`ghost-button refresh-button ${manualRefreshRunning ? "running" : ""}`} disabled={manualRefreshRunning} onClick={() => void refreshAppDataNow()} type="button">
               <RefreshCw size={16} />
               {manualRefreshRunning ? tx("Aktualisiere") : tx("Aktualisieren")}
@@ -8242,6 +8274,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                 companySettings={companySettings}
                 customers={activeCustomers}
                 dailyMailSettings={dailyMailSettings}
+                jump={masterDataJump}
                 objects={activeObjects}
                 onSendDailyMail={sendDailyMailNow}
                 materials={materials}
@@ -12212,6 +12245,7 @@ function MasterDataView({
   customers,
   dailyMailSettings,
   dailyMailSending,
+  jump,
   materials,
   objects,
   onSendDailyMail,
@@ -12235,6 +12269,7 @@ function MasterDataView({
   customers: CustomerRecord[];
   dailyMailSettings: DailyMailSettings;
   dailyMailSending: boolean;
+  jump?: MasterDataJump | null;
   materials: MaterialItem[];
   objects: ObjectRecord[];
   onSendDailyMail: () => Promise<void>;
@@ -12265,6 +12300,7 @@ function MasterDataView({
   const [accountEditorOpen, setAccountEditorOpen] = useState(false);
   const [serviceEditorOpen, setServiceEditorOpen] = useState(false);
   const [materialEditorOpen, setMaterialEditorOpen] = useState(false);
+  const [focusMaterialInventory, setFocusMaterialInventory] = useState(false);
   const [packageEditorOpen, setPackageEditorOpen] = useState(false);
   const [personEditorOpen, setPersonEditorOpen] = useState(false);
   const [resourceEditorOpen, setResourceEditorOpen] = useState(false);
@@ -12347,10 +12383,17 @@ function MasterDataView({
     category: "",
     currency: "SEK",
     description: "",
+    inventoryEntries: [] as MaterialInventoryEntry[],
     name: "",
     price: "",
     taxRate: "25",
     unit: "Stück",
+  });
+  const [materialInventoryForm, setMaterialInventoryForm] = useState({
+    location: "Hauptlager",
+    note: "",
+    quantity: "",
+    type: "Eingang" as MaterialInventoryEntry["type"],
   });
   const [accountForm, setAccountForm] = useState({
     account: "",
@@ -12369,6 +12412,7 @@ function MasterDataView({
     description: "",
     serviceIds: [] as string[],
   });
+  const materialInventoryRef = useRef<HTMLDivElement | null>(null);
   const activeServices = services.filter((service) => !service.archived);
   const archivedServices = services.filter((service) => service.archived);
   const activeMaterials = materials.filter((material) => !material.archived);
@@ -12393,12 +12437,28 @@ function MasterDataView({
     .sort((first, second) => first.localeCompare(second, "de"));
   const materialCategories = uniqueSortedValues(materials.map((material) => material.category), ["Verbrauchsmaterial", "Reinigung", "Garten", "Ersatzteil"]);
   const materialUnits = uniqueSortedValues(materials.map((material) => material.unit), ["Stück", "Liter", "Meter", "kg", "Rolle"]);
+  const materialLocations = uniqueSortedValues(materials.flatMap((material) => (material.inventoryEntries ?? []).map((entry) => entry.location)), ["Hauptlager", "Auto", "Werkstatt", "Objekt"]);
   const groupedServices = categories.map((category) => ({
     category,
     services: activeServices
       .filter((service) => service.category === category)
       .sort((first, second) => first.name.localeCompare(second.name, "de")),
   }));
+
+  useEffect(() => {
+    if (!materialEditorOpen || !focusMaterialInventory) return;
+    window.requestAnimationFrame(() => {
+      materialInventoryRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+    });
+  }, [focusMaterialInventory, materialEditorOpen]);
+
+  useEffect(() => {
+    if (!jump) return;
+    setMasterDataTab(jump.tab);
+    if (jump.tab === "materials" && jump.focusInventory && activeMaterials[0]) {
+      editMaterial(activeMaterials[0], { focusInventory: true });
+    }
+  }, [jump?.token]);
   const selectedPackageServices = packageForm.serviceIds
     .map((id) => activeServices.find((service) => service.id === id))
     .filter(Boolean) as ServiceItem[];
@@ -13199,23 +13259,29 @@ function MasterDataView({
   function resetMaterialForm() {
     setEditingMaterialId(null);
     setMaterialEditorOpen(false);
-    setMaterialForm({ accountingAccount: "3058", category: "", currency: "SEK", description: "", name: "", price: "", taxRate: "25", unit: "Stück" });
+    setFocusMaterialInventory(false);
+    setMaterialForm({ accountingAccount: "3058", category: "", currency: "SEK", description: "", inventoryEntries: [], name: "", price: "", taxRate: "25", unit: "Stück" });
+    setMaterialInventoryForm({ location: "Hauptlager", note: "", quantity: "", type: "Eingang" });
   }
 
   function openCreateMaterial() {
     setEditingMaterialId(null);
-    setMaterialForm({ accountingAccount: "3058", category: "", currency: "SEK", description: "", name: "", price: "", taxRate: "25", unit: "Stück" });
+    setFocusMaterialInventory(false);
+    setMaterialForm({ accountingAccount: "3058", category: "", currency: "SEK", description: "", inventoryEntries: [], name: "", price: "", taxRate: "25", unit: "Stück" });
+    setMaterialInventoryForm({ location: "Hauptlager", note: "", quantity: "", type: "Eingang" });
     setMaterialEditorOpen(true);
   }
 
-  function editMaterial(material: MaterialItem) {
+  function editMaterial(material: MaterialItem, options: { focusInventory?: boolean } = {}) {
     setEditingMaterialId(material.id);
+    setFocusMaterialInventory(Boolean(options.focusInventory));
     setMaterialEditorOpen(true);
     setMaterialForm({
       accountingAccount: material.accountingAccount || defaultAccountingAccount("Material", material.name),
       category: material.category,
       currency: material.currency || "SEK",
       description: material.description,
+      inventoryEntries: material.inventoryEntries ?? [],
       name: material.name,
       price: material.price,
       taxRate: material.taxRate || "25",
@@ -13238,6 +13304,7 @@ function MasterDataView({
       currency: materialForm.currency || "SEK",
       description: materialForm.description.trim() || "Materialposition",
       id: editingMaterialId ?? createEntityId("MAT"),
+      inventoryEntries: materialForm.inventoryEntries,
       name: materialForm.name.trim(),
       price: materialForm.price.trim() || "0",
       taxRate: materialForm.taxRate.trim() || "25",
@@ -13247,6 +13314,56 @@ function MasterDataView({
     setMaterials(editingMaterialId ? materials.map((material) => (material.id === editingMaterialId ? saved : material)) : [saved, ...materials]);
     setArchiveNotice(`Material "${saved.name}" wurde gespeichert.`);
     resetMaterialForm();
+  }
+
+  function signedMaterialInventoryQuantity(entry: Pick<MaterialInventoryEntry, "quantity" | "type">) {
+    if (entry.type === "Ausgang") return -Math.abs(entry.quantity);
+    if (entry.type === "Korrektur") return entry.quantity;
+    return Math.abs(entry.quantity);
+  }
+
+  function materialInventoryTotal(material: Pick<MaterialItem, "inventoryEntries">) {
+    return (material.inventoryEntries ?? []).reduce((total, entry) => total + signedMaterialInventoryQuantity(entry), 0);
+  }
+
+  function materialInventoryByLocation(entries: MaterialInventoryEntry[]) {
+    return entries.reduce<Record<string, number>>((locations, entry) => {
+      const key = entry.location || "Hauptlager";
+      locations[key] = (locations[key] ?? 0) + signedMaterialInventoryQuantity(entry);
+      return locations;
+    }, {});
+  }
+
+  function addMaterialInventoryEntry() {
+    const quantity = Number(String(materialInventoryForm.quantity).replace(",", "."));
+    const location = materialInventoryForm.location.trim() || "Hauptlager";
+    if (!Number.isFinite(quantity) || quantity === 0) {
+      setArchiveNotice("Bitte für die Lagerbuchung eine Menge ungleich 0 erfassen.");
+      return;
+    }
+
+    setMaterialForm({
+      ...materialForm,
+      inventoryEntries: [
+        {
+          createdAt: new Date().toISOString(),
+          id: createEntityId("MINV"),
+          location,
+          note: materialInventoryForm.note.trim(),
+          quantity,
+          type: materialInventoryForm.type,
+        },
+        ...materialForm.inventoryEntries,
+      ],
+    });
+    setMaterialInventoryForm({ location, note: "", quantity: "", type: "Eingang" });
+  }
+
+  function removeMaterialInventoryEntry(id: string) {
+    setMaterialForm({
+      ...materialForm,
+      inventoryEntries: materialForm.inventoryEntries.filter((entry) => entry.id !== id),
+    });
   }
 
   function archiveMaterial(material: MaterialItem) {
@@ -14306,9 +14423,11 @@ function MasterDataView({
                 <div>
                   <strong>{material.name}</strong>
                   <span>{material.category} · {materialRate(material)} · Konto {material.accountingAccount || defaultAccountingAccount("Material", material.name)}</span>
+                  <span>Bestand: {formatInventoryQuantity(materialInventoryTotal(material))} {material.unit} · {(material.inventoryEntries ?? []).length} Buchungen</span>
                 </div>
                 <span>{material.description}</span>
                 <div className="row-actions">
+                  <IconAction label={`Lagerverwaltung für ${material.name} öffnen`} onClick={() => editMaterial(material, { focusInventory: true })}><ClipboardList size={16} /></IconAction>
                   <IconAction label={`Material ${material.name} bearbeiten`} onClick={() => editMaterial(material)}><Pencil size={16} /></IconAction>
                   <IconAction danger label={`Material ${material.name} archivieren`} onClick={() => archiveMaterial(material)}><Archive size={16} /></IconAction>
                 </div>
@@ -14537,6 +14656,51 @@ function MasterDataView({
                 </select>
               </label>
               <label className="wide"><span>Beschreibung</span><textarea value={materialForm.description} onChange={(event) => setMaterialForm({ ...materialForm, description: event.target.value })} /></label>
+              <div className="wide material-inventory-editor" ref={materialInventoryRef}>
+                <div className="section-heading">
+                  <span>Lagerverwaltung</span>
+                  <strong>{formatInventoryQuantity(materialInventoryTotal(materialForm))} {materialForm.unit} gesamt</strong>
+                </div>
+                <div className="inventory-location-grid">
+                  {Object.entries(materialInventoryByLocation(materialForm.inventoryEntries)).map(([location, quantity]) => (
+                    <div key={location}>
+                      <strong>{formatInventoryQuantity(quantity)}</strong>
+                      <span>{materialForm.unit} · {location}</span>
+                    </div>
+                  ))}
+                  {materialForm.inventoryEntries.length === 0 && <p>Noch keine Lagerbuchungen vorhanden.</p>}
+                </div>
+                <div className="material-inventory-form">
+                  <label><span>Lagerort</span><input list="material-locations" value={materialInventoryForm.location} onChange={(event) => setMaterialInventoryForm({ ...materialInventoryForm, location: event.target.value })} /></label>
+                  <datalist id="material-locations">
+                    {materialLocations.map((location) => <option key={location} value={location} />)}
+                  </datalist>
+                  <label><span>Buchung</span>
+                    <select value={materialInventoryForm.type} onChange={(event) => setMaterialInventoryForm({ ...materialInventoryForm, type: event.target.value as MaterialInventoryEntry["type"] })}>
+                      <option>Eingang</option>
+                      <option>Ausgang</option>
+                      <option>Korrektur</option>
+                    </select>
+                  </label>
+                  <label><span>Menge</span><input inputMode="decimal" value={materialInventoryForm.quantity} onChange={(event) => setMaterialInventoryForm({ ...materialInventoryForm, quantity: event.target.value })} placeholder="z.B. 10" /></label>
+                  <label><span>Notiz</span><input value={materialInventoryForm.note} onChange={(event) => setMaterialInventoryForm({ ...materialInventoryForm, note: event.target.value })} placeholder="z.B. Einkauf, Verbrauch, Inventur" /></label>
+                  <button className="ghost-button" onClick={addMaterialInventoryEntry} type="button">
+                    <Plus size={16} />
+                    Buchung hinzufügen
+                  </button>
+                </div>
+                <div className="material-inventory-history">
+                  {materialForm.inventoryEntries.map((entry) => (
+                    <article key={entry.id}>
+                      <div>
+                        <strong>{entry.type} · {formatInventoryQuantity(signedMaterialInventoryQuantity(entry))} {materialForm.unit}</strong>
+                        <span>{entry.location} · {formatCreatedAt(entry.createdAt)}{entry.note ? ` · ${entry.note}` : ""}</span>
+                      </div>
+                      <IconAction danger label="Lagerbuchung löschen" onClick={() => removeMaterialInventoryEntry(entry.id)}><Trash2 size={16} /></IconAction>
+                    </article>
+                  ))}
+                </div>
+              </div>
             </div>
             <div className="message-actions">
               <button className="ghost-button" onClick={resetMaterialForm} type="button">Abbrechen</button>

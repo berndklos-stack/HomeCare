@@ -3089,6 +3089,69 @@ mark.neutral {
   padding: 12px;
 }
 
+.material-inventory-editor {
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+}
+
+.inventory-location-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.inventory-location-grid div {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 9px 10px;
+}
+
+.inventory-location-grid strong,
+.inventory-location-grid span,
+.material-inventory-history strong,
+.material-inventory-history span {
+  display: block;
+}
+
+.inventory-location-grid span,
+.material-inventory-history span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.material-inventory-form {
+  align-items: end;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(160px, 1fr) 140px 120px minmax(180px, 1.2fr) auto;
+}
+
+.material-inventory-form .ghost-button {
+  min-height: 44px;
+}
+
+.material-inventory-history {
+  display: grid;
+  gap: 6px;
+}
+
+.material-inventory-history article {
+  align-items: center;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 48px;
+  padding: 8px 10px;
+}
+
 .package-service-summary > div {
   display: grid;
   gap: 4px;
@@ -5897,6 +5960,11 @@ button.media-thumb {
 
   .service-master-list mark {
     grid-column: 1;
+  }
+
+  .inventory-location-grid,
+  .material-inventory-form {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .portal-object-detail dl,
