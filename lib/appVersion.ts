@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.301.0",
+  version: "1.302.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.302.0",
+    date: "2026-09-05",
+    changes: [
+      "Material wird in den Stammdaten ueber einen Plus-Button im Popup angelegt und bearbeitet",
+      "Leistungen und Pakete verwenden nun ebenfalls den Plus-Button-mit-Popup-Workflow",
+      "Stammdatenlisten bleiben sichtbar und werden nicht mehr durch Eingabeformulare nach unten gedrueckt",
+    ],
+  },
   {
     version: "1.301.0",
     date: "2026-09-05",

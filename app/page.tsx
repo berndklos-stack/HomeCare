@@ -12263,6 +12263,9 @@ function MasterDataView({
   const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
   const [editingPackageId, setEditingPackageId] = useState<string | null>(null);
   const [accountEditorOpen, setAccountEditorOpen] = useState(false);
+  const [serviceEditorOpen, setServiceEditorOpen] = useState(false);
+  const [materialEditorOpen, setMaterialEditorOpen] = useState(false);
+  const [packageEditorOpen, setPackageEditorOpen] = useState(false);
   const [personEditorOpen, setPersonEditorOpen] = useState(false);
   const [resourceEditorOpen, setResourceEditorOpen] = useState(false);
   const [resourceModalView, setResourceModalView] = useState<"details" | "logbook">("details");
@@ -13030,12 +13033,22 @@ function MasterDataView({
   function resetServiceForm() {
     setEditingServiceId(null);
     setEditingServiceChecklistItemId(null);
+    setServiceEditorOpen(false);
     setServiceForm({ accountingAccount: "3041", name: "", category: "", unit: "", price: "", currency: "SEK", taxRate: "25", showWorkTimeInReports: true, description: "", checklist: [] });
     setServiceChecklistForm({ title: "", note: "", defaultMinutes: "" });
   }
 
+  function openCreateService() {
+    setEditingServiceId(null);
+    setEditingServiceChecklistItemId(null);
+    setServiceForm({ accountingAccount: "3041", name: "", category: "", unit: "", price: "", currency: "SEK", taxRate: "25", showWorkTimeInReports: true, description: "", checklist: [] });
+    setServiceChecklistForm({ title: "", note: "", defaultMinutes: "" });
+    setServiceEditorOpen(true);
+  }
+
   function editService(service: ServiceItem) {
     setEditingServiceId(service.id);
+    setServiceEditorOpen(true);
     setServiceForm({
       name: service.name,
       category: service.category,
@@ -13185,11 +13198,19 @@ function MasterDataView({
 
   function resetMaterialForm() {
     setEditingMaterialId(null);
+    setMaterialEditorOpen(false);
     setMaterialForm({ accountingAccount: "3058", category: "", currency: "SEK", description: "", name: "", price: "", taxRate: "25", unit: "Stück" });
+  }
+
+  function openCreateMaterial() {
+    setEditingMaterialId(null);
+    setMaterialForm({ accountingAccount: "3058", category: "", currency: "SEK", description: "", name: "", price: "", taxRate: "25", unit: "Stück" });
+    setMaterialEditorOpen(true);
   }
 
   function editMaterial(material: MaterialItem) {
     setEditingMaterialId(material.id);
+    setMaterialEditorOpen(true);
     setMaterialForm({
       accountingAccount: material.accountingAccount || defaultAccountingAccount("Material", material.name),
       category: material.category,
@@ -13258,11 +13279,20 @@ function MasterDataView({
   function resetPackageForm() {
     setEditingPackageId(null);
     setServicePickerOpen(false);
+    setPackageEditorOpen(false);
     setPackageForm({ name: "", price: "", description: "", serviceIds: [] });
+  }
+
+  function openCreatePackage() {
+    setEditingPackageId(null);
+    setServicePickerOpen(false);
+    setPackageForm({ name: "", price: "", description: "", serviceIds: [] });
+    setPackageEditorOpen(true);
   }
 
   function editPackage(servicePackage: ServicePackage) {
     setEditingPackageId(servicePackage.id);
+    setPackageEditorOpen(true);
     setPackageForm({
       name: servicePackage.name,
       price: servicePackage.price,
@@ -14265,32 +14295,10 @@ function MasterDataView({
               <h2>Material verwalten</h2>
               <span>Materialpositionen erhalten hier ihr Erlöskonto für die spätere Spiris / Visma-Übergabe.</span>
             </div>
-          </div>
-          <div className="form-grid compact-form">
-            <label><span>Material</span><input required value={materialForm.name} onChange={(event) => setMaterialForm({ ...materialForm, name: event.target.value })} /></label>
-            <label><span>Kategorie</span><input list="material-categories" value={materialForm.category} onChange={(event) => setMaterialForm({ ...materialForm, category: event.target.value })} /></label>
-            <datalist id="material-categories">
-              {materialCategories.map((category) => <option key={category} value={category} />)}
-            </datalist>
-            <label><span>Einheit</span><input list="material-units" value={materialForm.unit} onChange={(event) => setMaterialForm({ ...materialForm, unit: event.target.value })} /></label>
-            <datalist id="material-units">
-              {materialUnits.map((unit) => <option key={unit} value={unit} />)}
-            </datalist>
-            <div className="price-currency-row">
-              <label><span>Preis netto</span><input inputMode="decimal" value={materialForm.price} onChange={(event) => setMaterialForm({ ...materialForm, price: event.target.value })} /></label>
-              <label><span>Währung</span><select value={materialForm.currency} onChange={(event) => setMaterialForm({ ...materialForm, currency: event.target.value })}><option>SEK</option><option>EUR</option><option>NOK</option><option>DKK</option></select></label>
-            </div>
-            <label><span>Moms %</span><input inputMode="decimal" value={materialForm.taxRate} onChange={(event) => setMaterialForm({ ...materialForm, taxRate: event.target.value })} /></label>
-            <label><span>Erlöskonto</span>
-              <select value={materialForm.accountingAccount} onChange={(event) => setMaterialForm({ ...materialForm, accountingAccount: event.target.value })}>
-                {availableAccountingAccounts.filter((account) => account.category === "Material" || account.category === "Sonstiges").map((account) => (
-                  <option key={account.account} value={account.account}>{account.account} · {account.label}</option>
-                ))}
-              </select>
-            </label>
-            <label className="wide"><span>Beschreibung</span><textarea value={materialForm.description} onChange={(event) => setMaterialForm({ ...materialForm, description: event.target.value })} /></label>
-            <button className="primary-button wide" onClick={saveMaterial} type="button">{editingMaterialId ? "Material speichern" : "Material anlegen"}</button>
-            {editingMaterialId && <button className="ghost-button wide" onClick={resetMaterialForm} type="button">Bearbeitung abbrechen</button>}
+            <button className="primary-button" onClick={openCreateMaterial} type="button">
+              <Plus size={16} />
+              Neues Material anlegen
+            </button>
           </div>
           <div className="table-list compact-list">
             {activeMaterials.map((material) => (
@@ -14391,78 +14399,10 @@ function MasterDataView({
             <p>Stammdaten</p>
             <h2>Leistungen einzeln erfassen</h2>
           </div>
-        </div>
-        <div className="form-grid compact-form">
-          <label><span>Leistung</span><input required value={serviceForm.name} onChange={(event) => setServiceForm({ ...serviceForm, name: event.target.value })} /></label>
-          <label><span>Kategorie</span><input list="service-categories" onClick={(event) => event.currentTarget.showPicker?.()} onFocus={(event) => event.currentTarget.showPicker?.()} required value={serviceForm.category} onChange={(event) => setServiceForm({ ...serviceForm, category: event.target.value })} /></label>
-          <datalist id="service-categories">
-            {categories.map((category) => <option key={category} value={category} />)}
-          </datalist>
-          <label><span>Einheit</span><input list="service-units" onClick={(event) => event.currentTarget.showPicker?.()} onFocus={(event) => event.currentTarget.showPicker?.()} required value={serviceForm.unit} onChange={(event) => setServiceForm({ ...serviceForm, unit: event.target.value })} /></label>
-          <datalist id="service-units">
-            {serviceUnits.map((unit) => <option key={unit} value={unit} />)}
-          </datalist>
-          <div className="price-currency-row">
-            <label><span>Preis netto</span><input value={serviceForm.price} onChange={(event) => setServiceForm({ ...serviceForm, price: event.target.value })} placeholder="z.B. 595" /></label>
-            <label>
-              <span>Währung</span>
-              <select value={serviceForm.currency} onChange={(event) => setServiceForm({ ...serviceForm, currency: event.target.value })}>
-                <option>SEK</option>
-                <option>EUR</option>
-                <option>USD</option>
-                <option>NOK</option>
-                <option>DKK</option>
-              </select>
-            </label>
-          </div>
-          <label><span>Moms %</span><input inputMode="decimal" value={serviceForm.taxRate} onChange={(event) => setServiceForm({ ...serviceForm, taxRate: event.target.value })} /></label>
-          <label><span>Erlöskonto</span>
-            <select value={serviceForm.accountingAccount} onChange={(event) => setServiceForm({ ...serviceForm, accountingAccount: event.target.value })}>
-              {availableAccountingAccounts.filter((account) => account.category === "Leistung" || account.category === "Sonstiges").map((account) => (
-                <option key={account.account} value={account.account}>{account.account} · {account.label}</option>
-              ))}
-            </select>
-          </label>
-          <label className="checkbox-line">
-            <input checked={serviceForm.showWorkTimeInReports} onChange={(event) => setServiceForm({ ...serviceForm, showWorkTimeInReports: event.target.checked })} type="checkbox" />
-            <span>Arbeitszeit im Bericht anzeigen</span>
-          </label>
-          <label className="wide"><span>Beschreibung</span><textarea value={serviceForm.description} onChange={(event) => setServiceForm({ ...serviceForm, description: event.target.value })} /></label>
-          <div className="wide service-checklist-editor">
-            <span>Checkliste für Einsatz</span>
-            <div className="service-checklist-form">
-              <label><span>Punkt</span><input value={serviceChecklistForm.title} onChange={(event) => setServiceChecklistForm({ ...serviceChecklistForm, title: event.target.value })} placeholder="z.B. Zugang prüfen" /></label>
-              <label><span>Standardzeit min.</span><input inputMode="numeric" min="0" type="number" value={serviceChecklistForm.defaultMinutes} onChange={(event) => setServiceChecklistForm({ ...serviceChecklistForm, defaultMinutes: event.target.value })} /></label>
-              <label className="wide"><span>Hinweis / Info</span><textarea value={serviceChecklistForm.note} onChange={(event) => setServiceChecklistForm({ ...serviceChecklistForm, note: event.target.value })} placeholder="Was soll vor Ort geprüft oder dokumentiert werden?" /></label>
-              <button className="ghost-button wide" onClick={addServiceChecklistItem} type="button">
-                {editingServiceChecklistItemId ? <Check size={16} /> : <Plus size={16} />}
-                {editingServiceChecklistItemId ? "Checklistenpunkt übernehmen" : "Checklistenpunkt hinzufügen"}
-              </button>
-              {editingServiceChecklistItemId && (
-                <button className="ghost-button wide" onClick={cancelServiceChecklistEdit} type="button">
-                  <RotateCcw size={16} />
-                  Checklistenpunkt-Bearbeitung abbrechen
-                </button>
-              )}
-            </div>
-            <div className="checklist-preview">
-              {serviceForm.checklist.map((item) => (
-                <article key={item.id}>
-                  <div>
-                    <strong>{item.title}</strong>
-                    <small>{item.note} · {item.defaultMinutes} min.</small>
-                  </div>
-                  <div className="row-actions">
-                    <IconAction label={`Checklistenpunkt ${item.title} bearbeiten`} onClick={() => editServiceChecklistItem(item)}><Pencil size={16} /></IconAction>
-                    <IconAction danger label={`Checklistenpunkt ${item.title} entfernen`} onClick={() => removeServiceChecklistItem(item.id)}><Trash2 size={16} /></IconAction>
-                  </div>
-                </article>
-              ))}
-              {serviceForm.checklist.length === 0 && <p>Noch keine Checklistenpunkte hinterlegt.</p>}
-            </div>
-          </div>
-          <button className="primary-button wide" onClick={saveService} type="button">{editingServiceId ? "Leistung speichern" : "Leistung anlegen"}</button>
-          {editingServiceId && <button className="ghost-button wide" onClick={resetServiceForm} type="button">Bearbeitung abbrechen</button>}
+          <button className="primary-button" onClick={openCreateService} type="button">
+            <Plus size={16} />
+            Neue Leistung anlegen
+          </button>
         </div>
         <div className="service-catalog">
           {activeServices.map((service) => (
@@ -14508,25 +14448,10 @@ function MasterDataView({
             <p>Pakete</p>
             <h2>Mehrere Leistungen bündeln</h2>
           </div>
-        </div>
-        <div className="form-grid compact-form">
-          <label><span>Paketname</span><input value={packageForm.name} onChange={(event) => setPackageForm({ ...packageForm, name: event.target.value })} /></label>
-          <label><span>Paketpreis</span><input value={packageForm.price} onChange={(event) => setPackageForm({ ...packageForm, price: event.target.value })} placeholder="z.B. 7.990 SEK/Jahr" /></label>
-          <label className="wide"><span>Paketbeschreibung</span><textarea value={packageForm.description} onChange={(event) => setPackageForm({ ...packageForm, description: event.target.value })} /></label>
-          <div className="wide package-service-summary">
-            <div>
-              <span>Leistungen im Paket</span>
-              <strong>{selectedPackageServices.length || "Keine"} ausgewählt</strong>
-              <small>
-                {selectedPackageServices.length > 0
-                  ? selectedPackageServices.map((service) => service.name).sort((first, second) => first.localeCompare(second, "de")).join(", ")
-                  : "Über Plus Leistungen aus dem Katalog auswählen"}
-              </small>
-            </div>
-            <IconAction label="Leistungen auswählen" onClick={() => setServicePickerOpen(true)}><Plus size={18} /></IconAction>
-          </div>
-          <button className="primary-button wide" onClick={savePackage} type="button">{editingPackageId ? "Paket speichern" : "Paket anlegen"}</button>
-          {editingPackageId && <button className="ghost-button wide" onClick={resetPackageForm} type="button">Bearbeitung abbrechen</button>}
+          <button className="primary-button" onClick={openCreatePackage} type="button">
+            <Plus size={16} />
+            Neues Paket anlegen
+          </button>
         </div>
         <div className="service-catalog package-catalog">
           {activePackages.map((servicePackage) => (
@@ -14571,6 +14496,183 @@ function MasterDataView({
         )}
       </section>
         </>
+      )}
+      {materialEditorOpen && masterDataTab === "materials" && (
+        <div className="modal-backdrop nested-backdrop">
+          <section aria-labelledby="material-editor-title" aria-modal="true" className="modal send-preview-modal catalog-editor-modal" role="dialog">
+            <header>
+              <div>
+                <p>Material</p>
+                <h2 id="material-editor-title">{editingMaterialId ? "Material bearbeiten" : "Neues Material anlegen"}</h2>
+              </div>
+              <button aria-label="Material-Dialog schließen" onClick={resetMaterialForm} type="button">
+                <X size={18} />
+              </button>
+            </header>
+            <div className="form-grid compact-form">
+              <label><span>Material</span><input required value={materialForm.name} onChange={(event) => setMaterialForm({ ...materialForm, name: event.target.value })} /></label>
+              <label><span>Kategorie</span><input list="material-categories" value={materialForm.category} onChange={(event) => setMaterialForm({ ...materialForm, category: event.target.value })} /></label>
+              <datalist id="material-categories">
+                {materialCategories.map((category) => <option key={category} value={category} />)}
+              </datalist>
+              <label><span>Einheit</span><input list="material-units" value={materialForm.unit} onChange={(event) => setMaterialForm({ ...materialForm, unit: event.target.value })} /></label>
+              <datalist id="material-units">
+                {materialUnits.map((unit) => <option key={unit} value={unit} />)}
+              </datalist>
+              <div className="price-currency-row">
+                <label><span>Preis netto</span><input inputMode="decimal" value={materialForm.price} onChange={(event) => setMaterialForm({ ...materialForm, price: event.target.value })} /></label>
+                <label><span>Währung</span><select value={materialForm.currency} onChange={(event) => setMaterialForm({ ...materialForm, currency: event.target.value })}><option>SEK</option><option>EUR</option><option>NOK</option><option>DKK</option></select></label>
+              </div>
+              <label><span>Moms %</span><input inputMode="decimal" value={materialForm.taxRate} onChange={(event) => setMaterialForm({ ...materialForm, taxRate: event.target.value })} /></label>
+              <label><span>Erlöskonto</span>
+                <select value={materialForm.accountingAccount} onChange={(event) => setMaterialForm({ ...materialForm, accountingAccount: event.target.value })}>
+                  {availableAccountingAccounts.filter((account) => account.category === "Material" || account.category === "Sonstiges").map((account) => (
+                    <option key={account.account} value={account.account}>{account.account} · {account.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="wide"><span>Beschreibung</span><textarea value={materialForm.description} onChange={(event) => setMaterialForm({ ...materialForm, description: event.target.value })} /></label>
+            </div>
+            <div className="message-actions">
+              <button className="ghost-button" onClick={resetMaterialForm} type="button">Abbrechen</button>
+              <button className="primary-button" onClick={saveMaterial} type="button">
+                <Check size={16} />
+                {editingMaterialId ? "Material speichern" : "Material anlegen"}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+      {serviceEditorOpen && masterDataTab === "services" && (
+        <div className="modal-backdrop nested-backdrop">
+          <section aria-labelledby="service-editor-title" aria-modal="true" className="modal send-preview-modal catalog-editor-modal" role="dialog">
+            <header>
+              <div>
+                <p>Leistung</p>
+                <h2 id="service-editor-title">{editingServiceId ? "Leistung bearbeiten" : "Neue Leistung anlegen"}</h2>
+              </div>
+              <button aria-label="Leistungs-Dialog schließen" onClick={resetServiceForm} type="button">
+                <X size={18} />
+              </button>
+            </header>
+            <div className="form-grid compact-form">
+              <label><span>Leistung</span><input required value={serviceForm.name} onChange={(event) => setServiceForm({ ...serviceForm, name: event.target.value })} /></label>
+              <label><span>Kategorie</span><input list="service-categories" onClick={(event) => event.currentTarget.showPicker?.()} onFocus={(event) => event.currentTarget.showPicker?.()} required value={serviceForm.category} onChange={(event) => setServiceForm({ ...serviceForm, category: event.target.value })} /></label>
+              <datalist id="service-categories">
+                {categories.map((category) => <option key={category} value={category} />)}
+              </datalist>
+              <label><span>Einheit</span><input list="service-units" onClick={(event) => event.currentTarget.showPicker?.()} onFocus={(event) => event.currentTarget.showPicker?.()} required value={serviceForm.unit} onChange={(event) => setServiceForm({ ...serviceForm, unit: event.target.value })} /></label>
+              <datalist id="service-units">
+                {serviceUnits.map((unit) => <option key={unit} value={unit} />)}
+              </datalist>
+              <div className="price-currency-row">
+                <label><span>Preis netto</span><input value={serviceForm.price} onChange={(event) => setServiceForm({ ...serviceForm, price: event.target.value })} placeholder="z.B. 595" /></label>
+                <label>
+                  <span>Währung</span>
+                  <select value={serviceForm.currency} onChange={(event) => setServiceForm({ ...serviceForm, currency: event.target.value })}>
+                    <option>SEK</option>
+                    <option>EUR</option>
+                    <option>USD</option>
+                    <option>NOK</option>
+                    <option>DKK</option>
+                  </select>
+                </label>
+              </div>
+              <label><span>Moms %</span><input inputMode="decimal" value={serviceForm.taxRate} onChange={(event) => setServiceForm({ ...serviceForm, taxRate: event.target.value })} /></label>
+              <label><span>Erlöskonto</span>
+                <select value={serviceForm.accountingAccount} onChange={(event) => setServiceForm({ ...serviceForm, accountingAccount: event.target.value })}>
+                  {availableAccountingAccounts.filter((account) => account.category === "Leistung" || account.category === "Sonstiges").map((account) => (
+                    <option key={account.account} value={account.account}>{account.account} · {account.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="checkbox-line">
+                <input checked={serviceForm.showWorkTimeInReports} onChange={(event) => setServiceForm({ ...serviceForm, showWorkTimeInReports: event.target.checked })} type="checkbox" />
+                <span>Arbeitszeit im Bericht anzeigen</span>
+              </label>
+              <label className="wide"><span>Beschreibung</span><textarea value={serviceForm.description} onChange={(event) => setServiceForm({ ...serviceForm, description: event.target.value })} /></label>
+              <div className="wide service-checklist-editor">
+                <span>Checkliste für Einsatz</span>
+                <div className="service-checklist-form">
+                  <label><span>Punkt</span><input value={serviceChecklistForm.title} onChange={(event) => setServiceChecklistForm({ ...serviceChecklistForm, title: event.target.value })} placeholder="z.B. Zugang prüfen" /></label>
+                  <label><span>Standardzeit min.</span><input inputMode="numeric" min="0" type="number" value={serviceChecklistForm.defaultMinutes} onChange={(event) => setServiceChecklistForm({ ...serviceChecklistForm, defaultMinutes: event.target.value })} /></label>
+                  <label className="wide"><span>Hinweis / Info</span><textarea value={serviceChecklistForm.note} onChange={(event) => setServiceChecklistForm({ ...serviceChecklistForm, note: event.target.value })} placeholder="Was soll vor Ort geprüft oder dokumentiert werden?" /></label>
+                  <button className="ghost-button wide" onClick={addServiceChecklistItem} type="button">
+                    {editingServiceChecklistItemId ? <Check size={16} /> : <Plus size={16} />}
+                    {editingServiceChecklistItemId ? "Checklistenpunkt übernehmen" : "Checklistenpunkt hinzufügen"}
+                  </button>
+                  {editingServiceChecklistItemId && (
+                    <button className="ghost-button wide" onClick={cancelServiceChecklistEdit} type="button">
+                      <RotateCcw size={16} />
+                      Checklistenpunkt-Bearbeitung abbrechen
+                    </button>
+                  )}
+                </div>
+                <div className="checklist-preview">
+                  {serviceForm.checklist.map((item) => (
+                    <article key={item.id}>
+                      <div>
+                        <strong>{item.title}</strong>
+                        <small>{item.note} · {item.defaultMinutes} min.</small>
+                      </div>
+                      <div className="row-actions">
+                        <IconAction label={`Checklistenpunkt ${item.title} bearbeiten`} onClick={() => editServiceChecklistItem(item)}><Pencil size={16} /></IconAction>
+                        <IconAction danger label={`Checklistenpunkt ${item.title} entfernen`} onClick={() => removeServiceChecklistItem(item.id)}><Trash2 size={16} /></IconAction>
+                      </div>
+                    </article>
+                  ))}
+                  {serviceForm.checklist.length === 0 && <p>Noch keine Checklistenpunkte hinterlegt.</p>}
+                </div>
+              </div>
+            </div>
+            <div className="message-actions">
+              <button className="ghost-button" onClick={resetServiceForm} type="button">Abbrechen</button>
+              <button className="primary-button" onClick={saveService} type="button">
+                <Check size={16} />
+                {editingServiceId ? "Leistung speichern" : "Leistung anlegen"}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+      {packageEditorOpen && masterDataTab === "services" && (
+        <div className="modal-backdrop nested-backdrop">
+          <section aria-labelledby="package-editor-title" aria-modal="true" className="modal send-preview-modal catalog-editor-modal" role="dialog">
+            <header>
+              <div>
+                <p>Paket</p>
+                <h2 id="package-editor-title">{editingPackageId ? "Paket bearbeiten" : "Neues Paket anlegen"}</h2>
+              </div>
+              <button aria-label="Paket-Dialog schließen" onClick={resetPackageForm} type="button">
+                <X size={18} />
+              </button>
+            </header>
+            <div className="form-grid compact-form">
+              <label><span>Paketname</span><input value={packageForm.name} onChange={(event) => setPackageForm({ ...packageForm, name: event.target.value })} /></label>
+              <label><span>Paketpreis</span><input value={packageForm.price} onChange={(event) => setPackageForm({ ...packageForm, price: event.target.value })} placeholder="z.B. 7.990 SEK/Jahr" /></label>
+              <label className="wide"><span>Paketbeschreibung</span><textarea value={packageForm.description} onChange={(event) => setPackageForm({ ...packageForm, description: event.target.value })} /></label>
+              <div className="wide package-service-summary">
+                <div>
+                  <span>Leistungen im Paket</span>
+                  <strong>{selectedPackageServices.length || "Keine"} ausgewählt</strong>
+                  <small>
+                    {selectedPackageServices.length > 0
+                      ? selectedPackageServices.map((service) => service.name).sort((first, second) => first.localeCompare(second, "de")).join(", ")
+                      : "Über Plus Leistungen aus dem Katalog auswählen"}
+                  </small>
+                </div>
+                <IconAction label="Leistungen auswählen" onClick={() => setServicePickerOpen(true)}><Plus size={18} /></IconAction>
+              </div>
+            </div>
+            <div className="message-actions">
+              <button className="ghost-button" onClick={resetPackageForm} type="button">Abbrechen</button>
+              <button className="primary-button" onClick={savePackage} type="button">
+                <Check size={16} />
+                {editingPackageId ? "Paket speichern" : "Paket anlegen"}
+              </button>
+            </div>
+          </section>
+        </div>
       )}
       {accountEditorOpen && masterDataTab === "accounting" && (
         <div className="modal-backdrop nested-backdrop">

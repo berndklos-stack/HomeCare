@@ -3147,6 +3147,10 @@ mark.neutral {
   max-width: 680px;
 }
 
+.catalog-editor-modal {
+  max-width: 840px;
+}
+
 .checklist-preview p {
   color: var(--muted);
   margin: 0;
