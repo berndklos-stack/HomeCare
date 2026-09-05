@@ -401,6 +401,7 @@ type InventoryLocation = {
   id: string;
   name: string;
   note?: string;
+  site?: string;
   archived?: boolean;
 };
 
@@ -4944,10 +4945,10 @@ const seedMaterials: MaterialItem[] = [
 ];
 
 const seedInventoryLocations: InventoryLocation[] = [
-  { id: "LOC-1", name: "Hauptlager", note: "Standardlager" },
-  { id: "LOC-2", name: "Auto", note: "Material im Fahrzeug" },
-  { id: "LOC-3", name: "Werkstatt", note: "Werkstattbestand" },
-  { id: "LOC-4", name: "Objekt", note: "Beim Kundenobjekt gelagert" },
+  { id: "LOC-1", name: "Hauptlager", site: "Kolaretorp 106", note: "Standardlager" },
+  { id: "LOC-2", name: "Auto", site: "Fahrzeug", note: "Material im Fahrzeug" },
+  { id: "LOC-3", name: "Werkstatt", site: "Kolaretorp 106", note: "Werkstattbestand" },
+  { id: "LOC-4", name: "Objekt", site: "Kundenobjekt", note: "Beim Kundenobjekt gelagert" },
 ];
 
 const seedPackages: ServicePackage[] = [
@@ -8327,6 +8328,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                 customers={activeCustomers}
                 inventoryLocations={inventoryLocations}
                 materials={materials}
+                objects={objects}
                 onPersistInventoryLocations={(nextLocations) => persistSnapshotNow({ inventoryLocations: nextLocations }, { forceRemote: true })}
                 onPersistMaterials={(nextMaterials) => persistSnapshotNow({ materials: nextMaterials }, { forceRemote: true })}
                 services={services}
@@ -11493,6 +11495,7 @@ function InventoryView({
   customers,
   inventoryLocations,
   materials,
+  objects,
   onPersistInventoryLocations,
   onPersistMaterials,
   services,
@@ -11502,6 +11505,7 @@ function InventoryView({
   customers: CustomerRecord[];
   inventoryLocations: InventoryLocation[];
   materials: MaterialItem[];
+  objects: ObjectRecord[];
   onPersistInventoryLocations: (locations: InventoryLocation[]) => void;
   onPersistMaterials: (materials: MaterialItem[]) => void;
   services: ServiceItem[];
@@ -11525,7 +11529,12 @@ function InventoryView({
   const [locationEditorOpen, setLocationEditorOpen] = useState(false);
   const [historyMaterialId, setHistoryMaterialId] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
-  const [locationForm, setLocationForm] = useState({ name: "", note: "" });
+  const [locationForm, setLocationForm] = useState({ name: "", note: "", site: "" });
+  const locationSiteOptions = uniqueSortedValues([
+    ...objects.map((object) => object.name),
+    ...objects.map((object) => object.address),
+    ...activeInventoryLocations.map((location) => location.site ?? ""),
+  ], ["Kolaretorp 106", "Fahrzeug", "Kundenobjekt"]);
   const [form, setForm] = useState({
     billableAsService: false,
     customerId: "",
@@ -11658,7 +11667,7 @@ function InventoryView({
   }
 
   function openCreateInventoryLocation() {
-    setLocationForm({ name: "", note: "" });
+    setLocationForm({ name: "", note: "", site: "" });
     setNotice("");
     setLocationEditorOpen(true);
   }
@@ -11674,7 +11683,7 @@ function InventoryView({
       return;
     }
     const nextLocations = [
-      { id: createEntityId("LOC"), name, note: locationForm.note.trim() },
+      { id: createEntityId("LOC"), name, note: locationForm.note.trim(), site: locationForm.site.trim() },
       ...inventoryLocations,
     ];
     setInventoryLocations(nextLocations);
@@ -11720,24 +11729,28 @@ function InventoryView({
           <span>unter Mindestbestand</span>
         </article>
         <article>
-          <strong>{materialLocations.length}</strong>
+          <strong>{activeInventoryLocations.length}</strong>
           <span>Lagerorte</span>
         </article>
       </div>
       <section className="inventory-location-master">
         <div className="section-heading">
           <div>
-            <span>Lagerorte</span>
-            <strong>{activeInventoryLocations.length} Stammdaten</strong>
+            <span>Stammdaten</span>
+            <strong>Lagerorte</strong>
           </div>
           <button className="ghost-button" onClick={openCreateInventoryLocation} type="button">
             <Plus size={16} />
             Lagerort anlegen
           </button>
         </div>
-        <div className="inventory-location-chips">
+        <div className="inventory-location-list">
           {activeInventoryLocations.map((location) => (
-            <span key={location.id}>{location.name}{location.note ? ` · ${location.note}` : ""}</span>
+            <article key={location.id}>
+              <strong>{location.name}</strong>
+              <span>{location.site || "Standort offen"}</span>
+              <small>{location.note || "-"}</small>
+            </article>
           ))}
           {activeInventoryLocations.length === 0 && <p>Noch keine Lagerorte angelegt.</p>}
         </div>
@@ -11918,6 +11931,10 @@ function InventoryView({
             </header>
             <div className="form-grid compact-form">
               <label><span>Lagerort</span><input autoFocus value={locationForm.name} onChange={(event) => setLocationForm({ ...locationForm, name: event.target.value })} placeholder="z.B. Auto Bernd" /></label>
+              <label><span>Standort</span><input list="inventory-location-sites" value={locationForm.site} onChange={(event) => setLocationForm({ ...locationForm, site: event.target.value })} placeholder="z.B. Kolaretorp 106" /></label>
+              <datalist id="inventory-location-sites">
+                {locationSiteOptions.map((site) => <option key={site} value={site} />)}
+              </datalist>
               <label><span>Notiz</span><input value={locationForm.note} onChange={(event) => setLocationForm({ ...locationForm, note: event.target.value })} placeholder="z.B. Fahrzeugbestand" /></label>
             </div>
             <div className="message-actions">

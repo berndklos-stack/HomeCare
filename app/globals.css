@@ -5471,13 +5471,16 @@ button.media-thumb {
 }
 
 .inventory-summary-grid article {
+  align-items: center;
   background: var(--paper-soft);
   border: 1px solid var(--line);
   border-radius: 8px;
   display: grid;
   gap: 4px;
+  justify-items: center;
   min-height: 62px;
   padding: 10px 12px;
+  text-align: center;
 }
 
 .inventory-summary-grid strong,
@@ -5522,6 +5525,12 @@ button.media-thumb {
   justify-content: flex-end;
 }
 
+.inventory-page .ghost-button,
+.inventory-page .primary-button {
+  justify-content: center;
+  text-align: center;
+}
+
 .inventory-location-master {
   background: var(--paper-soft);
   border: 1px solid var(--line);
@@ -5536,20 +5545,40 @@ button.media-thumb {
   margin: 0;
 }
 
-.inventory-location-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+.inventory-location-list {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
 }
 
-.inventory-location-chips span {
+.inventory-location-list article {
+  align-items: center;
   background: var(--paper);
-  border: 1px solid var(--line);
-  border-radius: 999px;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(140px, 0.8fr) minmax(160px, 1fr) minmax(180px, 1.4fr);
+  min-height: 38px;
+  padding: 7px 10px;
+}
+
+.inventory-location-list article + article {
+  border-top: 1px solid var(--line);
+}
+
+.inventory-location-list strong,
+.inventory-location-list span,
+.inventory-location-list small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inventory-location-list span,
+.inventory-location-list small {
   color: var(--muted);
   font-size: 13px;
-  font-weight: 800;
-  padding: 5px 9px;
+  font-weight: 700;
 }
 
 .inventory-booking-form {

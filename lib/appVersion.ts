@@ -1,10 +1,20 @@
 export const appVersion = {
-  version: "1.312.0",
+  version: "1.313.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.313.0",
+    date: "2026-09-05",
+    changes: [
+      "Lagerorte erhalten einen zuweisbaren Standort in den Lagerort-Stammdaten",
+      "Die Lagerort-Uebersicht zaehlt nur noch echte Stammdaten statt historische Buchungsorte",
+      "Lagerorte werden als kompakte Stammdatenliste statt als Chip-Buttons dargestellt",
+      "Button-Inhalte in der Lagerverwaltung sind zentriert ausgerichtet",
+    ],
+  },
   {
     version: "1.312.0",
     date: "2026-09-05",
