@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.302.0",
+  version: "1.303.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.303.0",
+    date: "2026-09-05",
+    changes: [
+      "Leistungskatalog wird in den Stammdaten als kompakte Liste statt als Kacheln dargestellt",
+      "Pakete werden im Leistungsbereich ebenfalls als Liste angezeigt",
+      "Listenansicht bleibt auch auf mobilen Bildschirmen geordnet",
+    ],
+  },
   {
     version: "1.302.0",
     date: "2026-09-05",

@@ -14404,15 +14404,18 @@ function MasterDataView({
             Neue Leistung anlegen
           </button>
         </div>
-        <div className="service-catalog">
+        <div className="table-list compact-list service-master-list">
           {activeServices.map((service) => (
             <article key={service.id}>
-              <span>{service.category}</span>
-              <strong>{service.name}</strong>
-              <small>{service.description}</small>
-              <small>{service.checklist?.length ?? 0} Checklistenpunkte · Konto {service.accountingAccount || defaultAccountingAccount("Leistung", service.name)}</small>
+              <span className="service-master-category">{service.category}</span>
+              <div>
+                <strong>{service.name}</strong>
+                <small>{service.description}</small>
+              </div>
+              <span>{service.checklist?.length ?? 0} Checklistenpunkte</span>
+              <span>Konto {service.accountingAccount || defaultAccountingAccount("Leistung", service.name)}</span>
               <mark>{serviceRate(service)}</mark>
-              <div className="card-actions">
+              <div className="row-actions">
                 <IconAction label={`Leistung ${service.name} bearbeiten`} onClick={() => editService(service)}><Pencil size={16} /></IconAction>
                 <IconAction danger label={`Leistung ${service.name} archivieren`} onClick={() => archiveService(service)}><Archive size={16} /></IconAction>
               </div>
@@ -14453,12 +14456,14 @@ function MasterDataView({
             Neues Paket anlegen
           </button>
         </div>
-        <div className="service-catalog package-catalog">
+        <div className="table-list compact-list service-master-list package-master-list">
           {activePackages.map((servicePackage) => (
             <article key={servicePackage.id}>
-              <span>Paket</span>
-              <strong>{servicePackage.name}</strong>
-              <small>{servicePackage.description}</small>
+              <span className="service-master-category">Paket</span>
+              <div>
+                <strong>{servicePackage.name}</strong>
+                <small>{servicePackage.description}</small>
+              </div>
               <div className="tags">
                 {servicePackage.serviceIds.map((id) => {
                   const service = activeServices.find((item) => item.id === id);
@@ -14466,7 +14471,7 @@ function MasterDataView({
                 })}
               </div>
               <mark>{servicePackage.price}</mark>
-              <div className="card-actions">
+              <div className="row-actions">
                 <IconAction label={`Paket ${servicePackage.name} bearbeiten`} onClick={() => editPackage(servicePackage)}><Pencil size={16} /></IconAction>
                 <IconAction danger label={`Paket ${servicePackage.name} archivieren`} onClick={() => archivePackage(servicePackage)}><Archive size={16} /></IconAction>
               </div>

@@ -2335,6 +2335,42 @@ mark.neutral {
   align-content: start;
 }
 
+.service-master-list article {
+  grid-template-columns: 140px minmax(220px, 1fr) 150px 110px auto auto;
+  min-height: 54px;
+}
+
+.service-master-list strong,
+.service-master-list small,
+.service-master-list span {
+  min-width: 0;
+}
+
+.service-master-list small {
+  display: block;
+  margin-top: 2px;
+}
+
+.service-master-list mark {
+  justify-self: start;
+  white-space: nowrap;
+}
+
+.service-master-category {
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.package-master-list article {
+  grid-template-columns: 140px minmax(220px, 1fr) minmax(220px, 0.8fr) auto auto;
+}
+
+.package-master-list .tags {
+  margin: 0;
+}
+
 .vehicle-logbook {
   border-top: 1px solid var(--line);
   display: grid;
@@ -5846,6 +5882,21 @@ button.media-thumb {
   .logbook-list article,
   .master-data-tabs {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .service-master-list article,
+  .package-master-list article {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .service-master-list article > div:first-of-type,
+  .service-master-list article > span:not(.service-master-category),
+  .package-master-list .tags {
+    grid-column: 1 / -1;
+  }
+
+  .service-master-list mark {
+    grid-column: 1;
   }
 
   .portal-object-detail dl,
