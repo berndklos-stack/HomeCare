@@ -1,10 +1,17 @@
 export const appVersion = {
-  version: "1.305.0",
+  version: "1.306.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.306.0",
+    date: "2026-09-05",
+    changes: [
+      "Globaler Menuepunkt heisst eindeutig Lagerverwaltung",
+    ],
+  },
   {
     version: "1.305.0",
     date: "2026-09-05",

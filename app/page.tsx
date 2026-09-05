@@ -8078,7 +8078,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
               type="button"
             >
               <ClipboardList size={16} />
-              Lager
+              Lagerverwaltung
             </button>
             <button className={`ghost-button refresh-button ${manualRefreshRunning ? "running" : ""}`} disabled={manualRefreshRunning} onClick={() => void refreshAppDataNow()} type="button">
               <RefreshCw size={16} />
