@@ -359,12 +359,18 @@ type LineDiscount = {
 type MaterialItem = {
   id: string;
   accountingAccount?: string;
+  sku?: string;
   name: string;
   category: string;
   unit: string;
   price: string;
+  purchasePrice?: string;
   currency: string;
   taxRate?: string;
+  supplier?: string;
+  primaryLocation?: string;
+  minStock?: string;
+  maxStock?: string;
   description: string;
   inventoryEntries?: MaterialInventoryEntry[];
   archived?: boolean;
@@ -4988,8 +4994,8 @@ const seedCompanySettings: CompanySettings = {
 };
 
 function statusTone(status: string) {
-  if (["offerte", "in Arbeit", "Entwurf", "abrechenbar", "entwurf", "gebucht", "gesendet"].includes(status)) return "warning";
-  if (["erledigt", "abgerechnet", "aktiv", "Gelesen", "bezahlt"].includes(status)) return "good";
+  if (["offerte", "in Arbeit", "Entwurf", "abrechenbar", "entwurf", "gebucht", "gesendet", "nachbestellen"].includes(status)) return "warning";
+  if (["erledigt", "abgerechnet", "aktiv", "Gelesen", "bezahlt", "ok"].includes(status)) return "good";
   if (["dringend", "gesperrt", "überfällig", "storniert"].includes(status)) return "danger";
   return "neutral";
 }
@@ -5820,7 +5826,6 @@ type HomePageProps = {
 };
 
 type MasterDataJump = {
-  focusInventory?: boolean;
   tab: "company" | "personal" | "resources" | "services" | "materials" | "accounting" | "mail" | "backups";
   token: number;
 };
@@ -8072,7 +8077,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
             <button
               className="ghost-button"
               onClick={() => {
-                setMasterDataJump({ focusInventory: true, tab: "materials", token: Date.now() });
+                setMasterDataJump({ tab: "materials", token: Date.now() });
                 setSection("masterData");
               }}
               type="button"
@@ -12302,7 +12307,6 @@ function MasterDataView({
   const [materialEditorOpen, setMaterialEditorOpen] = useState(false);
   const [materialInventoryEditorOpen, setMaterialInventoryEditorOpen] = useState(false);
   const [materialInventoryHistoryOpen, setMaterialInventoryHistoryOpen] = useState(false);
-  const [focusMaterialInventory, setFocusMaterialInventory] = useState(false);
   const [packageEditorOpen, setPackageEditorOpen] = useState(false);
   const [personEditorOpen, setPersonEditorOpen] = useState(false);
   const [resourceEditorOpen, setResourceEditorOpen] = useState(false);
@@ -12386,8 +12390,14 @@ function MasterDataView({
     currency: "SEK",
     description: "",
     inventoryEntries: [] as MaterialInventoryEntry[],
+    maxStock: "",
+    minStock: "",
     name: "",
+    primaryLocation: "Hauptlager",
     price: "",
+    purchasePrice: "",
+    sku: "",
+    supplier: "",
     taxRate: "25",
     unit: "Stück",
   });
@@ -12414,10 +12424,13 @@ function MasterDataView({
     description: "",
     serviceIds: [] as string[],
   });
-  const materialInventoryRef = useRef<HTMLDivElement | null>(null);
+  const [selectedInventoryMaterialId, setSelectedInventoryMaterialId] = useState<string | null>(null);
   const activeServices = services.filter((service) => !service.archived);
   const archivedServices = services.filter((service) => service.archived);
   const activeMaterials = materials.filter((material) => !material.archived);
+  const selectedInventoryMaterial = materials.find((material) => material.id === selectedInventoryMaterialId) ?? null;
+  const inventoryHistoryEntries = selectedInventoryMaterial?.inventoryEntries ?? materialForm.inventoryEntries;
+  const inventoryHistoryUnit = selectedInventoryMaterial?.unit ?? materialForm.unit;
   const archivedMaterials = materials.filter((material) => material.archived);
   const availableAccountingAccounts = activeAccountingAccounts(accountingAccounts);
   const activeAccountingAccountList = availableAccountingAccounts.filter((account) => !account.archived);
@@ -12439,7 +12452,11 @@ function MasterDataView({
     .sort((first, second) => first.localeCompare(second, "de"));
   const materialCategories = uniqueSortedValues(materials.map((material) => material.category), ["Verbrauchsmaterial", "Reinigung", "Garten", "Ersatzteil"]);
   const materialUnits = uniqueSortedValues(materials.map((material) => material.unit), ["Stück", "Liter", "Meter", "kg", "Rolle"]);
-  const materialLocations = uniqueSortedValues(materials.flatMap((material) => (material.inventoryEntries ?? []).map((entry) => entry.location)), ["Hauptlager", "Auto", "Werkstatt", "Objekt"]);
+  const materialSuppliers = uniqueSortedValues(materials.map((material) => material.supplier ?? ""), ["Bauhaus", "Biltema", "Byggmax", "Ahlsell"]);
+  const materialLocations = uniqueSortedValues(materials.flatMap((material) => [
+    material.primaryLocation ?? "",
+    ...(material.inventoryEntries ?? []).map((entry) => entry.location),
+  ]), ["Hauptlager", "Auto", "Werkstatt", "Objekt"]);
   const groupedServices = categories.map((category) => ({
     category,
     services: activeServices
@@ -12448,18 +12465,8 @@ function MasterDataView({
   }));
 
   useEffect(() => {
-    if (!materialEditorOpen || !focusMaterialInventory) return;
-    window.requestAnimationFrame(() => {
-      materialInventoryRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
-    });
-  }, [focusMaterialInventory, materialEditorOpen]);
-
-  useEffect(() => {
     if (!jump) return;
     setMasterDataTab(jump.tab);
-    if (jump.tab === "materials" && jump.focusInventory && activeMaterials[0]) {
-      editMaterial(activeMaterials[0], { focusInventory: true });
-    }
   }, [jump?.token]);
   const selectedPackageServices = packageForm.serviceIds
     .map((id) => activeServices.find((service) => service.id === id))
@@ -13263,8 +13270,8 @@ function MasterDataView({
     setMaterialEditorOpen(false);
     setMaterialInventoryEditorOpen(false);
     setMaterialInventoryHistoryOpen(false);
-    setFocusMaterialInventory(false);
-    setMaterialForm({ accountingAccount: "3058", category: "", currency: "SEK", description: "", inventoryEntries: [], name: "", price: "", taxRate: "25", unit: "Stück" });
+    setSelectedInventoryMaterialId(null);
+    setMaterialForm({ accountingAccount: "3058", category: "", currency: "SEK", description: "", inventoryEntries: [], maxStock: "", minStock: "", name: "", primaryLocation: "Hauptlager", price: "", purchasePrice: "", sku: "", supplier: "", taxRate: "25", unit: "Stück" });
     setMaterialInventoryForm({ location: "Hauptlager", note: "", quantity: "", type: "Eingang" });
   }
 
@@ -13272,15 +13279,14 @@ function MasterDataView({
     setEditingMaterialId(null);
     setMaterialInventoryEditorOpen(false);
     setMaterialInventoryHistoryOpen(false);
-    setFocusMaterialInventory(false);
-    setMaterialForm({ accountingAccount: "3058", category: "", currency: "SEK", description: "", inventoryEntries: [], name: "", price: "", taxRate: "25", unit: "Stück" });
+    setSelectedInventoryMaterialId(null);
+    setMaterialForm({ accountingAccount: "3058", category: "", currency: "SEK", description: "", inventoryEntries: [], maxStock: "", minStock: "", name: "", primaryLocation: "Hauptlager", price: "", purchasePrice: "", sku: "", supplier: "", taxRate: "25", unit: "Stück" });
     setMaterialInventoryForm({ location: "Hauptlager", note: "", quantity: "", type: "Eingang" });
     setMaterialEditorOpen(true);
   }
 
-  function editMaterial(material: MaterialItem, options: { focusInventory?: boolean } = {}) {
+  function editMaterial(material: MaterialItem) {
     setEditingMaterialId(material.id);
-    setFocusMaterialInventory(Boolean(options.focusInventory));
     setMaterialEditorOpen(true);
     setMaterialForm({
       accountingAccount: material.accountingAccount || defaultAccountingAccount("Material", material.name),
@@ -13288,17 +13294,30 @@ function MasterDataView({
       currency: material.currency || "SEK",
       description: material.description,
       inventoryEntries: material.inventoryEntries ?? [],
+      maxStock: material.maxStock ?? "",
+      minStock: material.minStock ?? "",
       name: material.name,
+      primaryLocation: material.primaryLocation ?? "Hauptlager",
       price: material.price,
+      purchasePrice: material.purchasePrice ?? "",
+      sku: material.sku ?? "",
+      supplier: material.supplier ?? "",
       taxRate: material.taxRate || "25",
       unit: material.unit,
     });
     setMasterDataTab("materials");
   }
 
-  function openMaterialInventoryBooking() {
-    setMaterialInventoryForm({ location: materialLocations[0] ?? "Hauptlager", note: "", quantity: "", type: "Eingang" });
+  function openMaterialInventoryBooking(material?: MaterialItem) {
+    if (material) setSelectedInventoryMaterialId(material.id);
+    const target = material ?? selectedInventoryMaterial ?? materials.find((item) => item.id === editingMaterialId);
+    setMaterialInventoryForm({ location: target?.primaryLocation || materialLocations[0] || "Hauptlager", note: "", quantity: "", type: "Eingang" });
     setMaterialInventoryEditorOpen(true);
+  }
+
+  function openMaterialInventoryHistory(material: MaterialItem) {
+    setSelectedInventoryMaterialId(material.id);
+    setMaterialInventoryHistoryOpen(true);
   }
 
   function saveMaterial() {
@@ -13316,8 +13335,14 @@ function MasterDataView({
       description: materialForm.description.trim() || "Materialposition",
       id: editingMaterialId ?? createEntityId("MAT"),
       inventoryEntries: materialForm.inventoryEntries,
+      maxStock: materialForm.maxStock.trim(),
+      minStock: materialForm.minStock.trim(),
       name: materialForm.name.trim(),
+      primaryLocation: materialForm.primaryLocation.trim() || "Hauptlager",
       price: materialForm.price.trim() || "0",
+      purchasePrice: materialForm.purchasePrice.trim(),
+      sku: materialForm.sku.trim(),
+      supplier: materialForm.supplier.trim(),
       taxRate: materialForm.taxRate.trim() || "25",
       unit: materialForm.unit.trim() || "Stück",
     };
@@ -13353,25 +13378,40 @@ function MasterDataView({
       return;
     }
 
-    setMaterialForm({
-      ...materialForm,
-      inventoryEntries: [
-        {
-          createdAt: new Date().toISOString(),
-          id: createEntityId("MINV"),
-          location,
-          note: materialInventoryForm.note.trim(),
-          quantity,
-          type: materialInventoryForm.type,
-        },
-        ...materialForm.inventoryEntries,
-      ],
-    });
+    const entry: MaterialInventoryEntry = {
+      createdAt: new Date().toISOString(),
+      id: createEntityId("MINV"),
+      location,
+      note: materialInventoryForm.note.trim(),
+      quantity,
+      type: materialInventoryForm.type,
+    };
+
+    if (selectedInventoryMaterialId) {
+      setMaterials(materials.map((material) => {
+        if (material.id !== selectedInventoryMaterialId) return material;
+        return { ...material, inventoryEntries: [entry, ...(material.inventoryEntries ?? [])] };
+      }));
+      if (editingMaterialId === selectedInventoryMaterialId) {
+        setMaterialForm({ ...materialForm, inventoryEntries: [entry, ...materialForm.inventoryEntries] });
+      }
+    } else {
+      setMaterialForm({
+        ...materialForm,
+        inventoryEntries: [entry, ...materialForm.inventoryEntries],
+      });
+    }
     setMaterialInventoryForm({ location, note: "", quantity: "", type: "Eingang" });
     setMaterialInventoryEditorOpen(false);
   }
 
   function removeMaterialInventoryEntry(id: string) {
+    if (selectedInventoryMaterialId) {
+      setMaterials(materials.map((material) => {
+        if (material.id !== selectedInventoryMaterialId) return material;
+        return { ...material, inventoryEntries: (material.inventoryEntries ?? []).filter((entry) => entry.id !== id) };
+      }));
+    }
     setMaterialForm({
       ...materialForm,
       inventoryEntries: materialForm.inventoryEntries.filter((entry) => entry.id !== id),
@@ -14417,6 +14457,68 @@ function MasterDataView({
       )}
 
       {masterDataTab === "materials" && (
+        <>
+        <section className="panel">
+          <div className="panel-title">
+            <div>
+              <p>Lagerverwaltung</p>
+              <h2>Bestände und Buchungen</h2>
+              <span>Bestände je Lagerort überwachen, Ein- und Ausgänge buchen und Historie prüfen.</span>
+            </div>
+          </div>
+          <div className="inventory-summary-grid">
+            <article>
+              <strong>{activeMaterials.length}</strong>
+              <span>aktive Materialien</span>
+            </article>
+            <article>
+              <strong>{formatInventoryQuantity(activeMaterials.reduce((sum, material) => sum + materialInventoryTotal(material), 0))}</strong>
+              <span>Bestandseinheiten gesamt</span>
+            </article>
+            <article>
+              <strong>{activeMaterials.filter((material) => {
+                const minStock = Number(String(material.minStock ?? "").replace(",", "."));
+                return Number.isFinite(minStock) && minStock > 0 && materialInventoryTotal(material) <= minStock;
+              }).length}</strong>
+              <span>unter Mindestbestand</span>
+            </article>
+            <article>
+              <strong>{materialLocations.length}</strong>
+              <span>Lagerorte</span>
+            </article>
+          </div>
+          <div className="table-list compact-list inventory-overview-list">
+            {activeMaterials.map((material) => {
+              const stock = materialInventoryTotal(material);
+              const minStock = Number(String(material.minStock ?? "").replace(",", "."));
+              const belowMinimum = Number.isFinite(minStock) && minStock > 0 && stock <= minStock;
+              const locationSummary = Object.entries(materialInventoryByLocation(material.inventoryEntries ?? []))
+                .map(([location, quantity]) => `${location}: ${formatInventoryQuantity(quantity)}`)
+                .join(" · ");
+              return (
+                <article key={material.id}>
+                  <div>
+                    <strong>{material.name}</strong>
+                    <span>{material.sku ? `${material.sku} · ` : ""}{material.category} · {material.supplier || "Lieferant offen"}</span>
+                    <span>EK {material.purchasePrice || "-"} {material.currency || "SEK"} · VK {material.price || "-"} {material.currency || "SEK"}</span>
+                  </div>
+                  <div>
+                    <strong>{formatInventoryQuantity(stock)} {material.unit}</strong>
+                    <span>Min {material.minStock || "-"} · Max {material.maxStock || "-"}</span>
+                    <span>{locationSummary || `Hauptlager: ${formatInventoryQuantity(stock)}`}</span>
+                  </div>
+                  <Badge value={belowMinimum ? "nachbestellen" : "ok"} />
+                  <div className="row-actions">
+                    <IconAction label={`Neue Lagerbuchung für ${material.name}`} onClick={() => openMaterialInventoryBooking(material)}><Plus size={16} /></IconAction>
+                    <IconAction label={`Alle Buchungen für ${material.name} ansehen`} onClick={() => openMaterialInventoryHistory(material)}><List size={16} /></IconAction>
+                    <IconAction label={`Materialstammdaten ${material.name} bearbeiten`} onClick={() => editMaterial(material)}><Pencil size={16} /></IconAction>
+                  </div>
+                </article>
+              );
+            })}
+            {activeMaterials.length === 0 && <p>Noch kein Material erfasst.</p>}
+          </div>
+        </section>
         <section className="panel">
           <div className="panel-title">
             <div>
@@ -14439,7 +14541,6 @@ function MasterDataView({
                 </div>
                 <span>{material.description}</span>
                 <div className="row-actions">
-                  <IconAction label={`Lagerverwaltung für ${material.name} öffnen`} onClick={() => editMaterial(material, { focusInventory: true })}><ClipboardList size={16} /></IconAction>
                   <IconAction label={`Material ${material.name} bearbeiten`} onClick={() => editMaterial(material)}><Pencil size={16} /></IconAction>
                   <IconAction danger label={`Material ${material.name} archivieren`} onClick={() => archiveMaterial(material)}><Archive size={16} /></IconAction>
                 </div>
@@ -14469,6 +14570,7 @@ function MasterDataView({
             </div>
           )}
         </section>
+        </>
       )}
 
       {masterDataTab === "accounting" && (
@@ -14645,8 +14747,9 @@ function MasterDataView({
                 <X size={18} />
               </button>
             </header>
-            <div className="form-grid compact-form">
+            <div className="form-grid compact-form material-editor-form">
               <label><span>Material</span><input required value={materialForm.name} onChange={(event) => setMaterialForm({ ...materialForm, name: event.target.value })} /></label>
+              <label><span>Artikelnummer / SKU</span><input value={materialForm.sku} onChange={(event) => setMaterialForm({ ...materialForm, sku: event.target.value })} placeholder="z.B. REIN-001" /></label>
               <label><span>Kategorie</span><input list="material-categories" value={materialForm.category} onChange={(event) => setMaterialForm({ ...materialForm, category: event.target.value })} /></label>
               <datalist id="material-categories">
                 {materialCategories.map((category) => <option key={category} value={category} />)}
@@ -14655,10 +14758,9 @@ function MasterDataView({
               <datalist id="material-units">
                 {materialUnits.map((unit) => <option key={unit} value={unit} />)}
               </datalist>
-              <div className="price-currency-row">
-                <label><span>Preis netto</span><input inputMode="decimal" value={materialForm.price} onChange={(event) => setMaterialForm({ ...materialForm, price: event.target.value })} /></label>
-                <label><span>Währung</span><select value={materialForm.currency} onChange={(event) => setMaterialForm({ ...materialForm, currency: event.target.value })}><option>SEK</option><option>EUR</option><option>NOK</option><option>DKK</option></select></label>
-              </div>
+              <label><span>Verkaufspreis netto</span><input inputMode="decimal" value={materialForm.price} onChange={(event) => setMaterialForm({ ...materialForm, price: event.target.value })} /></label>
+              <label><span>Einkaufspreis netto</span><input inputMode="decimal" value={materialForm.purchasePrice} onChange={(event) => setMaterialForm({ ...materialForm, purchasePrice: event.target.value })} /></label>
+              <label><span>Währung</span><select value={materialForm.currency} onChange={(event) => setMaterialForm({ ...materialForm, currency: event.target.value })}><option>SEK</option><option>EUR</option><option>NOK</option><option>DKK</option></select></label>
               <label><span>Moms %</span><input inputMode="decimal" value={materialForm.taxRate} onChange={(event) => setMaterialForm({ ...materialForm, taxRate: event.target.value })} /></label>
               <label><span>Erlöskonto</span>
                 <select value={materialForm.accountingAccount} onChange={(event) => setMaterialForm({ ...materialForm, accountingAccount: event.target.value })}>
@@ -14667,34 +14769,18 @@ function MasterDataView({
                   ))}
                 </select>
               </label>
+              <label><span>Lieferant</span><input list="material-suppliers" value={materialForm.supplier} onChange={(event) => setMaterialForm({ ...materialForm, supplier: event.target.value })} /></label>
+              <datalist id="material-suppliers">
+                {materialSuppliers.map((supplier) => <option key={supplier} value={supplier} />)}
+              </datalist>
+              <label><span>Hauptlagerort</span><input list="material-locations" value={materialForm.primaryLocation} onChange={(event) => setMaterialForm({ ...materialForm, primaryLocation: event.target.value })} /></label>
+              <datalist id="material-locations">
+                {materialLocations.map((location) => <option key={location} value={location} />)}
+              </datalist>
+              <label><span>Mindestbestand</span><input inputMode="decimal" value={materialForm.minStock} onChange={(event) => setMaterialForm({ ...materialForm, minStock: event.target.value })} /></label>
+              <label><span>Maximalbestand</span><input inputMode="decimal" value={materialForm.maxStock} onChange={(event) => setMaterialForm({ ...materialForm, maxStock: event.target.value })} /></label>
+              <label><span>Bestand aktuell</span><input disabled value={`${formatInventoryQuantity(materialInventoryTotal(materialForm))} ${materialForm.unit}`} /></label>
               <label className="wide"><span>Beschreibung</span><textarea value={materialForm.description} onChange={(event) => setMaterialForm({ ...materialForm, description: event.target.value })} /></label>
-              <div className="wide material-inventory-editor" ref={materialInventoryRef}>
-                <div className="section-heading">
-                  <div>
-                    <span>Lagerverwaltung</span>
-                    <strong>{formatInventoryQuantity(materialInventoryTotal(materialForm))} {materialForm.unit} gesamt</strong>
-                  </div>
-                  <div className="row-actions">
-                    <button className="ghost-button" onClick={() => setMaterialInventoryHistoryOpen(true)} type="button">
-                      <List size={16} />
-                      Alle Buchungen ansehen
-                    </button>
-                    <button className="primary-button" onClick={openMaterialInventoryBooking} type="button">
-                      <Plus size={16} />
-                      Neue Buchung
-                    </button>
-                  </div>
-                </div>
-                <div className="inventory-location-grid">
-                  {Object.entries(materialInventoryByLocation(materialForm.inventoryEntries)).map(([location, quantity]) => (
-                    <div key={location}>
-                      <strong>{formatInventoryQuantity(quantity)}</strong>
-                      <span>{materialForm.unit} · {location}</span>
-                    </div>
-                  ))}
-                  {materialForm.inventoryEntries.length === 0 && <p>Noch keine Lagerbuchungen vorhanden.</p>}
-                </div>
-              </div>
             </div>
             <div className="message-actions">
               <button className="ghost-button" onClick={resetMaterialForm} type="button">Abbrechen</button>
@@ -14706,21 +14792,21 @@ function MasterDataView({
           </section>
         </div>
       )}
-      {materialInventoryEditorOpen && materialEditorOpen && masterDataTab === "materials" && (
+      {materialInventoryEditorOpen && masterDataTab === "materials" && (
         <div className="modal-backdrop nested-backdrop">
           <section aria-labelledby="material-inventory-editor-title" aria-modal="true" className="modal send-preview-modal account-editor-modal" role="dialog">
             <header>
               <div>
                 <p>Lagerverwaltung</p>
-                <h2 id="material-inventory-editor-title">Neue Buchung</h2>
+                <h2 id="material-inventory-editor-title">Neue Buchung{selectedInventoryMaterial ? ` · ${selectedInventoryMaterial.name}` : ""}</h2>
               </div>
               <button aria-label="Buchungsdialog schließen" onClick={() => setMaterialInventoryEditorOpen(false)} type="button">
                 <X size={18} />
               </button>
             </header>
             <div className="form-grid compact-form">
-              <label><span>Lagerort</span><input list="material-locations" value={materialInventoryForm.location} onChange={(event) => setMaterialInventoryForm({ ...materialInventoryForm, location: event.target.value })} /></label>
-              <datalist id="material-locations">
+              <label><span>Lagerort</span><input list="material-inventory-locations" value={materialInventoryForm.location} onChange={(event) => setMaterialInventoryForm({ ...materialInventoryForm, location: event.target.value })} /></label>
+              <datalist id="material-inventory-locations">
                 {materialLocations.map((location) => <option key={location} value={location} />)}
               </datalist>
               <label><span>Buchung</span>
@@ -14743,29 +14829,29 @@ function MasterDataView({
           </section>
         </div>
       )}
-      {materialInventoryHistoryOpen && materialEditorOpen && masterDataTab === "materials" && (
+      {materialInventoryHistoryOpen && masterDataTab === "materials" && (
         <div className="modal-backdrop nested-backdrop">
           <section aria-labelledby="material-inventory-history-title" aria-modal="true" className="modal send-preview-modal catalog-editor-modal" role="dialog">
             <header>
               <div>
                 <p>Lagerverwaltung</p>
-                <h2 id="material-inventory-history-title">Alle Buchungen</h2>
+                <h2 id="material-inventory-history-title">Alle Buchungen{selectedInventoryMaterial ? ` · ${selectedInventoryMaterial.name}` : ""}</h2>
               </div>
               <button aria-label="Buchungshistorie schließen" onClick={() => setMaterialInventoryHistoryOpen(false)} type="button">
                 <X size={18} />
               </button>
             </header>
             <div className="material-inventory-history">
-              {materialForm.inventoryEntries.map((entry) => (
+              {inventoryHistoryEntries.map((entry) => (
                 <article key={entry.id}>
                   <div>
-                    <strong>{entry.type} · {formatInventoryQuantity(signedMaterialInventoryQuantity(entry))} {materialForm.unit}</strong>
+                    <strong>{entry.type} · {formatInventoryQuantity(signedMaterialInventoryQuantity(entry))} {inventoryHistoryUnit}</strong>
                     <span>{entry.location} · {formatCreatedAt(entry.createdAt)}{entry.note ? ` · ${entry.note}` : ""}</span>
                   </div>
                   <IconAction danger label="Lagerbuchung löschen" onClick={() => removeMaterialInventoryEntry(entry.id)}><Trash2 size={16} /></IconAction>
                 </article>
               ))}
-              {materialForm.inventoryEntries.length === 0 && <p>Noch keine Lagerbuchungen vorhanden.</p>}
+              {inventoryHistoryEntries.length === 0 && <p>Noch keine Lagerbuchungen vorhanden.</p>}
             </div>
           </section>
         </div>

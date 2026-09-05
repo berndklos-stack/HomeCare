@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.306.0",
+  version: "1.307.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.307.0",
+    date: "2026-09-05",
+    changes: [
+      "Lagerverwaltung ist als eigenstaendige Bestandsuebersicht im Materialbereich aufgebaut",
+      "Neue Lagerbuchungen und Buchungshistorie oeffnen direkt aus der Lageruebersicht",
+      "Materialstammdaten enthalten Artikelnummer, Einkaufspreis, Lieferant, Hauptlagerort, Mindest- und Maximalbestand",
+    ],
+  },
   {
     version: "1.306.0",
     date: "2026-09-05",
