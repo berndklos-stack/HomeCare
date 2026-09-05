@@ -3129,6 +3129,35 @@ mark.neutral {
   gap: 6px;
 }
 
+.inventory-history-summary {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 150px 170px minmax(0, 1fr);
+  margin-bottom: 10px;
+}
+
+.inventory-history-summary article,
+.inventory-history-summary div {
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 3px;
+  min-height: 52px;
+  padding: 8px 10px;
+}
+
+.inventory-history-summary span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.inventory-history-summary strong {
+  color: var(--foreground);
+  font-size: 14px;
+}
+
 .material-inventory-history article {
   align-items: center;
   background: var(--paper);
@@ -3554,6 +3583,10 @@ mark.neutral {
 
 .nested-backdrop {
   z-index: 30;
+}
+
+.inventory-booking-backdrop {
+  z-index: 45;
 }
 
 .service-picker-modal {
@@ -6187,6 +6220,7 @@ button.media-thumb {
   }
 
   .inventory-summary-grid,
+  .inventory-history-summary,
   .inventory-overview-list article,
   .inventory-booking-form,
   .material-editor-form {

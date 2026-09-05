@@ -3668,6 +3668,144 @@ function downloadBlob(blob: Blob, fileName: string) {
   URL.revokeObjectURL(url);
 }
 
+async function downloadMaterialInventoryMovementPdf(material: MaterialItem, customers: CustomerRecord[], services: ServiceItem[]) {
+  const { jsPDF } = await import("jspdf");
+  const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "landscape" });
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const margin = 10;
+  const contentWidth = pageWidth - margin * 2;
+  const entries = [...(material.inventoryEntries ?? [])].sort((first, second) => first.createdAt.localeCompare(second.createdAt));
+  const stockByLocation = materialInventoryByLocation(material.inventoryEntries ?? []);
+  let y = margin;
+  let runningStock = 0;
+
+  function ensureSpace(height: number) {
+    if (y + height <= pageHeight - 12) return;
+    pdf.addPage();
+    y = margin;
+    drawHeader(false);
+    drawTableHeader();
+  }
+
+  function drawHeader(includeSummary = true) {
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(15);
+    pdf.setTextColor(18, 22, 28);
+    pdf.text(`Bewegungsliste ${material.name}`, margin, y + 5);
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(8);
+    pdf.setTextColor(105, 111, 122);
+    pdf.text(`Erstellt am ${new Date().toLocaleDateString("de-DE")} · Einheit ${material.unit} · Bestandswert FIFO ${formatMoney(materialInventoryFifoValue(material), material.currency || "SEK")}`, margin, y + 11);
+    y += 17;
+
+    if (!includeSummary) return;
+    pdf.setDrawColor(218, 221, 226);
+    pdf.setFillColor(246, 247, 249);
+    pdf.rect(margin, y, contentWidth, 14, "FD");
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(8);
+    pdf.setTextColor(18, 22, 28);
+    pdf.text(`Aktueller Bestand: ${formatInventoryQuantity(materialInventoryTotal(material))} ${material.unit}`, margin + 3, y + 5.4);
+    pdf.text(`Bestandswert FIFO: ${formatMoney(materialInventoryFifoValue(material), material.currency || "SEK")}`, margin + 88, y + 5.4);
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(105, 111, 122);
+    const locationText = Object.entries(stockByLocation)
+      .filter(([, quantity]) => Math.abs(quantity) > 0.000001)
+      .map(([location, quantity]) => `${location}: ${formatInventoryQuantity(quantity)} ${material.unit}`)
+      .join(" · ") || "Keine Lagerbestände je Lagerort vorhanden";
+    pdf.text(pdf.splitTextToSize(locationText, contentWidth - 6), margin + 3, y + 10.3);
+    y += 20;
+  }
+
+  const columns = [
+    { label: "Datum", width: 32 },
+    { label: "Buchung", width: 24 },
+    { label: "Lagerort", width: 36 },
+    { label: "Menge", width: 24 },
+    { label: "Bestand", width: 24 },
+    { label: "Wert", width: 28 },
+    { label: "Lieferant / Kunde", width: 48 },
+    { label: "Notiz", width: contentWidth - 216 },
+  ];
+
+  function drawTableHeader() {
+    pdf.setDrawColor(218, 221, 226);
+    pdf.setFillColor(246, 247, 249);
+    pdf.rect(margin, y, contentWidth, 8, "FD");
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(6.8);
+    pdf.setTextColor(105, 111, 122);
+    let x = margin;
+    columns.forEach((column) => {
+      pdf.text(column.label, x + 1.4, y + 5.2, { maxWidth: column.width - 2.8 });
+      x += column.width;
+    });
+    y += 8;
+  }
+
+  drawHeader();
+  drawTableHeader();
+
+  if (entries.length === 0) {
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(9);
+    pdf.setTextColor(105, 111, 122);
+    pdf.text("Noch keine Lagerbewegungen vorhanden.", margin, y + 7);
+  }
+
+  entries.forEach((entry) => {
+    const signedQuantity = signedMaterialInventoryQuantity(entry);
+    runningStock += signedQuantity;
+    const customer = customers.find((item) => item.id === entry.customerId);
+    const service = services.find((item) => item.id === entry.serviceId);
+    const valueText = entry.type === "Eingang" && (entry.purchaseGross || entry.purchaseNet || entry.purchasePrice)
+      ? formatMoney(decimalValue(entry.purchaseNet ?? entry.purchasePrice ?? "") || purchaseAmountsFromGross(entry.purchaseGross ?? "", entry.purchaseTaxRate || "25").net, material.currency || "SEK")
+      : "-";
+    const partnerText = [
+      entry.supplier,
+      customer ? `Kunde: ${customer.name}` : "",
+      service ? `Leistung: ${service.name}` : "",
+    ].filter(Boolean).join(" · ");
+    const row = [
+      formatCreatedAt(entry.createdAt),
+      entry.type,
+      entry.location || "-",
+      `${formatInventoryQuantity(signedQuantity)} ${material.unit}`,
+      `${formatInventoryQuantity(runningStock)} ${material.unit}`,
+      valueText,
+      partnerText || "-",
+      entry.note || "-",
+    ];
+    const wrapped = row.map((value, index) => pdf.splitTextToSize(value, columns[index].width - 2.8) as string[]);
+    const rowHeight = Math.max(8, ...wrapped.map((lines) => lines.length * 3.6 + 3.8));
+    ensureSpace(rowHeight);
+    pdf.setDrawColor(226, 228, 232);
+    pdf.setFillColor(255, 255, 255);
+    pdf.rect(margin, y, contentWidth, rowHeight, "S");
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(6.8);
+    pdf.setTextColor(33, 37, 43);
+    let x = margin;
+    wrapped.forEach((lines, index) => {
+      pdf.text(lines, x + 1.4, y + 4.6, { maxWidth: columns[index].width - 2.8 });
+      x += columns[index].width;
+    });
+    y += rowHeight;
+  });
+
+  const pageCount = pdf.getNumberOfPages();
+  for (let page = 1; page <= pageCount; page += 1) {
+    pdf.setPage(page);
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(7);
+    pdf.setTextColor(120);
+    pdf.text(`Seite ${page} von ${pageCount}`, pageWidth - margin, pageHeight - 6, { align: "right" });
+  }
+
+  downloadBlob(pdf.output("blob"), `${safeFileName(`Lagerbewegungen-${material.name}-${new Date().toISOString().slice(0, 10)}`)}.pdf`);
+}
+
 async function downloadVehicleLogbookPdf(resource: ResourceRecord, entries: VehicleLogEntry[], personnel: PersonnelRecord[], includeImages = false) {
   const { jsPDF } = await import("jspdf");
   const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "landscape" });
@@ -11610,6 +11748,7 @@ function InventoryView({
   const historyEntries = historyMaterials.flatMap((material) => (
     (material.inventoryEntries ?? []).map((entry) => ({ entry, material }))
   )).sort((first, second) => second.entry.createdAt.localeCompare(first.entry.createdAt));
+  const selectedHistoryMaterial = historyMaterialId ? historyMaterials[0] : null;
   const currentPurchaseAmounts = purchaseAmountsFromGross(form.purchaseGross, form.purchaseTaxRate);
   const inventoryValue = activeMaterials.reduce((sum, material) => sum + materialInventoryFifoValue(material), 0);
   const normalizedInventoryFilter = inventoryFilter.trim().toLowerCase();
@@ -11947,7 +12086,7 @@ function InventoryView({
       </div>
 
       {bookingOpen && selectedMaterial && (
-        <div className="modal-backdrop nested-backdrop">
+        <div className={`modal-backdrop nested-backdrop ${editingBooking ? "inventory-booking-backdrop" : ""}`}>
           <section aria-labelledby="inventory-booking-title" aria-modal="true" className="modal send-preview-modal catalog-editor-modal" role="dialog">
             <header>
               <div>
@@ -12158,10 +12297,39 @@ function InventoryView({
                 <p>Lagerverwaltung</p>
                 <h2 id="inventory-history-title">{historyMaterialId ? `Buchungen · ${historyMaterials[0]?.name ?? ""}` : "Alle Buchungen"}</h2>
               </div>
-              <button aria-label="Buchungshistorie schließen" onClick={() => setHistoryOpen(false)} type="button">
-                <X size={18} />
-              </button>
+              <div className="modal-header-actions">
+                {selectedHistoryMaterial && (
+                  <button className="ghost-button" onClick={() => void downloadMaterialInventoryMovementPdf(selectedHistoryMaterial, customers, activeServices)} type="button">
+                    <FileDown size={16} />
+                    Bewegungsliste PDF
+                  </button>
+                )}
+                <button aria-label="Buchungshistorie schließen" onClick={() => setHistoryOpen(false)} type="button">
+                  <X size={18} />
+                </button>
+              </div>
             </header>
+            {selectedHistoryMaterial && (
+              <div className="inventory-history-summary">
+                <article>
+                  <span>Aktueller Bestand</span>
+                  <strong>{formatInventoryQuantity(materialInventoryTotal(selectedHistoryMaterial))} {selectedHistoryMaterial.unit}</strong>
+                </article>
+                <article>
+                  <span>Bestandswert FIFO</span>
+                  <strong>{formatMoney(materialInventoryFifoValue(selectedHistoryMaterial), selectedHistoryMaterial.currency || "SEK")}</strong>
+                </article>
+                <div>
+                  <span>Lagerorte</span>
+                  <strong>
+                    {Object.entries(materialInventoryByLocation(selectedHistoryMaterial.inventoryEntries ?? []))
+                      .filter(([, quantity]) => Math.abs(quantity) > 0.000001)
+                      .map(([location, quantity]) => `${location}: ${formatInventoryQuantity(quantity)} ${selectedHistoryMaterial.unit}`)
+                      .join(" · ") || "keine Bestände"}
+                  </strong>
+                </div>
+              </div>
+            )}
             <div className="material-inventory-history">
               {historyEntries.map(({ entry, material }) => {
                 const customer = customers.find((item) => item.id === entry.customerId);

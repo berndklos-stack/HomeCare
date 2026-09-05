@@ -1,10 +1,20 @@
 export const appVersion = {
-  version: "1.317.0",
+  version: "1.318.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.318.0",
+    date: "2026-09-06",
+    changes: [
+      "Artikelhistorien zeigen aktuellen Bestand, FIFO-Wert und Lagerort-Aufteilung im Kopf",
+      "Bewegungslisten einzelner Artikel koennen als PDF heruntergeladen werden",
+      "Die PDF-Bewegungsliste zeigt chronologische Buchungen mit laufendem Bestand",
+      "Der Bearbeiten-Dialog fuer Lagerbuchungen oeffnet sichtbar vor der Buchungshistorie",
+    ],
+  },
   {
     version: "1.317.0",
     date: "2026-09-06",
