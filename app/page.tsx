@@ -12254,7 +12254,7 @@ function MasterDataView({
   translate: (value: string) => string;
 }) {
   const tt = translate;
-  const [masterDataTab, setMasterDataTab] = useState<"company" | "personal" | "resources" | "services" | "materials" | "mail" | "backups">("company");
+  const [masterDataTab, setMasterDataTab] = useState<"company" | "personal" | "resources" | "services" | "materials" | "accounting" | "mail" | "backups">("company");
   const [editingPersonId, setEditingPersonId] = useState<string | null>(null);
   const [editingResourceId, setEditingResourceId] = useState<string | null>(null);
   const [editingLogEntryId, setEditingLogEntryId] = useState<string | null>(null);
@@ -13338,6 +13338,10 @@ function MasterDataView({
           <Paperclip size={16} />
           Material
         </button>
+        <button className={masterDataTab === "accounting" ? "active" : ""} onClick={() => setMasterDataTab("accounting")} type="button">
+          <Euro size={16} />
+          Buchhaltung
+        </button>
         <button className={masterDataTab === "mail" ? "active" : ""} onClick={() => setMasterDataTab("mail")} type="button">
           <Mail size={16} />
           {tt("Tagesmail")}
@@ -14328,8 +14332,7 @@ function MasterDataView({
         </section>
       )}
 
-      {masterDataTab === "services" && (
-        <>
+      {masterDataTab === "accounting" && (
           <section className="panel">
             <div className="panel-title">
               <div>
@@ -14378,6 +14381,10 @@ function MasterDataView({
               </div>
             )}
           </section>
+      )}
+
+      {masterDataTab === "services" && (
+        <>
           <section className="panel">
         <div className="panel-title">
           <div>
@@ -14565,7 +14572,7 @@ function MasterDataView({
       </section>
         </>
       )}
-      {accountEditorOpen && masterDataTab === "services" && (
+      {accountEditorOpen && masterDataTab === "accounting" && (
         <div className="modal-backdrop nested-backdrop">
           <section aria-labelledby="account-editor-title" aria-modal="true" className="modal send-preview-modal account-editor-modal" role="dialog">
             <header>
