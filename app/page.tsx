@@ -11527,7 +11527,7 @@ function InventoryView({
   const [bookingOpen, setBookingOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [locationEditorOpen, setLocationEditorOpen] = useState(false);
-  const [locationsExpanded, setLocationsExpanded] = useState(false);
+  const [locationListOpen, setLocationListOpen] = useState(false);
   const [editingLocationId, setEditingLocationId] = useState<string | null>(null);
   const [historyMaterialId, setHistoryMaterialId] = useState<string | null>(null);
   const [inventoryFilter, setInventoryFilter] = useState("");
@@ -11758,44 +11758,11 @@ function InventoryView({
           }).length}</strong>
           <span>unter Mindestbestand</span>
         </article>
-        <article>
+        <button className="inventory-summary-card" onClick={() => setLocationListOpen(true)} type="button">
           <strong>{activeInventoryLocations.length}</strong>
           <span>Lagerorte</span>
-        </article>
+        </button>
       </div>
-      <section className="inventory-location-master">
-        <div className="section-heading">
-          <div>
-            <strong>Lagerorte</strong>
-            <span>{activeInventoryLocations.length} angelegt</span>
-          </div>
-          <div className="row-actions">
-            <button className="ghost-button compact" onClick={() => setLocationsExpanded(!locationsExpanded)} type="button">
-              {locationsExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-              {locationsExpanded ? "Lagerorte ausblenden" : "Lagerorte anzeigen"}
-            </button>
-            <button className="ghost-button compact" onClick={openCreateInventoryLocation} type="button">
-              <Plus size={16} />
-              Lagerort anlegen
-            </button>
-          </div>
-        </div>
-        {locationsExpanded && (
-          <div className="inventory-location-list">
-            {activeInventoryLocations.map((location) => (
-              <article key={location.id}>
-                <strong>{location.name}</strong>
-                <span>{location.site || "Standort offen"}</span>
-                <small>{location.note || "-"}</small>
-                <div className="row-actions">
-                  <IconAction label={`Lagerort ${location.name} bearbeiten`} onClick={() => editInventoryLocation(location)}><Pencil size={16} /></IconAction>
-                </div>
-              </article>
-            ))}
-            {activeInventoryLocations.length === 0 && <p>Noch keine Lagerorte angelegt.</p>}
-          </div>
-        )}
-      </section>
       <div className="inventory-filterbar">
         <label className="search inventory-search">
           <Search size={16} />
@@ -11965,6 +11932,41 @@ function InventoryView({
                 <Check size={16} />
                 Buchung speichern
               </button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {locationListOpen && (
+        <div className="modal-backdrop nested-backdrop">
+          <section aria-labelledby="inventory-locations-title" aria-modal="true" className="modal send-preview-modal inventory-location-modal" role="dialog">
+            <header>
+              <div>
+                <p>Lagerverwaltung</p>
+                <h2 id="inventory-locations-title">Lagerorte anzeigen</h2>
+              </div>
+              <div className="modal-header-actions">
+                <button className="primary-button" onClick={openCreateInventoryLocation} type="button">
+                  <Plus size={16} />
+                  Lagerort anlegen
+                </button>
+                <button aria-label="Lagerorte schließen" onClick={() => setLocationListOpen(false)} type="button">
+                  <X size={18} />
+                </button>
+              </div>
+            </header>
+            <div className="inventory-location-list">
+              {activeInventoryLocations.map((location) => (
+                <article key={location.id}>
+                  <strong>{location.name}</strong>
+                  <span>{location.site || "Standort offen"}</span>
+                  <small>{location.note || "-"}</small>
+                  <div className="row-actions">
+                    <IconAction label={`Lagerort ${location.name} bearbeiten`} onClick={() => editInventoryLocation(location)}><Pencil size={16} /></IconAction>
+                  </div>
+                </article>
+              ))}
+              {activeInventoryLocations.length === 0 && <p>Noch keine Lagerorte angelegt.</p>}
             </div>
           </section>
         </div>

@@ -1,10 +1,20 @@
 export const appVersion = {
-  version: "1.314.0",
+  version: "1.315.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.315.0",
+    date: "2026-09-06",
+    changes: [
+      "Lagerort-Liste wurde aus der Lagerverwaltungsseite in ein Popup verschoben",
+      "Die Lagerorte-Kachel oeffnet jetzt die Lagerortverwaltung",
+      "Der Button zum Anlegen neuer Lagerorte liegt im Lagerorte-Popup",
+      "Die Lagerorte-Beschriftung in der Kennzahl ist blau, die Anzahl bleibt dunkel",
+    ],
+  },
   {
     version: "1.314.0",
     date: "2026-09-05",
