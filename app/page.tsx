@@ -11527,7 +11527,10 @@ function InventoryView({
   const [bookingOpen, setBookingOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [locationEditorOpen, setLocationEditorOpen] = useState(false);
+  const [locationsExpanded, setLocationsExpanded] = useState(false);
+  const [editingLocationId, setEditingLocationId] = useState<string | null>(null);
   const [historyMaterialId, setHistoryMaterialId] = useState<string | null>(null);
+  const [inventoryFilter, setInventoryFilter] = useState("");
   const [notice, setNotice] = useState("");
   const [locationForm, setLocationForm] = useState({ name: "", note: "", site: "" });
   const locationSiteOptions = uniqueSortedValues([
@@ -11557,6 +11560,18 @@ function InventoryView({
     (material.inventoryEntries ?? []).map((entry) => ({ entry, material }))
   )).sort((first, second) => second.entry.createdAt.localeCompare(first.entry.createdAt));
   const currentPurchaseAmounts = purchaseAmountsFromGross(form.purchaseGross, form.purchaseTaxRate);
+  const normalizedInventoryFilter = inventoryFilter.trim().toLowerCase();
+  const filteredMaterials = normalizedInventoryFilter
+    ? activeMaterials.filter((material) => [
+      material.name,
+      material.sku ?? "",
+      material.category,
+      material.supplier ?? "",
+      material.primaryLocation ?? "",
+      material.description,
+      ...Object.keys(materialInventoryByLocation(material.inventoryEntries ?? [])),
+    ].join(" ").toLowerCase().includes(normalizedInventoryFilter))
+    : activeMaterials;
 
   function openBooking(material?: MaterialItem, type: MaterialInventoryEntry["type"] = "Eingang") {
     const target = material ?? selectedMaterial ?? activeMaterials[0];
@@ -11667,7 +11682,15 @@ function InventoryView({
   }
 
   function openCreateInventoryLocation() {
+    setEditingLocationId(null);
     setLocationForm({ name: "", note: "", site: "" });
+    setNotice("");
+    setLocationEditorOpen(true);
+  }
+
+  function editInventoryLocation(location: InventoryLocation) {
+    setEditingLocationId(location.id);
+    setLocationForm({ name: location.name, note: location.note ?? "", site: location.site ?? "" });
     setNotice("");
     setLocationEditorOpen(true);
   }
@@ -11678,18 +11701,25 @@ function InventoryView({
       setNotice("Bitte einen Lagerort erfassen.");
       return;
     }
-    if (activeInventoryLocations.some((location) => location.name.trim().toLowerCase() === name.toLowerCase())) {
+    if (activeInventoryLocations.some((location) => location.id !== editingLocationId && location.name.trim().toLowerCase() === name.toLowerCase())) {
       setNotice(`Der Lagerort "${name}" ist bereits vorhanden.`);
       return;
     }
-    const nextLocations = [
-      { id: createEntityId("LOC"), name, note: locationForm.note.trim(), site: locationForm.site.trim() },
-      ...inventoryLocations,
-    ];
+    const nextLocations = editingLocationId
+      ? inventoryLocations.map((location) => (
+        location.id === editingLocationId
+          ? { ...location, name, note: locationForm.note.trim(), site: locationForm.site.trim() }
+          : location
+      ))
+      : [
+        { id: createEntityId("LOC"), name, note: locationForm.note.trim(), site: locationForm.site.trim() },
+        ...inventoryLocations,
+      ];
     setInventoryLocations(nextLocations);
     onPersistInventoryLocations(nextLocations);
-    setNotice(`Lagerort "${name}" wurde angelegt.`);
+    setNotice(`Lagerort "${name}" wurde ${editingLocationId ? "gespeichert" : "angelegt"}.`);
     setLocationEditorOpen(false);
+    setEditingLocationId(null);
   }
 
   return (
@@ -11736,27 +11766,49 @@ function InventoryView({
       <section className="inventory-location-master">
         <div className="section-heading">
           <div>
-            <span>Stammdaten</span>
             <strong>Lagerorte</strong>
+            <span>{activeInventoryLocations.length} angelegt</span>
           </div>
-          <button className="ghost-button" onClick={openCreateInventoryLocation} type="button">
-            <Plus size={16} />
-            Lagerort anlegen
-          </button>
+          <div className="row-actions">
+            <button className="ghost-button compact" onClick={() => setLocationsExpanded(!locationsExpanded)} type="button">
+              {locationsExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+              {locationsExpanded ? "Lagerorte ausblenden" : "Lagerorte anzeigen"}
+            </button>
+            <button className="ghost-button compact" onClick={openCreateInventoryLocation} type="button">
+              <Plus size={16} />
+              Lagerort anlegen
+            </button>
+          </div>
         </div>
-        <div className="inventory-location-list">
-          {activeInventoryLocations.map((location) => (
-            <article key={location.id}>
-              <strong>{location.name}</strong>
-              <span>{location.site || "Standort offen"}</span>
-              <small>{location.note || "-"}</small>
-            </article>
-          ))}
-          {activeInventoryLocations.length === 0 && <p>Noch keine Lagerorte angelegt.</p>}
-        </div>
+        {locationsExpanded && (
+          <div className="inventory-location-list">
+            {activeInventoryLocations.map((location) => (
+              <article key={location.id}>
+                <strong>{location.name}</strong>
+                <span>{location.site || "Standort offen"}</span>
+                <small>{location.note || "-"}</small>
+                <div className="row-actions">
+                  <IconAction label={`Lagerort ${location.name} bearbeiten`} onClick={() => editInventoryLocation(location)}><Pencil size={16} /></IconAction>
+                </div>
+              </article>
+            ))}
+            {activeInventoryLocations.length === 0 && <p>Noch keine Lagerorte angelegt.</p>}
+          </div>
+        )}
       </section>
+      <div className="inventory-filterbar">
+        <label className="search inventory-search">
+          <Search size={16} />
+          <input
+            aria-label="Artikel filtern"
+            placeholder="Artikel, Lagerort, Lieferant oder Kategorie filtern..."
+            value={inventoryFilter}
+            onChange={(event) => setInventoryFilter(event.target.value)}
+          />
+        </label>
+      </div>
       <div className="table-list compact-list inventory-overview-list">
-        {activeMaterials.map((material) => {
+        {filteredMaterials.map((material) => {
           const stock = materialInventoryTotal(material);
           const minStock = Number(String(material.minStock ?? "").replace(",", "."));
           const belowMinimum = Number.isFinite(minStock) && minStock > 0 && stock <= minStock;
@@ -11785,6 +11837,7 @@ function InventoryView({
           );
         })}
         {activeMaterials.length === 0 && <p>Noch kein Material erfasst. Material bitte zuerst in den Stammdaten anlegen.</p>}
+        {activeMaterials.length > 0 && filteredMaterials.length === 0 && <p>Keine Artikel für diesen Filter gefunden.</p>}
       </div>
 
       {bookingOpen && selectedMaterial && (
@@ -11923,9 +11976,9 @@ function InventoryView({
             <header>
               <div>
                 <p>Lagerverwaltung</p>
-                <h2 id="inventory-location-title">Neuer Lagerort</h2>
+                <h2 id="inventory-location-title">{editingLocationId ? "Lagerort bearbeiten" : "Neuer Lagerort"}</h2>
               </div>
-              <button aria-label="Lagerort-Dialog schließen" onClick={() => setLocationEditorOpen(false)} type="button">
+              <button aria-label="Lagerort-Dialog schließen" onClick={() => { setLocationEditorOpen(false); setEditingLocationId(null); }} type="button">
                 <X size={18} />
               </button>
             </header>
@@ -11938,10 +11991,10 @@ function InventoryView({
               <label><span>Notiz</span><input value={locationForm.note} onChange={(event) => setLocationForm({ ...locationForm, note: event.target.value })} placeholder="z.B. Fahrzeugbestand" /></label>
             </div>
             <div className="message-actions">
-              <button className="ghost-button" onClick={() => setLocationEditorOpen(false)} type="button">Abbrechen</button>
+              <button className="ghost-button" onClick={() => { setLocationEditorOpen(false); setEditingLocationId(null); }} type="button">Abbrechen</button>
               <button className="primary-button" onClick={saveInventoryLocation} type="button">
                 <Check size={16} />
-                Lagerort speichern
+                {editingLocationId ? "Änderungen speichern" : "Lagerort speichern"}
               </button>
             </div>
           </section>

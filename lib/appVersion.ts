@@ -1,10 +1,20 @@
 export const appVersion = {
-  version: "1.313.0",
+  version: "1.314.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.314.0",
+    date: "2026-09-05",
+    changes: [
+      "Lagerort-Bereich in der Lagerverwaltung ist einklappbar",
+      "Lagerorte koennen ueber das Popup bearbeitet werden",
+      "Das Wort Stammdaten wurde aus der Lagerort-Ueberschrift entfernt",
+      "Artikel in der Lagerverwaltung koennen ueber ein Filterfeld durchsucht werden",
+    ],
+  },
   {
     version: "1.313.0",
     date: "2026-09-05",

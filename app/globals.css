@@ -5545,6 +5545,23 @@ button.media-thumb {
   margin: 0;
 }
 
+.inventory-location-master .section-heading .row-actions {
+  justify-content: flex-end;
+}
+
+.inventory-filterbar {
+  margin-bottom: 10px;
+}
+
+.inventory-search {
+  max-width: none;
+  width: 100%;
+}
+
+.inventory-search input {
+  width: 100%;
+}
+
 .inventory-location-list {
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -5556,7 +5573,7 @@ button.media-thumb {
   background: var(--paper);
   display: grid;
   gap: 8px;
-  grid-template-columns: minmax(140px, 0.8fr) minmax(160px, 1fr) minmax(180px, 1.4fr);
+  grid-template-columns: minmax(140px, 0.8fr) minmax(160px, 1fr) minmax(180px, 1.4fr) auto;
   min-height: 38px;
   padding: 7px 10px;
 }
@@ -5579,6 +5596,10 @@ button.media-thumb {
   color: var(--muted);
   font-size: 13px;
   font-weight: 700;
+}
+
+.inventory-location-list .row-actions {
+  justify-content: flex-end;
 }
 
 .inventory-booking-form {
