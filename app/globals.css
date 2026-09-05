@@ -5550,6 +5550,23 @@ button.media-thumb {
   white-space: nowrap;
 }
 
+.inventory-tax-summary {
+  align-content: center;
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 2px;
+  min-height: 42px;
+  padding: 8px 10px;
+}
+
+.inventory-tax-summary span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
 .portal-object-detail {
   background: var(--paper-soft);
   border: 1px solid var(--line);

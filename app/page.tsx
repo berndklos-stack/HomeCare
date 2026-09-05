@@ -386,6 +386,10 @@ type MaterialInventoryEntry = {
   quantity: number;
   note?: string;
   purchasePrice?: string;
+  purchaseGross?: string;
+  purchaseTaxRate?: string;
+  purchaseNet?: string;
+  purchaseTaxAmount?: string;
   supplier?: string;
   customerId?: string;
   serviceId?: string;
@@ -1438,6 +1442,14 @@ function materialInventoryByLocation(entries: MaterialInventoryEntry[]) {
     locations[key] = (locations[key] ?? 0) + signedMaterialInventoryQuantity(entry);
     return locations;
   }, {});
+}
+
+function purchaseAmountsFromGross(grossValue: string, taxRateValue: string) {
+  const gross = decimalValue(grossValue);
+  const taxRate = decimalValue(taxRateValue);
+  if (!gross || taxRate < 0) return { gross, net: gross, tax: 0 };
+  const net = gross / (1 + (taxRate / 100));
+  return { gross, net, tax: gross - net };
 }
 
 function formatFileSize(value?: number) {
@@ -8098,16 +8110,6 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
               <CarFront size={16} />
               {tx("Fahrt")}
             </button>
-            <button
-              className="ghost-button"
-              onClick={() => {
-                setSection("inventory");
-              }}
-              type="button"
-            >
-              <ClipboardList size={16} />
-              Lagerverwaltung
-            </button>
             <button className={`ghost-button refresh-button ${manualRefreshRunning ? "running" : ""}`} disabled={manualRefreshRunning} onClick={() => void refreshAppDataNow()} type="button">
               <RefreshCw size={16} />
               {manualRefreshRunning ? tx("Aktualisiere") : tx("Aktualisieren")}
@@ -11487,7 +11489,8 @@ function InventoryView({
     customerId: "",
     location: "Hauptlager",
     note: "",
-    purchasePrice: "",
+    purchaseGross: "",
+    purchaseTaxRate: "25",
     quantity: "",
     serviceId: "",
     supplier: "",
@@ -11499,6 +11502,7 @@ function InventoryView({
   const historyEntries = historyMaterials.flatMap((material) => (
     (material.inventoryEntries ?? []).map((entry) => ({ entry, material }))
   )).sort((first, second) => second.entry.createdAt.localeCompare(first.entry.createdAt));
+  const currentPurchaseAmounts = purchaseAmountsFromGross(form.purchaseGross, form.purchaseTaxRate);
 
   function openBooking(material?: MaterialItem, type: MaterialInventoryEntry["type"] = "Eingang") {
     const target = material ?? selectedMaterial ?? activeMaterials[0];
@@ -11509,7 +11513,8 @@ function InventoryView({
       customerId: "",
       location: target.primaryLocation || materialLocations[0] || "Hauptlager",
       note: "",
-      purchasePrice: type === "Eingang" ? target.purchasePrice ?? "" : "",
+      purchaseGross: type === "Eingang" ? target.purchasePrice ?? "" : "",
+      purchaseTaxRate: type === "Eingang" ? target.taxRate || "25" : "25",
       quantity: "",
       receipt: undefined,
       serviceId: "",
@@ -11545,6 +11550,7 @@ function InventoryView({
       return;
     }
 
+    const purchaseAmounts = purchaseAmountsFromGross(form.purchaseGross, form.purchaseTaxRate);
     const entry: MaterialInventoryEntry = {
       billableAsService: form.type === "Ausgang" ? form.billableAsService : false,
       createdAt: new Date().toISOString(),
@@ -11552,7 +11558,11 @@ function InventoryView({
       id: createEntityId("MINV"),
       location,
       note: form.note.trim(),
-      purchasePrice: form.type === "Eingang" ? form.purchasePrice.trim() : undefined,
+      purchaseGross: form.type === "Eingang" ? form.purchaseGross.trim() : undefined,
+      purchaseNet: form.type === "Eingang" && form.purchaseGross.trim() ? String(Math.round(purchaseAmounts.net * 100) / 100) : undefined,
+      purchasePrice: form.type === "Eingang" && form.purchaseGross.trim() ? String(Math.round(purchaseAmounts.net * 100) / 100) : undefined,
+      purchaseTaxAmount: form.type === "Eingang" && form.purchaseGross.trim() ? String(Math.round(purchaseAmounts.tax * 100) / 100) : undefined,
+      purchaseTaxRate: form.type === "Eingang" ? form.purchaseTaxRate.trim() || "25" : undefined,
       quantity,
       receipt: form.type === "Eingang" ? form.receipt : undefined,
       serviceId: form.type === "Ausgang" ? form.serviceId || undefined : undefined,
@@ -11687,7 +11697,8 @@ function InventoryView({
               </datalist>
               {form.type === "Eingang" && (
                 <>
-                  <label><span>Kaufpreis netto</span><input inputMode="decimal" value={form.purchasePrice} onChange={(event) => setForm({ ...form, purchasePrice: event.target.value })} /></label>
+                  <label><span>Kaufpreis brutto</span><input inputMode="decimal" value={form.purchaseGross} onChange={(event) => setForm({ ...form, purchaseGross: event.target.value })} /></label>
+                  <label><span>Moms %</span><input inputMode="decimal" value={form.purchaseTaxRate} onChange={(event) => setForm({ ...form, purchaseTaxRate: event.target.value })} /></label>
                   <label><span>Lieferant</span><input list="inventory-page-suppliers" value={form.supplier} onChange={(event) => setForm({ ...form, supplier: event.target.value })} /></label>
                   <datalist id="inventory-page-suppliers">
                     {materialSuppliers.map((supplier) => <option key={supplier} value={supplier} />)}
@@ -11698,6 +11709,12 @@ function InventoryView({
                       if (file) void captureInventoryReceipt(file);
                     }} />
                   </label>
+                  {form.purchaseGross.trim() && (
+                    <div className="inventory-tax-summary">
+                      <span>Netto {formatMoney(currentPurchaseAmounts.net, selectedMaterial.currency || "SEK")}</span>
+                      <span>Moms {formatMoney(currentPurchaseAmounts.tax, selectedMaterial.currency || "SEK")}</span>
+                    </div>
+                  )}
                 </>
               )}
               {form.type === "Ausgang" && (
@@ -11756,11 +11773,23 @@ function InventoryView({
               {historyEntries.map(({ entry, material }) => {
                 const customer = customers.find((item) => item.id === entry.customerId);
                 const service = activeServices.find((item) => item.id === entry.serviceId);
+                const grossAmount = decimalValue(entry.purchaseGross ?? "");
+                const netAmount = decimalValue(entry.purchaseNet ?? entry.purchasePrice ?? "");
+                const taxAmount = decimalValue(entry.purchaseTaxAmount ?? "");
                 return (
                   <article key={`${material.id}-${entry.id}`}>
                     <div>
                       <strong>{material.name} · {entry.type} · {formatInventoryQuantity(signedMaterialInventoryQuantity(entry))} {material.unit}</strong>
-                      <span>{entry.location} · {formatCreatedAt(entry.createdAt)}{entry.supplier ? ` · ${entry.supplier}` : ""}{entry.purchasePrice ? ` · EK ${entry.purchasePrice} ${material.currency || "SEK"}` : ""}</span>
+                      <span>{entry.location} · {formatCreatedAt(entry.createdAt)}{entry.supplier ? ` · ${entry.supplier}` : ""}</span>
+                      {(entry.purchaseGross || entry.purchaseNet || entry.purchasePrice) && (
+                        <span>
+                          {entry.purchaseGross ? `Brutto ${formatMoney(grossAmount, material.currency || "SEK")}` : ""}
+                          {entry.purchaseGross && (entry.purchaseNet || entry.purchasePrice) ? " · " : ""}
+                          {entry.purchaseNet || entry.purchasePrice ? `Netto ${formatMoney(netAmount, material.currency || "SEK")}` : ""}
+                          {entry.purchaseTaxAmount ? ` · Moms ${formatMoney(taxAmount, material.currency || "SEK")}` : ""}
+                          {entry.purchaseTaxRate ? ` (${entry.purchaseTaxRate}%)` : ""}
+                        </span>
+                      )}
                       <span>{customer ? `Kunde: ${customer.name}` : ""}{service ? `${customer ? " · " : ""}Leistung: ${service.name}` : ""}{entry.billableAsService ? " · abrechenbar vormerken" : ""}</span>
                       <span>{entry.note || ""}</span>
                       {entry.receipt && (

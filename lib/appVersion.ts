@@ -1,10 +1,20 @@
 export const appVersion = {
-  version: "1.308.0",
+  version: "1.309.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.309.0",
+    date: "2026-09-05",
+    changes: [
+      "Eingangsbuchungen erfassen den Kaufpreis als Bruttobetrag vom Beleg",
+      "Moms-Prozent, Netto und Moms-Betrag werden aus dem Bruttobetrag berechnet und gespeichert",
+      "Lagerverwaltung ist nur noch links im Hauptmenue erreichbar und nicht mehr in der oberen Werkzeugleiste",
+      "Lagerhistorie zeigt Brutto, Netto und Moms bei Einkaufsbuchungen nachvollziehbar an",
+    ],
+  },
   {
     version: "1.308.0",
     date: "2026-09-05",
