@@ -3124,17 +3124,6 @@ mark.neutral {
   font-size: 13px;
 }
 
-.material-inventory-form {
-  align-items: end;
-  display: grid;
-  gap: 8px;
-  grid-template-columns: minmax(160px, 1fr) 140px 120px minmax(180px, 1.2fr) auto;
-}
-
-.material-inventory-form .ghost-button {
-  min-height: 44px;
-}
-
 .material-inventory-history {
   display: grid;
   gap: 6px;
@@ -5962,8 +5951,7 @@ button.media-thumb {
     grid-column: 1;
   }
 
-  .inventory-location-grid,
-  .material-inventory-form {
+  .inventory-location-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 

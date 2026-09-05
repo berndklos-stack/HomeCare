@@ -12300,6 +12300,8 @@ function MasterDataView({
   const [accountEditorOpen, setAccountEditorOpen] = useState(false);
   const [serviceEditorOpen, setServiceEditorOpen] = useState(false);
   const [materialEditorOpen, setMaterialEditorOpen] = useState(false);
+  const [materialInventoryEditorOpen, setMaterialInventoryEditorOpen] = useState(false);
+  const [materialInventoryHistoryOpen, setMaterialInventoryHistoryOpen] = useState(false);
   const [focusMaterialInventory, setFocusMaterialInventory] = useState(false);
   const [packageEditorOpen, setPackageEditorOpen] = useState(false);
   const [personEditorOpen, setPersonEditorOpen] = useState(false);
@@ -13259,6 +13261,8 @@ function MasterDataView({
   function resetMaterialForm() {
     setEditingMaterialId(null);
     setMaterialEditorOpen(false);
+    setMaterialInventoryEditorOpen(false);
+    setMaterialInventoryHistoryOpen(false);
     setFocusMaterialInventory(false);
     setMaterialForm({ accountingAccount: "3058", category: "", currency: "SEK", description: "", inventoryEntries: [], name: "", price: "", taxRate: "25", unit: "Stück" });
     setMaterialInventoryForm({ location: "Hauptlager", note: "", quantity: "", type: "Eingang" });
@@ -13266,6 +13270,8 @@ function MasterDataView({
 
   function openCreateMaterial() {
     setEditingMaterialId(null);
+    setMaterialInventoryEditorOpen(false);
+    setMaterialInventoryHistoryOpen(false);
     setFocusMaterialInventory(false);
     setMaterialForm({ accountingAccount: "3058", category: "", currency: "SEK", description: "", inventoryEntries: [], name: "", price: "", taxRate: "25", unit: "Stück" });
     setMaterialInventoryForm({ location: "Hauptlager", note: "", quantity: "", type: "Eingang" });
@@ -13288,6 +13294,11 @@ function MasterDataView({
       unit: material.unit,
     });
     setMasterDataTab("materials");
+  }
+
+  function openMaterialInventoryBooking() {
+    setMaterialInventoryForm({ location: materialLocations[0] ?? "Hauptlager", note: "", quantity: "", type: "Eingang" });
+    setMaterialInventoryEditorOpen(true);
   }
 
   function saveMaterial() {
@@ -13357,6 +13368,7 @@ function MasterDataView({
       ],
     });
     setMaterialInventoryForm({ location, note: "", quantity: "", type: "Eingang" });
+    setMaterialInventoryEditorOpen(false);
   }
 
   function removeMaterialInventoryEntry(id: string) {
@@ -14658,8 +14670,20 @@ function MasterDataView({
               <label className="wide"><span>Beschreibung</span><textarea value={materialForm.description} onChange={(event) => setMaterialForm({ ...materialForm, description: event.target.value })} /></label>
               <div className="wide material-inventory-editor" ref={materialInventoryRef}>
                 <div className="section-heading">
-                  <span>Lagerverwaltung</span>
-                  <strong>{formatInventoryQuantity(materialInventoryTotal(materialForm))} {materialForm.unit} gesamt</strong>
+                  <div>
+                    <span>Lagerverwaltung</span>
+                    <strong>{formatInventoryQuantity(materialInventoryTotal(materialForm))} {materialForm.unit} gesamt</strong>
+                  </div>
+                  <div className="row-actions">
+                    <button className="ghost-button" onClick={() => setMaterialInventoryHistoryOpen(true)} type="button">
+                      <List size={16} />
+                      Alle Buchungen ansehen
+                    </button>
+                    <button className="primary-button" onClick={openMaterialInventoryBooking} type="button">
+                      <Plus size={16} />
+                      Neue Buchung
+                    </button>
+                  </div>
                 </div>
                 <div className="inventory-location-grid">
                   {Object.entries(materialInventoryByLocation(materialForm.inventoryEntries)).map(([location, quantity]) => (
@@ -14670,36 +14694,6 @@ function MasterDataView({
                   ))}
                   {materialForm.inventoryEntries.length === 0 && <p>Noch keine Lagerbuchungen vorhanden.</p>}
                 </div>
-                <div className="material-inventory-form">
-                  <label><span>Lagerort</span><input list="material-locations" value={materialInventoryForm.location} onChange={(event) => setMaterialInventoryForm({ ...materialInventoryForm, location: event.target.value })} /></label>
-                  <datalist id="material-locations">
-                    {materialLocations.map((location) => <option key={location} value={location} />)}
-                  </datalist>
-                  <label><span>Buchung</span>
-                    <select value={materialInventoryForm.type} onChange={(event) => setMaterialInventoryForm({ ...materialInventoryForm, type: event.target.value as MaterialInventoryEntry["type"] })}>
-                      <option>Eingang</option>
-                      <option>Ausgang</option>
-                      <option>Korrektur</option>
-                    </select>
-                  </label>
-                  <label><span>Menge</span><input inputMode="decimal" value={materialInventoryForm.quantity} onChange={(event) => setMaterialInventoryForm({ ...materialInventoryForm, quantity: event.target.value })} placeholder="z.B. 10" /></label>
-                  <label><span>Notiz</span><input value={materialInventoryForm.note} onChange={(event) => setMaterialInventoryForm({ ...materialInventoryForm, note: event.target.value })} placeholder="z.B. Einkauf, Verbrauch, Inventur" /></label>
-                  <button className="ghost-button" onClick={addMaterialInventoryEntry} type="button">
-                    <Plus size={16} />
-                    Buchung hinzufügen
-                  </button>
-                </div>
-                <div className="material-inventory-history">
-                  {materialForm.inventoryEntries.map((entry) => (
-                    <article key={entry.id}>
-                      <div>
-                        <strong>{entry.type} · {formatInventoryQuantity(signedMaterialInventoryQuantity(entry))} {materialForm.unit}</strong>
-                        <span>{entry.location} · {formatCreatedAt(entry.createdAt)}{entry.note ? ` · ${entry.note}` : ""}</span>
-                      </div>
-                      <IconAction danger label="Lagerbuchung löschen" onClick={() => removeMaterialInventoryEntry(entry.id)}><Trash2 size={16} /></IconAction>
-                    </article>
-                  ))}
-                </div>
               </div>
             </div>
             <div className="message-actions">
@@ -14708,6 +14702,70 @@ function MasterDataView({
                 <Check size={16} />
                 {editingMaterialId ? "Material speichern" : "Material anlegen"}
               </button>
+            </div>
+          </section>
+        </div>
+      )}
+      {materialInventoryEditorOpen && materialEditorOpen && masterDataTab === "materials" && (
+        <div className="modal-backdrop nested-backdrop">
+          <section aria-labelledby="material-inventory-editor-title" aria-modal="true" className="modal send-preview-modal account-editor-modal" role="dialog">
+            <header>
+              <div>
+                <p>Lagerverwaltung</p>
+                <h2 id="material-inventory-editor-title">Neue Buchung</h2>
+              </div>
+              <button aria-label="Buchungsdialog schließen" onClick={() => setMaterialInventoryEditorOpen(false)} type="button">
+                <X size={18} />
+              </button>
+            </header>
+            <div className="form-grid compact-form">
+              <label><span>Lagerort</span><input list="material-locations" value={materialInventoryForm.location} onChange={(event) => setMaterialInventoryForm({ ...materialInventoryForm, location: event.target.value })} /></label>
+              <datalist id="material-locations">
+                {materialLocations.map((location) => <option key={location} value={location} />)}
+              </datalist>
+              <label><span>Buchung</span>
+                <select value={materialInventoryForm.type} onChange={(event) => setMaterialInventoryForm({ ...materialInventoryForm, type: event.target.value as MaterialInventoryEntry["type"] })}>
+                  <option>Eingang</option>
+                  <option>Ausgang</option>
+                  <option>Korrektur</option>
+                </select>
+              </label>
+              <label><span>Menge</span><input inputMode="decimal" value={materialInventoryForm.quantity} onChange={(event) => setMaterialInventoryForm({ ...materialInventoryForm, quantity: event.target.value })} placeholder="z.B. 10" /></label>
+              <label className="wide"><span>Notiz</span><input value={materialInventoryForm.note} onChange={(event) => setMaterialInventoryForm({ ...materialInventoryForm, note: event.target.value })} placeholder="z.B. Einkauf, Verbrauch, Inventur" /></label>
+            </div>
+            <div className="message-actions">
+              <button className="ghost-button" onClick={() => setMaterialInventoryEditorOpen(false)} type="button">Abbrechen</button>
+              <button className="primary-button" onClick={addMaterialInventoryEntry} type="button">
+                <Check size={16} />
+                Buchung speichern
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+      {materialInventoryHistoryOpen && materialEditorOpen && masterDataTab === "materials" && (
+        <div className="modal-backdrop nested-backdrop">
+          <section aria-labelledby="material-inventory-history-title" aria-modal="true" className="modal send-preview-modal catalog-editor-modal" role="dialog">
+            <header>
+              <div>
+                <p>Lagerverwaltung</p>
+                <h2 id="material-inventory-history-title">Alle Buchungen</h2>
+              </div>
+              <button aria-label="Buchungshistorie schließen" onClick={() => setMaterialInventoryHistoryOpen(false)} type="button">
+                <X size={18} />
+              </button>
+            </header>
+            <div className="material-inventory-history">
+              {materialForm.inventoryEntries.map((entry) => (
+                <article key={entry.id}>
+                  <div>
+                    <strong>{entry.type} · {formatInventoryQuantity(signedMaterialInventoryQuantity(entry))} {materialForm.unit}</strong>
+                    <span>{entry.location} · {formatCreatedAt(entry.createdAt)}{entry.note ? ` · ${entry.note}` : ""}</span>
+                  </div>
+                  <IconAction danger label="Lagerbuchung löschen" onClick={() => removeMaterialInventoryEntry(entry.id)}><Trash2 size={16} /></IconAction>
+                </article>
+              ))}
+              {materialForm.inventoryEntries.length === 0 && <p>Noch keine Lagerbuchungen vorhanden.</p>}
             </div>
           </section>
         </div>

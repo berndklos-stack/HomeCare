@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.304.0",
+  version: "1.305.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.305.0",
+    date: "2026-09-05",
+    changes: [
+      "Lagerverwaltung zeigt im Materialdialog eine kompakte Bestandsuebersicht statt Inline-Eingabe",
+      "Neue Lagerbuchungen werden ueber ein eigenes Popup erfasst",
+      "Alle Lagerbuchungen koennen ueber einen eigenen Historien-Button angesehen werden",
+    ],
+  },
   {
     version: "1.304.0",
     date: "2026-09-05",
