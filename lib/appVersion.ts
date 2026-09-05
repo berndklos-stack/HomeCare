@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.307.0",
+  version: "1.308.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.308.0",
+    date: "2026-09-05",
+    changes: [
+      "Lagerverwaltung ist als eigener Menuepunkt links direkt nach Abrechnung erreichbar",
+      "Material-Stammdaten zeigen keine operative Lagerverwaltung mehr",
+      "Lagerbuchungen erfassen bei Eingang Kaufpreis, Lieferant und Einkaufsbeleg sowie bei Ausgang Kunde, Leistung und Notiz",
+    ],
+  },
   {
     version: "1.307.0",
     date: "2026-09-05",

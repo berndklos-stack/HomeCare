@@ -5500,12 +5500,54 @@ button.media-thumb {
   min-height: 58px;
 }
 
+.inventory-overview-list article.active {
+  border-color: var(--brand);
+  box-shadow: inset 0 0 0 1px var(--brand);
+}
+
 .inventory-overview-list .row-actions {
   flex-wrap: nowrap;
 }
 
 .material-editor-form {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.inventory-page .panel-title {
+  align-items: start;
+}
+
+.inventory-page .panel-title .row-actions {
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+}
+
+.inventory-booking-form {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.inventory-receipt-input input[type="file"] {
+  align-content: center;
+}
+
+.inventory-receipt-note {
+  align-items: center;
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  min-height: 42px;
+  padding: 8px 10px;
+}
+
+.inventory-receipt-note span {
+  color: var(--foreground);
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .portal-object-detail {
@@ -6002,8 +6044,13 @@ button.media-thumb {
 
   .inventory-summary-grid,
   .inventory-overview-list article,
+  .inventory-booking-form,
   .material-editor-form {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .inventory-page .panel-title .row-actions {
+    justify-content: stretch;
   }
 
   .portal-object-detail dl,
