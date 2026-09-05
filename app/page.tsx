@@ -381,6 +381,7 @@ type MaterialItem = {
 type MaterialInventoryEntry = {
   id: string;
   createdAt: string;
+  updatedAt?: string;
   location: string;
   type: "Eingang" | "Ausgang" | "Korrektur";
   quantity: number;
@@ -395,6 +396,13 @@ type MaterialInventoryEntry = {
   serviceId?: string;
   billableAsService?: boolean;
   receipt?: ReportAttachment;
+  changes?: MaterialInventoryEntryChange[];
+};
+
+type MaterialInventoryEntryChange = {
+  id: string;
+  changedAt: string;
+  summary: string;
 };
 
 type InventoryLocation = {
@@ -11567,6 +11575,7 @@ function InventoryView({
   const [historyOpen, setHistoryOpen] = useState(false);
   const [locationEditorOpen, setLocationEditorOpen] = useState(false);
   const [locationListOpen, setLocationListOpen] = useState(false);
+  const [editingBooking, setEditingBooking] = useState<{ entryId: string; materialId: string } | null>(null);
   const [editingLocationId, setEditingLocationId] = useState<string | null>(null);
   const [historyMaterialId, setHistoryMaterialId] = useState<string | null>(null);
   const [inventoryFilter, setInventoryFilter] = useState("");
@@ -11591,7 +11600,10 @@ function InventoryView({
     receipt: undefined as ReportAttachment | undefined,
   });
   const selectedMaterial = activeMaterials.find((material) => material.id === selectedMaterialId) ?? activeMaterials[0] ?? null;
-  const selectedMaterialLocationsWithStock = Object.entries(materialInventoryByLocation(selectedMaterial?.inventoryEntries ?? []))
+  const selectedMaterialInventoryEntriesForSelection = selectedMaterial?.id === editingBooking?.materialId
+    ? (selectedMaterial.inventoryEntries ?? []).filter((entry) => entry.id !== editingBooking.entryId)
+    : selectedMaterial?.inventoryEntries ?? [];
+  const selectedMaterialLocationsWithStock = Object.entries(materialInventoryByLocation(selectedMaterialInventoryEntriesForSelection))
     .filter(([location, quantity]) => quantity > 0 && activeInventoryLocationNameSet.has(location.trim().toLowerCase()))
     .sort(([firstLocation], [secondLocation]) => firstLocation.localeCompare(secondLocation, "de"));
   const historyMaterials = historyMaterialId ? activeMaterials.filter((material) => material.id === historyMaterialId) : activeMaterials;
@@ -11612,6 +11624,24 @@ function InventoryView({
       ...Object.keys(materialInventoryByLocation(material.inventoryEntries ?? [])),
     ].join(" ").toLowerCase().includes(normalizedInventoryFilter))
     : activeMaterials;
+  function inventoryBookingChangeSummary(previous: MaterialInventoryEntry, next: MaterialInventoryEntry, previousMaterial: MaterialItem | undefined, nextMaterial: MaterialItem | undefined) {
+    const changes: string[] = [];
+    const previousQuantity = formatInventoryQuantity(signedMaterialInventoryQuantity(previous));
+    const nextQuantity = formatInventoryQuantity(signedMaterialInventoryQuantity(next));
+    if (previousMaterial?.id !== nextMaterial?.id) changes.push(`Material: ${previousMaterial?.name || "-"} -> ${nextMaterial?.name || "-"}`);
+    if (previous.type !== next.type) changes.push(`Buchung: ${previous.type} -> ${next.type}`);
+    if (previous.location !== next.location) changes.push(`Lagerort: ${previous.location || "-"} -> ${next.location || "-"}`);
+    if (previousQuantity !== nextQuantity) changes.push(`Menge: ${previousQuantity} -> ${nextQuantity}`);
+    if ((previous.purchaseGross ?? "") !== (next.purchaseGross ?? "")) changes.push(`Kaufpreis brutto: ${previous.purchaseGross || "-"} -> ${next.purchaseGross || "-"}`);
+    if ((previous.purchaseTaxRate ?? "") !== (next.purchaseTaxRate ?? "")) changes.push(`Moms: ${previous.purchaseTaxRate || "-"} -> ${next.purchaseTaxRate || "-"}`);
+    if ((previous.supplier ?? "") !== (next.supplier ?? "")) changes.push(`Lieferant: ${previous.supplier || "-"} -> ${next.supplier || "-"}`);
+    if ((previous.customerId ?? "") !== (next.customerId ?? "")) changes.push("Kundenzuordnung geändert");
+    if ((previous.serviceId ?? "") !== (next.serviceId ?? "")) changes.push("Leistungszuordnung geändert");
+    if (Boolean(previous.billableAsService) !== Boolean(next.billableAsService)) changes.push(`Abrechnung: ${previous.billableAsService ? "ja" : "nein"} -> ${next.billableAsService ? "ja" : "nein"}`);
+    if ((previous.note ?? "") !== (next.note ?? "")) changes.push("Notiz geändert");
+    if ((previous.receipt?.id ?? previous.receipt?.name ?? "") !== (next.receipt?.id ?? next.receipt?.name ?? "")) changes.push("Einkaufsbeleg geändert");
+    return changes.length > 0 ? changes.join(" · ") : "Buchung ohne Feldänderung gespeichert";
+  }
 
   function openBooking(material?: MaterialItem, type: MaterialInventoryEntry["type"] = "Eingang") {
     const target = material ?? selectedMaterial ?? activeMaterials[0];
@@ -11623,6 +11653,7 @@ function InventoryView({
       ? target.primaryLocation ?? ""
       : activeInventoryLocationNames[0] ?? "";
     setSelectedMaterialId(target.id);
+    setEditingBooking(null);
     setForm({
       billableAsService: false,
       customerId: "",
@@ -11637,6 +11668,33 @@ function InventoryView({
       serviceId: "",
       supplier: type === "Eingang" ? target.supplier ?? "" : "",
       type,
+    });
+    setNotice("");
+    setBookingOpen(true);
+  }
+
+  function editBooking(material: MaterialItem, entry: MaterialInventoryEntry) {
+    const positiveLocations = Object.entries(materialInventoryByLocation((material.inventoryEntries ?? []).filter((item) => item.id !== entry.id)))
+      .filter(([location, quantity]) => quantity > 0 && activeInventoryLocationNameSet.has(location.trim().toLowerCase()))
+      .sort(([firstLocation], [secondLocation]) => firstLocation.localeCompare(secondLocation, "de"));
+    setSelectedMaterialId(material.id);
+    setEditingBooking({ materialId: material.id, entryId: entry.id });
+    setForm({
+      billableAsService: Boolean(entry.billableAsService),
+      customerId: entry.customerId ?? "",
+      location: entry.type === "Ausgang"
+        ? activeInventoryLocationNameSet.has(entry.location.trim().toLowerCase())
+          ? entry.location
+          : positiveLocations[0]?.[0] ?? ""
+        : entry.location,
+      note: entry.note ?? "",
+      purchaseGross: entry.purchaseGross ?? "",
+      purchaseTaxRate: entry.purchaseTaxRate ?? "25",
+      quantity: entry.type === "Korrektur" ? String(entry.quantity) : String(Math.abs(entry.quantity)),
+      receipt: entry.receipt,
+      serviceId: entry.serviceId ?? "",
+      supplier: entry.supplier ?? "",
+      type: entry.type,
     });
     setNotice("");
     setBookingOpen(true);
@@ -11658,6 +11716,10 @@ function InventoryView({
     const material = activeMaterials.find((item) => item.id === selectedMaterialId) ?? selectedMaterial;
     const quantity = Number(String(form.quantity).replace(",", "."));
     const location = form.location.trim() || material?.primaryLocation || "Hauptlager";
+    const originalMaterial = editingBooking ? materials.find((item) => item.id === editingBooking.materialId) : undefined;
+    const originalEntry = editingBooking
+      ? originalMaterial?.inventoryEntries?.find((entry) => entry.id === editingBooking.entryId)
+      : undefined;
     if (!material) {
       setNotice("Bitte zuerst ein Material auswählen.");
       return;
@@ -11671,7 +11733,10 @@ function InventoryView({
       return;
     }
     if (form.type === "Ausgang") {
-      const locationStock = materialInventoryByLocation(material.inventoryEntries ?? [])[location] ?? 0;
+      const entriesForValidation = material.id === originalMaterial?.id
+        ? (material.inventoryEntries ?? []).filter((entry) => entry.id !== originalEntry?.id)
+        : material.inventoryEntries ?? [];
+      const locationStock = materialInventoryByLocation(entriesForValidation)[location] ?? 0;
       if (locationStock <= 0) {
         setNotice("Ausgänge sind nur von Lagerorten mit positivem Bestand möglich.");
         return;
@@ -11683,11 +11748,13 @@ function InventoryView({
     }
 
     const purchaseAmounts = purchaseAmountsFromGross(form.purchaseGross, form.purchaseTaxRate);
+    const now = new Date().toISOString();
     const entry: MaterialInventoryEntry = {
       billableAsService: form.type === "Ausgang" ? form.billableAsService : false,
-      createdAt: new Date().toISOString(),
+      changes: originalEntry?.changes ?? [],
+      createdAt: originalEntry?.createdAt ?? now,
       customerId: form.type === "Ausgang" ? form.customerId || undefined : undefined,
-      id: createEntityId("MINV"),
+      id: originalEntry?.id ?? createEntityId("MINV"),
       location,
       note: form.note.trim(),
       purchaseGross: form.type === "Eingang" ? form.purchaseGross.trim() : undefined,
@@ -11700,17 +11767,36 @@ function InventoryView({
       serviceId: form.type === "Ausgang" ? form.serviceId || undefined : undefined,
       supplier: form.type === "Eingang" ? form.supplier.trim() : undefined,
       type: form.type,
+      updatedAt: originalEntry ? now : undefined,
     };
+    if (originalEntry) {
+      entry.changes = [
+        {
+          changedAt: now,
+          id: createEntityId("MCHG"),
+          summary: inventoryBookingChangeSummary(originalEntry, entry, originalMaterial, material),
+        },
+        ...(originalEntry.changes ?? []),
+      ];
+    }
 
-    const nextMaterials = materials.map((item) => (
-      item.id === material.id
-        ? { ...item, inventoryEntries: [entry, ...(item.inventoryEntries ?? [])] }
-        : item
-    ));
+    const nextMaterials = materials.map((item) => {
+      if (originalEntry && item.id === originalMaterial?.id && item.id !== material.id) {
+        return { ...item, inventoryEntries: (item.inventoryEntries ?? []).filter((inventoryEntry) => inventoryEntry.id !== originalEntry.id) };
+      }
+      if (item.id === material.id) {
+        const remainingEntries = originalEntry
+          ? (item.inventoryEntries ?? []).filter((inventoryEntry) => inventoryEntry.id !== originalEntry.id)
+          : item.inventoryEntries ?? [];
+        return { ...item, inventoryEntries: [entry, ...remainingEntries] };
+      }
+      return item;
+    });
     setMaterials(nextMaterials);
     onPersistMaterials(nextMaterials);
-    setNotice(`Lagerbuchung für "${material.name}" wurde gespeichert.`);
+    setNotice(`Lagerbuchung für "${material.name}" wurde ${originalEntry ? "bearbeitet" : "gespeichert"}.`);
     setBookingOpen(false);
+    setEditingBooking(null);
   }
 
   function removeInventoryEntry(materialId: string, entryId: string) {
@@ -11866,9 +11952,9 @@ function InventoryView({
             <header>
               <div>
                 <p>Lagerverwaltung</p>
-                <h2 id="inventory-booking-title">Neue Buchung · {selectedMaterial.name}</h2>
+                <h2 id="inventory-booking-title">{editingBooking ? "Buchung bearbeiten" : "Neue Buchung"} · {selectedMaterial.name}</h2>
               </div>
-              <button aria-label="Buchungsdialog schließen" onClick={() => setBookingOpen(false)} type="button">
+              <button aria-label="Buchungsdialog schließen" onClick={() => { setBookingOpen(false); setEditingBooking(null); }} type="button">
                 <X size={18} />
               </button>
             </header>
@@ -11988,10 +12074,10 @@ function InventoryView({
               )}
             </div>
             <div className="message-actions">
-              <button className="ghost-button" onClick={() => setBookingOpen(false)} type="button">Abbrechen</button>
+              <button className="ghost-button" onClick={() => { setBookingOpen(false); setEditingBooking(null); }} type="button">Abbrechen</button>
               <button className="primary-button" onClick={saveBooking} type="button">
                 <Check size={16} />
-                Buchung speichern
+                {editingBooking ? "Änderung speichern" : "Buchung speichern"}
               </button>
             </div>
           </section>
@@ -12088,6 +12174,7 @@ function InventoryView({
                     <div>
                       <strong>{material.name} · {entry.type} · {formatInventoryQuantity(signedMaterialInventoryQuantity(entry))} {material.unit}</strong>
                       <span>{entry.location} · {formatCreatedAt(entry.createdAt)}{entry.supplier ? ` · ${entry.supplier}` : ""}</span>
+                      {entry.updatedAt && <span>Bearbeitet: {formatCreatedAt(entry.updatedAt)}</span>}
                       {(entry.purchaseGross || entry.purchaseNet || entry.purchasePrice) && (
                         <span>
                           {entry.purchaseGross ? `Brutto ${formatMoney(grossAmount, material.currency || "SEK")}` : ""}
@@ -12099,13 +12186,24 @@ function InventoryView({
                       )}
                       <span>{customer ? `Kunde: ${customer.name}` : ""}{service ? `${customer ? " · " : ""}Leistung: ${service.name}` : ""}{entry.billableAsService ? " · abrechenbar vormerken" : ""}</span>
                       <span>{entry.note || ""}</span>
+                      {(entry.changes ?? []).length > 0 && (
+                        <details className="inventory-change-log">
+                          <summary>{entry.changes?.length} Änderung{entry.changes?.length === 1 ? "" : "en"}</summary>
+                          {(entry.changes ?? []).map((change) => (
+                            <span key={change.id}>{formatCreatedAt(change.changedAt)} · {change.summary}</span>
+                          ))}
+                        </details>
+                      )}
                       {entry.receipt && (
                         <a href={entry.receipt.storageUrl || mediaSourceFromStoragePath(entry.receipt.storagePath) || entry.receipt.dataUrl} rel="noreferrer" target="_blank">
                           Einkaufsbeleg öffnen
                         </a>
                       )}
                     </div>
-                    <IconAction danger label="Lagerbuchung löschen" onClick={() => removeInventoryEntry(material.id, entry.id)}><Trash2 size={16} /></IconAction>
+                    <div className="row-actions">
+                      <IconAction label="Lagerbuchung bearbeiten" onClick={() => editBooking(material, entry)}><Pencil size={16} /></IconAction>
+                      <IconAction danger label="Lagerbuchung löschen" onClick={() => removeInventoryEntry(material.id, entry.id)}><Trash2 size={16} /></IconAction>
+                    </div>
                   </article>
                 );
               })}

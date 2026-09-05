@@ -3141,6 +3141,25 @@ mark.neutral {
   padding: 8px 10px;
 }
 
+.material-inventory-history .row-actions {
+  flex-wrap: nowrap;
+}
+
+.inventory-change-log {
+  margin-top: 4px;
+}
+
+.inventory-change-log summary {
+  color: var(--brand);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.inventory-change-log span {
+  margin-top: 2px;
+}
+
 .package-service-summary > div {
   display: grid;
   gap: 4px;

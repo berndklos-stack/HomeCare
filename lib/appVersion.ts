@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.316.0",
+  version: "1.317.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.317.0",
+    date: "2026-09-06",
+    changes: [
+      "Lagerbuchungen koennen nachtraeglich bearbeitet werden",
+      "Aenderungen an Lagerbuchungen werden mit Zeitstempel protokolliert",
+      "Die Buchungshistorie zeigt Bearbeitungsstatus und Aenderungsprotokoll an",
+    ],
+  },
   {
     version: "1.316.0",
     date: "2026-09-06",
