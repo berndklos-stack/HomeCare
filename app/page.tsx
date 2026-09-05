@@ -6243,7 +6243,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
 
   useEffect(() => {
     if (!appStorageReady) return;
-    const fastSyncSections: Section[] = ["dashboard", "field", "jobs", "planning"];
+    const fastSyncSections: Section[] = ["dashboard", "field", "jobs", "planning", "inventory"];
     const intervalMs = fastSyncSections.includes(section) ? 15000 : 60000;
 
     const intervalId = supabaseSyncDisabled
@@ -8302,6 +8302,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
               <InventoryView
                 customers={activeCustomers}
                 materials={materials}
+                onPersistMaterials={(nextMaterials) => persistSnapshotNow({ materials: nextMaterials }, { forceRemote: true })}
                 services={services}
                 setMaterials={setMaterials}
               />
@@ -11464,11 +11465,13 @@ function BillingView({
 function InventoryView({
   customers,
   materials,
+  onPersistMaterials,
   services,
   setMaterials,
 }: {
   customers: CustomerRecord[];
   materials: MaterialItem[];
+  onPersistMaterials: (materials: MaterialItem[]) => void;
   services: ServiceItem[];
   setMaterials: (materials: MaterialItem[]) => void;
 }) {
@@ -11570,21 +11573,25 @@ function InventoryView({
       type: form.type,
     };
 
-    setMaterials(materials.map((item) => (
+    const nextMaterials = materials.map((item) => (
       item.id === material.id
         ? { ...item, inventoryEntries: [entry, ...(item.inventoryEntries ?? [])] }
         : item
-    )));
+    ));
+    setMaterials(nextMaterials);
+    onPersistMaterials(nextMaterials);
     setNotice(`Lagerbuchung für "${material.name}" wurde gespeichert.`);
     setBookingOpen(false);
   }
 
   function removeInventoryEntry(materialId: string, entryId: string) {
-    setMaterials(materials.map((material) => (
+    const nextMaterials = materials.map((material) => (
       material.id === materialId
         ? { ...material, inventoryEntries: (material.inventoryEntries ?? []).filter((entry) => entry.id !== entryId) }
         : material
-    )));
+    ));
+    setMaterials(nextMaterials);
+    onPersistMaterials(nextMaterials);
   }
 
   function openHistory(material?: MaterialItem) {

@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.309.0",
+  version: "1.310.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.310.0",
+    date: "2026-09-05",
+    changes: [
+      "Lagerbuchungen werden sofort online gespeichert, damit iPhone und Mac denselben Bestand sehen",
+      "Lagerverwaltung wird im schnellen Synchronisationsintervall aktualisiert",
+      "Geloeschte Lagerbuchungen werden ebenfalls sofort online synchronisiert",
+    ],
+  },
   {
     version: "1.309.0",
     date: "2026-09-05",
