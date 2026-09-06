@@ -3774,12 +3774,7 @@ async function downloadMaterialInventoryMovementPdf(material: MaterialItem, cust
     runningStock += signedQuantity;
     const customer = customers.find((item) => item.id === entry.customerId);
     const service = services.find((item) => item.id === entry.serviceId);
-    const quantityCell = entry.type === "Inventur" && typeof entry.countedQuantity === "number"
-      ? [
-        `${signedQuantity >= 0 ? "+" : ""}${formatInventoryQuantity(signedQuantity)} ${material.unit}`,
-        `gezählt ${formatInventoryQuantity(entry.countedQuantity)}`,
-      ]
-      : [`${formatInventoryQuantity(signedQuantity)} ${material.unit}`];
+    const quantityText = `${signedQuantity >= 0 && entry.type === "Inventur" ? "+" : ""}${formatInventoryQuantity(signedQuantity)} ${material.unit}`;
     const valueText = entry.type === "Eingang" && (entry.purchaseGross || entry.purchaseNet || entry.purchasePrice)
       ? formatMoney(decimalValue(entry.purchaseNet ?? entry.purchasePrice ?? "") || purchaseAmountsFromGross(entry.purchaseGross ?? "", entry.purchaseTaxRate || "25").net, material.currency || "SEK")
       : "-";
@@ -3788,21 +3783,23 @@ async function downloadMaterialInventoryMovementPdf(material: MaterialItem, cust
       customer ? `Kunde: ${customer.name}` : "",
       service ? `Leistung: ${service.name}` : "",
     ].filter(Boolean).join(" · ");
-    const row: Array<string | string[]> = [
+    const noteText = [
+      entry.type === "Inventur" && typeof entry.countedQuantity === "number"
+        ? `gezählt ${formatInventoryQuantity(entry.countedQuantity)} ${material.unit}`
+        : "",
+      entry.note || "",
+    ].filter(Boolean).join(" · ") || "-";
+    const row = [
       formatCreatedAtWithSeconds(entry.createdAt),
       entry.type,
       entry.location || "-",
-      quantityCell,
+      quantityText,
       `${formatInventoryQuantity(runningStock)} ${material.unit}`,
       valueText,
       partnerText || "-",
-      entry.note || "-",
+      noteText,
     ];
-    const wrapped = row.map((value, index) => (
-      Array.isArray(value)
-        ? value.flatMap((line) => pdf.splitTextToSize(line, columns[index].width - 2.8) as string[])
-        : pdf.splitTextToSize(value, columns[index].width - 2.8) as string[]
-    ));
+    const wrapped = row.map((value, index) => pdf.splitTextToSize(value, columns[index].width - 2.8) as string[]);
     const rowHeight = Math.max(8, ...wrapped.map((lines) => lines.length * 3.6 + 3.8));
     ensureSpace(rowHeight);
     pdf.setDrawColor(226, 228, 232);

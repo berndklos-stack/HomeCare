@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.321.0",
+  version: "1.322.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.322.0",
+    date: "2026-09-06",
+    changes: [
+      "Inventur-PDF zeigt in der Mengenspalte nur noch die Differenz",
+      "Der gezaehlte Inventurbestand wird in der Notizspalte ausgegeben",
+    ],
+  },
   {
     version: "1.321.0",
     date: "2026-09-06",
