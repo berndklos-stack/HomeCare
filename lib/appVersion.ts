@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.322.0",
+  version: "1.323.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.323.0",
+    date: "2026-09-06",
+    changes: [
+      "Die Materialauswahl in der Auftragsanlage zeigt nur noch die anklickbare Bestandsliste",
+      "Das doppelte Material-Dropdown in der Auftragsanlage wurde entfernt",
+    ],
+  },
   {
     version: "1.322.0",
     date: "2026-09-06",

@@ -17443,18 +17443,10 @@ function JobForm({
         </div>
         {materialEntryMode === "catalog" && (
           <div className="add-position-panel">
-            <label>
+            <div className="section-heading compact-heading">
               <span>Material aus Stammdaten auswählen</span>
-              <select defaultValue="" onChange={(event) => {
-                addMaterialFromCatalog(event.target.value);
-                event.currentTarget.value = "";
-              }}>
-                <option value="">Material auswählen...</option>
-                {activeJobMaterials.map((material) => (
-                  <option key={material.id} value={material.id}>{material.name} · Bestand {materialInventoryLabel(material)} · {materialRate(material)}</option>
-                ))}
-              </select>
-            </label>
+              <strong>{activeJobMaterials.length} Artikel</strong>
+            </div>
             <div className="material-stock-picker-list">
               {activeJobMaterials.map((material) => (
                 <article key={material.id} onClick={() => addMaterialFromCatalog(material.id)} role="button" tabIndex={0} onKeyDown={(event) => {
