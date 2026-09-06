@@ -46,7 +46,7 @@ import {
   Wrench,
   X,
 } from "lucide-react";
-import { type CSSProperties, type DragEvent, type ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import { type CSSProperties, type DragEvent, type MouseEvent, type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { appVersion, versionHistory } from "@/lib/appVersion";
 
 type Language = "de" | "sv" | "en";
@@ -10378,6 +10378,11 @@ function PlanningView({
       onAssignPersonnel(job, assignedTo || "nicht zugewiesen");
     }
 
+    function moveToNextWeek(event: MouseEvent<HTMLButtonElement>) {
+      event.stopPropagation();
+      onMoveJob(job, addDaysValue(jobExecutionDate(job), 7), job.assignedTo || "nicht zugewiesen");
+    }
+
     return (
       <article
         className={`dispatch-job-card ${job.status === "in Arbeit" ? "active" : ""} ${job.status === "erledigt" ? "completed" : ""}`}
@@ -10434,6 +10439,10 @@ function PlanningView({
                 </div>
               )}
             </div>
+            <button className="dispatch-week-shift" onClick={moveToNextWeek} type="button">
+              <CalendarDays size={13} />
+              +1 Woche
+            </button>
           </>
         )}
       </article>

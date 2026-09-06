@@ -1643,6 +1643,29 @@ mark.neutral {
   width: 100%;
 }
 
+.dispatch-week-shift {
+  align-items: center;
+  background: color-mix(in srgb, var(--accent) 8%, var(--paper));
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--line));
+  border-radius: 6px;
+  color: var(--brand);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 800;
+  gap: 5px;
+  justify-content: center;
+  min-height: 26px;
+  padding: 3px 7px;
+  width: 100%;
+}
+
+.dispatch-week-shift:hover,
+.dispatch-week-shift:focus-visible {
+  background: color-mix(in srgb, var(--accent) 14%, var(--paper));
+  outline: none;
+}
+
 .dispatch-resource-tags {
   display: flex;
   flex-wrap: wrap;

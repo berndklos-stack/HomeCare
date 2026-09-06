@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.325.0",
+  version: "1.326.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.326.0",
+    date: "2026-09-06",
+    changes: [
+      "Einsatzkarten im Dispokalender haben einen Button zum Verschieben auf die naechste Woche",
+      "Die Verschiebung behaelt die aktuelle Zustaendigkeit bei und nutzt die bestehende Planungs-Historie",
+    ],
+  },
   {
     version: "1.325.0",
     date: "2026-09-06",
