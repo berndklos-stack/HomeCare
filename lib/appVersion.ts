@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.326.0",
+  version: "1.327.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.327.0",
+    date: "2026-09-06",
+    changes: [
+      "Der Dispokalender hat einen eigenen Bereich fuer undisponierte Auftraege",
+      "Auftraege koennen per Drag-and-drop aus der Planung nach Undisponiert verschoben werden",
+      "Undisponierte Auftraege koennen wieder auf einen Tag und Mitarbeiter gezogen werden",
+    ],
+  },
   {
     version: "1.326.0",
     date: "2026-09-06",

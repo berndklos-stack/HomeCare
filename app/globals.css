@@ -1531,6 +1531,41 @@ mark.neutral {
   border-color: var(--danger);
 }
 
+.dispatch-undisposed-panel {
+  background: color-mix(in srgb, var(--warning) 8%, var(--paper));
+  border: 1px dashed color-mix(in srgb, var(--warning) 42%, var(--line));
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.dispatch-undisposed-panel header {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.dispatch-undisposed-panel header div {
+  display: grid;
+  gap: 2px;
+}
+
+.dispatch-undisposed-panel header span,
+.dispatch-undisposed-panel header p,
+.dispatch-undisposed-list > p {
+  color: var(--muted);
+  font-size: 12px;
+  margin: 0;
+}
+
+.dispatch-undisposed-list {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
 .dispatch-day header {
   align-items: center;
   display: flex;

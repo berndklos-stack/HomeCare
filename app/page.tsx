@@ -5943,6 +5943,10 @@ function isUnassignedJobAssignee(value: string) {
   return ["", "-", "nicht zugewiesen", "nicht zugeordnet"].includes(value.trim().toLowerCase());
 }
 
+function isUndisposedPlanningJob(job: JobRecord) {
+  return job.executionDate === "" && isUnassignedJobAssignee(job.assignedTo);
+}
+
 function jobExecutionDate(job: JobRecord) {
   return normalizeReportDate(job.executionDate || job.startDate || job.dueDate);
 }
@@ -7331,16 +7335,18 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   }
 
   function moveJobExecution(job: JobRecord, toDate: string, assignedTo: string) {
-    const fromDate = jobExecutionDate(job);
+    const fromDate = isUndisposedPlanningJob(job) ? "undisponiert" : jobExecutionDate(job);
+    const normalizedToDate = toDate ? normalizeReportDate(toDate) : "";
     const toAssignedTo = assignedTo || "nicht zugewiesen";
-    if (fromDate === toDate && job.assignedTo === toAssignedTo) return;
+    const currentDateMarker = job.executionDate ?? jobExecutionDate(job);
+    if (currentDateMarker === normalizedToDate && job.assignedTo === toAssignedTo) return;
 
     const nextJobs = jobs.map((item) => {
       if (item.id !== job.id) return item;
       return {
         ...item,
         assignedTo: toAssignedTo,
-        executionDate: toDate,
+        executionDate: normalizedToDate,
         executionLog: [
           ...(item.executionLog ?? []),
           {
@@ -7349,7 +7355,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
             fromAssignedTo: item.assignedTo || "nicht zugewiesen",
             fromDate,
             toAssignedTo,
-            toDate,
+            toDate: normalizedToDate || "undisponiert",
           },
         ],
       };
@@ -10290,7 +10296,9 @@ function PlanningView({
   const activeJobs = visibleOperationalJobs(jobs)
     .filter((job) => !["offerte", "abgerechnet", "storniert"].includes(job.status))
     .sort((first, second) => jobExecutionDate(first).localeCompare(jobExecutionDate(second)) || first.title.localeCompare(second.title, "de"));
-  const overdueJobs = activeJobs.filter((job) => job.status !== "erledigt" && jobExecutionEndDate(job) < today);
+  const undisposedJobs = activeJobs.filter((job) => job.status !== "erledigt" && isUndisposedPlanningJob(job));
+  const scheduledJobs = activeJobs.filter((job) => !isUndisposedPlanningJob(job));
+  const overdueJobs = scheduledJobs.filter((job) => job.status !== "erledigt" && jobExecutionEndDate(job) < today);
   const normalizedReports = dedupeReports(reports);
   const selectedDispatchReport = normalizedReports.find((report) => report.id === selectedDispatchReportId);
   const selectedDispatchObject = selectedDispatchReport ? objects.find((object) => object.id === selectedDispatchReport.objectId) : undefined;
@@ -10311,7 +10319,7 @@ function PlanningView({
   });
   const activePersonnel = personnel.filter((person) => !person.archived);
   const activeResources = resources.filter((resource) => !resource.archived);
-  const assignedNames = uniqueSortedValues(activeJobs.map((job) => job.assignedTo).filter((name) => name && !isUnassignedJobAssignee(name)));
+  const assignedNames = uniqueSortedValues(scheduledJobs.map((job) => job.assignedTo).filter((name) => name && !isUnassignedJobAssignee(name)));
   const dispatcherRows = [
     ...activePersonnel.map((person) => ({
       id: person.id,
@@ -10326,7 +10334,7 @@ function PlanningView({
   ];
 
   function jobsForDate(date: string) {
-    return activeJobs.filter((job) => jobCoversExecutionDate(job, date));
+    return scheduledJobs.filter((job) => jobCoversExecutionDate(job, date));
   }
 
   function jobsForRowAndDate(row: typeof dispatcherRows[number], date: string) {
@@ -10348,6 +10356,14 @@ function PlanningView({
     const job = activeJobs.find((item) => item.id === jobId);
     if (!job || job.status === "erledigt") return;
     onMoveJob(job, date, assignedToForRow(row));
+  }
+
+  function handleUndisposedDrop(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    const jobId = event.dataTransfer.getData("text/plain");
+    const job = activeJobs.find((item) => item.id === jobId);
+    if (!job || job.status === "erledigt") return;
+    onMoveJob(job, "", "nicht zugewiesen");
   }
 
   function reportForDispatchJob(job: JobRecord) {
@@ -10492,6 +10508,25 @@ function PlanningView({
         </div>
       </div>
       <div className="dispatch-calendar">
+        <section
+          className="dispatch-undisposed-panel"
+          onDragOver={(event) => {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = "move";
+          }}
+          onDrop={handleUndisposedDrop}
+        >
+          <header>
+            <div>
+              <strong>Undisponiert</strong>
+              <span>{undisposedJobs.length} offen</span>
+            </div>
+            <p>Aufträge hier ablegen, wenn sie aus der Einsatzplanung herausgenommen werden sollen.</p>
+          </header>
+          <div className="dispatch-undisposed-list">
+            {undisposedJobs.length > 0 ? undisposedJobs.map(renderDispatchJob) : <p>Keine undisponierten Aufträge.</p>}
+          </div>
+        </section>
         {overdueJobs.length > 0 && (
           <section className="dispatch-day dispatch-overdue">
             <header>
