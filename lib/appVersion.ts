@@ -1,10 +1,20 @@
 export const appVersion = {
-  version: "1.328.0",
+  version: "1.329.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.329.0",
+    date: "2026-09-06",
+    changes: [
+      "Weitere App-Feldtexte wurden in die Sprachdatenbank aufgenommen",
+      "Die Sprachdatenbank nutzt Deutsch, Schwedisch und Englisch ohne Kundeneingaben zu uebersetzen",
+      "Dashboard, Serienhinweise, Statuslabels und neue Dialogfelder verwenden die zentrale Sprachumschaltung",
+      "Der Dark Mode wurde heller und weniger hart abgestimmt",
+    ],
+  },
   {
     version: "1.328.0",
     date: "2026-09-06",

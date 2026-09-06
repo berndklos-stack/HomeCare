@@ -941,6 +941,7 @@ const swedishUiText: Record<string, string> = {
   "Fahrt erfassen": "Registrera körning",
   "Fahrt manuell": "Registrera körning manuellt",
   "Fahrt speichern": "Spara körning",
+  "Heute steuern": "Styra idag",
   "Finanzen": "Ekonomi",
   "Format pro Zeile: Name|ICS-Link": "Format per rad: Namn|ICS-länk",
   "Fotos zum Objekt": "Bilder för objekt",
@@ -973,6 +974,7 @@ const swedishUiText: Record<string, string> = {
   "Kundenportal": "Kundportal",
   "Kundenübersicht": "Kundöversikt",
   "Kundensichtbar": "Synlig för kund",
+  "laufende Einsätze": "pågående uppdrag",
   "Leistung": "Tjänst",
   "Leistung anfragen": "Begär tjänst",
   "Leistungen": "Tjänster",
@@ -999,6 +1001,38 @@ const swedishUiText: Record<string, string> = {
   "Nachricht an Kolaretorp Service AB": "Meddelande till Kolaretorp Service AB",
   "Nachrichtenverlauf": "Meddelandehistorik",
   "Nächste Einsätze": "Kommande uppdrag",
+  "Objekte pflegen": "Underhålla objekt",
+  "vollständige Objektakten": "kompletta objektakter",
+  "Berichte prüfen": "Granska rapporter",
+  "in Listenform": "i listform",
+  "Arbeitsliste": "Arbetslista",
+  "Keine offenen Einsätze.": "Inga öppna uppdrag.",
+  "Serienauftrag": "Serieuppdrag",
+  "Serie": "Serie",
+  "Einmaliger Auftrag": "Engångsuppdrag",
+  "einmalig": "en gång",
+  "jede": "varje",
+  "alle": "var",
+  "Tag": "dag",
+  "Tage": "dagar",
+  "Woche": "Vecka",
+  "Wochen": "veckor",
+  "Monat": "månad",
+  "Monate": "månader",
+  "Jahr": "år",
+  "Jahre": "år",
+  "bis": "till",
+  "Termine": "tillfällen",
+  "gültig": "gäller",
+  "jedes Jahr": "varje år",
+  "offen": "öppen",
+  "geplant": "planerad",
+  "in Arbeit": "pågående",
+  "pausiert": "pausad",
+  "erledigt": "klar",
+  "abgerechnet": "fakturerad",
+  "storniert": "annullerad",
+  "offerte": "offert",
   "Nächster Besuch": "Nästa besök",
   "Name": "Namn",
   "Neuer Auftrag": "Nytt uppdrag",
@@ -1081,7 +1115,6 @@ const swedishUiText: Record<string, string> = {
   "Versandvorschau": "Förhandsgranskning utskick",
   "Vorname": "Förnamn",
   "Wasser": "Vatten",
-  "Woche": "Vecka",
   "Währung": "Valuta",
   "Änderung speichern": "Spara ändring",
   "Änderungen speichern": "Spara ändringar",
@@ -1146,10 +1179,6 @@ const swedishUiText: Record<string, string> = {
   "z.B. Einsatzleitung": "t.ex. arbetsledning",
 };
 
-function translatedUiText(value: string, language: Language) {
-  return language === "sv" ? swedishUiText[value] ?? value : value;
-}
-
 const englishUiText: Record<string, string> = {
   "Abbrechen": "Cancel",
   "Abrechnung": "Billing",
@@ -1186,6 +1215,7 @@ const englishUiText: Record<string, string> = {
   "Fahrt manuell": "Manual trip",
   "Fahrtenbuch": "Logbook",
   "Firma": "Company",
+  "Heute steuern": "Control today",
   "Freies Material": "Free material",
   "Freies Material beim Speichern in Stammdaten übernehmen": "Save free material to master data when saving",
   "für Abrechnung vormerken": "Mark for billing",
@@ -1199,6 +1229,7 @@ const englishUiText: Record<string, string> = {
   "Kein Material für diese Suche gefunden.": "No material found for this search.",
   "Korrektur": "Correction",
   "Kunde": "Customer",
+  "laufende Einsätze": "active jobs",
   "Lagerort": "Storage location",
   "Lagerort anlegen": "Create storage location",
   "Lagerort bearbeiten": "Edit storage location",
@@ -1207,6 +1238,39 @@ const englishUiText: Record<string, string> = {
   "Lagerorte": "Storage locations",
   "Lagerorte anzeigen": "Show storage locations",
   "Lagerverwaltung": "Inventory",
+  "Objekte pflegen": "Maintain properties",
+  "vollständige Objektakten": "complete property files",
+  "Berichte prüfen": "Review reports",
+  "in Listenform": "in list view",
+  "Arbeitsliste": "Worklist",
+  "Nächste Einsätze": "Upcoming jobs",
+  "Keine offenen Einsätze.": "No open jobs.",
+  "Serienauftrag": "Recurring job",
+  "Serie": "Series",
+  "Einmaliger Auftrag": "One-time job",
+  "einmalig": "one-time",
+  "jede": "every",
+  "alle": "every",
+  "Tag": "day",
+  "Tage": "days",
+  "Woche": "week",
+  "Wochen": "weeks",
+  "Monat": "month",
+  "Monate": "months",
+  "Jahr": "year",
+  "Jahre": "years",
+  "bis": "until",
+  "Termine": "appointments",
+  "gültig": "valid",
+  "jedes Jahr": "every year",
+  "offen": "open",
+  "geplant": "planned",
+  "in Arbeit": "in progress",
+  "pausiert": "paused",
+  "erledigt": "done",
+  "abgerechnet": "billed",
+  "storniert": "cancelled",
+  "offerte": "quote",
   "Leistung": "Service",
   "Leistung hinzufügen": "Add service",
   "Leistung, Kategorie, Einheit oder Konto suchen...": "Search service, category, unit or account...",
@@ -1242,9 +1306,106 @@ const englishUiText: Record<string, string> = {
   "Änderungen speichern": "Save changes",
 };
 
+const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
+  { de: "Alle bekannten App-Texte als Übersetzungsdatei mit Deutsch, Schwedisch und Englisch.", sv: "Alla kända apptexter som översättningsfil med tyska, svenska och engelska.", en: "All known app texts as a translation file with German, Swedish and English." },
+  { de: "Aktuell gibt es keine geplanten oder laufende Einsätze.", sv: "Det finns för närvarande inga planerade eller pågående uppdrag.", en: "There are currently no planned or active jobs." },
+  { de: "Aktuell sind keine offenen Aufträge für dich vorhanden.", sv: "Det finns för närvarande inga öppna uppdrag för dig.", en: "There are currently no open jobs for you." },
+  { de: "Aktueller Live-Stand", sv: "Aktuell livestatus", en: "Current live status" },
+  { de: "Aktueller Status", sv: "Aktuell status", en: "Current status" },
+  { de: "Alle Berichte", sv: "Alla rapporter", en: "All reports" },
+  { de: "Ankunft und Grundkontrolle", sv: "Ankomst och grundkontroll", en: "Arrival and basic check" },
+  { de: "Anmelden", sv: "Logga in", en: "Sign in" },
+  { de: "Anzahl Termine", sv: "Antal tider", en: "Number of appointments" },
+  { de: "Apple Erinnerungen / Aufgaben nächste 5 Tage", sv: "Apple-påminnelser / uppgifter kommande 5 dagar", en: "Apple reminders / tasks next 5 days" },
+  { de: "Archivierte Konten", sv: "Arkiverade konton", en: "Archived accounts" },
+  { de: "Archiviertes Material", sv: "Arkiverat material", en: "Archived material" },
+  { de: "Artikelnummer / SKU", sv: "Artikelnummer / SKU", en: "Item number / SKU" },
+  { de: "Auftrag in Abrechnung übernehmen", sv: "Överför uppdrag till fakturering", en: "Move job to billing" },
+  { de: "Aus Leistung übernehmen", sv: "Hämta från tjänst", en: "Copy from service" },
+  { de: "Auswahl übernehmen", sv: "Använd urval", en: "Apply selection" },
+  { de: "Backups", sv: "Säkerhetskopior", en: "Backups" },
+  { de: "Bankverbindung", sv: "Bankuppgifter", en: "Bank details" },
+  { de: "Bearbeiten", sv: "Redigera", en: "Edit" },
+  { de: "Bericht", sv: "Rapport", en: "Report" },
+  { de: "Bericht noch nicht gefunden", sv: "Rapporten hittades inte ännu", en: "Report not found yet" },
+  { de: "Bericht senden", sv: "Skicka rapport", en: "Send report" },
+  { de: "Bericht wurde erzeugt", sv: "Rapporten skapades", en: "Report was created" },
+  { de: "Berichtstext", sv: "Rapporttext", en: "Report text" },
+  { de: "Bestand aktuell", sv: "Aktuellt lager", en: "Current stock" },
+  { de: "Bestände und Buchungen", sv: "Lager och bokningar", en: "Stock and postings" },
+  { de: "Besucht bei", sv: "Besökt hos", en: "Visited at" },
+  { de: "Betrag", sv: "Belopp", en: "Amount" },
+  { de: "Betrag netto", sv: "Nettobelopp", en: "Net amount" },
+  { de: "Bilder hinzufügen", sv: "Lägg till bilder", en: "Add images" },
+  { de: "Bildquelle fehlt", sv: "Bildkälla saknas", en: "Image source missing" },
+  { de: "Brutto", sv: "Brutto", en: "Gross" },
+  { de: "Bäder", sv: "Badrum", en: "Bathrooms" },
+  { de: "Checkliste für Einsatz", sv: "Checklista för uppdrag", en: "Checklist for job" },
+  { de: "Checklistenpunkt hinzufügen", sv: "Lägg till checklistpunkt", en: "Add checklist item" },
+  { de: "Datei herunterladen", sv: "Ladda ner fil", en: "Download file" },
+  { de: "Dateianhänge", sv: "Bilagor", en: "Attachments" },
+  { de: "Daten aktualisiert", sv: "Data uppdaterad", en: "Data updated" },
+  { de: "Datenbestand", sv: "Databas", en: "Data set" },
+  { de: "Datum alt zuerst", sv: "Äldsta datum först", en: "Oldest date first" },
+  { de: "Datum neu zuerst", sv: "Nyaste datum först", en: "Newest date first" },
+  { de: "Deutsch", sv: "Tyska", en: "German" },
+  { de: "Dienstfahrt", sv: "Tjänsteresa", en: "Business trip" },
+  { de: "Dokument hinzufügen", sv: "Lägg till dokument", en: "Add document" },
+  { de: "Dokumentvorschau", sv: "Dokumentförhandsvisning", en: "Document preview" },
+  { de: "E-Mail-Adresse", sv: "E-postadress", en: "Email address" },
+  { de: "Einkaufspreis brutto", sv: "Inköpspris brutto", en: "Purchase price gross" },
+  { de: "Einkaufspreis netto", sv: "Inköpspris netto", en: "Purchase price net" },
+  { de: "Einsatznotiz / Kommentar", sv: "Uppdragsnotering / kommentar", en: "Job note / comment" },
+  { de: "Englisch", sv: "Engelska", en: "English" },
+  { de: "Entwürfe", sv: "Utkast", en: "Drafts" },
+  { de: "Erledigt lassen", sv: "Låt vara klart", en: "Keep done" },
+  { de: "Erstellt", sv: "Skapad", en: "Created" },
+  { de: "Fahrzeug auswählen", sv: "Välj fordon", en: "Select vehicle" },
+  { de: "Fahrzeugdokumente", sv: "Fordonsdokument", en: "Vehicle documents" },
+  { de: "Faktura", sv: "Faktura", en: "Invoice" },
+  { de: "Fakturadatum", sv: "Fakturadatum", en: "Invoice date" },
+  { de: "Fakturanr.", sv: "Fakturanr.", en: "Invoice no." },
+  { de: "Firmenname", sv: "Företagsnamn", en: "Company name" },
+  { de: "Firmenstammdaten speichern", sv: "Spara företagsuppgifter", en: "Save company master data" },
+  { de: "Foto erfasst", sv: "Foto registrerat", en: "Photo captured" },
+  { de: "Foto-Info", sv: "Fotoinfo", en: "Photo info" },
+  { de: "Fotovorschau", sv: "Fotoförhandsvisning", en: "Photo preview" },
+  { de: "Fällig", sv: "Förfaller", en: "Due" },
+  { de: "Gebucht", sv: "Bokad", en: "Posted" },
+  { de: "Gesendet", sv: "Skickad", en: "Sent" },
+  { de: "Gesendete Berichte", sv: "Skickade rapporter", en: "Sent reports" },
+  { de: "Gültig bis", sv: "Giltigt till", en: "Valid until" },
+  { de: "Gültig von", sv: "Giltigt från", en: "Valid from" },
+  { de: "Hauptlagerort", sv: "Huvudlagerplats", en: "Main storage location" },
+  { de: "Immer anzeigen", sv: "Visa alltid", en: "Always show" },
+  { de: "Immer ausblenden", sv: "Dölj alltid", en: "Always hide" },
+  { de: "Intervall", sv: "Intervall", en: "Interval" },
+  { de: "Jahresrhythmus", sv: "Årsrytm", en: "Annual rhythm" },
+  { de: "Keine Aufträge für diesen Status.", sv: "Inga uppdrag med denna status.", en: "No jobs for this status." },
+  { de: "Korrekturen / Änderungen", sv: "Korrigeringar / ändringar", en: "Corrections / changes" },
+  { de: "Letztes Backup", sv: "Senaste säkerhetskopia", en: "Last backup" },
+  { de: "Maximalbestand", sv: "Maxlager", en: "Maximum stock" },
+  { de: "Mindestbestand", sv: "Minimilager", en: "Minimum stock" },
+  { de: "Nachricht schließen", sv: "Stäng meddelande", en: "Close message" },
+  { de: "Neue Leistung anlegen", sv: "Skapa ny tjänst", en: "Create new service" },
+  { de: "Neues Material anlegen", sv: "Skapa nytt material", en: "Create new material" },
+  { de: "Pauschaler Rabatt", sv: "Fast rabatt", en: "Flat discount" },
+  { de: "Privatfahrt", sv: "Privat resa", en: "Private trip" },
+  { de: "Rabatt hinzufügen", sv: "Lägg till rabatt", en: "Add discount" },
+  { de: "Rechnungsvorschau", sv: "Fakturaförhandsvisning", en: "Invoice preview" },
+  { de: "Schlüssel", sv: "Nyckel", en: "Key" },
+  { de: "Schwedisch", sv: "Svenska", en: "Swedish" },
+  { de: "Sicherheit", sv: "Säkerhet", en: "Security" },
+  { de: "Texte gesamt", sv: "Texter totalt", en: "Texts total" },
+  { de: "Zu prüfen", sv: "Att kontrollera", en: "To review" },
+];
+
+const appFieldSvText = Object.fromEntries(appFieldTranslations.map((row) => [row.de, row.sv]));
+const appFieldEnText = Object.fromEntries(appFieldTranslations.map((row) => [row.de, row.en]));
+
 function uiText(value: string, language: Language) {
-  if (language === "sv") return swedishUiText[value] ?? value;
-  if (language === "en") return englishUiText[value] ?? value;
+  if (language === "sv") return swedishUiText[value] ?? appFieldSvText[value] ?? value;
+  if (language === "en") return englishUiText[value] ?? appFieldEnText[value] ?? value;
   return value;
 }
 
@@ -1271,6 +1432,7 @@ function translationFileRows() {
       sv: navLabels.sv[sectionKey],
     });
   });
+  appFieldTranslations.forEach((row) => upsert(row.de, row));
   Object.entries(swedishUiText).forEach(([key, sv]) => upsert(key, { de: key, en: englishUiText[key] ?? key, sv }));
   Object.entries(englishUiText).forEach(([key, en]) => upsert(key, { de: key, en, sv: swedishUiText[key] ?? key }));
 
@@ -5527,33 +5689,34 @@ const monthNames = [
   "Dezember",
 ];
 
-function scheduleLabel(schedule: JobSchedule) {
-  if (schedule.type === "einmalig") return "einmalig";
+function scheduleLabel(schedule: JobSchedule, language: Language = "de") {
+  const tt = (value: string) => uiText(value, language);
+  if (schedule.type === "einmalig") return tt("einmalig");
 
-  const interval = schedule.interval > 1 ? `alle ${schedule.interval} ` : "jede ";
+  const interval = schedule.interval > 1 ? `${tt("alle")} ${schedule.interval} ` : `${tt("jede")} `;
   const cadence = schedule.frequency === "täglich"
-    ? `${interval}${schedule.interval > 1 ? "Tage" : "Tag"}`
+    ? `${interval}${schedule.interval > 1 ? tt("Tage") : tt("Tag")}`
     : schedule.frequency === "wöchentlich"
-      ? `${interval}${schedule.interval > 1 ? "Wochen" : "Woche"}`
+      ? `${interval}${schedule.interval > 1 ? tt("Wochen") : tt("Woche")}`
       : schedule.frequency === "monatlich"
-        ? `${interval}${schedule.interval > 1 ? "Monate" : "Monat"}`
-        : `${interval}${schedule.interval > 1 ? "Jahre" : "Jahr"}`;
+        ? `${interval}${schedule.interval > 1 ? tt("Monate") : tt("Monat")}`
+        : `${interval}${schedule.interval > 1 ? tt("Jahre") : tt("Jahr")}`;
   const days = schedule.weekdays.length > 0 ? ` · ${schedule.weekdays.join(", ")}` : "";
   const end = schedule.end === "am" && schedule.endDate
-    ? ` · bis ${schedule.endDate}`
+    ? ` · ${tt("bis")} ${schedule.endDate}`
     : schedule.end === "nach" && schedule.occurrences > 0
-      ? ` · ${schedule.occurrences} Termine`
+      ? ` · ${schedule.occurrences} ${tt("Termine")}`
       : "";
   const season = schedule.activeFromMonth && schedule.activeToMonth
-    ? ` · gültig ${monthNames[schedule.activeFromMonth - 1]} bis ${monthNames[schedule.activeToMonth - 1]}`
+    ? ` · ${tt("gültig")} ${monthNames[schedule.activeFromMonth - 1]} ${tt("bis")} ${monthNames[schedule.activeToMonth - 1]}`
     : "";
   const years = schedule.yearInterval && schedule.yearInterval > 1
-    ? ` · alle ${schedule.yearInterval} Jahre`
+    ? ` · ${tt("alle")} ${schedule.yearInterval} ${tt("Jahre")}`
     : schedule.activeFromMonth && schedule.activeToMonth
-      ? " · jedes Jahr"
+      ? ` · ${tt("jedes Jahr")}`
       : "";
 
-  return `Serie: ${cadence}${days}${season}${years}${end}`;
+  return `${tt("Serie")}: ${cadence}${days}${season}${years}${end}`;
 }
 
 function parseJobDate(value: string) {
@@ -6063,10 +6226,10 @@ function dashboardWorkJobs(jobs: JobRecord[]) {
   return sortedByExecutionDate([...standaloneJobs, ...nextSeriesOccurrences]);
 }
 
-function recurringJobHint(job: JobRecord, allJobs: JobRecord[]) {
+function recurringJobHint(job: JobRecord, allJobs: JobRecord[], language: Language = "de") {
   if (!job.seriesMasterId) return "";
   const master = allJobs.find((item) => item.id === job.seriesMasterId);
-  return master ? `Serienauftrag · ${master.title} · ${scheduleLabel(master.schedule).replace(/^Serie:\s*/, "")}` : "Serienauftrag";
+  return master ? `${uiText("Serienauftrag", language)} · ${master.title} · ${scheduleLabel(master.schedule, language).replace(/^Serie:\s*/, "").replace(/^Series:\s*/, "").replace(/^Serie:\s*/, "")}` : uiText("Serienauftrag", language);
 }
 
 function sortedByDueDate(jobs: JobRecord[]) {
@@ -8598,6 +8761,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
             {section === "dashboard" && (
               <Dashboard
                 allJobs={jobs}
+                language={language}
                 objects={activeObjects}
                 reports={reports}
                 setSection={setSection}
@@ -9424,20 +9588,23 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
 
 function Dashboard({
   allJobs,
+  language,
   objects,
   reports,
   setSection,
 }: {
   allJobs: JobRecord[];
+  language: Language;
   objects: ObjectRecord[];
   reports: ReportRecord[];
   setSection: (section: Section) => void;
 }) {
+  const tt = (value: string) => uiText(value, language);
   const openDashboardJobs = dashboardWorkJobs(allJobs);
   const workBlocks = [
-    { label: "Heute steuern", value: openDashboardJobs.filter((job) => job.status === "in Arbeit").length, text: "laufende Einsätze", section: "planning" as Section },
-    { label: "Objekte pflegen", value: objects.length, text: "vollständige Objektakten", section: "objects" as Section },
-    { label: "Berichte prüfen", value: reports.length, text: "in Listenform", section: "reports" as Section },
+    { label: tt("Heute steuern"), value: openDashboardJobs.filter((job) => job.status === "in Arbeit").length, text: tt("laufende Einsätze"), section: "planning" as Section },
+    { label: tt("Objekte pflegen"), value: objects.length, text: tt("vollständige Objektakten"), section: "objects" as Section },
+    { label: tt("Berichte prüfen"), value: reports.length, text: tt("in Listenform"), section: "reports" as Section },
   ];
 
   return (
@@ -9454,8 +9621,8 @@ function Dashboard({
       <section className="panel">
         <div className="panel-title">
           <div>
-            <p>Arbeitsliste</p>
-            <h2>Nächste Einsätze</h2>
+            <p>{tt("Arbeitsliste")}</p>
+            <h2>{tt("Nächste Einsätze")}</h2>
           </div>
         </div>
         <div className="table-list dashboard-work-list">
@@ -9463,13 +9630,13 @@ function Dashboard({
             <article className="job-group-tint" key={job.id} style={jobGroupStyle(job)}>
               <div>
                 <strong>{job.title}</strong>
-                <span>{recurringJobHint(job, allJobs) || `${job.type} · ${job.assignedTo}`}</span>
+                <span>{recurringJobHint(job, allJobs, language) || `${job.type} · ${isUnassignedJobAssignee(job.assignedTo) ? tt("nicht zugewiesen") : job.assignedTo}`}</span>
               </div>
               <span>{jobDateRangeLabel(job)}</span>
-              <Badge value={job.status} />
+              <Badge value={tt(job.status)} />
             </article>
           ))}
-          {openDashboardJobs.length === 0 && <span className="muted-line">Keine offenen Einsätze.</span>}
+          {openDashboardJobs.length === 0 && <span className="muted-line">{tt("Keine offenen Einsätze.")}</span>}
         </div>
       </section>
     </div>
@@ -14708,7 +14875,7 @@ function MasterDataView({
       <div className="segmented-control master-data-tabs">
         <button className={masterDataTab === "company" ? "active" : ""} onClick={() => setMasterDataTab("company")} type="button">
           <Home size={16} />
-          Firma
+          {tt("Firma")}
         </button>
         <button className={masterDataTab === "personal" ? "active" : ""} onClick={() => { setMasterDataTab("personal"); resetPersonForm(); }} type="button">
           <UserRound size={16} />
@@ -14724,11 +14891,11 @@ function MasterDataView({
         </button>
         <button className={masterDataTab === "materials" ? "active" : ""} onClick={() => setMasterDataTab("materials")} type="button">
           <Paperclip size={16} />
-          Material
+          {tt("Material")}
         </button>
         <button className={masterDataTab === "accounting" ? "active" : ""} onClick={() => setMasterDataTab("accounting")} type="button">
           <Euro size={16} />
-          Buchhaltung
+          {tt("Buchhaltung")}
         </button>
         <button className={masterDataTab === "mail" ? "active" : ""} onClick={() => setMasterDataTab("mail")} type="button">
           <Mail size={16} />
@@ -14752,33 +14919,33 @@ function MasterDataView({
             <div>
               <p>{tt("Stammdaten")}</p>
               <h2>{tt("Sprachen")}</h2>
-              <span>Alle bekannten App-Texte als Übersetzungsdatei mit Deutsch, Schwedisch und Englisch.</span>
+              <span>{tt("Alle bekannten App-Texte als Übersetzungsdatei mit Deutsch, Schwedisch und Englisch.")}</span>
             </div>
             <button className="primary-button" onClick={downloadTranslationsFile} type="button">
               <FileDown size={16} />
-              Datei herunterladen
+              {tt("Datei herunterladen")}
             </button>
           </div>
           <div className="summary-grid">
             <article>
-              <span>Texte gesamt</span>
+              <span>{tt("Texte gesamt")}</span>
               <strong>{translationRows.length}</strong>
             </article>
             <article>
-              <span>Sprachen</span>
+              <span>{tt("Sprachen")}</span>
               <strong>DE · SV · EN</strong>
             </article>
             <article>
-              <span>Zu prüfen</span>
+              <span>{tt("Zu prüfen")}</span>
               <strong>{missingTranslationCount}</strong>
             </article>
           </div>
           <div className="translation-file-panel">
             <div className="translation-file-head">
-              <span>Schlüssel</span>
-              <span>Deutsch</span>
-              <span>Schwedisch</span>
-              <span>Englisch</span>
+              <span>{tt("Schlüssel")}</span>
+              <span>{tt("Deutsch")}</span>
+              <span>{tt("Schwedisch")}</span>
+              <span>{tt("Englisch")}</span>
             </div>
             {translationRows.map((row) => (
               <article className={row.de === row.sv || row.de === row.en ? "needs-review" : ""} key={row.key}>
