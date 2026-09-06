@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.319.0",
+  version: "1.320.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.320.0",
+    date: "2026-09-06",
+    changes: [
+      "Die PDF-Bewegungsliste trennt Inventur-Differenz und gezaehlten Bestand auf zwei Zeilen",
+      "Mengen- und Bestandsspalten in der Lagerbewegungs-PDF haben mehr Platz",
+      "Inventurbuchungen ueberschreiben in der PDF keine Nachbarspalten mehr",
+    ],
+  },
   {
     version: "1.319.0",
     date: "2026-09-06",
