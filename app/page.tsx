@@ -1321,15 +1321,24 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Archiviertes Material", sv: "Arkiverat material", en: "Archived material" },
   { de: "Artikelnummer / SKU", sv: "Artikelnummer / SKU", en: "Item number / SKU" },
   { de: "Auftrag in Abrechnung übernehmen", sv: "Överför uppdrag till fakturering", en: "Move job to billing" },
+  { de: "Auftrag auswählen", sv: "Välj uppdrag", en: "Select job" },
+  { de: "Auftrag schließen", sv: "Stäng uppdrag", en: "Close job" },
+  { de: "Auftragsabwicklung", sv: "Uppdragshantering", en: "Job processing" },
+  { de: "Auftragsart", sv: "Uppdragstyp", en: "Job mode" },
+  { de: "Auftragsbestätigung", sv: "Orderbekräftelse", en: "Order confirmation" },
+  { de: "Auftragsübersicht", sv: "Uppdragsöversikt", en: "Job overview" },
+  { de: "Ausführung", sv: "Utförande", en: "Execution" },
   { de: "Aus Leistung übernehmen", sv: "Hämta från tjänst", en: "Copy from service" },
   { de: "Auswahl übernehmen", sv: "Använd urval", en: "Apply selection" },
   { de: "Backups", sv: "Säkerhetskopior", en: "Backups" },
   { de: "Bankverbindung", sv: "Bankuppgifter", en: "Bank details" },
   { de: "Bearbeiten", sv: "Redigera", en: "Edit" },
+  { de: "Beibehalten", sv: "Behåll", en: "Keep" },
   { de: "Bericht", sv: "Rapport", en: "Report" },
   { de: "Bericht noch nicht gefunden", sv: "Rapporten hittades inte ännu", en: "Report not found yet" },
   { de: "Bericht senden", sv: "Skicka rapport", en: "Send report" },
   { de: "Bericht wurde erzeugt", sv: "Rapporten skapades", en: "Report was created" },
+  { de: "Bericht nachbearbeiten", sv: "Efterredigera rapport", en: "Edit report afterwards" },
   { de: "Berichtstext", sv: "Rapporttext", en: "Report text" },
   { de: "Bestand aktuell", sv: "Aktuellt lager", en: "Current stock" },
   { de: "Bestände und Buchungen", sv: "Lager och bokningar", en: "Stock and postings" },
@@ -1343,6 +1352,9 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Checkliste für Einsatz", sv: "Checklista för uppdrag", en: "Checklist for job" },
   { de: "Checklistenpunkt hinzufügen", sv: "Lägg till checklistpunkt", en: "Add checklist item" },
   { de: "Datei herunterladen", sv: "Ladda ner fil", en: "Download file" },
+  { de: "Datei konnte nicht angehängt werden.", sv: "Filen kunde inte bifogas.", en: "File could not be attached." },
+  { de: "Datei wurde vorbereitet.", sv: "Filen förbereddes.", en: "File was prepared." },
+  { de: "Dateien wurden vorbereitet.", sv: "Filerna förbereddes.", en: "Files were prepared." },
   { de: "Dateianhänge", sv: "Bilagor", en: "Attachments" },
   { de: "Daten aktualisiert", sv: "Data uppdaterad", en: "Data updated" },
   { de: "Datenbestand", sv: "Databas", en: "Data set" },
@@ -1356,9 +1368,12 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Einkaufspreis brutto", sv: "Inköpspris brutto", en: "Purchase price gross" },
   { de: "Einkaufspreis netto", sv: "Inköpspris netto", en: "Purchase price net" },
   { de: "Einsatznotiz / Kommentar", sv: "Uppdragsnotering / kommentar", en: "Job note / comment" },
+  { de: "Einsatz", sv: "Uppdrag", en: "Job" },
+  { de: "Einmalig", sv: "En gång", en: "One-time" },
   { de: "Englisch", sv: "Engelska", en: "English" },
   { de: "Entwürfe", sv: "Utkast", en: "Drafts" },
   { de: "Erledigt lassen", sv: "Låt vara klart", en: "Keep done" },
+  { de: "Erledigte Aufträge", sv: "Klarmarkerade uppdrag", en: "Completed jobs" },
   { de: "Erstellt", sv: "Skapad", en: "Created" },
   { de: "Fahrzeug auswählen", sv: "Välj fordon", en: "Select vehicle" },
   { de: "Fahrzeugdokumente", sv: "Fordonsdokument", en: "Vehicle documents" },
@@ -1382,12 +1397,15 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Intervall", sv: "Intervall", en: "Interval" },
   { de: "Jahresrhythmus", sv: "Årsrytm", en: "Annual rhythm" },
   { de: "Keine Aufträge für diesen Status.", sv: "Inga uppdrag med denna status.", en: "No jobs for this status." },
+  { de: "Keine offenen Aufträge.", sv: "Inga öppna uppdrag.", en: "No open jobs." },
+  { de: "Kein Auftrag in Arbeit.", sv: "Inget uppdrag pågår.", en: "No job in progress." },
   { de: "Korrekturen / Änderungen", sv: "Korrigeringar / ändringar", en: "Corrections / changes" },
   { de: "Letztes Backup", sv: "Senaste säkerhetskopia", en: "Last backup" },
   { de: "Maximalbestand", sv: "Maxlager", en: "Maximum stock" },
   { de: "Mindestbestand", sv: "Minimilager", en: "Minimum stock" },
   { de: "Nachricht schließen", sv: "Stäng meddelande", en: "Close message" },
   { de: "Neue Leistung anlegen", sv: "Skapa ny tjänst", en: "Create new service" },
+  { de: "Neuer Auftrag", sv: "Nytt uppdrag", en: "New job" },
   { de: "Neues Material anlegen", sv: "Skapa nytt material", en: "Create new material" },
   { de: "Pauschaler Rabatt", sv: "Fast rabatt", en: "Flat discount" },
   { de: "Privatfahrt", sv: "Privat resa", en: "Private trip" },
@@ -1396,8 +1414,49 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Schlüssel", sv: "Nyckel", en: "Key" },
   { de: "Schwedisch", sv: "Svenska", en: "Swedish" },
   { de: "Sicherheit", sv: "Säkerhet", en: "Security" },
+  { de: "Dieser Bericht wurde gesendet und ist für Änderungen gesperrt.", sv: "Denna rapport har skickats och är låst för ändringar.", en: "This report has been sent and is locked for changes." },
+  { de: "Der Auftrag bleibt als laufender Einsatz markiert.", sv: "Uppdraget förblir markerat som pågående.", en: "The job remains marked as active." },
+  { de: "Der Auftrag bleibt auf diesem Status.", sv: "Uppdraget behåller denna status.", en: "The job keeps this status." },
+  { de: "Der Auftrag wird wieder in die Planung zurückgelegt.", sv: "Uppdraget flyttas tillbaka till planeringen.", en: "The job is moved back to planning." },
+  { de: "Einsatz abschließen", sv: "Avsluta uppdrag", en: "Complete job" },
+  { de: "Geplant", sv: "Planerad", en: "Planned" },
+  { de: "Keine Statusänderung vornehmen.", sv: "Gör ingen statusändring.", en: "Do not change status." },
+  { de: "Letzten Tag speichern und Auftrag abschließen", sv: "Spara sista dagen och avsluta uppdraget", en: "Save last day and complete job" },
+  { de: "Status beim Schließen", sv: "Status vid stängning", en: "Status when closing" },
+  { de: "Statusauswahl schließen", sv: "Stäng statusval", en: "Close status selection" },
+  { de: "Tagesbericht zwischenspeichern", sv: "Mellanspara dagsrapport", en: "Save daily report draft" },
+  { de: "Bericht speichern", sv: "Spara rapport", en: "Save report" },
+  { de: "senden", sv: "skicka", en: "send" },
   { de: "Texte gesamt", sv: "Texter totalt", en: "Texts total" },
   { de: "Zu prüfen", sv: "Att kontrollera", en: "To review" },
+  { de: "Abgeschlossene Berichte", sv: "Avslutade rapporter", en: "Completed reports" },
+  { de: "Aktive Aufträge", sv: "Aktiva uppdrag", en: "Active jobs" },
+  { de: "An Kunden senden", sv: "Skicka till kund", en: "Send to customer" },
+  { de: "Anzeigen", sv: "Visa", en: "Show" },
+  { de: "Ausblenden", sv: "Dölj", en: "Hide" },
+  { de: "Für diesen Serienauftrag sind aktuell keine offenen Teilaufträge vorbereitet.", sv: "Det finns för närvarande inga öppna deluppdrag för detta serieuppdrag.", en: "No open sub-jobs are currently prepared for this recurring job." },
+  { de: "filtern", sv: "filtrera", en: "filter" },
+  { de: "In Bearbeitung", sv: "Pågår", en: "In progress" },
+  { de: "Letzter", sv: "Senaste", en: "Last" },
+  { de: "Noch keine abgeschlossenen Berichte.", sv: "Inga avslutade rapporter ännu.", en: "No completed reports yet." },
+  { de: "Noch keine gesendeten Berichte.", sv: "Inga skickade rapporter ännu.", en: "No sent reports yet." },
+  { de: "Nächster", sv: "Nästa", en: "Next" },
+  { de: "Objekt unbekannt", sv: "Okänt objekt", en: "Unknown object" },
+  { de: "Offene Aufträge", sv: "Öppna uppdrag", en: "Open jobs" },
+  { de: "Original", sv: "Original", en: "Original" },
+  { de: "Reaktivieren", sv: "Återaktivera", en: "Reactivate" },
+  { de: "Serienstatus", sv: "Seriestatus", en: "Series status" },
+  { de: "Stornierte Aufträge", sv: "Annullerade uppdrag", en: "Cancelled jobs" },
+  { de: "Stornieren", sv: "Annullera", en: "Cancel" },
+  { de: "Teilauftrag", sv: "Deluppdrag", en: "Sub-job" },
+  { de: "Teilaufträge", sv: "Deluppdrag", en: "Sub-jobs" },
+  { de: "Tippe einen offenen Auftrag oder einen bestehenden Bericht an, um die Checkliste vor Ort zu bearbeiten.", sv: "Tryck på ett öppet uppdrag eller en befintlig rapport för att redigera checklistan på plats.", en: "Tap an open job or an existing report to edit the on-site checklist." },
+  { de: "Verschiebungen", sv: "Flyttar", en: "Moves" },
+  { de: "Wochenbericht", sv: "Veckorapport", en: "Weekly report" },
+  { de: "erstellen und senden", sv: "skapa och skicka", en: "create and send" },
+  { de: "erledigt", sv: "klar", en: "done" },
+  { de: "normal", sv: "normal", en: "normal" },
+  { de: "niedrig", sv: "låg", en: "low" },
 ];
 
 const appFieldSvText = Object.fromEntries(appFieldTranslations.map((row) => [row.de, row.sv]));
@@ -6290,11 +6349,11 @@ function combineWorkMinutes(hours: string, minutes: string) {
   return String((safeHours * 60) + Math.min(safeMinutes, 59));
 }
 
-function readableJobStatus(status: JobRecord["status"]) {
-  if (status === "offerte") return "Offerte";
-  if (status === "geplant") return "offen";
-  if (status === "in Arbeit") return "in Bearbeitung";
-  return status;
+function readableJobStatus(status: JobRecord["status"], language: Language = "de") {
+  if (status === "offerte") return uiText("offerte", language);
+  if (status === "geplant") return uiText("offen", language);
+  if (status === "in Arbeit") return uiText("In Bearbeitung", language);
+  return uiText(status, language);
 }
 
 function isUnassignedJobAssignee(value: string) {
@@ -8817,6 +8876,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
             {section === "jobs" && (
               <JobsView
                 jobs={jobs}
+                language={language}
                 objects={activeObjects}
                 onCancel={cancelJob}
                 onConfirmOffer={confirmOffer}
@@ -8878,6 +8938,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                 activeJobId={activeJobId}
                 allJobs={jobs}
                 customers={customers}
+                language={language}
                 objects={activeObjects}
                 packages={servicePackages}
                 services={services}
@@ -10387,6 +10448,7 @@ function CustomersView({
 
 function JobsView({
   jobs,
+  language,
   objects,
   onCancel,
   onConfirmOffer,
@@ -10403,6 +10465,7 @@ function JobsView({
   reports,
 }: {
   jobs: JobRecord[];
+  language: Language;
   objects: ObjectRecord[];
   onCancel: (job: JobRecord) => void;
   onConfirmOffer: (job: JobRecord) => void;
@@ -10418,6 +10481,7 @@ function JobsView({
   onStart: (job: JobRecord) => void;
   reports: ReportRecord[];
 }) {
+  const tt = (value: string) => uiText(value, language);
   const [expandedSeriesIds, setExpandedSeriesIds] = useState<string[]>([]);
   const [activeGroupOpen, setActiveGroupOpen] = useState(true);
   const [completedGroupOpen, setCompletedGroupOpen] = useState(false);
@@ -10465,52 +10529,52 @@ function JobsView({
           <div className="job-title-line">
             <strong>{job.title}</strong>
             {isRecurring && summary && (
-              <div className="series-summary-chips" aria-label="Serienstatus">
-                <span>Serienauftrag</span>
-                <span>Letzter: {summary.lastDone}</span>
-                <span>Nächster: {summary.nextStatus} {summary.nextDate}</span>
+              <div className="series-summary-chips" aria-label={tt("Serienstatus")}>
+                <span>{tt("Serienauftrag")}</span>
+                <span>{tt("Letzter")}: {summary.lastDone}</span>
+                <span>{tt("Nächster")}: {tt(summary.nextStatus)} {summary.nextDate}</span>
               </div>
             )}
           </div>
-          <span>{objects.find((object) => object.id === job.objectId)?.name} · {isRecurring && summary ? summary.rhythm : scheduleLabel(job.schedule)} · {job.description}</span>
+          <span>{objects.find((object) => object.id === job.objectId)?.name} · {isRecurring && summary ? scheduleLabel(job.schedule, language).replace(/^Serie:\s*/, "").replace(/^Series:\s*/, "") : scheduleLabel(job.schedule, language)} · {job.description}</span>
           {!isRecurring && job.executionDate && jobDateRangeLabel(job) !== jobOriginalDateRangeLabel(job) && (
-            <span>Ausführung: {jobDateRangeLabel(job)} · Original: {jobOriginalDateRangeLabel(job)} · {job.executionLog?.length ?? 0} Verschiebungen</span>
+            <span>{tt("Ausführung")}: {jobDateRangeLabel(job)} · {tt("Original")}: {jobOriginalDateRangeLabel(job)} · {job.executionLog?.length ?? 0} {tt("Verschiebungen")}</span>
           )}
         </div>
         <div className="job-row-meta">
           <div className="job-row-meta-line">
-            <span>{isRecurring ? `${occurrences.length} Teilaufträge` : jobDateRangeLabel(job)}</span>
-            <span>{job.priority}</span>
-            {!isRecurring && <Badge value={job.status} />}
+            <span>{isRecurring ? `${occurrences.length} ${tt("Teilaufträge")}` : jobDateRangeLabel(job)}</span>
+            <span>{tt(job.priority)}</span>
+            {!isRecurring && <Badge value={tt(job.status)} />}
           </div>
           <div className="row-actions">
             {isRecurring && (
-              <IconAction label={`${job.title} Teilaufträge ${isExpanded ? "ausblenden" : "anzeigen"}`} onClick={() => toggleSeries(job.id)}>
+              <IconAction label={`${job.title} ${tt("Teilaufträge")} ${isExpanded ? tt("Ausblenden") : tt("Anzeigen")}`} onClick={() => toggleSeries(job.id)}>
                 {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
               </IconAction>
             )}
             {!isRecurring && job.status === "offerte" && (
               <>
                 <IconAction label={`Offerte ${job.title} als PDF herunterladen`} onClick={() => void onDownloadOffer(job)}><FileDown size={16} /></IconAction>
-                <IconAction label={`Offerte ${job.title} an Kunden senden`} onClick={() => onSendOffer(job)}><Send size={16} /></IconAction>
+                <IconAction label={`Offerte ${job.title} ${tt("An Kunden senden")}`} onClick={() => onSendOffer(job)}><Send size={16} /></IconAction>
                 <IconAction label={`Offerte ${job.title} als Auftrag bestätigen`} onClick={() => onConfirmOffer(job)}><Check size={16} /></IconAction>
               </>
             )}
-            <IconAction label={`Auftrag ${job.title} bearbeiten`} onClick={() => onEdit(job)}><Pencil size={16} /></IconAction>
+            <IconAction label={`${tt("Auftrag")} ${job.title} ${tt("Bearbeiten")}`} onClick={() => onEdit(job)}><Pencil size={16} /></IconAction>
             {!isRecurring && !["offerte", "storniert", "erledigt", "abgerechnet"].includes(job.status) && (
               <>
-                <IconAction label={`Auftragsbestätigung ${job.title} als PDF herunterladen`} onClick={() => void onDownloadOrderConfirmation(job)}><FileDown size={16} /></IconAction>
-                <IconAction label={`Auftragsbestätigung ${job.title} an Kunden senden`} onClick={() => onSendOrderConfirmation(job)}><Send size={16} /></IconAction>
-                <IconAction label={`Auftrag ${job.title} starten`} onClick={() => onStart(job)}><PlayCircle size={16} /></IconAction>
+                <IconAction label={`${tt("Auftragsbestätigung")} ${job.title} als PDF herunterladen`} onClick={() => void onDownloadOrderConfirmation(job)}><FileDown size={16} /></IconAction>
+                <IconAction label={`${tt("Auftragsbestätigung")} ${job.title} ${tt("An Kunden senden")}`} onClick={() => onSendOrderConfirmation(job)}><Send size={16} /></IconAction>
+                <IconAction label={`${tt("Auftrag")} ${job.title} starten`} onClick={() => onStart(job)}><PlayCircle size={16} /></IconAction>
               </>
             )}
             {!isRecurring && job.status === "erledigt" && jobBillingEnabled(job) && (
-              <IconAction label={`Auftrag ${job.title} in die Abrechnung übernehmen`} onClick={() => onMoveToBilling(job)}><Euro size={16} /></IconAction>
+              <IconAction label={`${tt("Auftrag")} ${job.title} ${tt("Auftrag in Abrechnung übernehmen")}`} onClick={() => onMoveToBilling(job)}><Euro size={16} /></IconAction>
             )}
             {job.status === "storniert" ? (
-              <IconAction label={`Auftrag ${job.title} reaktivieren`} onClick={() => onRestore(job)}><RotateCcw size={16} /></IconAction>
+              <IconAction label={`${tt("Auftrag")} ${job.title} ${tt("Reaktivieren")}`} onClick={() => onRestore(job)}><RotateCcw size={16} /></IconAction>
             ) : (
-              job.status !== "abgerechnet" && <IconAction danger label={`Auftrag ${job.title} stornieren`} onClick={() => onCancel(job)}><X size={16} /></IconAction>
+              job.status !== "abgerechnet" && <IconAction danger label={`${tt("Auftrag")} ${job.title} ${tt("Stornieren")}`} onClick={() => onCancel(job)}><X size={16} /></IconAction>
             )}
           </div>
         </div>
@@ -10521,11 +10585,11 @@ function JobsView({
                 {weekReports.map((week) => (
                   <article key={`${week.year}-${week.week}`}>
                     <strong>KW {week.week} · {week.year}</strong>
-                    <span>{week.completed}/{week.count} erledigt</span>
-                    <span>{week.open} offen</span>
-                    <span>{week.reportCount} Berichte</span>
+                    <span>{week.completed}/{week.count} {tt("erledigt")}</span>
+                    <span>{week.open} {tt("offen")}</span>
+                    <span>{week.reportCount} {tt("Berichte")}</span>
                     <span>{week.minutes} min.</span>
-                    <IconAction label={`Wochenbericht KW ${week.week} ${week.year} erstellen und senden`} onClick={() => onCreateWeekReport(job, week)}>
+                    <IconAction label={`${tt("Wochenbericht")} KW ${week.week} ${week.year} ${tt("erstellen und senden")}`} onClick={() => onCreateWeekReport(job, week)}>
                       <Send size={14} />
                     </IconAction>
                   </article>
@@ -10540,15 +10604,15 @@ function JobsView({
               return (
                 <div className="series-occurrence-row job-group-tint" key={occurrence.id} style={jobGroupStyle(occurrence)}>
                   <div>
-                    <strong>{occurrenceMoved ? `Einsatz ${occurrenceExecutionDate}` : occurrenceExecutionDate}</strong>
-                    <span>{readableJobStatus(occurrence.status)} · {occurrence.assignedTo}</span>
+                    <strong>{occurrenceMoved ? `${tt("Einsatz")} ${occurrenceExecutionDate}` : occurrenceExecutionDate}</strong>
+                    <span>{readableJobStatus(occurrence.status, language)} · {occurrence.assignedTo}</span>
                     {occurrenceMoved && (
-                      <span>Original: {occurrenceOriginalDate} · {occurrence.executionLog?.length ?? 0} Verschiebungen</span>
+                      <span>{tt("Original")}: {occurrenceOriginalDate} · {occurrence.executionLog?.length ?? 0} {tt("Verschiebungen")}</span>
                     )}
                   </div>
                   <div className="row-actions">
-                    <Badge value={occurrence.status} />
-                    <IconAction label={`Teilauftrag ${occurrenceExecutionDate} bearbeiten`} onClick={() => onEdit(occurrence)}><Pencil size={16} /></IconAction>
+                    <Badge value={tt(occurrence.status)} />
+                    <IconAction label={`${tt("Teilauftrag")} ${occurrenceExecutionDate} ${tt("Bearbeiten")}`} onClick={() => onEdit(occurrence)}><Pencil size={16} /></IconAction>
                     {occurrence.status === "offerte" && (
                       <>
                         <IconAction label={`Offerte ${occurrenceExecutionDate} als PDF herunterladen`} onClick={() => void onDownloadOffer(occurrence)}><FileDown size={16} /></IconAction>
@@ -10557,21 +10621,21 @@ function JobsView({
                       </>
                     )}
                     {occurrence.status !== "storniert" && !["offerte", "erledigt", "abgerechnet"].includes(occurrence.status) && (
-                      <IconAction label={`Teilauftrag ${occurrenceExecutionDate} starten`} onClick={() => onStart(occurrence)}><PlayCircle size={16} /></IconAction>
+                      <IconAction label={`${tt("Teilauftrag")} ${occurrenceExecutionDate} starten`} onClick={() => onStart(occurrence)}><PlayCircle size={16} /></IconAction>
                     )}
                     {occurrence.status === "erledigt" && jobBillingEnabled(occurrence) && (
-                      <IconAction label={`Teilauftrag ${occurrenceExecutionDate} in die Abrechnung übernehmen`} onClick={() => onMoveToBilling(occurrence)}><Euro size={16} /></IconAction>
+                      <IconAction label={`${tt("Teilauftrag")} ${occurrenceExecutionDate} ${tt("Auftrag in Abrechnung übernehmen")}`} onClick={() => onMoveToBilling(occurrence)}><Euro size={16} /></IconAction>
                     )}
                     {occurrence.status === "storniert" ? (
-                      <IconAction label={`Teilauftrag ${occurrenceExecutionDate} reaktivieren`} onClick={() => onRestore(occurrence)}><RotateCcw size={16} /></IconAction>
+                      <IconAction label={`${tt("Teilauftrag")} ${occurrenceExecutionDate} ${tt("Reaktivieren")}`} onClick={() => onRestore(occurrence)}><RotateCcw size={16} /></IconAction>
                     ) : (
-                      <IconAction danger label={`Teilauftrag ${occurrenceExecutionDate} stornieren`} onClick={() => onCancel(occurrence)}><X size={16} /></IconAction>
+                      <IconAction danger label={`${tt("Teilauftrag")} ${occurrenceExecutionDate} ${tt("Stornieren")}`} onClick={() => onCancel(occurrence)}><X size={16} /></IconAction>
                     )}
                   </div>
                 </div>
               );
             })}
-            {occurrences.length === 0 && <span className="muted-line">Für diesen Serienauftrag sind aktuell keine offenen Teilaufträge vorbereitet.</span>}
+            {occurrences.length === 0 && <span className="muted-line">{tt("Für diesen Serienauftrag sind aktuell keine offenen Teilaufträge vorbereitet.")}</span>}
           </div>
         )}
       </article>
@@ -10601,15 +10665,15 @@ function JobsView({
     <section className="panel">
       <div className="panel-title">
         <div>
-          <p>Auftragsabwicklung</p>
-          <h2>Auftragsübersicht</h2>
+          <p>{tt("Auftragsabwicklung")}</p>
+          <h2>{tt("Auftragsübersicht")}</h2>
         </div>
         <button className="primary-button" onClick={onCreate} type="button">
           <Plus size={16} />
-          Neuer Auftrag
+          {tt("Neuer Auftrag")}
         </button>
       </div>
-      <div className="status-filter-bar" aria-label="Aufträge nach Status filtern">
+      <div className="status-filter-bar" aria-label={`${tt("Auftrag")} ${tt("Status")} ${tt("filtern")}`}>
         {["alle", "offerte", "geplant", "in Arbeit", "pausiert", "erledigt", "abgerechnet", "storniert"].map((status) => (
           <button
             className={statusFilter === status ? "active" : ""}
@@ -10617,14 +10681,14 @@ function JobsView({
             onClick={() => setStatusFilter(status)}
             type="button"
           >
-            {status}
+            {tt(status)}
           </button>
         ))}
       </div>
-      {renderJobGroup("Aktive Aufträge", activeRootJobs.length, activeGroupOpen, () => setActiveGroupOpen((open) => !open), activeRootJobs)}
-      {activeRootJobs.length === 0 && completedRootJobs.length === 0 && cancelledRootJobs.length === 0 && <span className="muted-line">Keine Aufträge für diesen Status.</span>}
-      {renderJobGroup("Erledigte Aufträge", completedRootJobs.length, completedGroupOpen, () => setCompletedGroupOpen((open) => !open), completedRootJobs)}
-      {renderJobGroup("Stornierte Aufträge", cancelledRootJobs.length, cancelledGroupOpen, () => setCancelledGroupOpen((open) => !open), cancelledRootJobs, "job-list-cancelled")}
+      {renderJobGroup(tt("Aktive Aufträge"), activeRootJobs.length, activeGroupOpen, () => setActiveGroupOpen((open) => !open), activeRootJobs)}
+      {activeRootJobs.length === 0 && completedRootJobs.length === 0 && cancelledRootJobs.length === 0 && <span className="muted-line">{tt("Keine Aufträge für diesen Status.")}</span>}
+      {renderJobGroup(tt("Erledigte Aufträge"), completedRootJobs.length, completedGroupOpen, () => setCompletedGroupOpen((open) => !open), completedRootJobs)}
+      {renderJobGroup(tt("Stornierte Aufträge"), cancelledRootJobs.length, cancelledGroupOpen, () => setCancelledGroupOpen((open) => !open), cancelledRootJobs, "job-list-cancelled")}
     </section>
   );
 }
@@ -10994,6 +11058,7 @@ function FieldView({
   allJobs,
   customers,
   editingReportId,
+  language,
   objects,
   packages,
   reports,
@@ -11016,6 +11081,7 @@ function FieldView({
   allJobs: JobRecord[];
   customers: CustomerRecord[];
   editingReportId: string | null;
+  language: Language;
   objects: ObjectRecord[];
   packages: ServicePackage[];
   reports: ReportRecord[];
@@ -11034,6 +11100,7 @@ function FieldView({
   onUpdateReport: (report: ReportRecord, options?: { forceRemote?: boolean }) => void;
   onComplete: (job: JobRecord, checklistResults: FieldTaskResult[], fieldNote: string, workDate?: string, reportAttachments?: ReportAttachment[], fieldMaterial?: string) => void;
 }) {
+  const tt = (value: string) => uiText(value, language);
   const [showCompletedReports, setShowCompletedReports] = useState(false);
   const [showSentReports, setShowSentReports] = useState(false);
   const [closeStatusPrompt, setCloseStatusPrompt] = useState(false);
@@ -11081,9 +11148,9 @@ function FieldView({
     return (
       <section className="field-shell">
         <div className="phone-card">
-          <p>Mobil vor Ort</p>
-          <h2>Keine offenen Aufträge</h2>
-          <span>Aktuell gibt es keine geplanten oder laufenden Einsätze.</span>
+          <p>{tt("Mobil vor Ort")}</p>
+          <h2>{tt("Keine offenen Aufträge.")}</h2>
+          <span>{tt("Aktuell gibt es keine geplanten oder laufende Einsätze.")}</span>
         </div>
       </section>
     );
@@ -11092,45 +11159,45 @@ function FieldView({
     return (
       <section className="field-shell">
         <div className="phone-card">
-          <p>Mobil vor Ort</p>
+          <p>{tt("Mobil vor Ort")}</p>
           <div className="field-job-picker">
-            <strong>In Arbeit</strong>
+            <strong>{tt("In Arbeit")}</strong>
             {fieldInProgressJobs.map((job) => {
               const jobObject = objects.find((item) => item.id === job.objectId);
-              const dateLabel = jobDateRangeLabel(job) === jobOriginalDateRangeLabel(job) ? jobDateRangeLabel(job) : `Einsatz ${jobDateRangeLabel(job)} · Original ${jobOriginalDateRangeLabel(job)}`;
+              const dateLabel = jobDateRangeLabel(job) === jobOriginalDateRangeLabel(job) ? jobDateRangeLabel(job) : `${tt("Einsatz")} ${jobDateRangeLabel(job)} · ${tt("Original")} ${jobOriginalDateRangeLabel(job)}`;
               return (
                 <button key={job.id} onClick={() => onSelectJob(job)} type="button">
                   <span>
                     <strong>{job.title}</strong>
-                    <small>{jobObject?.name ?? "Objekt unbekannt"} · {dateLabel} · {recurringJobHint(job, allJobs) || job.assignedTo}</small>
+                    <small>{jobObject?.name ?? tt("Objekt unbekannt")} · {dateLabel} · {recurringJobHint(job, allJobs, language) || job.assignedTo}</small>
                   </span>
-                  <Badge value={job.status} />
+                  <Badge value={tt(job.status)} />
                 </button>
               );
             })}
-            {fieldInProgressJobs.length === 0 && <span>Kein Auftrag in Arbeit.</span>}
+            {fieldInProgressJobs.length === 0 && <span>{tt("Kein Auftrag in Arbeit.")}</span>}
           </div>
           <div className="field-job-picker">
-            <strong>Offene Aufträge</strong>
+            <strong>{tt("Offene Aufträge")}</strong>
             {fieldPlannedJobs.map((job) => {
               const jobObject = objects.find((item) => item.id === job.objectId);
-              const dateLabel = jobDateRangeLabel(job) === jobOriginalDateRangeLabel(job) ? jobDateRangeLabel(job) : `Einsatz ${jobDateRangeLabel(job)} · Original ${jobOriginalDateRangeLabel(job)}`;
+              const dateLabel = jobDateRangeLabel(job) === jobOriginalDateRangeLabel(job) ? jobDateRangeLabel(job) : `${tt("Einsatz")} ${jobDateRangeLabel(job)} · ${tt("Original")} ${jobOriginalDateRangeLabel(job)}`;
               return (
                 <button key={job.id} onClick={() => onSelectJob(job)} type="button">
                   <span>
                     <strong>{job.title}</strong>
-                    <small>{jobObject?.name ?? "Objekt unbekannt"} · {dateLabel} · {recurringJobHint(job, allJobs) || job.assignedTo}</small>
+                    <small>{jobObject?.name ?? tt("Objekt unbekannt")} · {dateLabel} · {recurringJobHint(job, allJobs, language) || job.assignedTo}</small>
                   </span>
-                  <Badge value={job.status} />
+                  <Badge value={tt(job.status)} />
                 </button>
               );
             })}
-            {fieldPlannedJobs.length === 0 && <span>Keine offenen Aufträge.</span>}
+            {fieldPlannedJobs.length === 0 && <span>{tt("Keine offenen Aufträge.")}</span>}
           </div>
           <div className="field-job-picker">
             <button className="field-picker-toggle" onClick={() => setShowCompletedReports((current) => !current)} type="button">
               <span>
-                <strong>Abgeschlossene Berichte <small className="inline-count">{editableCompletedReports.length}</small></strong>
+                <strong>{tt("Abgeschlossene Berichte")} <small className="inline-count">{editableCompletedReports.length}</small></strong>
               </span>
               {showCompletedReports ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
             </button>
@@ -11140,18 +11207,18 @@ function FieldView({
                 <button key={report.id} onClick={() => onSelectReport(report)} type="button">
                   <span>
                     <strong>{report.title}</strong>
-                    <small>{jobObject?.name ?? "Objekt unbekannt"} · {report.date}</small>
+                    <small>{jobObject?.name ?? tt("Objekt unbekannt")} · {report.date}</small>
                   </span>
-                  <Badge value="Bericht" />
+                  <Badge value={tt("Bericht")} />
                 </button>
               );
             })}
-            {showCompletedReports && editableCompletedReports.length === 0 && <span>Noch keine abgeschlossenen Berichte.</span>}
+            {showCompletedReports && editableCompletedReports.length === 0 && <span>{tt("Noch keine abgeschlossenen Berichte.")}</span>}
           </div>
           <div className="field-job-picker">
             <button className="field-picker-toggle" onClick={() => setShowSentReports((current) => !current)} type="button">
               <span>
-                <strong>Gesendete Berichte <small className="inline-count">{sentReports.length}</small></strong>
+                <strong>{tt("Gesendete Berichte")} <small className="inline-count">{sentReports.length}</small></strong>
               </span>
               {showSentReports ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
             </button>
@@ -11161,17 +11228,17 @@ function FieldView({
                 <button key={report.id} onClick={() => onSelectReport(report)} type="button">
                   <span>
                     <strong>{report.title}</strong>
-                    <small>{jobObject?.name ?? "Objekt unbekannt"} · {report.date}</small>
+                    <small>{jobObject?.name ?? tt("Objekt unbekannt")} · {report.date}</small>
                   </span>
-                  <Badge value="gesendet" />
+                  <Badge value={tt("gesendet")} />
                 </button>
               );
             })}
-            {showSentReports && sentReports.length === 0 && <span>Noch keine gesendeten Berichte.</span>}
+            {showSentReports && sentReports.length === 0 && <span>{tt("Noch keine gesendeten Berichte.")}</span>}
           </div>
           <div className="field-empty-state">
-            <h2>Auftrag auswählen</h2>
-            <span>Tippe einen offenen Auftrag oder einen bestehenden Bericht an, um die Checkliste vor Ort zu bearbeiten.</span>
+            <h2>{tt("Auftrag auswählen")}</h2>
+            <span>{tt("Tippe einen offenen Auftrag oder einen bestehenden Bericht an, um die Checkliste vor Ort zu bearbeiten.")}</span>
           </div>
         </div>
       </section>
@@ -11331,9 +11398,9 @@ function FieldView({
     try {
       const attachments = await Promise.all(selectedFiles.map((file) => fileToReportAttachment(file)));
       setPendingReportAttachments((current) => [...current, ...attachments]);
-      setPendingAttachmentNotice(`${attachments.length} ${attachments.length === 1 ? "Datei wurde" : "Dateien wurden"} vorbereitet.`);
+      setPendingAttachmentNotice(attachments.length === 1 ? tt("Datei wurde vorbereitet.") : `${attachments.length} ${tt("Dateien wurden vorbereitet.")}`);
     } catch (error) {
-      setPendingAttachmentNotice(error instanceof Error ? error.message : "Datei konnte nicht angehängt werden.");
+      setPendingAttachmentNotice(error instanceof Error ? error.message : tt("Datei konnte nicht angehängt werden."));
     }
   }
 
@@ -11374,12 +11441,12 @@ function FieldView({
   return (
     <section className="field-shell">
       <div className="phone-card">
-        <p>Mobil vor Ort</p>
+        <p>{tt("Mobil vor Ort")}</p>
         <div className="field-job-picker">
-          <strong>In Arbeit</strong>
+          <strong>{tt("In Arbeit")}</strong>
           {fieldInProgressJobs.map((job) => {
             const jobObject = objects.find((item) => item.id === job.objectId);
-            const dateLabel = jobDateRangeLabel(job) === jobOriginalDateRangeLabel(job) ? jobDateRangeLabel(job) : `Einsatz ${jobDateRangeLabel(job)} · Original ${jobOriginalDateRangeLabel(job)}`;
+            const dateLabel = jobDateRangeLabel(job) === jobOriginalDateRangeLabel(job) ? jobDateRangeLabel(job) : `${tt("Einsatz")} ${jobDateRangeLabel(job)} · ${tt("Original")} ${jobOriginalDateRangeLabel(job)}`;
             return (
               <button
                 className={job.id === activeJob.id ? "active" : ""}
@@ -11389,19 +11456,19 @@ function FieldView({
               >
                 <span>
                   <strong>{job.title}</strong>
-                  <small>{jobObject?.name ?? "Objekt unbekannt"} · {dateLabel} · {recurringJobHint(job, allJobs) || job.assignedTo}</small>
+                  <small>{jobObject?.name ?? tt("Objekt unbekannt")} · {dateLabel} · {recurringJobHint(job, allJobs, language) || job.assignedTo}</small>
                 </span>
-                <Badge value={job.status} />
+                <Badge value={tt(job.status)} />
               </button>
             );
           })}
-          {fieldInProgressJobs.length === 0 && <span>Kein Auftrag in Arbeit.</span>}
+          {fieldInProgressJobs.length === 0 && <span>{tt("Kein Auftrag in Arbeit.")}</span>}
         </div>
         <div className="field-job-picker">
-          <strong>Offene Aufträge</strong>
+          <strong>{tt("Offene Aufträge")}</strong>
           {fieldPlannedJobs.map((job) => {
             const jobObject = objects.find((item) => item.id === job.objectId);
-            const dateLabel = jobDateRangeLabel(job) === jobOriginalDateRangeLabel(job) ? jobDateRangeLabel(job) : `Einsatz ${jobDateRangeLabel(job)} · Original ${jobOriginalDateRangeLabel(job)}`;
+            const dateLabel = jobDateRangeLabel(job) === jobOriginalDateRangeLabel(job) ? jobDateRangeLabel(job) : `${tt("Einsatz")} ${jobDateRangeLabel(job)} · ${tt("Original")} ${jobOriginalDateRangeLabel(job)}`;
             return (
               <button
                 className={job.id === activeJob.id ? "active" : ""}
@@ -11411,18 +11478,18 @@ function FieldView({
               >
                 <span>
                   <strong>{job.title}</strong>
-                  <small>{jobObject?.name ?? "Objekt unbekannt"} · {dateLabel} · {recurringJobHint(job, allJobs) || job.assignedTo}</small>
+                  <small>{jobObject?.name ?? tt("Objekt unbekannt")} · {dateLabel} · {recurringJobHint(job, allJobs, language) || job.assignedTo}</small>
                 </span>
-                <Badge value={job.status} />
+                <Badge value={tt(job.status)} />
               </button>
             );
           })}
-          {fieldPlannedJobs.length === 0 && <span>Keine offenen Aufträge.</span>}
+          {fieldPlannedJobs.length === 0 && <span>{tt("Keine offenen Aufträge.")}</span>}
         </div>
         <div className="field-job-picker">
           <button className="field-picker-toggle" onClick={() => setShowCompletedReports((current) => !current)} type="button">
             <span>
-              <strong>Abgeschlossene Berichte <small className="inline-count">{editableCompletedReports.length}</small></strong>
+              <strong>{tt("Abgeschlossene Berichte")} <small className="inline-count">{editableCompletedReports.length}</small></strong>
             </span>
             {showCompletedReports ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
           </button>
@@ -11437,18 +11504,18 @@ function FieldView({
               >
                 <span>
                   <strong>{report.title}</strong>
-                  <small>{jobObject?.name ?? "Objekt unbekannt"} · {report.date}</small>
+                  <small>{jobObject?.name ?? tt("Objekt unbekannt")} · {report.date}</small>
                 </span>
-                <Badge value="Bericht" />
+                <Badge value={tt("Bericht")} />
               </button>
             );
           })}
-          {showCompletedReports && editableCompletedReports.length === 0 && <span>Noch keine abgeschlossenen Berichte.</span>}
+          {showCompletedReports && editableCompletedReports.length === 0 && <span>{tt("Noch keine abgeschlossenen Berichte.")}</span>}
         </div>
         <div className="field-job-picker">
           <button className="field-picker-toggle" onClick={() => setShowSentReports((current) => !current)} type="button">
             <span>
-              <strong>Gesendete Berichte <small className="inline-count">{sentReports.length}</small></strong>
+              <strong>{tt("Gesendete Berichte")} <small className="inline-count">{sentReports.length}</small></strong>
             </span>
             {showSentReports ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
           </button>
@@ -11463,30 +11530,30 @@ function FieldView({
               >
                 <span>
                   <strong>{report.title}</strong>
-                  <small>{jobObject?.name ?? "Objekt unbekannt"} · {report.date}</small>
+                  <small>{jobObject?.name ?? tt("Objekt unbekannt")} · {report.date}</small>
                 </span>
-                <Badge value="gesendet" />
+                <Badge value={tt("gesendet")} />
               </button>
             );
           })}
-          {showSentReports && sentReports.length === 0 && <span>Noch keine gesendeten Berichte.</span>}
+          {showSentReports && sentReports.length === 0 && <span>{tt("Noch keine gesendeten Berichte.")}</span>}
         </div>
         <div className="modal-backdrop">
           <section className="modal field-work-modal" role="dialog" aria-modal="true" aria-labelledby="field-work-title">
         <div className="field-active-head">
-          <h2 id="field-work-title">{editingReportId ? "Bericht nachbearbeiten" : activeJob.title}</h2>
+          <h2 id="field-work-title">{editingReportId ? tt("Bericht nachbearbeiten") : activeJob.title}</h2>
           <div className="row-actions">
             {activeReport && (
-              <IconAction label={`Bericht ${activeReport.title} senden`} onClick={() => onSendReport(activeReport)}>
+              <IconAction label={`${tt("Bericht")} ${activeReport.title} ${tt("senden")}`} onClick={() => onSendReport(activeReport)}>
                 <Send size={16} />
               </IconAction>
             )}
-            <IconAction label={`Auftrag ${activeJob.title} schließen`} onClick={() => setCloseStatusPrompt(true)}>
+            <IconAction label={`${tt("Auftrag")} ${activeJob.title} ${tt("Auftrag schließen")}`} onClick={() => setCloseStatusPrompt(true)}>
               <X size={16} />
             </IconAction>
           </div>
         </div>
-        {reportLocked && <div className="warning-line">Dieser Bericht wurde am {activeReport?.sentAt} gesendet und ist für Änderungen gesperrt.</div>}
+        {reportLocked && <div className="warning-line">{tt("Dieser Bericht wurde gesendet und ist für Änderungen gesperrt.")} {activeReport?.sentAt}</div>}
         <span>{object.name} · {displayAddress(object.address)}</span>
         <div className="field-summary">
           <strong>{activeJob.assignedTo}</strong>
@@ -11737,7 +11804,7 @@ function FieldView({
           </div>
         )}
         <button className="primary-button" disabled={reportLocked} onClick={completeActiveJob} type="button">
-          {editingReportId ? "Bericht speichern" : workDates.length > 1 ? (isLastOpenWorkDate ? "Letzten Tag speichern und Auftrag abschließen" : "Tagesbericht zwischenspeichern") : "Einsatz abschließen"}
+          {editingReportId ? tt("Bericht speichern") : workDates.length > 1 ? (isLastOpenWorkDate ? tt("Letzten Tag speichern und Auftrag abschließen") : tt("Tagesbericht zwischenspeichern")) : tt("Einsatz abschließen")}
         </button>
           </section>
         </div>
@@ -11746,36 +11813,36 @@ function FieldView({
             <section className="modal field-status-modal" role="dialog" aria-modal="true" aria-labelledby="field-status-title">
               <header>
                 <div>
-                  <p>Mobil vor Ort</p>
-                  <h2 id="field-status-title">Status beim Schließen</h2>
+                  <p>{tt("Mobil vor Ort")}</p>
+                  <h2 id="field-status-title">{tt("Status beim Schließen")}</h2>
                 </div>
-                <button aria-label="Statusauswahl schließen" onClick={() => setCloseStatusPrompt(false)} type="button">
+                <button aria-label={tt("Statusauswahl schließen")} onClick={() => setCloseStatusPrompt(false)} type="button">
                   <X size={18} />
                 </button>
               </header>
               <div className="field-current-status">
-                <span>Aktueller Status</span>
-                <strong>{activeJob.status}</strong>
+                <span>{tt("Aktueller Status")}</span>
+                <strong>{tt(activeJob.status)}</strong>
               </div>
               <div className="field-status-choice-list">
                 {showKeepCurrentStatus && (
                   <button className="status-choice-button" onClick={closeActiveJobKeepingStatus} type="button">
-                    <strong>Beibehalten</strong>
-                    <span>Der Auftrag bleibt auf diesem Status.</span>
+                    <strong>{tt("Beibehalten")}</strong>
+                    <span>{tt("Der Auftrag bleibt auf diesem Status.")}</span>
                   </button>
                 )}
                 <button className={`status-choice-button ${activeJob.status === "erledigt" || editingReportId ? "active" : ""}`} disabled={activeJob.status === "in Arbeit"} onClick={() => closeActiveJobWithStatus("in Arbeit")} type="button">
-                  <strong>In Arbeit</strong>
-                  <span>Der Auftrag bleibt als laufender Einsatz markiert.</span>
+                  <strong>{tt("In Arbeit")}</strong>
+                  <span>{tt("Der Auftrag bleibt als laufender Einsatz markiert.")}</span>
                 </button>
                 <button className="status-choice-button" disabled={activeJob.status === "geplant"} onClick={() => closeActiveJobWithStatus("geplant")} type="button">
-                  <strong>Geplant</strong>
-                  <span>Der Auftrag wird wieder in die Planung zurückgelegt.</span>
+                  <strong>{tt("Geplant")}</strong>
+                  <span>{tt("Der Auftrag wird wieder in die Planung zurückgelegt.")}</span>
                 </button>
                 {activeJob.status === "erledigt" && (
                   <button className="status-choice-button" onClick={closeActiveJobKeepingStatus} type="button">
-                    <strong>Erledigt lassen</strong>
-                    <span>Keine Statusänderung vornehmen.</span>
+                    <strong>{tt("Erledigt lassen")}</strong>
+                    <span>{tt("Keine Statusänderung vornehmen.")}</span>
                   </button>
                 )}
               </div>
@@ -18057,13 +18124,13 @@ function JobForm({
         <div className="recurrence-head">
           <CalendarDays size={18} />
           <div>
-            <span>Auftragsart</span>
+            <span>{tt("Auftragsart")}</span>
             <strong>{recurrenceSummary}</strong>
           </div>
         </div>
         <div className="segmented-control">
-          <button className={newJob.scheduleType === "einmalig" ? "active" : ""} onClick={() => update("scheduleType", "einmalig")} type="button">Einmalig</button>
-          <button className={newJob.scheduleType === "serie" ? "active" : ""} onClick={() => update("scheduleType", "serie")} type="button">Serienauftrag</button>
+          <button className={newJob.scheduleType === "einmalig" ? "active" : ""} onClick={() => update("scheduleType", "einmalig")} type="button">{tt("Einmalig")}</button>
+          <button className={newJob.scheduleType === "serie" ? "active" : ""} onClick={() => update("scheduleType", "serie")} type="button">{tt("Serienauftrag")}</button>
         </div>
         {newJob.scheduleType === "serie" && (
           <div className="recurrence-grid">

@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.329.0",
+  version: "1.330.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.330.0",
+    date: "2026-09-06",
+    changes: [
+      "Auftragsuebersicht zieht Statusfilter, Gruppenueberschriften, Serienchips und Teilauftrag-Hinweise in der Sprachumschaltung nach",
+      "Mobil vor Ort uebersetzt Auftragslisten, Berichtlisten, Statusdialog und leere Zustaende",
+      "Weitere App-Feldtexte wurden in die Sprachdatenbank aufgenommen",
+    ],
+  },
   {
     version: "1.329.0",
     date: "2026-09-06",
