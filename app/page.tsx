@@ -16993,8 +16993,20 @@ function JobForm({
 }) {
   const weekdays = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
   const [serviceEntryMode, setServiceEntryMode] = useState<"" | "catalog" | "manual">("");
+  const [serviceSearch, setServiceSearch] = useState("");
   const [materialEntryMode, setMaterialEntryMode] = useState<"" | "catalog" | "manual">("");
   const [materialSearch, setMaterialSearch] = useState("");
+  const selectableJobServices = services.filter((service) => !service.archived && !newJob.serviceIds.includes(service.id));
+  const normalizedServiceSearch = serviceSearch.trim().toLowerCase();
+  const filteredJobServices = normalizedServiceSearch
+    ? selectableJobServices.filter((service) => [
+      service.name,
+      service.category,
+      service.unit,
+      service.description,
+      service.accountingAccount ?? "",
+    ].join(" ").toLowerCase().includes(normalizedServiceSearch))
+    : selectableJobServices;
   const activeJobMaterials = materials.filter((material) => !material.archived);
   const normalizedMaterialSearch = materialSearch.trim().toLowerCase();
   const filteredJobMaterials = normalizedMaterialSearch
@@ -17076,6 +17088,7 @@ function JobForm({
       },
     });
     setServiceEntryMode("");
+    setServiceSearch("");
   }
 
   function removeServiceFromJob(serviceId: string) {
@@ -17313,7 +17326,7 @@ function JobForm({
           <strong>{newJob.serviceIds.length + (newJob.customServiceName.trim() ? 1 : 0)} Positionen</strong>
         </div>
         <div className="position-action-row">
-          <button className="ghost-button" onClick={() => setServiceEntryMode(serviceEntryMode === "catalog" ? "" : "catalog")} type="button">
+          <button className="ghost-button" onClick={() => { setServiceSearch(""); setServiceEntryMode("catalog"); }} type="button">
             <Plus size={16} />
             Leistung hinzufügen
           </button>
@@ -17322,22 +17335,6 @@ function JobForm({
             Leistung manuell
           </button>
         </div>
-        {serviceEntryMode === "catalog" && (
-          <div className="add-position-panel">
-            <label>
-              <span>Angelegte Leistung auswählen</span>
-              <select defaultValue="" onChange={(event) => {
-                addServiceFromCatalog(event.target.value);
-                event.currentTarget.value = "";
-              }}>
-                <option value="">Leistung auswählen...</option>
-                {services.filter((service) => !service.archived && !newJob.serviceIds.includes(service.id)).map((service) => (
-                  <option key={service.id} value={service.id}>{service.name} · {serviceRate(service)}</option>
-                ))}
-              </select>
-            </label>
-          </div>
-        )}
         {newJob.serviceIds.length > 0 && (
           <div className="table-list compact-list job-position-list">
             {newJob.serviceIds.map((serviceId) => {
@@ -17508,9 +17505,42 @@ function JobForm({
           </div>
         )}
       </section>
+      {serviceEntryMode === "catalog" && (
+        <div className="modal-backdrop nested-backdrop">
+          <section aria-labelledby="job-service-picker-title" aria-modal="true" className="modal send-preview-modal job-picker-modal" role="dialog">
+            <header>
+              <div>
+                <p>Auftrag</p>
+                <h2 id="job-service-picker-title">Leistung hinzufügen</h2>
+              </div>
+              <button aria-label="Leistungsauswahl schließen" onClick={() => { setServiceEntryMode(""); setServiceSearch(""); }} type="button">
+                <X size={18} />
+              </button>
+            </header>
+            <label className="search-field">
+              <Search size={16} />
+              <input autoFocus placeholder="Leistung, Kategorie, Einheit oder Konto suchen..." value={serviceSearch} onChange={(event) => setServiceSearch(event.target.value)} />
+            </label>
+            <div className="job-picker-list job-picker-results">
+              {filteredJobServices.map((service) => (
+                <article key={service.id} onClick={() => addServiceFromCatalog(service.id)} role="button" tabIndex={0} onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") addServiceFromCatalog(service.id);
+                }}>
+                  <div>
+                    <strong>{service.name}</strong>
+                    <span>{service.category} · {service.description}</span>
+                  </div>
+                  <span>{serviceRate(service)}</span>
+                </article>
+              ))}
+              {filteredJobServices.length === 0 && <p>Keine Leistung für diese Suche gefunden.</p>}
+            </div>
+          </section>
+        </div>
+      )}
       {materialEntryMode === "catalog" && (
         <div className="modal-backdrop nested-backdrop">
-          <section aria-labelledby="job-material-picker-title" aria-modal="true" className="modal send-preview-modal job-material-picker-modal" role="dialog">
+          <section aria-labelledby="job-material-picker-title" aria-modal="true" className="modal send-preview-modal job-picker-modal" role="dialog">
             <header>
               <div>
                 <p>Auftrag</p>
@@ -17524,7 +17554,7 @@ function JobForm({
               <Search size={16} />
               <input autoFocus placeholder="Material, Kategorie, Lagerort oder Lieferant suchen..." value={materialSearch} onChange={(event) => setMaterialSearch(event.target.value)} />
             </label>
-            <div className="material-stock-picker-list material-picker-results">
+            <div className="job-picker-list job-picker-results">
               {filteredJobMaterials.map((material) => (
                 <article key={material.id} onClick={() => addMaterialFromCatalog(material.id)} role="button" tabIndex={0} onKeyDown={(event) => {
                   if (event.key === "Enter" || event.key === " ") addMaterialFromCatalog(material.id);

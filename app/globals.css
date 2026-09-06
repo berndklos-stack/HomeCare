@@ -2898,14 +2898,14 @@ mark.neutral {
   gap: 5px;
 }
 
-.material-stock-picker-list {
+.job-picker-list {
   border: 1px solid var(--line);
   border-radius: 8px;
   display: grid;
   overflow: hidden;
 }
 
-.material-stock-picker-list article {
+.job-picker-list article {
   align-items: center;
   cursor: pointer;
   display: grid;
@@ -2914,35 +2914,35 @@ mark.neutral {
   padding: 8px 10px;
 }
 
-.material-stock-picker-list article:hover,
-.material-stock-picker-list article:focus-visible {
+.job-picker-list article:hover,
+.job-picker-list article:focus-visible {
   background: var(--blue-soft);
   outline: none;
 }
 
-.material-stock-picker-list article + article {
+.job-picker-list article + article {
   border-top: 1px solid var(--line);
 }
 
-.material-stock-picker-list strong,
-.material-stock-picker-list span {
+.job-picker-list strong,
+.job-picker-list span {
   display: block;
   min-width: 0;
 }
 
-.material-stock-picker-list article > span {
+.job-picker-list article > span {
   color: var(--muted);
   font-weight: 800;
   text-align: right;
 }
 
-.job-material-picker-modal {
+.job-picker-modal {
   max-height: min(86vh, 820px);
   max-width: 920px;
   width: min(100%, 920px);
 }
 
-.job-material-picker-modal .search-field {
+.job-picker-modal .search-field {
   align-items: center;
   background: var(--paper);
   border: 1px solid var(--line);
@@ -2954,7 +2954,7 @@ mark.neutral {
   padding: 0 12px;
 }
 
-.job-material-picker-modal .search-field input {
+.job-picker-modal .search-field input {
   background: transparent;
   border: 0;
   color: var(--ink);
@@ -2964,12 +2964,12 @@ mark.neutral {
   outline: none;
 }
 
-.material-picker-results {
+.job-picker-results {
   max-height: min(58vh, 520px);
   overflow: auto;
 }
 
-.material-picker-results p {
+.job-picker-results p {
   color: var(--muted);
   margin: 0;
   padding: 14px;

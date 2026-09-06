@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.324.0",
+  version: "1.325.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.325.0",
+    date: "2026-09-06",
+    changes: [
+      "Leistung hinzufuegen in der Auftragsanlage oeffnet als Popup",
+      "Die Leistungsauswahl hat ein Suchfeld fuer Name, Kategorie, Einheit und Konto",
+      "Leistungen werden wie Material per Klick aus der Trefferliste zum Auftrag hinzugefuegt",
+    ],
+  },
   {
     version: "1.324.0",
     date: "2026-09-06",
