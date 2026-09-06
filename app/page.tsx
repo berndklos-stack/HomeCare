@@ -1137,8 +1137,22 @@ function readStoredValue<T>(key: string, fallback: T): T {
   }
 }
 
+function isDemoPersonnelRecord(person: Pick<PersonnelRecord, "firstName" | "lastName">) {
+  return `${person.firstName} ${person.lastName}`.trim().toLowerCase() === "johan berg";
+}
+
+function sanitizePersonnelSnapshot(snapshot: AppSnapshot): AppSnapshot {
+  const personnel = (snapshot.personnel ?? seedPersonnel).filter((person) => !isDemoPersonnelRecord(person));
+  const jobs = snapshot.jobs.map((job) => (
+    job.assignedTo.trim().toLowerCase() === "johan berg"
+      ? { ...job, assignedTo: "nicht zugewiesen" }
+      : job
+  ));
+  return { ...snapshot, jobs, personnel };
+}
+
 function readLocalSnapshot(): AppSnapshot {
-  return recoverReportsFromFieldProgress({
+  return sanitizePersonnelSnapshot(recoverReportsFromFieldProgress({
     activeJobId: readStoredValue<string | null>(storageKeys.activeJobId, null),
     accountingAccounts: readStoredValue<AccountingAccount[]>(storageKeys.accountingAccounts, defaultVismaChartOfAccounts),
     billing: readStoredValue<BillingRecord[]>(storageKeys.billing, seedBilling),
@@ -1160,7 +1174,7 @@ function readLocalSnapshot(): AppSnapshot {
     resources: readStoredValue<ResourceRecord[]>(storageKeys.resources, seedResources),
     services: readStoredValue<ServiceItem[]>(storageKeys.services, seedServices),
     updatedAt: readStoredValue<string | undefined>(storageKeys.updatedAt, undefined),
-  });
+  }));
 }
 
 function hasSavedLocalSnapshot() {
@@ -2292,7 +2306,7 @@ function emptyJobForm(): NewJobFormState {
     dueDate: "2026-08-05",
     startDate: "2026-08-05",
     endDate: "2026-08-05",
-    assignedTo: "Johan Berg",
+    assignedTo: "nicht zugewiesen",
     description: "",
     internalNotes: "",
     serviceIds: [],
@@ -4974,7 +4988,7 @@ const seedJobs: JobRecord[] = [
     status: "in Arbeit",
     priority: "hoch",
     dueDate: "31.07.2026",
-    assignedTo: "Johan Berg",
+    assignedTo: "Bernd Klos",
     description: "Pool reinigen, Wasserwerte messen, Filterdruck dokumentieren.",
     internalNotes: "pH-Mittel nur intern kalkulieren.",
     checklist: ["Zugang dokumentieren", "Vorher-Fotos", "Wasserwerte", "Material", "Bericht"],
@@ -6252,32 +6266,33 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
 
   function applySnapshot(snapshot: AppSnapshot) {
     const normalizedReports = dedupeReports(snapshot.reports);
-    const normalizedJobs = ensureSeriesOccurrences(snapshot.jobs, normalizedReports);
+    const cleanSnapshot = sanitizePersonnelSnapshot({ ...snapshot, reports: normalizedReports });
+    const normalizedJobs = ensureSeriesOccurrences(cleanSnapshot.jobs, normalizedReports);
     const restoredActiveJob = snapshot.activeJobId
       ? normalizedJobs.find((job) => job.id === snapshot.activeJobId && canRestoreActiveFieldJob(job))
       : undefined;
-    setObjects(snapshot.objects);
-    setAccountingAccounts(allAccountingAccounts(snapshot.accountingAccounts ?? defaultVismaChartOfAccounts));
-    setBilling(snapshot.billing ?? seedBilling);
-    setCompanySettings({ ...seedCompanySettings, ...(snapshot.companySettings ?? {}) });
-    setCustomers(snapshot.customers);
+    setObjects(cleanSnapshot.objects);
+    setAccountingAccounts(allAccountingAccounts(cleanSnapshot.accountingAccounts ?? defaultVismaChartOfAccounts));
+    setBilling(cleanSnapshot.billing ?? seedBilling);
+    setCompanySettings({ ...seedCompanySettings, ...(cleanSnapshot.companySettings ?? {}) });
+    setCustomers(cleanSnapshot.customers);
     setJobs(normalizedJobs);
-    setInventoryLocations(snapshot.inventoryLocations ?? seedInventoryLocations);
-    setMaterials(snapshot.materials ?? seedMaterials);
+    setInventoryLocations(cleanSnapshot.inventoryLocations ?? seedInventoryLocations);
+    setMaterials(cleanSnapshot.materials ?? seedMaterials);
     reportsRef.current = normalizedReports;
     setReports(normalizedReports);
-    setServices(snapshot.services);
-    setServicePackages(snapshot.packages);
-    setPersonnel(snapshot.personnel ?? seedPersonnel);
-    setResources(snapshot.resources ?? seedResources);
-    setDailyMailSettings(normalizeDailyMailSettings(snapshot.dailyMailSettings));
-    setPortalMessages(snapshot.portalMessages ?? []);
-    setDeletedEntityIds(snapshot.deletedEntityIds ?? {});
-    setDeletedReportIds(snapshot.deletedReportIds ?? []);
-    setFieldNotes(snapshot.fieldNotes ?? {});
-    setFieldProgress(snapshot.fieldProgress);
+    setServices(cleanSnapshot.services);
+    setServicePackages(cleanSnapshot.packages);
+    setPersonnel(cleanSnapshot.personnel ?? seedPersonnel);
+    setResources(cleanSnapshot.resources ?? seedResources);
+    setDailyMailSettings(normalizeDailyMailSettings(cleanSnapshot.dailyMailSettings));
+    setPortalMessages(cleanSnapshot.portalMessages ?? []);
+    setDeletedEntityIds(cleanSnapshot.deletedEntityIds ?? {});
+    setDeletedReportIds(cleanSnapshot.deletedReportIds ?? []);
+    setFieldNotes(cleanSnapshot.fieldNotes ?? {});
+    setFieldProgress(cleanSnapshot.fieldProgress);
     setActiveJobId(restoredActiveJob?.id ?? null);
-    setAppUpdatedAt(snapshot.updatedAt);
+    setAppUpdatedAt(cleanSnapshot.updatedAt);
   }
 
   useEffect(() => {
@@ -6312,10 +6327,10 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
           const baseMergedSnapshot = localSnapshotIsSuspiciouslyEmpty
             ? recoverReportsFromFieldProgress(remoteSnapshot)
             : mergeSnapshots(remoteSnapshot, localSnapshotWithBackups);
-          const mergedSnapshot = {
+          const mergedSnapshot = sanitizePersonnelSnapshot({
             ...baseMergedSnapshot,
             reports: applyReportTextBackups(baseMergedSnapshot.reports, reportBackups),
-          };
+          });
           applySnapshot(mergedSnapshot);
           remoteSnapshotWasApplied = true;
           persistLocalSnapshot(mergedSnapshot);
@@ -6456,10 +6471,10 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       const remoteHasMoreData = snapshotWeight(remoteSnapshot) > snapshotWeight(localSnapshot);
       const reportBackups = await loadReportTextBackups();
       const baseMergedSnapshot = mergeSnapshots(remoteSnapshot, localSnapshot);
-      const mergedSnapshot = {
+      const mergedSnapshot = sanitizePersonnelSnapshot({
         ...baseMergedSnapshot,
         reports: applyReportTextBackups(baseMergedSnapshot.reports, reportBackups),
-      };
+      });
       const mergedDiffersFromRemote = JSON.stringify(mergedSnapshot) !== JSON.stringify(remoteSnapshot);
       const mergedDiffersFromLocal = JSON.stringify(mergedSnapshot) !== JSON.stringify(localSnapshot);
       const missingReports = missingLocalReports(remoteSnapshot.reports, localSnapshot.reports);
@@ -16992,7 +17007,6 @@ function JobForm({
   ], ["Hauskontrolle", "Gartenpflege", "Reinigung", "Reparatur", "Poolpflege", "Schlüsselservice", "Fotobericht", "Sonstiges"]);
   const personnelNames = uniqueSortedValues([
     ...activeJobPersonnel.map((person) => `${person.firstName} ${person.lastName}`.trim()).filter(Boolean),
-    newJob.assignedTo && !isUnassignedJobAssignee(newJob.assignedTo) ? newJob.assignedTo : "",
   ]);
   const recurrenceSummary = newJob.scheduleType === "einmalig"
     ? `Einmaliger Auftrag ${newJob.startDate === newJob.endDate ? `am ${newJob.startDate}` : `von ${newJob.startDate} bis ${newJob.endDate}`}`
@@ -17155,6 +17169,7 @@ function JobForm({
         },
       ],
     });
+    setMaterialEntryMode("");
   }
 
   function addFreeMaterial() {
@@ -17436,7 +17451,6 @@ function JobForm({
               <select defaultValue="" onChange={(event) => {
                 addMaterialFromCatalog(event.target.value);
                 event.currentTarget.value = "";
-                setMaterialEntryMode("");
               }}>
                 <option value="">Material auswählen...</option>
                 {activeJobMaterials.map((material) => (
@@ -17446,7 +17460,9 @@ function JobForm({
             </label>
             <div className="material-stock-picker-list">
               {activeJobMaterials.map((material) => (
-                <article key={material.id}>
+                <article key={material.id} onClick={() => addMaterialFromCatalog(material.id)} role="button" tabIndex={0} onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") addMaterialFromCatalog(material.id);
+                }}>
                   <div>
                     <strong>{material.name}</strong>
                     <span>{material.category} · {materialRate(material)}</span>

@@ -1,10 +1,20 @@
 export const appVersion = {
-  version: "1.320.0",
+  version: "1.321.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.321.0",
+    date: "2026-09-06",
+    changes: [
+      "Der Demo-Mitarbeiter Johan Berg wird aus geladenen App-Daten entfernt",
+      "Neue Auftraege starten ohne feste Demo-Zustaendigkeit",
+      "Die Auftragsanlage zeigt bei Zustaendig nur aktives Personal aus den Stammdaten",
+      "Materialzeilen in der Auftragsanlage sind direkt anklickbar und fuegen die Position hinzu",
+    ],
+  },
   {
     version: "1.320.0",
     date: "2026-09-06",

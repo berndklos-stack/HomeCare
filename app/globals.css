@@ -2907,10 +2907,17 @@ mark.neutral {
 
 .material-stock-picker-list article {
   align-items: center;
+  cursor: pointer;
   display: grid;
   gap: 8px;
   grid-template-columns: minmax(0, 1fr) minmax(180px, 0.8fr);
   padding: 8px 10px;
+}
+
+.material-stock-picker-list article:hover,
+.material-stock-picker-list article:focus-visible {
+  background: var(--blue-soft);
+  outline: none;
 }
 
 .material-stock-picker-list article + article {
