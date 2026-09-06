@@ -383,8 +383,9 @@ type MaterialInventoryEntry = {
   createdAt: string;
   updatedAt?: string;
   location: string;
-  type: "Eingang" | "Ausgang" | "Korrektur";
+  type: "Eingang" | "Ausgang" | "Korrektur" | "Inventur";
   quantity: number;
+  countedQuantity?: number;
   note?: string;
   purchasePrice?: string;
   purchaseGross?: string;
@@ -1449,7 +1450,7 @@ function formatInventoryQuantity(value: number) {
 
 function signedMaterialInventoryQuantity(entry: Pick<MaterialInventoryEntry, "quantity" | "type">) {
   if (entry.type === "Ausgang") return -Math.abs(entry.quantity);
-  if (entry.type === "Korrektur") return entry.quantity;
+  if (entry.type === "Korrektur" || entry.type === "Inventur") return entry.quantity;
   return Math.abs(entry.quantity);
 }
 
@@ -3719,14 +3720,14 @@ async function downloadMaterialInventoryMovementPdf(material: MaterialItem, cust
   }
 
   const columns = [
-    { label: "Datum", width: 32 },
+    { label: "Datum / Uhrzeit", width: 34 },
     { label: "Buchung", width: 24 },
     { label: "Lagerort", width: 36 },
     { label: "Menge", width: 24 },
     { label: "Bestand", width: 24 },
     { label: "Wert", width: 28 },
     { label: "Lieferant / Kunde", width: 48 },
-    { label: "Notiz", width: contentWidth - 216 },
+    { label: "Notiz", width: contentWidth - 218 },
   ];
 
   function drawTableHeader() {
@@ -3759,6 +3760,9 @@ async function downloadMaterialInventoryMovementPdf(material: MaterialItem, cust
     runningStock += signedQuantity;
     const customer = customers.find((item) => item.id === entry.customerId);
     const service = services.find((item) => item.id === entry.serviceId);
+    const quantityText = entry.type === "Inventur" && typeof entry.countedQuantity === "number"
+      ? `${formatInventoryQuantity(signedQuantity)} ${material.unit} (gezählt ${formatInventoryQuantity(entry.countedQuantity)})`
+      : `${formatInventoryQuantity(signedQuantity)} ${material.unit}`;
     const valueText = entry.type === "Eingang" && (entry.purchaseGross || entry.purchaseNet || entry.purchasePrice)
       ? formatMoney(decimalValue(entry.purchaseNet ?? entry.purchasePrice ?? "") || purchaseAmountsFromGross(entry.purchaseGross ?? "", entry.purchaseTaxRate || "25").net, material.currency || "SEK")
       : "-";
@@ -3768,10 +3772,10 @@ async function downloadMaterialInventoryMovementPdf(material: MaterialItem, cust
       service ? `Leistung: ${service.name}` : "",
     ].filter(Boolean).join(" · ");
     const row = [
-      formatCreatedAt(entry.createdAt),
+      formatCreatedAtWithSeconds(entry.createdAt),
       entry.type,
       entry.location || "-",
-      `${formatInventoryQuantity(signedQuantity)} ${material.unit}`,
+      quantityText,
       `${formatInventoryQuantity(runningStock)} ${material.unit}`,
       valueText,
       partnerText || "-",
@@ -3793,6 +3797,37 @@ async function downloadMaterialInventoryMovementPdf(material: MaterialItem, cust
     });
     y += rowHeight;
   });
+
+  const corrections = entries.flatMap((entry) => (
+    (entry.changes ?? []).map((change) => ({
+      changedAt: change.changedAt,
+      entry,
+      summary: change.summary,
+    }))
+  )).sort((first, second) => first.changedAt.localeCompare(second.changedAt));
+
+  if (corrections.length > 0) {
+    ensureSpace(18);
+    y += 6;
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(10);
+    pdf.setTextColor(18, 22, 28);
+    pdf.text("Korrekturen / Änderungen", margin, y);
+    y += 6;
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(7);
+    pdf.setTextColor(33, 37, 43);
+    corrections.forEach((correction) => {
+      const text = `${formatCreatedAtWithSeconds(correction.changedAt)} · ${correction.entry.type} ${formatInventoryQuantity(signedMaterialInventoryQuantity(correction.entry))} ${material.unit} · ${correction.summary}`;
+      const lines = pdf.splitTextToSize(text, contentWidth - 4) as string[];
+      const rowHeight = Math.max(7, lines.length * 3.8 + 3);
+      ensureSpace(rowHeight);
+      pdf.setDrawColor(226, 228, 232);
+      pdf.rect(margin, y, contentWidth, rowHeight, "S");
+      pdf.text(lines, margin + 2, y + 4.8);
+      y += rowHeight;
+    });
+  }
 
   const pageCount = pdf.getNumberOfPages();
   for (let page = 1; page <= pageCount; page += 1) {
@@ -9037,7 +9072,9 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                 newJob={newJob}
                 objects={activeObjects}
                 selectedObject={selectedObject}
+                jobs={jobs}
                 materials={materials}
+                personnel={personnel}
                 services={services}
                 setNewJob={setNewJob}
                 setSelectedObjectId={selectJobObject}
@@ -11771,6 +11808,7 @@ function InventoryView({
     if (previous.type !== next.type) changes.push(`Buchung: ${previous.type} -> ${next.type}`);
     if (previous.location !== next.location) changes.push(`Lagerort: ${previous.location || "-"} -> ${next.location || "-"}`);
     if (previousQuantity !== nextQuantity) changes.push(`Menge: ${previousQuantity} -> ${nextQuantity}`);
+    if ((previous.countedQuantity ?? "") !== (next.countedQuantity ?? "")) changes.push(`Inventur-Bestand: ${previous.countedQuantity ?? "-"} -> ${next.countedQuantity ?? "-"}`);
     if ((previous.purchaseGross ?? "") !== (next.purchaseGross ?? "")) changes.push(`Kaufpreis brutto: ${previous.purchaseGross || "-"} -> ${next.purchaseGross || "-"}`);
     if ((previous.purchaseTaxRate ?? "") !== (next.purchaseTaxRate ?? "")) changes.push(`Moms: ${previous.purchaseTaxRate || "-"} -> ${next.purchaseTaxRate || "-"}`);
     if ((previous.supplier ?? "") !== (next.supplier ?? "")) changes.push(`Lieferant: ${previous.supplier || "-"} -> ${next.supplier || "-"}`);
@@ -11813,7 +11851,9 @@ function InventoryView({
   }
 
   function editBooking(material: MaterialItem, entry: MaterialInventoryEntry) {
-    const positiveLocations = Object.entries(materialInventoryByLocation((material.inventoryEntries ?? []).filter((item) => item.id !== entry.id)))
+    const inventoryEntriesWithoutEntry = (material.inventoryEntries ?? []).filter((item) => item.id !== entry.id);
+    const stockWithoutEntry = materialInventoryByLocation(inventoryEntriesWithoutEntry)[entry.location] ?? 0;
+    const positiveLocations = Object.entries(materialInventoryByLocation(inventoryEntriesWithoutEntry))
       .filter(([location, quantity]) => quantity > 0 && activeInventoryLocationNameSet.has(location.trim().toLowerCase()))
       .sort(([firstLocation], [secondLocation]) => firstLocation.localeCompare(secondLocation, "de"));
     setSelectedMaterialId(material.id);
@@ -11829,7 +11869,11 @@ function InventoryView({
       note: entry.note ?? "",
       purchaseGross: entry.purchaseGross ?? "",
       purchaseTaxRate: entry.purchaseTaxRate ?? "25",
-      quantity: entry.type === "Korrektur" ? String(entry.quantity) : String(Math.abs(entry.quantity)),
+      quantity: entry.type === "Korrektur"
+        ? String(entry.quantity)
+        : entry.type === "Inventur"
+          ? String(entry.countedQuantity ?? stockWithoutEntry + entry.quantity)
+          : String(Math.abs(entry.quantity)),
       receipt: entry.receipt,
       serviceId: entry.serviceId ?? "",
       supplier: entry.supplier ?? "",
@@ -11863,19 +11907,24 @@ function InventoryView({
       setNotice("Bitte zuerst ein Material auswählen.");
       return;
     }
-    if (!Number.isFinite(quantity) || quantity === 0) {
-      setNotice("Bitte eine Menge ungleich 0 erfassen.");
+    if (!Number.isFinite(quantity) || (form.type !== "Inventur" && quantity === 0)) {
+      setNotice(form.type === "Inventur" ? "Bitte den gezählten Bestand erfassen." : "Bitte eine Menge ungleich 0 erfassen.");
+      return;
+    }
+    if (form.type === "Inventur" && quantity < 0) {
+      setNotice("Der gezählte Bestand darf nicht negativ sein.");
       return;
     }
     if (!activeInventoryLocationNameSet.has(location.toLowerCase())) {
       setNotice("Bitte einen angelegten Lagerort auswählen. Freie Lagerorte können hier nicht bebucht werden.");
       return;
     }
+    const entriesForLocationBaseline = material.id === originalMaterial?.id
+      ? (material.inventoryEntries ?? []).filter((entry) => entry.id !== originalEntry?.id)
+      : material.inventoryEntries ?? [];
+    const currentLocationStock = materialInventoryByLocation(entriesForLocationBaseline)[location] ?? 0;
     if (form.type === "Ausgang") {
-      const entriesForValidation = material.id === originalMaterial?.id
-        ? (material.inventoryEntries ?? []).filter((entry) => entry.id !== originalEntry?.id)
-        : material.inventoryEntries ?? [];
-      const locationStock = materialInventoryByLocation(entriesForValidation)[location] ?? 0;
+      const locationStock = currentLocationStock;
       if (locationStock <= 0) {
         setNotice("Ausgänge sind nur von Lagerorten mit positivem Bestand möglich.");
         return;
@@ -11888,9 +11937,11 @@ function InventoryView({
 
     const purchaseAmounts = purchaseAmountsFromGross(form.purchaseGross, form.purchaseTaxRate);
     const now = new Date().toISOString();
+    const bookingQuantity = form.type === "Inventur" ? quantity - currentLocationStock : quantity;
     const entry: MaterialInventoryEntry = {
       billableAsService: form.type === "Ausgang" ? form.billableAsService : false,
       changes: originalEntry?.changes ?? [],
+      countedQuantity: form.type === "Inventur" ? quantity : undefined,
       createdAt: originalEntry?.createdAt ?? now,
       customerId: form.type === "Ausgang" ? form.customerId || undefined : undefined,
       id: originalEntry?.id ?? createEntityId("MINV"),
@@ -11901,7 +11952,7 @@ function InventoryView({
       purchasePrice: form.type === "Eingang" && form.purchaseGross.trim() ? String(Math.round(purchaseAmounts.net * 100) / 100) : undefined,
       purchaseTaxAmount: form.type === "Eingang" && form.purchaseGross.trim() ? String(Math.round(purchaseAmounts.tax * 100) / 100) : undefined,
       purchaseTaxRate: form.type === "Eingang" ? form.purchaseTaxRate.trim() || "25" : undefined,
-      quantity,
+      quantity: bookingQuantity,
       receipt: form.type === "Eingang" ? form.receipt : undefined,
       serviceId: form.type === "Ausgang" ? form.serviceId || undefined : undefined,
       supplier: form.type === "Eingang" ? form.supplier.trim() : undefined,
@@ -12076,6 +12127,7 @@ function InventoryView({
               <div className="row-actions" onClick={(event) => event.stopPropagation()}>
                 <IconAction label={`Eingang für ${material.name} buchen`} onClick={() => openBooking(material, "Eingang")}><Plus size={16} /></IconAction>
                 <IconAction label={`Ausgang für ${material.name} buchen`} onClick={() => openBooking(material, "Ausgang")}><Minus size={16} /></IconAction>
+                <IconAction label={`Inventur für ${material.name} buchen`} onClick={() => openBooking(material, "Inventur")}><ClipboardList size={16} /></IconAction>
                 <IconAction label={`Buchungen für ${material.name} ansehen`} onClick={() => openHistory(material)}><List size={16} /></IconAction>
               </div>
             </article>
@@ -12137,9 +12189,10 @@ function InventoryView({
                   <option>Eingang</option>
                   <option>Ausgang</option>
                   <option>Korrektur</option>
+                  <option>Inventur</option>
                 </select>
               </label>
-              <label><span>Menge</span><input inputMode="decimal" value={form.quantity} onChange={(event) => setForm({ ...form, quantity: event.target.value })} placeholder="z.B. 10" /></label>
+              <label><span>{form.type === "Inventur" ? "Gezählter Bestand" : "Menge"}</span><input inputMode="decimal" value={form.quantity} onChange={(event) => setForm({ ...form, quantity: event.target.value })} placeholder={form.type === "Inventur" ? "z.B. 12" : "z.B. 10"} /></label>
               {form.type === "Ausgang" ? (
                 <label><span>Lagerort mit Bestand</span>
                   <select value={form.location} onChange={(event) => setForm({ ...form, location: event.target.value })}>
@@ -12337,10 +12390,14 @@ function InventoryView({
                 const grossAmount = decimalValue(entry.purchaseGross ?? "");
                 const netAmount = decimalValue(entry.purchaseNet ?? entry.purchasePrice ?? "");
                 const taxAmount = decimalValue(entry.purchaseTaxAmount ?? "");
+                const signedQuantity = signedMaterialInventoryQuantity(entry);
+                const movementLabel = entry.type === "Inventur" && typeof entry.countedQuantity === "number"
+                  ? `Inventur · Bestand ${formatInventoryQuantity(entry.countedQuantity)} ${material.unit} (${signedQuantity >= 0 ? "+" : ""}${formatInventoryQuantity(signedQuantity)} ${material.unit})`
+                  : `${entry.type} · ${formatInventoryQuantity(signedQuantity)} ${material.unit}`;
                 return (
                   <article key={`${material.id}-${entry.id}`}>
                     <div>
-                      <strong>{material.name} · {entry.type} · {formatInventoryQuantity(signedMaterialInventoryQuantity(entry))} {material.unit}</strong>
+                      <strong>{material.name} · {movementLabel}</strong>
                       <span>{entry.location} · {formatCreatedAt(entry.createdAt)}{entry.supplier ? ` · ${entry.supplier}` : ""}</span>
                       {entry.updatedAt && <span>Bearbeitet: {formatCreatedAt(entry.updatedAt)}</span>}
                       {(entry.purchaseGross || entry.purchaseNet || entry.purchasePrice) && (
@@ -16890,10 +16947,12 @@ function CustomerForm({
 
 function JobForm({
   customerMode = false,
+  jobs,
   materials,
   newJob,
   setNewJob,
   objects,
+  personnel,
   selectedObject,
   services,
   setSelectedObjectId,
@@ -16901,10 +16960,12 @@ function JobForm({
   submitLabel,
 }: {
   customerMode?: boolean;
+  jobs: JobRecord[];
   materials: MaterialItem[];
   newJob: NewJobFormState;
   setNewJob: (value: NewJobFormState) => void;
   objects: ObjectRecord[];
+  personnel: PersonnelRecord[];
   selectedObject: ObjectRecord;
   services: ServiceItem[];
   setSelectedObjectId: (id: string) => void;
@@ -16914,6 +16975,18 @@ function JobForm({
   const weekdays = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
   const [serviceEntryMode, setServiceEntryMode] = useState<"" | "catalog" | "manual">("");
   const [materialEntryMode, setMaterialEntryMode] = useState<"" | "catalog" | "manual">("");
+  const activeJobMaterials = materials.filter((material) => !material.archived);
+  const activeJobPersonnel = personnel.filter((person) => !person.archived && person.status !== "ausgeschieden");
+  const jobTypeOptions = uniqueSortedValues([
+    ...jobs.map((job) => job.type),
+    ...services.map((service) => service.name),
+    ...services.map((service) => service.category),
+    newJob.type,
+  ], ["Hauskontrolle", "Gartenpflege", "Reinigung", "Reparatur", "Poolpflege", "Schlüsselservice", "Fotobericht", "Sonstiges"]);
+  const personnelNames = uniqueSortedValues([
+    ...activeJobPersonnel.map((person) => `${person.firstName} ${person.lastName}`.trim()).filter(Boolean),
+    newJob.assignedTo && !isUnassignedJobAssignee(newJob.assignedTo) ? newJob.assignedTo : "",
+  ]);
   const recurrenceSummary = newJob.scheduleType === "einmalig"
     ? `Einmaliger Auftrag ${newJob.startDate === newJob.endDate ? `am ${newJob.startDate}` : `von ${newJob.startDate} bis ${newJob.endDate}`}`
     : scheduleLabel({
@@ -17119,6 +17192,15 @@ function JobForm({
     });
   }
 
+  function materialInventoryLabel(material: MaterialItem) {
+    const total = materialInventoryTotal(material);
+    const locations = Object.entries(materialInventoryByLocation(material.inventoryEntries ?? []))
+      .filter(([, quantity]) => Math.abs(quantity) > 0.000001)
+      .map(([location, quantity]) => `${location}: ${formatInventoryQuantity(quantity)}`)
+      .join(" · ");
+    return `${formatInventoryQuantity(total)} ${material.unit}${locations ? ` (${locations})` : ""}`;
+  }
+
   function toggleWeekday(day: string) {
     update(
       "scheduleWeekdays",
@@ -17137,7 +17219,12 @@ function JobForm({
           {objects.map((object) => <option key={object.id} value={object.id}>{object.name}</option>)}
         </select>
       </label>
-      <label><span>Typ</span><input value={newJob.type} onChange={(event) => update("type", event.target.value)} /></label>
+      <label>
+        <span>Auftragstyp</span>
+        <select value={newJob.type} onChange={(event) => update("type", event.target.value)}>
+          {jobTypeOptions.map((type) => <option key={type} value={type}>{type}</option>)}
+        </select>
+      </label>
       <label>
         <span>Priorität</span>
         <select value={newJob.priority} onChange={(event) => update("priority", event.target.value)}>
@@ -17179,7 +17266,15 @@ function JobForm({
         <label><span>Startet am</span><input type="date" value={newJob.startDate} onChange={(event) => updateStartDate(event.target.value)} /></label>
         <label><span>Endet am</span><input min={newJob.startDate} type="date" value={newJob.endDate} onChange={(event) => updateEndDate(event.target.value)} /></label>
       </div>
-      {!customerMode && <label><span>Zuständig</span><input value={newJob.assignedTo} onChange={(event) => update("assignedTo", event.target.value)} /></label>}
+      {!customerMode && (
+        <label>
+          <span>Zuständig</span>
+          <select value={isUnassignedJobAssignee(newJob.assignedTo) ? "" : newJob.assignedTo} onChange={(event) => update("assignedTo", event.target.value || "nicht zugewiesen")}>
+            <option value="">nicht zugewiesen</option>
+            {personnelNames.map((name) => <option key={name} value={name}>{name}</option>)}
+          </select>
+        </label>
+      )}
       <section className="wide job-position-section">
         <div className="section-heading">
           <span>Leistungen</span>
@@ -17337,11 +17432,22 @@ function JobForm({
                 setMaterialEntryMode("");
               }}>
                 <option value="">Material auswählen...</option>
-                {materials.filter((material) => !material.archived).map((material) => (
-                  <option key={material.id} value={material.id}>{material.name} · {materialRate(material)}</option>
+                {activeJobMaterials.map((material) => (
+                  <option key={material.id} value={material.id}>{material.name} · Bestand {materialInventoryLabel(material)} · {materialRate(material)}</option>
                 ))}
               </select>
             </label>
+            <div className="material-stock-picker-list">
+              {activeJobMaterials.map((material) => (
+                <article key={material.id}>
+                  <div>
+                    <strong>{material.name}</strong>
+                    <span>{material.category} · {materialRate(material)}</span>
+                  </div>
+                  <span>{materialInventoryLabel(material)}</span>
+                </article>
+              ))}
+            </div>
           </div>
         )}
         {materialEntryMode === "manual" && (

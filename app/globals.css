@@ -2898,6 +2898,37 @@ mark.neutral {
   gap: 5px;
 }
 
+.material-stock-picker-list {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  overflow: hidden;
+}
+
+.material-stock-picker-list article {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 0.8fr);
+  padding: 8px 10px;
+}
+
+.material-stock-picker-list article + article {
+  border-top: 1px solid var(--line);
+}
+
+.material-stock-picker-list strong,
+.material-stock-picker-list span {
+  display: block;
+  min-width: 0;
+}
+
+.material-stock-picker-list article > span {
+  color: var(--muted);
+  font-weight: 800;
+  text-align: right;
+}
+
 .job-position-list article,
 .material-position-list article {
   align-items: center;

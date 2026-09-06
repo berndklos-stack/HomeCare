@@ -1,10 +1,24 @@
 export const appVersion = {
-  version: "1.318.0",
+  version: "1.319.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.319.0",
+    date: "2026-09-06",
+    changes: [
+      "Die PDF-Bewegungsliste zeigt Buchungsdatum und Uhrzeit mit Sekunden",
+      "Korrekturbuchungen bleiben in der Bewegungsliste sichtbar",
+      "Nachtraegliche Aenderungen werden im PDF mit Zeitpunkt und Beschreibung aufgefuehrt",
+      "Inventurbuchungen koennen pro Lagerort erfasst werden",
+      "Inventuren speichern den gezaehlten Bestand und buchen automatisch die Differenz",
+      "Beim Auftrag-Anlegen zeigt Material hinzufuegen die aktuellen Lagerbestaende an",
+      "Beim Auftrag-Anlegen wird Zustaendig aus den angelegten Mitarbeitenden ausgewaehlt",
+      "Beim Auftrag-Anlegen wird der Auftragstyp aus vorhandenen Typen ausgewaehlt",
+    ],
+  },
   {
     version: "1.318.0",
     date: "2026-09-06",
