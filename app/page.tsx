@@ -939,6 +939,7 @@ const swedishUiText: Record<string, string> = {
   "Fahrt": "Körning",
   "Fahrt eintragen": "Registrera körning",
   "Fahrt erfassen": "Registrera körning",
+  "Fahrt manuell": "Registrera körning manuellt",
   "Fahrt speichern": "Spara körning",
   "Finanzen": "Ekonomi",
   "Format pro Zeile: Name|ICS-Link": "Format per rad: Namn|ICS-länk",
@@ -976,6 +977,8 @@ const swedishUiText: Record<string, string> = {
   "Leistung anfragen": "Begär tjänst",
   "Leistungen": "Tjänster",
   "Leistungen auswählen": "Välj tjänster",
+  "Leistung hinzufügen": "Lägg till tjänst",
+  "Leistung manuell": "Manuell tjänst",
   "Leistungen im Auftrag": "Tjänster i uppdraget",
   "Leistungen im Paket": "Tjänster i paketet",
   "Leistungen einzeln erfassen": "Registrera enskilda tjänster",
@@ -985,6 +988,10 @@ const swedishUiText: Record<string, string> = {
   "Mailtext Einsatzbericht": "Mejltext för uppdragsrapport",
   "Maschine": "Maskin",
   "Material": "Material",
+  "Material hinzufügen": "Lägg till material",
+  "Material manuell": "Manuellt material",
+  "Materialposition hinzufügen": "Lägg till materialrad",
+  "Materialbestand, Lagerorte, Ein- und Ausgänge sowie Einkaufsbelege zentral verwalten.": "Hantera materiallager, lagerplatser, in- och utleveranser samt inköpskvitton centralt.",
   "Mehrere Leistungen bündeln": "Samla flera tjänster",
   "Mobil vor Ort": "Mobilt på plats",
   "Nachname": "Efternamn",
@@ -999,7 +1006,10 @@ const swedishUiText: Record<string, string> = {
   "Neues Objekt": "Nytt objekt",
   "Neues Personal anlegen": "Skapa ny personal",
   "Neue Ressource anlegen": "Skapa ny resurs",
+  "Neue Buchung": "Ny bokning",
+  "Neuer Lagerort": "Ny lagerplats",
   "Nicht zugeordnet": "Inte tilldelad",
+  "nicht zugewiesen": "inte tilldelad",
   "Notiz": "Notering",
   "Notizen": "Noteringar",
   "Notizen / interne Info": "Noteringar / intern info",
@@ -1031,6 +1041,7 @@ const swedishUiText: Record<string, string> = {
   "Portal-Passwort": "Portallösenord",
   "Portalstatus": "Portalstatus",
   "Preis": "Pris",
+  "Preis netto": "Pris netto",
   "Priorität": "Prioritet",
   "Rechnungen": "Fakturor",
   "Rechnungsadresse": "Fakturaadress",
@@ -1046,6 +1057,7 @@ const swedishUiText: Record<string, string> = {
   "Rolle": "Roll",
   "Saldo": "Saldo",
   "Schließen": "Stäng",
+  "Suche": "Sök",
   "Sprache": "Språk",
   "Stammdaten": "Grunddata",
   "Standort": "Plats",
@@ -1060,6 +1072,8 @@ const swedishUiText: Record<string, string> = {
   "Telefon": "Telefon",
   "Telefon 2": "Telefon 2",
   "Termin": "Tid",
+  "Undisponiert": "Oplanerat",
+  "Keine undisponierten Aufträge.": "Inga oplanerade uppdrag.",
   "Titel": "Titel",
   "Typ": "Typ",
   "Überfällig": "Försenad",
@@ -1069,6 +1083,56 @@ const swedishUiText: Record<string, string> = {
   "Wasser": "Vatten",
   "Woche": "Vecka",
   "Währung": "Valuta",
+  "Änderung speichern": "Spara ändring",
+  "Änderungen speichern": "Spara ändringar",
+  "Alle Buchungen": "Alla bokningar",
+  "Alle Buchungen ansehen": "Visa alla bokningar",
+  "Ausgang": "Utgång",
+  "Ausgänge": "Utgångar",
+  "Buchung": "Bokning",
+  "Buchung bearbeiten": "Redigera bokning",
+  "Buchung speichern": "Spara bokning",
+  "Buchungen": "Bokningar",
+  "Buchungshistorie schließen": "Stäng bokningshistorik",
+  "Bewegungsliste PDF": "Rörelselista PDF",
+  "Bestandswert FIFO": "Lagervärde FIFO",
+  "Eingang": "Ingång",
+  "Einkaufsbeleg scannen": "Skanna inköpskvitto",
+  "für Abrechnung vormerken": "markera för fakturering",
+  "Gezählter Bestand": "Räknat lager",
+  "Inventur": "Inventering",
+  "Kaufpreis brutto": "Inköpspris brutto",
+  "Kein Material für diese Suche gefunden.": "Inget material hittades för sökningen.",
+  "Keine Artikel für diesen Filter gefunden.": "Inga artiklar hittades för filtret.",
+  "Keine Leistung für diese Suche gefunden.": "Ingen tjänst hittades för sökningen.",
+  "Korrektur": "Korrigering",
+  "Lagerort": "Lagerplats",
+  "Lagerort anlegen": "Skapa lagerplats",
+  "Lagerort bearbeiten": "Redigera lagerplats",
+  "Lagerort mit Bestand": "Lagerplats med saldo",
+  "Lagerort speichern": "Spara lagerplats",
+  "Lagerorte": "Lagerplatser",
+  "Lagerorte anzeigen": "Visa lagerplatser",
+  "Lagerverwaltung": "Lagerhantering",
+  "Lieferant": "Leverantör",
+  "Menge": "Antal",
+  "Moms %": "Moms %",
+  "Netto": "Netto",
+  "nur Lagerausgang": "endast lageruttag",
+  "Standort offen": "Plats saknas",
+  "Aktueller Bestand": "Aktuellt lager",
+  "aktive Materialien": "aktiva material",
+  "Artikel, Lagerort, Lieferant oder Kategorie filtern...": "Filtrera artikel, lagerplats, leverantör eller kategori...",
+  "Bestandseinheiten gesamt": "lagerenheter totalt",
+  "Manuelle Leistung": "Manuell tjänst",
+  "Freies Material": "Fritt material",
+  "Freies Material beim Speichern in Stammdaten übernehmen": "Spara fritt material i grunddata vid sparande",
+  "Leistung, Kategorie, Einheit oder Konto suchen...": "Sök tjänst, kategori, enhet eller konto...",
+  "Material, Kategorie, Lagerort oder Lieferant suchen...": "Sök material, kategori, lagerplats eller leverantör...",
+  "Sprachen": "Språk",
+  "unter Mindestbestand": "under minimilager",
+  "Aufträge hier ablegen, wenn sie aus der Einsatzplanung herausgenommen werden sollen.": "Släpp uppdrag här när de ska tas bort från planeringen.",
+  "Auftrag geplant": "uppdrag planerat",
   "Zeit": "Tid",
   "Zeit / Material": "Tid / material",
   "Zieladresse": "Måladress",
@@ -1081,6 +1145,137 @@ const swedishUiText: Record<string, string> = {
   "Zweck / Ärende": "Syfte / ärende",
   "z.B. Einsatzleitung": "t.ex. arbetsledning",
 };
+
+function translatedUiText(value: string, language: Language) {
+  return language === "sv" ? swedishUiText[value] ?? value : value;
+}
+
+const englishUiText: Record<string, string> = {
+  "Abbrechen": "Cancel",
+  "Abrechnung": "Billing",
+  "Aktuelle Version": "Current version",
+  "Aktueller Bestand": "Current stock",
+  "aktive Materialien": "active materials",
+  "Artikel, Lagerort, Lieferant oder Kategorie filtern...": "Filter item, storage location, supplier or category...",
+  "Bestandseinheiten gesamt": "stock units total",
+  "Alle Buchungen": "All postings",
+  "Alle Buchungen ansehen": "View all postings",
+  "Auftrag": "Job",
+  "Auftrag geplant": "Job planned",
+  "Auftragstyp": "Job type",
+  "Ausgang": "Stock out",
+  "Ausgänge": "Stock out",
+  "Bearbeitung abbrechen": "Cancel editing",
+  "Beschreibung": "Description",
+  "Bestandswert FIFO": "Inventory value FIFO",
+  "Bewegungsliste PDF": "Movement list PDF",
+  "Bilder": "Images",
+  "Buchhaltung": "Accounting",
+  "Buchung": "Posting",
+  "Buchung bearbeiten": "Edit posting",
+  "Buchung speichern": "Save posting",
+  "Buchungen": "Postings",
+  "Buchungshistorie schließen": "Close posting history",
+  "Datum": "Date",
+  "Disposition": "Dispatch",
+  "Dispokalender": "Dispatch calendar",
+  "Eingang": "Stock in",
+  "Einkaufsbeleg scannen": "Scan purchase receipt",
+  "Einheit": "Unit",
+  "Fahrt": "Trip",
+  "Fahrt manuell": "Manual trip",
+  "Fahrtenbuch": "Logbook",
+  "Firma": "Company",
+  "Freies Material": "Free material",
+  "Freies Material beim Speichern in Stammdaten übernehmen": "Save free material to master data when saving",
+  "für Abrechnung vormerken": "Mark for billing",
+  "Gezählter Bestand": "Counted stock",
+  "Inventur": "Stock count",
+  "Kalender": "Calendar",
+  "Kaufpreis brutto": "Purchase price gross",
+  "Keine Artikel für diesen Filter gefunden.": "No items found for this filter.",
+  "Keine Leistung für diese Suche gefunden.": "No service found for this search.",
+  "Keine undisponierten Aufträge.": "No undispatched jobs.",
+  "Kein Material für diese Suche gefunden.": "No material found for this search.",
+  "Korrektur": "Correction",
+  "Kunde": "Customer",
+  "Lagerort": "Storage location",
+  "Lagerort anlegen": "Create storage location",
+  "Lagerort bearbeiten": "Edit storage location",
+  "Lagerort mit Bestand": "Storage location with stock",
+  "Lagerort speichern": "Save storage location",
+  "Lagerorte": "Storage locations",
+  "Lagerorte anzeigen": "Show storage locations",
+  "Lagerverwaltung": "Inventory",
+  "Leistung": "Service",
+  "Leistung hinzufügen": "Add service",
+  "Leistung, Kategorie, Einheit oder Konto suchen...": "Search service, category, unit or account...",
+  "Leistung manuell": "Manual service",
+  "Leistungen": "Services",
+  "Lieferant": "Supplier",
+  "Manuelle Leistung": "Manual service",
+  "Material": "Material",
+  "Material hinzufügen": "Add material",
+  "Material, Kategorie, Lagerort oder Lieferant suchen...": "Search material, category, storage location or supplier...",
+  "Material manuell": "Manual material",
+  "Materialposition hinzufügen": "Add material line",
+  "Menge": "Quantity",
+  "Moms %": "VAT %",
+  "Neue Buchung": "New posting",
+  "Neuer Lagerort": "New storage location",
+  "Netto": "Net",
+  "nicht zugewiesen": "unassigned",
+  "nur Lagerausgang": "stock out only",
+  "Preis netto": "Net price",
+  "Schließen": "Close",
+  "Sprache": "Language",
+  "Sprachen": "Languages",
+  "Standort": "Location",
+  "Standort offen": "Location missing",
+  "Stammdaten": "Master data",
+  "Suche": "Search",
+  "unter Mindestbestand": "below minimum stock",
+  "Undisponiert": "Undispatched",
+  "Aufträge hier ablegen, wenn sie aus der Einsatzplanung herausgenommen werden sollen.": "Drop jobs here when they should be removed from dispatch planning.",
+  "Währung": "Currency",
+  "Änderung speichern": "Save change",
+  "Änderungen speichern": "Save changes",
+};
+
+function uiText(value: string, language: Language) {
+  if (language === "sv") return swedishUiText[value] ?? value;
+  if (language === "en") return englishUiText[value] ?? value;
+  return value;
+}
+
+function translationFileRows() {
+  const rows = new Map<string, { de: string; en: string; key: string; sv: string }>();
+  function upsert(key: string, values: Partial<{ de: string; en: string; sv: string }>) {
+    const current = rows.get(key) ?? { de: key, en: englishUiText[key] ?? key, key, sv: swedishUiText[key] ?? key };
+    rows.set(key, { ...current, ...values });
+  }
+
+  Object.keys(labels.de).forEach((key) => {
+    const labelKey = key as keyof typeof labels.de;
+    upsert(`label.${key}`, {
+      de: labels.de[labelKey],
+      en: labels.en[labelKey],
+      sv: labels.sv[labelKey],
+    });
+  });
+  Object.keys(navLabels.de).forEach((key) => {
+    const sectionKey = key as Section;
+    upsert(`nav.${key}`, {
+      de: navLabels.de[sectionKey],
+      en: navLabels.en[sectionKey],
+      sv: navLabels.sv[sectionKey],
+    });
+  });
+  Object.entries(swedishUiText).forEach(([key, sv]) => upsert(key, { de: key, en: englishUiText[key] ?? key, sv }));
+  Object.entries(englishUiText).forEach(([key, en]) => upsert(key, { de: key, en, sv: swedishUiText[key] ?? key }));
+
+  return Array.from(rows.values()).sort((first, second) => first.de.localeCompare(second.de, "de"));
+}
 
 const storageKeys = {
   accountingAccounts: "kolaretorp-accounting-accounts",
@@ -6589,7 +6784,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   }
 
   const t = labels[language];
-  const tx = (value: string) => (language === "sv" ? swedishUiText[value] ?? value : value);
+  const tx = (value: string) => uiText(value, language);
   const activeObjects = objects.filter((object) => !object.archived);
   const archivedObjects = objects.filter((object) => object.archived);
   const activeCustomers = customers.filter((customer) => !customer.archived);
@@ -8479,6 +8674,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                 allJobs={jobs}
                 customers={customers}
                 jobs={jobs}
+                language={language}
                 objects={activeObjects}
                 onAssignPersonnel={assignJobPersonnel}
                 onAssignResources={assignJobResources}
@@ -8570,6 +8766,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
               <InventoryView
                 customers={activeCustomers}
                 inventoryLocations={inventoryLocations}
+                language={language}
                 materials={materials}
                 objects={objects}
                 onPersistInventoryLocations={(nextLocations) => persistSnapshotNow({ inventoryLocations: nextLocations }, { forceRemote: true })}
@@ -8585,6 +8782,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                 companySettings={companySettings}
                 customers={activeCustomers}
                 dailyMailSettings={dailyMailSettings}
+                language={language}
                 objects={activeObjects}
                 onSendDailyMail={sendDailyMailNow}
                 materials={materials}
@@ -9094,6 +9292,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
             </header>
             {modal === "job" && (
               <JobForm
+                language={language}
                 newJob={newJob}
                 objects={activeObjects}
                 selectedObject={selectedObject}
@@ -10267,6 +10466,7 @@ function PlanningView({
   allJobs,
   customers,
   jobs,
+  language,
   objects,
   onAssignPersonnel,
   onAssignResources,
@@ -10279,6 +10479,7 @@ function PlanningView({
   allJobs: JobRecord[];
   customers: CustomerRecord[];
   jobs: JobRecord[];
+  language: Language;
   objects: ObjectRecord[];
   onAssignPersonnel: (job: JobRecord, assignedTo: string) => void;
   onAssignResources: (job: JobRecord, resourceIds: string[]) => void;
@@ -10288,6 +10489,7 @@ function PlanningView({
   reports: ReportRecord[];
   resources: ResourceRecord[];
 }) {
+  const tt = (value: string) => uiText(value, language);
   const today = new Date().toISOString().slice(0, 10);
   const currentWeekStart = startOfIsoWeekValue(today);
   const [planningStartDate, setPlanningStartDate] = useState(currentWeekStart);
@@ -10481,21 +10683,21 @@ function PlanningView({
       <div className="panel-title">
         <div>
           <p>Disposition</p>
-          <h2>Dispokalender</h2>
+          <h2>{tt("Dispokalender")}</h2>
         </div>
         <div className="dispatch-controls">
           <button className="ghost-button" onClick={() => movePlanningWindow(-7)} type="button">
             <ChevronRight className="flip-icon" size={16} />
-            Woche
+            {tt("Woche")}
           </button>
-          <button className="ghost-button" onClick={() => setPlanningStartDate(currentWeekStart)} type="button">Heute</button>
+          <button className="ghost-button" onClick={() => setPlanningStartDate(currentWeekStart)} type="button">{tt("Heute")}</button>
           <button className="ghost-button" onClick={() => movePlanningWindow(7)} type="button">
-            Woche
+            {tt("Woche")}
             <ChevronRight size={16} />
           </button>
           <button className="ghost-button dispatch-calendar-button" onClick={openPlanningDatePicker} type="button">
             <CalendarDays size={16} />
-            Kalender
+            {tt("Kalender")}
           </button>
           <input
             ref={planningDateInputRef}
@@ -10518,13 +10720,13 @@ function PlanningView({
         >
           <header>
             <div>
-              <strong>Undisponiert</strong>
+              <strong>{tt("Undisponiert")}</strong>
               <span>{undisposedJobs.length} offen</span>
             </div>
-            <p>Aufträge hier ablegen, wenn sie aus der Einsatzplanung herausgenommen werden sollen.</p>
+            <p>{tt("Aufträge hier ablegen, wenn sie aus der Einsatzplanung herausgenommen werden sollen.")}</p>
           </header>
           <div className="dispatch-undisposed-list">
-            {undisposedJobs.length > 0 ? undisposedJobs.map(renderDispatchJob) : <p>Keine undisponierten Aufträge.</p>}
+            {undisposedJobs.length > 0 ? undisposedJobs.map(renderDispatchJob) : <p>{tt("Keine undisponierten Aufträge.")}</p>}
           </div>
         </section>
         {overdueJobs.length > 0 && (
@@ -10532,7 +10734,7 @@ function PlanningView({
             <header>
               <CalendarDays size={16} />
               <div>
-                <strong>Überfällig</strong>
+                <strong>{tt("Überfällig")}</strong>
                 <span>{overdueJobs.length} offen</span>
               </div>
             </header>
@@ -11777,6 +11979,7 @@ function BillingView({
 function InventoryView({
   customers,
   inventoryLocations,
+  language,
   materials,
   objects,
   onPersistInventoryLocations,
@@ -11787,6 +11990,7 @@ function InventoryView({
 }: {
   customers: CustomerRecord[];
   inventoryLocations: InventoryLocation[];
+  language: Language;
   materials: MaterialItem[];
   objects: ObjectRecord[];
   onPersistInventoryLocations: (locations: InventoryLocation[]) => void;
@@ -11795,6 +11999,7 @@ function InventoryView({
   setInventoryLocations: (locations: InventoryLocation[]) => void;
   setMaterials: (materials: MaterialItem[]) => void;
 }) {
+  const tt = (value: string) => uiText(value, language);
   const activeMaterials = materials.filter((material) => !material.archived);
   const activeServices = services.filter((service) => !service.archived);
   const activeInventoryLocations = inventoryLocations.filter((location) => !location.archived);
@@ -12112,18 +12317,18 @@ function InventoryView({
     <section className="panel inventory-page">
       <div className="panel-title">
         <div>
-          <p>Lagerverwaltung</p>
+          <p>{tt("Lagerverwaltung")}</p>
           <h2>Bestände und Buchungen</h2>
-          <span>Materialbestand, Lagerorte, Ein- und Ausgänge sowie Einkaufsbelege zentral verwalten.</span>
+          <span>{tt("Materialbestand, Lagerorte, Ein- und Ausgänge sowie Einkaufsbelege zentral verwalten.")}</span>
         </div>
         <div className="row-actions">
           <button className="ghost-button" onClick={() => openHistory()} type="button">
             <List size={16} />
-            Alle Buchungen ansehen
+            {tt("Alle Buchungen ansehen")}
           </button>
           <button className="primary-button" disabled={!selectedMaterial} onClick={() => openBooking(selectedMaterial ?? undefined)} type="button">
             <Plus size={16} />
-            Neue Buchung
+            {tt("Neue Buchung")}
           </button>
         </div>
       </div>
@@ -12131,26 +12336,26 @@ function InventoryView({
       <div className="inventory-summary-grid">
         <article>
           <strong>{activeMaterials.length}</strong>
-          <span>aktive Materialien</span>
+          <span>{tt("aktive Materialien")}</span>
         </article>
         <article>
           <strong>{formatInventoryQuantity(activeMaterials.reduce((sum, material) => sum + materialInventoryTotal(material), 0))}</strong>
-          <span>Bestandseinheiten gesamt</span>
+          <span>{tt("Bestandseinheiten gesamt")}</span>
         </article>
         <article>
           <strong>{formatMoney(inventoryValue, "SEK")}</strong>
-          <span>Bestandswert FIFO</span>
+          <span>{tt("Bestandswert FIFO")}</span>
         </article>
         <article>
           <strong>{activeMaterials.filter((material) => {
             const minStock = Number(String(material.minStock ?? "").replace(",", "."));
             return Number.isFinite(minStock) && minStock > 0 && materialInventoryTotal(material) <= minStock;
           }).length}</strong>
-          <span>unter Mindestbestand</span>
+          <span>{tt("unter Mindestbestand")}</span>
         </article>
         <button className="inventory-summary-card" onClick={() => setLocationListOpen(true)} type="button">
           <strong>{activeInventoryLocations.length}</strong>
-          <span>Lagerorte</span>
+          <span>{tt("Lagerorte")}</span>
         </button>
       </div>
       <div className="inventory-filterbar">
@@ -12158,7 +12363,7 @@ function InventoryView({
           <Search size={16} />
           <input
             aria-label="Artikel filtern"
-            placeholder="Artikel, Lagerort, Lieferant oder Kategorie filtern..."
+            placeholder={tt("Artikel, Lagerort, Lieferant oder Kategorie filtern...")}
             value={inventoryFilter}
             onChange={(event) => setInventoryFilter(event.target.value)}
           />
@@ -12197,7 +12402,7 @@ function InventoryView({
           );
         })}
         {activeMaterials.length === 0 && <p>Noch kein Material erfasst. Material bitte zuerst in den Stammdaten anlegen.</p>}
-        {activeMaterials.length > 0 && filteredMaterials.length === 0 && <p>Keine Artikel für diesen Filter gefunden.</p>}
+        {activeMaterials.length > 0 && filteredMaterials.length === 0 && <p>{tt("Keine Artikel für diesen Filter gefunden.")}</p>}
       </div>
 
       {bookingOpen && selectedMaterial && (
@@ -12205,15 +12410,15 @@ function InventoryView({
           <section aria-labelledby="inventory-booking-title" aria-modal="true" className="modal send-preview-modal catalog-editor-modal" role="dialog">
             <header>
               <div>
-                <p>Lagerverwaltung</p>
-                <h2 id="inventory-booking-title">{editingBooking ? "Buchung bearbeiten" : "Neue Buchung"} · {selectedMaterial.name}</h2>
+                <p>{tt("Lagerverwaltung")}</p>
+                <h2 id="inventory-booking-title">{editingBooking ? tt("Buchung bearbeiten") : tt("Neue Buchung")} · {selectedMaterial.name}</h2>
               </div>
               <button aria-label="Buchungsdialog schließen" onClick={() => { setBookingOpen(false); setEditingBooking(null); }} type="button">
                 <X size={18} />
               </button>
             </header>
             <div className="form-grid compact-form inventory-booking-form">
-              <label><span>Material</span>
+              <label><span>{tt("Material")}</span>
                 <select value={selectedMaterialId} onChange={(event) => {
                   const nextMaterial = activeMaterials.find((material) => material.id === event.target.value);
                   const nextPositiveLocations = Object.entries(materialInventoryByLocation(nextMaterial?.inventoryEntries ?? []))
@@ -12236,7 +12441,7 @@ function InventoryView({
                   {activeMaterials.map((material) => <option key={material.id} value={material.id}>{material.name}</option>)}
                 </select>
               </label>
-              <label><span>Buchung</span>
+              <label><span>{tt("Buchung")}</span>
                 <select value={form.type} onChange={(event) => {
                   const nextType = event.target.value as MaterialInventoryEntry["type"];
                   setForm({
@@ -12249,15 +12454,15 @@ function InventoryView({
                     type: nextType,
                   });
                 }}>
-                  <option>Eingang</option>
-                  <option>Ausgang</option>
-                  <option>Korrektur</option>
-                  <option>Inventur</option>
+                  <option value="Eingang">{tt("Eingang")}</option>
+                  <option value="Ausgang">{tt("Ausgang")}</option>
+                  <option value="Korrektur">{tt("Korrektur")}</option>
+                  <option value="Inventur">{tt("Inventur")}</option>
                 </select>
               </label>
-              <label><span>{form.type === "Inventur" ? "Gezählter Bestand" : "Menge"}</span><input inputMode="decimal" value={form.quantity} onChange={(event) => setForm({ ...form, quantity: event.target.value })} placeholder={form.type === "Inventur" ? "z.B. 12" : "z.B. 10"} /></label>
+              <label><span>{form.type === "Inventur" ? tt("Gezählter Bestand") : tt("Menge")}</span><input inputMode="decimal" value={form.quantity} onChange={(event) => setForm({ ...form, quantity: event.target.value })} placeholder={form.type === "Inventur" ? "z.B. 12" : "z.B. 10"} /></label>
               {form.type === "Ausgang" ? (
-                <label><span>Lagerort mit Bestand</span>
+                <label><span>{tt("Lagerort mit Bestand")}</span>
                   <select value={form.location} onChange={(event) => setForm({ ...form, location: event.target.value })}>
                     {selectedMaterialLocationsWithStock.map(([location, stock]) => (
                       <option key={location} value={location}>{location} · {formatInventoryQuantity(stock)} {selectedMaterial.unit}</option>
@@ -12267,7 +12472,7 @@ function InventoryView({
                   {selectedMaterialLocationsWithStock.length === 0 && <small>Für dieses Material ist kein Ausgang möglich, weil kein Lagerort positiven Bestand hat.</small>}
                 </label>
               ) : (
-                <label><span>Lagerort</span>
+                <label><span>{tt("Lagerort")}</span>
                   <select value={form.location} onChange={(event) => setForm({ ...form, location: event.target.value })}>
                     {activeInventoryLocations.map((location) => (
                       <option key={location.id} value={location.name}>{location.name}{location.site ? ` · ${location.site}` : ""}</option>
@@ -12279,13 +12484,13 @@ function InventoryView({
               )}
               {form.type === "Eingang" && (
                 <>
-                  <label><span>Kaufpreis brutto</span><input inputMode="decimal" value={form.purchaseGross} onChange={(event) => setForm({ ...form, purchaseGross: event.target.value })} /></label>
-                  <label><span>Moms %</span><input inputMode="decimal" value={form.purchaseTaxRate} onChange={(event) => setForm({ ...form, purchaseTaxRate: event.target.value })} /></label>
-                  <label><span>Lieferant</span><input list="inventory-page-suppliers" value={form.supplier} onChange={(event) => setForm({ ...form, supplier: event.target.value })} /></label>
+                  <label><span>{tt("Kaufpreis brutto")}</span><input inputMode="decimal" value={form.purchaseGross} onChange={(event) => setForm({ ...form, purchaseGross: event.target.value })} /></label>
+                  <label><span>{tt("Moms %")}</span><input inputMode="decimal" value={form.purchaseTaxRate} onChange={(event) => setForm({ ...form, purchaseTaxRate: event.target.value })} /></label>
+                  <label><span>{tt("Lieferant")}</span><input list="inventory-page-suppliers" value={form.supplier} onChange={(event) => setForm({ ...form, supplier: event.target.value })} /></label>
                   <datalist id="inventory-page-suppliers">
                     {materialSuppliers.map((supplier) => <option key={supplier} value={supplier} />)}
                   </datalist>
-                  <label className="inventory-receipt-input"><span>Einkaufsbeleg scannen</span>
+                  <label className="inventory-receipt-input"><span>{tt("Einkaufsbeleg scannen")}</span>
                     <input accept="image/*,application/pdf" capture="environment" type="file" onChange={(event) => {
                       const file = event.target.files?.[0];
                       if (file) void captureInventoryReceipt(file);
@@ -12293,7 +12498,7 @@ function InventoryView({
                   </label>
                   {form.purchaseGross.trim() && (
                     <div className="inventory-tax-summary">
-                      <span>Netto {formatMoney(currentPurchaseAmounts.net, selectedMaterial.currency || "SEK")}</span>
+                      <span>{tt("Netto")} {formatMoney(currentPurchaseAmounts.net, selectedMaterial.currency || "SEK")}</span>
                       <span>Moms {formatMoney(currentPurchaseAmounts.tax, selectedMaterial.currency || "SEK")}</span>
                     </div>
                   )}
@@ -12301,25 +12506,25 @@ function InventoryView({
               )}
               {form.type === "Ausgang" && (
                 <>
-                  <label><span>Kunde</span>
+                  <label><span>{tt("Kunde")}</span>
                     <select value={form.customerId} onChange={(event) => setForm({ ...form, customerId: event.target.value })}>
-                      <option value="">nicht zugeordnet</option>
+                      <option value="">{tt("Nicht zugeordnet")}</option>
                       {customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}</option>)}
                     </select>
                   </label>
-                  <label><span>Leistung</span>
+                  <label><span>{tt("Leistung")}</span>
                     <select value={form.serviceId} onChange={(event) => setForm({ ...form, serviceId: event.target.value })}>
-                      <option value="">nur Lagerausgang</option>
+                      <option value="">{tt("nur Lagerausgang")}</option>
                       {activeServices.map((service) => <option key={service.id} value={service.id}>{service.name}</option>)}
                     </select>
                   </label>
                   <label className="checkbox-line">
                     <input checked={form.billableAsService} type="checkbox" onChange={(event) => setForm({ ...form, billableAsService: event.target.checked })} />
-                    <span>für Abrechnung vormerken</span>
+                    <span>{tt("für Abrechnung vormerken")}</span>
                   </label>
                 </>
               )}
-              <label className="wide"><span>Notiz</span><input value={form.note} onChange={(event) => setForm({ ...form, note: event.target.value })} placeholder="z.B. Einkauf, Verbrauch, Kunde, Projekt" /></label>
+              <label className="wide"><span>{tt("Notiz")}</span><input value={form.note} onChange={(event) => setForm({ ...form, note: event.target.value })} placeholder="z.B. Einkauf, Verbrauch, Kunde, Projekt" /></label>
               {form.receipt && (
                 <div className="wide inventory-receipt-note">
                   <Paperclip size={16} />
@@ -12329,10 +12534,10 @@ function InventoryView({
               )}
             </div>
             <div className="message-actions">
-              <button className="ghost-button" onClick={() => { setBookingOpen(false); setEditingBooking(null); }} type="button">Abbrechen</button>
+              <button className="ghost-button" onClick={() => { setBookingOpen(false); setEditingBooking(null); }} type="button">{tt("Abbrechen")}</button>
               <button className="primary-button" onClick={saveBooking} type="button">
                 <Check size={16} />
-                {editingBooking ? "Änderung speichern" : "Buchung speichern"}
+                {editingBooking ? tt("Änderung speichern") : tt("Buchung speichern")}
               </button>
             </div>
           </section>
@@ -12344,13 +12549,13 @@ function InventoryView({
           <section aria-labelledby="inventory-locations-title" aria-modal="true" className="modal send-preview-modal inventory-location-modal" role="dialog">
             <header>
               <div>
-                <p>Lagerverwaltung</p>
-                <h2 id="inventory-locations-title">Lagerorte anzeigen</h2>
+                <p>{tt("Lagerverwaltung")}</p>
+                <h2 id="inventory-locations-title">{tt("Lagerorte anzeigen")}</h2>
               </div>
               <div className="modal-header-actions">
                 <button className="primary-button" onClick={openCreateInventoryLocation} type="button">
                   <Plus size={16} />
-                  Lagerort anlegen
+                  {tt("Lagerort anlegen")}
                 </button>
                 <button aria-label="Lagerorte schließen" onClick={() => setLocationListOpen(false)} type="button">
                   <X size={18} />
@@ -12361,7 +12566,7 @@ function InventoryView({
               {activeInventoryLocations.map((location) => (
                 <article key={location.id}>
                   <strong>{location.name}</strong>
-                  <span>{location.site || "Standort offen"}</span>
+                  <span>{location.site || tt("Standort offen")}</span>
                   <small>{location.note || "-"}</small>
                   <div className="row-actions">
                     <IconAction label={`Lagerort ${location.name} bearbeiten`} onClick={() => editInventoryLocation(location)}><Pencil size={16} /></IconAction>
@@ -12379,26 +12584,26 @@ function InventoryView({
           <section aria-labelledby="inventory-location-title" aria-modal="true" className="modal send-preview-modal account-editor-modal" role="dialog">
             <header>
               <div>
-                <p>Lagerverwaltung</p>
-                <h2 id="inventory-location-title">{editingLocationId ? "Lagerort bearbeiten" : "Neuer Lagerort"}</h2>
+                <p>{tt("Lagerverwaltung")}</p>
+                <h2 id="inventory-location-title">{editingLocationId ? tt("Lagerort bearbeiten") : tt("Neuer Lagerort")}</h2>
               </div>
               <button aria-label="Lagerort-Dialog schließen" onClick={() => { setLocationEditorOpen(false); setEditingLocationId(null); }} type="button">
                 <X size={18} />
               </button>
             </header>
             <div className="form-grid compact-form">
-              <label><span>Lagerort</span><input autoFocus value={locationForm.name} onChange={(event) => setLocationForm({ ...locationForm, name: event.target.value })} placeholder="z.B. Auto Bernd" /></label>
-              <label><span>Standort</span><input list="inventory-location-sites" value={locationForm.site} onChange={(event) => setLocationForm({ ...locationForm, site: event.target.value })} placeholder="z.B. Kolaretorp 106" /></label>
+              <label><span>{tt("Lagerort")}</span><input autoFocus value={locationForm.name} onChange={(event) => setLocationForm({ ...locationForm, name: event.target.value })} placeholder="z.B. Auto Bernd" /></label>
+              <label><span>{tt("Standort")}</span><input list="inventory-location-sites" value={locationForm.site} onChange={(event) => setLocationForm({ ...locationForm, site: event.target.value })} placeholder="z.B. Kolaretorp 106" /></label>
               <datalist id="inventory-location-sites">
                 {locationSiteOptions.map((site) => <option key={site} value={site} />)}
               </datalist>
-              <label><span>Notiz</span><input value={locationForm.note} onChange={(event) => setLocationForm({ ...locationForm, note: event.target.value })} placeholder="z.B. Fahrzeugbestand" /></label>
+              <label><span>{tt("Notiz")}</span><input value={locationForm.note} onChange={(event) => setLocationForm({ ...locationForm, note: event.target.value })} placeholder="z.B. Fahrzeugbestand" /></label>
             </div>
             <div className="message-actions">
-              <button className="ghost-button" onClick={() => { setLocationEditorOpen(false); setEditingLocationId(null); }} type="button">Abbrechen</button>
+              <button className="ghost-button" onClick={() => { setLocationEditorOpen(false); setEditingLocationId(null); }} type="button">{tt("Abbrechen")}</button>
               <button className="primary-button" onClick={saveInventoryLocation} type="button">
                 <Check size={16} />
-                {editingLocationId ? "Änderungen speichern" : "Lagerort speichern"}
+                {editingLocationId ? tt("Änderungen speichern") : tt("Lagerort speichern")}
               </button>
             </div>
           </section>
@@ -12410,14 +12615,14 @@ function InventoryView({
           <section aria-labelledby="inventory-history-title" aria-modal="true" className="modal send-preview-modal catalog-editor-modal" role="dialog">
             <header>
               <div>
-                <p>Lagerverwaltung</p>
-                <h2 id="inventory-history-title">{historyMaterialId ? `Buchungen · ${historyMaterials[0]?.name ?? ""}` : "Alle Buchungen"}</h2>
+                <p>{tt("Lagerverwaltung")}</p>
+                <h2 id="inventory-history-title">{historyMaterialId ? `${tt("Buchungen")} · ${historyMaterials[0]?.name ?? ""}` : tt("Alle Buchungen")}</h2>
               </div>
               <div className="modal-header-actions">
                 {selectedHistoryMaterial && (
                   <button className="ghost-button" onClick={() => void downloadMaterialInventoryMovementPdf(selectedHistoryMaterial, customers, activeServices)} type="button">
                     <FileDown size={16} />
-                    Bewegungsliste PDF
+                    {tt("Bewegungsliste PDF")}
                   </button>
                 )}
                 <button aria-label="Buchungshistorie schließen" onClick={() => setHistoryOpen(false)} type="button">
@@ -12428,15 +12633,15 @@ function InventoryView({
             {selectedHistoryMaterial && (
               <div className="inventory-history-summary">
                 <article>
-                  <span>Aktueller Bestand</span>
+                  <span>{tt("Aktueller Bestand")}</span>
                   <strong>{formatInventoryQuantity(materialInventoryTotal(selectedHistoryMaterial))} {selectedHistoryMaterial.unit}</strong>
                 </article>
                 <article>
-                  <span>Bestandswert FIFO</span>
+                  <span>{tt("Bestandswert FIFO")}</span>
                   <strong>{formatMoney(materialInventoryFifoValue(selectedHistoryMaterial), selectedHistoryMaterial.currency || "SEK")}</strong>
                 </article>
                 <div>
-                  <span>Lagerorte</span>
+                  <span>{tt("Lagerorte")}</span>
                   <strong>
                     {Object.entries(materialInventoryByLocation(selectedHistoryMaterial.inventoryEntries ?? []))
                       .filter(([, quantity]) => Math.abs(quantity) > 0.000001)
@@ -13325,6 +13530,7 @@ function MasterDataView({
   customers,
   dailyMailSettings,
   dailyMailSending,
+  language,
   materials,
   objects,
   onSendDailyMail,
@@ -13348,6 +13554,7 @@ function MasterDataView({
   customers: CustomerRecord[];
   dailyMailSettings: DailyMailSettings;
   dailyMailSending: boolean;
+  language: Language;
   materials: MaterialItem[];
   objects: ObjectRecord[];
   onSendDailyMail: () => Promise<void>;
@@ -13367,7 +13574,7 @@ function MasterDataView({
   translate: (value: string) => string;
 }) {
   const tt = translate;
-  const [masterDataTab, setMasterDataTab] = useState<"company" | "personal" | "resources" | "services" | "materials" | "accounting" | "mail" | "backups">("company");
+  const [masterDataTab, setMasterDataTab] = useState<"company" | "personal" | "resources" | "services" | "materials" | "accounting" | "mail" | "languages" | "backups">("company");
   const [editingPersonId, setEditingPersonId] = useState<string | null>(null);
   const [editingResourceId, setEditingResourceId] = useState<string | null>(null);
   const [editingLogEntryId, setEditingLogEntryId] = useState<string | null>(null);
@@ -13489,6 +13696,8 @@ function MasterDataView({
     description: "",
     serviceIds: [] as string[],
   });
+  const translationRows = translationFileRows();
+  const missingTranslationCount = translationRows.filter((row) => row.de === row.sv || row.de === row.en).length;
   const activeServices = services.filter((service) => !service.archived);
   const archivedServices = services.filter((service) => service.archived);
   const activeMaterials = materials.filter((material) => !material.archived);
@@ -14485,6 +14694,15 @@ function MasterDataView({
     setArchiveNotice(`Paket "${servicePackage.name}" wurde wieder aktiviert.`);
   }
 
+  function downloadTranslationsFile() {
+    const content = JSON.stringify({
+      generatedAt: new Date().toISOString(),
+      languages: ["de", "sv", "en"],
+      translations: translationRows,
+    }, null, 2);
+    downloadBlob(new Blob([content], { type: "application/json;charset=utf-8" }), `homecare-uebersetzungen-${new Date().toISOString().slice(0, 10)}.json`);
+  }
+
   return (
       <div className="stack">
       <div className="segmented-control master-data-tabs">
@@ -14516,6 +14734,10 @@ function MasterDataView({
           <Mail size={16} />
           {tt("Tagesmail")}
         </button>
+        <button className={masterDataTab === "languages" ? "active" : ""} onClick={() => setMasterDataTab("languages")} type="button">
+          <Languages size={16} />
+          {tt("Sprachen")}
+        </button>
         <button className={masterDataTab === "backups" ? "active" : ""} onClick={() => setMasterDataTab("backups")} type="button">
           <Archive size={16} />
           Backups
@@ -14523,6 +14745,52 @@ function MasterDataView({
       </div>
 
       {archiveNotice && <p className="archive-notice">{archiveNotice}</p>}
+
+      {masterDataTab === "languages" && (
+        <section className="panel">
+          <div className="panel-title">
+            <div>
+              <p>{tt("Stammdaten")}</p>
+              <h2>{tt("Sprachen")}</h2>
+              <span>Alle bekannten App-Texte als Übersetzungsdatei mit Deutsch, Schwedisch und Englisch.</span>
+            </div>
+            <button className="primary-button" onClick={downloadTranslationsFile} type="button">
+              <FileDown size={16} />
+              Datei herunterladen
+            </button>
+          </div>
+          <div className="summary-grid">
+            <article>
+              <span>Texte gesamt</span>
+              <strong>{translationRows.length}</strong>
+            </article>
+            <article>
+              <span>Sprachen</span>
+              <strong>DE · SV · EN</strong>
+            </article>
+            <article>
+              <span>Zu prüfen</span>
+              <strong>{missingTranslationCount}</strong>
+            </article>
+          </div>
+          <div className="translation-file-panel">
+            <div className="translation-file-head">
+              <span>Schlüssel</span>
+              <span>Deutsch</span>
+              <span>Schwedisch</span>
+              <span>Englisch</span>
+            </div>
+            {translationRows.map((row) => (
+              <article className={row.de === row.sv || row.de === row.en ? "needs-review" : ""} key={row.key}>
+                <code>{row.key}</code>
+                <span>{row.de}</span>
+                <span>{row.sv}</span>
+                <span>{row.en}</span>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
 
       {masterDataTab === "backups" && (
         <section className="panel">
@@ -17011,6 +17279,7 @@ function CustomerForm({
 function JobForm({
   customerMode = false,
   jobs,
+  language,
   materials,
   newJob,
   setNewJob,
@@ -17024,6 +17293,7 @@ function JobForm({
 }: {
   customerMode?: boolean;
   jobs: JobRecord[];
+  language: Language;
   materials: MaterialItem[];
   newJob: NewJobFormState;
   setNewJob: (value: NewJobFormState) => void;
@@ -17035,6 +17305,7 @@ function JobForm({
   onSubmit: () => void;
   submitLabel: string;
 }) {
+  const tt = (value: string) => uiText(value, language);
   const weekdays = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
   const [serviceEntryMode, setServiceEntryMode] = useState<"" | "catalog" | "manual">("");
   const [serviceSearch, setServiceSearch] = useState("");
@@ -17366,17 +17637,17 @@ function JobForm({
       )}
       <section className="wide job-position-section">
         <div className="section-heading">
-          <span>Leistungen</span>
+          <span>{tt("Leistungen")}</span>
           <strong>{newJob.serviceIds.length + (newJob.customServiceName.trim() ? 1 : 0)} Positionen</strong>
         </div>
         <div className="position-action-row">
           <button className="ghost-button" onClick={() => { setServiceSearch(""); setServiceEntryMode("catalog"); }} type="button">
             <Plus size={16} />
-            Leistung hinzufügen
+            {tt("Leistung hinzufügen")}
           </button>
           <button className="ghost-button" onClick={() => setServiceEntryMode(serviceEntryMode === "manual" ? "" : "manual")} type="button">
             <Plus size={16} />
-            Leistung manuell
+            {tt("Leistung manuell")}
           </button>
         </div>
         {newJob.serviceIds.length > 0 && (
@@ -17418,27 +17689,27 @@ function JobForm({
         {(serviceEntryMode === "manual" || newJob.customServiceName.trim()) && (
           <div className="add-position-panel">
             <div className="section-heading">
-              <span>Manuelle Leistung</span>
+              <span>{tt("Manuelle Leistung")}</span>
               <strong>optional</strong>
             </div>
             <div className="form-grid compact-form">
-              <label><span>Leistung</span><input value={newJob.customServiceName} onChange={(event) => update("customServiceName", event.target.value)} /></label>
-              <label><span>Kategorie</span><input list="job-custom-service-categories" value={newJob.customServiceCategory} onChange={(event) => update("customServiceCategory", event.target.value)} /></label>
+              <label><span>{tt("Leistung")}</span><input value={newJob.customServiceName} onChange={(event) => update("customServiceName", event.target.value)} /></label>
+              <label><span>{tt("Kategorie")}</span><input list="job-custom-service-categories" value={newJob.customServiceCategory} onChange={(event) => update("customServiceCategory", event.target.value)} /></label>
               <datalist id="job-custom-service-categories">
                 {[...new Set(services.map((service) => service.category).filter(Boolean))].sort((a, b) => a.localeCompare(b, "de")).map((category) => (
                   <option key={category} value={category} />
                 ))}
               </datalist>
-              <label><span>Einheit</span><input list="job-custom-service-units" value={newJob.customServiceUnit} onChange={(event) => update("customServiceUnit", event.target.value)} /></label>
+              <label><span>{tt("Einheit")}</span><input list="job-custom-service-units" value={newJob.customServiceUnit} onChange={(event) => update("customServiceUnit", event.target.value)} /></label>
               <datalist id="job-custom-service-units">
                 {[...new Set(services.map((service) => service.unit).filter(Boolean))].sort((a, b) => a.localeCompare(b, "de")).map((unit) => (
                   <option key={unit} value={unit} />
                 ))}
               </datalist>
-              <label><span>Menge</span><input inputMode="decimal" value={newJob.customServiceQuantity} onChange={(event) => update("customServiceQuantity", event.target.value)} /></label>
-              <label><span>Preis netto</span><input value={newJob.customServicePrice} onChange={(event) => update("customServicePrice", event.target.value)} /></label>
-              <label><span>Währung</span><select value={newJob.customServiceCurrency} onChange={(event) => update("customServiceCurrency", event.target.value)}><option>SEK</option><option>EUR</option><option>NOK</option><option>DKK</option></select></label>
-              <label><span>Moms %</span><input inputMode="decimal" value={newJob.customServiceTaxRate} onChange={(event) => update("customServiceTaxRate", event.target.value)} /></label>
+              <label><span>{tt("Menge")}</span><input inputMode="decimal" value={newJob.customServiceQuantity} onChange={(event) => update("customServiceQuantity", event.target.value)} /></label>
+              <label><span>{tt("Preis netto")}</span><input value={newJob.customServicePrice} onChange={(event) => update("customServicePrice", event.target.value)} /></label>
+              <label><span>{tt("Währung")}</span><select value={newJob.customServiceCurrency} onChange={(event) => update("customServiceCurrency", event.target.value)}><option>SEK</option><option>EUR</option><option>NOK</option><option>DKK</option></select></label>
+              <label><span>{tt("Moms %")}</span><input inputMode="decimal" value={newJob.customServiceTaxRate} onChange={(event) => update("customServiceTaxRate", event.target.value)} /></label>
               <div className="wide line-discount-editor">
                 {newJob.serviceDiscounts.customService ? (
                   <>
@@ -17456,7 +17727,7 @@ function JobForm({
                   </button>
                 )}
               </div>
-              <label className="wide"><span>Beschreibung</span><textarea value={newJob.customServiceDescription} onChange={(event) => update("customServiceDescription", event.target.value)} /></label>
+              <label className="wide"><span>{tt("Beschreibung")}</span><textarea value={newJob.customServiceDescription} onChange={(event) => update("customServiceDescription", event.target.value)} /></label>
             </div>
             <div className="service-checklist-form">
               <label><span>Checkpunkt</span><input value={newJob.customChecklistTitle} onChange={(event) => update("customChecklistTitle", event.target.value)} /></label>
@@ -17482,37 +17753,37 @@ function JobForm({
       </section>
       <section className="wide job-position-section">
         <div className="section-heading">
-          <span>Material</span>
+          <span>{tt("Material")}</span>
           <strong>{newJob.materialItems.length} Positionen</strong>
         </div>
         <div className="position-action-row">
           <button className="ghost-button" onClick={() => { setMaterialSearch(""); setMaterialEntryMode("catalog"); }} type="button">
             <Plus size={16} />
-            Material hinzufügen
+            {tt("Material hinzufügen")}
           </button>
           <button className="ghost-button" onClick={() => setMaterialEntryMode(materialEntryMode === "manual" ? "" : "manual")} type="button">
             <Plus size={16} />
-            Material manuell
+            {tt("Material manuell")}
           </button>
         </div>
         {materialEntryMode === "manual" && (
           <div className="add-position-panel form-grid compact-form">
-            <label><span>Freies Material</span><input value={newJob.materialName} onChange={(event) => update("materialName", event.target.value)} placeholder="z.B. Filter, Farbe, Schrauben" /></label>
-            <label><span>Kategorie</span><input value={newJob.materialCategory} onChange={(event) => update("materialCategory", event.target.value)} /></label>
-            <label><span>Einheit</span><input value={newJob.materialUnit} onChange={(event) => update("materialUnit", event.target.value)} /></label>
-            <label><span>Menge</span><input inputMode="decimal" value={newJob.materialQuantity} onChange={(event) => update("materialQuantity", event.target.value)} /></label>
-            <label><span>Moms %</span><input inputMode="decimal" value={newJob.materialTaxRate} onChange={(event) => update("materialTaxRate", event.target.value)} /></label>
+            <label><span>{tt("Freies Material")}</span><input value={newJob.materialName} onChange={(event) => update("materialName", event.target.value)} placeholder="z.B. Filter, Farbe, Schrauben" /></label>
+            <label><span>{tt("Kategorie")}</span><input value={newJob.materialCategory} onChange={(event) => update("materialCategory", event.target.value)} /></label>
+            <label><span>{tt("Einheit")}</span><input value={newJob.materialUnit} onChange={(event) => update("materialUnit", event.target.value)} /></label>
+            <label><span>{tt("Menge")}</span><input inputMode="decimal" value={newJob.materialQuantity} onChange={(event) => update("materialQuantity", event.target.value)} /></label>
+            <label><span>{tt("Moms %")}</span><input inputMode="decimal" value={newJob.materialTaxRate} onChange={(event) => update("materialTaxRate", event.target.value)} /></label>
             <div className="price-currency-row">
-              <label><span>Preis netto</span><input inputMode="decimal" value={newJob.materialPrice} onChange={(event) => update("materialPrice", event.target.value)} /></label>
-              <label><span>Währung</span><select value={newJob.materialCurrency} onChange={(event) => update("materialCurrency", event.target.value)}><option>SEK</option><option>EUR</option><option>NOK</option><option>DKK</option></select></label>
+              <label><span>{tt("Preis netto")}</span><input inputMode="decimal" value={newJob.materialPrice} onChange={(event) => update("materialPrice", event.target.value)} /></label>
+              <label><span>{tt("Währung")}</span><select value={newJob.materialCurrency} onChange={(event) => update("materialCurrency", event.target.value)}><option>SEK</option><option>EUR</option><option>NOK</option><option>DKK</option></select></label>
             </div>
             <label className="checkbox-line wide">
               <input checked={newJob.materialSaveToMaster} onChange={(event) => setNewJob({ ...newJob, materialSaveToMaster: event.target.checked })} type="checkbox" />
-              <span>Freies Material beim Speichern in Stammdaten übernehmen</span>
+              <span>{tt("Freies Material beim Speichern in Stammdaten übernehmen")}</span>
             </label>
             <button className="ghost-button wide" disabled={!newJob.materialName.trim()} onClick={() => { addFreeMaterial(); setMaterialEntryMode(""); }} type="button">
               <Plus size={16} />
-              Materialposition hinzufügen
+              {tt("Materialposition hinzufügen")}
             </button>
           </div>
         )}
@@ -17554,8 +17825,8 @@ function JobForm({
           <section aria-labelledby="job-service-picker-title" aria-modal="true" className="modal send-preview-modal job-picker-modal" role="dialog">
             <header>
               <div>
-                <p>Auftrag</p>
-                <h2 id="job-service-picker-title">Leistung hinzufügen</h2>
+                <p>{tt("Auftrag")}</p>
+                <h2 id="job-service-picker-title">{tt("Leistung hinzufügen")}</h2>
               </div>
               <button aria-label="Leistungsauswahl schließen" onClick={() => { setServiceEntryMode(""); setServiceSearch(""); }} type="button">
                 <X size={18} />
@@ -17563,7 +17834,7 @@ function JobForm({
             </header>
             <label className="search-field">
               <Search size={16} />
-              <input autoFocus placeholder="Leistung, Kategorie, Einheit oder Konto suchen..." value={serviceSearch} onChange={(event) => setServiceSearch(event.target.value)} />
+              <input autoFocus placeholder={tt("Leistung, Kategorie, Einheit oder Konto suchen...")} value={serviceSearch} onChange={(event) => setServiceSearch(event.target.value)} />
             </label>
             <div className="job-picker-list job-picker-results">
               {filteredJobServices.map((service) => (
@@ -17577,7 +17848,7 @@ function JobForm({
                   <span>{serviceRate(service)}</span>
                 </article>
               ))}
-              {filteredJobServices.length === 0 && <p>Keine Leistung für diese Suche gefunden.</p>}
+              {filteredJobServices.length === 0 && <p>{tt("Keine Leistung für diese Suche gefunden.")}</p>}
             </div>
           </section>
         </div>
@@ -17587,8 +17858,8 @@ function JobForm({
           <section aria-labelledby="job-material-picker-title" aria-modal="true" className="modal send-preview-modal job-picker-modal" role="dialog">
             <header>
               <div>
-                <p>Auftrag</p>
-                <h2 id="job-material-picker-title">Material hinzufügen</h2>
+                <p>{tt("Auftrag")}</p>
+                <h2 id="job-material-picker-title">{tt("Material hinzufügen")}</h2>
               </div>
               <button aria-label="Materialauswahl schließen" onClick={() => { setMaterialEntryMode(""); setMaterialSearch(""); }} type="button">
                 <X size={18} />
@@ -17596,7 +17867,7 @@ function JobForm({
             </header>
             <label className="search-field">
               <Search size={16} />
-              <input autoFocus placeholder="Material, Kategorie, Lagerort oder Lieferant suchen..." value={materialSearch} onChange={(event) => setMaterialSearch(event.target.value)} />
+              <input autoFocus placeholder={tt("Material, Kategorie, Lagerort oder Lieferant suchen...")} value={materialSearch} onChange={(event) => setMaterialSearch(event.target.value)} />
             </label>
             <div className="job-picker-list job-picker-results">
               {filteredJobMaterials.map((material) => (
@@ -17610,7 +17881,7 @@ function JobForm({
                   <span>{materialInventoryLabel(material)}</span>
                 </article>
               ))}
-              {filteredJobMaterials.length === 0 && <p>Kein Material für diese Suche gefunden.</p>}
+              {filteredJobMaterials.length === 0 && <p>{tt("Kein Material für diese Suche gefunden.")}</p>}
             </div>
           </section>
         </div>

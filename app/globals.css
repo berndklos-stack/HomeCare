@@ -17,19 +17,19 @@
 }
 
 [data-theme="dark"] {
-  --background: #000000;
-  --foreground: #f5f5f7;
-  --paper: #161617;
-  --paper-soft: #1d1d1f;
-  --line: #3a3a3c;
-  --muted: #a1a1a6;
+  --background: #202124;
+  --foreground: #f1f3f4;
+  --paper: #2a2c30;
+  --paper-soft: #32353a;
+  --line: #555960;
+  --muted: #c2c6cc;
   --brand: #2997ff;
   --brand-2: #0071e3;
-  --accent: #86868b;
+  --accent: #aeb4bd;
   --good: #30d158;
-  --warning: #ffd60a;
+  --warning: #f0b429;
   --danger: #ff453a;
-  --shadow: rgba(0, 0, 0, 0.36);
+  --shadow: rgba(0, 0, 0, 0.24);
 }
 
 @theme inline {
@@ -3555,7 +3555,7 @@ mark.neutral {
 }
 
 .master-data-tabs {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
 }
 
 .master-data-tabs button {
@@ -3657,6 +3657,63 @@ mark.neutral {
   color: var(--muted);
   display: flex;
   justify-content: center;
+}
+
+.translation-file-panel {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  max-height: 560px;
+  overflow: auto;
+}
+
+.translation-file-head,
+.translation-file-panel article {
+  display: grid;
+  grid-template-columns: minmax(170px, 0.8fr) repeat(3, minmax(220px, 1fr));
+  min-width: 860px;
+}
+
+.translation-file-head {
+  background: var(--paper-soft);
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  position: sticky;
+  text-transform: uppercase;
+  top: 0;
+  z-index: 1;
+}
+
+.translation-file-head span,
+.translation-file-panel article code,
+.translation-file-panel article span {
+  border-right: 1px solid var(--line);
+  padding: 9px 10px;
+}
+
+.translation-file-head span:last-child,
+.translation-file-panel article span:last-child {
+  border-right: 0;
+}
+
+.translation-file-panel article {
+  border-bottom: 1px solid var(--line);
+}
+
+.translation-file-panel article:last-child {
+  border-bottom: 0;
+}
+
+.translation-file-panel article.needs-review {
+  background: color-mix(in srgb, var(--warning) 8%, var(--paper));
+}
+
+.translation-file-panel code {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: normal;
 }
 
 .recurrence-grid {
