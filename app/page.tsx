@@ -16994,7 +16994,19 @@ function JobForm({
   const weekdays = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
   const [serviceEntryMode, setServiceEntryMode] = useState<"" | "catalog" | "manual">("");
   const [materialEntryMode, setMaterialEntryMode] = useState<"" | "catalog" | "manual">("");
+  const [materialSearch, setMaterialSearch] = useState("");
   const activeJobMaterials = materials.filter((material) => !material.archived);
+  const normalizedMaterialSearch = materialSearch.trim().toLowerCase();
+  const filteredJobMaterials = normalizedMaterialSearch
+    ? activeJobMaterials.filter((material) => [
+      material.name,
+      material.category,
+      material.supplier ?? "",
+      material.primaryLocation ?? "",
+      material.description,
+      ...Object.keys(materialInventoryByLocation(material.inventoryEntries ?? [])),
+    ].join(" ").toLowerCase().includes(normalizedMaterialSearch))
+    : activeJobMaterials;
   const activeJobPersonnel = personnel.filter((person) => !person.archived && person.status !== "ausgeschieden");
   const jobTypeOptions = uniqueSortedValues([
     ...jobs.map((job) => job.type),
@@ -17167,6 +17179,7 @@ function JobForm({
       ],
     });
     setMaterialEntryMode("");
+    setMaterialSearch("");
   }
 
   function addFreeMaterial() {
@@ -17432,7 +17445,7 @@ function JobForm({
           <strong>{newJob.materialItems.length} Positionen</strong>
         </div>
         <div className="position-action-row">
-          <button className="ghost-button" onClick={() => setMaterialEntryMode(materialEntryMode === "catalog" ? "" : "catalog")} type="button">
+          <button className="ghost-button" onClick={() => { setMaterialSearch(""); setMaterialEntryMode("catalog"); }} type="button">
             <Plus size={16} />
             Material hinzufügen
           </button>
@@ -17441,27 +17454,6 @@ function JobForm({
             Material manuell
           </button>
         </div>
-        {materialEntryMode === "catalog" && (
-          <div className="add-position-panel">
-            <div className="section-heading compact-heading">
-              <span>Material aus Stammdaten auswählen</span>
-              <strong>{activeJobMaterials.length} Artikel</strong>
-            </div>
-            <div className="material-stock-picker-list">
-              {activeJobMaterials.map((material) => (
-                <article key={material.id} onClick={() => addMaterialFromCatalog(material.id)} role="button" tabIndex={0} onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") addMaterialFromCatalog(material.id);
-                }}>
-                  <div>
-                    <strong>{material.name}</strong>
-                    <span>{material.category} · {materialRate(material)}</span>
-                  </div>
-                  <span>{materialInventoryLabel(material)}</span>
-                </article>
-              ))}
-            </div>
-          </div>
-        )}
         {materialEntryMode === "manual" && (
           <div className="add-position-panel form-grid compact-form">
             <label><span>Freies Material</span><input value={newJob.materialName} onChange={(event) => update("materialName", event.target.value)} placeholder="z.B. Filter, Farbe, Schrauben" /></label>
@@ -17516,6 +17508,39 @@ function JobForm({
           </div>
         )}
       </section>
+      {materialEntryMode === "catalog" && (
+        <div className="modal-backdrop nested-backdrop">
+          <section aria-labelledby="job-material-picker-title" aria-modal="true" className="modal send-preview-modal job-material-picker-modal" role="dialog">
+            <header>
+              <div>
+                <p>Auftrag</p>
+                <h2 id="job-material-picker-title">Material hinzufügen</h2>
+              </div>
+              <button aria-label="Materialauswahl schließen" onClick={() => { setMaterialEntryMode(""); setMaterialSearch(""); }} type="button">
+                <X size={18} />
+              </button>
+            </header>
+            <label className="search-field">
+              <Search size={16} />
+              <input autoFocus placeholder="Material, Kategorie, Lagerort oder Lieferant suchen..." value={materialSearch} onChange={(event) => setMaterialSearch(event.target.value)} />
+            </label>
+            <div className="material-stock-picker-list material-picker-results">
+              {filteredJobMaterials.map((material) => (
+                <article key={material.id} onClick={() => addMaterialFromCatalog(material.id)} role="button" tabIndex={0} onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") addMaterialFromCatalog(material.id);
+                }}>
+                  <div>
+                    <strong>{material.name}</strong>
+                    <span>{material.category} · {materialRate(material)}</span>
+                  </div>
+                  <span>{materialInventoryLabel(material)}</span>
+                </article>
+              ))}
+              {filteredJobMaterials.length === 0 && <p>Kein Material für diese Suche gefunden.</p>}
+            </div>
+          </section>
+        </div>
+      )}
       <div className="wide recurrence-editor">
         <div className="recurrence-head">
           <CalendarDays size={18} />

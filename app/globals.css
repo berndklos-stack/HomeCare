@@ -2936,6 +2936,45 @@ mark.neutral {
   text-align: right;
 }
 
+.job-material-picker-modal {
+  max-height: min(86vh, 820px);
+  max-width: 920px;
+  width: min(100%, 920px);
+}
+
+.job-material-picker-modal .search-field {
+  align-items: center;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  display: flex;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 12px;
+}
+
+.job-material-picker-modal .search-field input {
+  background: transparent;
+  border: 0;
+  color: var(--ink);
+  flex: 1;
+  font: inherit;
+  min-height: 38px;
+  outline: none;
+}
+
+.material-picker-results {
+  max-height: min(58vh, 520px);
+  overflow: auto;
+}
+
+.material-picker-results p {
+  color: var(--muted);
+  margin: 0;
+  padding: 14px;
+}
+
 .job-position-list article,
 .material-position-list article {
   align-items: center;

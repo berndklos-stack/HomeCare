@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.323.0",
+  version: "1.324.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.324.0",
+    date: "2026-09-06",
+    changes: [
+      "Material hinzufuegen in der Auftragsanlage oeffnet als Popup",
+      "Die Materialauswahl hat ein Suchfeld fuer Name, Kategorie, Lagerort und Lieferant",
+      "Die Trefferliste zeigt weiterhin Lagerbestand und fuegt Material per Klick hinzu",
+    ],
+  },
   {
     version: "1.323.0",
     date: "2026-09-06",
