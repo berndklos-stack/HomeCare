@@ -587,7 +587,15 @@ type AppSnapshot = {
   reports: ReportRecord[];
   resources: ResourceRecord[];
   services: ServiceItem[];
+  translationOverrides?: TranslationFileRow[];
   updatedAt?: string;
+};
+
+type TranslationFileRow = {
+  de: string;
+  en: string;
+  key: string;
+  sv: string;
 };
 
 type ServiceItem = {
@@ -1778,6 +1786,14 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Ziel", sv: "Mål", en: "Destination" },
   { de: "Zieladresse", sv: "Måladress", en: "Destination address" },
   { de: "Zwischenziel", sv: "Mellanstopp", en: "Waypoint" },
+  { de: "Änderungen verwerfen", sv: "Kasta ändringar", en: "Discard changes" },
+  { de: "Für die offenen Texte gibt es noch keinen sicheren Vorschlag.", sv: "Det finns ännu inget säkert förslag för de öppna texterna.", en: "There is no safe suggestion for the open texts yet." },
+  { de: "Nicht gespeicherte Übersetzungsänderungen wurden verworfen.", sv: "Osparade översättningsändringar har kastats.", en: "Unsaved translation changes were discarded." },
+  { de: "Ungespeicherte Änderungen", sv: "Osparade ändringar", en: "Unsaved changes" },
+  { de: "Vorschläge füllen", sv: "Fyll i förslag", en: "Fill suggestions" },
+  { de: "Übersetzungen speichern", sv: "Spara översättningar", en: "Save translations" },
+  { de: "Übersetzungen wurden gespeichert.", sv: "Översättningarna har sparats.", en: "Translations were saved." },
+  { de: "Übersetzungsvorschläge wurden eingetragen. Bitte prüfen und speichern.", sv: "Översättningsförslag har lagts in. Kontrollera och spara.", en: "Translation suggestions were entered. Please review and save." },
   { de: "ausgeschieden", sv: "slutat", en: "left" },
   { de: "pausiert", sv: "pausad", en: "paused" },
 ];
@@ -1791,8 +1807,22 @@ function uiText(value: string, language: Language) {
   return value;
 }
 
-function translationFileRows() {
-  const rows = new Map<string, { de: string; en: string; key: string; sv: string }>();
+function translationOverrideMap(overrides: TranslationFileRow[] = []) {
+  return new Map(overrides.map((row) => [row.key, row]));
+}
+
+function uiTextWithOverrides(value: string, language: Language, overrides: TranslationFileRow[] = []) {
+  const override = translationOverrideMap(overrides).get(value);
+  if (override) {
+    if (language === "sv") return override.sv || override.de || value;
+    if (language === "en") return override.en || override.de || value;
+    return override.de || value;
+  }
+  return uiText(value, language);
+}
+
+function translationFileRows(overrides: TranslationFileRow[] = []) {
+  const rows = new Map<string, TranslationFileRow>();
   function upsert(key: string, values: Partial<{ de: string; en: string; sv: string }>) {
     const current = rows.get(key) ?? { de: key, en: englishUiText[key] ?? key, key, sv: swedishUiText[key] ?? key };
     rows.set(key, { ...current, ...values });
@@ -1817,6 +1847,16 @@ function translationFileRows() {
   appFieldTranslations.forEach((row) => upsert(row.de, row));
   Object.entries(swedishUiText).forEach(([key, sv]) => upsert(key, { de: key, en: englishUiText[key] ?? key, sv }));
   Object.entries(englishUiText).forEach(([key, en]) => upsert(key, { de: key, en, sv: swedishUiText[key] ?? key }));
+  overrides.forEach((row) => {
+    if (!row.key) return;
+    const base = rows.get(row.key) ?? { de: row.de || row.key, en: row.en || row.de || row.key, key: row.key, sv: row.sv || row.de || row.key };
+    rows.set(row.key, {
+      de: row.de || base.de,
+      en: row.en || base.en,
+      key: row.key,
+      sv: row.sv || base.sv,
+    });
+  });
 
   return Array.from(rows.values()).sort((first, second) => first.de.localeCompare(second.de, "de"));
 }
@@ -1844,6 +1884,7 @@ const storageKeys = {
   activeJobId: "kolaretorp-active-job-id",
   quickTripDraft: "kolaretorp-quick-trip-draft",
   odometerOcrUsage: "kolaretorp-odometer-ocr-usage",
+  translationOverrides: "kolaretorp-translation-overrides",
   updatedAt: "kolaretorp-updated-at",
 };
 
@@ -1912,6 +1953,7 @@ function readLocalSnapshot(): AppSnapshot {
     reports: dedupeReports(readStoredValue<ReportRecord[]>(storageKeys.reports, seedReports)),
     resources: readStoredValue<ResourceRecord[]>(storageKeys.resources, seedResources),
     services: readStoredValue<ServiceItem[]>(storageKeys.services, seedServices),
+    translationOverrides: readStoredValue<TranslationFileRow[]>(storageKeys.translationOverrides, []),
     updatedAt: readStoredValue<string | undefined>(storageKeys.updatedAt, undefined),
   }));
 }
@@ -1938,6 +1980,7 @@ function persistLocalSnapshot(snapshot: AppSnapshot) {
   window.localStorage.setItem(storageKeys.materials, JSON.stringify(snapshot.materials ?? seedMaterials));
   window.localStorage.setItem(storageKeys.reports, JSON.stringify(snapshot.reports));
   window.localStorage.setItem(storageKeys.services, JSON.stringify(snapshot.services));
+  window.localStorage.setItem(storageKeys.translationOverrides, JSON.stringify(snapshot.translationOverrides ?? []));
   window.localStorage.setItem(storageKeys.packages, JSON.stringify(snapshot.packages));
   window.localStorage.setItem(storageKeys.personnel, JSON.stringify(snapshot.personnel));
   window.localStorage.setItem(storageKeys.resources, JSON.stringify(snapshot.resources));
@@ -1973,6 +2016,7 @@ function snapshotWeight(snapshot: AppSnapshot) {
     snapshot.materials?.length ?? 0,
     snapshot.reports.length,
     snapshot.services.length,
+    snapshot.translationOverrides?.length ?? 0,
     snapshot.packages.length,
     snapshot.personnel?.length ?? 0,
     snapshot.resources?.length ?? 0,
@@ -2037,6 +2081,7 @@ function snapshotPatch(snapshot: AppSnapshot): Partial<AppSnapshot> {
     reports: snapshot.reports,
     resources: snapshot.resources,
     services: snapshot.services,
+    translationOverrides: snapshot.translationOverrides ?? [],
     updatedAt: snapshot.updatedAt,
   };
 }
@@ -2281,6 +2326,13 @@ function mergeRecordsById<T extends { id: string }>(primaryRecords: T[], seconda
   });
 
   return Array.from(recordsById.values());
+}
+
+function mergeTranslationOverrides(primaryRows: TranslationFileRow[] = [], secondaryRows: TranslationFileRow[] = []) {
+  const rowsByKey = new Map<string, TranslationFileRow>();
+  secondaryRows.forEach((row) => rowsByKey.set(row.key, row));
+  primaryRows.forEach((row) => rowsByKey.set(row.key, { ...rowsByKey.get(row.key), ...row }));
+  return Array.from(rowsByKey.values()).filter((row) => row.key);
 }
 
 function mergeAccountingAccounts(primaryAccounts: AccountingAccount[], secondaryAccounts: AccountingAccount[]) {
@@ -2595,6 +2647,7 @@ function mergeSnapshots(remoteSnapshot: AppSnapshot, localSnapshot: AppSnapshot)
     reports,
     resources: mergeResourcesById(primarySnapshot.resources ?? [], secondarySnapshot.resources ?? []),
     services: mergeRecordsById(primarySnapshot.services, secondarySnapshot.services),
+    translationOverrides: mergeTranslationOverrides(primarySnapshot.translationOverrides, secondarySnapshot.translationOverrides),
     updatedAt: new Date(Math.max(
       Number.isFinite(remoteTime) ? remoteTime : 0,
       Number.isFinite(localTime) ? localTime : 0,
@@ -6891,6 +6944,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   const [services, setServices] = useState(seedServices);
   const [servicePackages, setServicePackages] = useState(seedPackages);
   const [personnel, setPersonnel] = useState(seedPersonnel);
+  const [translationOverrides, setTranslationOverrides] = useState<TranslationFileRow[]>([]);
   const [resources, setResources] = useState(seedResources);
   const [dailyMailSettings, setDailyMailSettings] = useState(seedDailyMailSettings);
   const [portalMessages, setPortalMessages] = useState<PortalMessageRecord[]>([]);
@@ -7025,6 +7079,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     setServices(cleanSnapshot.services);
     setServicePackages(cleanSnapshot.packages);
     setPersonnel(cleanSnapshot.personnel ?? seedPersonnel);
+    setTranslationOverrides(cleanSnapshot.translationOverrides ?? []);
     setResources(cleanSnapshot.resources ?? seedResources);
     setDailyMailSettings(normalizeDailyMailSettings(cleanSnapshot.dailyMailSettings));
     setPortalMessages(cleanSnapshot.portalMessages ?? []);
@@ -7152,6 +7207,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       reports,
       resources,
       services,
+      translationOverrides,
       updatedAt: snapshotUpdatedAt,
     };
 
@@ -7163,7 +7219,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     setAppUpdatedAt(snapshotUpdatedAt);
 
     scheduleRemoteSave(snapshot, 2600);
-  }, [accountingAccounts, activeJobId, appStorageReady, billing, companySettings, customers, dailyMailSettings, deletedEntityIds, deletedReportIds, fieldNotes, fieldProgress, inventoryLocations, jobs, materials, objects, personnel, portalMessages, reports, resources, scheduleRemoteSave, servicePackages, services]);
+  }, [accountingAccounts, activeJobId, appStorageReady, billing, companySettings, customers, dailyMailSettings, deletedEntityIds, deletedReportIds, fieldNotes, fieldProgress, inventoryLocations, jobs, materials, objects, personnel, portalMessages, reports, resources, scheduleRemoteSave, servicePackages, services, translationOverrides]);
 
   const currentSnapshot = useCallback((overrides: Partial<AppSnapshot> = {}): AppSnapshot => ({
     activeJobId,
@@ -7186,9 +7242,10 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     reports,
     resources,
     services,
+    translationOverrides,
     updatedAt: appUpdatedAt,
     ...overrides,
-  }), [accountingAccounts, activeJobId, appUpdatedAt, billing, companySettings, customers, dailyMailSettings, deletedEntityIds, deletedReportIds, fieldNotes, fieldProgress, inventoryLocations, jobs, materials, objects, personnel, portalMessages, reports, resources, servicePackages, services]);
+  }), [accountingAccounts, activeJobId, appUpdatedAt, billing, companySettings, customers, dailyMailSettings, deletedEntityIds, deletedReportIds, fieldNotes, fieldProgress, inventoryLocations, jobs, materials, objects, personnel, portalMessages, reports, resources, servicePackages, services, translationOverrides]);
 
   const syncRemoteSnapshot = useCallback(async (force = false) => {
     if (!appStorageReady || remoteSyncRunningRef.current) return;
@@ -7329,7 +7386,16 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   }
 
   const t = labels[language];
-  const tx = (value: string) => uiText(value, language);
+  const translationOverrideLookup = translationOverrideMap(translationOverrides);
+  const tx = (value: string) => {
+    const override = translationOverrideLookup.get(value);
+    if (override) {
+      if (language === "sv") return override.sv || override.de || value;
+      if (language === "en") return override.en || override.de || value;
+      return override.de || value;
+    }
+    return uiText(value, language);
+  };
   const activeObjects = objects.filter((object) => !object.archived);
   const archivedObjects = objects.filter((object) => object.archived);
   const activeCustomers = customers.filter((customer) => !customer.archived);
@@ -9344,6 +9410,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                 services={services}
                 dailyMailSending={dailyMailSending}
                 translate={tx}
+                translationOverrides={translationOverrides}
                 setCompanySettings={(nextSettings) => {
                   setCompanySettings(nextSettings);
                   persistSnapshotNow({ companySettings: nextSettings }, { forceRemote: true });
@@ -9373,6 +9440,10 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                 setDailyMailSettings={(nextSettings) => {
                   setDailyMailSettings(nextSettings);
                   persistSnapshotNow({ dailyMailSettings: nextSettings }, { forceRemote: true });
+                }}
+                setTranslationOverrides={(nextOverrides) => {
+                  setTranslationOverrides(nextOverrides);
+                  persistSnapshotNow({ translationOverrides: nextOverrides }, { forceRemote: true });
                 }}
               />
             )}
@@ -14147,9 +14218,11 @@ function MasterDataView({
   setMaterials,
   setCompanySettings,
   setDailyMailSettings,
+  setTranslationOverrides,
   packages,
   setPackages,
   translate,
+  translationOverrides,
 }: {
   accountingAccounts: AccountingAccount[];
   companySettings: CompanySettings;
@@ -14171,9 +14244,11 @@ function MasterDataView({
   setMaterials: (materials: MaterialItem[]) => void;
   setCompanySettings: (settings: CompanySettings) => void;
   setDailyMailSettings: (settings: DailyMailSettings) => void;
+  setTranslationOverrides: (rows: TranslationFileRow[]) => void;
   packages: ServicePackage[];
   setPackages: (packages: ServicePackage[]) => void;
   translate: (value: string) => string;
+  translationOverrides: TranslationFileRow[];
 }) {
   const tt = translate;
   const [masterDataTab, setMasterDataTab] = useState<"company" | "personal" | "resources" | "services" | "materials" | "accounting" | "mail" | "languages" | "backups">("company");
@@ -14298,7 +14373,10 @@ function MasterDataView({
     description: "",
     serviceIds: [] as string[],
   });
-  const translationRows = translationFileRows();
+  const [translationDrafts, setTranslationDrafts] = useState<Record<string, TranslationFileRow>>({});
+  const baseTranslationRows = translationFileRows(translationOverrides);
+  const translationRows = baseTranslationRows.map((row) => translationDrafts[row.key] ?? row);
+  const changedTranslationCount = Object.keys(translationDrafts).length;
   const missingTranslationCount = translationRows.filter((row) => row.de === row.sv || row.de === row.en).length;
   const activeServices = services.filter((service) => !service.archived);
   const archivedServices = services.filter((service) => service.archived);
@@ -15296,6 +15374,47 @@ function MasterDataView({
     setArchiveNotice(`Paket "${servicePackage.name}" wurde wieder aktiviert.`);
   }
 
+  function updateTranslationDraft(row: TranslationFileRow, field: "de" | "en" | "sv", value: string) {
+    setTranslationDrafts((current) => ({
+      ...current,
+      [row.key]: { ...row, [field]: value },
+    }));
+  }
+
+  function saveTranslationDrafts() {
+    const nextOverrides = mergeTranslationOverrides(Object.values(translationDrafts), translationOverrides);
+    setTranslationOverrides(nextOverrides);
+    setTranslationDrafts({});
+    setArchiveNotice(tt("Übersetzungen wurden gespeichert."));
+  }
+
+  function resetTranslationDrafts() {
+    setTranslationDrafts({});
+    setArchiveNotice(tt("Nicht gespeicherte Übersetzungsänderungen wurden verworfen."));
+  }
+
+  function suggestedTranslation(row: TranslationFileRow, targetLanguage: "en" | "sv") {
+    if (targetLanguage === "sv") return swedishUiText[row.de] ?? appFieldSvText[row.de] ?? swedishUiText[row.key] ?? row.sv;
+    return englishUiText[row.de] ?? appFieldEnText[row.de] ?? englishUiText[row.key] ?? row.en;
+  }
+
+  function fillMissingTranslationDrafts() {
+    const nextDrafts = { ...translationDrafts };
+    let filled = 0;
+    translationRows.forEach((row) => {
+      const suggestedSv = row.sv === row.de ? suggestedTranslation(row, "sv") : row.sv;
+      const suggestedEn = row.en === row.de ? suggestedTranslation(row, "en") : row.en;
+      if (suggestedSv !== row.sv || suggestedEn !== row.en) {
+        nextDrafts[row.key] = { ...row, sv: suggestedSv, en: suggestedEn };
+        filled += 1;
+      }
+    });
+    setTranslationDrafts(nextDrafts);
+    setArchiveNotice(filled > 0
+      ? `${filled} ${tt("Übersetzungsvorschläge wurden eingetragen. Bitte prüfen und speichern.")}`
+      : tt("Für die offenen Texte gibt es noch keinen sicheren Vorschlag."));
+  }
+
   function downloadTranslationsFile() {
     const content = JSON.stringify({
       generatedAt: new Date().toISOString(),
@@ -15356,10 +15475,16 @@ function MasterDataView({
               <h2>{tt("Sprachen")}</h2>
               <span>{tt("Alle bekannten App-Texte als Übersetzungsdatei mit Deutsch, Schwedisch und Englisch.")}</span>
             </div>
-            <button className="primary-button" onClick={downloadTranslationsFile} type="button">
-              <FileDown size={16} />
-              {tt("Datei herunterladen")}
-            </button>
+            <div className="row-actions">
+              <button className="ghost-button" onClick={fillMissingTranslationDrafts} type="button">
+                <Languages size={16} />
+                {tt("Vorschläge füllen")}
+              </button>
+              <button className="primary-button" onClick={downloadTranslationsFile} type="button">
+                <FileDown size={16} />
+                {tt("Datei herunterladen")}
+              </button>
+            </div>
           </div>
           <div className="summary-grid">
             <article>
@@ -15374,6 +15499,20 @@ function MasterDataView({
               <span>{tt("Zu prüfen")}</span>
               <strong>{missingTranslationCount}</strong>
             </article>
+            <article>
+              <span>{tt("Ungespeicherte Änderungen")}</span>
+              <strong>{changedTranslationCount}</strong>
+            </article>
+          </div>
+          <div className="message-actions translation-actions">
+            <button className="ghost-button" disabled={changedTranslationCount === 0} onClick={resetTranslationDrafts} type="button">
+              <RotateCcw size={16} />
+              {tt("Änderungen verwerfen")}
+            </button>
+            <button className="primary-button" disabled={changedTranslationCount === 0} onClick={saveTranslationDrafts} type="button">
+              <Check size={16} />
+              {tt("Übersetzungen speichern")}
+            </button>
           </div>
           <div className="translation-file-panel">
             <div className="translation-file-head">
@@ -15385,9 +15524,9 @@ function MasterDataView({
             {translationRows.map((row) => (
               <article className={row.de === row.sv || row.de === row.en ? "needs-review" : ""} key={row.key}>
                 <code>{row.key}</code>
-                <span>{row.de}</span>
-                <span>{row.sv}</span>
-                <span>{row.en}</span>
+                <input aria-label={`Deutsch ${row.key}`} value={row.de} onChange={(event) => updateTranslationDraft(row, "de", event.target.value)} />
+                <input aria-label={`Schwedisch ${row.key}`} value={row.sv} onChange={(event) => updateTranslationDraft(row, "sv", event.target.value)} />
+                <input aria-label={`Englisch ${row.key}`} value={row.en} onChange={(event) => updateTranslationDraft(row, "en", event.target.value)} />
               </article>
             ))}
           </div>

@@ -3694,7 +3694,8 @@ mark.neutral {
 }
 
 .translation-file-head span:last-child,
-.translation-file-panel article span:last-child {
+.translation-file-panel article span:last-child,
+.translation-file-panel article input:last-child {
   border-right: 0;
 }
 
@@ -3714,6 +3715,28 @@ mark.neutral {
   color: var(--muted);
   font-size: 12px;
   white-space: normal;
+}
+
+.translation-file-panel article input {
+  background: transparent;
+  border: 0;
+  border-right: 1px solid var(--line);
+  border-radius: 0;
+  color: var(--ink);
+  font: inherit;
+  min-width: 0;
+  padding: 9px 10px;
+  width: 100%;
+}
+
+.translation-file-panel article input:focus {
+  background: var(--paper);
+  box-shadow: inset 0 0 0 2px var(--accent);
+  outline: 0;
+}
+
+.translation-actions {
+  justify-content: flex-end;
 }
 
 .recurrence-grid {

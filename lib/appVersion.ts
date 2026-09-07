@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.333.0",
+  version: "1.334.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.334.0",
+    date: "2026-09-07",
+    changes: [
+      "Die Sprachliste in den Stammdaten kann direkt bearbeitet und gespeichert werden",
+      "Manuelle Uebersetzungen werden lokal und online im gemeinsamen App-Snapshot gespeichert",
+      "Offene Uebersetzungen koennen aus der vorhandenen App-Uebersetzungsbasis als Vorschlag gefuellt werden",
+    ],
+  },
   {
     version: "1.333.0",
     date: "2026-09-07",
