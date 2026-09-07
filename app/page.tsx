@@ -9344,15 +9344,36 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                 services={services}
                 dailyMailSending={dailyMailSending}
                 translate={tx}
-                setCompanySettings={setCompanySettings}
-                setAccountingAccounts={setAccountingAccounts}
-                setMaterials={setMaterials}
-                setPackages={setServicePackages}
-                setPersonnel={setPersonnel}
+                setCompanySettings={(nextSettings) => {
+                  setCompanySettings(nextSettings);
+                  persistSnapshotNow({ companySettings: nextSettings }, { forceRemote: true });
+                }}
+                setAccountingAccounts={(nextAccounts) => {
+                  setAccountingAccounts(nextAccounts);
+                  persistSnapshotNow({ accountingAccounts: nextAccounts }, { forceRemote: true });
+                }}
+                setMaterials={(nextMaterials) => {
+                  setMaterials(nextMaterials);
+                  persistSnapshotNow({ materials: nextMaterials }, { forceRemote: true });
+                }}
+                setPackages={(nextPackages) => {
+                  setServicePackages(nextPackages);
+                  persistSnapshotNow({ packages: nextPackages }, { forceRemote: true });
+                }}
+                setPersonnel={(nextPersonnel) => {
+                  setPersonnel(nextPersonnel);
+                  persistSnapshotNow({ personnel: nextPersonnel }, { forceRemote: true });
+                }}
                 onPersistResources={(nextResources) => persistSnapshotNow({ resources: nextResources }, { forceRemote: true })}
                 setResources={setResources}
-                setServices={setServices}
-                setDailyMailSettings={setDailyMailSettings}
+                setServices={(nextServices) => {
+                  setServices(nextServices);
+                  persistSnapshotNow({ services: nextServices }, { forceRemote: true });
+                }}
+                setDailyMailSettings={(nextSettings) => {
+                  setDailyMailSettings(nextSettings);
+                  persistSnapshotNow({ dailyMailSettings: nextSettings }, { forceRemote: true });
+                }}
               />
             )}
           </div>

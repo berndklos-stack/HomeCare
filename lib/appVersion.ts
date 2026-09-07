@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.332.0",
+  version: "1.333.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.333.0",
+    date: "2026-09-07",
+    changes: [
+      "Stammdaten-Speicherungen werden sofort in den gemeinsamen App-Snapshot und online geschrieben",
+      "Personalnummern bleiben beim Bearbeiten von Personal erhalten und werden nicht mehr durch den naechsten Sync ueberschrieben",
+      "Auch Firma, Kontenplan, Material, Leistungen, Pakete und Tagesmail-Einstellungen nutzen denselben persistenten Speicherpfad",
+    ],
+  },
   {
     version: "1.332.0",
     date: "2026-09-07",
