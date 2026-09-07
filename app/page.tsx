@@ -1529,6 +1529,257 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "erledigt", sv: "klar", en: "done" },
   { de: "normal", sv: "normal", en: "normal" },
   { de: "niedrig", sv: "låg", en: "low" },
+  { de: "Aufträge", sv: "Uppdrag", en: "Jobs" },
+  { de: "Backup erstellen", sv: "Skapa säkerhetskopia", en: "Create backup" },
+  { de: "Backups werden geladen...", sv: "Säkerhetskopior laddas...", en: "Loading backups..." },
+  { de: "Berichte", sv: "Rapporter", en: "Reports" },
+  { de: "Das ist ein kompletter Datenstand; technische Teile werden bei der Wiederherstellung automatisch zusammengesetzt.", sv: "Detta är ett komplett dataläge; tekniska delar sätts ihop automatiskt vid återställning.", en: "This is a complete data set; technical parts are automatically assembled during restore." },
+  { de: "Diese Angaben erscheinen in Offerten, Rechnungen und der späteren Übergabe an Spiris / Visma Buchhaltung.", sv: "Dessa uppgifter visas på offerter, fakturor och vid senare överföring till Spiris / Visma bokföring.", en: "These details appear on offers, invoices and the later handover to Spiris / Visma accounting." },
+  { de: "Erinnerungen werden aus VTODO/ICS-Quellen gelesen und mit Fälligkeitsdatum bis 5 Tage im Voraus in die Tagesmail aufgenommen.", sv: "Påminnelser läses från VTODO/ICS-källor och tas med i dagsmejlet med förfallodatum upp till 5 dagar framåt.", en: "Reminders are read from VTODO/ICS sources and included in the daily mail up to 5 days ahead by due date." },
+  { de: "Kunden", sv: "Kunder", en: "Customers" },
+  { de: "Leistungen", sv: "Tjänster", en: "Services" },
+  { de: "Objekte", sv: "Objekt", en: "Properties" },
+  { de: "Quelle", sv: "Källa", en: "Source" },
+  { de: "Server-Backups sichern den kompletten Online-Datenstand. Automatische Backups werden nur noch gebündelt angelegt; manuelle Backups sind jederzeit möglich.", sv: "Serverbackuper säkrar hela onlinedatat. Automatiska backuper skapas bara samlat; manuella backuper kan göras när som helst.", en: "Server backups secure the complete online data set. Automatic backups are created in bundles only; manual backups can be created at any time." },
+  { de: "automatisch", sv: "automatiskt", en: "automatic" },
+  { de: "mobile Daten", sv: "mobildata", en: "mobile data" },
+  { de: "Noch kein Server-Backup vorhanden.", sv: "Ingen serverbackup finns ännu.", en: "No server backup available yet." },
+  { de: "unbekannt", sv: "okänd", en: "unknown" },
+  { de: "Adresse", sv: "Adress", en: "Address" },
+  { de: "Abbrechen", sv: "Avbryt", en: "Cancel" },
+  { de: "Abweichend", sv: "Avvikande", en: "Different" },
+  { de: "Abweichende Rechnungsadresse", sv: "Avvikande fakturaadress", en: "Different billing address" },
+  { de: "Aktuelles Objektbild", sv: "Aktuell objektbild", en: "Current property image" },
+  { de: "Alarmanlage", sv: "Larm", en: "Alarm system" },
+  { de: "Archivierte Leistungen", sv: "Arkiverade tjänster", en: "Archived services" },
+  { de: "Archivierte Pakete", sv: "Arkiverade paket", en: "Archived packages" },
+  { de: "Archiviertes Personal", sv: "Arkiverad personal", en: "Archived personnel" },
+  { de: "Archivierte Ressourcen", sv: "Arkiverade resurser", en: "Archived resources" },
+  { de: "Art", sv: "Typ", en: "Type" },
+  { de: "Ausstattung", sv: "Utrustning", en: "Equipment" },
+  { de: "Bankgiro / IBAN / BIC", sv: "Bankgiro / IBAN / BIC", en: "Bankgiro / IBAN / BIC" },
+  { de: "Basisdaten", sv: "Grunduppgifter", en: "Basic data" },
+  { de: "Bearbeitung abbrechen", sv: "Avbryt redigering", en: "Cancel editing" },
+  { de: "Bereich", sv: "Område", en: "Area" },
+  { de: "Beschreibung", sv: "Beskrivning", en: "Description" },
+  { de: "Betreuungspaket", sv: "Servicepaket", en: "Care package" },
+  { de: "Bezeichnung", sv: "Benämning", en: "Name" },
+  { de: "Buchhaltung", sv: "Bokföring", en: "Accounting" },
+  { de: "Dokumentation & Planung", sv: "Dokumentation och planering", en: "Documentation and planning" },
+  { de: "E-Mail Eigentümer", sv: "Ägarens e-post", en: "Owner email" },
+  { de: "Eigentümeradresse", sv: "Ägaradress", en: "Owner address" },
+  { de: "Eigentümer aus Kunden", sv: "Ägare från kunder", en: "Owner from customers" },
+  { de: "Einheit", sv: "Enhet", en: "Unit" },
+  { de: "Einladung senden", sv: "Skicka inbjudan", en: "Send invitation" },
+  { de: "Einladungsvorschau schließen", sv: "Stäng inbjudningsförhandsvisning", en: "Close invitation preview" },
+  { de: "Erlöskonto", sv: "Intäktskonto", en: "Revenue account" },
+  { de: "Fahrer", sv: "Förare", en: "Driver" },
+  { de: "Fahrt eintragen", sv: "Registrera körning", en: "Enter trip" },
+  { de: "Fahrt speichern", sv: "Spara körning", en: "Save trip" },
+  { de: "Fahrten", sv: "Körningar", en: "Trips" },
+  { de: "Fahrtenbuch", sv: "Körjournal", en: "Mileage log" },
+  { de: "Fahrzeug", sv: "Fordon", en: "Vehicle" },
+  { de: "Fahrzeugdokument hinzufügen", sv: "Lägg till fordonsdokument", en: "Add vehicle document" },
+  { de: "Firmenadresse", sv: "Företagsadress", en: "Company address" },
+  { de: "Firma", sv: "Företag", en: "Company" },
+  { de: "Fotos zum Objekt", sv: "Foton för objektet", en: "Property photos" },
+  { de: "Godkänd för F-skatt auf Offerten und Rechnungen anzeigen", sv: "Visa Godkänd för F-skatt på offerter och fakturor", en: "Show Godkänd för F-skatt on offers and invoices" },
+  { de: "Größe m²", sv: "Storlek m²", en: "Size m²" },
+  { de: "Grundstück m²", sv: "Tomt m²", en: "Plot m²" },
+  { de: "Heizung", sv: "Värme", en: "Heating" },
+  { de: "Hinweise / Risiken", sv: "Anvisningar / risker", en: "Notes / risks" },
+  { de: "Internet", sv: "Internet", en: "Internet" },
+  { de: "Kalenderquellen speichern", sv: "Spara kalenderkällor", en: "Save calendar sources" },
+  { de: "Kein Backup vorhanden", sv: "Ingen säkerhetskopia finns", en: "No backup available" },
+  { de: "Kein Bild", sv: "Ingen bild", en: "No image" },
+  { de: "Keine direkte Vorschau verfügbar", sv: "Ingen direkt förhandsvisning tillgänglig", en: "No direct preview available" },
+  { de: "Keine Notizen hinterlegt.", sv: "Inga anteckningar sparade.", en: "No notes saved." },
+  { de: "Kennzeichen / Inventarnr.", sv: "Registreringsnr / inventarienr", en: "Plate / inventory no." },
+  { de: "Konto", sv: "Konto", en: "Account" },
+  { de: "Konto anlegen", sv: "Skapa konto", en: "Create account" },
+  { de: "Konto bearbeiten", sv: "Redigera konto", en: "Edit account" },
+  { de: "Konto speichern", sv: "Spara konto", en: "Save account" },
+  { de: "Kontenplan für Spiris / Visma", sv: "Kontoplan för Spiris / Visma", en: "Chart of accounts for Spiris / Visma" },
+  { de: "Konten können ergänzt und anschließend bei Leistungen oder Material ausgewählt werden.", sv: "Konton kan läggas till och sedan väljas för tjänster eller material.", en: "Accounts can be added and then selected for services or material." },
+  { de: "Kundendaten", sv: "Kunduppgifter", en: "Customer data" },
+  { de: "Kundenadresse", sv: "Kundadress", en: "Customer address" },
+  { de: "Kunden ins Portal einladen", sv: "Bjud in kund till portalen", en: "Invite customer to portal" },
+  { de: "Leistung", sv: "Tjänst", en: "Service" },
+  { de: "Leistung anlegen", sv: "Skapa tjänst", en: "Create service" },
+  { de: "Leistung bearbeiten", sv: "Redigera tjänst", en: "Edit service" },
+  { de: "Leistung speichern", sv: "Spara tjänst", en: "Save service" },
+  { de: "Leistungen auswählen", sv: "Välj tjänster", en: "Select services" },
+  { de: "Leistungen einzeln erfassen", sv: "Registrera tjänster enskilt", en: "Enter services individually" },
+  { de: "Leistungen im Paket", sv: "Tjänster i paketet", en: "Services in package" },
+  { de: "Lieferant", sv: "Leverantör", en: "Supplier" },
+  { de: "Login-E-Mail", sv: "Inloggnings-e-post", en: "Login email" },
+  { de: "Login-Verlauf Kundenportal", sv: "Inloggningshistorik kundportal", en: "Customer portal login history" },
+  { de: "Manuell pflegen", sv: "Underhåll manuellt", en: "Maintain manually" },
+  { de: "Material anlegen", sv: "Skapa material", en: "Create material" },
+  { de: "Material bearbeiten", sv: "Redigera material", en: "Edit material" },
+  { de: "Material speichern", sv: "Spara material", en: "Save material" },
+  { de: "Material verwalten", sv: "Hantera material", en: "Manage material" },
+  { de: "Materialpositionen erhalten hier ihr Erlöskonto für die spätere Spiris / Visma-Übergabe.", sv: "Materialposter får här sitt intäktskonto för senare överföring till Spiris / Visma.", en: "Material items get their revenue account here for the later Spiris / Visma handover." },
+  { de: "Mehrere Leistungen bündeln", sv: "Bunta flera tjänster", en: "Bundle multiple services" },
+  { de: "Mitarbeit", sv: "Medarbete", en: "Staff work" },
+  { de: "Momsreg.nr / VAT", sv: "Momsreg.nr / VAT", en: "VAT registration no." },
+  { de: "Nachricht", sv: "Meddelande", en: "Message" },
+  { de: "Neue Aufträge in Abrechnung übernehmen", sv: "Ta med nya uppdrag i fakturering", en: "Include new jobs in billing" },
+  { de: "Neue Fahrt", sv: "Ny körning", en: "New trip" },
+  { de: "Neues Foto hinzufügen", sv: "Lägg till nytt foto", en: "Add new photo" },
+  { de: "Neues Konto anlegen", sv: "Skapa nytt konto", en: "Create new account" },
+  { de: "Neues Paket anlegen", sv: "Skapa nytt paket", en: "Create new package" },
+  { de: "Nicht zugeordnet", sv: "Ej tilldelad", en: "Unassigned" },
+  { de: "Noch kein aktives Personal angelegt.", sv: "Ingen aktiv personal har lagts till ännu.", en: "No active personnel created yet." },
+  { de: "Noch keine aktiven Ressourcen angelegt.", sv: "Inga aktiva resurser har lagts till ännu.", en: "No active resources created yet." },
+  { de: "Noch keine Fahrten für dieses Fahrzeug erfasst.", sv: "Inga körningar har registrerats för detta fordon ännu.", en: "No trips recorded for this vehicle yet." },
+  { de: "Noch keine Fahrzeugdokumente gespeichert.", sv: "Inga fordonsdokument har sparats ännu.", en: "No vehicle documents saved yet." },
+  { de: "Noch keine Termine hinterlegt.", sv: "Inga tider har sparats ännu.", en: "No appointments saved yet." },
+  { de: "Notiz", sv: "Anteckning", en: "Note" },
+  { de: "Notizen", sv: "Anteckningar", en: "Notes" },
+  { de: "Notizen / interne Info", sv: "Anteckningar / intern info", en: "Notes / internal info" },
+  { de: "Objekt", sv: "Objekt", en: "Property" },
+  { de: "Objekt auswählen", sv: "Välj objekt", en: "Select property" },
+  { de: "Objekt zuordnen", sv: "Tilldela objekt", en: "Assign property" },
+  { de: "Objektadresse", sv: "Objektadress", en: "Property address" },
+  { de: "Objekt endgültig löschen", sv: "Radera objekt permanent", en: "Delete property permanently" },
+  { de: "Objekt archivieren", sv: "Arkivera objekt", en: "Archive property" },
+  { de: "Objekt wiederherstellen", sv: "Återställ objekt", en: "Restore property" },
+  { de: "Objektmerkmale", sv: "Objektegenskaper", en: "Property features" },
+  { de: "Objektverlauf", sv: "Objekthistorik", en: "Property history" },
+  { de: "Org.-Nummer", sv: "Org.nr", en: "Organization no." },
+  { de: "Ort", sv: "Ort", en: "City" },
+  { de: "Ort/Region", sv: "Ort/region", en: "Place/region" },
+  { de: "PLZ", sv: "Postnummer", en: "Postal code" },
+  { de: "Paket", sv: "Paket", en: "Package" },
+  { de: "Paket anlegen", sv: "Skapa paket", en: "Create package" },
+  { de: "Paket bearbeiten", sv: "Redigera paket", en: "Edit package" },
+  { de: "Paket speichern", sv: "Spara paket", en: "Save package" },
+  { de: "Pakete", sv: "Paket", en: "Packages" },
+  { de: "Paketbeschreibung", sv: "Paketbeskrivning", en: "Package description" },
+  { de: "Paketname", sv: "Paketnamn", en: "Package name" },
+  { de: "Paketpreis", sv: "Paketpris", en: "Package price" },
+  { de: "Parken", sv: "Parkering", en: "Parking" },
+  { de: "Personal anlegen", sv: "Skapa personal", en: "Create personnel" },
+  { de: "Personal speichern", sv: "Spara personal", en: "Save personnel" },
+  { de: "Personal verwalten", sv: "Hantera personal", en: "Manage personnel" },
+  { de: "Portal-Einladung", sv: "Portalinbjudan", en: "Portal invitation" },
+  { de: "Portal-Passwort", sv: "Portallösenord", en: "Portal password" },
+  { de: "Portalstatus", sv: "Portalstatus", en: "Portal status" },
+  { de: "Preis netto", sv: "Pris netto", en: "Net price" },
+  { de: "Punkt", sv: "Punkt", en: "Item" },
+  { de: "Rechnungsadresse", sv: "Fakturaadress", en: "Billing address" },
+  { de: "Rechnungsadresse verwenden", sv: "Använd fakturaadress", en: "Use billing address" },
+  { de: "Ressource anlegen", sv: "Skapa resurs", en: "Create resource" },
+  { de: "Ressource bearbeiten", sv: "Redigera resurs", en: "Edit resource" },
+  { de: "Ressource speichern", sv: "Spara resurs", en: "Save resource" },
+  { de: "Ressourcen", sv: "Resurser", en: "Resources" },
+  { de: "Ressourcen verwalten", sv: "Hantera resurser", en: "Manage resources" },
+  { de: "Schließen", sv: "Stäng", en: "Close" },
+  { de: "Senden...", sv: "Skickar...", en: "Sending..." },
+  { de: "Senden und Kundendaten speichern", sv: "Skicka och spara kunduppgifter", en: "Send and save customer data" },
+  { de: "Sprachen", sv: "Språk", en: "Languages" },
+  { de: "Standard für neue Aufträge dieses Kunden.", sv: "Standard för nya uppdrag för denna kund.", en: "Default for this customer's new jobs." },
+  { de: "Standardzeit min.", sv: "Standardtid min.", en: "Default time min." },
+  { de: "Straße", sv: "Gata", en: "Street" },
+  { de: "Tagesmail", sv: "Dagsmejl", en: "Daily mail" },
+  { de: "Telefon Eigentümer", sv: "Ägarens telefon", en: "Owner phone" },
+  { de: "Termine / Wartung", sv: "Tider / underhåll", en: "Appointments / maintenance" },
+  { de: "Typ", sv: "Typ", en: "Type" },
+  { de: "Verantwortlich", sv: "Ansvarig", en: "Responsible" },
+  { de: "Verkaufspreis netto", sv: "Försäljningspris netto", en: "Sales price net" },
+  { de: "Wasser", sv: "Vatten", en: "Water" },
+  { de: "Zeit im Bericht", sv: "Tid i rapport", en: "Time in report" },
+  { de: "Zimmer", sv: "Rum", en: "Rooms" },
+  { de: "Zugeordnete Objekte", sv: "Tilldelade objekt", en: "Assigned properties" },
+  { de: "Zurück zur Objektübersicht", sv: "Tillbaka till objektöversikt", en: "Back to property overview" },
+  { de: "Zweck", sv: "Syfte", en: "Purpose" },
+  { de: "Zweck / besucht bei", sv: "Syfte / besökt hos", en: "Purpose / visited at" },
+  { de: "Zwischenziele", sv: "Mellanstopp", en: "Waypoints" },
+  { de: "Zugang & Technik", sv: "Tillträde och teknik", en: "Access and technology" },
+  { de: "Zugang / Schlüssel", sv: "Tillträde / nyckel", en: "Access / key" },
+  { de: "Zugangshinweise", sv: "Tillträdesanvisningar", en: "Access notes" },
+  { de: "ausgewählt", sv: "valda", en: "selected" },
+  { de: "kein Backup vorhanden", sv: "ingen säkerhetskopia finns", en: "no backup available" },
+  { de: "wird geladen...", sv: "laddas...", en: "loading..." },
+  { de: "wird beim Speichern erstellt", sv: "skapas vid sparande", en: "created when saving" },
+  { de: "Abrechnung", sv: "Fakturering", en: "Billing" },
+  { de: "Abwasser", sv: "Avlopp", en: "Wastewater" },
+  { de: "Ansprechpartner", sv: "Kontaktperson", en: "Contact person" },
+  { de: "Bestand", sv: "Lager", en: "Stock" },
+  { de: "Buchungen", sv: "Bokningar", en: "Postings" },
+  { de: "Checklistenpunkte", sv: "Checklistpunkter", en: "Checklist items" },
+  { de: "Das Dokument ist hinterlegt. Für große oder Office-Dateien wird eine Metadaten-Vorschau angezeigt.", sv: "Dokumentet är sparat. För stora filer eller Office-filer visas en metadataförhandsvisning.", en: "The document is stored. For large or Office files, a metadata preview is shown." },
+  { de: "Das Foto ist als Eintrag vorhanden, aber ohne gespeicherte Vorschau.", sv: "Fotot finns som post, men utan sparad förhandsvisning.", en: "The photo exists as an entry, but without a saved preview." },
+  { de: "Dokumente", sv: "Dokument", en: "Documents" },
+  { de: "Dokumente und Grundrisse", sv: "Dokument och planritningar", en: "Documents and floor plans" },
+  { de: "Dokumente zum Objekt", sv: "Dokument för objektet", en: "Property documents" },
+  { de: "Dokumentvorschau schließen", sv: "Stäng dokumentförhandsvisning", en: "Close document preview" },
+  { de: "Drucken", sv: "Skriv ut", en: "Print" },
+  { de: "Fahrzeugdokument hinzufügen", sv: "Lägg till fordonsdokument", en: "Add vehicle document" },
+  { de: "Fotovorschau schließen", sv: "Stäng fotoförhandsvisning", en: "Close photo preview" },
+  { de: "Hauptbild", sv: "Huvudbild", en: "Main image" },
+  { de: "Keine", sv: "Inga", en: "None" },
+  { de: "Keine Bildvorschau verfügbar", sv: "Ingen bildförhandsvisning tillgänglig", en: "No image preview available" },
+  { de: "Keine Kurzbeschreibung hinterlegt.", sv: "Ingen kortbeskrivning sparad.", en: "No short description saved." },
+  { de: "Kunde archivieren", sv: "Arkivera kund", en: "Archive customer" },
+  { de: "Kunde endgültig löschen", sv: "Radera kund permanent", en: "Delete customer permanently" },
+  { de: "Kunde wiederherstellen", sv: "Återställ kund", en: "Restore customer" },
+  { de: "Kurzbeschreibung", sv: "Kortbeskrivning", en: "Short description" },
+  { de: "Kurzbeschreibung zum Foto", sv: "Kortbeskrivning för fotot", en: "Short photo description" },
+  { de: "Kurzbeschreibung zum nächsten Dokument", sv: "Kortbeskrivning för nästa dokument", en: "Short description for the next document" },
+  { de: "Leistungsauswahl schließen", sv: "Stäng tjänsteval", en: "Close service selection" },
+  { de: "Leistungskatalog", sv: "Tjänstekatalog", en: "Service catalog" },
+  { de: "Material-Dialog schließen", sv: "Stäng materialdialog", en: "Close material dialog" },
+  { de: "Nachname", sv: "Efternamn", en: "Last name" },
+  { de: "Neues Dokument hinzufügen", sv: "Lägg till nytt dokument", en: "Add new document" },
+  { de: "Neuen Grundriss hinzufügen", sv: "Lägg till ny planritning", en: "Add new floor plan" },
+  { de: "Noch kein Material erfasst.", sv: "Inget material har registrerats ännu.", en: "No material recorded yet." },
+  { de: "Noch kein Objektbild definiert", sv: "Ingen objektbild har valts ännu", en: "No property image defined yet" },
+  { de: "Noch keine Dokumente zum Objekt vorhanden.", sv: "Inga dokument finns för objektet ännu.", en: "No property documents yet." },
+  { de: "Noch keine Fotos zum Objekt vorhanden.", sv: "Inga foton finns för objektet ännu.", en: "No property photos yet." },
+  { de: "Noch keine Kundenportal-Logins protokolliert.", sv: "Inga kundportalsinloggningar har loggats ännu.", en: "No customer portal logins recorded yet." },
+  { de: "Noch keine Objekte zugeordnet.", sv: "Inga objekt har tilldelats ännu.", en: "No properties assigned yet." },
+  { de: "offen", sv: "öppna", en: "open" },
+  { de: "Paket-Dialog schließen", sv: "Stäng paketdialog", en: "Close package dialog" },
+  { de: "Platzhalter", sv: "Platshållare", en: "Placeholder" },
+  { de: "Portalzugang", sv: "Portalåtkomst", en: "Portal access" },
+  { de: "Rabatt", sv: "Rabatt", en: "Discount" },
+  { de: "Ressource schließen", sv: "Stäng resurs", en: "Close resource" },
+  { de: "Sonstiges", sv: "Övrigt", en: "Other" },
+  { de: "Telefon 2", sv: "Telefon 2", en: "Phone 2" },
+  { de: "Termin", sv: "Tid", en: "Appointment" },
+  { de: "Termin hinzufügen", sv: "Lägg till tid", en: "Add appointment" },
+  { de: "Über Plus Leistungen aus dem Katalog auswählen", sv: "Välj tjänster ur katalogen med plusknappen", en: "Use plus to select services from the catalog" },
+  { de: "Upload", sv: "Uppladdning", en: "Upload" },
+  { de: "Vorschau", sv: "Förhandsvisning", en: "Preview" },
+  { de: "Vorname", sv: "Förnamn", en: "First name" },
+  { de: "Was soll vor Ort geprüft oder dokumentiert werden?", sv: "Vad ska kontrolleras eller dokumenteras på plats?", en: "What should be checked or documented on site?" },
+  { de: "wird beim Versand automatisch ersetzt.", sv: "ersätts automatiskt vid utskick.", en: "is replaced automatically when sending." },
+  { de: "Zielwert", sv: "Målvärde", en: "Target value" },
+  { de: "z.B. Energieausweis, Versicherung, Schlüsselprotokoll", sv: "t.ex. energideklaration, försäkring, nyckelprotokoll", en: "e.g. energy certificate, insurance, key protocol" },
+  { de: "z.B. Werkstattrechnung, Besiktningsprotokoll", sv: "t.ex. verkstadsfaktura, besiktningsprotokoll", en: "e.g. workshop invoice, inspection protocol" },
+  { de: "z.B. Zugang prüfen", sv: "t.ex. kontrollera tillträde", en: "e.g. check access" },
+  { de: "Aktionen", sv: "Åtgärder", en: "Actions" },
+  { de: "Belege / Fotos", sv: "Kvitton / foton", en: "Receipts / photos" },
+  { de: "Bilder", sv: "Bilder", en: "Images" },
+  { de: "End-Km", sv: "Slut-km", en: "End km" },
+  { de: "Gerät", sv: "Utrustning", en: "Device" },
+  { de: "KM", sv: "KM", en: "KM" },
+  { de: "KM-Stand", sv: "Mätarställning", en: "Odometer" },
+  { de: "Kilometer", sv: "Kilometer", en: "Kilometers" },
+  { de: "Kontaktdaten offen", sv: "Kontaktuppgifter saknas", en: "Contact details open" },
+  { de: "Maschine", sv: "Maskin", en: "Machine" },
+  { de: "Route", sv: "Rutt", en: "Route" },
+  { de: "Start-Km", sv: "Start-km", en: "Start km" },
+  { de: "Startadresse", sv: "Startadress", en: "Start address" },
+  { de: "Stammdaten offen", sv: "Grunduppgifter saknas", en: "Master data open" },
+  { de: "Tanken / Laden", sv: "Tankning / laddning", en: "Fuel / charging" },
+  { de: "Ziel", sv: "Mål", en: "Destination" },
+  { de: "Zieladresse", sv: "Måladress", en: "Destination address" },
+  { de: "Zwischenziel", sv: "Mellanstopp", en: "Waypoint" },
+  { de: "ausgeschieden", sv: "slutat", en: "left" },
+  { de: "pausiert", sv: "pausad", en: "paused" },
 ];
 
 const appFieldSvText = Object.fromEntries(appFieldTranslations.map((row) => [row.de, row.sv]));
@@ -9610,6 +9861,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
             {modal === "customer" && (
               <CustomerForm
                 customer={newCustomer}
+                language={language}
                 languageOptions={customerLanguageOptions}
                 objects={activeObjects}
                 isArchived={Boolean(editingCustomer?.archived)}
@@ -15125,34 +15377,34 @@ function MasterDataView({
         <section className="panel">
           <div className="panel-title">
             <div>
-              <p>Sicherheit</p>
-              <h2>Backups</h2>
-              <span>Server-Backups sichern den kompletten Online-Datenstand. Automatische Backups werden nur noch gebündelt angelegt; manuelle Backups sind jederzeit möglich.</span>
+              <p>{tt("Sicherheit")}</p>
+              <h2>{tt("Backups")}</h2>
+              <span>{tt("Server-Backups sichern den kompletten Online-Datenstand. Automatische Backups werden nur noch gebündelt angelegt; manuelle Backups sind jederzeit möglich.")}</span>
             </div>
             <div className="row-actions">
               <button className="ghost-button" disabled={backupBusy} onClick={() => void refreshBackups()} type="button">
                 <RefreshCw size={16} />
-                Aktualisieren
+                {tt("Aktualisieren")}
               </button>
               <button className="primary-button" disabled={backupBusy} onClick={() => void handleCreateBackup()} type="button">
                 <Archive size={16} />
-                Backup erstellen
+                {tt("Backup erstellen")}
               </button>
             </div>
           </div>
           {backupError && <p className="archive-notice danger">{backupError}</p>}
           <div className="summary-grid">
             <article>
-              <span>Letztes Backup</span>
-              <strong>{backups[0] ? formatCreatedAtWithSeconds(backups[0].createdAt) : backupBusy ? "wird geladen..." : "kein Backup vorhanden"}</strong>
+              <span>{tt("Letztes Backup")}</span>
+              <strong>{backups[0] ? formatCreatedAtWithSeconds(backups[0].createdAt) : backupBusy ? tt("wird geladen...") : tt("kein Backup vorhanden")}</strong>
             </article>
             <article>
-              <span>Vorhandene Backups</span>
+              <span>{tt("Vorhandene Backups")}</span>
               <strong>{backups.length}</strong>
             </article>
             <article>
-              <span>Aktueller Live-Stand</span>
-              <strong>{customers.length} Kunden · {objects.length} Objekte · {services.length} Leistungen</strong>
+              <span>{tt("Aktueller Live-Stand")}</span>
+              <strong>{customers.length} {tt("Kunden")} · {objects.length} {tt("Objekte")} · {services.length} {tt("Leistungen")}</strong>
             </article>
           </div>
           <div className="table-list compact-list">
@@ -15162,9 +15414,9 @@ function MasterDataView({
                 <article key={backup.id}>
                   <div>
                     <strong>{formatCreatedAtWithSeconds(backup.createdAt)}</strong>
-                    <span>{counts.customers ?? 0} Kunden · {counts.objects ?? 0} Objekte · {counts.jobs ?? 0} Aufträge · {counts.reports ?? 0} Berichte · {counts.fieldProgress ?? 0} mobile Daten</span>
-                    <span>{formatFileSize(backup.compressedSizeBytes ?? backup.sizeBytes)} gespeichert · Original {formatFileSize(backup.sizeBytes)} · Quelle: {backup.sourceUpdatedAt ? formatCreatedAtWithSeconds(backup.sourceUpdatedAt) : "unbekannt"} · {backup.reason || "automatisch"}</span>
-                    <span>Das ist ein kompletter Datenstand; technische Teile werden bei der Wiederherstellung automatisch zusammengesetzt.</span>
+                    <span>{counts.customers ?? 0} {tt("Kunden")} · {counts.objects ?? 0} {tt("Objekte")} · {counts.jobs ?? 0} {tt("Aufträge")} · {counts.reports ?? 0} {tt("Berichte")} · {counts.fieldProgress ?? 0} {tt("mobile Daten")}</span>
+                    <span>{formatFileSize(backup.compressedSizeBytes ?? backup.sizeBytes)} {tt("gespeichert")} · {tt("Original")} {formatFileSize(backup.sizeBytes)} · {tt("Quelle")}: {backup.sourceUpdatedAt ? formatCreatedAtWithSeconds(backup.sourceUpdatedAt) : tt("unbekannt")} · {backup.reason || tt("automatisch")}</span>
+                    <span>{tt("Das ist ein kompletter Datenstand; technische Teile werden bei der Wiederherstellung automatisch zusammengesetzt.")}</span>
                   </div>
                   <div className="row-actions">
                     <IconAction label={`Backup vom ${formatCreatedAtWithSeconds(backup.createdAt)} wiederherstellen`} onClick={() => void handleRestoreBackup(backup)}>
@@ -15174,8 +15426,8 @@ function MasterDataView({
                 </article>
               );
             })}
-            {!backupBusy && backups.length === 0 && <p>Noch kein Server-Backup vorhanden.</p>}
-            {backupBusy && backups.length === 0 && <p>Backups werden geladen...</p>}
+            {!backupBusy && backups.length === 0 && <p>{tt("Noch kein Server-Backup vorhanden.")}</p>}
+            {backupBusy && backups.length === 0 && <p>{tt("Backups werden geladen...")}</p>}
           </div>
         </section>
       )}
@@ -15184,23 +15436,23 @@ function MasterDataView({
         <section className="panel">
           <div className="panel-title">
             <div>
-              <p>Stammdaten</p>
-              <h2>Firma</h2>
-              <span>Diese Angaben erscheinen in Offerten, Rechnungen und der späteren Übergabe an Spiris / Visma Buchhaltung.</span>
+              <p>{tt("Stammdaten")}</p>
+              <h2>{tt("Firma")}</h2>
+              <span>{tt("Diese Angaben erscheinen in Offerten, Rechnungen und der späteren Übergabe an Spiris / Visma Buchhaltung.")}</span>
             </div>
           </div>
           <div className="form-grid compact-form">
-            <label><span>Firmenname</span><input value={companySettingsForm.name} onChange={(event) => setCompanySettingsForm({ ...companySettingsForm, name: event.target.value })} /></label>
-            <label><span>E-Mail</span><input type="email" value={companySettingsForm.email} onChange={(event) => setCompanySettingsForm({ ...companySettingsForm, email: event.target.value })} /></label>
-            <label className="wide"><span>Adresse</span><AddressFields label="Firmenadresse" value={companySettingsForm.address} onChange={(part, value) => setCompanySettingsForm({ ...companySettingsForm, address: updateAddressPart(companySettingsForm.address, part, value) })} /></label>
-            <label><span>Org.-Nummer</span><input value={companySettingsForm.organizationNumber} onChange={(event) => setCompanySettingsForm({ ...companySettingsForm, organizationNumber: event.target.value })} /></label>
-            <label><span>Momsreg.nr / VAT</span><input value={companySettingsForm.vatNumber} onChange={(event) => setCompanySettingsForm({ ...companySettingsForm, vatNumber: event.target.value })} placeholder="z.B. SE559123456701" /></label>
-            <label><span>Bankverbindung</span><input value={companySettingsForm.bank} onChange={(event) => setCompanySettingsForm({ ...companySettingsForm, bank: event.target.value })} placeholder="z.B. Bankgiro / IBAN / BIC" /></label>
+            <label><span>{tt("Firmenname")}</span><input value={companySettingsForm.name} onChange={(event) => setCompanySettingsForm({ ...companySettingsForm, name: event.target.value })} /></label>
+            <label><span>{tt("E-Mail")}</span><input type="email" value={companySettingsForm.email} onChange={(event) => setCompanySettingsForm({ ...companySettingsForm, email: event.target.value })} /></label>
+            <label className="wide"><span>{tt("Adresse")}</span><AddressFields label={tt("Firmenadresse")} language={language} value={companySettingsForm.address} onChange={(part, value) => setCompanySettingsForm({ ...companySettingsForm, address: updateAddressPart(companySettingsForm.address, part, value) })} /></label>
+            <label><span>{tt("Org.-Nummer")}</span><input value={companySettingsForm.organizationNumber} onChange={(event) => setCompanySettingsForm({ ...companySettingsForm, organizationNumber: event.target.value })} /></label>
+            <label><span>{tt("Momsreg.nr / VAT")}</span><input value={companySettingsForm.vatNumber} onChange={(event) => setCompanySettingsForm({ ...companySettingsForm, vatNumber: event.target.value })} placeholder="z.B. SE559123456701" /></label>
+            <label><span>{tt("Bankverbindung")}</span><input value={companySettingsForm.bank} onChange={(event) => setCompanySettingsForm({ ...companySettingsForm, bank: event.target.value })} placeholder={tt("Bankgiro / IBAN / BIC")} /></label>
             <label className="checkbox-line wide">
               <input checked={companySettingsForm.fSkattApproved} onChange={(event) => setCompanySettingsForm({ ...companySettingsForm, fSkattApproved: event.target.checked })} type="checkbox" />
-              <span>Godkänd för F-skatt auf Offerten und Rechnungen anzeigen</span>
+              <span>{tt("Godkänd för F-skatt auf Offerten und Rechnungen anzeigen")}</span>
             </label>
-            <button className="primary-button wide" onClick={saveCompanySettings} type="button">Firmenstammdaten speichern</button>
+            <button className="primary-button wide" onClick={saveCompanySettings} type="button">{tt("Firmenstammdaten speichern")}</button>
           </div>
         </section>
       )}
@@ -15231,7 +15483,7 @@ function MasterDataView({
               />
             </label>
             <label className="wide">
-              <span>Apple Erinnerungen / Aufgaben nächste 5 Tage</span>
+              <span>{tt("Apple Erinnerungen / Aufgaben nächste 5 Tage")}</span>
               <textarea
                 placeholder={"Erinnerungen|https://..."}
                 value={mailSettingsForm.reminderSources}
@@ -15241,7 +15493,7 @@ function MasterDataView({
             <div className="wide mail-settings-help">
               <strong>{tt("Format pro Zeile: Name|ICS-Link")}</strong>
               <span>{tt("Beispiel: Privat|https://calendar.google.com/calendar/ical/.../basic.ics")}</span>
-              <span>Erinnerungen werden aus VTODO/ICS-Quellen gelesen und mit Fälligkeitsdatum bis 5 Tage im Voraus in die Tagesmail aufgenommen.</span>
+              <span>{tt("Erinnerungen werden aus VTODO/ICS-Quellen gelesen und mit Fälligkeitsdatum bis 5 Tage im Voraus in die Tagesmail aufgenommen.")}</span>
             </div>
             <button className="primary-button wide" onClick={saveMailSettings} type="button">
               <Check size={16} />
@@ -15278,9 +15530,9 @@ function MasterDataView({
             <label><span>{tt("Rolle")}</span><input value={personForm.role} onChange={(event) => setPersonForm({ ...personForm, role: event.target.value })} placeholder={tt("z.B. Einsatzleitung")} /></label>
             <label><span>{tt("Status")}</span>
               <select value={personForm.status} onChange={(event) => setPersonForm({ ...personForm, status: event.target.value as PersonnelRecord["status"] })}>
-                <option>aktiv</option>
-                <option>pausiert</option>
-                <option>ausgeschieden</option>
+                <option value="aktiv">{tt("aktiv")}</option>
+                <option value="pausiert">{tt("pausiert")}</option>
+                <option value="ausgeschieden">{tt("ausgeschieden")}</option>
               </select>
             </label>
             <label><span>{tt("E-Mail")}</span><input type="email" value={personForm.email} onChange={(event) => setPersonForm({ ...personForm, email: event.target.value })} /></label>
@@ -15307,17 +15559,17 @@ function MasterDataView({
                 <article className="clickable-master-card" key={person.id} onClick={() => editPerson(person)}>
                   <span>{person.role}</span>
                   <strong>{person.firstName} {person.lastName}</strong>
-                  <small>{tt("Personalnummer")}: {normalizeReadableNumber(person.personnelNumber) || "fehlt"} · {tt("Angelegt am")}: {formatCreatedAt(person.createdAt)}</small>
-                  <small>{[person.email, person.phone, person.language].filter(Boolean).join(" · ") || "Kontaktdaten offen"}</small>
-                  <small>{person.notes || "Keine Notizen hinterlegt."}</small>
-                  <mark>{person.status}</mark>
+                  <small>{tt("Personalnummer")}: {normalizeReadableNumber(person.personnelNumber) || tt("fehlt")} · {tt("Angelegt am")}: {formatCreatedAt(person.createdAt)}</small>
+                  <small>{[person.email, person.phone, person.language].filter(Boolean).join(" · ") || tt("Kontaktdaten offen")}</small>
+                  <small>{person.notes || tt("Keine Notizen hinterlegt.")}</small>
+                  <mark>{tt(person.status)}</mark>
                   <div className="card-actions" onClick={(event) => event.stopPropagation()}>
                     <IconAction label={`Personal ${person.firstName} ${person.lastName} bearbeiten`} onClick={() => editPerson(person)}><Pencil size={16} /></IconAction>
                     <IconAction danger label={`Personal ${person.firstName} ${person.lastName} archivieren`} onClick={() => archivePerson(person)}><Archive size={16} /></IconAction>
                   </div>
                 </article>
               ))}
-              {activePersonnel.length === 0 && <p>Noch kein aktives Personal angelegt.</p>}
+              {activePersonnel.length === 0 && <p>{tt("Noch kein aktives Personal angelegt.")}</p>}
             </div>
           ) : (
             <div className="table-list compact-list master-table-list">
@@ -15325,9 +15577,9 @@ function MasterDataView({
                 <article className="clickable-master-card" key={person.id} onClick={() => editPerson(person)}>
                   <div>
                     <strong>{person.firstName} {person.lastName}</strong>
-                    <span>{tt("Personalnummer")}: {normalizeReadableNumber(person.personnelNumber) || "fehlt"} · {tt("Angelegt am")}: {formatCreatedAt(person.createdAt)}</span>
-                    <span>{person.role || "Mitarbeit"} · {[person.email, person.phone, person.language].filter(Boolean).join(" · ") || "Kontaktdaten offen"}</span>
-                    <span>{person.notes || "Keine Notizen hinterlegt."}</span>
+                    <span>{tt("Personalnummer")}: {normalizeReadableNumber(person.personnelNumber) || tt("fehlt")} · {tt("Angelegt am")}: {formatCreatedAt(person.createdAt)}</span>
+                    <span>{person.role || tt("Mitarbeit")} · {[person.email, person.phone, person.language].filter(Boolean).join(" · ") || tt("Kontaktdaten offen")}</span>
+                    <span>{person.notes || tt("Keine Notizen hinterlegt.")}</span>
                   </div>
                   <Badge value={person.status} />
                   <div className="row-actions" onClick={(event) => event.stopPropagation()}>
@@ -15336,19 +15588,19 @@ function MasterDataView({
                   </div>
                 </article>
               ))}
-              {activePersonnel.length === 0 && <p>Noch kein aktives Personal angelegt.</p>}
+              {activePersonnel.length === 0 && <p>{tt("Noch kein aktives Personal angelegt.")}</p>}
             </div>
           )}
           {archivedPersonnel.length > 0 && (
             <div className="archive-section">
-              <h3>Archiviertes Personal</h3>
+              <h3>{tt("Archiviertes Personal")}</h3>
               <div className="table-list compact-list archive-list">
                 {archivedPersonnel.map((person) => (
                   <article key={person.id}>
                     <div>
                       <strong>{person.firstName} {person.lastName}</strong>
-                      <span>{tt("Personalnummer")}: {normalizeReadableNumber(person.personnelNumber) || "fehlt"} · {tt("Angelegt am")}: {formatCreatedAt(person.createdAt)}</span>
-                      <span>{person.role} · {person.status}</span>
+                      <span>{tt("Personalnummer")}: {normalizeReadableNumber(person.personnelNumber) || tt("fehlt")} · {tt("Angelegt am")}: {formatCreatedAt(person.createdAt)}</span>
+                      <span>{person.role} · {tt(person.status)}</span>
                     </div>
                     <Badge value="archiviert" />
                     <div className="row-actions">
@@ -15381,8 +15633,8 @@ function MasterDataView({
               <section className="modal resource-editor-modal" role="dialog" aria-modal="true" aria-labelledby="resource-editor-title">
                 <header>
                   <div>
-                    <p>{resourceModalView === "logbook" ? "Fahrtenbuch" : tt("Ressourcen")}</p>
-                    <h2 id="resource-editor-title">{resourceModalView === "logbook" ? "Fahrtenbuch" : editingResourceId ? resourceForm.name || tt("Ressource bearbeiten") : tt("Neue Ressource anlegen")}</h2>
+                    <p>{resourceModalView === "logbook" ? tt("Fahrtenbuch") : tt("Ressourcen")}</p>
+                    <h2 id="resource-editor-title">{resourceModalView === "logbook" ? tt("Fahrtenbuch") : editingResourceId ? resourceForm.name || tt("Ressource bearbeiten") : tt("Neue Ressource anlegen")}</h2>
                     {resourceModalView === "logbook" && selectedResource ? <span>{selectedResource.name}</span> : null}
                   </div>
                   <div className="modal-header-actions">
@@ -15390,25 +15642,25 @@ function MasterDataView({
                       <>
                         <button className="primary-button" onClick={openCreateLogbookEntry} type="button">
                           <Plus size={16} />
-                          Neue Fahrt
+                          {tt("Neue Fahrt")}
                         </button>
                         <button className="ghost-button" onClick={() => void downloadVehicleLogbookPdf(selectedResource, selectedResourceLogbook, activePersonnel, false)} type="button">
                           <FileDown size={16} />
-                          PDF ohne Bilder
+                          {tt("PDF ohne Bilder")}
                         </button>
                         <button className="ghost-button" onClick={() => void downloadVehicleLogbookPdf(selectedResource, selectedResourceLogbook, activePersonnel, true)} type="button">
                           <FileDown size={16} />
-                          PDF mit Bildern
+                          {tt("PDF mit Bildern")}
                         </button>
                       </>
                     )}
                     {selectedResource?.type === "Fahrzeug" && (
                       <button className="ghost-button" onClick={() => setResourceModalView(resourceModalView === "logbook" ? "details" : "logbook")} type="button">
                         <CarFront size={16} />
-                        {resourceModalView === "logbook" ? "Stammdaten" : "Fahrtenbuch"}
+                        {resourceModalView === "logbook" ? tt("Stammdaten") : tt("Fahrtenbuch")}
                       </button>
                     )}
-                    <button aria-label="Ressource schließen" onClick={resetResourceForm} type="button">
+                    <button aria-label={tt("Ressource schließen")} onClick={resetResourceForm} type="button">
                       <X size={18} />
                     </button>
                   </div>
@@ -15472,7 +15724,7 @@ function MasterDataView({
               <label className="resource-field"><span>{tt("Standort")}</span><input value={resourceForm.location} onChange={(event) => setResourceForm({ ...resourceForm, location: event.target.value })} /></label>
               {resourceForm.type === "Fahrzeug" && (
                 <>
-                  <label className="resource-field"><span>Baujahr</span><input inputMode="numeric" value={resourceForm.buildYear} onChange={(event) => setResourceForm({ ...resourceForm, buildYear: event.target.value })} /></label>
+                  <label className="resource-field"><span>{tt("Baujahr")}</span><input inputMode="numeric" value={resourceForm.buildYear} onChange={(event) => setResourceForm({ ...resourceForm, buildYear: event.target.value })} /></label>
                   <label className="resource-field"><span>{tt("Km-Stand Jahresbeginn")}</span><input inputMode="numeric" value={resourceForm.odometerYearStart} onChange={(event) => setResourceForm({ ...resourceForm, odometerYearStart: event.target.value })} /></label>
                   <label className="resource-field"><span>{tt("Km-Stand Jahresende")}</span><input inputMode="numeric" value={resourceForm.odometerYearEnd} onChange={(event) => setResourceForm({ ...resourceForm, odometerYearEnd: event.target.value })} /></label>
                 </>
@@ -15484,13 +15736,13 @@ function MasterDataView({
                 <section className="wide object-attachment-section resource-document-section">
                   <div className="attachment-section-head">
                     <div>
-                      <h3>Fahrzeugdokumente</h3>
-                      <span>{resourceForm.mediaItems.filter((item) => item.type === "Dokument").length} Dokumente</span>
+                      <h3>{tt("Fahrzeugdokumente")}</h3>
+                      <span>{resourceForm.mediaItems.filter((item) => item.type === "Dokument").length} {tt("Dokumente")}</span>
                     </div>
                     <label className="ghost-button attachment-upload">
                       <Paperclip size={16} />
-                      Dokument hinzufügen
-                      <input aria-label="Fahrzeugdokument hinzufügen" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,image/*" multiple type="file" onChange={(event) => void addResourceDocuments(event.target.files)} />
+                      {tt("Dokument hinzufügen")}
+                      <input aria-label={tt("Fahrzeugdokument hinzufügen")} accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,image/*" multiple type="file" onChange={(event) => void addResourceDocuments(event.target.files)} />
                     </label>
                   </div>
                   {resourceForm.mediaItems.filter((item) => item.type === "Dokument").length > 0 ? (
@@ -15502,7 +15754,7 @@ function MasterDataView({
                             <strong>{item.name}</strong>
                             <input
                               aria-label={`Beschreibung ${item.name}`}
-                              placeholder="z.B. Werkstattrechnung, Besiktningsprotokoll"
+                              placeholder={tt("z.B. Werkstattrechnung, Besiktningsprotokoll")}
                               value={item.description}
                               onChange={(event) => updateResourceMediaDescription(item.id, event.target.value)}
                             />
@@ -15517,28 +15769,28 @@ function MasterDataView({
                       ))}
                     </div>
                   ) : (
-                    <p className="empty-attachment">Noch keine Fahrzeugdokumente gespeichert.</p>
+                    <p className="empty-attachment">{tt("Noch keine Fahrzeugdokumente gespeichert.")}</p>
                   )}
                 </section>
                 <section className="wide object-attachment-section resource-maintenance-section">
                   <div className="attachment-section-head">
                     <div>
-                      <h3>Termine / Wartung</h3>
-                      <span>{resourceForm.maintenanceItems.filter((item) => item.status !== "erledigt").length} offen</span>
+                      <h3>{tt("Termine / Wartung")}</h3>
+                      <span>{resourceForm.maintenanceItems.filter((item) => item.status !== "erledigt").length} {tt("offen")}</span>
                     </div>
                     <button className="ghost-button" onClick={saveMaintenanceItem} type="button">
                       <Plus size={16} />
-                      Termin hinzufügen
+                      {tt("Termin hinzufügen")}
                     </button>
                   </div>
                   <div className="resource-maintenance-form">
-                    <input aria-label="Termin" placeholder="Service, Ölwechsel, Besiktning..." value={maintenanceForm.title} onChange={(event) => setMaintenanceForm({ ...maintenanceForm, title: event.target.value })} />
-                    <input aria-label="Einheit" list="resource-maintenance-units" placeholder="Einheit" value={maintenanceForm.unit} onChange={(event) => setMaintenanceForm({ ...maintenanceForm, unit: event.target.value })} />
+                    <input aria-label={tt("Termin")} placeholder="Service, Ölwechsel, Besiktning..." value={maintenanceForm.title} onChange={(event) => setMaintenanceForm({ ...maintenanceForm, title: event.target.value })} />
+                    <input aria-label={tt("Einheit")} list="resource-maintenance-units" placeholder={tt("Einheit")} value={maintenanceForm.unit} onChange={(event) => setMaintenanceForm({ ...maintenanceForm, unit: event.target.value })} />
                     <datalist id="resource-maintenance-units">
                       {maintenanceUnitOptions.map((unit) => <option key={unit} value={unit} />)}
                     </datalist>
-                    <input aria-label="Zielwert" placeholder="Datum, KM oder freier Wert" value={maintenanceForm.target} onChange={(event) => setMaintenanceForm({ ...maintenanceForm, target: event.target.value })} />
-                    <input aria-label="Notiz zum Termin" placeholder="Notiz" value={maintenanceForm.notes} onChange={(event) => setMaintenanceForm({ ...maintenanceForm, notes: event.target.value })} />
+                    <input aria-label={tt("Zielwert")} placeholder={tt("Datum, KM oder freier Wert")} value={maintenanceForm.target} onChange={(event) => setMaintenanceForm({ ...maintenanceForm, target: event.target.value })} />
+                    <input aria-label={tt("Notiz zum Termin")} placeholder={tt("Notiz")} value={maintenanceForm.notes} onChange={(event) => setMaintenanceForm({ ...maintenanceForm, notes: event.target.value })} />
                   </div>
                   {resourceForm.maintenanceItems.length > 0 ? (
                     <div className="resource-maintenance-list">
@@ -15557,7 +15809,7 @@ function MasterDataView({
                       ))}
                     </div>
                   ) : (
-                    <p className="empty-attachment">Noch keine Termine hinterlegt.</p>
+                    <p className="empty-attachment">{tt("Noch keine Termine hinterlegt.")}</p>
                   )}
                 </section>
               </>
@@ -15569,37 +15821,37 @@ function MasterDataView({
             <section className="vehicle-logbook resource-modal-logbook">
               {logbookEntryEditorOpen && (
                 <div className="form-grid compact-form logbook-entry-editor">
-                  <label><span>Datum</span><input type="date" value={logbookForm.date} onChange={(event) => setLogbookForm({ ...logbookForm, date: event.target.value })} /></label>
-                  <label><span>Fahrer</span>
+                  <label><span>{tt("Datum")}</span><input type="date" value={logbookForm.date} onChange={(event) => setLogbookForm({ ...logbookForm, date: event.target.value })} /></label>
+                  <label><span>{tt("Fahrer")}</span>
                     <select value={logbookForm.driverId} onChange={(event) => setLogbookForm({ ...logbookForm, driverId: event.target.value })}>
-                      <option value="">Nicht zugeordnet</option>
+                      <option value="">{tt("Nicht zugeordnet")}</option>
                       {activePersonnel.map((person) => <option key={person.id} value={person.id}>{person.firstName} {person.lastName}</option>)}
                     </select>
                   </label>
-                  <label><span>Art</span>
+                  <label><span>{tt("Art")}</span>
                     <select value={logbookForm.tripType} onChange={(event) => setLogbookForm({ ...logbookForm, tripType: event.target.value as VehicleLogEntry["tripType"] })}>
-                      <option>Dienstfahrt</option>
-                      <option>Privatfahrt</option>
+                      <option value="Dienstfahrt">{tt("Dienstfahrt")}</option>
+                      <option value="Privatfahrt">{tt("Privatfahrt")}</option>
                     </select>
                   </label>
-                  <label><span>Start-Km</span><input inputMode="numeric" value={logbookForm.startOdometer} onChange={(event) => setLogbookForm({ ...logbookForm, startOdometer: event.target.value })} /></label>
-                  <label><span>End-Km</span><input inputMode="numeric" value={logbookForm.endOdometer} onChange={(event) => setLogbookForm({ ...logbookForm, endOdometer: event.target.value })} /></label>
-                  <label><span>Kilometer</span><input inputMode="numeric" value={logbookForm.kilometers} onChange={(event) => setLogbookForm({ ...logbookForm, kilometers: event.target.value })} /></label>
-                  <label><span>Startadresse</span><input list="logbook-address-options" value={logbookForm.startAddress} onChange={(event) => setLogbookForm({ ...logbookForm, startAddress: event.target.value })} /></label>
-                  <label><span>Zieladresse</span><input list="logbook-address-options" value={logbookForm.endAddress} onChange={(event) => setLogbookForm({ ...logbookForm, endAddress: event.target.value })} /></label>
+                  <label><span>{tt("Start-Km")}</span><input inputMode="numeric" value={logbookForm.startOdometer} onChange={(event) => setLogbookForm({ ...logbookForm, startOdometer: event.target.value })} /></label>
+                  <label><span>{tt("End-Km")}</span><input inputMode="numeric" value={logbookForm.endOdometer} onChange={(event) => setLogbookForm({ ...logbookForm, endOdometer: event.target.value })} /></label>
+                  <label><span>{tt("Kilometer")}</span><input inputMode="numeric" value={logbookForm.kilometers} onChange={(event) => setLogbookForm({ ...logbookForm, kilometers: event.target.value })} /></label>
+                  <label><span>{tt("Startadresse")}</span><input list="logbook-address-options" value={logbookForm.startAddress} onChange={(event) => setLogbookForm({ ...logbookForm, startAddress: event.target.value })} /></label>
+                  <label><span>{tt("Zieladresse")}</span><input list="logbook-address-options" value={logbookForm.endAddress} onChange={(event) => setLogbookForm({ ...logbookForm, endAddress: event.target.value })} /></label>
                   <datalist id="logbook-address-options">
                     {logbookAddressOptions.map((address) => <option key={address} value={address} />)}
                   </datalist>
-                  <label><span>Zweck</span><input list="logbook-purpose-options" value={logbookForm.purpose} onChange={(event) => setLogbookForm({ ...logbookForm, purpose: event.target.value })} /></label>
+                  <label><span>{tt("Zweck")}</span><input list="logbook-purpose-options" value={logbookForm.purpose} onChange={(event) => setLogbookForm({ ...logbookForm, purpose: event.target.value })} /></label>
                   <datalist id="logbook-purpose-options">
                     {logbookPurposeOptions.map((purpose) => <option key={purpose} value={purpose} />)}
                   </datalist>
-                  <label><span>Besucht bei</span><input disabled={logbookForm.tripType === "Privatfahrt"} value={logbookForm.visited} onChange={(event) => setLogbookForm({ ...logbookForm, visited: event.target.value })} /></label>
-                  <label><span>Tanken / Laden</span><input value={logbookForm.fuelOrCharge} onChange={(event) => setLogbookForm({ ...logbookForm, fuelOrCharge: event.target.value })} /></label>
-                  <label className="wide"><span>Notiz</span><textarea value={logbookForm.notes} onChange={(event) => setLogbookForm({ ...logbookForm, notes: event.target.value })} /></label>
+                  <label><span>{tt("Besucht bei")}</span><input disabled={logbookForm.tripType === "Privatfahrt"} value={logbookForm.visited} onChange={(event) => setLogbookForm({ ...logbookForm, visited: event.target.value })} /></label>
+                  <label><span>{tt("Tanken / Laden")}</span><input value={logbookForm.fuelOrCharge} onChange={(event) => setLogbookForm({ ...logbookForm, fuelOrCharge: event.target.value })} /></label>
+                  <label className="wide"><span>{tt("Notiz")}</span><textarea value={logbookForm.notes} onChange={(event) => setLogbookForm({ ...logbookForm, notes: event.target.value })} /></label>
                   <div className="wide waypoint-editor">
                     <div className="waypoint-editor-head">
-                      <span>Zwischenziele</span>
+                      <span>{tt("Zwischenziele")}</span>
                       <button
                         className="ghost-button"
                         onClick={() => setLogbookForm({
@@ -15612,7 +15864,7 @@ function MasterDataView({
                         type="button"
                       >
                         <Plus size={14} />
-                        Ziel
+                        {tt("Ziel")}
                       </button>
                     </div>
                     {logbookForm.waypoints.map((waypoint, waypointIndex) => (
@@ -15620,7 +15872,7 @@ function MasterDataView({
                         <input
                           aria-label={`Zwischenziel ${waypointIndex + 1}`}
                           list="logbook-address-options"
-                          placeholder={`Zwischenziel ${waypointIndex + 1}`}
+                          placeholder={`${tt("Zwischenziel")} ${waypointIndex + 1}`}
                           value={waypoint.address}
                           onChange={(event) => setLogbookForm({
                             ...logbookForm,
@@ -15631,7 +15883,7 @@ function MasterDataView({
                         />
                         <input
                           aria-label={`Notiz zu Zwischenziel ${waypointIndex + 1}`}
-                          placeholder="Notiz"
+                          placeholder={tt("Notiz")}
                           value={waypoint.note}
                           onChange={(event) => setLogbookForm({
                             ...logbookForm,
@@ -15643,7 +15895,7 @@ function MasterDataView({
                         <input
                           aria-label={`KM-Stand zu Zwischenziel ${waypointIndex + 1}`}
                           inputMode="numeric"
-                          placeholder="KM"
+                          placeholder={tt("KM")}
                           value={waypoint.odometer ?? ""}
                           onChange={(event) => setLogbookForm({
                             ...logbookForm,
@@ -15663,8 +15915,8 @@ function MasterDataView({
                       </div>
                     ))}
                   </div>
-                  <button className="primary-button wide" onClick={saveLogbookEntry} type="button">{editingLogEntryId ? "Fahrt speichern" : "Fahrt eintragen"}</button>
-                  <button className="ghost-button wide" onClick={() => { resetLogbookForm(); setLogbookEntryEditorOpen(false); }} type="button">Bearbeitung abbrechen</button>
+                  <button className="primary-button wide" onClick={saveLogbookEntry} type="button">{editingLogEntryId ? tt("Fahrt speichern") : tt("Fahrt eintragen")}</button>
+                  <button className="ghost-button wide" onClick={() => { resetLogbookForm(); setLogbookEntryEditorOpen(false); }} type="button">{tt("Bearbeitung abbrechen")}</button>
                 </div>
               )}
               <div className="logbook-summary">
@@ -15677,21 +15929,21 @@ function MasterDataView({
                 <table className="logbook-table">
                   <thead>
                     <tr>
-                      <th>Datum</th>
-                      <th>Fahrer</th>
-                      <th>Art</th>
-                      <th>Route</th>
-                      <th>KM-Stand</th>
-                      <th>KM</th>
-                      <th>Zweck / besucht bei</th>
-                      <th>Belege / Fotos</th>
-                      <th aria-label="Aktionen" />
+                      <th>{tt("Datum")}</th>
+                      <th>{tt("Fahrer")}</th>
+                      <th>{tt("Art")}</th>
+                      <th>{tt("Route")}</th>
+                      <th>{tt("KM-Stand")}</th>
+                      <th>{tt("KM")}</th>
+                      <th>{tt("Zweck / besucht bei")}</th>
+                      <th>{tt("Belege / Fotos")}</th>
+                      <th aria-label={tt("Aktionen")} />
                     </tr>
                   </thead>
                   <tbody>
                     {selectedResourceLogbook.length === 0 ? (
                       <tr>
-                        <td colSpan={9}>Noch keine Fahrten für dieses Fahrzeug erfasst.</td>
+                        <td colSpan={9}>{tt("Noch keine Fahrten für dieses Fahrzeug erfasst.")}</td>
                       </tr>
                     ) : selectedResourceLogbook.map((entry) => {
                       const waypointLabels = (entry.waypoints ?? []).map((waypoint) => [waypoint.address || waypoint.photo?.name || "Zwischenziel", waypoint.odometer ? `${waypoint.odometer} km` : ""].filter(Boolean).join(" · "));
@@ -15768,9 +16020,9 @@ function MasterDataView({
                   <span>{resource.type}</span>
                   <strong>{resource.name}</strong>
                   <small>{[resource.identifier, resource.location, personName(resource.responsiblePersonId)].filter(Boolean).join(" · ")}</small>
-                  <small>{resource.type === "Fahrzeug" ? `${resource.logbook.length} Fahrten · ${resource.logbookYear}` : resource.notes || "Keine Notizen hinterlegt."}</small>
-                  <small>{resource.media?.length ?? 0} Bilder</small>
-                  <mark>{resource.status}</mark>
+                  <small>{resource.type === "Fahrzeug" ? `${resource.logbook.length} ${tt("Fahrten")} · ${resource.logbookYear}` : resource.notes || tt("Keine Notizen hinterlegt.")}</small>
+                  <small>{resource.media?.length ?? 0} {tt("Bilder")}</small>
+                  <mark>{tt(resource.status)}</mark>
                   <div className="card-actions" onClick={(event) => event.stopPropagation()}>
                     <IconAction label={`Ressource ${resource.name} bearbeiten`} onClick={() => editResource(resource)}><Pencil size={16} /></IconAction>
                     <IconAction danger label={`Ressource ${resource.name} archivieren`} onClick={() => archiveResource(resource)}><Archive size={16} /></IconAction>
@@ -15778,7 +16030,7 @@ function MasterDataView({
                 </article>
                 );
               })}
-              {activeResources.length === 0 && <p>Noch keine aktiven Ressourcen angelegt.</p>}
+              {activeResources.length === 0 && <p>{tt("Noch keine aktiven Ressourcen angelegt.")}</p>}
             </div>
           ) : (
             <div className="table-list compact-list master-table-list">
@@ -15800,8 +16052,8 @@ function MasterDataView({
                     )}
                     <div>
                       <strong>{resource.name}</strong>
-                      <span>{resource.type} · {[resource.identifier, resource.location, personName(resource.responsiblePersonId)].filter(Boolean).join(" · ") || "Stammdaten offen"}</span>
-                      <span>{resource.type === "Fahrzeug" ? `${resource.logbook.length} Fahrten · ${resource.logbookYear}` : resource.notes || "Keine Notizen hinterlegt."}</span>
+                      <span>{tt(resource.type)} · {[resource.identifier, resource.location, personName(resource.responsiblePersonId)].filter(Boolean).join(" · ") || tt("Stammdaten offen")}</span>
+                      <span>{resource.type === "Fahrzeug" ? `${resource.logbook.length} ${tt("Fahrten")} · ${resource.logbookYear}` : resource.notes || tt("Keine Notizen hinterlegt.")}</span>
                     </div>
                     <Badge value={resource.status} />
                     <div className="row-actions" onClick={(event) => event.stopPropagation()}>
@@ -15811,7 +16063,7 @@ function MasterDataView({
                   </article>
                 );
               })}
-              {activeResources.length === 0 && <p>Noch keine aktiven Ressourcen angelegt.</p>}
+              {activeResources.length === 0 && <p>{tt("Noch keine aktiven Ressourcen angelegt.")}</p>}
             </div>
           )}
           {resourceEditorOpen && selectedResource?.type === "Fahrzeug" && false && (
@@ -16002,7 +16254,7 @@ function MasterDataView({
           )}
           {archivedResources.length > 0 && (
             <div className="archive-section">
-              <h3>Archivierte Ressourcen</h3>
+              <h3>{tt("Archivierte Ressourcen")}</h3>
               <div className="table-list compact-list archive-list">
                 {archivedResources.map((resource) => (
                   <article key={resource.id}>
@@ -16028,13 +16280,13 @@ function MasterDataView({
         <section className="panel">
           <div className="panel-title">
             <div>
-              <p>Stammdaten</p>
-              <h2>Material verwalten</h2>
-              <span>Materialpositionen erhalten hier ihr Erlöskonto für die spätere Spiris / Visma-Übergabe.</span>
+              <p>{tt("Stammdaten")}</p>
+              <h2>{tt("Material verwalten")}</h2>
+              <span>{tt("Materialpositionen erhalten hier ihr Erlöskonto für die spätere Spiris / Visma-Übergabe.")}</span>
             </div>
             <button className="primary-button" onClick={openCreateMaterial} type="button">
               <Plus size={16} />
-              Neues Material anlegen
+              {tt("Neues Material anlegen")}
             </button>
           </div>
           <div className="table-list compact-list">
@@ -16042,8 +16294,8 @@ function MasterDataView({
               <article key={material.id}>
                 <div>
                   <strong>{material.name}</strong>
-                  <span>{material.category} · {materialRate(material)} · Konto {material.accountingAccount || defaultAccountingAccount("Material", material.name)}</span>
-                  <span>Bestand: {formatInventoryQuantity(materialInventoryTotal(material))} {material.unit} · {(material.inventoryEntries ?? []).length} Buchungen</span>
+                  <span>{material.category} · {materialRate(material)} · {tt("Konto")} {material.accountingAccount || defaultAccountingAccount("Material", material.name)}</span>
+                  <span>{tt("Bestand")}: {formatInventoryQuantity(materialInventoryTotal(material))} {material.unit} · {(material.inventoryEntries ?? []).length} {tt("Buchungen")}</span>
                 </div>
                 <span>{material.description}</span>
                 <div className="row-actions">
@@ -16052,11 +16304,11 @@ function MasterDataView({
                 </div>
               </article>
             ))}
-            {activeMaterials.length === 0 && <p>Noch kein Material erfasst.</p>}
+            {activeMaterials.length === 0 && <p>{tt("Noch kein Material erfasst.")}</p>}
           </div>
           {archivedMaterials.length > 0 && (
             <div className="archive-section">
-              <h3>Archiviertes Material</h3>
+              <h3>{tt("Archiviertes Material")}</h3>
               <div className="table-list compact-list archive-list">
                 {archivedMaterials.map((material) => (
                   <article key={material.id}>
@@ -16082,13 +16334,13 @@ function MasterDataView({
           <section className="panel">
             <div className="panel-title">
               <div>
-                <p>Buchhaltung</p>
-                <h2>Kontenplan für Spiris / Visma</h2>
-                <span>Konten können ergänzt und anschließend bei Leistungen oder Material ausgewählt werden.</span>
+                <p>{tt("Buchhaltung")}</p>
+                <h2>{tt("Kontenplan für Spiris / Visma")}</h2>
+                <span>{tt("Konten können ergänzt und anschließend bei Leistungen oder Material ausgewählt werden.")}</span>
               </div>
               <button className="primary-button" onClick={openCreateAccountingAccount} type="button">
                 <Plus size={16} />
-                Neues Konto anlegen
+                {tt("Neues Konto anlegen")}
               </button>
             </div>
             <div className="table-list compact-list chart-of-accounts-list">
@@ -16107,7 +16359,7 @@ function MasterDataView({
             </div>
             {archivedAccountingAccountList.length > 0 && (
               <div className="archive-section">
-                <h3>Archivierte Konten</h3>
+                <h3>{tt("Archivierte Konten")}</h3>
                 <div className="table-list compact-list archive-list">
                   {archivedAccountingAccountList.map((account) => (
                     <article key={account.account}>
@@ -16134,12 +16386,12 @@ function MasterDataView({
           <section className="panel">
         <div className="panel-title">
           <div>
-            <p>Stammdaten</p>
-            <h2>Leistungen einzeln erfassen</h2>
+            <p>{tt("Stammdaten")}</p>
+            <h2>{tt("Leistungen einzeln erfassen")}</h2>
           </div>
           <button className="primary-button" onClick={openCreateService} type="button">
             <Plus size={16} />
-            Neue Leistung anlegen
+            {tt("Neue Leistung anlegen")}
           </button>
         </div>
         <div className="table-list compact-list service-master-list">
@@ -16150,8 +16402,8 @@ function MasterDataView({
                 <strong>{service.name}</strong>
                 <small>{service.description}</small>
               </div>
-              <span>{service.checklist?.length ?? 0} Checklistenpunkte</span>
-              <span>Konto {service.accountingAccount || defaultAccountingAccount("Leistung", service.name)}</span>
+              <span>{service.checklist?.length ?? 0} {tt("Checklistenpunkte")}</span>
+              <span>{tt("Konto")} {service.accountingAccount || defaultAccountingAccount("Leistung", service.name)}</span>
               <mark>{serviceRate(service)}</mark>
               <div className="row-actions">
                 <IconAction label={`Leistung ${service.name} bearbeiten`} onClick={() => editService(service)}><Pencil size={16} /></IconAction>
@@ -16162,7 +16414,7 @@ function MasterDataView({
         </div>
         {archivedServices.length > 0 && (
           <div className="archive-section">
-            <h3>Archivierte Leistungen</h3>
+            <h3>{tt("Archivierte Leistungen")}</h3>
             <div className="table-list compact-list archive-list">
               {archivedServices.map((service) => (
                 <article key={service.id}>
@@ -16186,18 +16438,18 @@ function MasterDataView({
       <section className="panel">
         <div className="panel-title">
           <div>
-            <p>Pakete</p>
-            <h2>Mehrere Leistungen bündeln</h2>
+            <p>{tt("Pakete")}</p>
+            <h2>{tt("Mehrere Leistungen bündeln")}</h2>
           </div>
           <button className="primary-button" onClick={openCreatePackage} type="button">
             <Plus size={16} />
-            Neues Paket anlegen
+            {tt("Neues Paket anlegen")}
           </button>
         </div>
         <div className="table-list compact-list service-master-list package-master-list">
           {activePackages.map((servicePackage) => (
             <article key={servicePackage.id}>
-              <span className="service-master-category">Paket</span>
+              <span className="service-master-category">{tt("Paket")}</span>
               <div>
                 <strong>{servicePackage.name}</strong>
                 <small>{servicePackage.description}</small>
@@ -16218,7 +16470,7 @@ function MasterDataView({
         </div>
         {archivedPackages.length > 0 && (
           <div className="archive-section">
-            <h3>Archivierte Pakete</h3>
+            <h3>{tt("Archivierte Pakete")}</h3>
             <div className="table-list compact-list">
               {archivedPackages.map((servicePackage) => (
                 <article key={servicePackage.id}>
@@ -16245,53 +16497,53 @@ function MasterDataView({
           <section aria-labelledby="material-editor-title" aria-modal="true" className="modal send-preview-modal catalog-editor-modal" role="dialog">
             <header>
               <div>
-                <p>Material</p>
-                <h2 id="material-editor-title">{editingMaterialId ? "Material bearbeiten" : "Neues Material anlegen"}</h2>
+                <p>{tt("Material")}</p>
+                <h2 id="material-editor-title">{editingMaterialId ? tt("Material bearbeiten") : tt("Neues Material anlegen")}</h2>
               </div>
-              <button aria-label="Material-Dialog schließen" onClick={resetMaterialForm} type="button">
+              <button aria-label={tt("Material-Dialog schließen")} onClick={resetMaterialForm} type="button">
                 <X size={18} />
               </button>
             </header>
             <div className="form-grid compact-form material-editor-form">
-              <label><span>Material</span><input required value={materialForm.name} onChange={(event) => setMaterialForm({ ...materialForm, name: event.target.value })} /></label>
-              <label><span>Artikelnummer / SKU</span><input value={materialForm.sku} onChange={(event) => setMaterialForm({ ...materialForm, sku: event.target.value })} placeholder="z.B. REIN-001" /></label>
-              <label><span>Kategorie</span><input list="material-categories" value={materialForm.category} onChange={(event) => setMaterialForm({ ...materialForm, category: event.target.value })} /></label>
+              <label><span>{tt("Material")}</span><input required value={materialForm.name} onChange={(event) => setMaterialForm({ ...materialForm, name: event.target.value })} /></label>
+              <label><span>{tt("Artikelnummer / SKU")}</span><input value={materialForm.sku} onChange={(event) => setMaterialForm({ ...materialForm, sku: event.target.value })} placeholder="z.B. REIN-001" /></label>
+              <label><span>{tt("Kategorie")}</span><input list="material-categories" value={materialForm.category} onChange={(event) => setMaterialForm({ ...materialForm, category: event.target.value })} /></label>
               <datalist id="material-categories">
                 {materialCategories.map((category) => <option key={category} value={category} />)}
               </datalist>
-              <label><span>Einheit</span><input list="material-units" value={materialForm.unit} onChange={(event) => setMaterialForm({ ...materialForm, unit: event.target.value })} /></label>
+              <label><span>{tt("Einheit")}</span><input list="material-units" value={materialForm.unit} onChange={(event) => setMaterialForm({ ...materialForm, unit: event.target.value })} /></label>
               <datalist id="material-units">
                 {materialUnits.map((unit) => <option key={unit} value={unit} />)}
               </datalist>
-              <label><span>Verkaufspreis netto</span><input inputMode="decimal" value={materialForm.price} onChange={(event) => setMaterialForm({ ...materialForm, price: event.target.value })} /></label>
-              <label><span>Einkaufspreis netto</span><input inputMode="decimal" value={materialForm.purchasePrice} onChange={(event) => setMaterialForm({ ...materialForm, purchasePrice: event.target.value })} /></label>
-              <label><span>Währung</span><select value={materialForm.currency} onChange={(event) => setMaterialForm({ ...materialForm, currency: event.target.value })}><option>SEK</option><option>EUR</option><option>NOK</option><option>DKK</option></select></label>
-              <label><span>Moms %</span><input inputMode="decimal" value={materialForm.taxRate} onChange={(event) => setMaterialForm({ ...materialForm, taxRate: event.target.value })} /></label>
-              <label><span>Erlöskonto</span>
+              <label><span>{tt("Verkaufspreis netto")}</span><input inputMode="decimal" value={materialForm.price} onChange={(event) => setMaterialForm({ ...materialForm, price: event.target.value })} /></label>
+              <label><span>{tt("Einkaufspreis netto")}</span><input inputMode="decimal" value={materialForm.purchasePrice} onChange={(event) => setMaterialForm({ ...materialForm, purchasePrice: event.target.value })} /></label>
+              <label><span>{tt("Währung")}</span><select value={materialForm.currency} onChange={(event) => setMaterialForm({ ...materialForm, currency: event.target.value })}><option>SEK</option><option>EUR</option><option>NOK</option><option>DKK</option></select></label>
+              <label><span>{tt("Moms %")}</span><input inputMode="decimal" value={materialForm.taxRate} onChange={(event) => setMaterialForm({ ...materialForm, taxRate: event.target.value })} /></label>
+              <label><span>{tt("Erlöskonto")}</span>
                 <select value={materialForm.accountingAccount} onChange={(event) => setMaterialForm({ ...materialForm, accountingAccount: event.target.value })}>
                   {availableAccountingAccounts.filter((account) => account.category === "Material" || account.category === "Sonstiges").map((account) => (
                     <option key={account.account} value={account.account}>{account.account} · {account.label}</option>
                   ))}
                 </select>
               </label>
-              <label><span>Lieferant</span><input list="material-suppliers" value={materialForm.supplier} onChange={(event) => setMaterialForm({ ...materialForm, supplier: event.target.value })} /></label>
+              <label><span>{tt("Lieferant")}</span><input list="material-suppliers" value={materialForm.supplier} onChange={(event) => setMaterialForm({ ...materialForm, supplier: event.target.value })} /></label>
               <datalist id="material-suppliers">
                 {materialSuppliers.map((supplier) => <option key={supplier} value={supplier} />)}
               </datalist>
-              <label><span>Hauptlagerort</span><input list="material-locations" value={materialForm.primaryLocation} onChange={(event) => setMaterialForm({ ...materialForm, primaryLocation: event.target.value })} /></label>
+              <label><span>{tt("Hauptlagerort")}</span><input list="material-locations" value={materialForm.primaryLocation} onChange={(event) => setMaterialForm({ ...materialForm, primaryLocation: event.target.value })} /></label>
               <datalist id="material-locations">
                 {materialLocations.map((location) => <option key={location} value={location} />)}
               </datalist>
-              <label><span>Mindestbestand</span><input inputMode="decimal" value={materialForm.minStock} onChange={(event) => setMaterialForm({ ...materialForm, minStock: event.target.value })} /></label>
-              <label><span>Maximalbestand</span><input inputMode="decimal" value={materialForm.maxStock} onChange={(event) => setMaterialForm({ ...materialForm, maxStock: event.target.value })} /></label>
-              <label><span>Bestand aktuell</span><input disabled value={`${formatInventoryQuantity(materialInventoryTotal(materialForm))} ${materialForm.unit}`} /></label>
-              <label className="wide"><span>Beschreibung</span><textarea value={materialForm.description} onChange={(event) => setMaterialForm({ ...materialForm, description: event.target.value })} /></label>
+              <label><span>{tt("Mindestbestand")}</span><input inputMode="decimal" value={materialForm.minStock} onChange={(event) => setMaterialForm({ ...materialForm, minStock: event.target.value })} /></label>
+              <label><span>{tt("Maximalbestand")}</span><input inputMode="decimal" value={materialForm.maxStock} onChange={(event) => setMaterialForm({ ...materialForm, maxStock: event.target.value })} /></label>
+              <label><span>{tt("Bestand aktuell")}</span><input disabled value={`${formatInventoryQuantity(materialInventoryTotal(materialForm))} ${materialForm.unit}`} /></label>
+              <label className="wide"><span>{tt("Beschreibung")}</span><textarea value={materialForm.description} onChange={(event) => setMaterialForm({ ...materialForm, description: event.target.value })} /></label>
             </div>
             <div className="message-actions">
-              <button className="ghost-button" onClick={resetMaterialForm} type="button">Abbrechen</button>
+              <button className="ghost-button" onClick={resetMaterialForm} type="button">{tt("Abbrechen")}</button>
               <button className="primary-button" onClick={saveMaterial} type="button">
                 <Check size={16} />
-                {editingMaterialId ? "Material speichern" : "Material anlegen"}
+                {editingMaterialId ? tt("Material speichern") : tt("Material anlegen")}
               </button>
             </div>
           </section>
@@ -16302,27 +16554,27 @@ function MasterDataView({
           <section aria-labelledby="service-editor-title" aria-modal="true" className="modal send-preview-modal catalog-editor-modal" role="dialog">
             <header>
               <div>
-                <p>Leistung</p>
-                <h2 id="service-editor-title">{editingServiceId ? "Leistung bearbeiten" : "Neue Leistung anlegen"}</h2>
+                <p>{tt("Leistung")}</p>
+                <h2 id="service-editor-title">{editingServiceId ? tt("Leistung bearbeiten") : tt("Neue Leistung anlegen")}</h2>
               </div>
-              <button aria-label="Leistungs-Dialog schließen" onClick={resetServiceForm} type="button">
+              <button aria-label={tt("Leistungs-Dialog schließen")} onClick={resetServiceForm} type="button">
                 <X size={18} />
               </button>
             </header>
             <div className="form-grid compact-form">
-              <label><span>Leistung</span><input required value={serviceForm.name} onChange={(event) => setServiceForm({ ...serviceForm, name: event.target.value })} /></label>
-              <label><span>Kategorie</span><input list="service-categories" onClick={(event) => event.currentTarget.showPicker?.()} onFocus={(event) => event.currentTarget.showPicker?.()} required value={serviceForm.category} onChange={(event) => setServiceForm({ ...serviceForm, category: event.target.value })} /></label>
+              <label><span>{tt("Leistung")}</span><input required value={serviceForm.name} onChange={(event) => setServiceForm({ ...serviceForm, name: event.target.value })} /></label>
+              <label><span>{tt("Kategorie")}</span><input list="service-categories" onClick={(event) => event.currentTarget.showPicker?.()} onFocus={(event) => event.currentTarget.showPicker?.()} required value={serviceForm.category} onChange={(event) => setServiceForm({ ...serviceForm, category: event.target.value })} /></label>
               <datalist id="service-categories">
                 {categories.map((category) => <option key={category} value={category} />)}
               </datalist>
-              <label><span>Einheit</span><input list="service-units" onClick={(event) => event.currentTarget.showPicker?.()} onFocus={(event) => event.currentTarget.showPicker?.()} required value={serviceForm.unit} onChange={(event) => setServiceForm({ ...serviceForm, unit: event.target.value })} /></label>
+              <label><span>{tt("Einheit")}</span><input list="service-units" onClick={(event) => event.currentTarget.showPicker?.()} onFocus={(event) => event.currentTarget.showPicker?.()} required value={serviceForm.unit} onChange={(event) => setServiceForm({ ...serviceForm, unit: event.target.value })} /></label>
               <datalist id="service-units">
                 {serviceUnits.map((unit) => <option key={unit} value={unit} />)}
               </datalist>
               <div className="price-currency-row">
-                <label><span>Preis netto</span><input value={serviceForm.price} onChange={(event) => setServiceForm({ ...serviceForm, price: event.target.value })} placeholder="z.B. 595" /></label>
+                <label><span>{tt("Preis netto")}</span><input value={serviceForm.price} onChange={(event) => setServiceForm({ ...serviceForm, price: event.target.value })} placeholder="z.B. 595" /></label>
                 <label>
-                  <span>Währung</span>
+                  <span>{tt("Währung")}</span>
                   <select value={serviceForm.currency} onChange={(event) => setServiceForm({ ...serviceForm, currency: event.target.value })}>
                     <option>SEK</option>
                     <option>EUR</option>
@@ -16332,8 +16584,8 @@ function MasterDataView({
                   </select>
                 </label>
               </div>
-              <label><span>Moms %</span><input inputMode="decimal" value={serviceForm.taxRate} onChange={(event) => setServiceForm({ ...serviceForm, taxRate: event.target.value })} /></label>
-              <label><span>Erlöskonto</span>
+              <label><span>{tt("Moms %")}</span><input inputMode="decimal" value={serviceForm.taxRate} onChange={(event) => setServiceForm({ ...serviceForm, taxRate: event.target.value })} /></label>
+              <label><span>{tt("Erlöskonto")}</span>
                 <select value={serviceForm.accountingAccount} onChange={(event) => setServiceForm({ ...serviceForm, accountingAccount: event.target.value })}>
                   {availableAccountingAccounts.filter((account) => account.category === "Leistung" || account.category === "Sonstiges").map((account) => (
                     <option key={account.account} value={account.account}>{account.account} · {account.label}</option>
@@ -16342,23 +16594,23 @@ function MasterDataView({
               </label>
               <label className="checkbox-line">
                 <input checked={serviceForm.showWorkTimeInReports} onChange={(event) => setServiceForm({ ...serviceForm, showWorkTimeInReports: event.target.checked })} type="checkbox" />
-                <span>Arbeitszeit im Bericht anzeigen</span>
+                <span>{tt("Arbeitszeit im Bericht anzeigen")}</span>
               </label>
-              <label className="wide"><span>Beschreibung</span><textarea value={serviceForm.description} onChange={(event) => setServiceForm({ ...serviceForm, description: event.target.value })} /></label>
+              <label className="wide"><span>{tt("Beschreibung")}</span><textarea value={serviceForm.description} onChange={(event) => setServiceForm({ ...serviceForm, description: event.target.value })} /></label>
               <div className="wide service-checklist-editor">
-                <span>Checkliste für Einsatz</span>
+                <span>{tt("Checkliste für Einsatz")}</span>
                 <div className="service-checklist-form">
-                  <label><span>Punkt</span><input value={serviceChecklistForm.title} onChange={(event) => setServiceChecklistForm({ ...serviceChecklistForm, title: event.target.value })} placeholder="z.B. Zugang prüfen" /></label>
-                  <label><span>Standardzeit min.</span><input inputMode="numeric" min="0" type="number" value={serviceChecklistForm.defaultMinutes} onChange={(event) => setServiceChecklistForm({ ...serviceChecklistForm, defaultMinutes: event.target.value })} /></label>
-                  <label className="wide"><span>Hinweis / Info</span><textarea value={serviceChecklistForm.note} onChange={(event) => setServiceChecklistForm({ ...serviceChecklistForm, note: event.target.value })} placeholder="Was soll vor Ort geprüft oder dokumentiert werden?" /></label>
+                  <label><span>{tt("Punkt")}</span><input value={serviceChecklistForm.title} onChange={(event) => setServiceChecklistForm({ ...serviceChecklistForm, title: event.target.value })} placeholder={tt("z.B. Zugang prüfen")} /></label>
+                  <label><span>{tt("Standardzeit min.")}</span><input inputMode="numeric" min="0" type="number" value={serviceChecklistForm.defaultMinutes} onChange={(event) => setServiceChecklistForm({ ...serviceChecklistForm, defaultMinutes: event.target.value })} /></label>
+                  <label className="wide"><span>{tt("Hinweis / Info")}</span><textarea value={serviceChecklistForm.note} onChange={(event) => setServiceChecklistForm({ ...serviceChecklistForm, note: event.target.value })} placeholder={tt("Was soll vor Ort geprüft oder dokumentiert werden?")} /></label>
                   <button className="ghost-button wide" onClick={addServiceChecklistItem} type="button">
                     {editingServiceChecklistItemId ? <Check size={16} /> : <Plus size={16} />}
-                    {editingServiceChecklistItemId ? "Checklistenpunkt übernehmen" : "Checklistenpunkt hinzufügen"}
+                    {editingServiceChecklistItemId ? tt("Checklistenpunkt übernehmen") : tt("Checklistenpunkt hinzufügen")}
                   </button>
                   {editingServiceChecklistItemId && (
                     <button className="ghost-button wide" onClick={cancelServiceChecklistEdit} type="button">
                       <RotateCcw size={16} />
-                      Checklistenpunkt-Bearbeitung abbrechen
+                      {tt("Checklistenpunkt-Bearbeitung abbrechen")}
                     </button>
                   )}
                 </div>
@@ -16375,15 +16627,15 @@ function MasterDataView({
                       </div>
                     </article>
                   ))}
-                  {serviceForm.checklist.length === 0 && <p>Noch keine Checklistenpunkte hinterlegt.</p>}
+                  {serviceForm.checklist.length === 0 && <p>{tt("Noch keine Checklistenpunkte hinterlegt.")}</p>}
                 </div>
               </div>
             </div>
             <div className="message-actions">
-              <button className="ghost-button" onClick={resetServiceForm} type="button">Abbrechen</button>
+              <button className="ghost-button" onClick={resetServiceForm} type="button">{tt("Abbrechen")}</button>
               <button className="primary-button" onClick={saveService} type="button">
                 <Check size={16} />
-                {editingServiceId ? "Leistung speichern" : "Leistung anlegen"}
+                {editingServiceId ? tt("Leistung speichern") : tt("Leistung anlegen")}
               </button>
             </div>
           </section>
@@ -16394,35 +16646,35 @@ function MasterDataView({
           <section aria-labelledby="package-editor-title" aria-modal="true" className="modal send-preview-modal catalog-editor-modal" role="dialog">
             <header>
               <div>
-                <p>Paket</p>
-                <h2 id="package-editor-title">{editingPackageId ? "Paket bearbeiten" : "Neues Paket anlegen"}</h2>
+                <p>{tt("Paket")}</p>
+                <h2 id="package-editor-title">{editingPackageId ? tt("Paket bearbeiten") : tt("Neues Paket anlegen")}</h2>
               </div>
-              <button aria-label="Paket-Dialog schließen" onClick={resetPackageForm} type="button">
+              <button aria-label={tt("Paket-Dialog schließen")} onClick={resetPackageForm} type="button">
                 <X size={18} />
               </button>
             </header>
             <div className="form-grid compact-form">
-              <label><span>Paketname</span><input value={packageForm.name} onChange={(event) => setPackageForm({ ...packageForm, name: event.target.value })} /></label>
-              <label><span>Paketpreis</span><input value={packageForm.price} onChange={(event) => setPackageForm({ ...packageForm, price: event.target.value })} placeholder="z.B. 7.990 SEK/Jahr" /></label>
-              <label className="wide"><span>Paketbeschreibung</span><textarea value={packageForm.description} onChange={(event) => setPackageForm({ ...packageForm, description: event.target.value })} /></label>
+              <label><span>{tt("Paketname")}</span><input value={packageForm.name} onChange={(event) => setPackageForm({ ...packageForm, name: event.target.value })} /></label>
+              <label><span>{tt("Paketpreis")}</span><input value={packageForm.price} onChange={(event) => setPackageForm({ ...packageForm, price: event.target.value })} placeholder="z.B. 7.990 SEK/Jahr" /></label>
+              <label className="wide"><span>{tt("Paketbeschreibung")}</span><textarea value={packageForm.description} onChange={(event) => setPackageForm({ ...packageForm, description: event.target.value })} /></label>
               <div className="wide package-service-summary">
                 <div>
-                  <span>Leistungen im Paket</span>
-                  <strong>{selectedPackageServices.length || "Keine"} ausgewählt</strong>
+                  <span>{tt("Leistungen im Paket")}</span>
+                  <strong>{selectedPackageServices.length || tt("Keine")} {tt("ausgewählt")}</strong>
                   <small>
                     {selectedPackageServices.length > 0
                       ? selectedPackageServices.map((service) => service.name).sort((first, second) => first.localeCompare(second, "de")).join(", ")
-                      : "Über Plus Leistungen aus dem Katalog auswählen"}
+                      : tt("Über Plus Leistungen aus dem Katalog auswählen")}
                   </small>
                 </div>
-                <IconAction label="Leistungen auswählen" onClick={() => setServicePickerOpen(true)}><Plus size={18} /></IconAction>
+                <IconAction label={tt("Leistungen auswählen")} onClick={() => setServicePickerOpen(true)}><Plus size={18} /></IconAction>
               </div>
             </div>
             <div className="message-actions">
-              <button className="ghost-button" onClick={resetPackageForm} type="button">Abbrechen</button>
+              <button className="ghost-button" onClick={resetPackageForm} type="button">{tt("Abbrechen")}</button>
               <button className="primary-button" onClick={savePackage} type="button">
                 <Check size={16} />
-                {editingPackageId ? "Paket speichern" : "Paket anlegen"}
+                {editingPackageId ? tt("Paket speichern") : tt("Paket anlegen")}
               </button>
             </div>
           </section>
@@ -16433,30 +16685,30 @@ function MasterDataView({
           <section aria-labelledby="account-editor-title" aria-modal="true" className="modal send-preview-modal account-editor-modal" role="dialog">
             <header>
               <div>
-                <p>Buchhaltung</p>
-                <h2 id="account-editor-title">{editingAccountId ? "Konto bearbeiten" : "Neues Konto anlegen"}</h2>
+                <p>{tt("Buchhaltung")}</p>
+                <h2 id="account-editor-title">{editingAccountId ? tt("Konto bearbeiten") : tt("Neues Konto anlegen")}</h2>
               </div>
-              <button aria-label="Konto-Dialog schließen" onClick={resetAccountForm} type="button">
+              <button aria-label={tt("Konto-Dialog schließen")} onClick={resetAccountForm} type="button">
                 <X size={18} />
               </button>
             </header>
             <div className="form-grid compact-form">
-              <label><span>Konto</span><input inputMode="numeric" value={accountForm.account} onChange={(event) => setAccountForm({ ...accountForm, account: event.target.value })} placeholder="z.B. 3042" /></label>
-              <label><span>Bereich</span>
+              <label><span>{tt("Konto")}</span><input inputMode="numeric" value={accountForm.account} onChange={(event) => setAccountForm({ ...accountForm, account: event.target.value })} placeholder="z.B. 3042" /></label>
+              <label><span>{tt("Bereich")}</span>
                 <select value={accountForm.category} onChange={(event) => setAccountForm({ ...accountForm, category: event.target.value as AccountingAccount["category"] })}>
-                  <option>Leistung</option>
-                  <option>Material</option>
-                  <option>Rabatt</option>
-                  <option>Sonstiges</option>
+                  <option value="Leistung">{tt("Leistung")}</option>
+                  <option value="Material">{tt("Material")}</option>
+                  <option value="Rabatt">{tt("Rabatt")}</option>
+                  <option value="Sonstiges">{tt("Sonstiges")}</option>
                 </select>
               </label>
-              <label className="wide"><span>Bezeichnung</span><input value={accountForm.label} onChange={(event) => setAccountForm({ ...accountForm, label: event.target.value })} placeholder="z.B. Vermietungsservice" /></label>
+              <label className="wide"><span>{tt("Bezeichnung")}</span><input value={accountForm.label} onChange={(event) => setAccountForm({ ...accountForm, label: event.target.value })} placeholder="z.B. Vermietungsservice" /></label>
             </div>
             <div className="message-actions">
-              <button className="ghost-button" onClick={resetAccountForm} type="button">Abbrechen</button>
+              <button className="ghost-button" onClick={resetAccountForm} type="button">{tt("Abbrechen")}</button>
               <button className="primary-button" onClick={saveAccountingAccount} type="button">
                 <Check size={16} />
-                {editingAccountId ? "Konto speichern" : "Konto anlegen"}
+                {editingAccountId ? tt("Konto speichern") : tt("Konto anlegen")}
               </button>
             </div>
           </section>
@@ -16467,10 +16719,10 @@ function MasterDataView({
           <section aria-labelledby="service-picker-title" aria-modal="true" className="modal service-picker-modal" role="dialog">
             <header>
               <div>
-                <p>Leistungskatalog</p>
-                <h2 id="service-picker-title">Leistungen auswählen</h2>
+                <p>{tt("Leistungskatalog")}</p>
+                <h2 id="service-picker-title">{tt("Leistungen auswählen")}</h2>
               </div>
-              <button aria-label="Leistungsauswahl schließen" onClick={() => setServicePickerOpen(false)} type="button">
+              <button aria-label={tt("Leistungsauswahl schließen")} onClick={() => setServicePickerOpen(false)} type="button">
                 <X size={18} />
               </button>
             </header>
@@ -16491,7 +16743,7 @@ function MasterDataView({
                 </section>
               ))}
             </div>
-            <button className="primary-button" onClick={() => setServicePickerOpen(false)} type="button">Auswahl übernehmen</button>
+            <button className="primary-button" onClick={() => setServicePickerOpen(false)} type="button">{tt("Auswahl übernehmen")}</button>
           </section>
         </div>
       )}
@@ -16549,12 +16801,12 @@ function ObjectEditorPage({
           <div className="editor-title-main">
             <button className="ghost-button" onClick={onBack} type="button">
               <ArrowLeft size={16} />
-              Zurück zur Objektübersicht
+              {tt("Zurück zur Objektübersicht")}
             </button>
           </div>
           {primaryImage?.previewUrl ? (
             <div
-              aria-label="Aktuelles Objektbild"
+              aria-label={tt("Aktuelles Objektbild")}
               className="object-editor-image"
               role="img"
               style={{ backgroundImage: `url(${primaryImage.previewUrl})` }}
@@ -16562,7 +16814,7 @@ function ObjectEditorPage({
           ) : (
             <div className="object-editor-image object-editor-image-empty">
               <Home size={26} />
-              <span>Noch kein Objektbild definiert</span>
+              <span>{tt("Noch kein Objektbild definiert")}</span>
             </div>
           )}
         </div>
@@ -16572,23 +16824,24 @@ function ObjectEditorPage({
               <>
                 <button className="ghost-button" onClick={onRestore} type="button">
                   <RotateCcw size={16} />
-                  Objekt wiederherstellen
+                  {tt("Objekt wiederherstellen")}
                 </button>
                 <button className="ghost-button danger-action" onClick={onDelete} type="button">
                   <Trash2 size={16} />
-                  Objekt endgültig löschen
+                  {tt("Objekt endgültig löschen")}
                 </button>
               </>
             ) : (
               <button className="ghost-button danger-action" onClick={onArchive} type="button">
                 <Archive size={16} />
-                Objekt archivieren
+                {tt("Objekt archivieren")}
               </button>
             )}
           </div>
         )}
         <ObjectForm
           customers={customers}
+          language={language}
           newObject={newObject}
           packages={packages}
           statusOptions={objectStatusOptions}
@@ -16808,28 +17061,32 @@ function ObjectHistory({
 function AddressFields({
   disabled = false,
   label,
+  language = "de",
   onChange,
   value,
 }: {
   disabled?: boolean;
   label: string;
+  language?: Language;
   onChange: (part: keyof AddressParts, value: string) => void;
   value: string;
 }) {
+  const tt = (text: string) => uiText(text, language);
   const address = splitAddressParts(value);
 
   return (
     <>
       <div className="wide address-group-title"><strong>{label}</strong></div>
-      <label className="wide"><span>Straße</span><input disabled={disabled} value={address.street} onChange={(event) => onChange("street", event.target.value)} /></label>
-      <label><span>PLZ</span><input disabled={disabled} value={address.postalCode} onChange={(event) => onChange("postalCode", event.target.value)} /></label>
-      <label><span>Ort</span><input disabled={disabled} value={address.city} onChange={(event) => onChange("city", event.target.value)} /></label>
+      <label className="wide"><span>{tt("Straße")}</span><input disabled={disabled} value={address.street} onChange={(event) => onChange("street", event.target.value)} /></label>
+      <label><span>{tt("PLZ")}</span><input disabled={disabled} value={address.postalCode} onChange={(event) => onChange("postalCode", event.target.value)} /></label>
+      <label><span>{tt("Ort")}</span><input disabled={disabled} value={address.city} onChange={(event) => onChange("city", event.target.value)} /></label>
     </>
   );
 }
 
 function ObjectForm({
   customers,
+  language,
   newObject,
   packages,
   setNewObject,
@@ -16839,6 +17096,7 @@ function ObjectForm({
   submitLabel,
 }: {
   customers: CustomerRecord[];
+  language: Language;
   newObject: NewObjectFormState;
   packages: ServicePackage[];
   setNewObject: (value: NewObjectFormState) => void;
@@ -16847,6 +17105,7 @@ function ObjectForm({
   onSubmit: () => void;
   submitLabel: string;
 }) {
+  const tt = (value: string) => uiText(value, language);
   const photoItems = newObject.mediaItems.filter((item) => item.type === "Bild");
   const fileItems = newObject.mediaItems.filter((item) => item.type !== "Bild");
   const [previewDocument, setPreviewDocument] = useState<MediaItem | null>(null);
@@ -17002,84 +17261,87 @@ function ObjectForm({
 
   return (
     <div className="form-grid" onBlurCapture={autosaveField}>
-      <h3>Basisdaten</h3>
-      <label><span>Objekt</span><input value={newObject.name} onChange={(event) => update("name", event.target.value)} /></label>
-      <label><span>Status</span>
+      <h3>{tt("Basisdaten")}</h3>
+      <label><span>{tt("Objekt")}</span><input value={newObject.name} onChange={(event) => update("name", event.target.value)} /></label>
+      <label><span>{tt("Status")}</span>
         <input list="object-status-options" value={newObject.status} onChange={(event) => update("status", event.target.value)} />
         <datalist id="object-status-options">
           {statusOptions.map((status) => <option key={status} value={status} />)}
         </datalist>
       </label>
       <label className="wide">
-        <span>Eigentümer aus Kunden</span>
+        <span>{tt("Eigentümer aus Kunden")}</span>
         <select value={newObject.ownerCustomerId} onChange={(event) => selectOwner(event.target.value)}>
-          <option value="">Manuell pflegen</option>
+          <option value="">{tt("Manuell pflegen")}</option>
           {customers.map((customer) => (
             <option key={customer.id} value={customer.id}>{customer.name}</option>
           ))}
         </select>
       </label>
-      <label><span>Eigentümer</span><input value={newObject.owner} onChange={(event) => update("owner", event.target.value)} /></label>
-      <label><span>E-Mail Eigentümer</span><input type="email" value={newObject.ownerEmail} onChange={(event) => update("ownerEmail", event.target.value)} /></label>
-      <label><span>Telefon Eigentümer</span><input value={newObject.ownerPhone} onChange={(event) => update("ownerPhone", event.target.value)} /></label>
-      <label><span>Ort/Region</span><input value={newObject.region} onChange={(event) => update("region", event.target.value)} /></label>
+      <label><span>{tt("Eigentümer")}</span><input value={newObject.owner} onChange={(event) => update("owner", event.target.value)} /></label>
+      <label><span>{tt("E-Mail Eigentümer")}</span><input type="email" value={newObject.ownerEmail} onChange={(event) => update("ownerEmail", event.target.value)} /></label>
+      <label><span>{tt("Telefon Eigentümer")}</span><input value={newObject.ownerPhone} onChange={(event) => update("ownerPhone", event.target.value)} /></label>
+      <label><span>{tt("Ort/Region")}</span><input value={newObject.region} onChange={(event) => update("region", event.target.value)} /></label>
       <AddressFields
-        label="Eigentümeradresse"
+        label={tt("Eigentümeradresse")}
+        language={language}
         value={newObject.ownerAddress}
         onChange={(part, value) => updateObjectAddress("ownerAddress", part, value)}
       />
       <AddressFields
-        label="Objektadresse"
+        label={tt("Objektadresse")}
+        language={language}
         value={newObject.address}
         onChange={(part, value) => updateObjectAddress("address", part, value)}
       />
       <label>
-        <span>Rechnungsadresse verwenden</span>
+        <span>{tt("Rechnungsadresse verwenden")}</span>
         <select value={newObject.billingAddressMode} onChange={(event) => updateBillingMode(event.target.value as ObjectRecord["billingAddressMode"])}>
-          <option>Eigentümeradresse</option>
-          <option>Objektadresse</option>
-          <option>Abweichend</option>
+          <option value="Eigentümeradresse">{tt("Eigentümeradresse")}</option>
+          <option value="Objektadresse">{tt("Objektadresse")}</option>
+          <option value="Abweichend">{tt("Abweichend")}</option>
         </select>
       </label>
       <AddressFields
         disabled={newObject.billingAddressMode !== "Abweichend"}
-        label="Rechnungsadresse"
+        label={tt("Rechnungsadresse")}
+        language={language}
         value={newObject.billingAddressMode === "Objektadresse" ? newObject.address : newObject.billingAddressMode === "Eigentümeradresse" ? newObject.ownerAddress : newObject.billingAddress}
         onChange={(part, value) => updateObjectAddress("billingAddress", part, value)}
       />
-      <h3>Objektmerkmale</h3>
-      <label><span>Größe m²</span><input type="number" value={newObject.sizeSqm} onChange={(event) => update("sizeSqm", event.target.value)} /></label>
-      <label><span>Grundstück m²</span><input type="number" value={newObject.plotSqm} onChange={(event) => update("plotSqm", event.target.value)} /></label>
-      <label><span>Baujahr</span><input type="number" value={newObject.buildYear} onChange={(event) => update("buildYear", event.target.value)} /></label>
-      <label><span>Zimmer</span><input type="number" value={newObject.rooms} onChange={(event) => update("rooms", event.target.value)} /></label>
-      <label><span>Betten</span><input type="number" value={newObject.beds} onChange={(event) => update("beds", event.target.value)} /></label>
-      <label><span>Bäder</span><input type="number" value={newObject.bathrooms} onChange={(event) => update("bathrooms", event.target.value)} /></label>
+      <h3>{tt("Objektmerkmale")}</h3>
+      <label><span>{tt("Größe m²")}</span><input type="number" value={newObject.sizeSqm} onChange={(event) => update("sizeSqm", event.target.value)} /></label>
+      <label><span>{tt("Grundstück m²")}</span><input type="number" value={newObject.plotSqm} onChange={(event) => update("plotSqm", event.target.value)} /></label>
+      <label><span>{tt("Baujahr")}</span><input type="number" value={newObject.buildYear} onChange={(event) => update("buildYear", event.target.value)} /></label>
+      <label><span>{tt("Zimmer")}</span><input type="number" value={newObject.rooms} onChange={(event) => update("rooms", event.target.value)} /></label>
+      <label><span>{tt("Betten")}</span><input type="number" value={newObject.beds} onChange={(event) => update("beds", event.target.value)} /></label>
+      <label><span>{tt("Bäder")}</span><input type="number" value={newObject.bathrooms} onChange={(event) => update("bathrooms", event.target.value)} /></label>
       <label>
-        <span>Betreuungspaket</span>
+        <span>{tt("Betreuungspaket")}</span>
         <select value={newObject.carePackage} onChange={(event) => update("carePackage", event.target.value)}>
           {packageOptions.map((option) => <option key={option} value={option}>{option}</option>)}
         </select>
       </label>
-      <h3>Zugang & Technik</h3>
-      <label><span>Zugang / Schlüssel</span><textarea value={newObject.keySafe} onChange={(event) => update("keySafe", event.target.value)} /></label>
-      <label><span>Alarmanlage</span><textarea value={newObject.alarm} onChange={(event) => update("alarm", event.target.value)} /></label>
-      <label><span>Parken</span><textarea value={newObject.parking} onChange={(event) => update("parking", event.target.value)} /></label>
-      <label><span>Zugangshinweise</span><textarea value={newObject.accessNotes} onChange={(event) => update("accessNotes", event.target.value)} /></label>
-      <label><span>Heizung</span><input value={newObject.heating} onChange={(event) => update("heating", event.target.value)} /></label>
-      <label><span>Wasser</span><input value={newObject.water} onChange={(event) => update("water", event.target.value)} /></label>
-      <label><span>Abwasser</span><input value={newObject.septic} onChange={(event) => update("septic", event.target.value)} /></label>
-      <label><span>Internet</span><input value={newObject.internet} onChange={(event) => update("internet", event.target.value)} /></label>
-      <h3>Dokumentation & Planung</h3>
+      <h3>{tt("Zugang & Technik")}</h3>
+      <label><span>{tt("Zugang / Schlüssel")}</span><textarea value={newObject.keySafe} onChange={(event) => update("keySafe", event.target.value)} /></label>
+      <label><span>{tt("Alarmanlage")}</span><textarea value={newObject.alarm} onChange={(event) => update("alarm", event.target.value)} /></label>
+      <label><span>{tt("Parken")}</span><textarea value={newObject.parking} onChange={(event) => update("parking", event.target.value)} /></label>
+      <label><span>{tt("Zugangshinweise")}</span><textarea value={newObject.accessNotes} onChange={(event) => update("accessNotes", event.target.value)} /></label>
+      <label><span>{tt("Heizung")}</span><input value={newObject.heating} onChange={(event) => update("heating", event.target.value)} /></label>
+      <label><span>{tt("Wasser")}</span><input value={newObject.water} onChange={(event) => update("water", event.target.value)} /></label>
+      <label><span>{tt("Abwasser")}</span><input value={newObject.septic} onChange={(event) => update("septic", event.target.value)} /></label>
+      <label><span>{tt("Internet")}</span><input value={newObject.internet} onChange={(event) => update("internet", event.target.value)} /></label>
+      <h3>{tt("Dokumentation & Planung")}</h3>
       <section className="wide object-attachment-section">
         <div className="attachment-section-head">
           <div>
-            <h3>Fotos zum Objekt</h3>
-            <span>{photoItems.length} Fotos</span>
+            <h3>{tt("Fotos zum Objekt")}</h3>
+            <span>{photoItems.length} {tt("Fotos")}</span>
           </div>
           <label className="ghost-button attachment-upload">
             <Camera size={16} />
-            Neues Foto hinzufügen
-            <input aria-label="Neues Foto hinzufügen" accept="image/*" capture="environment" multiple type="file" onChange={(event) => void addMedia(event.target.files, "Bild", "Kamera")} />
+            {tt("Neues Foto hinzufügen")}
+            <input aria-label={tt("Neues Foto hinzufügen")} accept="image/*" capture="environment" multiple type="file" onChange={(event) => void addMedia(event.target.files, "Bild", "Kamera")} />
           </label>
         </div>
         {photoItems.length > 0 ? (
@@ -17095,7 +17357,7 @@ function ObjectForm({
                 />
                 <input
                   aria-label={`Kurzbeschreibung ${item.name}`}
-                  placeholder="Kurzbeschreibung zum Foto"
+                  placeholder={tt("Kurzbeschreibung zum Foto")}
                   value={item.description}
                   onChange={(event) => updateMediaDescription(item.id, event.target.value)}
                 />
@@ -17110,24 +17372,24 @@ function ObjectForm({
             ))}
           </div>
         ) : (
-          <p className="empty-attachment">Noch keine Fotos zum Objekt vorhanden.</p>
+          <p className="empty-attachment">{tt("Noch keine Fotos zum Objekt vorhanden.")}</p>
         )}
       </section>
       <section className="wide object-attachment-section">
         <div className="attachment-section-head">
           <div>
-            <h3>Dokumente zum Objekt</h3>
-            <span>{fileItems.length} Dokumente und Grundrisse</span>
+            <h3>{tt("Dokumente zum Objekt")}</h3>
+            <span>{fileItems.length} {tt("Dokumente und Grundrisse")}</span>
           </div>
           <label className="ghost-button attachment-upload">
             <Paperclip size={16} />
-            Dokument hinzufügen
-            <input aria-label="Dokument hinzufügen" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,image/*" multiple type="file" onChange={(event) => void addMedia(event.target.files, "Dokument", "Upload")} />
+            {tt("Dokument hinzufügen")}
+            <input aria-label={tt("Dokument hinzufügen")} accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,image/*" multiple type="file" onChange={(event) => void addMedia(event.target.files, "Dokument", "Upload")} />
           </label>
         </div>
         <label className="wide document-description-field">
-          <span>Kurzbeschreibung zum nächsten Dokument</span>
-          <input value={newObject.documentDescription} onChange={(event) => update("documentDescription", event.target.value)} placeholder="z.B. Energieausweis, Versicherung, Schlüsselprotokoll" />
+          <span>{tt("Kurzbeschreibung zum nächsten Dokument")}</span>
+          <input value={newObject.documentDescription} onChange={(event) => update("documentDescription", event.target.value)} placeholder={tt("z.B. Energieausweis, Versicherung, Schlüsselprotokoll")} />
         </label>
         {fileItems.length > 0 ? (
           <div className="media-list">
@@ -17140,11 +17402,11 @@ function ObjectForm({
                 <button className="document-preview-link" onClick={() => setPreviewDocument(item)} type="button">
                   <strong>{item.type}: {item.name}</strong>
                 </button>
-                <span>{item.source}</span>
+                <span>{tt(item.source)}</span>
               </div>
               <input
                 aria-label={`Kurzbeschreibung ${item.name}`}
-                placeholder="Kurzbeschreibung"
+                placeholder={tt("Kurzbeschreibung")}
                 value={item.description}
                 onChange={(event) => updateMediaDescription(item.id, event.target.value)}
               />
@@ -17158,7 +17420,7 @@ function ObjectForm({
           ))}
           </div>
         ) : (
-          <p className="empty-attachment">Noch keine Dokumente zum Objekt vorhanden.</p>
+          <p className="empty-attachment">{tt("Noch keine Dokumente zum Objekt vorhanden.")}</p>
         )}
       </section>
       {previewDocument && (
@@ -17166,10 +17428,10 @@ function ObjectForm({
           <section aria-labelledby="document-preview-title" aria-modal="true" className="modal document-preview-modal" role="dialog">
             <header>
               <div>
-                <p>Dokumentvorschau</p>
+                <p>{tt("Dokumentvorschau")}</p>
                 <h2 id="document-preview-title">{previewDocument.name}</h2>
               </div>
-              <button aria-label="Dokumentvorschau schließen" onClick={() => setPreviewDocument(null)} type="button">
+              <button aria-label={tt("Dokumentvorschau schließen")} onClick={() => setPreviewDocument(null)} type="button">
                 <X size={18} />
               </button>
             </header>
@@ -17177,15 +17439,15 @@ function ObjectForm({
               <div className="document-preview-meta">
                 <span>{previewDocument.type}</span>
                 <strong>{previewDocument.name}</strong>
-                <small>{previewDocument.description || "Keine Kurzbeschreibung hinterlegt."}</small>
+                <small>{previewDocument.description || tt("Keine Kurzbeschreibung hinterlegt.")}</small>
               </div>
-              <DocumentPreview item={previewDocument} />
+              <DocumentPreview item={previewDocument} language={language} />
             </article>
             <div className="modal-actions">
-              <button className="ghost-button" onClick={() => setPreviewDocument(null)} type="button">Schließen</button>
+              <button className="ghost-button" onClick={() => setPreviewDocument(null)} type="button">{tt("Schließen")}</button>
               <button className="primary-button" onClick={() => window.print()} type="button">
                 <Printer size={16} />
-                Drucken
+                {tt("Drucken")}
               </button>
             </div>
           </section>
@@ -17196,49 +17458,50 @@ function ObjectForm({
           <section aria-labelledby="photo-preview-title" aria-modal="true" className="modal document-preview-modal" role="dialog">
             <header>
               <div>
-                <p>Fotovorschau</p>
+                <p>{tt("Fotovorschau")}</p>
                 <h2 id="photo-preview-title">{previewPhoto.name}</h2>
               </div>
-              <button aria-label="Fotovorschau schließen" onClick={() => setPreviewPhoto(null)} type="button">
+              <button aria-label={tt("Fotovorschau schließen")} onClick={() => setPreviewPhoto(null)} type="button">
                 <X size={18} />
               </button>
             </header>
             <article className="printable-document">
               <div className="document-preview-meta">
-                <span>Bild</span>
+                <span>{tt("Bild")}</span>
                 <strong>{previewPhoto.name}</strong>
-                <small>{previewPhoto.description || "Keine Kurzbeschreibung hinterlegt."}</small>
+                <small>{previewPhoto.description || tt("Keine Kurzbeschreibung hinterlegt.")}</small>
               </div>
               {previewPhoto.previewUrl ? (
                 <img alt={`Vorschau ${previewPhoto.name}`} className="document-preview-image" src={previewPhoto.previewUrl} />
               ) : (
                 <div className="document-preview-placeholder">
                   <Camera size={34} />
-                  <strong>Keine Bildvorschau verfügbar</strong>
-                  <span>Das Foto ist als Eintrag vorhanden, aber ohne gespeicherte Vorschau.</span>
+                  <strong>{tt("Keine Bildvorschau verfügbar")}</strong>
+                  <span>{tt("Das Foto ist als Eintrag vorhanden, aber ohne gespeicherte Vorschau.")}</span>
                 </div>
               )}
             </article>
             <div className="modal-actions">
-              <button className="ghost-button" onClick={() => setPreviewPhoto(null)} type="button">Schließen</button>
+              <button className="ghost-button" onClick={() => setPreviewPhoto(null)} type="button">{tt("Schließen")}</button>
               <button className="primary-button" onClick={() => window.print()} type="button">
                 <Printer size={16} />
-                Drucken
+                {tt("Drucken")}
               </button>
             </div>
           </section>
         </div>
       )}
-      <label><span>Letzter Besuch</span><input value={newObject.lastVisit} onChange={(event) => update("lastVisit", event.target.value)} /></label>
-      <label><span>Nächster Besuch</span><input value={newObject.nextVisit} onChange={(event) => update("nextVisit", event.target.value)} /></label>
-      <label className="wide"><span>Ausstattung</span><textarea value={newObject.equipment} onChange={(event) => update("equipment", event.target.value)} placeholder="Pool, Sauna, Kamin" /></label>
-      <label className="wide"><span>Hinweise / Risiken</span><textarea value={newObject.risks} onChange={(event) => update("risks", event.target.value)} /></label>
+      <label><span>{tt("Letzter Besuch")}</span><input value={newObject.lastVisit} onChange={(event) => update("lastVisit", event.target.value)} /></label>
+      <label><span>{tt("Nächster Besuch")}</span><input value={newObject.nextVisit} onChange={(event) => update("nextVisit", event.target.value)} /></label>
+      <label className="wide"><span>{tt("Ausstattung")}</span><textarea value={newObject.equipment} onChange={(event) => update("equipment", event.target.value)} placeholder="Pool, Sauna, Kamin" /></label>
+      <label className="wide"><span>{tt("Hinweise / Risiken")}</span><textarea value={newObject.risks} onChange={(event) => update("risks", event.target.value)} /></label>
       <button className="primary-button wide" onClick={onSubmit} type="button">{submitLabel}</button>
     </div>
   );
 }
 
-function DocumentPreview({ item }: { item: MediaItem }) {
+function DocumentPreview({ item, language = "de" }: { item: MediaItem; language?: Language }) {
+  const tt = (value: string) => uiText(value, language);
   const source = item.previewUrl ?? "";
   const lowerName = item.name.toLowerCase();
   const isImage = source.startsWith("data:image/") || /\.(avif|gif|jpe?g|png|webp)(\?|$)/i.test(source) || /\.(avif|gif|jpe?g|png|webp)$/i.test(lowerName);
@@ -17260,8 +17523,8 @@ function DocumentPreview({ item }: { item: MediaItem }) {
   return (
     <div className="document-preview-placeholder">
       <FileText size={34} />
-      <strong>Keine direkte Vorschau verfügbar</strong>
-      <span>Das Dokument ist hinterlegt. Für große oder Office-Dateien wird eine Metadaten-Vorschau angezeigt.</span>
+      <strong>{tt("Keine direkte Vorschau verfügbar")}</strong>
+      <span>{tt("Das Dokument ist hinterlegt. Für große oder Office-Dateien wird eine Metadaten-Vorschau angezeigt.")}</span>
     </div>
   );
 }
@@ -17269,6 +17532,7 @@ function DocumentPreview({ item }: { item: MediaItem }) {
 function CustomerForm({
   customer,
   isArchived = false,
+  language,
   languageOptions,
   setCustomer,
   objects,
@@ -17281,6 +17545,7 @@ function CustomerForm({
 }: {
   customer: CustomerFormState;
   isArchived?: boolean;
+  language: Language;
   languageOptions: string[];
   setCustomer: (value: CustomerFormState) => void;
   objects: ObjectRecord[];
@@ -17291,6 +17556,7 @@ function CustomerForm({
   onSubmit: () => void;
   submitLabel: string;
 }) {
+  const tt = (value: string) => uiText(value, language);
   const [loginHistoryOpen, setLoginHistoryOpen] = useState(false);
   const [mailTextsOpen, setMailTextsOpen] = useState(false);
   const [portalInvitePreview, setPortalInvitePreview] = useState<{ body: string; subject: string; to: string } | null>(null);
@@ -17387,57 +17653,59 @@ function CustomerForm({
 
   return (
     <div className="form-grid" onBlurCapture={autosaveField}>
-      <h3>Kundendaten</h3>
+      <h3>{tt("Kundendaten")}</h3>
       <div className="wide record-meta-line">
-        <span>Kundennummer: {normalizeReadableNumber(customer.personalNumber) || "wird beim Speichern erstellt"}</span>
-        <span>angelegt am: {formatCreatedAt(customer.createdAt)}</span>
+        <span>{tt("Kundennummer")}: {normalizeReadableNumber(customer.personalNumber) || tt("wird beim Speichern erstellt")}</span>
+        <span>{tt("angelegt am")}: {formatCreatedAt(customer.createdAt)}</span>
       </div>
-      <label><span>Vorname</span><input value={customerNameParts.firstName} onChange={(event) => updateCustomerName("firstName", event.target.value)} /></label>
-      <label><span>Nachname</span><input value={customerNameParts.lastName} onChange={(event) => updateCustomerName("lastName", event.target.value)} /></label>
-      <label><span>Ansprechpartner</span><input value={customer.contact} onChange={(event) => update("contact", event.target.value)} /></label>
-      <label><span>E-Mail</span><input type="email" value={customer.email} onChange={(event) => update("email", event.target.value)} /></label>
-      <label><span>Telefon</span><input value={customer.phone} onChange={(event) => update("phone", event.target.value)} /></label>
-      <label><span>Telefon 2</span><input value={customer.phone2} onChange={(event) => update("phone2", event.target.value)} /></label>
+      <label><span>{tt("Vorname")}</span><input value={customerNameParts.firstName} onChange={(event) => updateCustomerName("firstName", event.target.value)} /></label>
+      <label><span>{tt("Nachname")}</span><input value={customerNameParts.lastName} onChange={(event) => updateCustomerName("lastName", event.target.value)} /></label>
+      <label><span>{tt("Ansprechpartner")}</span><input value={customer.contact} onChange={(event) => update("contact", event.target.value)} /></label>
+      <label><span>{tt("E-Mail")}</span><input type="email" value={customer.email} onChange={(event) => update("email", event.target.value)} /></label>
+      <label><span>{tt("Telefon")}</span><input value={customer.phone} onChange={(event) => update("phone", event.target.value)} /></label>
+      <label><span>{tt("Telefon 2")}</span><input value={customer.phone2} onChange={(event) => update("phone2", event.target.value)} /></label>
       <AddressFields
-        label="Adresse"
+        label={tt("Adresse")}
+        language={language}
         value={customer.address}
         onChange={(part, value) => update("address", updateAddressPart(customer.address, part, value))}
       />
       <label>
-        <span>Rechnungsadresse</span>
+        <span>{tt("Rechnungsadresse")}</span>
         <select
           value={customer.billingAddressMode}
           onChange={(event) => update("billingAddressMode", event.target.value)}
         >
-          <option>Kundenadresse</option>
-          <option>Abweichend</option>
+          <option value="Kundenadresse">{tt("Kundenadresse")}</option>
+          <option value="Abweichend">{tt("Abweichend")}</option>
         </select>
       </label>
       {customer.billingAddressMode === "Abweichend" && (
         <AddressFields
-          label="Abweichende Rechnungsadresse"
+          label={tt("Abweichende Rechnungsadresse")}
+          language={language}
           value={customer.billingAddress}
           onChange={(part, value) => update("billingAddress", updateAddressPart(customer.billingAddress, part, value))}
         />
       )}
-      <label><span>Sprache</span>
+      <label><span>{tt("Sprache")}</span>
         <input list="customer-language-options" value={customer.language} onChange={(event) => update("language", event.target.value)} />
         <datalist id="customer-language-options">
           {languageOptions.map((language) => <option key={language} value={language} />)}
         </datalist>
       </label>
       <label>
-        <span>Portalstatus</span>
+        <span>{tt("Portalstatus")}</span>
         <select value={customer.portalStatus} onChange={(event) => update("portalStatus", event.target.value)}>
-          <option>aktiv</option>
-          <option>einladen</option>
-          <option>gesperrt</option>
+          <option value="aktiv">{tt("aktiv")}</option>
+          <option value="einladen">{tt("einladen")}</option>
+          <option value="gesperrt">{tt("gesperrt")}</option>
         </select>
       </label>
       <section className="wide customer-preference-card">
         <div>
-          <strong>Abrechnung</strong>
-          <span>Standard für neue Aufträge dieses Kunden.</span>
+          <strong>{tt("Abrechnung")}</strong>
+          <span>{tt("Standard für neue Aufträge dieses Kunden.")}</span>
         </div>
         <label className="checkbox-line">
           <input
@@ -17445,48 +17713,48 @@ function CustomerForm({
             onChange={(event) => setCustomer({ ...customer, billable: event.target.checked })}
             type="checkbox"
           />
-          <span>Neue Aufträge in Abrechnung übernehmen</span>
+          <span>{tt("Neue Aufträge in Abrechnung übernehmen")}</span>
         </label>
       </section>
-      <h3>Portalzugang</h3>
-      <label><span>Login-E-Mail</span><input type="email" value={customer.portalLoginEmail} onChange={(event) => update("portalLoginEmail", event.target.value)} /></label>
-      <label><span>Portal-Passwort</span><input value={customer.portalPassword} onChange={(event) => update("portalPassword", event.target.value)} /></label>
+      <h3>{tt("Portalzugang")}</h3>
+      <label><span>{tt("Login-E-Mail")}</span><input type="email" value={customer.portalLoginEmail} onChange={(event) => update("portalLoginEmail", event.target.value)} /></label>
+      <label><span>{tt("Portal-Passwort")}</span><input value={customer.portalPassword} onChange={(event) => update("portalPassword", event.target.value)} /></label>
       <button className="ghost-button wide" onClick={inviteToPortal} type="button">
         <KeyRound size={16} />
-        Kunden ins Portal einladen
+        {tt("Kunden ins Portal einladen")}
       </button>
       {portalInvitePreview && (
         <div className="modal-backdrop nested-backdrop">
           <section aria-labelledby="portal-invite-title" aria-modal="true" className="modal send-preview-modal" role="dialog">
             <header>
               <div>
-                <p>Portal-Einladung</p>
-                <h2 id="portal-invite-title">Einladung senden</h2>
+                <p>{tt("Portal-Einladung")}</p>
+                <h2 id="portal-invite-title">{tt("Einladung senden")}</h2>
               </div>
-              <button aria-label="Einladungsvorschau schließen" onClick={() => setPortalInvitePreview(null)} type="button">
+              <button aria-label={tt("Einladungsvorschau schließen")} onClick={() => setPortalInvitePreview(null)} type="button">
                 <X size={18} />
               </button>
             </header>
             {portalInviteNotice && <div className="warning-line">{portalInviteNotice}</div>}
             <div className="send-preview-grid">
               <label className="wide">
-                <span>An</span>
+                <span>{tt("An")}</span>
                 <input type="email" value={portalInvitePreview.to} onChange={(event) => setPortalInvitePreview({ ...portalInvitePreview, to: event.target.value })} />
               </label>
               <label className="wide">
-                <span>Betreff</span>
+                <span>{tt("Betreff")}</span>
                 <input value={portalInvitePreview.subject} onChange={(event) => setPortalInvitePreview({ ...portalInvitePreview, subject: event.target.value })} />
               </label>
               <label className="wide">
-                <span>Nachricht</span>
+                <span>{tt("Nachricht")}</span>
                 <textarea value={portalInvitePreview.body} onChange={(event) => setPortalInvitePreview({ ...portalInvitePreview, body: event.target.value })} />
               </label>
             </div>
             <div className="modal-actions">
-              <button className="ghost-button" onClick={() => setPortalInvitePreview(null)} type="button">Abbrechen</button>
+              <button className="ghost-button" onClick={() => setPortalInvitePreview(null)} type="button">{tt("Abbrechen")}</button>
               <button className="primary-button" disabled={portalInviteSending} onClick={() => void sendPortalInvite()} type="button">
                 <Send size={16} />
-                {portalInviteSending ? "Senden..." : "Senden und Kundendaten speichern"}
+                {portalInviteSending ? tt("Senden...") : tt("Senden und Kundendaten speichern")}
               </button>
             </div>
           </section>
@@ -17495,7 +17763,7 @@ function CustomerForm({
       <div className="wide portal-login-history">
         <button className="job-fold-toggle" onClick={() => setLoginHistoryOpen((open) => !open)} type="button">
           {loginHistoryOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-          <span>Login-Verlauf Kundenportal</span>
+          <span>{tt("Login-Verlauf Kundenportal")}</span>
           <small>{(customer.portalLoginHistory ?? []).length}</small>
         </button>
         {loginHistoryOpen && (customer.portalLoginHistory ?? []).length > 0 ? (
@@ -17509,29 +17777,29 @@ function CustomerForm({
             ))}
           </div>
         ) : loginHistoryOpen ? (
-          <p>Noch keine Kundenportal-Logins protokolliert.</p>
+          <p>{tt("Noch keine Kundenportal-Logins protokolliert.")}</p>
         ) : null}
       </div>
-      <label><span>Saldo</span><input value={customer.balance} onChange={(event) => update("balance", event.target.value)} /></label>
-      <label className="wide"><span>Notizen / interne Info</span><textarea value={customer.notes} onChange={(event) => update("notes", event.target.value)} /></label>
+      <label><span>{tt("Saldo")}</span><input value={customer.balance} onChange={(event) => update("balance", event.target.value)} /></label>
+      <label className="wide"><span>{tt("Notizen / interne Info")}</span><textarea value={customer.notes} onChange={(event) => update("notes", event.target.value)} /></label>
       <label>
-        <span>Zeit im Bericht</span>
+        <span>{tt("Zeit im Bericht")}</span>
         <select value={customer.workTimeVisibility} onChange={(event) => update("workTimeVisibility", event.target.value)}>
-          <option value="service">Aus Leistung übernehmen</option>
-          <option value="show">Immer anzeigen</option>
-          <option value="hide">Immer ausblenden</option>
+          <option value="service">{tt("Aus Leistung übernehmen")}</option>
+          <option value="show">{tt("Immer anzeigen")}</option>
+          <option value="hide">{tt("Immer ausblenden")}</option>
         </select>
       </label>
       <section className="wide customer-fold-section">
         <button className="job-fold-toggle" onClick={() => setMailTextsOpen((open) => !open)} type="button">
           {mailTextsOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-          <span>Mailtexte</span>
-          <small>Einzelbericht, Wochenbericht, Offerte, Auftragsbestätigung</small>
+          <span>{tt("Mailtexte")}</span>
+          <small>{tt("Einzelbericht")}, {tt("Wochenbericht")}, {tt("Offerte")}, {tt("Auftragsbestätigung")}</small>
         </button>
         {mailTextsOpen && (
           <div className="customer-mail-text-grid">
             <label className="wide">
-              <span>Einzelbericht</span>
+              <span>{tt("Einzelbericht")}</span>
               <textarea
                 value={customer.reportMailBody}
                 onChange={(event) => update("reportMailBody", event.target.value)}
@@ -17539,7 +17807,7 @@ function CustomerForm({
               />
             </label>
             <label className="wide">
-              <span>Wochenbericht</span>
+              <span>{tt("Wochenbericht")}</span>
               <textarea
                 value={customer.weeklyReportMailBody}
                 onChange={(event) => update("weeklyReportMailBody", event.target.value)}
@@ -17547,7 +17815,7 @@ function CustomerForm({
               />
             </label>
             <label className="wide">
-              <span>Offerte</span>
+              <span>{tt("Offerte")}</span>
               <textarea
                 value={customer.offerMailBody}
                 onChange={(event) => update("offerMailBody", event.target.value)}
@@ -17555,35 +17823,35 @@ function CustomerForm({
               />
             </label>
             <label className="wide">
-              <span>Auftragsbestätigung</span>
+              <span>{tt("Auftragsbestätigung")}</span>
               <textarea
                 value={customer.orderConfirmationMailBody}
                 onChange={(event) => update("orderConfirmationMailBody", event.target.value)}
                 placeholder={defaultOrderConfirmationMailBody}
               />
             </label>
-            <p className="customer-mail-text-hint">Platzhalter: {"{Vorname}"} wird beim Versand automatisch ersetzt.</p>
+            <p className="customer-mail-text-hint">{tt("Platzhalter")}: {"{Vorname}"} {tt("wird beim Versand automatisch ersetzt.")}</p>
           </div>
         )}
       </section>
       <label className="wide">
-        <span>Objekt zuordnen</span>
+        <span>{tt("Objekt zuordnen")}</span>
         <select value="" onChange={(event) => assignObject(event.target.value)}>
-          <option value="">Objekt auswählen</option>
+          <option value="">{tt("Objekt auswählen")}</option>
           {availableObjects.map((object) => (
             <option key={object.id} value={object.id}>{object.name} · {displayAddress(object.address)}</option>
           ))}
         </select>
       </label>
       <div className="wide check-list">
-        <span>Zugeordnete Objekte</span>
+        <span>{tt("Zugeordnete Objekte")}</span>
         {assignedObjects.map((object) => (
           <div className="assigned-row" key={object.id}>
             <p>{object.name} · {displayAddress(object.address)}</p>
             <IconAction danger label={`Objekt ${object.name} entfernen`} onClick={() => removeObject(object.id)}><Trash2 size={16} /></IconAction>
           </div>
         ))}
-        {customer.objects.length === 0 && <p>Noch keine Objekte zugeordnet.</p>}
+        {customer.objects.length === 0 && <p>{tt("Noch keine Objekte zugeordnet.")}</p>}
       </div>
       <button className="primary-button wide" onClick={onSubmit} type="button">{submitLabel}</button>
       {(onArchive || onRestore || onDelete) && (
@@ -17592,17 +17860,17 @@ function CustomerForm({
             <>
               <button className="ghost-button" onClick={onRestore} type="button">
                 <RotateCcw size={16} />
-                Kunde wiederherstellen
+                {tt("Kunde wiederherstellen")}
               </button>
               <button className="ghost-button danger-action" onClick={onDelete} type="button">
                 <Trash2 size={16} />
-                Kunde endgültig löschen
+                {tt("Kunde endgültig löschen")}
               </button>
             </>
           ) : (
             <button className="ghost-button danger-action" onClick={onArchive} type="button">
               <Archive size={16} />
-              Kunde archivieren
+              {tt("Kunde archivieren")}
             </button>
           )}
         </div>

@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.331.0",
+  version: "1.332.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.332.0",
+    date: "2026-09-07",
+    changes: [
+      "Stammdaten, Unterreiter und Editor-Popups nutzen deutlich konsequenter die zentrale Sprachumschaltung",
+      "Firma, Backups, Personal, Ressourcen, Fahrtenbuch, Material, Kontenplan, Leistungen und Pakete wurden mit weiteren Sprachtexten fuer Deutsch, Schwedisch und Englisch nachgezogen",
+      "Objekt- und Kundenformulare uebersetzen Feldnamen, leere Zustaende, Portaltexte und Medien-/Dokumentdialoge ohne Kundeneingaben zu veraendern",
+    ],
+  },
   {
     version: "1.331.0",
     date: "2026-09-07",
