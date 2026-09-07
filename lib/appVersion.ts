@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.334.0",
+  version: "1.335.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.335.0",
+    date: "2026-09-07",
+    changes: [
+      "Fehlende englische UI-Uebersetzungen aus Stammdaten, Kunden, Kommunikation, Mobil vor Ort und Lagerverwaltung wurden nachgezogen",
+      "Die Sprachdatei behaelt vorhandene englische App-Felduebersetzungen bei und ueberschreibt sie nicht mehr durch deutsche Platzhalter",
+      "Die Pruefmarkierung in der Sprachliste zeigt dadurch nur noch echte offene oder bewusst gleiche Begriffe an",
+    ],
+  },
   {
     version: "1.334.0",
     date: "2026-09-07",
