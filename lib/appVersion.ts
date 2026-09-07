@@ -1,10 +1,20 @@
 export const appVersion = {
-  version: "1.330.0",
+  version: "1.331.0",
   releaseDate: "2026-08-31",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.331.0",
+    date: "2026-09-07",
+    changes: [
+      "Kundenuebersicht verwendet die Sprachumschaltung fuer Titel, Suche, Sortierung, Gruppen, Portalstatus und leere Objektanzeigen",
+      "Kommunikation verwendet die Sprachumschaltung fuer Portal-Anfragen, Filter, Status, Antwortdialog und Fehlermeldungen",
+      "Berichts- und Objektuebersichten ziehen weitere sichtbare App-Labels in Deutsch, Schwedisch und Englisch nach",
+      "Der Status In Arbeit wird in schwedischer Sprache korrekt als Paagaar angezeigt",
+    ],
+  },
   {
     version: "1.330.0",
     date: "2026-09-06",

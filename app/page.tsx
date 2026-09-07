@@ -1313,6 +1313,7 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Aktueller Live-Stand", sv: "Aktuell livestatus", en: "Current live status" },
   { de: "Aktueller Status", sv: "Aktuell status", en: "Current status" },
   { de: "Alle Berichte", sv: "Alla rapporter", en: "All reports" },
+  { de: "Alle", sv: "Alla", en: "All" },
   { de: "Ankunft und Grundkontrolle", sv: "Ankomst och grundkontroll", en: "Arrival and basic check" },
   { de: "Anmelden", sv: "Logga in", en: "Sign in" },
   { de: "Anzahl Termine", sv: "Antal tider", en: "Number of appointments" },
@@ -1413,6 +1414,14 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Rechnungsvorschau", sv: "Fakturaförhandsvisning", en: "Invoice preview" },
   { de: "Schlüssel", sv: "Nyckel", en: "Key" },
   { de: "Schwedisch", sv: "Svenska", en: "Swedish" },
+  { de: "Svenska", sv: "Svenska", en: "Swedish" },
+  { de: "English", sv: "Engelska", en: "English" },
+  { de: "DE", sv: "Tyska", en: "German" },
+  { de: "SV", sv: "Svenska", en: "Swedish" },
+  { de: "EN", sv: "Engelska", en: "English" },
+  { de: "aktiv", sv: "aktiv", en: "active" },
+  { de: "einladen", sv: "bjud in", en: "invite" },
+  { de: "gesperrt", sv: "spärrad", en: "blocked" },
   { de: "Sicherheit", sv: "Säkerhet", en: "Security" },
   { de: "Dieser Bericht wurde gesendet und ist für Änderungen gesperrt.", sv: "Denna rapport har skickats och är låst för ändringar.", en: "This report has been sent and is locked for changes." },
   { de: "Der Auftrag bleibt als laufender Einsatz markiert.", sv: "Uppdraget förblir markerat som pågående.", en: "The job remains marked as active." },
@@ -1426,17 +1435,80 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Statusauswahl schließen", sv: "Stäng statusval", en: "Close status selection" },
   { de: "Tagesbericht zwischenspeichern", sv: "Mellanspara dagsrapport", en: "Save daily report draft" },
   { de: "Bericht speichern", sv: "Spara rapport", en: "Save report" },
+  { de: "Berichtsübersicht", sv: "Rapportöversikt", en: "Report overview" },
+  { de: "Bericht, Objekt, Datum...", sv: "Rapport, objekt, datum...", en: "Report, property, date..." },
+  { de: "Nicht gesendet", sv: "Inte skickad", en: "Not sent" },
+  { de: "ohne Bearbeiter", sv: "utan handläggare", en: "without assignee" },
+  { de: "Fotos", sv: "Foton", en: "photos" },
+  { de: "Noch keine passenden Berichte vorhanden.", sv: "Inga matchande rapporter finns ännu.", en: "No matching reports yet." },
+  { de: "Bericht wurde bereits gesendet und ist gesperrt.", sv: "Rapporten har redan skickats och är låst.", en: "Report has already been sent and is locked." },
+  { de: "Berichtstext für den Kundenbericht anpassen.", sv: "Anpassa rapporttexten för kundrapporten.", en: "Adjust report text for the customer report." },
+  { de: "Kommentar vor dem Senden", sv: "Kommentar före utskick", en: "Comment before sending" },
+  { de: "Kommentar ergänzen, der im Kundenbericht erscheinen soll.", sv: "Lägg till kommentar som ska visas i kundrapporten.", en: "Add a comment that should appear in the customer report." },
+  { de: "Datei wurde angehängt.", sv: "Filen bifogades.", en: "File was attached." },
+  { de: "Dateien wurden angehängt.", sv: "Filerna bifogades.", en: "Files were attached." },
+  { de: "Anhang entfernen", sv: "Ta bort bilaga", en: "Remove attachment" },
+  { de: "Bild nicht lesbar", sv: "Bilden kan inte läsas", en: "Image cannot be read" },
+  { de: "Objektübersicht", sv: "Objektöversikt", en: "Property overview" },
+  { de: "Aktive Objekte", sv: "Aktiva objekt", en: "Active properties" },
+  { de: "Archivierte Objekte", sv: "Arkiverade objekt", en: "Archived properties" },
+  { de: "Neues Objekt", sv: "Nytt objekt", en: "New property" },
+  { de: "Zi.", sv: "rum", en: "rooms" },
+  { de: "Betten", sv: "sängar", en: "beds" },
   { de: "senden", sv: "skicka", en: "send" },
   { de: "Texte gesamt", sv: "Texter totalt", en: "Texts total" },
   { de: "Zu prüfen", sv: "Att kontrollera", en: "To review" },
   { de: "Abgeschlossene Berichte", sv: "Avslutade rapporter", en: "Completed reports" },
   { de: "Aktive Aufträge", sv: "Aktiva uppdrag", en: "Active jobs" },
   { de: "An Kunden senden", sv: "Skicka till kund", en: "Send to customer" },
+  { de: "an", sv: "till", en: "to" },
   { de: "Anzeigen", sv: "Visa", en: "Show" },
   { de: "Ausblenden", sv: "Dölj", en: "Hide" },
   { de: "Für diesen Serienauftrag sind aktuell keine offenen Teilaufträge vorbereitet.", sv: "Det finns för närvarande inga öppna deluppdrag för detta serieuppdrag.", en: "No open sub-jobs are currently prepared for this recurring job." },
   { de: "filtern", sv: "filtrera", en: "filter" },
   { de: "In Bearbeitung", sv: "Pågår", en: "In progress" },
+  { de: "In Arbeit", sv: "Pågår", en: "In progress" },
+  { de: "Aktive Kunden", sv: "Aktiva kunder", en: "Active customers" },
+  { de: "Archivierte Kunden", sv: "Arkiverade kunder", en: "Archived customers" },
+  { de: "Eigentümer", sv: "Ägare", en: "Owner" },
+  { de: "Kunden suchen", sv: "Sök kunder", en: "Search customers" },
+  { de: "Sortieren", sv: "Sortera", en: "Sort" },
+  { de: "Name, Telefon, E-Mail, Objekt...", sv: "Namn, telefon, e-post, objekt...", en: "Name, phone, email, property..." },
+  { de: "Name A-Z", sv: "Namn A-Ö", en: "Name A-Z" },
+  { de: "Name Z-A", sv: "Namn Ö-A", en: "Name Z-A" },
+  { de: "Neueste zuerst", sv: "Nyaste först", en: "Newest first" },
+  { de: "Älteste zuerst", sv: "Äldsta först", en: "Oldest first" },
+  { de: "Objekt A-Z", sv: "Objekt A-Ö", en: "Property A-Z" },
+  { de: "Kundennummer", sv: "Kundnummer", en: "Customer number" },
+  { de: "angelegt am", sv: "skapad den", en: "created on" },
+  { de: "fehlt", sv: "saknas", en: "missing" },
+  { de: "Keine Objekte", sv: "Inga objekt", en: "No properties" },
+  { de: "Keine passenden Kunden gefunden.", sv: "Inga matchande kunder hittades.", en: "No matching customers found." },
+  { de: "Keine passenden archivierten Kunden gefunden.", sv: "Inga matchande arkiverade kunder hittades.", en: "No matching archived customers found." },
+  { de: "archiviert", sv: "arkiverad", en: "archived" },
+  { de: "Kundenportal-Anfragen", sv: "Kundportalsförfrågningar", en: "Customer portal requests" },
+  { de: "Gespeicherte Nachrichten aus dem Kundenportal inklusive Mailstatus.", sv: "Sparade meddelanden från kundportalen inklusive mejlstatus.", en: "Saved messages from the customer portal including mail status." },
+  { de: "Nachrichten filtern", sv: "Filtrera meddelanden", en: "Filter messages" },
+  { de: "Kunde, Objekt, Betreff, Text...", sv: "Kund, objekt, ämne, text...", en: "Customer, property, subject, text..." },
+  { de: "Kunde A-Z", sv: "Kund A-Ö", en: "Customer A-Z" },
+  { de: "Status A-Z", sv: "Status A-Ö", en: "Status A-Z" },
+  { de: "Kunde unbekannt", sv: "Okänd kund", en: "Unknown customer" },
+  { de: "Objekt offen", sv: "Objekt öppet", en: "Property open" },
+  { de: "Mailfehler", sv: "Mejlfel", en: "Mail error" },
+  { de: "Mail gesendet", sv: "Mejl skickat", en: "Mail sent" },
+  { de: "gespeichert", sv: "sparad", en: "saved" },
+  { de: "Erstellt", sv: "Skapad", en: "Created" },
+  { de: "Antworten", sv: "Svara", en: "Reply" },
+  { de: "Antwort senden", sv: "Skicka svar", en: "Send reply" },
+  { de: "Sende...", sv: "Skickar...", en: "Sending..." },
+  { de: "Keine Kunden-E-Mail hinterlegt.", sv: "Ingen kund-e-post är sparad.", en: "No customer email saved." },
+  { de: "Noch keine passenden Kundenportal-Anfragen vorhanden.", sv: "Inga matchande kundportalsförfrågningar finns ännu.", en: "No matching customer portal requests yet." },
+  { de: "Nachricht von Kolaretorp", sv: "Meddelande från Kolaretorp", en: "Message from Kolaretorp" },
+  { de: "Anfrage des Kunden", sv: "Kundens förfrågan", en: "Customer request" },
+  { de: "Fehler", sv: "Fel", en: "Error" },
+  { de: "Antwort an", sv: "Svar till", en: "Reply to" },
+  { de: "Antwort schreiben...", sv: "Skriv svar...", en: "Write reply..." },
+  { de: "Beim Kunden ist keine E-Mail-Adresse hinterlegt.", sv: "Kunden har ingen e-postadress sparad.", en: "The customer has no email address saved." },
   { de: "Letzter", sv: "Senaste", en: "Last" },
   { de: "Noch keine abgeschlossenen Berichte.", sv: "Inga avslutade rapporter ännu.", en: "No completed reports yet." },
   { de: "Noch keine gesendeten Berichte.", sv: "Inga skickade rapporter ännu.", en: "No sent reports yet." },
@@ -8799,7 +8871,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
               <RefreshCw size={16} />
               {manualRefreshRunning ? tx("Aktualisiere") : tx("Aktualisieren")}
             </button>
-            {formatUpdatedTime(appUpdatedAt) && <p className="toolbar-notice" role="status">Daten aktualisiert: {formatUpdatedTime(appUpdatedAt)}</p>}
+            {formatUpdatedTime(appUpdatedAt) && <p className="toolbar-notice" role="status">{tx("Daten aktualisiert")}: {formatUpdatedTime(appUpdatedAt)}</p>}
             <button aria-label={theme === "dark" ? t.light : t.dark} className="ghost-button icon-button theme-toggle" data-tooltip={theme === "dark" ? t.light : t.dark} onClick={() => setTheme(theme === "dark" ? "light" : "dark")} type="button">
               {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
             </button>
@@ -8830,6 +8902,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
               <ObjectEditorPage
                 customers={activeCustomers}
                 jobs={jobs}
+                language={language}
                 object={editingObject}
                 objectStatusOptions={objectStatusOptions}
                 onArchive={editingObject ? () => {
@@ -8856,6 +8929,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
             {section === "objects" && !objectEditorOpen && (
               <ObjectsView
                 archivedObjects={archivedObjects}
+                language={language}
                 objects={filteredObjects}
                 selectedObjectId={selectedObject.id}
                 onCreate={openCreateObject}
@@ -8867,6 +8941,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
               <CustomersView
                 archivedCustomers={archivedCustomers}
                 customers={activeCustomers}
+                language={language}
                 objects={activeObjects}
                 onCreate={openCreateCustomer}
                 onEdit={openEditCustomer}
@@ -8909,10 +8984,11 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                 resources={resources}
               />
             )}
-            {section === "reports" && <ReportsView customers={customers} jobs={jobs} objects={objects} onEditInField={editReportInField} onSendReport={sendReportToCustomer} onUpdateReport={updateReportRecord} reports={reports} />}
+            {section === "reports" && <ReportsView customers={customers} jobs={jobs} language={language} objects={objects} onEditInField={editReportInField} onSendReport={sendReportToCustomer} onUpdateReport={updateReportRecord} reports={reports} />}
             {section === "communication" && (
               <CommunicationView
                 customers={customers}
+                language={language}
                 messages={portalMessages}
                 objects={objects}
                 onSendReply={sendPortalMessageReply}
@@ -9334,7 +9410,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                 />
               </div>
             </div>
-            <ReportAttachmentEditor disabled={Boolean(sendPreviewReport.sentAt)} onUpdateReport={updateReportRecord} report={sendPreviewReport} />
+            <ReportAttachmentEditor disabled={Boolean(sendPreviewReport.sentAt)} language={language} onUpdateReport={updateReportRecord} report={sendPreviewReport} />
             <div className="send-preview-report">
               <CustomerReportCard
                 customer={sendPreviewCustomer}
@@ -9707,6 +9783,7 @@ function Dashboard({
 function ReportsView({
   customers,
   jobs,
+  language,
   onEditInField,
   onSendReport,
   onUpdateReport,
@@ -9715,12 +9792,14 @@ function ReportsView({
 }: {
   customers: CustomerRecord[];
   jobs: JobRecord[];
+  language: Language;
   onEditInField: (report: ReportRecord) => void;
   onSendReport: (report: ReportRecord) => void;
   onUpdateReport: (report: ReportRecord, options?: { forceRemote?: boolean }) => void;
   objects: ObjectRecord[];
   reports: ReportRecord[];
 }) {
+  const tt = (value: string) => uiText(value, language);
   const [selectedReportId, setSelectedReportId] = useState("");
   const [reportQuery, setReportQuery] = useState("");
   const [reportStatusFilter, setReportStatusFilter] = useState("alle");
@@ -9762,30 +9841,30 @@ function ReportsView({
       <section className="panel">
         <div className="panel-title">
           <div>
-            <p>Berichte</p>
-            <h2>Berichtsübersicht</h2>
+            <p>{tt("Berichte")}</p>
+            <h2>{tt("Berichtsübersicht")}</h2>
           </div>
         </div>
         <div className="list-toolbar report-list-toolbar">
           <label>
-            <span>Suchen</span>
-            <input value={reportQuery} onChange={(event) => setReportQuery(event.target.value)} placeholder="Bericht, Objekt, Datum..." />
+            <span>{tt("Suchen")}</span>
+            <input value={reportQuery} onChange={(event) => setReportQuery(event.target.value)} placeholder={tt("Bericht, Objekt, Datum...")} />
           </label>
           <label>
-            <span>Status</span>
+            <span>{tt("Status")}</span>
             <select value={reportStatusFilter} onChange={(event) => setReportStatusFilter(event.target.value)}>
-              <option value="alle">Alle Berichte</option>
-              <option value="offen">Nicht gesendet</option>
-              <option value="gesendet">Gesendet</option>
+              <option value="alle">{tt("Alle Berichte")}</option>
+              <option value="offen">{tt("Nicht gesendet")}</option>
+              <option value="gesendet">{tt("Gesendet")}</option>
             </select>
           </label>
           <label>
-            <span>Sortieren</span>
+            <span>{tt("Sortieren")}</span>
             <select value={reportSort} onChange={(event) => setReportSort(event.target.value)}>
-              <option value="date-desc">Datum neu zuerst</option>
-              <option value="date-asc">Datum alt zuerst</option>
-              <option value="object">Objekt A-Z</option>
-              <option value="status">Status A-Z</option>
+              <option value="date-desc">{tt("Datum neu zuerst")}</option>
+              <option value="date-asc">{tt("Datum alt zuerst")}</option>
+              <option value="object">{tt("Objekt A-Z")}</option>
+              <option value="status">{tt("Status A-Z")}</option>
             </select>
           </label>
         </div>
@@ -9804,13 +9883,13 @@ function ReportsView({
                 <FileText size={16} />
                 <span>
                   <strong>{report.title}</strong>
-                  <small>{object?.name ?? "Objekt unbekannt"} · {report.date} · {job?.assignedTo ?? "ohne Bearbeiter"} · {reportPhotoCount(report)} Fotos</small>
+                  <small>{object?.name ?? tt("Objekt unbekannt")} · {report.date} · {job?.assignedTo ?? tt("ohne Bearbeiter")} · {reportPhotoCount(report)} {tt("Fotos")}</small>
                 </span>
-                <Badge value={job?.status ?? "Bericht"} />
+                <Badge value={job?.status ? tt(job.status) : tt("Bericht")} />
               </button>
             );
           })}
-          {filteredReports.length === 0 && <p>Noch keine passenden Berichte vorhanden.</p>}
+          {filteredReports.length === 0 && <p>{tt("Noch keine passenden Berichte vorhanden.")}</p>}
         </div>
       </section>
       {selectedReport && selectedObject && (
@@ -9822,10 +9901,10 @@ function ReportsView({
                 <h2 id="report-detail-title">{selectedReport.title}</h2>
               </div>
               <div className="modal-header-actions">
-                <IconAction label={`Bericht ${selectedReport.title} mobil nachbearbeiten`} onClick={() => { onEditInField(selectedReport); setSelectedReportId(""); }}><Pencil size={16} /></IconAction>
+                <IconAction label={`${tt("Bericht")} ${selectedReport.title} ${tt("Bearbeiten")}`} onClick={() => { onEditInField(selectedReport); setSelectedReportId(""); }}><Pencil size={16} /></IconAction>
                 <IconAction label={`PDF für ${selectedReport.title} herunterladen`} onClick={() => void downloadCustomerReportPdf(selectedReport, selectedObject, selectedJob, selectedCustomer)}><FileDown size={16} /></IconAction>
-                <IconAction label={`Bericht ${selectedReport.title} an Kunden senden`} onClick={() => { onSendReport(selectedReport); setSelectedReportId(""); }}><Send size={16} /></IconAction>
-                <button aria-label={`Bericht ${selectedReport.title} schließen`} onClick={() => { onUpdateReport(currentSelectedReport() ?? selectedReport, { forceRemote: true }); setSelectedReportId(""); }} type="button">
+                <IconAction label={`${tt("Bericht")} ${selectedReport.title} ${tt("An Kunden senden")}`} onClick={() => { onSendReport(selectedReport); setSelectedReportId(""); }}><Send size={16} /></IconAction>
+                <button aria-label={`${tt("Bericht")} ${selectedReport.title} ${tt("Schließen")}`} onClick={() => { onUpdateReport(currentSelectedReport() ?? selectedReport, { forceRemote: true }); setSelectedReportId(""); }} type="button">
                   <X size={18} />
                 </button>
               </div>
@@ -9834,26 +9913,26 @@ function ReportsView({
               <CustomerReportCard customer={selectedCustomer} job={selectedJob} object={selectedObject} report={selectedReport} sentAt={selectedReport.sentAt} />
             </div>
             <label className="report-comment-editor">
-              <span>Berichtstext</span>
+              <span>{tt("Berichtstext")}</span>
               <textarea
                 disabled={Boolean(selectedReport.sentAt)}
                 value={selectedReport.summary}
                 onChange={(event) => onUpdateReport({ ...(currentSelectedReport() ?? selectedReport), summary: event.target.value })}
                 onBlur={(event) => onUpdateReport({ ...(currentSelectedReport() ?? selectedReport), summary: event.currentTarget.value }, { forceRemote: true })}
-                placeholder={selectedReport.sentAt ? "Bericht wurde bereits gesendet und ist gesperrt." : "Berichtstext für den Kundenbericht anpassen."}
+                placeholder={selectedReport.sentAt ? tt("Bericht wurde bereits gesendet und ist gesperrt.") : tt("Berichtstext für den Kundenbericht anpassen.")}
               />
             </label>
             <label className="report-comment-editor">
-              <span>Kommentar vor dem Senden</span>
+              <span>{tt("Kommentar vor dem Senden")}</span>
               <textarea
                 disabled={Boolean(selectedReport.sentAt)}
                 value={visibleReportCustomerComment(selectedReport)}
                 onChange={(event) => onUpdateReport({ ...(currentSelectedReport() ?? selectedReport), customerComment: event.target.value })}
                 onBlur={(event) => onUpdateReport({ ...(currentSelectedReport() ?? selectedReport), customerComment: event.currentTarget.value }, { forceRemote: true })}
-                placeholder={selectedReport.sentAt ? "Bericht wurde bereits gesendet und ist gesperrt." : "Kommentar ergänzen, der im Kundenbericht erscheinen soll."}
+                placeholder={selectedReport.sentAt ? tt("Bericht wurde bereits gesendet und ist gesperrt.") : tt("Kommentar ergänzen, der im Kundenbericht erscheinen soll.")}
               />
             </label>
-            <ReportAttachmentEditor disabled={Boolean(selectedReport.sentAt)} onUpdateReport={onUpdateReport} report={selectedReport} />
+            <ReportAttachmentEditor disabled={Boolean(selectedReport.sentAt)} language={language} onUpdateReport={onUpdateReport} report={selectedReport} />
           </section>
         </div>
       )}
@@ -9863,13 +9942,16 @@ function ReportsView({
 
 function ReportAttachmentEditor({
   disabled,
+  language,
   onUpdateReport,
   report,
 }: {
   disabled: boolean;
+  language: Language;
   onUpdateReport: (report: ReportRecord, options?: { forceRemote?: boolean }) => void;
   report: ReportRecord;
 }) {
+  const tt = (value: string) => uiText(value, language);
   const [notice, setNotice] = useState("");
 
   async function addAttachments(files: FileList | null) {
@@ -9879,16 +9961,16 @@ function ReportAttachmentEditor({
     try {
       const attachments = await Promise.all(selectedFiles.map((file) => fileToReportAttachment(file)));
       onUpdateReport({ ...report, attachments: [...(report.attachments ?? []), ...attachments] }, { forceRemote: true });
-      setNotice(`${attachments.length} ${attachments.length === 1 ? "Datei wurde" : "Dateien wurden"} angehängt.`);
+      setNotice(attachments.length === 1 ? tt("Datei wurde angehängt.") : `${attachments.length} ${tt("Dateien wurden angehängt.")}`);
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Datei konnte nicht angehängt werden.");
+      setNotice(error instanceof Error ? error.message : tt("Datei konnte nicht angehängt werden."));
     }
   }
 
   return (
     <div className="report-attachment-editor">
       <label className="report-comment-editor">
-        <span className="inline-icon-label"><Paperclip size={14} /> Dateianhänge</span>
+        <span className="inline-icon-label"><Paperclip size={14} /> {tt("Dateianhänge")}</span>
         <input
           accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
           disabled={disabled}
@@ -9908,7 +9990,7 @@ function ReportAttachmentEditor({
               {attachment.name}
               {!disabled && (
                 <button
-                  aria-label={`Anhang ${attachment.name} entfernen`}
+                  aria-label={`${tt("Anhang entfernen")}: ${attachment.name}`}
                   onClick={() => onUpdateReport({ ...report, attachments: (report.attachments ?? []).filter((item) => item.id !== attachment.id) }, { forceRemote: true })}
                   type="button"
                 >
@@ -10149,6 +10231,7 @@ function CustomerReportCard({
 
 function ObjectsView({
   archivedObjects,
+  language,
   objects,
   selectedObjectId,
   onCreate,
@@ -10156,12 +10239,14 @@ function ObjectsView({
   onSelect,
 }: {
   archivedObjects: ObjectRecord[];
+  language: Language;
   objects: ObjectRecord[];
   selectedObjectId: string;
   onCreate: () => void;
   onEdit: (object: ObjectRecord) => void;
   onSelect: (id: string) => void;
 }) {
+  const tt = (value: string) => uiText(value, language);
   const [activeObjectsOpen, setActiveObjectsOpen] = useState(true);
   const [archivedObjectsOpen, setArchivedObjectsOpen] = useState(false);
 
@@ -10169,18 +10254,18 @@ function ObjectsView({
     <section className="panel">
       <div className="panel-title">
         <div>
-          <p>Stammdaten</p>
-          <h2>Objektübersicht</h2>
+          <p>{tt("Stammdaten")}</p>
+          <h2>{tt("Objektübersicht")}</h2>
         </div>
         <button className="primary-button" onClick={onCreate} type="button">
           <Plus size={16} />
-          Neues Objekt
+          {tt("Neues Objekt")}
         </button>
       </div>
       <div className="active-fold-group">
         <button className="job-fold-toggle" onClick={() => setActiveObjectsOpen((open) => !open)} type="button">
           {activeObjectsOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-          <span>Aktive Objekte</span>
+          <span>{tt("Aktive Objekte")}</span>
           <small>{objects.length}</small>
         </button>
         {activeObjectsOpen && (
@@ -10210,9 +10295,9 @@ function ObjectsView({
                     <span>{object.owner}</span>
                   </div>
                   <span>{object.region}</span>
-                  <span>{object.sizeSqm} m² · {object.rooms} Zi. · {object.beds} Betten</span>
+                  <span>{object.sizeSqm} m² · {object.rooms} {tt("Zi.")} · {object.beds} {tt("Betten")}</span>
                   <span>{object.carePackage}</span>
-                  <Badge value={object.status} />
+                  <Badge value={tt(object.status)} />
                 </div>
               </article>
             ))}
@@ -10223,7 +10308,7 @@ function ObjectsView({
         <div className="archive-section archive-fold-group">
           <button className="job-fold-toggle" onClick={() => setArchivedObjectsOpen((open) => !open)} type="button">
             {archivedObjectsOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-            <span>Archivierte Objekte</span>
+            <span>{tt("Archivierte Objekte")}</span>
             <small>{archivedObjects.length}</small>
           </button>
           {archivedObjectsOpen && (
@@ -10246,7 +10331,7 @@ function ObjectsView({
                     <strong>{object.name}</strong>
                     <span>{displayAddress(object.address)}</span>
                   </div>
-                  <Badge value="archiviert" />
+                  <Badge value={tt("archiviert")} />
                 </article>
               ))}
             </div>
@@ -10277,6 +10362,7 @@ function ObjectThumbnail({ object }: { object: ObjectRecord }) {
 function CustomersView({
   archivedCustomers,
   customers,
+  language,
   objects,
   onCreate,
   onEdit,
@@ -10284,11 +10370,13 @@ function CustomersView({
 }: {
   archivedCustomers: CustomerRecord[];
   customers: CustomerRecord[];
+  language: Language;
   objects: ObjectRecord[];
   onCreate: () => void;
   onEdit: (customer: CustomerRecord) => void;
   onMessage: (customer: CustomerRecord) => void;
 }) {
+  const tt = (value: string) => uiText(value, language);
   const [activeCustomersOpen, setActiveCustomersOpen] = useState(true);
   const [archivedCustomersOpen, setArchivedCustomersOpen] = useState(false);
   const [customerQuery, setCustomerQuery] = useState("");
@@ -10320,44 +10408,48 @@ function CustomersView({
   });
   const visibleCustomers = sortCustomers(customers.filter(customerMatchesQuery));
   const visibleArchivedCustomers = sortCustomers(archivedCustomers.filter(customerMatchesQuery));
+  const customerLanguageLabel = (value: string) => {
+    if (["Deutsch", "Svenska", "English", "DE", "SV", "EN", "SV / DE", "DE / EN"].includes(value)) return tt(value);
+    return value;
+  };
 
   return (
     <section className="panel">
       <div className="panel-title">
         <div>
-          <p>Eigentümer</p>
-          <h2>Kundenübersicht</h2>
+          <p>{tt("Eigentümer")}</p>
+          <h2>{tt("Kundenübersicht")}</h2>
         </div>
         <button className="primary-button" onClick={onCreate} type="button">
           <Plus size={16} />
-          Neuer Kunde
+          {tt("Neuer Kunde")}
         </button>
       </div>
       <div className="list-toolbar">
         <label>
-          <span>Kunden suchen</span>
+          <span>{tt("Kunden suchen")}</span>
           <input
-            placeholder="Name, Telefon, E-Mail, Objekt..."
+            placeholder={tt("Name, Telefon, E-Mail, Objekt...")}
             type="search"
             value={customerQuery}
             onChange={(event) => setCustomerQuery(event.target.value)}
           />
         </label>
         <label>
-          <span>Sortieren</span>
+          <span>{tt("Sortieren")}</span>
           <select value={customerSort} onChange={(event) => setCustomerSort(event.target.value)}>
-            <option value="name-asc">Name A-Z</option>
-            <option value="name-desc">Name Z-A</option>
-            <option value="created-desc">Neueste zuerst</option>
-            <option value="created-asc">Älteste zuerst</option>
-            <option value="object-asc">Objekt A-Z</option>
+            <option value="name-asc">{tt("Name A-Z")}</option>
+            <option value="name-desc">{tt("Name Z-A")}</option>
+            <option value="created-desc">{tt("Neueste zuerst")}</option>
+            <option value="created-asc">{tt("Älteste zuerst")}</option>
+            <option value="object-asc">{tt("Objekt A-Z")}</option>
           </select>
         </label>
       </div>
       <div className="active-fold-group">
         <button className="job-fold-toggle" onClick={() => setActiveCustomersOpen((open) => !open)} type="button">
           {activeCustomersOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-          <span>Aktive Kunden</span>
+          <span>{tt("Aktive Kunden")}</span>
           <small>{visibleCustomers.length}</small>
         </button>
         {activeCustomersOpen && (
@@ -10379,18 +10471,18 @@ function CustomersView({
                 <div className="customer-row-main">
                   <div>
                   <strong>{customer.name}</strong>
-                    <span>{[customer.contact, customer.email, customer.phone, customer.phone2, customer.language, customer.notes].filter(Boolean).join(" · ")}</span>
-                    <small>Kundennummer: {normalizeReadableNumber(customer.personalNumber) || "fehlt"} · angelegt am: {formatCreatedAt(customer.createdAt)}</small>
+                    <span>{[customer.contact, customer.email, customer.phone, customer.phone2, customerLanguageLabel(customer.language), customer.notes].filter(Boolean).join(" · ")}</span>
+                    <small>{tt("Kundennummer")}: {normalizeReadableNumber(customer.personalNumber) || tt("fehlt")} · {tt("angelegt am")}: {formatCreatedAt(customer.createdAt)}</small>
                   </div>
-                  <span>{objects.filter((object) => customer.objects.includes(object.id)).map((object) => object.name).join(", ") || "Keine Objekte"}</span>
+                  <span>{objects.filter((object) => customer.objects.includes(object.id)).map((object) => object.name).join(", ") || tt("Keine Objekte")}</span>
                   <span>{customer.balance}</span>
-                  <Badge value={customer.portalStatus} />
+                  <Badge value={tt(customer.portalStatus)} />
                 </div>
                 <div className="row-actions">
                   <button
-                    aria-label={`Nachricht an ${customer.name} senden`}
+                    aria-label={`${tt("Nachricht")} ${customer.name} ${tt("senden")}`}
                     className="icon-button"
-                    data-tooltip={`Nachricht an ${customer.name} senden`}
+                    data-tooltip={`${tt("Nachricht")} ${customer.name} ${tt("senden")}`}
                     onClick={(event) => {
                       event.stopPropagation();
                       onMessage(customer);
@@ -10402,7 +10494,7 @@ function CustomersView({
                 </div>
               </article>
             ))}
-            {visibleCustomers.length === 0 && <p className="empty-list-note">Keine passenden Kunden gefunden.</p>}
+            {visibleCustomers.length === 0 && <p className="empty-list-note">{tt("Keine passenden Kunden gefunden.")}</p>}
           </div>
         )}
       </div>
@@ -10410,7 +10502,7 @@ function CustomersView({
         <div className="archive-section archive-fold-group">
           <button className="job-fold-toggle" onClick={() => setArchivedCustomersOpen((open) => !open)} type="button">
             {archivedCustomersOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-            <span>Archivierte Kunden</span>
+            <span>{tt("Archivierte Kunden")}</span>
             <small>{visibleArchivedCustomers.length}</small>
           </button>
           {archivedCustomersOpen && (
@@ -10432,12 +10524,12 @@ function CustomersView({
                   <div>
                     <strong>{customer.name}</strong>
                     <span>{[customer.contact, customer.email, customer.phone, customer.phone2].filter(Boolean).join(" · ")}</span>
-                    <small>Kundennummer: {normalizeReadableNumber(customer.personalNumber) || "fehlt"} · angelegt am: {formatCreatedAt(customer.createdAt)}</small>
+                    <small>{tt("Kundennummer")}: {normalizeReadableNumber(customer.personalNumber) || tt("fehlt")} · {tt("angelegt am")}: {formatCreatedAt(customer.createdAt)}</small>
                   </div>
-                  <Badge value="archiviert" />
+                  <Badge value={tt("archiviert")} />
                 </article>
               ))}
-              {visibleArchivedCustomers.length === 0 && <p className="empty-list-note">Keine passenden archivierten Kunden gefunden.</p>}
+              {visibleArchivedCustomers.length === 0 && <p className="empty-list-note">{tt("Keine passenden archivierten Kunden gefunden.")}</p>}
             </div>
           )}
         </div>
@@ -10681,7 +10773,7 @@ function JobsView({
             onClick={() => setStatusFilter(status)}
             type="button"
           >
-            {tt(status)}
+            {tt(status === "alle" ? "Alle" : status)}
           </button>
         ))}
       </div>
@@ -11768,7 +11860,7 @@ function FieldView({
           />
         </label>
         {activeReport ? (
-          <ReportAttachmentEditor disabled={reportLocked} onUpdateReport={onUpdateReport} report={activeReport} />
+          <ReportAttachmentEditor disabled={reportLocked} language={language} onUpdateReport={onUpdateReport} report={activeReport} />
         ) : (
           <div className="report-attachment-editor">
             <label className="report-comment-editor">
@@ -12945,15 +13037,18 @@ function InventoryView({
 
 function CommunicationView({
   customers,
+  language,
   messages,
   objects,
   onSendReply,
 }: {
   customers: CustomerRecord[];
+  language: Language;
   messages: PortalMessageRecord[];
   objects: ObjectRecord[];
   onSendReply: (messageId: string, body: string) => Promise<{ error?: string; mailSent: boolean }>;
 }) {
+  const tt = (value: string) => uiText(value, language);
   const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
   const [replySendingId, setReplySendingId] = useState("");
   const [messageQuery, setMessageQuery] = useState("");
@@ -12996,10 +13091,10 @@ function CommunicationView({
   const selectedCustomer = selectedMessage ? customers.find((customer) => customer.id === selectedMessage.customerId) : undefined;
   const selectedObject = selectedMessage ? objects.find((object) => object.id === selectedMessage.objectId) : undefined;
   const selectedDeliveryLabel = selectedMessage?.deliveryStatus === "mail-fehler"
-    ? "Mailfehler"
+    ? tt("Mailfehler")
     : selectedMessage?.deliveryStatus === "gesendet"
-      ? "Mail gesendet"
-      : "gespeichert";
+      ? tt("Mail gesendet")
+      : tt("gespeichert");
 
   async function sendReply(messageId: string) {
     const body = replyDrafts[messageId]?.trim() ?? "";
@@ -13018,29 +13113,29 @@ function CommunicationView({
     <section className="panel">
       <div className="panel-title">
         <div>
-          <p>Kommunikation</p>
-          <h2>Kundenportal-Anfragen</h2>
-          <span>Gespeicherte Nachrichten aus dem Kundenportal inklusive Mailstatus.</span>
+          <p>{tt("Kommunikation")}</p>
+          <h2>{tt("Kundenportal-Anfragen")}</h2>
+          <span>{tt("Gespeicherte Nachrichten aus dem Kundenportal inklusive Mailstatus.")}</span>
         </div>
       </div>
       <div className="list-toolbar communication-toolbar">
         <label>
-          <span>Nachrichten filtern</span>
+          <span>{tt("Nachrichten filtern")}</span>
           <input
-            placeholder="Kunde, Objekt, Betreff, Text..."
+            placeholder={tt("Kunde, Objekt, Betreff, Text...")}
             type="search"
             value={messageQuery}
             onChange={(event) => setMessageQuery(event.target.value)}
           />
         </label>
         <label>
-          <span>Sortieren</span>
+          <span>{tt("Sortieren")}</span>
           <select value={messageSort} onChange={(event) => setMessageSort(event.target.value)}>
-            <option value="newest">Neueste zuerst</option>
-            <option value="oldest">Älteste zuerst</option>
-            <option value="customer">Kunde A-Z</option>
-            <option value="object">Objekt A-Z</option>
-            <option value="status">Status A-Z</option>
+            <option value="newest">{tt("Neueste zuerst")}</option>
+            <option value="oldest">{tt("Älteste zuerst")}</option>
+            <option value="customer">{tt("Kunde A-Z")}</option>
+            <option value="object">{tt("Objekt A-Z")}</option>
+            <option value="status">{tt("Status A-Z")}</option>
           </select>
         </label>
       </div>
@@ -13050,10 +13145,10 @@ function CommunicationView({
           const object = objects.find((item) => item.id === message.objectId);
           const sentAt = message.sentAt || message.createdAt;
           const deliveryLabel = message.deliveryStatus === "mail-fehler"
-            ? "Mailfehler"
+            ? tt("Mailfehler")
             : message.deliveryStatus === "gesendet"
-              ? "Mail gesendet"
-              : "gespeichert";
+              ? tt("Mail gesendet")
+              : tt("gespeichert");
           const customerEmail = customer?.email.trim() || "";
 
           return (
@@ -13072,13 +13167,13 @@ function CommunicationView({
             >
               <div className="message-main">
                 <strong>{message.subject}</strong>
-                <span>{customer?.name ?? "Kunde unbekannt"} · {object?.name ?? "Objekt offen"}</span>
+                <span>{customer?.name ?? tt("Kunde unbekannt")} · {object?.name ?? tt("Objekt offen")}</span>
               </div>
               <p className="message-text">{message.message}</p>
               <div className="message-side">
                 <Badge value={deliveryLabel} />
-                <span>Erstellt {formatCreatedAt(message.createdAt)}</span>
-                <span>Gesendet {message.deliveryStatus === "gesendet" ? formatCreatedAt(sentAt) : "-"}</span>
+                <span>{tt("Erstellt")} {formatCreatedAt(message.createdAt)}</span>
+                <span>{tt("Gesendet")} {message.deliveryStatus === "gesendet" ? formatCreatedAt(sentAt) : "-"}</span>
                 {customerEmail ? (
                   <button
                     className="ghost-button compact"
@@ -13089,21 +13184,21 @@ function CommunicationView({
                     type="button"
                   >
                     <Mail size={15} />
-                    Antworten
+                    {tt("Antworten")}
                   </button>
                 ) : (
-                  <span>Keine Kunden-E-Mail hinterlegt.</span>
+                  <span>{tt("Keine Kunden-E-Mail hinterlegt.")}</span>
                 )}
               </div>
               {message.deliveryError && (
                 <footer className="message-meta">
-                  <span>Fehler: {message.deliveryError}</span>
+                  <span>{tt("Fehler")}: {message.deliveryError}</span>
                 </footer>
               )}
             </article>
           );
         })}
-        {sortedMessages.length === 0 && <p>Noch keine passenden Kundenportal-Anfragen vorhanden.</p>}
+        {sortedMessages.length === 0 && <p>{tt("Noch keine passenden Kundenportal-Anfragen vorhanden.")}</p>}
       </div>
     </section>
     {selectedMessage && (
@@ -13111,42 +13206,42 @@ function CommunicationView({
         <section className="modal send-preview-modal communication-detail-modal" role="dialog" aria-modal="true" aria-labelledby="communication-detail-title">
           <header>
             <div>
-              <p>Kommunikation</p>
+              <p>{tt("Kommunikation")}</p>
               <h2 id="communication-detail-title">{selectedMessage.subject}</h2>
             </div>
-            <button aria-label="Nachricht schließen" onClick={() => setSelectedMessageId(null)} type="button">
+            <button aria-label={tt("Nachricht schließen")} onClick={() => setSelectedMessageId(null)} type="button">
               <X size={18} />
             </button>
           </header>
           <div className="send-preview-grid">
             <div>
-              <span>Kunde</span>
-              <strong>{selectedCustomer?.name ?? "Kunde unbekannt"}</strong>
+              <span>{tt("Kunde")}</span>
+              <strong>{selectedCustomer?.name ?? tt("Kunde unbekannt")}</strong>
             </div>
             <div>
-              <span>Objekt</span>
-              <strong>{selectedObject?.name ?? "Objekt offen"}</strong>
+              <span>{tt("Objekt")}</span>
+              <strong>{selectedObject?.name ?? tt("Objekt offen")}</strong>
             </div>
             <div>
-              <span>Status</span>
+              <span>{tt("Status")}</span>
               <strong>{selectedDeliveryLabel}</strong>
             </div>
             <div>
-              <span>Zeit</span>
+              <span>{tt("Zeit")}</span>
               <strong>{formatCreatedAt(selectedMessage.sentAt || selectedMessage.createdAt)}</strong>
             </div>
           </div>
           <div className="message-detail-body">
-            <strong>{selectedMessage.origin === "office" ? "Nachricht von Kolaretorp" : "Anfrage des Kunden"}</strong>
+            <strong>{selectedMessage.origin === "office" ? tt("Nachricht von Kolaretorp") : tt("Anfrage des Kunden")}</strong>
             <p>{selectedMessage.message}</p>
-            {selectedMessage.deliveryError && <small>Fehler: {selectedMessage.deliveryError}</small>}
+            {selectedMessage.deliveryError && <small>{tt("Fehler")}: {selectedMessage.deliveryError}</small>}
           </div>
           {selectedMessage.replies && selectedMessage.replies.length > 0 && (
             <div className="message-replies">
-              <strong>Antworten</strong>
+              <strong>{tt("Antworten")}</strong>
               {selectedMessage.replies.map((reply) => (
                 <section key={reply.id}>
-                  <span>{reply.deliveryStatus === "gesendet" ? "Gesendet" : "Mailfehler"} an {reply.to} · {formatCreatedAt(reply.sentAt)}</span>
+                  <span>{reply.deliveryStatus === "gesendet" ? tt("Gesendet") : tt("Mailfehler")} {tt("an")} {reply.to} · {formatCreatedAt(reply.sentAt)}</span>
                   <p>{reply.body}</p>
                   {reply.deliveryError && <small>{reply.deliveryError}</small>}
                 </section>
@@ -13156,23 +13251,23 @@ function CommunicationView({
           {selectedCustomer?.email ? (
             <div className="message-reply-form">
               <label>
-                <span>Antwort an {selectedCustomer.email}</span>
+                <span>{tt("Antwort an")} {selectedCustomer.email}</span>
                 <textarea
-                  placeholder="Antwort schreiben..."
+                  placeholder={tt("Antwort schreiben...")}
                   value={replyDrafts[selectedMessage.id] ?? ""}
                   onChange={(event) => setReplyDrafts((current) => ({ ...current, [selectedMessage.id]: event.target.value }))}
                 />
               </label>
               <div className="message-actions">
-                <button className="ghost-button" onClick={() => setSelectedMessageId(null)} type="button">Schließen</button>
+                <button className="ghost-button" onClick={() => setSelectedMessageId(null)} type="button">{tt("Schließen")}</button>
                 <button className="primary-button" disabled={!(replyDrafts[selectedMessage.id] ?? "").trim() || replySendingId === selectedMessage.id} onClick={() => void sendReply(selectedMessage.id)} type="button">
                   <Send size={16} />
-                  {replySendingId === selectedMessage.id ? "Sende..." : "Antwort senden"}
+                  {replySendingId === selectedMessage.id ? tt("Sende...") : tt("Antwort senden")}
                 </button>
               </div>
             </div>
           ) : (
-            <p className="empty-list-note">Beim Kunden ist keine E-Mail-Adresse hinterlegt.</p>
+            <p className="empty-list-note">{tt("Beim Kunden ist keine E-Mail-Adresse hinterlegt.")}</p>
           )}
         </section>
       </div>
@@ -16407,6 +16502,7 @@ function MasterDataView({
 function ObjectEditorPage({
   customers,
   jobs,
+  language,
   object,
   objectStatusOptions,
   onArchive,
@@ -16425,6 +16521,7 @@ function ObjectEditorPage({
 }: {
   customers: CustomerRecord[];
   jobs: JobRecord[];
+  language: Language;
   object?: ObjectRecord;
   objectStatusOptions: string[];
   onArchive?: () => void;
@@ -16441,6 +16538,7 @@ function ObjectEditorPage({
   setNewObject: (value: NewObjectFormState) => void;
   submitLabel: string;
 }) {
+  const tt = (value: string) => uiText(value, language);
   const primaryImage = newObject.mediaItems.find((item) => item.type === "Bild" && item.isPrimary && item.previewUrl)
     ?? newObject.mediaItems.find((item) => item.type === "Bild" && item.previewUrl);
 
@@ -16500,7 +16598,7 @@ function ObjectEditorPage({
           submitLabel={submitLabel}
         />
       </section>
-      {object && <ObjectHistory customers={customers} jobs={jobs} object={object} onSendReport={onSendReport} onUpdateReport={onUpdateReport} reports={reports} />}
+      {object && <ObjectHistory customers={customers} jobs={jobs} language={language} object={object} onSendReport={onSendReport} onUpdateReport={onUpdateReport} reports={reports} />}
     </div>
   );
 }
@@ -16508,6 +16606,7 @@ function ObjectEditorPage({
 function ObjectHistory({
   customers,
   jobs,
+  language,
   object,
   onSendReport,
   onUpdateReport,
@@ -16515,11 +16614,13 @@ function ObjectHistory({
 }: {
   customers: CustomerRecord[];
   jobs: JobRecord[];
+  language: Language;
   object: ObjectRecord;
   onSendReport: (report: ReportRecord) => void;
   onUpdateReport: (report: ReportRecord, options?: { forceRemote?: boolean }) => void;
   reports: ReportRecord[];
 }) {
+  const tt = (value: string) => uiText(value, language);
   const objectJobs = jobs.filter((job) => job.objectId === object.id);
   const normalizedReports = dedupeReports(reports);
   const objectReports = normalizedReports.filter((report) => report.objectId === object.id);
@@ -16681,7 +16782,7 @@ function ObjectHistory({
                   placeholder={sentAt ? "Bericht wurde bereits gesendet und ist gesperrt." : "Kommentar ergänzen, der im Kundenbericht erscheinen soll."}
                 />
               </label>
-              <ReportAttachmentEditor disabled={Boolean(sentAt)} onUpdateReport={onUpdateReport} report={selectedReport} />
+              <ReportAttachmentEditor disabled={Boolean(sentAt)} language={language} onUpdateReport={onUpdateReport} report={selectedReport} />
               <div className="send-status">
                 <strong>{sentAt ? "Gesendet" : "Noch nicht an Kunden gesendet"}</strong>
                 <span>Betreff: {reportSubject}</span>
