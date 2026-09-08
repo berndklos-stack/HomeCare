@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.336.0",
+  version: "1.337.0",
   releaseDate: "2026-09-08",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.337.0",
+    date: "2026-09-08",
+    changes: [
+      "Einsatzfotos zeigen nun direkt am Foto den Speicherstatus fuer Upload, gespeicherte Datei oder Uploadfehler",
+      "GPS-Adressen im Fahrtenbuch werden aus Adressbestandteilen kompakt als Strasse/Hausnummer, PLZ und Ort formatiert",
+      "Wenn ein Foto nicht in den Dateispeicher hochgeladen werden kann, bleibt der lokale Berichtsstatus sichtbar statt still zu scheitern",
+    ],
+  },
   {
     version: "1.336.0",
     date: "2026-09-08",

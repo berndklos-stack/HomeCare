@@ -2193,6 +2193,21 @@ mark.neutral {
   -webkit-line-clamp: 2;
 }
 
+.captured-photo-card .photo-upload-status {
+  color: var(--warning);
+  display: block;
+  font-weight: 800;
+  -webkit-line-clamp: 1;
+}
+
+.captured-photo-card .photo-upload-status.saved {
+  color: var(--success);
+}
+
+.captured-photo-card .photo-upload-status.failed {
+  color: var(--danger);
+}
+
 .captured-photo-card .row-actions {
   display: flex;
   gap: 6px;

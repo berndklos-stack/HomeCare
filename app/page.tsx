@@ -291,6 +291,8 @@ type FieldPhoto = {
   note?: string;
   previewUrl?: string;
   storagePath?: string;
+  uploadError?: string;
+  uploadStatus?: "uploading" | "uploaded" | "local" | "failed";
   createdAt?: string;
 };
 
@@ -1686,6 +1688,10 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Firma", sv: "Företag", en: "Company" },
   { de: "Fotos zum Objekt", sv: "Foton för objektet", en: "Property photos" },
   { de: "Fotos werden vorbereitet...", sv: "Foton förbereds...", en: "Preparing photos..." },
+  { de: "Foto wird hochgeladen", sv: "Foto laddas upp", en: "Photo is uploading" },
+  { de: "Foto gespeichert", sv: "Foto sparat", en: "Photo saved" },
+  { de: "Foto nur lokal im Bericht", sv: "Foto endast lokalt i rapporten", en: "Photo only local in report" },
+  { de: "Foto-Upload fehlgeschlagen", sv: "Bilduppladdning misslyckades", en: "Photo upload failed" },
   { de: "Godkänd för F-skatt auf Offerten und Rechnungen anzeigen", sv: "Visa Godkänd för F-skatt på offerter och fakturor", en: "Show F-tax approval on offers and invoices" },
   { de: "GPS-Position konnte nicht gelesen werden. Bitte Standortfreigabe prüfen.", sv: "GPS-positionen kunde inte läsas. Kontrollera platsbehörigheten.", en: "GPS position could not be read. Please check location permission." },
   { de: "Größe m²", sv: "Storlek m²", en: "Size m²" },
@@ -2808,6 +2814,14 @@ function mediaSourceFromStoragePath(storagePath?: string) {
 
 function fieldPhotoSource(photo: FieldPhoto) {
   return photo.previewUrl || mediaSourceFromStoragePath(photo.storagePath);
+}
+
+function fieldPhotoUploadLabel(photo: FieldPhoto, translate: (value: string) => string) {
+  if (photo.uploadStatus === "uploading") return translate("Foto wird hochgeladen");
+  if (photo.uploadStatus === "failed") return translate("Foto-Upload fehlgeschlagen");
+  if (photo.storagePath || photo.uploadStatus === "uploaded") return translate("Foto gespeichert");
+  if (photo.previewUrl || photo.uploadStatus === "local") return translate("Foto nur lokal im Bericht");
+  return "";
 }
 
 async function fileToReportAttachment(file: File): Promise<ReportAttachment> {
@@ -5418,11 +5432,31 @@ async function reverseGeocode(latitude: number, longitude: number) {
       headers: { Accept: "application/json" },
     });
     if (!response.ok) return fallback;
-    const result = await response.json() as { display_name?: string };
-    return result.display_name || fallback;
+    const result = await response.json() as { address?: Record<string, string | undefined>; display_name?: string };
+    return formatGpsAddress(result.address) || result.display_name || fallback;
   } catch {
     return fallback;
   }
+}
+
+function formatSwedishPostcode(value?: string) {
+  const digits = value?.replace(/\D/g, "") ?? "";
+  if (digits.length === 5) return `${digits.slice(0, 3)} ${digits.slice(3)}`;
+  return value?.trim() ?? "";
+}
+
+function formatGpsAddress(address?: Record<string, string | undefined>) {
+  if (!address) return "";
+  const street = address.road || address.pedestrian || address.residential || address.footway || address.path || address.cycleway;
+  const place = address.house_number && street
+    ? `${street} ${address.house_number}`
+    : address.house_number
+      ? address.house_number
+      : street || address.hamlet || address.neighbourhood || address.suburb || address.quarter;
+  const city = address.city || address.town || address.village || address.municipality || address.county;
+  const postcode = formatSwedishPostcode(address.postcode);
+  const cityLine = [postcode, city].filter(Boolean).join(" ");
+  return [place, cityLine].filter(Boolean).join(", ");
 }
 
 function currentDeviceCoordinates() {
@@ -12003,6 +12037,7 @@ function FieldView({
       createdAt: new Date().toISOString(),
       id: photoId,
       name: file.name,
+      uploadStatus: "uploading",
       ...(previewUrl ? { previewUrl } : {}),
     };
   }
@@ -12010,16 +12045,32 @@ function FieldView({
   async function uploadFieldPhotoInBackground(taskId: string, photoId: string, file: File) {
     try {
       const uploaded = await uploadMediaFile(file, "field-photos", file.name);
-      if (!uploaded) return;
+      if (!uploaded) {
+        updateTaskPhotos(taskId, progressRef.current[taskId] ?? { completed: false, minutes: "", note: "", photos: [] }, (photos) => (
+          photos.map((photo) => (
+            photo.id === photoId
+              ? { ...photo, uploadStatus: photo.previewUrl ? "local" : "failed" }
+              : photo
+          ))
+        ));
+        return;
+      }
       updateTaskPhotos(taskId, progressRef.current[taskId] ?? { completed: false, minutes: "", note: "", photos: [] }, (photos) => (
         photos.map((photo) => (
           photo.id === photoId
-            ? { ...photo, previewUrl: uploaded.url, storagePath: uploaded.path }
+            ? { ...photo, previewUrl: uploaded.url, storagePath: uploaded.path, uploadError: undefined, uploadStatus: "uploaded" }
             : photo
         ))
       ));
     } catch (error) {
       console.warn("Einsatzfoto konnte nicht im Hintergrund hochgeladen werden.", error);
+      updateTaskPhotos(taskId, progressRef.current[taskId] ?? { completed: false, minutes: "", note: "", photos: [] }, (photos) => (
+        photos.map((photo) => (
+          photo.id === photoId
+            ? { ...photo, uploadError: error instanceof Error ? error.message : "Upload fehlgeschlagen", uploadStatus: photo.previewUrl ? "local" : "failed" }
+            : photo
+        ))
+      ));
     }
   }
 
@@ -12365,6 +12416,11 @@ function FieldView({
                   <div>
                     <strong>{photo.accepted ? "Foto übernommen" : "Neues Foto erfasst"}</strong>
                     <span>{photo.name}</span>
+                    {fieldPhotoUploadLabel(photo, tt) && (
+                      <small className={`photo-upload-status ${photo.uploadStatus === "failed" ? "failed" : photo.uploadStatus === "uploaded" ? "saved" : ""}`}>
+                        {fieldPhotoUploadLabel(photo, tt)}
+                      </small>
+                    )}
                     {photo.note?.trim() && <small>{photo.note.trim()}</small>}
                   </div>
                   <div className="row-actions">
