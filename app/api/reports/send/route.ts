@@ -12,9 +12,18 @@ type SendReportPayload = {
   body?: string;
   cc?: string;
   filename?: string;
+  idempotencyKey?: string;
   subject?: string;
   to?: string;
 };
+
+type SendResult = {
+  delivery?: unknown;
+  sent: boolean;
+};
+
+const sentMailCache = new Map<string, { createdAt: number; result?: SendResult; status: "done" | "sending" }>();
+const sentMailCacheTtlMs = 10 * 60 * 1000;
 
 function normalizeEmail(value: string | undefined) {
   return value?.trim().toLowerCase() || "";
@@ -77,6 +86,7 @@ async function sendResendReportMail(payload: Required<Pick<SendReportPayload, "a
 }
 
 export async function POST(request: Request) {
+  let idempotencyKey = "";
   try {
     const payload = await request.json() as SendReportPayload;
     const requiredFields: Array<keyof SendReportPayload> = ["attachmentBase64", "body", "filename", "subject", "to"];
@@ -86,9 +96,29 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: `Pflichtfelder fehlen: ${missing.join(", ")}` }, { status: 400 });
     }
 
+    const now = Date.now();
+    for (const [key, entry] of sentMailCache.entries()) {
+      if (now - entry.createdAt > sentMailCacheTtlMs) sentMailCache.delete(key);
+    }
+
+    idempotencyKey = payload.idempotencyKey?.trim() || "";
+    if (idempotencyKey) {
+      const cached = sentMailCache.get(idempotencyKey);
+      if (cached?.status === "done" && cached.result) {
+        return NextResponse.json({ ...cached.result, duplicate: true });
+      }
+      if (cached?.status === "sending") {
+        return NextResponse.json({ duplicate: true, sent: false, status: "sending" }, { status: 409 });
+      }
+      sentMailCache.set(idempotencyKey, { createdAt: now, status: "sending" });
+    }
+
     const delivery = await sendResendReportMail(payload as Required<Pick<SendReportPayload, "attachmentBase64" | "body" | "filename" | "subject" | "to">> & { attachments?: SendReportPayload["attachments"]; cc?: string });
-    return NextResponse.json({ delivery, sent: true });
+    const result = { delivery, sent: true };
+    if (idempotencyKey) sentMailCache.set(idempotencyKey, { createdAt: now, result, status: "done" });
+    return NextResponse.json(result);
   } catch (error) {
+    if (idempotencyKey) sentMailCache.delete(idempotencyKey);
     const message = error instanceof Error ? error.message : "Bericht konnte nicht gesendet werden.";
     return NextResponse.json({ error: message }, { status: 500 });
   }

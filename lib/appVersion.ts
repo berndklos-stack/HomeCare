@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.335.0",
-  releaseDate: "2026-08-31",
+  version: "1.336.0",
+  releaseDate: "2026-09-08",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.336.0",
+    date: "2026-09-08",
+    changes: [
+      "Einsatzfotos werden vor dem Abschluss mit echter Bildquelle vorbereitet, damit Berichte nicht mehr ohne Bilder entstehen",
+      "Beim Berichtversand werden Fotos aus den neuesten Mobil-vor-Ort-Daten nachgezogen und Mehrfachversand desselben Berichts wird blockiert",
+      "Im Dialog Fahrt erfassen kann das Fahrtenbuch geoeffnet und die aktuelle GPS-Adresse fuer Start, Ziel und Zwischenziele uebernommen werden",
+    ],
+  },
   {
     version: "1.335.0",
     date: "2026-09-07",

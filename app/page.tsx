@@ -1406,6 +1406,10 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Alle bekannten App-Texte als Übersetzungsdatei mit Deutsch, Schwedisch und Englisch.", sv: "Alla kända apptexter som översättningsfil med tyska, svenska och engelska.", en: "All known app texts as a translation file with German, Swedish and English." },
   { de: "Aktuell gibt es keine geplanten oder laufende Einsätze.", sv: "Det finns för närvarande inga planerade eller pågående uppdrag.", en: "There are currently no planned or active jobs." },
   { de: "Aktuell sind keine offenen Aufträge für dich vorhanden.", sv: "Det finns för närvarande inga öppna uppdrag för dig.", en: "There are currently no open jobs for you." },
+  { de: "Aktuelle Adresse", sv: "Aktuell adress", en: "Current address" },
+  { de: "Aktuelle Adresse konnte nicht geladen werden.", sv: "Aktuell adress kunde inte hämtas.", en: "Current address could not be loaded." },
+  { de: "Aktuelle Adresse wird aus GPS-Daten geladen...", sv: "Aktuell adress hämtas från GPS-data...", en: "Current address is being loaded from GPS data..." },
+  { de: "Aktuelle Adresse wurde übernommen.", sv: "Aktuell adress har lagts in.", en: "Current address was applied." },
   { de: "Aktueller Live-Stand", sv: "Aktuell livestatus", en: "Current live status" },
   { de: "Aktueller Status", sv: "Aktuell status", en: "Current status" },
   { de: "Alle Berichte", sv: "Alla rapporter", en: "All reports" },
@@ -1437,6 +1441,7 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Bericht wurde erzeugt", sv: "Rapporten skapades", en: "Report was created" },
   { de: "Bericht nachbearbeiten", sv: "Efterredigera rapport", en: "Edit report afterwards" },
   { de: "Berichtstext", sv: "Rapporttext", en: "Report text" },
+  { de: "Bitte zuerst ein Fahrzeug für das Fahrtenbuch anlegen oder auswählen.", sv: "Skapa eller välj först ett fordon för körjournalen.", en: "Please create or select a vehicle for the logbook first." },
   { de: "Bestand aktuell", sv: "Aktuellt lager", en: "Current stock" },
   { de: "Bestände und Buchungen", sv: "Lager och bokningar", en: "Stock and postings" },
   { de: "Besucht bei", sv: "Besökt hos", en: "Visited at" },
@@ -1674,12 +1679,15 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Fahrt speichern", sv: "Spara körning", en: "Save trip" },
   { de: "Fahrten", sv: "Körningar", en: "Trips" },
   { de: "Fahrtenbuch", sv: "Körjournal", en: "Mileage log" },
+  { de: "Fahrtenbuch öffnen", sv: "Öppna körjournal", en: "Open logbook" },
   { de: "Fahrzeug", sv: "Fordon", en: "Vehicle" },
   { de: "Fahrzeugdokument hinzufügen", sv: "Lägg till fordonsdokument", en: "Add vehicle document" },
   { de: "Firmenadresse", sv: "Företagsadress", en: "Company address" },
   { de: "Firma", sv: "Företag", en: "Company" },
   { de: "Fotos zum Objekt", sv: "Foton för objektet", en: "Property photos" },
+  { de: "Fotos werden vorbereitet...", sv: "Foton förbereds...", en: "Preparing photos..." },
   { de: "Godkänd för F-skatt auf Offerten und Rechnungen anzeigen", sv: "Visa Godkänd för F-skatt på offerter och fakturor", en: "Show F-tax approval on offers and invoices" },
+  { de: "GPS-Position konnte nicht gelesen werden. Bitte Standortfreigabe prüfen.", sv: "GPS-positionen kunde inte läsas. Kontrollera platsbehörigheten.", en: "GPS position could not be read. Please check location permission." },
   { de: "Größe m²", sv: "Storlek m²", en: "Size m²" },
   { de: "Grundstück m²", sv: "Tomt m²", en: "Plot m²" },
   { de: "Heizung", sv: "Värme", en: "Heating" },
@@ -1826,6 +1834,7 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Kurzbeschreibung zum nächsten Dokument", sv: "Kortbeskrivning för nästa dokument", en: "Short description for the next document" },
   { de: "Leistungsauswahl schließen", sv: "Stäng tjänsteval", en: "Close service selection" },
   { de: "Leistungskatalog", sv: "Tjänstekatalog", en: "Service catalog" },
+  { de: "Lädt...", sv: "Laddar...", en: "Loading..." },
   { de: "Material-Dialog schließen", sv: "Stäng materialdialog", en: "Close material dialog" },
   { de: "Nachname", sv: "Efternamn", en: "Last name" },
   { de: "Neues Dokument hinzufügen", sv: "Lägg till nytt dokument", en: "Add new document" },
@@ -4943,7 +4952,7 @@ async function downloadCustomerReportPdf(report: ReportRecord, object: ObjectRec
   URL.revokeObjectURL(url);
 }
 
-async function sendCustomerReportMail(report: ReportRecord, object: ObjectRecord, job: JobRecord | undefined, customer: CustomerRecord | undefined, body?: string) {
+async function sendCustomerReportMail(report: ReportRecord, object: ObjectRecord, job: JobRecord | undefined, customer: CustomerRecord | undefined, body?: string, idempotencyKey?: string) {
   const recipientEmail = reportRecipientEmail(object, customer);
   if (!recipientEmail) throw new Error("Keine Empfängeradresse in den Objekt- oder Kundendaten gefunden.");
 
@@ -4967,6 +4976,7 @@ async function sendCustomerReportMail(report: ReportRecord, object: ObjectRecord
       body: body?.trim() || customerReportSendBody(customer, report),
       cc: "info@kolaretorp.se",
       filename: fileName,
+      idempotencyKey,
       subject: customerReportSendSubject(report, object, customer),
       to: recipientEmail,
     }),
@@ -4995,7 +5005,7 @@ async function downloadOfferPdf(job: JobRecord, object: ObjectRecord, customer: 
   URL.revokeObjectURL(url);
 }
 
-async function sendOfferMail(job: JobRecord, object: ObjectRecord, customer: CustomerRecord | undefined, services: ServiceItem[], companySettings: CompanySettings, body?: string) {
+async function sendOfferMail(job: JobRecord, object: ObjectRecord, customer: CustomerRecord | undefined, services: ServiceItem[], companySettings: CompanySettings, body?: string, idempotencyKey?: string) {
   const recipientEmail = offerRecipientEmail(object, customer);
   if (!recipientEmail) throw new Error("Keine Empfängeradresse in den Objekt- oder Kundendaten gefunden.");
 
@@ -5008,6 +5018,7 @@ async function sendOfferMail(job: JobRecord, object: ObjectRecord, customer: Cus
       body: body?.trim() || offerSendBody(customer),
       cc: "info@kolaretorp.se",
       filename: fileName,
+      idempotencyKey,
       subject: offerSendSubject(job, object, customer),
       to: recipientEmail,
     }),
@@ -5192,7 +5203,7 @@ async function downloadInvoicePdf(item: BillingRecord, object: ObjectRecord, cus
   URL.revokeObjectURL(url);
 }
 
-async function sendOrderConfirmationMail(job: JobRecord, object: ObjectRecord, customer: CustomerRecord | undefined, services: ServiceItem[], companySettings: CompanySettings, body?: string) {
+async function sendOrderConfirmationMail(job: JobRecord, object: ObjectRecord, customer: CustomerRecord | undefined, services: ServiceItem[], companySettings: CompanySettings, body?: string, idempotencyKey?: string) {
   const recipientEmail = offerRecipientEmail(object, customer);
   if (!recipientEmail) throw new Error("Keine Empfängeradresse in den Objekt- oder Kundendaten gefunden.");
 
@@ -5205,6 +5216,7 @@ async function sendOrderConfirmationMail(job: JobRecord, object: ObjectRecord, c
       body: body?.trim() || orderConfirmationSendBody(customer),
       cc: "info@kolaretorp.se",
       filename: fileName,
+      idempotencyKey,
       subject: orderConfirmationSendSubject(job, object, customer),
       to: recipientEmail,
     }),
@@ -7059,13 +7071,17 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   const [sendPreviewOfferBody, setSendPreviewOfferBody] = useState("");
   const [sendPreviewConfirmationId, setSendPreviewConfirmationId] = useState<string | null>(null);
   const [sendPreviewConfirmationBody, setSendPreviewConfirmationBody] = useState("");
+  const [sendingMailIds, setSendingMailIds] = useState<string[]>([]);
+  const sendingMailIdsRef = useRef<Set<string>>(new Set());
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [customerMessageTargetId, setCustomerMessageTargetId] = useState<string | null>(null);
   const [customerMessageForm, setCustomerMessageForm] = useState({ message: "", subject: "" });
   const [customerMessageSending, setCustomerMessageSending] = useState(false);
   const [quickTripOpen, setQuickTripOpen] = useState(false);
+  const [resourceLogbookOpenRequestId, setResourceLogbookOpenRequestId] = useState("");
   const [dailyMailSending, setDailyMailSending] = useState(false);
   const [manualRefreshRunning, setManualRefreshRunning] = useState(false);
+  const [quickTripAddressLoading, setQuickTripAddressLoading] = useState("");
   const [quickTripForm, setQuickTripForm] = useState({
     date: new Date().toISOString().slice(0, 10),
     driverId: "",
@@ -8342,6 +8358,8 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
 
   function completeJob(job: JobRecord, checklistResults: FieldTaskResult[], fieldNote: string, workDate?: string, reportAttachments: ReportAttachment[] = [], fieldMaterial?: string) {
     const executionDate = normalizeReportDate(workDate || jobExecutionDate(job));
+    const progressKey = fieldProgressKey(job, executionDate);
+    const latestProgress = fieldProgress[progressKey] ?? {};
     const savedMaterial = fieldMaterial?.trim() || job.material?.trim() || "-";
     const workDates = jobWorkDates(job);
     const isMultiDayJob = workDates.length > 1;
@@ -8351,11 +8369,15 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     const isReportEdit = Boolean(editingFieldReportId && existingReport);
     const nextDueDate = isReportEdit || isMultiDayJob ? null : nextSeriesDueDate(job);
     const reportUpdatedAt = new Date().toISOString();
-    const normalizedResults = checklistResults.map((item) => ({
-      ...item,
-      minutes: item.completed ? item.minutes : 0,
-      updatedAt: item.updatedAt ?? reportUpdatedAt,
-    }));
+    const normalizedResults = checklistResults.map((item) => {
+      const taskProgress = latestProgress[item.id];
+      return {
+        ...item,
+        minutes: item.completed ? item.minutes : 0,
+        photos: taskProgress?.photos?.length ? mergeFieldPhotos(item.photos ?? [], taskProgress.photos) : item.photos,
+        updatedAt: item.updatedAt ?? taskProgress?.updatedAt ?? reportUpdatedAt,
+      };
+    });
     const workMinutes = normalizedResults.reduce((sum, item) => sum + item.minutes, 0);
     const visibleMinutes = visibleReportWorkMinutes(normalizedResults);
     const completedCount = normalizedResults.filter((item) => item.completed).length;
@@ -8416,8 +8438,8 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     const nextBilling = ensureBillingForJobs(nextJobs, billing, nextReports);
     const nextFieldProgress = { ...fieldProgress };
     const nextFieldNotes = { ...fieldNotes };
-    delete nextFieldProgress[fieldProgressKey(job, executionDate)];
-    delete nextFieldNotes[fieldProgressKey(job, executionDate)];
+    delete nextFieldProgress[progressKey];
+    delete nextFieldNotes[progressKey];
 
     setJobs(nextJobs);
     setBilling(nextBilling);
@@ -8461,6 +8483,33 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     setReports(nextReports);
     void saveReportTextBackup(stampedReport);
     persistSnapshotNow({ reports: nextReports }, { forceRemote: options.forceRemote });
+  }
+
+  function reportWithLatestFieldPhotos(report: ReportRecord) {
+    const reportJob = jobs.find((job) => job.id === report.jobId);
+    if (!reportJob) return report;
+    const progress = fieldProgress[fieldProgressKey(reportJob, normalizeReportDate(report.date))];
+    if (!progress) return report;
+
+    let changed = false;
+    const checklistResults = report.checklistResults.map((item) => {
+      const taskProgress = progress[item.id];
+      if (!taskProgress?.photos?.length) return item;
+      const photos = mergeFieldPhotos(item.photos ?? [], taskProgress.photos);
+      if (JSON.stringify(photos) === JSON.stringify(item.photos ?? [])) return item;
+      changed = true;
+      return { ...item, photos, updatedAt: item.updatedAt ?? taskProgress.updatedAt };
+    });
+
+    if (!changed) return report;
+    const photoCount = checklistResults.reduce((sum, item) => sum + item.photos.length, 0);
+    const visibleMinutes = visibleReportWorkMinutes(checklistResults);
+    return {
+      ...report,
+      checklistResults,
+      media: Array.from(new Set([...(report.media ?? []), ...reportMediaLabels(photoCount, visibleMinutes)])),
+      updatedAt: new Date().toISOString(),
+    };
   }
 
   function sendReportToCustomer(report: ReportRecord) {
@@ -8511,13 +8560,28 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     await downloadInvoicePdf(item, object, customer, companySettings);
   }
 
+  function beginMailSend(key: string) {
+    if (sendingMailIdsRef.current.has(key)) return false;
+    sendingMailIdsRef.current.add(key);
+    setSendingMailIds((current) => (current.includes(key) ? current : [...current, key]));
+    return true;
+  }
+
+  function endMailSend(key: string) {
+    sendingMailIdsRef.current.delete(key);
+    setSendingMailIds((current) => current.filter((item) => item !== key));
+  }
+
   async function confirmSendOfferToCustomer(job: JobRecord) {
     const object = objects.find((item) => item.id === job.objectId);
     const customer = customers.find((item) => item.id === job.customerId || item.id === object?.ownerCustomerId || item.name === object?.owner);
     if (!object) return;
+    const sendKey = `offer:${job.id}`;
+    if (!beginMailSend(sendKey)) return;
+    setRecordNotice(`Offerte "${job.title}" wird gesendet...`);
 
     try {
-      await sendOfferMail(job, object, customer, services, companySettings, sendPreviewOfferBody);
+      await sendOfferMail(job, object, customer, services, companySettings, sendPreviewOfferBody, sendKey);
       const sentAt = new Date().toISOString();
       const nextJobs = jobs.map((item) => (
         item.id === job.id ? { ...item, offerNumber: offerNumber(job), offerSentAt: sentAt } : item
@@ -8528,6 +8592,8 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       setRecordNotice(`Offerte "${job.title}" wurde gesendet.`);
     } catch (error) {
       setRecordNotice(error instanceof Error ? `Offerte konnte nicht gesendet werden: ${error.message}` : "Offerte konnte nicht gesendet werden.");
+    } finally {
+      endMailSend(sendKey);
     }
   }
 
@@ -8535,9 +8601,12 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     const object = objects.find((item) => item.id === job.objectId);
     const customer = customers.find((item) => item.id === job.customerId || item.id === object?.ownerCustomerId || item.name === object?.owner);
     if (!object) return;
+    const sendKey = `confirmation:${job.id}`;
+    if (!beginMailSend(sendKey)) return;
+    setRecordNotice(`Auftragsbestätigung "${job.title}" wird gesendet...`);
 
     try {
-      await sendOrderConfirmationMail(job, object, customer, services, companySettings, sendPreviewConfirmationBody);
+      await sendOrderConfirmationMail(job, object, customer, services, companySettings, sendPreviewConfirmationBody, sendKey);
       const sentAt = new Date().toISOString();
       const nextJobs = jobs.map((item) => (
         item.id === job.id ? { ...item, orderConfirmationNumber: orderConfirmationNumber(job), orderConfirmationSentAt: sentAt } : item
@@ -8548,6 +8617,8 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       setRecordNotice(`Auftragsbestätigung "${job.title}" wurde gesendet.`);
     } catch (error) {
       setRecordNotice(error instanceof Error ? `Auftragsbestätigung konnte nicht gesendet werden: ${error.message}` : "Auftragsbestätigung konnte nicht gesendet werden.");
+    } finally {
+      endMailSend(sendKey);
     }
   }
 
@@ -8824,6 +8895,17 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     setQuickTripOpen(true);
   }
 
+  function openLogbookFromQuickTrip() {
+    const vehicleId = quickTripForm.resourceId || activeVehicles[0]?.id || "";
+    if (!vehicleId) {
+      setRecordNotice(tx("Bitte zuerst ein Fahrzeug für das Fahrtenbuch anlegen oder auswählen."));
+      return;
+    }
+    setQuickTripOpen(false);
+    setSection("masterData");
+    setResourceLogbookOpenRequestId(`${vehicleId}:${Date.now()}`);
+  }
+
   function reserveOdometerOcrUse() {
     try {
       const today = new Date().toISOString().slice(0, 10);
@@ -8970,6 +9052,36 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     }
   }
 
+  async function loadCurrentQuickTripAddress(target: "start" | "end" | string) {
+    if (quickTripAddressLoading) return;
+    setQuickTripAddressLoading(target);
+    setRecordNotice(tx("Aktuelle Adresse wird aus GPS-Daten geladen..."));
+    try {
+      const coordinates = await currentDeviceCoordinates();
+      if (!coordinates) {
+        setRecordNotice(tx("GPS-Position konnte nicht gelesen werden. Bitte Standortfreigabe prüfen."));
+        return;
+      }
+      const address = await reverseGeocode(coordinates.latitude, coordinates.longitude);
+      setQuickTripForm((current) => {
+        if (target === "start") return { ...current, startAddress: address };
+        if (target === "end") return { ...current, endAddress: address };
+        return {
+          ...current,
+          waypoints: current.waypoints.map((waypoint) => (
+            waypoint.id === target ? { ...waypoint, address } : waypoint
+          )),
+        };
+      });
+      setRecordNotice(tx("Aktuelle Adresse wurde übernommen."));
+    } catch (error) {
+      console.warn("Aktuelle Adresse konnte nicht geladen werden.", error);
+      setRecordNotice(tx("Aktuelle Adresse konnte nicht geladen werden."));
+    } finally {
+      setQuickTripAddressLoading("");
+    }
+  }
+
   function saveQuickTrip() {
     const vehicle = resources.find((resource) => resource.id === quickTripForm.resourceId && resource.type === "Fahrzeug");
     if (!vehicle) {
@@ -9086,24 +9198,40 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   }
 
   async function confirmSendReportToCustomer(report: ReportRecord) {
-    const reportObject = objects.find((object) => object.id === report.objectId);
+    if (report.sentAt) {
+      setRecordNotice("Bericht wurde bereits gesendet und ist gesperrt.");
+      return;
+    }
+    const preparedReport = reportWithLatestFieldPhotos(report);
+    const repairedPhotoCount = reportPhotoCount(preparedReport);
+    const originalPhotoCount = reportPhotoCount(report);
+    if (repairedPhotoCount > originalPhotoCount) {
+      updateReportRecord(preparedReport, { forceRemote: true });
+    }
+    const reportObject = objects.find((object) => object.id === preparedReport.objectId);
     if (!reportObject) return;
-    const reportJob = jobs.find((job) => job.id === report.jobId);
+    const reportJob = jobs.find((job) => job.id === preparedReport.jobId);
     const reportCustomer = customers.find((customer) => customer.id === reportObject.ownerCustomerId || customer.name === reportObject.owner);
+    const sendKey = `report:${preparedReport.id}`;
+    if (!beginMailSend(sendKey)) return;
+    setRecordNotice(`Bericht "${preparedReport.title}" wird gesendet...`);
     const timestamp = new Date().toLocaleString("de-DE", {
       dateStyle: "medium",
       timeStyle: "short",
     });
-    const nextReport = { ...report, sentAt: report.sentAt ?? timestamp, updatedAt: new Date().toISOString() };
+    const nextReport = { ...preparedReport, sentAt: preparedReport.sentAt ?? timestamp, updatedAt: new Date().toISOString() };
 
     try {
-      await sendCustomerReportMail(nextReport, reportObject, reportJob, reportCustomer, sendPreviewReportBody);
+      await sendCustomerReportMail(nextReport, reportObject, reportJob, reportCustomer, sendPreviewReportBody, sendKey);
       updateReportRecord(nextReport);
       setSendPreviewReportId(null);
       setSendPreviewReportBody("");
+      setRecordNotice(`Bericht "${preparedReport.title}" wurde gesendet.`);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Bericht konnte nicht gesendet werden.";
-      window.alert(message);
+      setRecordNotice(`Bericht konnte nicht gesendet werden: ${message}`);
+    } finally {
+      endMailSend(sendKey);
     }
   }
 
@@ -9501,6 +9629,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                 resources={resources}
                 services={services}
                 dailyMailSending={dailyMailSending}
+                openResourceLogbookRequestId={resourceLogbookOpenRequestId}
                 translate={tx}
                 translationOverrides={translationOverrides}
                 setCompanySettings={(nextSettings) => {
@@ -9551,9 +9680,15 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                 <p>Fahrtenbuch</p>
                 <h2 id="quick-trip-title">Fahrt erfassen</h2>
               </div>
-              <button aria-label="Fahrt erfassen schließen" onClick={() => setQuickTripOpen(false)} type="button">
-                <X size={18} />
-              </button>
+              <div className="modal-header-actions">
+                <button className="ghost-button compact" onClick={openLogbookFromQuickTrip} type="button">
+                  <List size={16} />
+                  {tx("Fahrtenbuch öffnen")}
+                </button>
+                <button aria-label="Fahrt erfassen schließen" onClick={() => setQuickTripOpen(false)} type="button">
+                  <X size={18} />
+                </button>
+              </div>
             </header>
             <div className="form-grid compact-form">
               <label><span>Fahrzeug</span>
@@ -9627,8 +9762,24 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
               <datalist id="quick-trip-purpose-options">
                 {quickTripPurposeOptions.map((purpose) => <option key={purpose} value={purpose} />)}
               </datalist>
-              <label className="wide"><span>Startadresse</span><input list="quick-trip-address-options" value={quickTripForm.startAddress} onChange={(event) => setQuickTripForm({ ...quickTripForm, startAddress: event.target.value })} /></label>
-              <label className="wide"><span>Zieladresse</span><input list="quick-trip-address-options" value={quickTripForm.endAddress} onChange={(event) => setQuickTripForm({ ...quickTripForm, endAddress: event.target.value })} /></label>
+              <label className="wide"><span>Startadresse</span>
+                <div className="address-gps-row">
+                  <input list="quick-trip-address-options" value={quickTripForm.startAddress} onChange={(event) => setQuickTripForm({ ...quickTripForm, startAddress: event.target.value })} />
+                  <button className="ghost-button compact" disabled={Boolean(quickTripAddressLoading)} onClick={() => void loadCurrentQuickTripAddress("start")} type="button">
+                    <ScanLine size={15} />
+                    {quickTripAddressLoading === "start" ? tx("Lädt...") : tx("Aktuelle Adresse")}
+                  </button>
+                </div>
+              </label>
+              <label className="wide"><span>Zieladresse</span>
+                <div className="address-gps-row">
+                  <input list="quick-trip-address-options" value={quickTripForm.endAddress} onChange={(event) => setQuickTripForm({ ...quickTripForm, endAddress: event.target.value })} />
+                  <button className="ghost-button compact" disabled={Boolean(quickTripAddressLoading)} onClick={() => void loadCurrentQuickTripAddress("end")} type="button">
+                    <ScanLine size={15} />
+                    {quickTripAddressLoading === "end" ? tx("Lädt...") : tx("Aktuelle Adresse")}
+                  </button>
+                </div>
+              </label>
               <datalist id="quick-trip-address-options">
                 {quickTripAddressOptions.map((address) => <option key={address} value={address} />)}
               </datalist>
@@ -9665,6 +9816,16 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                           )),
                         })}
                       />
+                      <button
+                        aria-label={`Aktuelle Adresse für Zwischenziel ${waypointIndex + 1} laden`}
+                        className="icon-button"
+                        data-tooltip={tx("Aktuelle Adresse")}
+                        disabled={Boolean(quickTripAddressLoading)}
+                        onClick={() => void loadCurrentQuickTripAddress(waypoint.id)}
+                        type="button"
+                      >
+                        <ScanLine size={14} />
+                      </button>
                       <input
                         aria-label={`Notiz zu Zwischenziel ${waypointIndex + 1}`}
                         placeholder="Notiz"
@@ -9857,9 +10018,9 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
             </div>
             <div className="modal-actions">
               <button className="ghost-button" onClick={() => { setSendPreviewReportId(null); setSendPreviewReportBody(""); }} type="button">Abbrechen</button>
-              <button className="primary-button" onClick={() => void confirmSendReportToCustomer(sendPreviewReport)} type="button">
+              <button className="primary-button" disabled={Boolean(sendPreviewReport.sentAt) || sendingMailIds.includes(`report:${sendPreviewReport.id}`)} onClick={() => void confirmSendReportToCustomer(sendPreviewReport)} type="button">
                 <Send size={16} />
-                Jetzt senden
+                {sendingMailIds.includes(`report:${sendPreviewReport.id}`) ? "Wird gesendet..." : sendPreviewReport.sentAt ? "Bereits gesendet" : "Jetzt senden"}
               </button>
             </div>
           </section>
@@ -9927,9 +10088,9 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                 PDF herunterladen
               </button>
               <button className="ghost-button" onClick={() => setSendPreviewOfferId(null)} type="button">Abbrechen</button>
-              <button className="primary-button" disabled={!offerRecipientEmail(sendPreviewOfferObject, sendPreviewOfferCustomer)} onClick={() => void confirmSendOfferToCustomer(sendPreviewOffer)} type="button">
+              <button className="primary-button" disabled={!offerRecipientEmail(sendPreviewOfferObject, sendPreviewOfferCustomer) || sendingMailIds.includes(`offer:${sendPreviewOffer.id}`)} onClick={() => void confirmSendOfferToCustomer(sendPreviewOffer)} type="button">
                 <Send size={16} />
-                Jetzt senden
+                {sendingMailIds.includes(`offer:${sendPreviewOffer.id}`) ? "Wird gesendet..." : "Jetzt senden"}
               </button>
             </div>
           </section>
@@ -9997,9 +10158,9 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                 PDF herunterladen
               </button>
               <button className="ghost-button" onClick={() => setSendPreviewConfirmationId(null)} type="button">Abbrechen</button>
-              <button className="primary-button" disabled={!offerRecipientEmail(sendPreviewConfirmationObject, sendPreviewConfirmationCustomer)} onClick={() => void confirmSendOrderConfirmationToCustomer(sendPreviewConfirmation)} type="button">
+              <button className="primary-button" disabled={!offerRecipientEmail(sendPreviewConfirmationObject, sendPreviewConfirmationCustomer) || sendingMailIds.includes(`confirmation:${sendPreviewConfirmation.id}`)} onClick={() => void confirmSendOrderConfirmationToCustomer(sendPreviewConfirmation)} type="button">
                 <Send size={16} />
-                Jetzt senden
+                {sendingMailIds.includes(`confirmation:${sendPreviewConfirmation.id}`) ? "Wird gesendet..." : "Jetzt senden"}
               </button>
             </div>
           </section>
@@ -11638,6 +11799,7 @@ function FieldView({
   const [photoNoteDraft, setPhotoNoteDraft] = useState("");
   const [photoNoteEditor, setPhotoNoteEditor] = useState<{ photoId: string; taskId: string } | null>(null);
   const [localPhotoPreviewUrls, setLocalPhotoPreviewUrls] = useState<Record<string, string>>({});
+  const [preparingFieldPhotos, setPreparingFieldPhotos] = useState(0);
   const progressRef = useRef(progress);
   const localPhotoPreviewUrlsRef = useRef(localPhotoPreviewUrls);
 
@@ -11884,35 +12046,26 @@ function FieldView({
     const selectedFiles = Array.from(files ?? []);
     if (!selectedFiles.length) return;
 
-    const nextPhotos = selectedFiles.map((file) => createFieldPhoto(file));
-    const objectUrls: Record<string, string> = {};
-    selectedFiles.forEach((file, index) => {
-      const photoId = nextPhotos[index]?.id;
-      if (photoId && typeof URL !== "undefined") {
-        objectUrls[photoId] = URL.createObjectURL(file);
-      }
-    });
+    setPreparingFieldPhotos((current) => current + selectedFiles.length);
+    try {
+      const nextPhotos = await Promise.all(selectedFiles.map(async (file) => {
+        try {
+          return createFieldPhoto(file, await fileToFieldPhotoPreview(file));
+        } catch (error) {
+          console.warn("Einsatzfoto-Vorschau konnte nicht erstellt werden.", error);
+          return createFieldPhoto(file);
+        }
+      }));
 
-    updateTaskPhotos(taskId, currentTask, (photos) => [...photos, ...nextPhotos]);
-    if (Object.keys(objectUrls).length > 0) {
-      setLocalPhotoPreviewUrls((current) => ({ ...current, ...objectUrls }));
+      updateTaskPhotos(taskId, currentTask, (photos) => [...photos, ...nextPhotos]);
+      if (nextPhotos[0]) openPhotoNoteEditor(taskId, nextPhotos[0]);
+      nextPhotos.forEach((photo, index) => {
+        const file = selectedFiles[index];
+        if (photo.id && file) void uploadFieldPhotoInBackground(taskId, photo.id, file);
+      });
+    } finally {
+      setPreparingFieldPhotos((current) => Math.max(0, current - selectedFiles.length));
     }
-    if (nextPhotos[0]) openPhotoNoteEditor(taskId, nextPhotos[0]);
-    nextPhotos.forEach((photo, index) => {
-      const file = selectedFiles[index];
-      if (photo.id && file) {
-        void fileToFieldPhotoPreview(file)
-          .then((previewUrl) => {
-            updateTaskPhotos(taskId, progressRef.current[taskId] ?? { completed: false, minutes: "", note: "", photos: [] }, (photos) => (
-              photos.map((item) => (item.id === photo.id ? { ...item, previewUrl } : item))
-            ));
-          })
-          .catch((error) => {
-            console.warn("Einsatzfoto-Vorschau konnte nicht erstellt werden.", error);
-          });
-        void uploadFieldPhotoInBackground(taskId, photo.id, file);
-      }
-    });
   }
 
   function updateFieldNote(note: string) {
@@ -11933,6 +12086,9 @@ function FieldView({
   }
 
   function completeActiveJob() {
+    if (preparingFieldPhotos > 0) {
+      return;
+    }
     const results = fieldTasks.map((task, index) => {
       const currentTask = valueForTask(task, index);
       return {
@@ -12331,8 +12487,8 @@ function FieldView({
             )}
           </div>
         )}
-        <button className="primary-button" disabled={reportLocked} onClick={completeActiveJob} type="button">
-          {editingReportId ? tt("Bericht speichern") : workDates.length > 1 ? (isLastOpenWorkDate ? tt("Letzten Tag speichern und Auftrag abschließen") : tt("Tagesbericht zwischenspeichern")) : tt("Einsatz abschließen")}
+        <button className="primary-button" disabled={reportLocked || preparingFieldPhotos > 0} onClick={completeActiveJob} type="button">
+          {preparingFieldPhotos > 0 ? tt("Fotos werden vorbereitet...") : editingReportId ? tt("Bericht speichern") : workDates.length > 1 ? (isLastOpenWorkDate ? tt("Letzten Tag speichern und Auftrag abschließen") : tt("Tagesbericht zwischenspeichern")) : tt("Einsatz abschließen")}
         </button>
           </section>
         </div>
@@ -14299,6 +14455,7 @@ function MasterDataView({
   materials,
   objects,
   onSendDailyMail,
+  openResourceLogbookRequestId,
   personnel,
   resources,
   services,
@@ -14325,6 +14482,7 @@ function MasterDataView({
   materials: MaterialItem[];
   objects: ObjectRecord[];
   onSendDailyMail: () => Promise<void>;
+  openResourceLogbookRequestId: string;
   personnel: PersonnelRecord[];
   resources: ResourceRecord[];
   services: ServiceItem[];
@@ -14363,6 +14521,7 @@ function MasterDataView({
   const [personViewMode, setPersonViewMode] = useState<"cards" | "list">("list");
   const [resourceViewMode, setResourceViewMode] = useState<"cards" | "list">("list");
   const [servicePickerOpen, setServicePickerOpen] = useState(false);
+  const [logbookAddressLoading, setLogbookAddressLoading] = useState("");
   const [archiveNotice, setArchiveNotice] = useState("");
   const [backupBusy, setBackupBusy] = useState(false);
   const [backupError, setBackupError] = useState("");
@@ -14727,6 +14886,18 @@ function MasterDataView({
     setMasterDataTab("resources");
   }
 
+  function openResourceLogbook(resource: ResourceRecord) {
+    editResource(resource);
+    setResourceModalView("logbook");
+  }
+
+  useEffect(() => {
+    if (!openResourceLogbookRequestId) return;
+    const resourceId = openResourceLogbookRequestId.split(":")[0];
+    const resource = resources.find((item) => item.id === resourceId && item.type === "Fahrzeug");
+    if (resource) openResourceLogbook(resource);
+  }, [openResourceLogbookRequestId]);
+
   function saveResource() {
     if (!resourceForm.name.trim() || !resourceForm.type.trim()) {
       setArchiveNotice("Bitte Ressourcenname und Typ erfassen.");
@@ -14961,6 +15132,36 @@ function MasterDataView({
     } catch (error) {
       console.warn("Tank-/Ladebeleg konnte nicht gespeichert werden.", error);
       setArchiveNotice("Tank-/Ladebeleg konnte nicht gespeichert werden.");
+    }
+  }
+
+  async function loadCurrentLogbookAddress(target: "start" | "end" | string) {
+    if (logbookAddressLoading) return;
+    setLogbookAddressLoading(target);
+    setArchiveNotice(tt("Aktuelle Adresse wird aus GPS-Daten geladen..."));
+    try {
+      const coordinates = await currentDeviceCoordinates();
+      if (!coordinates) {
+        setArchiveNotice(tt("GPS-Position konnte nicht gelesen werden. Bitte Standortfreigabe prüfen."));
+        return;
+      }
+      const address = await reverseGeocode(coordinates.latitude, coordinates.longitude);
+      setLogbookForm((current) => {
+        if (target === "start") return { ...current, startAddress: address };
+        if (target === "end") return { ...current, endAddress: address };
+        return {
+          ...current,
+          waypoints: current.waypoints.map((waypoint) => (
+            waypoint.id === target ? { ...waypoint, address } : waypoint
+          )),
+        };
+      });
+      setArchiveNotice(tt("Aktuelle Adresse wurde übernommen."));
+    } catch (error) {
+      console.warn("Aktuelle Adresse konnte nicht geladen werden.", error);
+      setArchiveNotice(tt("Aktuelle Adresse konnte nicht geladen werden."));
+    } finally {
+      setLogbookAddressLoading("");
     }
   }
 
@@ -16089,8 +16290,24 @@ function MasterDataView({
                   <label><span>{tt("Start-Km")}</span><input inputMode="numeric" value={logbookForm.startOdometer} onChange={(event) => setLogbookForm({ ...logbookForm, startOdometer: event.target.value })} /></label>
                   <label><span>{tt("End-Km")}</span><input inputMode="numeric" value={logbookForm.endOdometer} onChange={(event) => setLogbookForm({ ...logbookForm, endOdometer: event.target.value })} /></label>
                   <label><span>{tt("Kilometer")}</span><input inputMode="numeric" value={logbookForm.kilometers} onChange={(event) => setLogbookForm({ ...logbookForm, kilometers: event.target.value })} /></label>
-                  <label><span>{tt("Startadresse")}</span><input list="logbook-address-options" value={logbookForm.startAddress} onChange={(event) => setLogbookForm({ ...logbookForm, startAddress: event.target.value })} /></label>
-                  <label><span>{tt("Zieladresse")}</span><input list="logbook-address-options" value={logbookForm.endAddress} onChange={(event) => setLogbookForm({ ...logbookForm, endAddress: event.target.value })} /></label>
+                  <label><span>{tt("Startadresse")}</span>
+                    <div className="address-gps-row">
+                      <input list="logbook-address-options" value={logbookForm.startAddress} onChange={(event) => setLogbookForm({ ...logbookForm, startAddress: event.target.value })} />
+                      <button className="ghost-button compact" disabled={Boolean(logbookAddressLoading)} onClick={() => void loadCurrentLogbookAddress("start")} type="button">
+                        <ScanLine size={15} />
+                        {logbookAddressLoading === "start" ? tt("Lädt...") : tt("Aktuelle Adresse")}
+                      </button>
+                    </div>
+                  </label>
+                  <label><span>{tt("Zieladresse")}</span>
+                    <div className="address-gps-row">
+                      <input list="logbook-address-options" value={logbookForm.endAddress} onChange={(event) => setLogbookForm({ ...logbookForm, endAddress: event.target.value })} />
+                      <button className="ghost-button compact" disabled={Boolean(logbookAddressLoading)} onClick={() => void loadCurrentLogbookAddress("end")} type="button">
+                        <ScanLine size={15} />
+                        {logbookAddressLoading === "end" ? tt("Lädt...") : tt("Aktuelle Adresse")}
+                      </button>
+                    </div>
+                  </label>
                   <datalist id="logbook-address-options">
                     {logbookAddressOptions.map((address) => <option key={address} value={address} />)}
                   </datalist>
@@ -16133,6 +16350,16 @@ function MasterDataView({
                             )),
                           })}
                         />
+                        <button
+                          aria-label={`Aktuelle Adresse für Zwischenziel ${waypointIndex + 1} laden`}
+                          className="icon-button"
+                          data-tooltip={tt("Aktuelle Adresse")}
+                          disabled={Boolean(logbookAddressLoading)}
+                          onClick={() => void loadCurrentLogbookAddress(waypoint.id)}
+                          type="button"
+                        >
+                          <ScanLine size={14} />
+                        </button>
                         <input
                           aria-label={`Notiz zu Zwischenziel ${waypointIndex + 1}`}
                           placeholder={tt("Notiz")}
