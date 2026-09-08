@@ -3810,6 +3810,13 @@ function addDays(dateString: string, days: number) {
   return date.toISOString().slice(0, 10);
 }
 
+function currentLocalDateValue(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 function invoiceTotals(item: BillingRecord) {
   if (item.lines?.length) return offerTotals(item.lines);
   const gross = decimalValue(item.amount);
@@ -5427,6 +5434,24 @@ function readExifGpsCoordinates(buffer: ArrayBuffer) {
 
 async function reverseGeocode(latitude: number, longitude: number) {
   const fallback = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+  const params = new URLSearchParams({
+    lat: String(latitude),
+    lon: String(longitude),
+  });
+
+  try {
+    const googleResponse = await fetch(`/api/geocode/reverse?${params.toString()}`, {
+      headers: { Accept: "application/json" },
+    });
+    if (googleResponse.ok) {
+      const googleResult = await googleResponse.json() as { address?: string; formattedAddress?: string };
+      const googleAddress = googleResult.address?.trim() || googleResult.formattedAddress?.trim();
+      if (googleAddress) return googleAddress;
+    }
+  } catch {
+    // Fallback to OpenStreetMap below.
+  }
+
   try {
     const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`, {
       headers: { Accept: "application/json" },
@@ -5478,7 +5503,11 @@ function normalizeKnownGpsAddress(address: string, knownAddresses: string[] = []
     return normalizedCandidate.includes("kolaretorp") && normalizedCandidate.includes("nybro");
   }) || "Kolaretorp 106, 382 93 Nybro";
 
-  if (normalized.includes("solbacken") || normalized.includes("duvetorp")) return kolaretorpAddress;
+  if (
+    normalized.includes("solbacken")
+    || normalized.includes("duvetorp")
+    || (normalized.includes("kolaretorp") && normalized.includes("nybro") && !/\d/.test(address))
+  ) return kolaretorpAddress;
   return address;
 }
 
@@ -7140,7 +7169,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   const [manualRefreshRunning, setManualRefreshRunning] = useState(false);
   const [quickTripAddressLoading, setQuickTripAddressLoading] = useState("");
   const [quickTripForm, setQuickTripForm] = useState({
-    date: new Date().toISOString().slice(0, 10),
+    date: currentLocalDateValue(),
     driverId: "",
     endAddress: "",
     endOdometer: "",
@@ -8941,14 +8970,28 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   }
 
   function openQuickTrip() {
-    setQuickTripForm((current) => ({
-      ...current,
-      date: current.date || new Date().toISOString().slice(0, 10),
-      driverId: current.driverId || personnel.find((person) => !person.archived)?.id || "",
-      resourceId: current.resourceId || activeVehicles[0]?.id || "",
-      startAddress: current.startAddress || quickTripDefaultsForVehicle(current.resourceId || activeVehicles[0]?.id || "").endAddress,
-      startOdometer: current.startOdometer || quickTripDefaultsForVehicle(current.resourceId || activeVehicles[0]?.id || "").startOdometer,
-    }));
+    setQuickTripForm((current) => {
+      const resourceId = current.resourceId || activeVehicles[0]?.id || "";
+      const defaults = quickTripDefaultsForVehicle(resourceId);
+      return {
+        ...current,
+        date: currentLocalDateValue(),
+        driverId: current.driverId || personnel.find((person) => !person.archived)?.id || "",
+        endAddress: "",
+        endOdometer: "",
+        fuelOrCharge: "",
+        fuelReceiptPhoto: undefined,
+        kilometers: "",
+        purpose: "",
+        resourceId,
+        startAddress: defaults.endAddress,
+        startOdometer: defaults.startOdometer,
+        tripType: "Dienstfahrt",
+        visited: "",
+        waypoints: [],
+        odometerPhotos: [],
+      };
+    });
     setQuickTripOpen(true);
   }
 
@@ -9196,7 +9239,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     setQuickTripOpen(false);
     setRecordNotice(`Fahrt vom ${entry.date} wurde im Fahrtenbuch gespeichert.`);
     setQuickTripForm({
-      date: new Date().toISOString().slice(0, 10),
+      date: currentLocalDateValue(),
       driverId: quickTripForm.driverId,
       endAddress: "",
       endOdometer: entry.endOdometer,

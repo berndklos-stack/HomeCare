@@ -1,10 +1,20 @@
 export const appVersion = {
-  version: "1.338.0",
+  version: "1.339.0",
   releaseDate: "2026-09-08",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.339.0",
+    date: "2026-09-08",
+    changes: [
+      "GPS-Adressen werden zuerst ueber Google Geocoding aufgeloest, wenn ein Google Maps API-Key hinterlegt ist",
+      "Ohne Google-Key faellt die App automatisch auf die bisherige OpenStreetMap-Suche zurueck",
+      "Unvollstaendige Kolaretorp-Treffer werden fuer das Fahrtenbuch auf die gepflegte Adresse Kolaretorp 106, 382 93 Nybro korrigiert",
+      "Der Quickbutton Fahrt startet immer mit lokal heutigem Datum und aktuellem Start-Km aus dem letzten Fahrtenbuch-Endstand",
+    ],
+  },
   {
     version: "1.338.0",
     date: "2026-09-08",
