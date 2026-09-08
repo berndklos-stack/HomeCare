@@ -5445,6 +5445,15 @@ function formatSwedishPostcode(value?: string) {
   return value?.trim() ?? "";
 }
 
+function normalizeAddressLookupValue(value: string) {
+  return value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
 function formatGpsAddress(address?: Record<string, string | undefined>) {
   if (!address) return "";
   const street = address.road || address.pedestrian || address.residential || address.footway || address.path || address.cycleway;
@@ -5457,6 +5466,20 @@ function formatGpsAddress(address?: Record<string, string | undefined>) {
   const postcode = formatSwedishPostcode(address.postcode);
   const cityLine = [postcode, city].filter(Boolean).join(" ");
   return [place, cityLine].filter(Boolean).join(", ");
+}
+
+function normalizeKnownGpsAddress(address: string, knownAddresses: string[] = []) {
+  const normalized = normalizeAddressLookupValue(address);
+  if (!normalized) return address;
+  if (/\d/.test(address) && !normalized.includes("solbacken")) return address;
+
+  const kolaretorpAddress = knownAddresses.find((candidate) => {
+    const normalizedCandidate = normalizeAddressLookupValue(candidate);
+    return normalizedCandidate.includes("kolaretorp") && normalizedCandidate.includes("nybro");
+  }) || "Kolaretorp 106, 382 93 Nybro";
+
+  if (normalized.includes("solbacken") || normalized.includes("duvetorp")) return kolaretorpAddress;
+  return address;
 }
 
 function currentDeviceCoordinates() {
@@ -7582,7 +7605,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       entry.endAddress,
       ...(entry.waypoints ?? []).map((waypoint) => waypoint.address),
     ])),
-    objects.map((object) => object.address),
+    [...objects.map((object) => object.address), companySettings.address],
   );
   const quickTripPurposeOptions = uniqueSortedValues(
     resources.flatMap((resource) => resource.logbook.map((entry) => entry.purpose)),
@@ -9007,8 +9030,9 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
           console.warn("Kilometerstand konnte nicht automatisch gelesen werden.", error);
         }
       }
+      const normalizedAddress = normalizeKnownGpsAddress(result.address, quickTripAddressOptions);
       const photo: VehicleOdometerPhoto = {
-        address: result.address,
+        address: normalizedAddress,
         capturedAt: new Date().toISOString(),
         id: globalThis.crypto?.randomUUID?.() ?? `TRIP-PHOTO-${Date.now()}-${Math.random().toString(36).slice(2)}`,
         name: file.name,
@@ -9023,7 +9047,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
         const nextKilometers = calculatedTripKilometers(nextStartOdometer, nextEndOdometer) || current.kilometers;
         return {
           ...current,
-          [source === "start" ? "startAddress" : "endAddress"]: result.address || current[source === "start" ? "startAddress" : "endAddress"],
+          [source === "start" ? "startAddress" : "endAddress"]: normalizedAddress || current[source === "start" ? "startAddress" : "endAddress"],
           [source === "start" ? "startOdometer" : "endOdometer"]: odometerReading || current[source === "start" ? "startOdometer" : "endOdometer"],
           kilometers: nextKilometers,
           odometerPhotos: [
@@ -9033,7 +9057,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
         };
       });
       const parts = [
-        result.address ? `${source === "start" ? "Startadresse" : "Zieladresse"} aus ${result.source}` : "Foto gespeichert",
+        normalizedAddress ? `${source === "start" ? "Startadresse" : "Zieladresse"} aus ${result.source}` : "Foto gespeichert",
         odometerReading ? `KM-Stand ${odometerReading} übernommen` : "KM-Stand bitte prüfen/ergänzen",
       ];
       setRecordNotice(`${parts.join(" · ")}.`);
@@ -9047,8 +9071,9 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     setRecordNotice("Zwischenziel-Foto wird verarbeitet...");
     try {
       const result = await addressFromTripPhoto(file);
+      const normalizedAddress = normalizeKnownGpsAddress(result.address, quickTripAddressOptions);
       const photo: VehicleWaypointPhoto = {
-        address: result.address,
+        address: normalizedAddress,
         capturedAt: new Date().toISOString(),
         id: globalThis.crypto?.randomUUID?.() ?? `WAY-PHOTO-${Date.now()}-${Math.random().toString(36).slice(2)}`,
         name: file.name,
@@ -9058,11 +9083,11 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
         ...current,
         waypoints: current.waypoints.map((waypoint) => (
           waypoint.id === waypointId
-            ? { ...waypoint, address: result.address || waypoint.address, photo }
+            ? { ...waypoint, address: normalizedAddress || waypoint.address, photo }
             : waypoint
         )),
       }));
-      setRecordNotice(result.address ? "Zwischenziel-Adresse aus Foto übernommen." : "Zwischenziel-Foto gespeichert. Adresse bitte manuell ergänzen.");
+      setRecordNotice(normalizedAddress ? "Zwischenziel-Adresse aus Foto übernommen." : "Zwischenziel-Foto gespeichert. Adresse bitte manuell ergänzen.");
     } catch (error) {
       console.warn("Zwischenziel-Foto konnte nicht verarbeitet werden.", error);
       setRecordNotice("Zwischenziel-Foto konnte nicht verarbeitet werden. Bitte Adresse manuell erfassen.");
@@ -9096,7 +9121,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
         setRecordNotice(tx("GPS-Position konnte nicht gelesen werden. Bitte Standortfreigabe prüfen."));
         return;
       }
-      const address = await reverseGeocode(coordinates.latitude, coordinates.longitude);
+      const address = normalizeKnownGpsAddress(await reverseGeocode(coordinates.latitude, coordinates.longitude), quickTripAddressOptions);
       setQuickTripForm((current) => {
         if (target === "start") return { ...current, startAddress: address };
         if (target === "end") return { ...current, endAddress: address };
@@ -14739,7 +14764,7 @@ function MasterDataView({
       entry.endAddress,
       ...(entry.waypoints ?? []).map((waypoint) => waypoint.address),
     ])),
-    objects.map((object) => object.address),
+    [...objects.map((object) => object.address), companySettings.address],
   );
   const logbookPurposeOptions = uniqueSortedValues(
     resources.flatMap((resource) => resource.logbook.map((entry) => entry.purpose)),
@@ -15201,7 +15226,7 @@ function MasterDataView({
         setArchiveNotice(tt("GPS-Position konnte nicht gelesen werden. Bitte Standortfreigabe prüfen."));
         return;
       }
-      const address = await reverseGeocode(coordinates.latitude, coordinates.longitude);
+      const address = normalizeKnownGpsAddress(await reverseGeocode(coordinates.latitude, coordinates.longitude), logbookAddressOptions);
       setLogbookForm((current) => {
         if (target === "start") return { ...current, startAddress: address };
         if (target === "end") return { ...current, endAddress: address };

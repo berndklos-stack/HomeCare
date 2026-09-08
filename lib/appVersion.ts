@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.337.0",
+  version: "1.338.0",
   releaseDate: "2026-09-08",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.338.0",
+    date: "2026-09-08",
+    changes: [
+      "GPS-Adressen im Fahrtenbuch gleichen ungenaue OpenStreetMap-Ortsnamen gegen bekannte App-Adressen ab",
+      "Solbacken/Duvetorp wird bei fehlender Hausnummer auf die gepflegte Kolaretorp-Adresse aus den Stammdaten korrigiert",
+      "Die Firmenadresse wird in Fahrtenbuch-Adressvorschlaege aufgenommen",
+    ],
+  },
   {
     version: "1.337.0",
     date: "2026-09-08",
