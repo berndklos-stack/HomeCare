@@ -1440,9 +1440,12 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Beibehalten", sv: "Behåll", en: "Keep" },
   { de: "Bericht", sv: "Rapport", en: "Report" },
   { de: "Bericht noch nicht gefunden", sv: "Rapporten hittades inte ännu", en: "Report not found yet" },
+  { de: "Bericht entsperren", sv: "Lås upp rapport", en: "Unlock report" },
   { de: "Bericht senden", sv: "Skicka rapport", en: "Send report" },
   { de: "Bericht wurde erzeugt", sv: "Rapporten skapades", en: "Report was created" },
   { de: "Bericht nachbearbeiten", sv: "Efterredigera rapport", en: "Edit report afterwards" },
+  { de: "Bericht konnte nicht entsperrt werden.", sv: "Rapporten kunde inte låsas upp.", en: "Report could not be unlocked." },
+  { de: "Bericht wurde für Nachbearbeitung entsperrt.", sv: "Rapporten har låsts upp för efterredigering.", en: "Report was unlocked for follow-up editing." },
   { de: "Berichtstext", sv: "Rapporttext", en: "Report text" },
   { de: "Bitte zuerst ein Fahrzeug für das Fahrtenbuch anlegen oder auswählen.", sv: "Skapa eller välj först ett fordon för körjournalen.", en: "Please create or select a vehicle for the logbook first." },
   { de: "Bestand aktuell", sv: "Aktuellt lager", en: "Current stock" },
@@ -1546,6 +1549,9 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Fotos", sv: "Foton", en: "photos" },
   { de: "Noch keine passenden Berichte vorhanden.", sv: "Inga matchande rapporter finns ännu.", en: "No matching reports yet." },
   { de: "Bericht wurde bereits gesendet und ist gesperrt.", sv: "Rapporten har redan skickats och är låst.", en: "Report has already been sent and is locked." },
+  { de: "Passwort stimmt nicht.", sv: "Lösenordet stämmer inte.", en: "Password is incorrect." },
+  { de: "Passwort zum Entsperren eingeben", sv: "Ange lösenord för att låsa upp", en: "Enter password to unlock" },
+  { de: "Versandstatus wurde zurückgesetzt.", sv: "Sändningsstatus har återställts.", en: "Send status was reset." },
   { de: "Berichtstext für den Kundenbericht anpassen.", sv: "Anpassa rapporttexten för kundrapporten.", en: "Adjust report text for the customer report." },
   { de: "Kommentar vor dem Senden", sv: "Kommentar före utskick", en: "Comment before sending" },
   { de: "Kommentar ergänzen, der im Kundenbericht erscheinen soll.", sv: "Lägg till kommentar som ska visas i kundrapporten.", en: "Add a comment that should appear in the customer report." },
@@ -8585,6 +8591,37 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     persistSnapshotNow({ reports: nextReports }, { forceRemote: options.forceRemote });
   }
 
+  async function unlockSentReport(report: ReportRecord) {
+    if (!report.sentAt) return;
+    const password = window.prompt(tx("Passwort zum Entsperren eingeben"));
+    if (!password) return;
+
+    try {
+      const response = await fetch("/api/reports/unlock-authorize", {
+        body: JSON.stringify({ password }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      if (!response.ok) {
+        setRecordNotice(tx("Passwort stimmt nicht."));
+        return;
+      }
+
+      const changedAt = new Date().toISOString();
+      const protocolLine = `${formatCreatedAtWithSeconds(changedAt)} · ${tx("Versandstatus wurde zurückgesetzt.")} Gesendet: ${formatCreatedAtWithSeconds(report.sentAt)}`;
+      updateReportRecord({
+        ...report,
+        internalNotes: [report.internalNotes?.trim(), protocolLine].filter(Boolean).join("\n"),
+        sentAt: undefined,
+        updatedAt: changedAt,
+      }, { forceRemote: true });
+      setRecordNotice(tx("Bericht wurde für Nachbearbeitung entsperrt."));
+    } catch (error) {
+      console.warn("Bericht konnte nicht entsperrt werden.", error);
+      setRecordNotice(tx("Bericht konnte nicht entsperrt werden."));
+    }
+  }
+
   function reportWithLatestFieldPhotos(report: ReportRecord) {
     const reportJob = jobs.find((job) => job.id === report.jobId);
     if (!reportJob) return report;
@@ -9571,6 +9608,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                 } : undefined}
                 onSubmit={saveObject}
                 onSendReport={sendReportToCustomer}
+                onUnlockReport={unlockSentReport}
                 onUpdateReport={updateReportRecord}
                 packages={servicePackages}
                 reports={reports}
@@ -9637,7 +9675,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                 resources={resources}
               />
             )}
-            {section === "reports" && <ReportsView customers={customers} jobs={jobs} language={language} objects={objects} onEditInField={editReportInField} onSendReport={sendReportToCustomer} onUpdateReport={updateReportRecord} reports={reports} />}
+            {section === "reports" && <ReportsView customers={customers} jobs={jobs} language={language} objects={objects} onEditInField={editReportInField} onSendReport={sendReportToCustomer} onUnlockReport={unlockSentReport} onUpdateReport={updateReportRecord} reports={reports} />}
             {section === "communication" && (
               <CommunicationView
                 customers={customers}
@@ -9679,6 +9717,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                 onSelectJob={startJob}
                 onSelectReport={editReportInField}
                 onSendReport={sendReportToCustomer}
+                onUnlockReport={unlockSentReport}
                 onUpdateJobMaterial={updateJobMaterial}
                 onUpdateReport={updateReportRecord}
                 onClearActiveJob={clearActiveJob}
@@ -10574,6 +10613,7 @@ function ReportsView({
   language,
   onEditInField,
   onSendReport,
+  onUnlockReport,
   onUpdateReport,
   objects,
   reports,
@@ -10583,6 +10623,7 @@ function ReportsView({
   language: Language;
   onEditInField: (report: ReportRecord) => void;
   onSendReport: (report: ReportRecord) => void;
+  onUnlockReport: (report: ReportRecord) => void;
   onUpdateReport: (report: ReportRecord, options?: { forceRemote?: boolean }) => void;
   objects: ObjectRecord[];
   reports: ReportRecord[];
@@ -10690,6 +10731,11 @@ function ReportsView({
               </div>
               <div className="modal-header-actions">
                 <IconAction label={`${tt("Bericht")} ${selectedReport.title} ${tt("Bearbeiten")}`} onClick={() => { onEditInField(selectedReport); setSelectedReportId(""); }}><Pencil size={16} /></IconAction>
+                {selectedReport.sentAt && (
+                  <IconAction label={`${tt("Bericht")} ${selectedReport.title} ${tt("Bericht entsperren")}`} onClick={() => void onUnlockReport(selectedReport)}>
+                    <KeyRound size={16} />
+                  </IconAction>
+                )}
                 <IconAction label={`PDF für ${selectedReport.title} herunterladen`} onClick={() => void downloadCustomerReportPdf(selectedReport, selectedObject, selectedJob, selectedCustomer)}><FileDown size={16} /></IconAction>
                 <IconAction label={`${tt("Bericht")} ${selectedReport.title} ${tt("An Kunden senden")}`} onClick={() => { onSendReport(selectedReport); setSelectedReportId(""); }}><Send size={16} /></IconAction>
                 <button aria-label={`${tt("Bericht")} ${selectedReport.title} ${tt("Schließen")}`} onClick={() => { onUpdateReport(currentSelectedReport() ?? selectedReport, { forceRemote: true }); setSelectedReportId(""); }} type="button">
@@ -11953,6 +11999,7 @@ function FieldView({
   onFieldNoteChange,
   onProgressChange,
   onSendReport,
+  onUnlockReport,
   onUpdateJobMaterial,
   onUpdateReport,
   onComplete,
@@ -11976,6 +12023,7 @@ function FieldView({
   onFieldNoteChange: (jobId: string, note: string) => void;
   onProgressChange: (jobId: string, progress: Record<string, FieldTaskProgress>) => void;
   onSendReport: (report: ReportRecord) => void;
+  onUnlockReport: (report: ReportRecord) => void;
   onUpdateJobMaterial: (job: JobRecord, material: string) => void;
   onUpdateReport: (report: ReportRecord, options?: { forceRemote?: boolean }) => void;
   onComplete: (job: JobRecord, checklistResults: FieldTaskResult[], fieldNote: string, workDate?: string, reportAttachments?: ReportAttachment[], fieldMaterial?: string) => void;
@@ -12438,6 +12486,11 @@ function FieldView({
             {activeReport && (
               <IconAction label={`${tt("Bericht")} ${activeReport.title} ${tt("senden")}`} onClick={() => onSendReport(activeReport)}>
                 <Send size={16} />
+              </IconAction>
+            )}
+            {activeReport?.sentAt && (
+              <IconAction label={`${tt("Bericht")} ${activeReport.title} ${tt("Bericht entsperren")}`} onClick={() => void onUnlockReport(activeReport)}>
+                <KeyRound size={16} />
               </IconAction>
             )}
             <IconAction label={`${tt("Auftrag")} ${activeJob.title} ${tt("Auftrag schließen")}`} onClick={() => setCloseStatusPrompt(true)}>
@@ -17455,6 +17508,7 @@ function ObjectEditorPage({
   onDelete,
   onRestore,
   onSendReport,
+  onUnlockReport,
   onSubmit,
   onUpdateReport,
   packages,
@@ -17474,6 +17528,7 @@ function ObjectEditorPage({
   onDelete?: () => void;
   onRestore?: () => void;
   onSendReport: (report: ReportRecord) => void;
+  onUnlockReport: (report: ReportRecord) => void;
   onSubmit: () => void;
   onUpdateReport: (report: ReportRecord, options?: { forceRemote?: boolean }) => void;
   packages: ServicePackage[];
@@ -17543,7 +17598,7 @@ function ObjectEditorPage({
           submitLabel={submitLabel}
         />
       </section>
-      {object && <ObjectHistory customers={customers} jobs={jobs} language={language} object={object} onSendReport={onSendReport} onUpdateReport={onUpdateReport} reports={reports} />}
+      {object && <ObjectHistory customers={customers} jobs={jobs} language={language} object={object} onSendReport={onSendReport} onUnlockReport={onUnlockReport} onUpdateReport={onUpdateReport} reports={reports} />}
     </div>
   );
 }
@@ -17554,6 +17609,7 @@ function ObjectHistory({
   language,
   object,
   onSendReport,
+  onUnlockReport,
   onUpdateReport,
   reports,
 }: {
@@ -17562,6 +17618,7 @@ function ObjectHistory({
   language: Language;
   object: ObjectRecord;
   onSendReport: (report: ReportRecord) => void;
+  onUnlockReport: (report: ReportRecord) => void;
   onUpdateReport: (report: ReportRecord, options?: { forceRemote?: boolean }) => void;
   reports: ReportRecord[];
 }) {
@@ -17678,6 +17735,11 @@ function ObjectHistory({
             </div>
             <div className="row-actions">
               <IconAction label={`PDF für ${selectedHistory.title} herunterladen`} onClick={() => selectedReport && void downloadCustomerReportPdf(selectedReport, object, selectedJob, reportCustomer)}><FileDown size={16} /></IconAction>
+              {selectedReport?.sentAt && (
+                <IconAction label={`Bericht ${selectedHistory.title} entsperren`} onClick={() => selectedReport && void onUnlockReport(selectedReport)}>
+                  <KeyRound size={16} />
+                </IconAction>
+              )}
               <IconAction
                 label={`Bericht ${selectedHistory.title} an Kunden senden`}
                 onClick={() => selectedReport && onSendReport(selectedReport)}

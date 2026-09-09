@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.342.0",
+  version: "1.343.0",
   releaseDate: "2026-09-09",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.343.0",
+    date: "2026-09-09",
+    changes: [
+      "Versendete Berichte koennen per passwortgeschuetztem Button fuer Nachbearbeitung entsperrt werden",
+      "Beim Entsperren wird nur der Versandstatus zurueckgesetzt, der Auftrag bleibt abgeschlossen",
+      "Die Entsperrung wird mit Datum, Uhrzeit und bisherigem Versandzeitpunkt in den internen Notizen protokolliert",
+    ],
+  },
   {
     version: "1.342.0",
     date: "2026-09-09",
