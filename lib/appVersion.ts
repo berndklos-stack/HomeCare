@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.354.0",
+  version: "1.355.0",
   releaseDate: "2026-09-09",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.355.0",
+    date: "2026-09-09",
+    changes: [
+      "Berichte reparieren leere Foto-Platzhalter aus vorhandenen Vor-Ort-Fotodaten",
+      "Fotozaehler in Berichten zaehlen nur noch Bilder mit echter Bildquelle",
+      "Berichtsdetails zeigen fehlende Fotoquellen klar an statt unsichtbare Bilder als erfasst zu zaehlen",
+    ],
+  },
   {
     version: "1.354.0",
     date: "2026-09-09",

@@ -2285,7 +2285,7 @@ function recoverReportsFromFieldProgress(snapshot: AppSnapshot): AppSnapshot {
     const checklistResults = report.checklistResults.map((item) => {
       const taskProgress = progress[item.id];
       if (!taskProgress?.photos?.length) return item;
-      const photos = mergeFieldPhotos(item.photos ?? [], taskProgress.photos);
+      const photos = repairReportPhotosFromProgress(item.photos ?? [], taskProgress.photos);
       if (JSON.stringify(photos) === JSON.stringify(item.photos ?? [])) return item;
       changed = true;
       return { ...item, photos, updatedAt: item.updatedAt ?? taskProgress.updatedAt };
@@ -6596,6 +6596,26 @@ function mergeFieldPhotos(primaryPhotos: FieldPhoto[] = [], secondaryPhotos: Fie
   return merged.sort((first, second) => (first.createdAt ?? "").localeCompare(second.createdAt ?? ""));
 }
 
+function repairReportPhotosFromProgress(reportPhotos: FieldPhoto[] = [], progressPhotos: FieldPhoto[] = []) {
+  const sourcedProgressPhotos = progressPhotos.filter(fieldPhotoHasSource);
+  if (sourcedProgressPhotos.length === 0) return mergeFieldPhotos(reportPhotos, progressPhotos);
+
+  const patchedReportPhotos = reportPhotos.map((photo, index) => {
+    if (fieldPhotoHasSource(photo)) return photo;
+    const sourcePhoto = sourcedProgressPhotos[index];
+    if (!sourcePhoto) return photo;
+    return {
+      ...photo,
+      ...sourcePhoto,
+      accepted: photo.accepted ?? sourcePhoto.accepted,
+      name: photo.name || sourcePhoto.name,
+      note: photo.note || sourcePhoto.note,
+    };
+  });
+
+  return mergeFieldPhotos(patchedReportPhotos, sourcedProgressPhotos);
+}
+
 function chooseReportChecklistItem(existing: FieldTaskResult | undefined, item: FieldTaskResult, reportIsPrimary: boolean) {
   if (!existing) return item;
   const existingTime = Date.parse(existing.updatedAt ?? "");
@@ -8700,7 +8720,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       return {
         ...item,
         minutes: item.completed ? item.minutes : 0,
-        photos: taskProgress?.photos?.length ? mergeFieldPhotos(item.photos ?? [], taskProgress.photos) : item.photos,
+        photos: taskProgress?.photos?.length ? repairReportPhotosFromProgress(item.photos ?? [], taskProgress.photos) : item.photos,
         updatedAt: item.updatedAt ?? taskProgress?.updatedAt ?? reportUpdatedAt,
       };
     });
@@ -8893,7 +8913,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     const checklistResults = report.checklistResults.map((item) => {
       const taskProgress = progress[item.id];
       if (!taskProgress?.photos?.length) return item;
-      const photos = mergeFieldPhotos(item.photos ?? [], taskProgress.photos);
+      const photos = repairReportPhotosFromProgress(item.photos ?? [], taskProgress.photos);
       if (JSON.stringify(photos) === JSON.stringify(item.photos ?? [])) return item;
       changed = true;
       return { ...item, photos, updatedAt: item.updatedAt ?? taskProgress.updatedAt };
