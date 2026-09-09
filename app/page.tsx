@@ -1418,6 +1418,7 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Alle", sv: "Alla", en: "All" },
   { de: "Ankunft und Grundkontrolle", sv: "Ankomst och grundkontroll", en: "Arrival and basic check" },
   { de: "Anmelden", sv: "Logga in", en: "Sign in" },
+  { de: "Bekannte Adresse wurde übernommen.", sv: "Känd adress har lagts in.", en: "Known address was applied." },
   { de: "Anzahl Termine", sv: "Antal tider", en: "Number of appointments" },
   { de: "Apple Erinnerungen / Aufgaben nächste 5 Tage", sv: "Apple-påminnelser / uppgifter kommande 5 dagar", en: "Apple reminders / tasks next 5 days" },
   { de: "Archivierte Konten", sv: "Arkiverade konton", en: "Archived accounts" },
@@ -5516,6 +5517,14 @@ function normalizeKnownGpsAddress(address: string, knownAddresses: string[] = []
   return address;
 }
 
+function fallbackCurrentAddress(knownAddresses: string[] = []) {
+  const kolaretorpAddress = knownAddresses.find((candidate) => {
+    const normalizedCandidate = normalizeAddressLookupValue(candidate);
+    return normalizedCandidate.includes("kolaretorp") && normalizedCandidate.includes("nybro");
+  });
+  return kolaretorpAddress || knownAddresses.find((candidate) => candidate.trim()) || "Kolaretorp 106, 382 93 Nybro";
+}
+
 function currentDeviceCoordinates() {
   return new Promise<{ latitude: number; longitude: number } | null>((resolve) => {
     if (!navigator.geolocation) {
@@ -9165,11 +9174,9 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     setRecordNotice(tx("Aktuelle Adresse wird aus GPS-Daten geladen..."));
     try {
       const coordinates = await currentDeviceCoordinates();
-      if (!coordinates) {
-        setRecordNotice(tx("GPS-Position konnte nicht gelesen werden. Bitte Standortfreigabe prüfen."));
-        return;
-      }
-      const address = normalizeKnownGpsAddress(await reverseGeocode(coordinates.latitude, coordinates.longitude), quickTripAddressOptions);
+      const address = coordinates
+        ? normalizeKnownGpsAddress(await reverseGeocode(coordinates.latitude, coordinates.longitude), quickTripAddressOptions)
+        : fallbackCurrentAddress(quickTripAddressOptions);
       setQuickTripForm((current) => {
         if (target === "start") return { ...current, startAddress: address };
         if (target === "end") return { ...current, endAddress: address };
@@ -9180,7 +9187,9 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
           )),
         };
       });
-      setRecordNotice(tx("Aktuelle Adresse wurde übernommen."));
+      setRecordNotice(coordinates
+        ? tx("Aktuelle Adresse wurde übernommen.")
+        : `${tx("GPS-Position konnte nicht gelesen werden. Bitte Standortfreigabe prüfen.")} ${tx("Bekannte Adresse wurde übernommen.")}`);
     } catch (error) {
       console.warn("Aktuelle Adresse konnte nicht geladen werden.", error);
       setRecordNotice(tx("Aktuelle Adresse konnte nicht geladen werden."));
@@ -15270,11 +15279,9 @@ function MasterDataView({
     setArchiveNotice(tt("Aktuelle Adresse wird aus GPS-Daten geladen..."));
     try {
       const coordinates = await currentDeviceCoordinates();
-      if (!coordinates) {
-        setArchiveNotice(tt("GPS-Position konnte nicht gelesen werden. Bitte Standortfreigabe prüfen."));
-        return;
-      }
-      const address = normalizeKnownGpsAddress(await reverseGeocode(coordinates.latitude, coordinates.longitude), logbookAddressOptions);
+      const address = coordinates
+        ? normalizeKnownGpsAddress(await reverseGeocode(coordinates.latitude, coordinates.longitude), logbookAddressOptions)
+        : fallbackCurrentAddress(logbookAddressOptions);
       setLogbookForm((current) => {
         if (target === "start") return { ...current, startAddress: address };
         if (target === "end") return { ...current, endAddress: address };
@@ -15285,7 +15292,9 @@ function MasterDataView({
           )),
         };
       });
-      setArchiveNotice(tt("Aktuelle Adresse wurde übernommen."));
+      setArchiveNotice(coordinates
+        ? tt("Aktuelle Adresse wurde übernommen.")
+        : `${tt("GPS-Position konnte nicht gelesen werden. Bitte Standortfreigabe prüfen.")} ${tt("Bekannte Adresse wurde übernommen.")}`);
     } catch (error) {
       console.warn("Aktuelle Adresse konnte nicht geladen werden.", error);
       setArchiveNotice(tt("Aktuelle Adresse konnte nicht geladen werden."));

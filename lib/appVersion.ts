@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.340.0",
+  version: "1.341.0",
   releaseDate: "2026-09-09",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.341.0",
+    date: "2026-09-09",
+    changes: [
+      "Fahrtenbuch-Adresse uebernimmt am Mac eine bekannte App-Adresse, wenn der Browser keine GPS-Position liefert",
+      "Quickfahrt und Fahrtenbuch zeigen bei fehlender Standortfreigabe eine klare Meldung statt still nichts zu tun",
+      "Kolaretorp 106 bleibt als Rueckfalladresse fuer den aktuellen Standort verfuegbar",
+    ],
+  },
   {
     version: "1.340.0",
     date: "2026-09-09",
