@@ -3049,10 +3049,10 @@ mark.neutral {
 }
 
 .job-form-topline {
-  align-items: end;
+  align-items: start;
   display: grid;
   gap: 12px;
-  grid-template-columns: minmax(260px, 1.25fr) minmax(220px, 0.9fr) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
 }
 
 .job-form-topline label,
@@ -3074,7 +3074,7 @@ mark.neutral {
 
 .job-inline-create-button {
   align-self: end;
-  height: 42px;
+  height: 44px;
   justify-content: center;
   min-width: 168px;
   white-space: nowrap;
@@ -4847,8 +4847,16 @@ mark.neutral {
 
 .job-editor-modal .form-grid input,
 .job-editor-modal .form-grid select {
-  min-height: 40px;
-  padding: 8px 10px;
+  box-sizing: border-box;
+  height: 44px;
+  line-height: 1.2;
+  min-height: 44px;
+  padding: 8px 12px;
+}
+
+.job-editor-modal .job-form-panel .ghost-button,
+.job-editor-modal .job-form-panel .primary-button {
+  min-height: 44px;
 }
 
 .job-editor-modal .form-grid textarea {

@@ -1,10 +1,20 @@
 export const appVersion = {
-  version: "1.358.0",
+  version: "1.359.0",
   releaseDate: "2026-09-09",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.359.0",
+    date: "2026-09-09",
+    changes: [
+      "Die Felder im Auftragsdialog haben eine einheitliche Hoehe und sind horizontal sauber ausgerichtet",
+      "Titel und Objekt stehen in der Kopfzeile nun gleichmaessig nebeneinander",
+      "Der Berichtsversand nutzt einen eindeutigen Sendeschluessel je Bericht, Auftrag und Datum",
+      "Fehler beim Berichtversand bleiben sichtbar in der Versandvorschau stehen",
+    ],
+  },
   {
     version: "1.358.0",
     date: "2026-09-09",

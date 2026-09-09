@@ -7308,6 +7308,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   const [completedReportPromptId, setCompletedReportPromptId] = useState<string | null>(null);
   const [sendPreviewReportId, setSendPreviewReportId] = useState<string | null>(null);
   const [sendPreviewReportBody, setSendPreviewReportBody] = useState("");
+  const [sendPreviewReportNotice, setSendPreviewReportNotice] = useState("");
   const [sendPreviewOfferId, setSendPreviewOfferId] = useState<string | null>(null);
   const [sendPreviewOfferBody, setSendPreviewOfferBody] = useState("");
   const [sendPreviewConfirmationId, setSendPreviewConfirmationId] = useState<string | null>(null);
@@ -8938,6 +8939,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     const customer = object
       ? customers.find((item) => item.id === object.ownerCustomerId || item.name === object.owner)
       : undefined;
+    setSendPreviewReportNotice("");
     setSendPreviewReportBody(customerReportSendBody(customer, report));
     setSendPreviewReportId(report.id);
   }
@@ -8991,6 +8993,10 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   function endMailSend(key: string) {
     sendingMailIdsRef.current.delete(key);
     setSendingMailIds((current) => current.filter((item) => item !== key));
+  }
+
+  function reportMailSendKey(report: ReportRecord) {
+    return ["report", report.id, report.jobId, normalizeReportDate(report.date)].filter(Boolean).join(":");
   }
 
   async function confirmSendOfferToCustomer(job: JobRecord) {
@@ -9670,8 +9676,13 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     if (!reportObject) return;
     const reportJob = jobs.find((job) => job.id === preparedReport.jobId);
     const reportCustomer = customers.find((customer) => customer.id === reportObject.ownerCustomerId || customer.name === reportObject.owner);
-    const sendKey = `report:${preparedReport.id}`;
-    if (!beginMailSend(sendKey)) return;
+    const sendKey = reportMailSendKey(preparedReport);
+    if (!beginMailSend(sendKey)) {
+      setSendPreviewReportNotice("Dieser Bericht wird bereits gesendet. Bitte kurz warten.");
+      setRecordNotice("Bericht wird bereits gesendet.");
+      return;
+    }
+    setSendPreviewReportNotice("");
     setRecordNotice(`Bericht "${preparedReport.title}" wird gesendet...`);
     const timestamp = new Date().toLocaleString("de-DE", {
       dateStyle: "medium",
@@ -9684,9 +9695,11 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       updateReportRecord(nextReport);
       setSendPreviewReportId(null);
       setSendPreviewReportBody("");
+      setSendPreviewReportNotice("");
       setRecordNotice(`Bericht "${preparedReport.title}" wurde gesendet.`);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Bericht konnte nicht gesendet werden.";
+      setSendPreviewReportNotice(`Bericht konnte nicht gesendet werden: ${message}`);
       setRecordNotice(`Bericht konnte nicht gesendet werden: ${message}`);
     } finally {
       endMailSend(sendKey);
@@ -10508,10 +10521,11 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                 <p>Versandvorschau</p>
                 <h2 id="send-preview-title">Bericht senden</h2>
               </div>
-              <button aria-label="Versandvorschau schließen" onClick={() => { setSendPreviewReportId(null); setSendPreviewReportBody(""); }} type="button">
+              <button aria-label="Versandvorschau schließen" onClick={() => { setSendPreviewReportId(null); setSendPreviewReportBody(""); setSendPreviewReportNotice(""); }} type="button">
                 <X size={18} />
               </button>
             </header>
+            {sendPreviewReportNotice && <div className="warning-line">{sendPreviewReportNotice}</div>}
             <div className="send-preview-grid">
               <div>
                 <span>An</span>
@@ -10554,10 +10568,10 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
               />
             </div>
             <div className="modal-actions">
-              <button className="ghost-button" onClick={() => { setSendPreviewReportId(null); setSendPreviewReportBody(""); }} type="button">Abbrechen</button>
-              <button className="primary-button" disabled={Boolean(sendPreviewReport.sentAt) || sendingMailIds.includes(`report:${sendPreviewReport.id}`)} onClick={() => void confirmSendReportToCustomer(sendPreviewReport)} type="button">
+              <button className="ghost-button" onClick={() => { setSendPreviewReportId(null); setSendPreviewReportBody(""); setSendPreviewReportNotice(""); }} type="button">Abbrechen</button>
+              <button className="primary-button" disabled={Boolean(sendPreviewReport.sentAt) || sendingMailIds.includes(reportMailSendKey(sendPreviewReport))} onClick={() => void confirmSendReportToCustomer(sendPreviewReport)} type="button">
                 <Send size={16} />
-                {sendingMailIds.includes(`report:${sendPreviewReport.id}`) ? "Wird gesendet..." : sendPreviewReport.sentAt ? "Bereits gesendet" : "Jetzt senden"}
+                {sendingMailIds.includes(reportMailSendKey(sendPreviewReport)) ? "Wird gesendet..." : sendPreviewReport.sentAt ? "Bereits gesendet" : "Jetzt senden"}
               </button>
             </div>
           </section>
