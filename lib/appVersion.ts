@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.356.0",
+  version: "1.357.0",
   releaseDate: "2026-09-09",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.357.0",
+    date: "2026-09-09",
+    changes: [
+      "Neue Auftraege verwenden beim Oeffnen der Auftragsanlage automatisch das heutige lokale Datum",
+      "Startdatum, Enddatum und Faelligkeit sind beim neuen Auftrag identisch vorbelegt",
+    ],
+  },
   {
     version: "1.356.0",
     date: "2026-09-09",

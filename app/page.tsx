@@ -3322,14 +3322,15 @@ function emptyObjectForm(): NewObjectFormState {
 }
 
 function emptyJobForm(): NewJobFormState {
+  const today = currentLocalDateValue();
   return {
     title: "",
     type: "Hauskontrolle",
     priority: "normal",
     status: "geplant",
-    dueDate: "2026-08-05",
-    startDate: "2026-08-05",
-    endDate: "2026-08-05",
+    dueDate: today,
+    startDate: today,
+    endDate: today,
     assignedTo: "nicht zugewiesen",
     description: "",
     internalNotes: "",
