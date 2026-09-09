@@ -5496,17 +5496,22 @@ function formatGpsAddress(address?: Record<string, string | undefined>) {
 function normalizeKnownGpsAddress(address: string, knownAddresses: string[] = []) {
   const normalized = normalizeAddressLookupValue(address);
   if (!normalized) return address;
-  if (/\d/.test(address) && !normalized.includes("solbacken")) return address;
 
   const kolaretorpAddress = knownAddresses.find((candidate) => {
     const normalizedCandidate = normalizeAddressLookupValue(candidate);
     return normalizedCandidate.includes("kolaretorp") && normalizedCandidate.includes("nybro");
   }) || "Kolaretorp 106, 382 93 Nybro";
+  const normalizedKolaretorpAddress = normalizeAddressLookupValue(kolaretorpAddress);
+  const knownStreet = normalizedKolaretorpAddress.match(/[a-z]+/)?.[0] ?? "kolaretorp";
+  const knownHouseNumber = kolaretorpAddress.match(/\b\d+[a-zA-Z]?\b/)?.[0] ?? "106";
+  const hasKnownHouseAddress = normalized.includes(knownStreet) && normalized.includes(knownHouseNumber.toLowerCase());
+  if (hasKnownHouseAddress) return kolaretorpAddress;
 
   if (
     normalized.includes("solbacken")
     || normalized.includes("duvetorp")
-    || (normalized.includes("kolaretorp") && normalized.includes("nybro") && !/\d/.test(address))
+    || normalized.includes("nybro kommun")
+    || (normalized.includes("kolaretorp") && normalized.includes("nybro"))
   ) return kolaretorpAddress;
   return address;
 }

@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.339.0",
-  releaseDate: "2026-09-08",
+  version: "1.340.0",
+  releaseDate: "2026-09-09",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.340.0",
+    date: "2026-09-09",
+    changes: [
+      "GPS-Adresskorrektur unterscheidet Hausnummern von Postleitzahlen",
+      "Mac-Treffer mit Kolaretorp, Solbacken, Duvetorp oder Nybro kommun werden ohne echte Hausnummer auf Kolaretorp 106 korrigiert",
+      "Damit liefern iPhone und Mac im Fahrtenbuch dieselbe gepflegte Adresse",
+    ],
+  },
   {
     version: "1.339.0",
     date: "2026-09-08",
