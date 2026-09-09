@@ -1470,6 +1470,7 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Datei wurde vorbereitet.", sv: "Filen förbereddes.", en: "File was prepared." },
   { de: "Dateien wurden vorbereitet.", sv: "Filerna förbereddes.", en: "Files were prepared." },
   { de: "Dateianhänge", sv: "Bilagor", en: "Attachments" },
+  { de: "Ein Foto konnte nicht vorbereitet werden. Bitte als JPEG, PNG oder WebP aufnehmen.", sv: "Ett foto kunde inte förberedas. Ta bilden som JPEG, PNG eller WebP.", en: "One photo could not be prepared. Please take it as JPEG, PNG or WebP." },
   { de: "Daten aktualisiert", sv: "Data uppdaterad", en: "Data updated" },
   { de: "Datenbestand", sv: "Databas", en: "Data set" },
   { de: "Datum alt zuerst", sv: "Äldsta datum först", en: "Oldest date first" },
@@ -1498,6 +1499,7 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Firmenstammdaten speichern", sv: "Spara företagsuppgifter", en: "Save company master data" },
   { de: "Foto erfasst", sv: "Foto registrerat", en: "Photo captured" },
   { de: "Foto-Info", sv: "Fotoinfo", en: "Photo info" },
+  { de: "Foto lokal gesichert", sv: "Foto sparat lokalt", en: "Photo saved locally" },
   { de: "Fotovorschau", sv: "Fotoförhandsvisning", en: "Photo preview" },
   { de: "Fällig", sv: "Förfaller", en: "Due" },
   { de: "Gebucht", sv: "Bokad", en: "Posted" },
@@ -2880,7 +2882,7 @@ function fieldPhotoUploadLabel(photo: FieldPhoto, translate: (value: string) => 
   if (photo.uploadStatus === "uploading") return translate("Foto wird hochgeladen");
   if (photo.uploadStatus === "failed") return translate("Foto-Upload fehlgeschlagen");
   if (photo.storagePath || photo.uploadStatus === "uploaded") return translate("Foto gespeichert");
-  if (photo.previewUrl || photo.uploadStatus === "local") return translate("Foto nur lokal im Bericht");
+  if (photo.previewUrl || photo.uploadStatus === "local") return translate("Foto lokal gesichert");
   return "";
 }
 
@@ -2925,20 +2927,24 @@ type UploadedMedia = {
 };
 
 async function uploadMediaFile(file: File | Blob, scope: string, fileName?: string): Promise<UploadedMedia | null> {
-  try {
-    const formData = new FormData();
-    formData.append("scope", scope);
-    formData.append("file", file, fileName);
-    const response = await fetch("/api/media", {
-      body: formData,
-      method: "POST",
-    });
-    if (!response.ok) return null;
-    return await response.json() as UploadedMedia;
-  } catch (error) {
-    console.warn("Medien-Upload ist nicht verfügbar, speichere lokal weiter.", error);
-    return null;
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    try {
+      const formData = new FormData();
+      formData.append("scope", scope);
+      formData.append("file", file, fileName);
+      const response = await withTimeout(fetch("/api/media", {
+        body: formData,
+        method: "POST",
+      }), 20000);
+      if (response.ok) return await response.json() as UploadedMedia;
+      const payload = await response.json().catch(() => ({})) as { error?: string };
+      console.warn("Medien-Upload fehlgeschlagen.", payload.error || response.statusText);
+    } catch (error) {
+      console.warn("Medien-Upload ist nicht verfügbar, speichere lokal weiter.", error);
+    }
+    if (attempt < 2) await new Promise((resolve) => window.setTimeout(resolve, 1200));
   }
+  return null;
 }
 
 async function mediaSourceToDataUrl(source: string) {
@@ -5370,7 +5376,7 @@ function loadImage(dataUrl: string) {
 async function fileToImagePreview(file: File, maxSize = 1280, quality = 0.72) {
   const dataUrl = await readFileAsDataUrl(file);
   const image = await loadImage(dataUrl);
-  if (!image) return dataUrl;
+  if (!image) return "";
 
   try {
     const scale = Math.min(1, maxSize / Math.max(image.naturalWidth, image.naturalHeight));
@@ -5566,6 +5572,10 @@ function normalizeKnownGpsAddress(address: string, knownAddresses: string[] = []
   const knownHouseNumber = kolaretorpAddress.match(/\b\d+[a-zA-Z]?\b/)?.[0] ?? "106";
   const hasKnownHouseAddress = normalized.includes(knownStreet) && normalized.includes(knownHouseNumber.toLowerCase());
   if (hasKnownHouseAddress) return kolaretorpAddress;
+  const looksLikeStreetlessKnownHouse = normalized.includes(knownHouseNumber.toLowerCase())
+    && normalized.includes("nybro")
+    && !normalized.includes(knownStreet);
+  if (looksLikeStreetlessKnownHouse) return kolaretorpAddress;
 
   if (
     normalized.includes("solbacken")
@@ -9109,8 +9119,8 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       .sort((first, second) => `${second.date}-${second.id}`.localeCompare(`${first.date}-${first.id}`))[0];
   }
 
-  function quickTripDefaultsForVehicle(vehicleId: string) {
-    const vehicle = resources.find((resource) => resource.id === vehicleId && resource.type === "Fahrzeug");
+  function quickTripDefaultsForVehicle(vehicleId: string, sourceResources = resources) {
+    const vehicle = sourceResources.find((resource) => resource.id === vehicleId && resource.type === "Fahrzeug");
     const latestEntry = latestLogbookEntry(vehicle);
     return {
       endAddress: latestEntry?.endAddress ?? "",
@@ -9118,10 +9128,31 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     };
   }
 
-  function openQuickTrip() {
+  async function syncedResourcesForQuickTrip() {
+    if (!appStorageReady || supabaseSyncDisabled) return resources;
+    try {
+      const remoteSnapshot = await loadSupabaseSnapshot();
+      if (!remoteSnapshot) return resources;
+      const mergedSnapshot = sanitizePersonnelSnapshot(mergeSnapshots(remoteSnapshot, currentSnapshot()));
+      if (JSON.stringify(mergedSnapshot) !== JSON.stringify(currentSnapshot())) {
+        skipNextAutoSaveRef.current = true;
+        applySnapshot(mergedSnapshot);
+        persistLocalSnapshot(mergedSnapshot);
+      }
+      lastRemoteSnapshotKeyRef.current = snapshotContentKey(remoteSnapshot);
+      return mergedSnapshot.resources ?? resources;
+    } catch (error) {
+      console.warn("Fahrtenbuch-Stand konnte vor Quick-Fahrt nicht aktualisiert werden.", error);
+      return resources;
+    }
+  }
+
+  async function openQuickTrip() {
+    const freshResources = await syncedResourcesForQuickTrip();
+    const freshVehicles = freshResources.filter((resource) => resource.type === "Fahrzeug" && !resource.archived);
     setQuickTripForm((current) => {
-      const resourceId = current.resourceId || activeVehicles[0]?.id || "";
-      const defaults = quickTripDefaultsForVehicle(resourceId);
+      const resourceId = current.resourceId || freshVehicles[0]?.id || activeVehicles[0]?.id || "";
+      const defaults = quickTripDefaultsForVehicle(resourceId, freshResources);
       return {
         ...current,
         date: currentLocalDateValue(),
@@ -12388,9 +12419,20 @@ function FieldView({
     };
   }
 
-  async function uploadFieldPhotoInBackground(taskId: string, photoId: string, file: File) {
+  function fieldPhotoUploadName(file: File) {
+    const baseName = file.name.replace(/\.[^.]+$/, "") || "einsatzfoto";
+    return `${baseName}.jpg`;
+  }
+
+  async function uploadFieldPhotoInBackground(taskId: string, photoId: string, file: File, previewUrl?: string) {
     try {
-      const uploaded = await uploadMediaFile(file, "field-photos", file.name);
+      if (!previewUrl?.startsWith("data:image/")) {
+        throw new Error("Bild konnte nicht als JPEG-Vorschau vorbereitet werden.");
+      }
+      const uploadSource = previewUrl?.startsWith("data:image/")
+        ? await dataUrlToBlob(previewUrl)
+        : file;
+      const uploaded = await uploadMediaFile(uploadSource, "field-photos", fieldPhotoUploadName(file));
       if (!uploaded) {
         updateTaskPhotos(taskId, progressRef.current[taskId] ?? { completed: false, minutes: "", note: "", photos: [] }, (photos) => (
           photos.map((photo) => (
@@ -12445,20 +12487,26 @@ function FieldView({
 
     setPreparingFieldPhotos((current) => current + selectedFiles.length);
     try {
-      const nextPhotos = await Promise.all(selectedFiles.map(async (file) => {
+      const preparedPhotos = await Promise.all(selectedFiles.map(async (file) => {
         try {
-          return createFieldPhoto(file, await fileToFieldPhotoPreview(file));
+          const previewUrl = await fileToFieldPhotoPreview(file);
+          return previewUrl ? createFieldPhoto(file, previewUrl) : null;
         } catch (error) {
           console.warn("Einsatzfoto-Vorschau konnte nicht erstellt werden.", error);
-          return createFieldPhoto(file);
+          return null;
         }
       }));
+      const nextPhotos = preparedPhotos.filter((photo): photo is FieldPhoto => Boolean(photo));
+      if (nextPhotos.length < selectedFiles.length) {
+        setPendingAttachmentNotice(tt("Ein Foto konnte nicht vorbereitet werden. Bitte als JPEG, PNG oder WebP aufnehmen."));
+      }
+      if (!nextPhotos.length) return;
 
       updateTaskPhotos(taskId, currentTask, (photos) => [...photos, ...nextPhotos]);
       if (nextPhotos[0]) openPhotoNoteEditor(taskId, nextPhotos[0]);
       nextPhotos.forEach((photo, index) => {
         const file = selectedFiles[index];
-        if (photo.id && file) void uploadFieldPhotoInBackground(taskId, photo.id, file);
+        if (photo.id && file) void uploadFieldPhotoInBackground(taskId, photo.id, file, photo.previewUrl);
       });
     } finally {
       setPreparingFieldPhotos((current) => Math.max(0, current - selectedFiles.length));
@@ -12693,7 +12741,7 @@ function FieldView({
                   <Camera size={16} />
                   <input
                     aria-label={`Bild zu ${task.title} erfassen`}
-                    accept="image/*"
+                    accept="image/jpeg,image/png,image/webp"
                     capture="environment"
                     disabled={reportLocked}
                     multiple

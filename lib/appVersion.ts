@@ -1,10 +1,20 @@
 export const appVersion = {
-  version: "1.346.0",
+  version: "1.347.0",
   releaseDate: "2026-09-09",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.347.0",
+    date: "2026-09-09",
+    changes: [
+      "Einsatzfotos im Mobil-vor-Ort-Bereich werden vor dem Upload konsequent als kleine JPEG-Datei vorbereitet",
+      "Der Foto-Upload versucht bei kurzer Stoerung automatisch erneut und blockiert nicht mit grossen HEIC-Originalen",
+      "Der Quickbutton Fahrt synchronisiert vor dem Oeffnen den aktuellen Fahrzeugstand fuer den Start-Km",
+      "GPS-Adressen mit Hausnummer und Ort, aber fehlendem Strassennamen, werden gegen bekannte Objektadressen vervollstaendigt",
+    ],
+  },
   {
     version: "1.346.0",
     date: "2026-09-09",
