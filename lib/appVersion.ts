@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.353.0",
+  version: "1.354.0",
   releaseDate: "2026-09-09",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.354.0",
+    date: "2026-09-09",
+    changes: [
+      "Beim Anlegen eines Auftrags koennen fehlende Kunden und Objekte direkt im Auftragsdialog erfasst werden",
+      "Neue Objekte werden sofort dem neu angelegten oder ausgewaehlten Kunden zugeordnet",
+      "Nach der Schnellanlage ist das neue Objekt direkt fuer den Auftrag ausgewaehlt",
+    ],
+  },
   {
     version: "1.353.0",
     date: "2026-09-09",

@@ -724,6 +724,17 @@ type NewJobFormState = {
   scheduleYearInterval: string;
 };
 
+type JobQuickMasterDataInput = {
+  customerAddress: string;
+  customerContact: string;
+  customerEmail: string;
+  customerId: string;
+  customerName: string;
+  customerPhone: string;
+  objectAddress: string;
+  objectName: string;
+};
+
 type CustomerFormState = {
   personalNumber: string;
   createdAt: string;
@@ -2281,7 +2292,7 @@ function recoverReportsFromFieldProgress(snapshot: AppSnapshot): AppSnapshot {
     });
 
     if (!changed) return report;
-    const photoCount = checklistResults.reduce((sum, item) => sum + item.photos.length, 0);
+    const photoCount = checklistResults.reduce((sum, item) => sum + item.photos.filter(fieldPhotoHasSource).length, 0);
     const visibleMinutes = visibleReportWorkMinutes(checklistResults);
     return {
       ...report,
@@ -2301,7 +2312,7 @@ function recoverReportsFromFieldProgress(snapshot: AppSnapshot): AppSnapshot {
 
       const checklistResults = reportResultsFromProgress(job, snapshot.services, progress);
       const completedCount = checklistResults.filter((item) => item.completed).length;
-      const photoCount = checklistResults.reduce((sum, item) => sum + item.photos.length, 0);
+      const photoCount = checklistResults.reduce((sum, item) => sum + item.photos.filter(fieldPhotoHasSource).length, 0);
       const visibleMinutes = visibleReportWorkMinutes(checklistResults);
       const fieldNote = snapshot.fieldNotes[fieldProgressKey(job, date)]?.trim();
 
@@ -6501,7 +6512,7 @@ function reportDedupeKey(report: ReportRecord) {
 
 function reportCompletenessScore(report: ReportRecord) {
   const checklistResults = report.checklistResults ?? [];
-  const photoCount = checklistResults.reduce((sum, item) => sum + (item.photos ?? []).length, 0);
+  const photoCount = checklistResults.reduce((sum, item) => sum + (item.photos ?? []).filter(fieldPhotoHasSource).length, 0);
   const noteCount = checklistResults.filter((item) => (item.note ?? "").trim()).length;
 
   return [
@@ -8122,6 +8133,56 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     setNewJob((current) => ({ ...current, billable: ownerCustomer?.billable ?? true }));
   }
 
+  function createMasterDataFromJob(input: JobQuickMasterDataInput) {
+    const existingCustomer = input.customerId
+      ? customers.find((customer) => customer.id === input.customerId)
+      : customers.find((customer) => (
+          !customer.archived
+          && input.customerName.trim()
+          && customer.name.trim().toLowerCase() === input.customerName.trim().toLowerCase()
+        ));
+    const customerId = existingCustomer?.id ?? createEntityId("CUS");
+    const customerAddress = input.customerAddress.trim() || input.objectAddress.trim() || "Eigentümeradresse offen";
+    const savedCustomer: CustomerRecord = existingCustomer ?? formToCustomer({
+      ...emptyCustomerForm(),
+      address: customerAddress,
+      billingAddress: customerAddress,
+      contact: input.customerContact.trim() || input.customerName.trim(),
+      email: input.customerEmail.trim(),
+      name: input.customerName.trim() || "Neuer Kunde",
+      phone: input.customerPhone.trim(),
+    }, customerId, undefined, createReadableNumber(customers.map((customer) => customer.personalNumber)));
+    const objectId = createEntityId("OBJ");
+    const objectAddress = input.objectAddress.trim() || customerAddress || "Adresse offen";
+    const savedObject = formToObject({
+      ...emptyObjectForm(),
+      address: objectAddress,
+      billingAddressMode: "Eigentümeradresse",
+      name: input.objectName.trim() || "Neues Objekt",
+      owner: savedCustomer.name,
+      ownerAddress: customerAddress,
+      ownerCustomerId: customerId,
+      ownerEmail: savedCustomer.email,
+      ownerPhone: savedCustomer.phone,
+      region: splitAddressParts(objectAddress).city || "Nybro",
+    }, objectId);
+    const nextCustomers = existingCustomer
+      ? customers.map((customer) => (
+          customer.id === customerId
+            ? { ...customer, objects: Array.from(new Set([...customer.objects, objectId])) }
+            : customer
+        ))
+      : [{ ...savedCustomer, objects: [objectId] }, ...customers];
+    const nextObjects = [savedObject, ...objects];
+
+    setCustomers(nextCustomers);
+    setObjects(nextObjects);
+    setSelectedObjectId(objectId);
+    setNewJob((current) => ({ ...current, billable: savedCustomer.billable ?? true }));
+    persistSnapshotNow({ customers: nextCustomers, objects: nextObjects }, { forceRemote: true });
+    setRecordNotice(`Kunde "${savedCustomer.name}" und Objekt "${savedObject.name}" wurden für den Auftrag angelegt.`);
+  }
+
   function openEditJob(job: JobRecord) {
     setEditingJobId(job.id);
     setSelectedObjectId(job.objectId);
@@ -8646,7 +8707,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     const workMinutes = normalizedResults.reduce((sum, item) => sum + item.minutes, 0);
     const visibleMinutes = visibleReportWorkMinutes(normalizedResults);
     const completedCount = normalizedResults.filter((item) => item.completed).length;
-    const photoCount = normalizedResults.reduce((sum, item) => sum + item.photos.length, 0);
+    const photoCount = normalizedResults.reduce((sum, item) => sum + item.photos.filter(fieldPhotoHasSource).length, 0);
     const reportId = existingReport?.id ?? (isMultiDayJob ? `REP-${job.id}-${executionDate}` : `REP-${Date.now()}`);
     const summaryPrefix = isMultiDayJob ? `Tagesbericht ${executionDate}: ` : "";
     const summary = `${summaryPrefix}${completedCount} von ${checklistResults.length} Checklistenpunkten ausgeführt.${fieldNote.trim() ? ` ${fieldNote.trim()}` : ""}`;
@@ -8839,7 +8900,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     });
 
     if (!changed) return report;
-    const photoCount = checklistResults.reduce((sum, item) => sum + item.photos.length, 0);
+    const photoCount = checklistResults.reduce((sum, item) => sum + item.photos.filter(fieldPhotoHasSource).length, 0);
     const visibleMinutes = visibleReportWorkMinutes(checklistResults);
     return {
       ...report,
@@ -10683,9 +10744,11 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
             </header>
             {modal === "job" && (
               <JobForm
+                customers={activeCustomers}
                 language={language}
                 newJob={newJob}
                 objects={activeObjects}
+                onCreateMasterData={createMasterDataFromJob}
                 selectedObject={selectedObject}
                 jobs={jobs}
                 materials={materials}
@@ -11271,33 +11334,43 @@ function CustomerReportCard({
         <div className="report-checklist">
           <strong>Kontrolle vor Ort</strong>
           <div className="report-task-list">
-            {report.checklistResults.map((item) => (
-              <article key={item.id}>
-                <div>
-                  <Badge value={item.completed ? "ausgeführt" : "nicht ausgeführt"} />
-                  <strong>{reportTaskTitle(item)}</strong>
-                  <span>{item.meta}</span>
-                </div>
-                <p>{item.description}</p>
-                <dl>
-                  {item.showWorkTimeInReport !== false && <div><dt>Zeit</dt><dd>{item.minutes} min.</dd></div>}
-                  <div><dt>Hinweis / Info</dt><dd>{item.note || "Keine zusätzliche Info erfasst."}</dd></div>
-                  <div><dt>Bilder</dt><dd>{item.photos.length > 0 ? `${item.photos.length} ${item.photos.length === 1 ? "Foto" : "Fotos"} erfasst` : "Keine Bilder erfasst."}</dd></div>
-                </dl>
-                {item.photos.length > 0 && (
-                  <div className="report-point-photos">
-                    {item.photos.map((photo) => (
-                      <ReportPhotoFigure
-                        alt={`Kontrollfoto ${photo.name}`}
-                        caption={photo.note?.trim() ? `${photo.name}: ${photo.note.trim()}` : photo.name}
-                        key={`${item.id}-${photo.id ?? photo.name}-inline`}
-                        photo={photo}
-                      />
-                    ))}
+            {report.checklistResults.map((item) => {
+              const visibleItemPhotos = item.photos.filter(fieldPhotoHasSource);
+              const missingPhotoCount = item.photos.length - visibleItemPhotos.length;
+              return (
+                <article key={item.id}>
+                  <div>
+                    <Badge value={item.completed ? "ausgeführt" : "nicht ausgeführt"} />
+                    <strong>{reportTaskTitle(item)}</strong>
+                    <span>{item.meta}</span>
                   </div>
-                )}
-              </article>
-            ))}
+                  <p>{item.description}</p>
+                  <dl>
+                    {item.showWorkTimeInReport !== false && <div><dt>Zeit</dt><dd>{item.minutes} min.</dd></div>}
+                    <div><dt>Hinweis / Info</dt><dd>{item.note || "Keine zusätzliche Info erfasst."}</dd></div>
+                    <div>
+                      <dt>Bilder</dt>
+                      <dd>
+                        {visibleItemPhotos.length > 0 ? `${visibleItemPhotos.length} ${visibleItemPhotos.length === 1 ? "Foto" : "Fotos"} sichtbar` : "Keine Bilder sichtbar."}
+                        {missingPhotoCount > 0 ? ` ${missingPhotoCount} Fotoquelle fehlt.` : ""}
+                      </dd>
+                    </div>
+                  </dl>
+                  {visibleItemPhotos.length > 0 && (
+                    <div className="report-point-photos">
+                      {visibleItemPhotos.map((photo) => (
+                        <ReportPhotoFigure
+                          alt={`Kontrollfoto ${photo.name}`}
+                          caption={photo.note?.trim() ? `${photo.name}: ${photo.note.trim()}` : photo.name}
+                          key={`${item.id}-${photo.id ?? photo.name}-inline`}
+                          photo={photo}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </article>
+              );
+            })}
           </div>
         </div>
       ) : job && job.checklist.length > 0 ? (
@@ -18975,6 +19048,7 @@ function CustomerForm({
 }
 
 function JobForm({
+  customers,
   customerMode = false,
   jobs,
   language,
@@ -18982,6 +19056,7 @@ function JobForm({
   newJob,
   setNewJob,
   objects,
+  onCreateMasterData,
   personnel,
   selectedObject,
   services,
@@ -18989,6 +19064,7 @@ function JobForm({
   onSubmit,
   submitLabel,
 }: {
+  customers: CustomerRecord[];
   customerMode?: boolean;
   jobs: JobRecord[];
   language: Language;
@@ -18996,6 +19072,7 @@ function JobForm({
   newJob: NewJobFormState;
   setNewJob: (value: NewJobFormState) => void;
   objects: ObjectRecord[];
+  onCreateMasterData?: (input: JobQuickMasterDataInput) => void;
   personnel: PersonnelRecord[];
   selectedObject: ObjectRecord;
   services: ServiceItem[];
@@ -19009,6 +19086,17 @@ function JobForm({
   const [serviceSearch, setServiceSearch] = useState("");
   const [materialEntryMode, setMaterialEntryMode] = useState<"" | "catalog" | "manual">("");
   const [materialSearch, setMaterialSearch] = useState("");
+  const [quickMasterOpen, setQuickMasterOpen] = useState(false);
+  const [quickMaster, setQuickMaster] = useState<JobQuickMasterDataInput>({
+    customerAddress: "",
+    customerContact: "",
+    customerEmail: "",
+    customerId: "",
+    customerName: "",
+    customerPhone: "",
+    objectAddress: "",
+    objectName: "",
+  });
   const selectableJobServices = services.filter((service) => !service.archived && !newJob.serviceIds.includes(service.id));
   const normalizedServiceSearch = serviceSearch.trim().toLowerCase();
   const filteredJobServices = normalizedServiceSearch
@@ -19059,6 +19147,37 @@ function JobForm({
 
   function update(key: keyof typeof newJob, value: string | string[]) {
     setNewJob({ ...newJob, [key]: value });
+  }
+
+  function updateQuickMaster(key: keyof JobQuickMasterDataInput, value: string) {
+    const selectedCustomer = key === "customerId" ? customers.find((customer) => customer.id === value) : undefined;
+    setQuickMaster({
+      ...quickMaster,
+      [key]: value,
+      ...(selectedCustomer ? {
+        customerAddress: selectedCustomer.address,
+        customerContact: selectedCustomer.contact,
+        customerEmail: selectedCustomer.email,
+        customerName: selectedCustomer.name,
+        customerPhone: selectedCustomer.phone,
+      } : {}),
+    });
+  }
+
+  function submitQuickMaster() {
+    if (!onCreateMasterData || !quickMaster.objectName.trim()) return;
+    onCreateMasterData(quickMaster);
+    setQuickMaster({
+      customerAddress: "",
+      customerContact: "",
+      customerEmail: "",
+      customerId: "",
+      customerName: "",
+      customerPhone: "",
+      objectAddress: "",
+      objectName: "",
+    });
+    setQuickMasterOpen(false);
   }
 
   function updateStartDate(value: string) {
@@ -19277,6 +19396,39 @@ function JobForm({
           {objects.map((object) => <option key={object.id} value={object.id}>{object.name}</option>)}
         </select>
       </label>
+      {!customerMode && onCreateMasterData && (
+        <section className="wide job-quick-master-section">
+          <button className="ghost-button" onClick={() => setQuickMasterOpen((current) => !current)} type="button">
+            <Plus size={16} />
+            Kunde / Objekt direkt anlegen
+          </button>
+          {quickMasterOpen && (
+            <div className="job-quick-master-grid">
+              <label>
+                <span>Bestehender Kunde</span>
+                <select value={quickMaster.customerId} onChange={(event) => updateQuickMaster("customerId", event.target.value)}>
+                  <option value="">Neuen Kunden erfassen</option>
+                  {customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}</option>)}
+                </select>
+              </label>
+              {!quickMaster.customerId && (
+                <>
+                  <label><span>Kundenname</span><input value={quickMaster.customerName} onChange={(event) => updateQuickMaster("customerName", event.target.value)} /></label>
+                  <label><span>Ansprechpartner</span><input value={quickMaster.customerContact} onChange={(event) => updateQuickMaster("customerContact", event.target.value)} /></label>
+                  <label><span>E-Mail</span><input type="email" value={quickMaster.customerEmail} onChange={(event) => updateQuickMaster("customerEmail", event.target.value)} /></label>
+                  <label><span>Telefon</span><input value={quickMaster.customerPhone} onChange={(event) => updateQuickMaster("customerPhone", event.target.value)} /></label>
+                  <label><span>Kundenadresse</span><input value={quickMaster.customerAddress} onChange={(event) => updateQuickMaster("customerAddress", event.target.value)} /></label>
+                </>
+              )}
+              <label><span>Objektname</span><input value={quickMaster.objectName} onChange={(event) => updateQuickMaster("objectName", event.target.value)} /></label>
+              <label><span>Objektadresse</span><input value={quickMaster.objectAddress} onChange={(event) => updateQuickMaster("objectAddress", event.target.value)} /></label>
+              <button className="primary-button" disabled={!quickMaster.objectName.trim() || (!quickMaster.customerId && !quickMaster.customerName.trim())} onClick={submitQuickMaster} type="button">
+                Kunde / Objekt übernehmen
+              </button>
+            </div>
+          )}
+        </section>
+      )}
       <label>
         <span>Auftragstyp</span>
         <select value={newJob.type} onChange={(event) => update("type", event.target.value)}>

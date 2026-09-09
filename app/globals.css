@@ -4764,6 +4764,29 @@ mark.neutral {
   padding: 0 2px 16px;
 }
 
+.job-quick-master-section {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+}
+
+.job-quick-master-section > .ghost-button {
+  justify-self: start;
+}
+
+.job-quick-master-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.job-quick-master-grid .primary-button {
+  align-self: end;
+  min-height: 44px;
+}
+
 @media (min-width: 1180px) {
   .job-editor-modal .form-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -4771,6 +4794,12 @@ mark.neutral {
 
   .job-editor-modal .job-date-row {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .job-quick-master-grid {
+    grid-template-columns: 1fr;
   }
 }
 
