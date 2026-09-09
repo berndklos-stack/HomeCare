@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.350.0",
+  version: "1.351.0",
   releaseDate: "2026-09-09",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.351.0",
+    date: "2026-09-09",
+    changes: [
+      "Bereits gespeicherte Berichtsfotos mit haengendem Upload-Status werden beim Laden automatisch erkannt",
+      "Ausstehende Berichtsfotos werden im Hintergrund erneut nach Supabase hochgeladen",
+      "Nach erfolgreichem Reparatur-Upload ersetzt die App lokale Bilddaten durch die Supabase-URL",
+    ],
+  },
   {
     version: "1.350.0",
     date: "2026-09-09",

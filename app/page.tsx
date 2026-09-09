@@ -2324,7 +2324,7 @@ function recoverReportsFromFieldProgress(snapshot: AppSnapshot): AppSnapshot {
 
   return {
     ...snapshot,
-    reports: dedupeReports([...recoveredReports, ...repairedReports]),
+    reports: dedupeReports([...recoveredReports, ...repairedReports]).map(normalizeReportPhotoUploadStates),
   };
 }
 
@@ -2749,6 +2749,7 @@ function mergeSnapshots(remoteSnapshot: AppSnapshot, localSnapshot: AppSnapshot)
   ]));
   const deletedReportIdSet = new Set(deletedReportIds);
   const reports = dedupeReports([...(secondarySnapshot.reports ?? []), ...(primarySnapshot.reports ?? [])])
+    .map(normalizeReportPhotoUploadStates)
     .filter((report) => !deletedReportIdSet.has(report.id));
   const jobs = filterDeletedRecords(mergeJobsById(primarySnapshot.jobs, secondarySnapshot.jobs), deletedEntityIds, "jobs");
   const activeJobId = localSnapshot.activeJobId && jobs.some((job) => job.id === localSnapshot.activeJobId && canRestoreActiveFieldJob(job))
@@ -2887,7 +2888,8 @@ function fieldPhotoUploadIsStale(photo: FieldPhoto, maxAgeMs = 45_000) {
 }
 
 function normalizeFieldPhotoUploadState(photo: FieldPhoto) {
-  return fieldPhotoUploadIsStale(photo, 30_000) && photo.previewUrl
+  const uploadIsMissing = photo.uploadStatus === "uploading" && photo.previewUrl && !photo.storagePath;
+  return (fieldPhotoUploadIsStale(photo, 30_000) || (uploadIsMissing && !photo.createdAt)) && photo.previewUrl
     ? { ...photo, uploadStatus: "queued" as const, uploadError: "Upload wartet auf erneuten Versuch." }
     : photo;
 }
@@ -2903,6 +2905,21 @@ function fieldPhotoUploadLabel(photo: FieldPhoto, translate: (value: string) => 
 
 function normalizeFieldPhotosForSave(photos: FieldPhoto[]) {
   return photos.map((photo) => normalizeFieldPhotoUploadState(photo));
+}
+
+function fieldPhotoUploadName(fileName: string) {
+  const baseName = fileName.replace(/\.[^.]+$/, "") || "einsatzfoto";
+  return `${baseName}.jpg`;
+}
+
+function normalizeReportPhotoUploadStates(report: ReportRecord) {
+  return {
+    ...report,
+    checklistResults: report.checklistResults.map((item) => ({
+      ...item,
+      photos: normalizeFieldPhotosForSave(item.photos ?? []),
+    })),
+  };
 }
 
 async function fileToReportAttachment(file: File): Promise<ReportAttachment> {
@@ -7302,6 +7319,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   const pendingRemoteSnapshotKeyRef = useRef<string | null>(null);
   const remoteSaveTimerRef = useRef<number | null>(null);
   const remoteSyncRunningRef = useRef(false);
+  const pendingReportPhotoUploadsRef = useRef<Set<string>>(new Set());
 
   const scheduleRemoteSave = useCallback((snapshot: AppSnapshot, delayMs = 2200) => {
     if (supabaseSyncDisabled) return;
@@ -7360,7 +7378,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   }, [appStorageReady, quickTripDraftLoaded, quickTripForm]);
 
   function applySnapshot(snapshot: AppSnapshot) {
-    const normalizedReports = dedupeReports(snapshot.reports);
+    const normalizedReports = dedupeReports(snapshot.reports).map(normalizeReportPhotoUploadStates);
     const cleanSnapshot = sanitizePersonnelSnapshot({ ...snapshot, reports: normalizedReports });
     const normalizedJobs = ensureSeriesOccurrences(cleanSnapshot.jobs, normalizedReports);
     const restoredActiveJob = snapshot.activeJobId
@@ -7394,6 +7412,59 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   useEffect(() => {
     reportsRef.current = reports;
   }, [reports]);
+
+  useEffect(() => {
+    if (!appStorageReady) return;
+    const pendingPhotos = reports.flatMap((report) => (
+      report.checklistResults.flatMap((item) => (
+        (item.photos ?? [])
+          .map((photo) => ({ itemId: item.id, photo: normalizeFieldPhotoUploadState(photo), reportId: report.id }))
+          .filter(({ photo }) => Boolean(photo.previewUrl?.startsWith("data:image/") && !photo.storagePath))
+      ))
+    ));
+    if (!pendingPhotos.length) return;
+
+    pendingPhotos.slice(0, 4).forEach(({ itemId, photo, reportId }) => {
+      const photoId = photo.id ?? `${reportId}-${itemId}-${photo.name}`;
+      const uploadKey = `${reportId}:${itemId}:${photoId}`;
+      if (pendingReportPhotoUploadsRef.current.has(uploadKey) || !photo.previewUrl) return;
+      pendingReportPhotoUploadsRef.current.add(uploadKey);
+
+      void (async () => {
+        try {
+          const previewUrl = photo.previewUrl;
+          if (!previewUrl) return;
+          const uploaded = await uploadMediaFile(await dataUrlToBlob(previewUrl), "field-photos", fieldPhotoUploadName(photo.name || "einsatzfoto.jpg"));
+          const nextReports = reportsRef.current.map((report) => {
+            if (report.id !== reportId || !uploaded) return report;
+            return {
+              ...report,
+              checklistResults: report.checklistResults.map((item) => {
+                if (item.id !== itemId) return item;
+                return {
+                  ...item,
+                  photos: (item.photos ?? []).map((itemPhoto) => {
+                    const samePhoto = itemPhoto.id ? itemPhoto.id === photo.id : itemPhoto.name === photo.name && itemPhoto.previewUrl === photo.previewUrl;
+                    return samePhoto
+                      ? { ...itemPhoto, previewUrl: uploaded.url, storagePath: uploaded.path, uploadError: undefined, uploadStatus: "uploaded" as const }
+                      : itemPhoto;
+                  }),
+                };
+              }),
+              updatedAt: new Date().toISOString(),
+            };
+          });
+          if (uploaded) {
+            reportsRef.current = nextReports;
+            setReports(nextReports);
+            persistSnapshotNow({ reports: nextReports }, { forceRemote: true });
+          }
+        } finally {
+          pendingReportPhotoUploadsRef.current.delete(uploadKey);
+        }
+      })();
+    });
+  }, [appStorageReady, reports]);
 
   useEffect(() => {
     let cancelled = false;
@@ -12452,11 +12523,6 @@ function FieldView({
       uploadStatus: "uploading",
       ...(previewUrl ? { previewUrl } : {}),
     };
-  }
-
-  function fieldPhotoUploadName(fileName: string) {
-    const baseName = fileName.replace(/\.[^.]+$/, "") || "einsatzfoto";
-    return `${baseName}.jpg`;
   }
 
   async function uploadFieldPhotoInBackground(taskId: string, photoId: string, fileName: string, previewUrl?: string) {
