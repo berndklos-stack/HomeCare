@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.343.0",
+  version: "1.344.0",
   releaseDate: "2026-09-09",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.344.0",
+    date: "2026-09-09",
+    changes: [
+      "Mobil-vor-Ort-Aufgaben werden beim Oeffnen nicht mehr automatisch abgehakt",
+      "Die Option Zeit im Bericht anzeigen wird als schlichte Checkbox-Zeile ohne umrandeten Eingabeblock dargestellt",
+    ],
+  },
   {
     version: "1.343.0",
     date: "2026-09-09",

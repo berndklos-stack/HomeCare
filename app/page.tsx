@@ -12202,10 +12202,10 @@ function FieldView({
         : task.defaultShowWorkTimeInReport ?? true;
   }
 
-  function valueForTask(task: FieldTask, index: number) {
+  function valueForTask(task: FieldTask) {
     const customerDefault = defaultTimeVisibilityForTask(task);
     return progress[task.id] ?? {
-      completed: index < 1,
+      completed: false,
       minutes: task.defaultMinutes ? String(task.defaultMinutes) : "",
       note: "",
       photos: [],
@@ -12345,8 +12345,8 @@ function FieldView({
     if (preparingFieldPhotos > 0) {
       return;
     }
-    const results = fieldTasks.map((task, index) => {
-      const currentTask = valueForTask(task, index);
+    const results = fieldTasks.map((task) => {
+      const currentTask = valueForTask(task);
       return {
         id: task.id,
         title: task.title,
@@ -12530,7 +12530,7 @@ function FieldView({
         )}
         <div className="service-task-list">
           {fieldTasks.map((task, index) => {
-            const currentTask = valueForTask(task, index);
+            const currentTask = valueForTask(task);
             const currentTime = splitWorkMinutes(currentTask.minutes);
 
             return (

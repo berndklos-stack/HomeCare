@@ -2127,6 +2127,29 @@ mark.neutral {
   resize: vertical;
 }
 
+.field-task-inputs .field-time-visibility {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  grid-column: 1 / -1;
+  margin-top: -2px;
+}
+
+.field-task-inputs .field-time-visibility input {
+  background: initial;
+  border: 0;
+  border-radius: 0;
+  flex: 0 0 auto;
+  min-height: 0;
+  padding: 0;
+  width: 24px;
+}
+
+.field-task-inputs .field-time-visibility span {
+  color: var(--muted);
+  line-height: 1.25;
+}
+
 .field-photo-capture {
   display: grid;
   gap: 10px;
