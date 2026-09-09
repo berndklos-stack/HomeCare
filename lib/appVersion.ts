@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.345.0",
+  version: "1.346.0",
   releaseDate: "2026-09-09",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.346.0",
+    date: "2026-09-09",
+    changes: [
+      "Nachbearbeitete Berichte koennen direkt wieder als gesendet markiert werden",
+      "Beim Speichern einer Nachbearbeitung werden Datum, Uhrzeit und geaenderte Bereiche in den internen Notizen protokolliert",
+      "Der Vor-Ort-Dialog bietet dafuer einen eigenen Button Speichern und als gesendet markieren",
+    ],
+  },
   {
     version: "1.345.0",
     date: "2026-09-09",

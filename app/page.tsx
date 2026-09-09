@@ -238,6 +238,10 @@ type ReportRecord = {
   updatedAt?: string;
 };
 
+type CompleteJobOptions = {
+  markSentAgain?: boolean;
+};
+
 type ReportAttachment = {
   createdAt: string;
   dataUrl?: string;
@@ -1446,6 +1450,8 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Bericht nachbearbeiten", sv: "Efterredigera rapport", en: "Edit report afterwards" },
   { de: "Bericht konnte nicht entsperrt werden.", sv: "Rapporten kunde inte låsas upp.", en: "Report could not be unlocked." },
   { de: "Bericht wurde für Nachbearbeitung entsperrt.", sv: "Rapporten har låsts upp för efterredigering.", en: "Report was unlocked for follow-up editing." },
+  { de: "Bericht wurde gespeichert und wieder als gesendet markiert.", sv: "Rapporten har sparats och markerats som skickad igen.", en: "Report was saved and marked as sent again." },
+  { de: "Bericht wurde nachbearbeitet.", sv: "Rapporten har efterredigerats.", en: "Report was edited afterwards." },
   { de: "Berichtstext", sv: "Rapporttext", en: "Report text" },
   { de: "Bitte zuerst ein Fahrzeug für das Fahrtenbuch anlegen oder auswählen.", sv: "Skapa eller välj först ett fordon för körjournalen.", en: "Please create or select a vehicle for the logbook first." },
   { de: "Bestand aktuell", sv: "Aktuellt lager", en: "Current stock" },
@@ -1542,6 +1548,11 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Statusauswahl schließen", sv: "Stäng statusval", en: "Close status selection" },
   { de: "Tagesbericht zwischenspeichern", sv: "Mellanspara dagsrapport", en: "Save daily report draft" },
   { de: "Bericht speichern", sv: "Spara rapport", en: "Save report" },
+  { de: "Speichern und als gesendet markieren", sv: "Spara och markera som skickad", en: "Save and mark as sent" },
+  { de: "Nachbearbeitung gespeichert.", sv: "Efterredigeringen har sparats.", en: "Follow-up edit saved." },
+  { de: "Nachbearbeitung gespeichert und Versandstatus wieder auf gesendet gesetzt.", sv: "Efterredigeringen har sparats och sändningsstatusen har satts till skickad igen.", en: "Follow-up edit saved and send status set back to sent." },
+  { de: "Änderungen", sv: "Ändringar", en: "Changes" },
+  { de: "keine inhaltlichen Änderungen", sv: "inga innehållsändringar", en: "no content changes" },
   { de: "Berichtsübersicht", sv: "Rapportöversikt", en: "Report overview" },
   { de: "Bericht, Objekt, Datum...", sv: "Rapport, objekt, datum...", en: "Report, property, date..." },
   { de: "Nicht gesendet", sv: "Inte skickad", en: "Not sent" },
@@ -2786,6 +2797,47 @@ function reportMediaLabels(photoCount: number, visibleMinutes: number, extraLabe
     ...(visibleMinutes > 0 ? [`${visibleMinutes} Minuten dokumentiert`] : []),
     ...extraLabels,
   ];
+}
+
+function reportEditChangeSummary(previousReport: ReportRecord | undefined, nextReport: ReportRecord) {
+  if (!previousReport) return [];
+  const changes: string[] = [];
+  const previousResults = new Map(previousReport.checklistResults.map((item) => [item.id, item]));
+
+  if ((previousReport.summary ?? "") !== nextReport.summary) changes.push("Berichtstext");
+  if ((previousReport.customerComment ?? "") !== (nextReport.customerComment ?? "")) changes.push("Kundenkommentar");
+  if ((previousReport.attachments ?? []).length !== (nextReport.attachments ?? []).length) {
+    changes.push(`Anhänge ${(previousReport.attachments ?? []).length} -> ${(nextReport.attachments ?? []).length}`);
+  }
+
+  let changedChecklistItems = 0;
+  let previousPhotos = 0;
+  let nextPhotos = 0;
+  nextReport.checklistResults.forEach((item) => {
+    const previous = previousResults.get(item.id);
+    previousPhotos += previous?.photos.length ?? 0;
+    nextPhotos += item.photos.length;
+    if (!previous) {
+      changedChecklistItems += 1;
+      return;
+    }
+    if (
+      previous.completed !== item.completed
+      || previous.minutes !== item.minutes
+      || previous.showWorkTimeInReport !== item.showWorkTimeInReport
+      || previous.note !== item.note
+      || previous.photos.length !== item.photos.length
+    ) {
+      changedChecklistItems += 1;
+    }
+  });
+
+  if (previousReport.checklistResults.length !== nextReport.checklistResults.length || changedChecklistItems > 0) {
+    changes.push(`${changedChecklistItems || nextReport.checklistResults.length} Checklistenpunkte`);
+  }
+  if (previousPhotos !== nextPhotos) changes.push(`Fotos ${previousPhotos} -> ${nextPhotos}`);
+
+  return changes;
 }
 
 function isGeneratedWeekCustomerComment(comment: string) {
@@ -8467,7 +8519,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     persistSnapshotNow({ jobs: nextJobs }, { forceRemote: true });
   }
 
-  function completeJob(job: JobRecord, checklistResults: FieldTaskResult[], fieldNote: string, workDate?: string, reportAttachments: ReportAttachment[] = [], fieldMaterial?: string) {
+  function completeJob(job: JobRecord, checklistResults: FieldTaskResult[], fieldNote: string, workDate?: string, reportAttachments: ReportAttachment[] = [], fieldMaterial?: string, options: CompleteJobOptions = {}) {
     const executionDate = normalizeReportDate(workDate || jobExecutionDate(job));
     const progressKey = fieldProgressKey(job, executionDate);
     const latestProgress = fieldProgress[progressKey] ?? {};
@@ -8524,21 +8576,35 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
           }
         : item
     ));
-    const savedReport: ReportRecord = {
+    const baseReport: ReportRecord = {
       id: reportId,
       jobId: job.id,
       objectId: job.objectId,
       title: job.title,
       date: existingReport?.date ?? executionDate,
       visibleToCustomer: existingReport?.visibleToCustomer ?? true,
-      summary: existingReport?.summary ?? summary,
-      internalNotes: job.internalNotes,
+      summary,
+      internalNotes: existingReport?.internalNotes ?? job.internalNotes,
       media: reportMediaLabels(photoCount, visibleMinutes),
       attachments: existingReport?.attachments ?? reportAttachments,
       checklistResults: normalizedResults,
       customerComment: existingReport?.customerComment ?? "",
-      sentAt: existingReport?.sentAt,
+      sentAt: options.markSentAgain ? reportUpdatedAt : existingReport?.sentAt,
       updatedAt: reportUpdatedAt,
+    };
+    const editChanges = reportEditChangeSummary(existingReport, baseReport);
+    const editProtocolLine = isReportEdit
+      ? [
+          formatCreatedAtWithSeconds(reportUpdatedAt),
+          options.markSentAgain ? tx("Nachbearbeitung gespeichert und Versandstatus wieder auf gesendet gesetzt.") : tx("Nachbearbeitung gespeichert."),
+          `${tx("Änderungen")}: ${editChanges.length > 0 ? editChanges.join(", ") : tx("keine inhaltlichen Änderungen")}`,
+        ].join(" · ")
+      : "";
+    const savedReport: ReportRecord = {
+      ...baseReport,
+      internalNotes: editProtocolLine
+        ? [baseReport.internalNotes?.trim(), editProtocolLine].filter(Boolean).join("\n")
+        : baseReport.internalNotes,
     };
     const nextReports = dedupeReports([
       savedReport,
@@ -8580,6 +8646,9 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     } else {
       setSection("objects");
       if (!isReportEdit) setCompletedReportPromptId(reportId);
+      if (isReportEdit) {
+        setRecordNotice(options.markSentAgain ? tx("Bericht wurde gespeichert und wieder als gesendet markiert.") : tx("Bericht wurde nachbearbeitet."));
+      }
     }
   }
 
@@ -12098,7 +12167,7 @@ function FieldView({
   onUnlockReport: (report: ReportRecord) => void;
   onUpdateJobMaterial: (job: JobRecord, material: string) => void;
   onUpdateReport: (report: ReportRecord, options?: { forceRemote?: boolean }) => void;
-  onComplete: (job: JobRecord, checklistResults: FieldTaskResult[], fieldNote: string, workDate?: string, reportAttachments?: ReportAttachment[], fieldMaterial?: string) => void;
+  onComplete: (job: JobRecord, checklistResults: FieldTaskResult[], fieldNote: string, workDate?: string, reportAttachments?: ReportAttachment[], fieldMaterial?: string, options?: CompleteJobOptions) => void;
 }) {
   const tt = (value: string) => uiText(value, language);
   const [showCompletedReports, setShowCompletedReports] = useState(false);
@@ -12413,7 +12482,7 @@ function FieldView({
     }
   }
 
-  function completeActiveJob() {
+  function completeActiveJob(options: CompleteJobOptions = {}) {
     if (preparingFieldPhotos > 0) {
       return;
     }
@@ -12433,7 +12502,7 @@ function FieldView({
       };
     });
 
-    onComplete(activeJob, results, fieldNote, activeWorkDate, pendingReportAttachments, materialDraft);
+    onComplete(activeJob, results, fieldNote, activeWorkDate, pendingReportAttachments, materialDraft, options);
     setPendingReportAttachments([]);
     setPendingAttachmentNotice("");
   }
@@ -12825,7 +12894,13 @@ function FieldView({
             )}
           </div>
         )}
-        <button className="primary-button" disabled={reportLocked || preparingFieldPhotos > 0} onClick={completeActiveJob} type="button">
+        {editingReportId && !reportLocked && (
+          <button className="ghost-button" disabled={preparingFieldPhotos > 0} onClick={() => completeActiveJob({ markSentAgain: true })} type="button">
+            <Send size={16} />
+            {tt("Speichern und als gesendet markieren")}
+          </button>
+        )}
+        <button className="primary-button" disabled={reportLocked || preparingFieldPhotos > 0} onClick={() => completeActiveJob()} type="button">
           {preparingFieldPhotos > 0 ? tt("Fotos werden vorbereitet...") : editingReportId ? tt("Bericht speichern") : workDates.length > 1 ? (isLastOpenWorkDate ? tt("Letzten Tag speichern und Auftrag abschließen") : tt("Tagesbericht zwischenspeichern")) : tt("Einsatz abschließen")}
         </button>
           </section>
