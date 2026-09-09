@@ -2878,12 +2878,30 @@ function fieldPhotoSource(photo: FieldPhoto) {
   return photo.previewUrl || mediaSourceFromStoragePath(photo.storagePath);
 }
 
+function fieldPhotoUploadIsStale(photo: FieldPhoto, maxAgeMs = 45_000) {
+  if (photo.uploadStatus !== "uploading" || photo.storagePath || photo.uploadError) return false;
+  if (!photo.createdAt) return false;
+  const createdTime = Date.parse(photo.createdAt);
+  return Number.isFinite(createdTime) && Date.now() - createdTime > maxAgeMs;
+}
+
+function normalizeFieldPhotoUploadState(photo: FieldPhoto) {
+  return fieldPhotoUploadIsStale(photo, 30_000) && photo.previewUrl
+    ? { ...photo, uploadStatus: "local" as const, uploadError: "Upload-Zeitlimit erreicht." }
+    : photo;
+}
+
 function fieldPhotoUploadLabel(photo: FieldPhoto, translate: (value: string) => string) {
-  if (photo.uploadStatus === "uploading") return translate("Foto wird hochgeladen");
-  if (photo.uploadStatus === "failed") return translate("Foto-Upload fehlgeschlagen");
-  if (photo.storagePath || photo.uploadStatus === "uploaded") return translate("Foto gespeichert");
-  if (photo.previewUrl || photo.uploadStatus === "local") return translate("Foto lokal gesichert");
+  const normalizedPhoto = normalizeFieldPhotoUploadState(photo);
+  if (normalizedPhoto.uploadStatus === "uploading") return translate("Foto wird hochgeladen");
+  if (normalizedPhoto.uploadStatus === "failed") return translate("Foto-Upload fehlgeschlagen");
+  if (normalizedPhoto.storagePath || normalizedPhoto.uploadStatus === "uploaded") return translate("Foto gespeichert");
+  if (normalizedPhoto.previewUrl || normalizedPhoto.uploadStatus === "local") return translate("Foto lokal gesichert");
   return "";
+}
+
+function normalizeFieldPhotosForSave(photos: FieldPhoto[]) {
+  return photos.map((photo) => normalizeFieldPhotoUploadState(photo));
 }
 
 async function fileToReportAttachment(file: File): Promise<ReportAttachment> {
@@ -5403,15 +5421,15 @@ function previewByteSize(previewUrl?: string) {
 
 async function fileToFieldPhotoPreview(file: File) {
   const attempts = [
-    { maxSize: 720, quality: 0.54 },
-    { maxSize: 560, quality: 0.48 },
-    { maxSize: 420, quality: 0.42 },
+    { maxSize: 1600, quality: 0.78 },
+    { maxSize: 1400, quality: 0.72 },
+    { maxSize: 1200, quality: 0.68 },
   ];
 
   let previewUrl = "";
   for (const attempt of attempts) {
     previewUrl = await fileToImagePreview(file, attempt.maxSize, attempt.quality);
-    if (previewByteSize(previewUrl) <= 260_000) {
+    if (previewByteSize(previewUrl) <= 1_400_000) {
       return previewUrl;
     }
   }
@@ -12425,6 +12443,16 @@ function FieldView({
   }
 
   async function uploadFieldPhotoInBackground(taskId: string, photoId: string, file: File, previewUrl?: string) {
+    const staleUploadTimer = window.setTimeout(() => {
+      updateTaskPhotos(taskId, progressRef.current[taskId] ?? { completed: false, minutes: "", note: "", photos: [] }, (photos) => (
+        photos.map((photo) => (
+          photo.id === photoId && photo.uploadStatus === "uploading" && photo.previewUrl && !photo.storagePath
+            ? { ...photo, uploadError: "Upload-Zeitlimit erreicht.", uploadStatus: "local" }
+            : photo
+        ))
+      ));
+    }, 30_000);
+
     try {
       if (!previewUrl?.startsWith("data:image/")) {
         throw new Error("Bild konnte nicht als JPEG-Vorschau vorbereitet werden.");
@@ -12459,6 +12487,8 @@ function FieldView({
             : photo
         ))
       ));
+    } finally {
+      window.clearTimeout(staleUploadTimer);
     }
   }
 
@@ -12545,7 +12575,7 @@ function FieldView({
         minutes: Number(currentTask.minutes) || 0,
         showWorkTimeInReport: currentTask.showWorkTimeInReport ?? defaultTimeVisibilityForTask(task),
         note: currentTask.note.trim(),
-        photos: currentTask.photos,
+        photos: normalizeFieldPhotosForSave(currentTask.photos),
         updatedAt: currentTask.updatedAt,
       };
     });

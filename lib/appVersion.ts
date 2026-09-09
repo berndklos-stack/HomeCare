@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.347.0",
+  version: "1.348.0",
   releaseDate: "2026-09-09",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.348.0",
+    date: "2026-09-09",
+    changes: [
+      "Haengende Einsatzfoto-Uploads wechseln nach Zeitlimit automatisch auf lokal gesichert",
+      "Alte Fotos mit dauerhaftem Upload-Status werden beim Anzeigen und Speichern normalisiert",
+      "Der Vor-Ort-Bericht bleibt speicherbar, auch wenn ein Foto-Upload online nicht rechtzeitig fertig wird",
+    ],
+  },
   {
     version: "1.347.0",
     date: "2026-09-09",
