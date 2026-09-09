@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.352.0",
+  version: "1.353.0",
   releaseDate: "2026-09-09",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.353.0",
+    date: "2026-09-09",
+    changes: [
+      "Fehlende Berichtsfotoquellen koennen gezielt aus App-Backups wiederhergestellt werden",
+      "Die Foto-Reparatur ergaenzt nur Bilder im passenden Bericht und setzt keinen kompletten Datenstand zurueck",
+      "Wiederhergestellte Berichtsfotos werden mit vorhandener Supabase-Quelle direkt als hochgeladen markiert",
+    ],
+  },
   {
     version: "1.352.0",
     date: "2026-09-09",
