@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.355.0",
+  version: "1.356.0",
   releaseDate: "2026-09-09",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.356.0",
+    date: "2026-09-09",
+    changes: [
+      "Wartende Foto-Uploads zeigen im Mobil-vor-Ort-Bericht einen gut sichtbaren Button zum erneuten Starten",
+      "Der bisherige Einzel-Retry pro Foto bleibt direkt am Foto verfuegbar",
+      "Neue Upload-Retry-Texte sind in Deutsch, Schwedisch und Englisch hinterlegt",
+    ],
+  },
   {
     version: "1.355.0",
     date: "2026-09-09",

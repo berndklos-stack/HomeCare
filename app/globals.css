@@ -4787,6 +4787,17 @@ mark.neutral {
   min-height: 44px;
 }
 
+.field-upload-retry-line {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+
+.field-upload-retry-line .ghost-button {
+  width: auto;
+}
+
 @media (min-width: 1180px) {
   .job-editor-modal .form-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));

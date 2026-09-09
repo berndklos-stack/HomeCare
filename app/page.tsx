@@ -1511,6 +1511,8 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Foto erfasst", sv: "Foto registrerat", en: "Photo captured" },
   { de: "Foto-Info", sv: "Fotoinfo", en: "Photo info" },
   { de: "Foto-Upload wartet", sv: "Bilduppladdning väntar", en: "Photo upload waiting" },
+  { de: "Foto-Uploads warten", sv: "Bilduppladdningar väntar", en: "Photo uploads waiting" },
+  { de: "Foto-Upload erneut starten", sv: "Starta bilduppladdning igen", en: "Restart photo upload" },
   { de: "Upload erneut versuchen", sv: "Försök ladda upp igen", en: "Retry upload" },
   { de: "Fotovorschau", sv: "Fotoförhandsvisning", en: "Photo preview" },
   { de: "Fällig", sv: "Förfaller", en: "Due" },
@@ -12794,6 +12796,14 @@ function FieldView({
 
   const activeStatusIsClosed = ["erledigt", "abgerechnet", "storniert"].includes(activeJob.status);
   const showKeepCurrentStatus = !editingReportId && !activeStatusIsClosed;
+  const retryableFieldPhotoCount = Object.values(progress).reduce((sum, task) => (
+    sum + task.photos.filter((photo) => {
+      const normalizedPhoto = normalizeFieldPhotoUploadState(photo);
+      return !normalizedPhoto.storagePath
+        && normalizedPhoto.previewUrl?.startsWith("data:image/")
+        && ["queued", "failed"].includes(normalizedPhoto.uploadStatus ?? "");
+    }).length
+  ), 0);
 
   return (
     <section className="field-shell">
@@ -12916,6 +12926,15 @@ function FieldView({
           </div>
         </div>
         {reportLocked && <div className="warning-line">{tt("Dieser Bericht wurde gesendet und ist für Änderungen gesperrt.")} {activeReport?.sentAt}</div>}
+        {!reportLocked && retryableFieldPhotoCount > 0 && (
+          <div className="warning-line field-upload-retry-line">
+            <span>{retryableFieldPhotoCount} {retryableFieldPhotoCount === 1 ? tt("Foto-Upload wartet") : tt("Foto-Uploads warten")}</span>
+            <button className="ghost-button compact" onClick={retryQueuedFieldPhotoUploads} type="button">
+              <RefreshCw size={16} />
+              {tt("Foto-Upload erneut starten")}
+            </button>
+          </div>
+        )}
         <span>{object.name} · {displayAddress(object.address)}</span>
         <div className="field-summary">
           <strong>{activeJob.assignedTo}</strong>
