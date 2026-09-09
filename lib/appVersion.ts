@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.357.0",
+  version: "1.358.0",
   releaseDate: "2026-09-09",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.358.0",
+    date: "2026-09-09",
+    changes: [
+      "Die Auftragsanlage ist kompakter und klarer als Apple-artiger Dialog aufgebaut",
+      "Basisdaten, Termin, Zuständigkeit und Abrechnung sind in einer ruhigen Kopfzone zusammengefasst",
+      "Schnellanlage fuer Kunde und Objekt ist jetzt ein kompakter Plus-Button statt eines grossen Leerblocks",
+    ],
+  },
   {
     version: "1.357.0",
     date: "2026-09-09",

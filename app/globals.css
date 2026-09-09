@@ -3035,6 +3035,87 @@ mark.neutral {
   padding: 12px;
 }
 
+.job-form-layout {
+  gap: 10px;
+}
+
+.job-form-panel {
+  background: color-mix(in srgb, var(--paper-soft), var(--paper) 28%);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.job-form-topline {
+  align-items: end;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(260px, 1.25fr) minmax(220px, 0.9fr) auto;
+}
+
+.job-form-topline label,
+.job-form-control-grid label {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.job-form-control-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.job-form-control-grid > label {
+  grid-column: span 2;
+}
+
+.job-inline-create-button {
+  align-self: end;
+  height: 42px;
+  justify-content: center;
+  min-width: 168px;
+  white-space: nowrap;
+  width: auto;
+}
+
+.job-billing-compact {
+  align-items: center;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  min-height: 50px;
+  padding: 8px 10px;
+}
+
+.job-billing-compact div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.job-billing-compact strong {
+  color: var(--foreground);
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+.job-billing-compact span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.job-billing-compact .checkbox-line {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
 .position-action-row {
   display: flex;
   flex-wrap: wrap;
@@ -4764,16 +4845,23 @@ mark.neutral {
   padding: 0 2px 16px;
 }
 
+.job-editor-modal .form-grid input,
+.job-editor-modal .form-grid select {
+  min-height: 40px;
+  padding: 8px 10px;
+}
+
+.job-editor-modal .form-grid textarea {
+  min-height: 74px;
+}
+
 .job-quick-master-section {
+  background: var(--paper);
   border: 1px solid var(--line);
   border-radius: 8px;
   display: grid;
   gap: 12px;
-  padding: 12px;
-}
-
-.job-quick-master-section > .ghost-button {
-  justify-self: start;
+  padding: 10px;
 }
 
 .job-quick-master-grid {
@@ -4809,6 +4897,25 @@ mark.neutral {
 }
 
 @media (max-width: 900px) {
+  .job-form-topline,
+  .job-form-control-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .job-form-control-grid > label {
+    grid-column: auto;
+  }
+
+  .job-inline-create-button,
+  .job-billing-compact .checkbox-line {
+    width: 100%;
+  }
+
+  .job-billing-compact {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
   .job-quick-master-grid {
     grid-template-columns: 1fr;
   }

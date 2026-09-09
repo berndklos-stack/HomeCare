@@ -19428,21 +19428,28 @@ function JobForm({
   }
 
   return (
-    <div className="form-grid">
-      <label className="wide"><span>Titel</span><input value={newJob.title} onChange={(event) => update("title", event.target.value)} /></label>
-      <label>
-        <span>Objekt</span>
-        <select value={selectedObject.id} onChange={(event) => setSelectedObjectId(event.target.value)}>
-          {objects.map((object) => <option key={object.id} value={object.id}>{object.name}</option>)}
-        </select>
-      </label>
-      {!customerMode && onCreateMasterData && (
-        <section className="wide job-quick-master-section">
-          <button className="ghost-button" onClick={() => setQuickMasterOpen((current) => !current)} type="button">
-            <Plus size={16} />
-            Kunde / Objekt direkt anlegen
-          </button>
-          {quickMasterOpen && (
+    <div className="form-grid job-form-layout">
+      <section className="wide job-form-panel job-form-basics">
+        <div className="job-form-topline">
+          <label className="job-title-field">
+            <span>Titel</span>
+            <input value={newJob.title} onChange={(event) => update("title", event.target.value)} />
+          </label>
+          <label>
+            <span>Objekt</span>
+            <select value={selectedObject.id} onChange={(event) => setSelectedObjectId(event.target.value)}>
+              {objects.map((object) => <option key={object.id} value={object.id}>{object.name}</option>)}
+            </select>
+          </label>
+          {!customerMode && onCreateMasterData && (
+            <button className="ghost-button job-inline-create-button" onClick={() => setQuickMasterOpen((current) => !current)} type="button">
+              <Plus size={16} />
+              Kunde / Objekt
+            </button>
+          )}
+        </div>
+        {!customerMode && onCreateMasterData && quickMasterOpen && (
+          <section className="job-quick-master-section">
             <div className="job-quick-master-grid">
               <label>
                 <span>Bestehender Kunde</span>
@@ -19466,65 +19473,71 @@ function JobForm({
                 Kunde / Objekt übernehmen
               </button>
             </div>
+          </section>
+        )}
+        <div className="job-form-control-grid">
+          <label>
+            <span>Auftragstyp</span>
+            <select value={newJob.type} onChange={(event) => update("type", event.target.value)}>
+              {jobTypeOptions.map((type) => <option key={type} value={type}>{type}</option>)}
+            </select>
+          </label>
+          <label>
+            <span>Priorität</span>
+            <select value={newJob.priority} onChange={(event) => update("priority", event.target.value)}>
+              <option>niedrig</option>
+              <option>normal</option>
+              <option>hoch</option>
+              <option>dringend</option>
+            </select>
+          </label>
+          {!customerMode && (
+            <label>
+              <span>Status</span>
+              <select value={newJob.status} onChange={(event) => update("status", event.target.value as JobRecord["status"])}>
+                <option value="offerte">Offerte</option>
+                <option value="geplant">Auftrag geplant</option>
+                <option value="in Arbeit">in Arbeit</option>
+                <option value="pausiert">pausiert</option>
+                <option value="erledigt">erledigt</option>
+                <option value="abgerechnet">abgerechnet</option>
+                <option value="storniert">storniert</option>
+              </select>
+            </label>
           )}
-        </section>
-      )}
-      <label>
-        <span>Auftragstyp</span>
-        <select value={newJob.type} onChange={(event) => update("type", event.target.value)}>
-          {jobTypeOptions.map((type) => <option key={type} value={type}>{type}</option>)}
-        </select>
-      </label>
-      <label>
-        <span>Priorität</span>
-        <select value={newJob.priority} onChange={(event) => update("priority", event.target.value)}>
-          <option>niedrig</option>
-          <option>normal</option>
-          <option>hoch</option>
-          <option>dringend</option>
-        </select>
-      </label>
-      {!customerMode && (
-        <label>
-          <span>Status</span>
-          <select value={newJob.status} onChange={(event) => update("status", event.target.value as JobRecord["status"])}>
-            <option value="offerte">Offerte</option>
-            <option value="geplant">Auftrag geplant</option>
-            <option value="in Arbeit">in Arbeit</option>
-            <option value="pausiert">pausiert</option>
-            <option value="erledigt">erledigt</option>
-            <option value="abgerechnet">abgerechnet</option>
-            <option value="storniert">storniert</option>
-          </select>
-        </label>
-      )}
-      <section className="wide customer-preference-card job-billing-card">
-        <div>
-          <strong>Abrechnung</strong>
-          <span>Steuert, ob dieser Auftrag als Rechnungsentwurf vorbereitet wird.</span>
+          {!customerMode && (
+            <label>
+              <span>Zuständig</span>
+              <select value={isUnassignedJobAssignee(newJob.assignedTo) ? "" : newJob.assignedTo} onChange={(event) => update("assignedTo", event.target.value || "nicht zugewiesen")}>
+                <option value="">nicht zugewiesen</option>
+                {personnelNames.map((name) => <option key={name} value={name}>{name}</option>)}
+              </select>
+            </label>
+          )}
+          <label>
+            <span>Startet am</span>
+            <input type="date" value={newJob.startDate} onChange={(event) => updateStartDate(event.target.value)} />
+          </label>
+          <label>
+            <span>Endet am</span>
+            <input min={newJob.startDate} type="date" value={newJob.endDate} onChange={(event) => updateEndDate(event.target.value)} />
+          </label>
         </div>
-        <label className="checkbox-line">
-          <input
-            checked={newJob.billable}
-            onChange={(event) => setNewJob({ ...newJob, billable: event.target.checked })}
-            type="checkbox"
-          />
-          <span>Auftrag in Abrechnung übernehmen</span>
-        </label>
+        <section className="job-billing-compact">
+          <div>
+            <strong>Abrechnung</strong>
+            <span>Rechnungsentwurf vorbereiten</span>
+          </div>
+          <label className="checkbox-line">
+            <input
+              checked={newJob.billable}
+              onChange={(event) => setNewJob({ ...newJob, billable: event.target.checked })}
+              type="checkbox"
+            />
+            <span>in Abrechnung übernehmen</span>
+          </label>
+        </section>
       </section>
-      <div className="wide job-date-row">
-        <label><span>Startet am</span><input type="date" value={newJob.startDate} onChange={(event) => updateStartDate(event.target.value)} /></label>
-        <label><span>Endet am</span><input min={newJob.startDate} type="date" value={newJob.endDate} onChange={(event) => updateEndDate(event.target.value)} /></label>
-      </div>
-      {!customerMode && (
-        <label>
-          <span>Zuständig</span>
-          <select value={isUnassignedJobAssignee(newJob.assignedTo) ? "" : newJob.assignedTo} onChange={(event) => update("assignedTo", event.target.value || "nicht zugewiesen")}>
-            <option value="">nicht zugewiesen</option>
-            {personnelNames.map((name) => <option key={name} value={name}>{name}</option>)}
-          </select>
-        </label>
-      )}
       <section className="wide job-position-section">
         <div className="section-heading">
           <span>{tt("Leistungen")}</span>
