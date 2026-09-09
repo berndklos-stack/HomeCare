@@ -2887,7 +2887,7 @@ function reportPhotoCount(report: ReportRecord) {
 
 function mediaSourceFromStoragePath(storagePath?: string) {
   if (!storagePath) return "";
-  if (/^(data:|https?:|\/)/i.test(storagePath)) return storagePath;
+  if (/^(data:|https?:|blob:|\/)/i.test(storagePath)) return storagePath;
   return `/api/media?path=${encodeURIComponent(storagePath)}`;
 }
 
@@ -2969,6 +2969,10 @@ function dataUrlToBase64(dataUrl: string) {
   return dataUrl.includes(",") ? dataUrl.split(",", 2)[1] : dataUrl;
 }
 
+function reportAttachmentSource(attachment: ReportAttachment) {
+  return attachment.dataUrl || attachment.storageUrl || mediaSourceFromStoragePath(attachment.storagePath);
+}
+
 type UploadedMedia = {
   contentType: string;
   name: string;
@@ -2999,9 +3003,16 @@ async function uploadMediaFile(file: File | Blob, scope: string, fileName?: stri
 }
 
 async function mediaSourceToDataUrl(source: string) {
-  if (!source || source.startsWith("data:")) return source;
-  const response = await fetch(source);
-  if (!response.ok) throw new Error("Mediendatei konnte nicht geladen werden.");
+  const normalizedSource = mediaSourceFromStoragePath(source);
+  if (!normalizedSource || normalizedSource.startsWith("data:")) return normalizedSource;
+  let response: Response;
+  try {
+    response = await fetch(normalizedSource);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Adresse konnte nicht geladen werden.";
+    throw new Error(`Mediendatei konnte nicht geladen werden: ${message}`);
+  }
+  if (!response.ok) throw new Error(`Mediendatei konnte nicht geladen werden (${response.status}).`);
   const blob = await response.blob();
   return await readFileAsDataUrl(blob);
 }
@@ -5099,14 +5110,19 @@ async function sendCustomerReportMail(report: ReportRecord, object: ObjectRecord
   const fileName = `${safeFileName(customerReportSendSubject(report, object, customer))}.pdf`;
   const attachmentBase64 = await blobToBase64(pdfBlob);
   const extraAttachments = (await Promise.all((report.attachments ?? []).map(async (attachment) => {
-    const source = attachment.dataUrl || attachment.storageUrl;
+    const source = reportAttachmentSource(attachment);
     if (!source) return null;
-    const dataUrl = await mediaSourceToDataUrl(source);
-    return {
-      content: dataUrlToBase64(dataUrl),
-      contentType: attachment.type,
-      filename: attachment.name,
-    };
+    try {
+      const dataUrl = await mediaSourceToDataUrl(source);
+      return {
+        content: dataUrlToBase64(dataUrl),
+        contentType: attachment.type,
+        filename: attachment.name,
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Datei konnte nicht vorbereitet werden.";
+      throw new Error(`Anhang "${attachment.name}" konnte nicht fuer den Versand vorbereitet werden: ${message}`);
+    }
   }))).filter((attachment): attachment is { content: string; contentType: string; filename: string } => Boolean(attachment));
   const response = await fetch("/api/reports/send", {
     body: JSON.stringify({

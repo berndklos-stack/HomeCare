@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.359.0",
+  version: "1.360.0",
   releaseDate: "2026-09-09",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.360.0",
+    date: "2026-09-09",
+    changes: [
+      "Der Berichtversand bereitet Dateianhaenge robuster aus Data-URL, Supabase-URL oder Speicherpfad vor",
+      "Lokale Browser-Bildquellen werden beim PDF- und Mailversand nicht mehr als Supabase-Pfad fehlinterpretiert",
+      "Fehlerhafte Versandanhaenge zeigen jetzt den betroffenen Dateinamen statt einer technischen Pattern-Meldung",
+    ],
+  },
   {
     version: "1.359.0",
     date: "2026-09-09",
