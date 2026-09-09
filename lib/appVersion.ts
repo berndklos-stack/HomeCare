@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.360.0",
+  version: "1.361.0",
   releaseDate: "2026-09-09",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.361.0",
+    date: "2026-09-09",
+    changes: [
+      "Berichtsfotos werden vor dem Einfuegen ins PDF als gueltiges JPEG oder PNG normalisiert",
+      "Ein einzelnes defektes Foto bricht den Berichtversand nicht mehr mit einer technischen Pattern-Meldung ab",
+      "PDF- und Dateianhaenge werden vor dem Versand auf gueltigen Base64-Inhalt geprueft",
+    ],
+  },
   {
     version: "1.360.0",
     date: "2026-09-09",

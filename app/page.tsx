@@ -2966,7 +2966,14 @@ async function fileToReportAttachment(file: File): Promise<ReportAttachment> {
 }
 
 function dataUrlToBase64(dataUrl: string) {
-  return dataUrl.includes(",") ? dataUrl.split(",", 2)[1] : dataUrl;
+  return (dataUrl.includes(",") ? dataUrl.split(",", 2)[1] : dataUrl).replace(/\s/g, "");
+}
+
+function assertBase64Content(content: string, context: string) {
+  if (!content || !/^[A-Za-z0-9+/]*={0,2}$/.test(content)) {
+    throw new Error(`${context} ist keine gueltige Versanddatei.`);
+  }
+  return content;
 }
 
 function reportAttachmentSource(attachment: ReportAttachment) {
@@ -4258,8 +4265,7 @@ async function createReportPdfBlob(report: ReportRecord, object: ObjectRecord, j
   }
 
   async function addContainedImage(source: string, x: number, boxY: number, boxWidth: number, boxHeight: number) {
-    const imageDataUrl = await mediaSourceToDataUrl(source);
-    const image = await loadImage(imageDataUrl);
+    const { dataUrl, format, image } = await normalizeImageDataUrlForPdf(source);
     const ratio = image?.naturalWidth && image?.naturalHeight ? image.naturalWidth / image.naturalHeight : boxWidth / boxHeight;
     const fitWidth = ratio > boxWidth / boxHeight ? boxWidth : boxHeight * ratio;
     const fitHeight = ratio > boxWidth / boxHeight ? boxWidth / ratio : boxHeight;
@@ -4268,7 +4274,7 @@ async function createReportPdfBlob(report: ReportRecord, object: ObjectRecord, j
 
     pdf.setDrawColor(220);
     pdf.rect(x, boxY, boxWidth, boxHeight);
-    pdf.addImage(imageDataUrl, "JPEG", drawX, drawY, fitWidth, fitHeight, undefined, "FAST");
+    pdf.addImage(dataUrl, format, drawX, drawY, fitWidth, fitHeight, undefined, "FAST");
   }
 
   function drawCard(x: number, cardY: number, width: number, height: number, fill: [number, number, number] = [250, 250, 251]) {
@@ -5108,14 +5114,14 @@ async function sendCustomerReportMail(report: ReportRecord, object: ObjectRecord
 
   const pdfBlob = await createReportPdfBlob(report, object, job, customer);
   const fileName = `${safeFileName(customerReportSendSubject(report, object, customer))}.pdf`;
-  const attachmentBase64 = await blobToBase64(pdfBlob);
+  const attachmentBase64 = assertBase64Content(await blobToBase64(pdfBlob), "Berichts-PDF");
   const extraAttachments = (await Promise.all((report.attachments ?? []).map(async (attachment) => {
     const source = reportAttachmentSource(attachment);
     if (!source) return null;
     try {
       const dataUrl = await mediaSourceToDataUrl(source);
       return {
-        content: dataUrlToBase64(dataUrl),
+        content: assertBase64Content(dataUrlToBase64(dataUrl), `Anhang "${attachment.name}"`),
         contentType: attachment.type,
         filename: attachment.name,
       };
@@ -5166,7 +5172,7 @@ async function sendOfferMail(job: JobRecord, object: ObjectRecord, customer: Cus
 
   const pdfBlob = await createOfferPdfBlob(job, object, customer, services, companySettings);
   const fileName = `${safeFileName(offerSendSubject(job, object, customer))}.pdf`;
-  const attachmentBase64 = await blobToBase64(pdfBlob);
+  const attachmentBase64 = assertBase64Content(await blobToBase64(pdfBlob), "Offerten-PDF");
   const response = await fetch("/api/reports/send", {
     body: JSON.stringify({
       attachmentBase64,
@@ -5364,7 +5370,7 @@ async function sendOrderConfirmationMail(job: JobRecord, object: ObjectRecord, c
 
   const pdfBlob = await createOfferPdfBlob(job, object, customer, services, companySettings, "confirmation");
   const fileName = `${safeFileName(orderConfirmationSendSubject(job, object, customer))}.pdf`;
-  const attachmentBase64 = await blobToBase64(pdfBlob);
+  const attachmentBase64 = assertBase64Content(await blobToBase64(pdfBlob), "Auftragsbestaetigungs-PDF");
   const response = await fetch("/api/reports/send", {
     body: JSON.stringify({
       attachmentBase64,
@@ -5439,6 +5445,27 @@ function loadImage(dataUrl: string) {
     image.onerror = () => resolve(null);
     image.src = dataUrl;
   });
+}
+
+async function normalizeImageDataUrlForPdf(source: string) {
+  const imageDataUrl = await mediaSourceToDataUrl(source);
+  const image = imageDataUrl ? await loadImage(imageDataUrl) : null;
+  if (!image) throw new Error("Bilddatei konnte nicht gelesen werden.");
+
+  if (/^data:image\/jpe?g;base64,/i.test(imageDataUrl)) {
+    return { dataUrl: imageDataUrl, format: "JPEG" as const, image };
+  }
+  if (/^data:image\/png;base64,/i.test(imageDataUrl)) {
+    return { dataUrl: imageDataUrl, format: "PNG" as const, image };
+  }
+
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, image.naturalWidth || image.width || 1);
+  canvas.height = Math.max(1, image.naturalHeight || image.height || 1);
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("Bild konnte nicht fuer PDF vorbereitet werden.");
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+  return { dataUrl: canvas.toDataURL("image/jpeg", 0.82), format: "JPEG" as const, image };
 }
 
 async function fileToImagePreview(file: File, maxSize = 1280, quality = 0.72) {
