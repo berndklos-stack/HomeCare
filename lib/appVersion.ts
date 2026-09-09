@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.344.0",
+  version: "1.345.0",
   releaseDate: "2026-09-09",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.345.0",
+    date: "2026-09-09",
+    changes: [
+      "Das Passwort zum Entsperren von Berichten wird in einem Homecare-Popup statt im Browserdialog abgefragt",
+      "Nach erfolgreichem Entsperren bleibt der Bericht direkt in Mobil vor Ort zur Nachbearbeitung geoeffnet",
+      "Der Entsperrdialog zeigt klare Hinweise, Passwortfeld und zentrierte Aktionen im App-Stil",
+    ],
+  },
   {
     version: "1.344.0",
     date: "2026-09-09",

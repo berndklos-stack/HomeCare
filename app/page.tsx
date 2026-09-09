@@ -1551,6 +1551,7 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Bericht wurde bereits gesendet und ist gesperrt.", sv: "Rapporten har redan skickats och är låst.", en: "Report has already been sent and is locked." },
   { de: "Passwort stimmt nicht.", sv: "Lösenordet stämmer inte.", en: "Password is incorrect." },
   { de: "Passwort zum Entsperren eingeben", sv: "Ange lösenord för att låsa upp", en: "Enter password to unlock" },
+  { de: "Nach dem Entsperren kann der Bericht wieder bearbeitet und erneut gesendet werden.", sv: "Efter upplåsning kan rapporten redigeras och skickas igen.", en: "After unlocking, the report can be edited and sent again." },
   { de: "Versandstatus wurde zurückgesetzt.", sv: "Sändningsstatus har återställts.", en: "Send status was reset." },
   { de: "Berichtstext für den Kundenbericht anpassen.", sv: "Anpassa rapporttexten för kundrapporten.", en: "Adjust report text for the customer report." },
   { de: "Kommentar vor dem Senden", sv: "Kommentar före utskick", en: "Comment before sending" },
@@ -7177,6 +7178,10 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   const [sendPreviewOfferBody, setSendPreviewOfferBody] = useState("");
   const [sendPreviewConfirmationId, setSendPreviewConfirmationId] = useState<string | null>(null);
   const [sendPreviewConfirmationBody, setSendPreviewConfirmationBody] = useState("");
+  const [unlockReportId, setUnlockReportId] = useState<string | null>(null);
+  const [unlockReportPassword, setUnlockReportPassword] = useState("");
+  const [unlockReportNotice, setUnlockReportNotice] = useState("");
+  const [unlockReportBusy, setUnlockReportBusy] = useState(false);
   const [sendingMailIds, setSendingMailIds] = useState<string[]>([]);
   const sendingMailIdsRef = useRef<Set<string>>(new Set());
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
@@ -8591,34 +8596,58 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     persistSnapshotNow({ reports: nextReports }, { forceRemote: options.forceRemote });
   }
 
-  async function unlockSentReport(report: ReportRecord) {
+  function openUnlockReportDialog(report: ReportRecord) {
     if (!report.sentAt) return;
-    const password = window.prompt(tx("Passwort zum Entsperren eingeben"));
-    if (!password) return;
+    setUnlockReportId(report.id);
+    setUnlockReportPassword("");
+    setUnlockReportNotice("");
+  }
+
+  function closeUnlockReportDialog() {
+    setUnlockReportId(null);
+    setUnlockReportPassword("");
+    setUnlockReportNotice("");
+    setUnlockReportBusy(false);
+  }
+
+  async function unlockSentReport(report: ReportRecord, password: string) {
+    if (!report.sentAt || unlockReportBusy) return;
+    const trimmedPassword = password.trim();
+    if (!trimmedPassword) {
+      setUnlockReportNotice(tx("Passwort zum Entsperren eingeben"));
+      return;
+    }
 
     try {
+      setUnlockReportBusy(true);
+      setUnlockReportNotice("");
       const response = await fetch("/api/reports/unlock-authorize", {
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ password: trimmedPassword }),
         headers: { "Content-Type": "application/json" },
         method: "POST",
       });
       if (!response.ok) {
-        setRecordNotice(tx("Passwort stimmt nicht."));
+        setUnlockReportNotice(tx("Passwort stimmt nicht."));
         return;
       }
 
       const changedAt = new Date().toISOString();
       const protocolLine = `${formatCreatedAtWithSeconds(changedAt)} · ${tx("Versandstatus wurde zurückgesetzt.")} Gesendet: ${formatCreatedAtWithSeconds(report.sentAt)}`;
-      updateReportRecord({
+      const unlockedReport: ReportRecord = {
         ...report,
         internalNotes: [report.internalNotes?.trim(), protocolLine].filter(Boolean).join("\n"),
         sentAt: undefined,
         updatedAt: changedAt,
-      }, { forceRemote: true });
+      };
+      updateReportRecord(unlockedReport, { forceRemote: true });
       setRecordNotice(tx("Bericht wurde für Nachbearbeitung entsperrt."));
+      closeUnlockReportDialog();
+      editReportInField(unlockedReport);
     } catch (error) {
       console.warn("Bericht konnte nicht entsperrt werden.", error);
-      setRecordNotice(tx("Bericht konnte nicht entsperrt werden."));
+      setUnlockReportNotice(tx("Bericht konnte nicht entsperrt werden."));
+    } finally {
+      setUnlockReportBusy(false);
     }
   }
 
@@ -9394,6 +9423,8 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   const sendPreviewCustomer = sendPreviewObject
     ? customers.find((customer) => customer.id === sendPreviewObject.ownerCustomerId || customer.name === sendPreviewObject.owner)
     : undefined;
+  const unlockReport = unlockReportId ? reports.find((report) => report.id === unlockReportId) : undefined;
+  const unlockReportObject = unlockReport ? objects.find((object) => object.id === unlockReport.objectId) : undefined;
   const sendPreviewOffer = sendPreviewOfferId ? jobs.find((job) => job.id === sendPreviewOfferId) : undefined;
   const sendPreviewOfferObject = sendPreviewOffer ? objects.find((object) => object.id === sendPreviewOffer.objectId) : undefined;
   const sendPreviewOfferCustomer = sendPreviewOffer && sendPreviewOfferObject
@@ -9608,7 +9639,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                 } : undefined}
                 onSubmit={saveObject}
                 onSendReport={sendReportToCustomer}
-                onUnlockReport={unlockSentReport}
+                onUnlockReport={openUnlockReportDialog}
                 onUpdateReport={updateReportRecord}
                 packages={servicePackages}
                 reports={reports}
@@ -9675,7 +9706,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                 resources={resources}
               />
             )}
-            {section === "reports" && <ReportsView customers={customers} jobs={jobs} language={language} objects={objects} onEditInField={editReportInField} onSendReport={sendReportToCustomer} onUnlockReport={unlockSentReport} onUpdateReport={updateReportRecord} reports={reports} />}
+            {section === "reports" && <ReportsView customers={customers} jobs={jobs} language={language} objects={objects} onEditInField={editReportInField} onSendReport={sendReportToCustomer} onUnlockReport={openUnlockReportDialog} onUpdateReport={updateReportRecord} reports={reports} />}
             {section === "communication" && (
               <CommunicationView
                 customers={customers}
@@ -9717,7 +9748,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                 onSelectJob={startJob}
                 onSelectReport={editReportInField}
                 onSendReport={sendReportToCustomer}
-                onUnlockReport={unlockSentReport}
+                onUnlockReport={openUnlockReportDialog}
                 onUpdateJobMaterial={updateJobMaterial}
                 onUpdateReport={updateReportRecord}
                 onClearActiveJob={clearActiveJob}
@@ -10251,6 +10282,47 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
               <button className="primary-button" disabled={Boolean(sendPreviewReport.sentAt) || sendingMailIds.includes(`report:${sendPreviewReport.id}`)} onClick={() => void confirmSendReportToCustomer(sendPreviewReport)} type="button">
                 <Send size={16} />
                 {sendingMailIds.includes(`report:${sendPreviewReport.id}`) ? "Wird gesendet..." : sendPreviewReport.sentAt ? "Bereits gesendet" : "Jetzt senden"}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {unlockReport && (
+        <div className="modal-backdrop">
+          <section className="modal send-preview-modal unlock-report-modal" role="dialog" aria-modal="true" aria-labelledby="unlock-report-title">
+            <header>
+              <div>
+                <p>{tx("Bericht entsperren")}</p>
+                <h2 id="unlock-report-title">{unlockReport.title}</h2>
+                {unlockReportObject && <span>{unlockReportObject.name} · {displayAddress(unlockReportObject.address)}</span>}
+              </div>
+              <button aria-label={`${tx("Bericht entsperren")} ${tx("Schließen")}`} onClick={closeUnlockReportDialog} type="button">
+                <X size={18} />
+              </button>
+            </header>
+            <div className="unlock-report-body">
+              <p>{tx("Bericht wurde bereits gesendet und ist gesperrt.")}</p>
+              <span>{tx("Nach dem Entsperren kann der Bericht wieder bearbeitet und erneut gesendet werden.")}</span>
+              <label>
+                <span>{tx("Passwort")}</span>
+                <input
+                  autoFocus
+                  value={unlockReportPassword}
+                  onChange={(event) => setUnlockReportPassword(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") void unlockSentReport(unlockReport, unlockReportPassword);
+                  }}
+                  type="password"
+                />
+              </label>
+              {unlockReportNotice && <div className="warning-line">{unlockReportNotice}</div>}
+            </div>
+            <div className="modal-actions">
+              <button className="ghost-button" disabled={unlockReportBusy} onClick={closeUnlockReportDialog} type="button">Abbrechen</button>
+              <button className="primary-button" disabled={unlockReportBusy} onClick={() => void unlockSentReport(unlockReport, unlockReportPassword)} type="button">
+                <KeyRound size={16} />
+                {unlockReportBusy ? "Wird geprüft..." : tx("Bericht entsperren")}
               </button>
             </div>
           </section>
