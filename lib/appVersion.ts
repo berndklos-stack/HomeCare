@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.348.0",
+  version: "1.349.0",
   releaseDate: "2026-09-09",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.349.0",
+    date: "2026-09-09",
+    changes: [
+      "Einsatzfotos ohne Supabase-Speicherung bleiben als Upload wartet sichtbar statt als lokal gesichert",
+      "Ausstehende Foto-Uploads koennen im Vor-Ort-Bericht manuell erneut gestartet werden",
+      "Beim Speichern eines Berichts werden wartende Foto-Uploads automatisch erneut angestossen",
+    ],
+  },
   {
     version: "1.348.0",
     date: "2026-09-09",

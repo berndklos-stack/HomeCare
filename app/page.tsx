@@ -296,7 +296,7 @@ type FieldPhoto = {
   previewUrl?: string;
   storagePath?: string;
   uploadError?: string;
-  uploadStatus?: "uploading" | "uploaded" | "local" | "failed";
+  uploadStatus?: "uploading" | "uploaded" | "queued" | "failed";
   createdAt?: string;
 };
 
@@ -1499,7 +1499,8 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Firmenstammdaten speichern", sv: "Spara företagsuppgifter", en: "Save company master data" },
   { de: "Foto erfasst", sv: "Foto registrerat", en: "Photo captured" },
   { de: "Foto-Info", sv: "Fotoinfo", en: "Photo info" },
-  { de: "Foto lokal gesichert", sv: "Foto sparat lokalt", en: "Photo saved locally" },
+  { de: "Foto-Upload wartet", sv: "Bilduppladdning väntar", en: "Photo upload waiting" },
+  { de: "Upload erneut versuchen", sv: "Försök ladda upp igen", en: "Retry upload" },
   { de: "Fotovorschau", sv: "Fotoförhandsvisning", en: "Photo preview" },
   { de: "Fällig", sv: "Förfaller", en: "Due" },
   { de: "Gebucht", sv: "Bokad", en: "Posted" },
@@ -2887,7 +2888,7 @@ function fieldPhotoUploadIsStale(photo: FieldPhoto, maxAgeMs = 45_000) {
 
 function normalizeFieldPhotoUploadState(photo: FieldPhoto) {
   return fieldPhotoUploadIsStale(photo, 30_000) && photo.previewUrl
-    ? { ...photo, uploadStatus: "local" as const, uploadError: "Upload-Zeitlimit erreicht." }
+    ? { ...photo, uploadStatus: "queued" as const, uploadError: "Upload wartet auf erneuten Versuch." }
     : photo;
 }
 
@@ -2896,7 +2897,7 @@ function fieldPhotoUploadLabel(photo: FieldPhoto, translate: (value: string) => 
   if (normalizedPhoto.uploadStatus === "uploading") return translate("Foto wird hochgeladen");
   if (normalizedPhoto.uploadStatus === "failed") return translate("Foto-Upload fehlgeschlagen");
   if (normalizedPhoto.storagePath || normalizedPhoto.uploadStatus === "uploaded") return translate("Foto gespeichert");
-  if (normalizedPhoto.previewUrl || normalizedPhoto.uploadStatus === "local") return translate("Foto lokal gesichert");
+  if (normalizedPhoto.previewUrl || normalizedPhoto.uploadStatus === "queued") return translate("Foto-Upload wartet");
   return "";
 }
 
@@ -12437,17 +12438,17 @@ function FieldView({
     };
   }
 
-  function fieldPhotoUploadName(file: File) {
-    const baseName = file.name.replace(/\.[^.]+$/, "") || "einsatzfoto";
+  function fieldPhotoUploadName(fileName: string) {
+    const baseName = fileName.replace(/\.[^.]+$/, "") || "einsatzfoto";
     return `${baseName}.jpg`;
   }
 
-  async function uploadFieldPhotoInBackground(taskId: string, photoId: string, file: File, previewUrl?: string) {
+  async function uploadFieldPhotoInBackground(taskId: string, photoId: string, fileName: string, previewUrl?: string) {
     const staleUploadTimer = window.setTimeout(() => {
       updateTaskPhotos(taskId, progressRef.current[taskId] ?? { completed: false, minutes: "", note: "", photos: [] }, (photos) => (
         photos.map((photo) => (
           photo.id === photoId && photo.uploadStatus === "uploading" && photo.previewUrl && !photo.storagePath
-            ? { ...photo, uploadError: "Upload-Zeitlimit erreicht.", uploadStatus: "local" }
+            ? { ...photo, uploadError: "Upload wartet auf erneuten Versuch.", uploadStatus: "queued" }
             : photo
         ))
       ));
@@ -12457,15 +12458,13 @@ function FieldView({
       if (!previewUrl?.startsWith("data:image/")) {
         throw new Error("Bild konnte nicht als JPEG-Vorschau vorbereitet werden.");
       }
-      const uploadSource = previewUrl?.startsWith("data:image/")
-        ? await dataUrlToBlob(previewUrl)
-        : file;
-      const uploaded = await uploadMediaFile(uploadSource, "field-photos", fieldPhotoUploadName(file));
+      const uploadSource = await dataUrlToBlob(previewUrl);
+      const uploaded = await uploadMediaFile(uploadSource, "field-photos", fieldPhotoUploadName(fileName));
       if (!uploaded) {
         updateTaskPhotos(taskId, progressRef.current[taskId] ?? { completed: false, minutes: "", note: "", photos: [] }, (photos) => (
           photos.map((photo) => (
             photo.id === photoId
-              ? { ...photo, uploadStatus: photo.previewUrl ? "local" : "failed" }
+              ? { ...photo, uploadStatus: photo.previewUrl ? "queued" : "failed" }
               : photo
           ))
         ));
@@ -12483,13 +12482,34 @@ function FieldView({
       updateTaskPhotos(taskId, progressRef.current[taskId] ?? { completed: false, minutes: "", note: "", photos: [] }, (photos) => (
         photos.map((photo) => (
           photo.id === photoId
-            ? { ...photo, uploadError: error instanceof Error ? error.message : "Upload fehlgeschlagen", uploadStatus: photo.previewUrl ? "local" : "failed" }
+            ? { ...photo, uploadError: error instanceof Error ? error.message : "Upload fehlgeschlagen", uploadStatus: photo.previewUrl ? "queued" : "failed" }
             : photo
         ))
       ));
     } finally {
       window.clearTimeout(staleUploadTimer);
     }
+  }
+
+  function retryFieldPhotoUpload(taskId: string, photo: FieldPhoto) {
+    if (!photo.id || photo.storagePath || !photo.previewUrl?.startsWith("data:image/")) return;
+    updateTaskPhotos(taskId, progressRef.current[taskId] ?? { completed: false, minutes: "", note: "", photos: [] }, (photos) => (
+      photos.map((item) => (
+        item.id === photo.id ? { ...item, uploadError: undefined, uploadStatus: "uploading" } : item
+      ))
+    ));
+    void uploadFieldPhotoInBackground(taskId, photo.id, photo.name, photo.previewUrl);
+  }
+
+  function retryQueuedFieldPhotoUploads() {
+    Object.entries(progressRef.current).forEach(([taskId, taskProgress]) => {
+      taskProgress.photos.forEach((photo) => {
+        const normalizedPhoto = normalizeFieldPhotoUploadState(photo);
+        if (!normalizedPhoto.storagePath && normalizedPhoto.previewUrl?.startsWith("data:image/") && ["queued", "failed"].includes(normalizedPhoto.uploadStatus ?? "")) {
+          retryFieldPhotoUpload(taskId, normalizedPhoto);
+        }
+      });
+    });
   }
 
   function openPhotoNoteEditor(taskId: string, photo: FieldPhoto) {
@@ -12536,7 +12556,7 @@ function FieldView({
       if (nextPhotos[0]) openPhotoNoteEditor(taskId, nextPhotos[0]);
       nextPhotos.forEach((photo, index) => {
         const file = selectedFiles[index];
-        if (photo.id && file) void uploadFieldPhotoInBackground(taskId, photo.id, file, photo.previewUrl);
+        if (photo.id && file) void uploadFieldPhotoInBackground(taskId, photo.id, file.name, photo.previewUrl);
       });
     } finally {
       setPreparingFieldPhotos((current) => Math.max(0, current - selectedFiles.length));
@@ -12564,6 +12584,7 @@ function FieldView({
     if (preparingFieldPhotos > 0) {
       return;
     }
+    retryQueuedFieldPhotoUploads();
     const results = fieldTasks.map((task) => {
       const currentTask = valueForTask(task);
       return {
@@ -12853,6 +12874,17 @@ function FieldView({
                     {photo.note?.trim() && <small>{photo.note.trim()}</small>}
                   </div>
                   <div className="row-actions">
+                    {normalizeFieldPhotoUploadState(photo).previewUrl?.startsWith("data:image/") && !normalizeFieldPhotoUploadState(photo).storagePath && normalizeFieldPhotoUploadState(photo).uploadStatus !== "uploading" && (
+                      <button
+                        aria-label={tt("Upload erneut versuchen")}
+                        className="icon-button"
+                        disabled={reportLocked}
+                        onClick={() => retryFieldPhotoUpload(task.id, normalizeFieldPhotoUploadState(photo))}
+                        type="button"
+                      >
+                        <RefreshCw size={16} />
+                      </button>
+                    )}
                     <button
                       aria-label={`Info zu Foto ${photo.name} bearbeiten`}
                       className="icon-button"
