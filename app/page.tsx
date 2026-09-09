@@ -9806,224 +9806,299 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                 </button>
               </div>
             </header>
-            <div className="form-grid compact-form">
-              <label><span>Fahrzeug</span>
-                <select value={quickTripForm.resourceId} onChange={(event) => {
-                  const defaults = quickTripDefaultsForVehicle(event.target.value);
-                  setQuickTripForm({
-                    ...quickTripForm,
-                    resourceId: event.target.value,
-                    startAddress: defaults.endAddress,
-                    startOdometer: defaults.startOdometer,
-                  });
-                }}>
-                  <option value="">Fahrzeug auswählen</option>
-                  {activeVehicles.map((vehicle) => <option key={vehicle.id} value={vehicle.id}>{vehicle.name} · {vehicle.identifier}</option>)}
-                </select>
-              </label>
-              <label><span>Datum</span><input type="date" value={quickTripForm.date} onChange={(event) => setQuickTripForm({ ...quickTripForm, date: event.target.value })} /></label>
-              <label><span>Fahrer</span>
-                <select value={quickTripForm.driverId} onChange={(event) => setQuickTripForm({ ...quickTripForm, driverId: event.target.value })}>
-                  <option value="">Nicht zugeordnet</option>
-                  {personnel.filter((person) => !person.archived).map((person) => <option key={person.id} value={person.id}>{person.firstName} {person.lastName}</option>)}
-                </select>
-              </label>
-              <label><span>Art</span>
-                <select value={quickTripForm.tripType} onChange={(event) => setQuickTripForm({ ...quickTripForm, tripType: event.target.value as VehicleLogEntry["tripType"] })}>
-                  <option>Dienstfahrt</option>
-                  <option>Privatfahrt</option>
-                </select>
-              </label>
-              <label><span>Start-Km</span><input inputMode="numeric" value={quickTripForm.startOdometer} onChange={(event) => setQuickTripForm({ ...quickTripForm, startOdometer: event.target.value })} /></label>
-              <label><span>End-Km</span><input inputMode="numeric" value={quickTripForm.endOdometer} onChange={(event) => setQuickTripForm({ ...quickTripForm, endOdometer: event.target.value })} /></label>
-              <label><span>Kilometer</span><input inputMode="numeric" placeholder="wird aus Km-Ständen berechnet" value={quickTripForm.kilometers} onChange={(event) => setQuickTripForm({ ...quickTripForm, kilometers: event.target.value })} /></label>
-              <div className="wide trip-photo-grid">
-                {(["start", "end"] as const).map((source) => {
-                  const photo = quickTripForm.odometerPhotos.find((item) => item.source === source);
-                  return (
-                    <div className="trip-photo-capture" key={source}>
-                      <span>{source === "start" ? "Startfoto Tacho" : "Endfoto Tacho"}</span>
-                      <strong>{photo ? photo.name : source === "start" ? "Beim Losfahren aufnehmen" : "Beim Abstellen aufnehmen"}</strong>
-                      {photo?.previewUrl ? <img alt={`${source === "start" ? "Start" : "Ende"} Tachofoto`} src={photo.previewUrl} /> : <Camera size={18} />}
-                      {photo?.odometerReading && <small>KM-Stand: {photo.odometerReading}</small>}
-                      {photo?.address && <small>{photo.address}</small>}
-                      <div className="trip-photo-actions">
-                        <label className="ghost-button">
-                          <Camera size={15} />
-                          Foto wählen
+            <div className="quick-trip-flow">
+              <section className="trip-step">
+                <div className="trip-step-head">
+                  <span>1</span>
+                  <strong>Start im Auto</strong>
+                  <small>Fahrzeug, Datum, Fahrer, Start-KM und Startadresse prüfen.</small>
+                </div>
+                <div className="form-grid compact-form">
+                  <label><span>Fahrzeug</span>
+                    <select value={quickTripForm.resourceId} onChange={(event) => {
+                      const defaults = quickTripDefaultsForVehicle(event.target.value);
+                      setQuickTripForm({
+                        ...quickTripForm,
+                        resourceId: event.target.value,
+                        startAddress: defaults.endAddress,
+                        startOdometer: defaults.startOdometer,
+                      });
+                    }}>
+                      <option value="">Fahrzeug auswählen</option>
+                      {activeVehicles.map((vehicle) => <option key={vehicle.id} value={vehicle.id}>{vehicle.name} · {vehicle.identifier}</option>)}
+                    </select>
+                  </label>
+                  <label><span>Datum</span><input type="date" value={quickTripForm.date} onChange={(event) => setQuickTripForm({ ...quickTripForm, date: event.target.value })} /></label>
+                  <label><span>Fahrer</span>
+                    <select value={quickTripForm.driverId} onChange={(event) => setQuickTripForm({ ...quickTripForm, driverId: event.target.value })}>
+                      <option value="">Nicht zugeordnet</option>
+                      {personnel.filter((person) => !person.archived).map((person) => <option key={person.id} value={person.id}>{person.firstName} {person.lastName}</option>)}
+                    </select>
+                  </label>
+                  <label><span>Start-Km</span><input inputMode="numeric" value={quickTripForm.startOdometer} onChange={(event) => setQuickTripForm({ ...quickTripForm, startOdometer: event.target.value })} /></label>
+                  <label className="wide"><span>Startadresse</span>
+                    <div className="address-gps-row">
+                      <input list="quick-trip-address-options" value={quickTripForm.startAddress} onChange={(event) => setQuickTripForm({ ...quickTripForm, startAddress: event.target.value })} />
+                      <button className="ghost-button compact" disabled={Boolean(quickTripAddressLoading)} onClick={() => void loadCurrentQuickTripAddress("start")} type="button">
+                        <ScanLine size={15} />
+                        {quickTripAddressLoading === "start" ? tx("Lädt...") : tx("Aktuelle Adresse")}
+                      </button>
+                    </div>
+                  </label>
+                  {(["start"] as const).map((source) => {
+                    const photo = quickTripForm.odometerPhotos.find((item) => item.source === source);
+                    return (
+                      <div className="trip-photo-capture" key={source}>
+                        <span>Startfoto Tacho</span>
+                        <strong>{photo ? photo.name : "Beim Losfahren aufnehmen"}</strong>
+                        {photo?.previewUrl ? <img alt="Start Tachofoto" src={photo.previewUrl} /> : <Camera size={18} />}
+                        {photo?.odometerReading && <small>KM-Stand: {photo.odometerReading}</small>}
+                        {photo?.address && <small>{photo.address}</small>}
+                        <div className="trip-photo-actions">
+                          <label className="ghost-button">
+                            <Camera size={15} />
+                            Foto wählen
+                            <input
+                              accept="image/*"
+                              aria-label="Startfoto Tacho aufnehmen"
+                              capture="environment"
+                              type="file"
+                              onChange={(event) => {
+                                const file = event.target.files?.[0];
+                                if (file) void captureQuickTripPhoto(file, source);
+                                event.currentTarget.value = "";
+                              }}
+                            />
+                          </label>
+                          {photo?.previewUrl && (
+                            <button className="ghost-button" type="button" onClick={() => void readQuickTripOdometerFromPhoto(source)}>
+                              <ScanLine size={15} />
+                              KM lesen
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+              <section className="trip-step">
+                <div className="trip-step-head">
+                  <span>2</span>
+                  <strong>Fahrt einordnen</strong>
+                  <small>Dienstfahrt oder privat, Grund und Ansprechpartner erfassen.</small>
+                </div>
+                <div className="form-grid compact-form">
+                  <label><span>Art</span>
+                    <select value={quickTripForm.tripType} onChange={(event) => setQuickTripForm({ ...quickTripForm, tripType: event.target.value as VehicleLogEntry["tripType"] })}>
+                      <option>Dienstfahrt</option>
+                      <option>Privatfahrt</option>
+                    </select>
+                  </label>
+                  <label><span>Zweck / Ärende</span><input list="quick-trip-purpose-options" value={quickTripForm.purpose} onChange={(event) => setQuickTripForm({ ...quickTripForm, purpose: event.target.value })} /></label>
+                  <label><span>Name / besucht bei</span><input disabled={quickTripForm.tripType === "Privatfahrt"} value={quickTripForm.visited} onChange={(event) => setQuickTripForm({ ...quickTripForm, visited: event.target.value })} /></label>
+                </div>
+              </section>
+              <datalist id="quick-trip-purpose-options">
+                {quickTripPurposeOptions.map((purpose) => <option key={purpose} value={purpose} />)}
+              </datalist>
+              <datalist id="quick-trip-address-options">
+                {quickTripAddressOptions.map((address) => <option key={address} value={address} />)}
+              </datalist>
+              <section className="trip-step">
+                <div className="trip-step-head">
+                  <span>3</span>
+                  <strong>Unterwegs</strong>
+                  <small>Zwischenziele nur bei Bedarf erfassen.</small>
+                </div>
+                <div className="waypoint-editor">
+                  <div className="waypoint-editor-head">
+                    <span>Zwischenziele</span>
+                    <button
+                      className="ghost-button"
+                      onClick={() => setQuickTripForm({
+                        ...quickTripForm,
+                        waypoints: [
+                          ...quickTripForm.waypoints,
+                          { address: "", id: globalThis.crypto?.randomUUID?.() ?? `WAY-${Date.now()}`, note: "", odometer: "" },
+                        ],
+                      })}
+                      type="button"
+                    >
+                      <Plus size={14} />
+                      Ziel
+                    </button>
+                  </div>
+                  {quickTripForm.waypoints.length === 0 && <small>Keine Zwischenziele erfasst.</small>}
+                  {quickTripForm.waypoints.map((waypoint, waypointIndex) => (
+                    <div className="waypoint-row-wrap" key={waypoint.id}>
+                      <div className="waypoint-row waypoint-row-with-photo">
+                        <input
+                          aria-label={`Zwischenziel ${waypointIndex + 1}`}
+                          list="quick-trip-address-options"
+                          placeholder={`Zwischenziel ${waypointIndex + 1}`}
+                          value={waypoint.address}
+                          onChange={(event) => setQuickTripForm({
+                            ...quickTripForm,
+                            waypoints: quickTripForm.waypoints.map((item) => (
+                              item.id === waypoint.id ? { ...item, address: event.target.value } : item
+                            )),
+                          })}
+                        />
+                        <button
+                          aria-label={`Aktuelle Adresse für Zwischenziel ${waypointIndex + 1} laden`}
+                          className="icon-button"
+                          data-tooltip={tx("Aktuelle Adresse")}
+                          disabled={Boolean(quickTripAddressLoading)}
+                          onClick={() => void loadCurrentQuickTripAddress(waypoint.id)}
+                          type="button"
+                        >
+                          <ScanLine size={14} />
+                        </button>
+                        <input
+                          aria-label={`Notiz zu Zwischenziel ${waypointIndex + 1}`}
+                          placeholder="Notiz"
+                          value={waypoint.note}
+                          onChange={(event) => setQuickTripForm({
+                            ...quickTripForm,
+                            waypoints: quickTripForm.waypoints.map((item) => (
+                              item.id === waypoint.id ? { ...item, note: event.target.value } : item
+                            )),
+                          })}
+                        />
+                        <input
+                          aria-label={`KM-Stand zu Zwischenziel ${waypointIndex + 1}`}
+                          inputMode="numeric"
+                          placeholder="KM"
+                          value={waypoint.odometer ?? ""}
+                          onChange={(event) => setQuickTripForm({
+                            ...quickTripForm,
+                            waypoints: quickTripForm.waypoints.map((item) => (
+                              item.id === waypoint.id ? { ...item, odometer: event.target.value } : item
+                            )),
+                          })}
+                        />
+                        <label className="icon-button waypoint-photo-button" data-tooltip={`Foto zu Zwischenziel ${waypointIndex + 1}`}>
+                          <Camera size={14} />
                           <input
                             accept="image/*"
-                            aria-label={source === "start" ? "Startfoto Tacho aufnehmen" : "Endfoto Tacho aufnehmen"}
+                            aria-label={`Foto zu Zwischenziel ${waypointIndex + 1} aufnehmen`}
                             capture="environment"
                             type="file"
                             onChange={(event) => {
                               const file = event.target.files?.[0];
-                              if (file) void captureQuickTripPhoto(file, source);
+                              if (file) void captureQuickTripWaypointPhoto(file, waypoint.id);
                               event.currentTarget.value = "";
                             }}
                           />
                         </label>
-                        {photo?.previewUrl && (
-                          <button className="ghost-button" type="button" onClick={() => void readQuickTripOdometerFromPhoto(source)}>
-                            <ScanLine size={15} />
-                            KM lesen
-                          </button>
-                        )}
+                        <button
+                          aria-label={`Zwischenziel ${waypointIndex + 1} löschen`}
+                          className="icon-button"
+                          onClick={() => setQuickTripForm({ ...quickTripForm, waypoints: quickTripForm.waypoints.filter((item) => item.id !== waypoint.id) })}
+                          type="button"
+                        >
+                          <Trash2 size={14} />
+                        </button>
                       </div>
+                      {waypoint.photo && (
+                        <div className="waypoint-photo-preview">
+                          {waypoint.photo.previewUrl && <img alt={`Foto zu Zwischenziel ${waypointIndex + 1}`} src={waypoint.photo.previewUrl} />}
+                          <small>{waypoint.photo.address || waypoint.photo.name}</small>
+                        </div>
+                      )}
                     </div>
-                  );
-                })}
-              </div>
-              <label><span>Zweck / Ärende</span><input list="quick-trip-purpose-options" value={quickTripForm.purpose} onChange={(event) => setQuickTripForm({ ...quickTripForm, purpose: event.target.value })} /></label>
-              <datalist id="quick-trip-purpose-options">
-                {quickTripPurposeOptions.map((purpose) => <option key={purpose} value={purpose} />)}
-              </datalist>
-              <label className="wide"><span>Startadresse</span>
-                <div className="address-gps-row">
-                  <input list="quick-trip-address-options" value={quickTripForm.startAddress} onChange={(event) => setQuickTripForm({ ...quickTripForm, startAddress: event.target.value })} />
-                  <button className="ghost-button compact" disabled={Boolean(quickTripAddressLoading)} onClick={() => void loadCurrentQuickTripAddress("start")} type="button">
-                    <ScanLine size={15} />
-                    {quickTripAddressLoading === "start" ? tx("Lädt...") : tx("Aktuelle Adresse")}
-                  </button>
+                  ))}
                 </div>
-              </label>
-              <label className="wide"><span>Zieladresse</span>
-                <div className="address-gps-row">
-                  <input list="quick-trip-address-options" value={quickTripForm.endAddress} onChange={(event) => setQuickTripForm({ ...quickTripForm, endAddress: event.target.value })} />
-                  <button className="ghost-button compact" disabled={Boolean(quickTripAddressLoading)} onClick={() => void loadCurrentQuickTripAddress("end")} type="button">
-                    <ScanLine size={15} />
-                    {quickTripAddressLoading === "end" ? tx("Lädt...") : tx("Aktuelle Adresse")}
-                  </button>
+              </section>
+              <section className="trip-step">
+                <div className="trip-step-head">
+                  <span>4</span>
+                  <strong>Ankunft</strong>
+                  <small>Zieladresse und End-KM beim Abstellen erfassen.</small>
                 </div>
-              </label>
-              <datalist id="quick-trip-address-options">
-                {quickTripAddressOptions.map((address) => <option key={address} value={address} />)}
-              </datalist>
-              <div className="wide waypoint-editor">
-                <div className="waypoint-editor-head">
-                  <span>Zwischenziele</span>
-                  <button
-                    className="ghost-button"
-                    onClick={() => setQuickTripForm({
-                      ...quickTripForm,
-                      waypoints: [
-                        ...quickTripForm.waypoints,
-                        { address: "", id: globalThis.crypto?.randomUUID?.() ?? `WAY-${Date.now()}`, note: "", odometer: "" },
-                      ],
-                    })}
-                    type="button"
-                  >
-                    <Plus size={14} />
-                    Ziel
-                  </button>
-                </div>
-                {quickTripForm.waypoints.map((waypoint, waypointIndex) => (
-                  <div className="waypoint-row-wrap" key={waypoint.id}>
-                    <div className="waypoint-row waypoint-row-with-photo">
-                      <input
-                        aria-label={`Zwischenziel ${waypointIndex + 1}`}
-                        list="quick-trip-address-options"
-                        placeholder={`Zwischenziel ${waypointIndex + 1}`}
-                        value={waypoint.address}
-                        onChange={(event) => setQuickTripForm({
-                          ...quickTripForm,
-                          waypoints: quickTripForm.waypoints.map((item) => (
-                            item.id === waypoint.id ? { ...item, address: event.target.value } : item
-                          )),
-                        })}
-                      />
-                      <button
-                        aria-label={`Aktuelle Adresse für Zwischenziel ${waypointIndex + 1} laden`}
-                        className="icon-button"
-                        data-tooltip={tx("Aktuelle Adresse")}
-                        disabled={Boolean(quickTripAddressLoading)}
-                        onClick={() => void loadCurrentQuickTripAddress(waypoint.id)}
-                        type="button"
-                      >
-                        <ScanLine size={14} />
-                      </button>
-                      <input
-                        aria-label={`Notiz zu Zwischenziel ${waypointIndex + 1}`}
-                        placeholder="Notiz"
-                        value={waypoint.note}
-                        onChange={(event) => setQuickTripForm({
-                          ...quickTripForm,
-                          waypoints: quickTripForm.waypoints.map((item) => (
-                            item.id === waypoint.id ? { ...item, note: event.target.value } : item
-                          )),
-                        })}
-                      />
-                      <input
-                        aria-label={`KM-Stand zu Zwischenziel ${waypointIndex + 1}`}
-                        inputMode="numeric"
-                        placeholder="KM"
-                        value={waypoint.odometer ?? ""}
-                        onChange={(event) => setQuickTripForm({
-                          ...quickTripForm,
-                          waypoints: quickTripForm.waypoints.map((item) => (
-                            item.id === waypoint.id ? { ...item, odometer: event.target.value } : item
-                          )),
-                        })}
-                      />
-                      <label className="icon-button waypoint-photo-button" data-tooltip={`Foto zu Zwischenziel ${waypointIndex + 1}`}>
-                        <Camera size={14} />
-                        <input
-                          accept="image/*"
-                          aria-label={`Foto zu Zwischenziel ${waypointIndex + 1} aufnehmen`}
-                          capture="environment"
-                          type="file"
-                          onChange={(event) => {
-                            const file = event.target.files?.[0];
-                            if (file) void captureQuickTripWaypointPhoto(file, waypoint.id);
-                            event.currentTarget.value = "";
-                          }}
-                        />
-                      </label>
-                      <button
-                        aria-label={`Zwischenziel ${waypointIndex + 1} löschen`}
-                        className="icon-button"
-                        onClick={() => setQuickTripForm({ ...quickTripForm, waypoints: quickTripForm.waypoints.filter((item) => item.id !== waypoint.id) })}
-                        type="button"
-                      >
-                        <Trash2 size={14} />
+                <div className="form-grid compact-form">
+                  <label><span>End-Km</span><input inputMode="numeric" value={quickTripForm.endOdometer} onChange={(event) => setQuickTripForm({ ...quickTripForm, endOdometer: event.target.value })} /></label>
+                  <label><span>Kilometer</span><input inputMode="numeric" placeholder="wird aus Km-Ständen berechnet" value={quickTripForm.kilometers} onChange={(event) => setQuickTripForm({ ...quickTripForm, kilometers: event.target.value })} /></label>
+                  <label className="wide"><span>Zieladresse</span>
+                    <div className="address-gps-row">
+                      <input list="quick-trip-address-options" value={quickTripForm.endAddress} onChange={(event) => setQuickTripForm({ ...quickTripForm, endAddress: event.target.value })} />
+                      <button className="ghost-button compact" disabled={Boolean(quickTripAddressLoading)} onClick={() => void loadCurrentQuickTripAddress("end")} type="button">
+                        <ScanLine size={15} />
+                        {quickTripAddressLoading === "end" ? tx("Lädt...") : tx("Aktuelle Adresse")}
                       </button>
                     </div>
-                    {waypoint.photo && (
-                      <div className="waypoint-photo-preview">
-                        {waypoint.photo.previewUrl && <img alt={`Foto zu Zwischenziel ${waypointIndex + 1}`} src={waypoint.photo.previewUrl} />}
-                        <small>{waypoint.photo.address || waypoint.photo.name}</small>
+                  </label>
+                  {(["end"] as const).map((source) => {
+                    const photo = quickTripForm.odometerPhotos.find((item) => item.source === source);
+                    return (
+                      <div className="trip-photo-capture" key={source}>
+                        <span>Endfoto Tacho</span>
+                        <strong>{photo ? photo.name : "Beim Abstellen aufnehmen"}</strong>
+                        {photo?.previewUrl ? <img alt="Ende Tachofoto" src={photo.previewUrl} /> : <Camera size={18} />}
+                        {photo?.odometerReading && <small>KM-Stand: {photo.odometerReading}</small>}
+                        {photo?.address && <small>{photo.address}</small>}
+                        <div className="trip-photo-actions">
+                          <label className="ghost-button">
+                            <Camera size={15} />
+                            Foto wählen
+                            <input
+                              accept="image/*"
+                              aria-label="Endfoto Tacho aufnehmen"
+                              capture="environment"
+                              type="file"
+                              onChange={(event) => {
+                                const file = event.target.files?.[0];
+                                if (file) void captureQuickTripPhoto(file, source);
+                                event.currentTarget.value = "";
+                              }}
+                            />
+                          </label>
+                          {photo?.previewUrl && (
+                            <button className="ghost-button" type="button" onClick={() => void readQuickTripOdometerFromPhoto(source)}>
+                              <ScanLine size={15} />
+                              KM lesen
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+              <section className="trip-step">
+                <div className="trip-step-head">
+                  <span>5</span>
+                  <strong>Optional</strong>
+                  <small>Tanken, Laden oder Beleg zur Fahrt ergänzen.</small>
+                </div>
+                <div className="form-grid compact-form">
+                  <label className="wide"><span>Tanken / Laden</span><input placeholder="z.B. Diesel 42 l, laddning 18 kWh" value={quickTripForm.fuelOrCharge} onChange={(event) => setQuickTripForm({ ...quickTripForm, fuelOrCharge: event.target.value })} /></label>
+                  <div className="wide receipt-photo-field">
+                    <label className="ghost-button">
+                      <Paperclip size={15} />
+                      Tank-/Ladebeleg scannen
+                      <input
+                        accept="image/*"
+                        aria-label="Tank- oder Ladebeleg scannen"
+                        capture="environment"
+                        type="file"
+                        onChange={(event) => {
+                          const file = event.target.files?.[0];
+                          if (file) void captureQuickTripFuelReceipt(file);
+                          event.currentTarget.value = "";
+                        }}
+                      />
+                    </label>
+                    {quickTripForm.fuelReceiptPhoto?.previewUrl && (
+                      <div className="receipt-photo-preview">
+                        <img alt="Tank- oder Ladebeleg" src={quickTripForm.fuelReceiptPhoto.previewUrl} />
+                        <small>{quickTripForm.fuelReceiptPhoto.name}</small>
                       </div>
                     )}
                   </div>
-                ))}
-              </div>
-              <div className="wide voice-input-row">
-                <label><span>Name / besucht bei</span><input disabled={quickTripForm.tripType === "Privatfahrt"} value={quickTripForm.visited} onChange={(event) => setQuickTripForm({ ...quickTripForm, visited: event.target.value })} /></label>
-              </div>
-              <label className="wide"><span>Tanken / Laden</span><input placeholder="z.B. Diesel 42 l, laddning 18 kWh" value={quickTripForm.fuelOrCharge} onChange={(event) => setQuickTripForm({ ...quickTripForm, fuelOrCharge: event.target.value })} /></label>
-              <div className="wide receipt-photo-field">
-                <label className="ghost-button">
-                  <Paperclip size={15} />
-                  Tank-/Ladebeleg scannen
-                  <input
-                    accept="image/*"
-                    aria-label="Tank- oder Ladebeleg scannen"
-                    capture="environment"
-                    type="file"
-                    onChange={(event) => {
-                      const file = event.target.files?.[0];
-                      if (file) void captureQuickTripFuelReceipt(file);
-                      event.currentTarget.value = "";
-                    }}
-                  />
-                </label>
-                {quickTripForm.fuelReceiptPhoto?.previewUrl && (
-                  <div className="receipt-photo-preview">
-                    <img alt="Tank- oder Ladebeleg" src={quickTripForm.fuelReceiptPhoto.previewUrl} />
-                    <small>{quickTripForm.fuelReceiptPhoto.name}</small>
-                  </div>
-                )}
-              </div>
+                </div>
+              </section>
             </div>
             <div className="modal-actions">
               <button className="ghost-button" onClick={() => setQuickTripOpen(false)} type="button">Abbrechen</button>

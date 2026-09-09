@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.341.0",
+  version: "1.342.0",
   releaseDate: "2026-09-09",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.342.0",
+    date: "2026-09-09",
+    changes: [
+      "Der Dialog Fahrt erfassen folgt nun dem echten Ablauf von Start im Auto bis Ankunft",
+      "Start-KM, Startadresse und Startfoto stehen direkt am Anfang der Erfassung",
+      "Zwischenziele und End-KM mit Zieladresse und Endfoto sind als eigene Schritte angeordnet",
+    ],
+  },
   {
     version: "1.341.0",
     date: "2026-09-09",

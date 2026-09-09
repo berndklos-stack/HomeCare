@@ -2224,6 +2224,55 @@ mark.neutral {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.quick-trip-flow {
+  display: grid;
+  gap: 12px;
+}
+
+.trip-step {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.trip-step-head {
+  align-items: center;
+  display: grid;
+  gap: 4px 10px;
+  grid-template-columns: 28px minmax(0, auto) minmax(0, 1fr);
+}
+
+.trip-step-head span {
+  align-items: center;
+  background: var(--primary-soft);
+  border: 1px solid var(--primary);
+  border-radius: 999px;
+  color: var(--primary);
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 900;
+  height: 28px;
+  justify-content: center;
+  width: 28px;
+}
+
+.trip-step-head strong {
+  color: var(--foreground);
+  font-size: 15px;
+  line-height: 1.2;
+}
+
+.trip-step-head small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  justify-self: end;
+  line-height: 1.3;
+  text-align: right;
+}
+
 .trip-photo-capture {
   align-items: start;
   background: var(--paper-soft);
@@ -4429,6 +4478,10 @@ mark.neutral {
   padding: 10px;
 }
 
+.trip-step .waypoint-editor {
+  border-style: dashed;
+}
+
 .waypoint-editor-head,
 .waypoint-row {
   align-items: center;
@@ -6347,6 +6400,16 @@ button.media-thumb {
   .waypoint-row,
   .waypoint-row-with-photo {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .trip-step-head {
+    grid-template-columns: 28px minmax(0, 1fr);
+  }
+
+  .trip-step-head small {
+    grid-column: 2;
+    justify-self: start;
+    text-align: left;
   }
 
   .waypoint-row input {
