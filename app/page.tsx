@@ -2862,7 +2862,9 @@ function reportAttachmentsLabel(report: ReportRecord) {
 
 function reportPhotos(report: ReportRecord) {
   return report.checklistResults.flatMap((item) => (
-    item.photos.map((photo) => ({ ...photo, taskTitle: item.title }))
+    item.photos
+      .filter((photo) => fieldPhotoHasSource(photo))
+      .map((photo) => ({ ...photo, taskTitle: item.title }))
   ));
 }
 
@@ -2917,7 +2919,7 @@ function normalizeReportPhotoUploadStates(report: ReportRecord) {
     ...report,
     checklistResults: report.checklistResults.map((item) => ({
       ...item,
-      photos: normalizeFieldPhotosForSave(item.photos ?? []),
+      photos: normalizeFieldPhotosForSave(item.photos ?? []).filter((photo) => fieldPhotoHasSource(photo)),
     })),
   };
 }
@@ -3175,7 +3177,7 @@ function applyReportTextBackups(reports: ReportRecord[], backups: ReportTextBack
         meta: item.meta ?? "",
         minutes: item.minutes ?? 0,
         note: item.note ?? "",
-        photos: (item.photos ?? []).filter((photo) => photo.previewUrl || photo.storagePath || photo.id),
+        photos: (item.photos ?? []).filter((photo) => photo.previewUrl || photo.storagePath),
         showWorkTimeInReport: item.showWorkTimeInReport ?? true,
         title: item.title ?? "",
         updatedAt: item.updatedAt,

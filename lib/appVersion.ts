@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.351.0",
+  version: "1.352.0",
   releaseDate: "2026-09-09",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.352.0",
+    date: "2026-09-09",
+    changes: [
+      "Berichte zeigen nur noch Fotos mit echter Bildquelle an",
+      "Foto-Platzhalter ohne Daten-URL oder Supabase-Pfad werden beim Laden aus Berichten entfernt",
+      "Bericht-Backups schreiben keine leeren Fotoeintraege mehr in Kundenberichte zurueck",
+    ],
+  },
   {
     version: "1.351.0",
     date: "2026-09-09",
