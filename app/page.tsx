@@ -11033,26 +11033,42 @@ function ReportAttachmentEditor({
 function ReportPhotoFigure({
   alt,
   caption,
+  downloadable = true,
   photo,
 }: {
   alt: string;
   caption: string;
+  downloadable?: boolean;
   photo: FieldPhoto;
 }) {
   const [imageFailed, setImageFailed] = useState(false);
   const source = fieldPhotoSource(photo);
+  const downloadName = `${safeFileName(photo.name || caption || "Berichtsfoto") || "Berichtsfoto"}.jpg`;
 
   return (
     <figure>
       {source && !imageFailed ? (
-        <img alt={alt} src={source} onError={() => setImageFailed(true)} />
+        downloadable ? (
+          <a className="report-photo-link" href={source} target="_blank" rel="noreferrer" download={downloadName}>
+            <img alt={alt} src={source} onError={() => setImageFailed(true)} />
+          </a>
+        ) : (
+          <img alt={alt} src={source} onError={() => setImageFailed(true)} />
+        )
       ) : (
         <div className="report-gallery-placeholder error-placeholder">
           <Camera size={18} />
           <span>{source ? "Bild nicht lesbar" : "Bildquelle fehlt"}</span>
         </div>
       )}
-      <figcaption>{caption}</figcaption>
+      <figcaption>
+        <span>{caption}</span>
+        {downloadable && source && !imageFailed && (
+          <a href={source} target="_blank" rel="noreferrer" download={downloadName}>
+            Download
+          </a>
+        )}
+      </figcaption>
     </figure>
   );
 }

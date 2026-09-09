@@ -4387,11 +4387,27 @@ mark.neutral {
   width: 100%;
 }
 
+.report-photo-link {
+  display: block;
+}
+
 .report-point-photos figcaption {
   color: var(--muted);
+  display: flex;
+  gap: 6px;
   font-size: 10px;
   font-weight: 700;
+  justify-content: space-between;
+  line-height: 1.25;
   padding: 4px 5px;
+}
+
+.report-point-photos figcaption a,
+.report-photo-summary figcaption a {
+  color: var(--accent);
+  font-weight: 900;
+  text-decoration: none;
+  white-space: nowrap;
 }
 
 .report-photo-summary {
@@ -4426,8 +4442,12 @@ mark.neutral {
 
 .report-photo-summary figcaption {
   color: var(--muted);
+  display: flex;
+  gap: 6px;
   font-size: 10px;
   font-weight: 800;
+  justify-content: space-between;
+  line-height: 1.25;
   padding: 4px 5px;
 }
 

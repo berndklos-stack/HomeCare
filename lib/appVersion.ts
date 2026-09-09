@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.349.0",
+  version: "1.350.0",
   releaseDate: "2026-09-09",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.350.0",
+    date: "2026-09-09",
+    changes: [
+      "Berichtsbilder im Kundenportal koennen angeklickt und in gross geoeffnet werden",
+      "Jedes Berichtsfoto erhaelt im Portal einen eigenen Download-Link",
+      "Download-Links werden direkt in der Bildunterschrift sauber ausgerichtet",
+    ],
+  },
   {
     version: "1.349.0",
     date: "2026-09-09",
