@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.362.0",
+  version: "1.363.0",
   releaseDate: "2026-09-09",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.363.0",
+    date: "2026-09-10",
+    changes: [
+      "Der Berichtversand zeigt nun die konkrete Fehlerphase fuer PDF-Erstellung, PDF-Anhang, Zusatzanhaenge oder Mailserver",
+      "Technische Browser-Pattern-Fehler werden beim Berichtversand in verstaendliche Diagnosemeldungen uebersetzt",
+      "Der Betreff fuer Einsatzberichte verwendet einheitlich Einsatzbericht statt Einsatz - Bericht",
+    ],
+  },
   {
     version: "1.362.0",
     date: "2026-09-10",

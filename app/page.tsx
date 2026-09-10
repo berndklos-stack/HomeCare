@@ -3843,7 +3843,7 @@ function customerReportSendSubject(report: ReportRecord, object: ObjectRecord, c
   const swedish = isSwedishCustomerLanguage(customer?.language);
   const reportKind = report.id.startsWith("WEEK-")
     ? (swedish ? "Veckorapport" : "Wochenbericht")
-    : (swedish ? "Uppdragsrapport" : "Einsatz - Bericht");
+    : (swedish ? "Uppdragsrapport" : "Einsatzbericht");
   return `${reportKind} ${swedish ? "från" : "vom"} ${report.date} - ${object.name}`;
 }
 
@@ -5112,44 +5112,67 @@ async function sendCustomerReportMail(report: ReportRecord, object: ObjectRecord
   const recipientEmail = reportRecipientEmail(object, customer);
   if (!recipientEmail) throw new Error("Keine Empfängeradresse in den Objekt- oder Kundendaten gefunden.");
 
-  const pdfBlob = await createReportPdfBlob(report, object, job, customer);
+  let pdfBlob: Blob;
+  try {
+    pdfBlob = await createReportPdfBlob(report, object, job, customer);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "PDF konnte nicht erstellt werden.";
+    throw new Error(`PDF-Erstellung fehlgeschlagen: ${message}`);
+  }
+
   const fileName = `${safeFileName(customerReportSendSubject(report, object, customer))}.pdf`;
-  const attachmentBase64 = assertBase64Content(await blobToBase64(pdfBlob), "Berichts-PDF");
-  const extraAttachments = (await Promise.all((report.attachments ?? []).map(async (attachment) => {
-    const source = reportAttachmentSource(attachment);
-    if (!source) return null;
-    try {
+  let attachmentBase64 = "";
+  try {
+    attachmentBase64 = assertBase64Content(await blobToBase64(pdfBlob), "Berichts-PDF");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "PDF konnte nicht gelesen werden.";
+    throw new Error(`PDF-Anhang konnte nicht vorbereitet werden: ${message}`);
+  }
+
+  let extraAttachments: Array<{ content: string; contentType: string; filename: string }> = [];
+  try {
+    extraAttachments = (await Promise.all((report.attachments ?? []).map(async (attachment) => {
+      const source = reportAttachmentSource(attachment);
+      if (!source) return null;
       const dataUrl = await mediaSourceToDataUrl(source);
       return {
         content: assertBase64Content(dataUrlToBase64(dataUrl), `Anhang "${attachment.name}"`),
         contentType: attachment.type,
         filename: attachment.name,
       };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Datei konnte nicht vorbereitet werden.";
-      throw new Error(`Anhang "${attachment.name}" konnte nicht fuer den Versand vorbereitet werden: ${message}`);
-    }
-  }))).filter((attachment): attachment is { content: string; contentType: string; filename: string } => Boolean(attachment));
-  const response = await fetch("/api/reports/send", {
-    body: JSON.stringify({
-      attachmentBase64,
-      attachments: extraAttachments,
-      body: body?.trim() || customerReportSendBody(customer, report),
-      cc: "info@kolaretorp.se",
-      filename: fileName,
-      idempotencyKey,
-      subject: customerReportSendSubject(report, object, customer),
-      to: recipientEmail,
-    }),
-    headers: {
-      "Content-Type": "application/json",
-    },
-    method: "POST",
-  });
-  const payload = await response.json() as { error?: string; sent?: boolean };
+    }))).filter((attachment): attachment is { content: string; contentType: string; filename: string } => Boolean(attachment));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Datei konnte nicht vorbereitet werden.";
+    throw new Error(`Zusatzanhaenge konnten nicht vorbereitet werden: ${message}`);
+  }
+
+  let response: Response;
+  try {
+    response = await fetch("/api/reports/send", {
+      body: JSON.stringify({
+        attachmentBase64,
+        attachments: extraAttachments,
+        body: body?.trim() || customerReportSendBody(customer, report),
+        cc: "info@kolaretorp.se",
+        filename: fileName,
+        idempotencyKey,
+        subject: customerReportSendSubject(report, object, customer),
+        to: recipientEmail,
+      }),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      method: "POST",
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Mail-API konnte nicht erreicht werden.";
+    throw new Error(`Mail-API-Aufruf fehlgeschlagen: ${message}`);
+  }
+
+  const payload = await response.json().catch(() => ({})) as { error?: string; sent?: boolean };
 
   if (!response.ok || !payload.sent) {
-    throw new Error(payload.error || "Bericht konnte nicht gesendet werden.");
+    throw new Error(`Mailserver hat den Versand abgelehnt: ${payload.error || response.statusText || response.status}`);
   }
 }
 
