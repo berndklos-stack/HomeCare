@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.361.0",
+  version: "1.362.0",
   releaseDate: "2026-09-09",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.362.0",
+    date: "2026-09-10",
+    changes: [
+      "Berichtsbilder verwenden vorhandene Supabase-Speicherpfade vor alten Vorschau-URLs",
+      "Ein fehlgeschlagener Bildladezustand wird zurueckgesetzt, sobald eine neue Bildquelle vorliegt",
+      "Der Server bewertet Berichte beim Zusammenfuehren nur noch nach Fotos mit echter Bildquelle",
+    ],
+  },
   {
     version: "1.361.0",
     date: "2026-09-09",

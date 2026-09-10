@@ -332,9 +332,17 @@ function chooseReportText(primaryText: unknown, fallbackText: unknown, primaryTi
   return primary.length >= fallback.length ? primary : fallback;
 }
 
+function photoHasSource(photo: unknown) {
+  if (!photo || typeof photo !== "object") return false;
+  const item = photo as JsonObject;
+  return Boolean(String(item.previewUrl ?? "").trim() || String(item.storagePath ?? "").trim());
+}
+
 function reportCompletenessScore(record: JsonObject) {
   const checklist = Array.isArray(record.checklistResults) ? record.checklistResults as JsonObject[] : [];
-  const photoCount = checklist.reduce((sum, item) => sum + (Array.isArray(item.photos) ? item.photos.length : 0), 0);
+  const photoCount = checklist.reduce((sum, item) => (
+    sum + (Array.isArray(item.photos) ? item.photos.filter(photoHasSource).length : 0)
+  ), 0);
   const noteCount = checklist.filter((item) => String(item.note ?? "").trim()).length;
   return [
     record.sentAt ? 100 : 0,
@@ -454,7 +462,7 @@ function mergeObjectsByKey(existingValue: unknown, patchValue: unknown) {
 function mergeFieldPhotos(existingPhotos: unknown, patchPhotos: unknown) {
   const photosByKey = new Map<string, JsonObject>();
   const photoScore = (photo: JsonObject) => [
-    photo.previewUrl || photo.storagePath ? 20 : 0,
+    photoHasSource(photo) ? 20 : 0,
     String(photo.previewUrl ?? "").startsWith("data:") ? 8 : 0,
     photo.storagePath ? 6 : 0,
     String(photo.note ?? "").trim() ? 3 : 0,

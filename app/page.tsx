@@ -2892,7 +2892,7 @@ function mediaSourceFromStoragePath(storagePath?: string) {
 }
 
 function fieldPhotoSource(photo: FieldPhoto) {
-  return photo.previewUrl || mediaSourceFromStoragePath(photo.storagePath);
+  return mediaSourceFromStoragePath(photo.storagePath) || photo.previewUrl || "";
 }
 
 function fieldPhotoUploadIsStale(photo: FieldPhoto, maxAgeMs = 45_000) {
@@ -11260,6 +11260,10 @@ function ReportPhotoFigure({
   const [imageFailed, setImageFailed] = useState(false);
   const source = fieldPhotoSource(photo);
   const downloadName = `${safeFileName(photo.name || caption || "Berichtsfoto") || "Berichtsfoto"}.jpg`;
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [source]);
 
   return (
     <figure>
