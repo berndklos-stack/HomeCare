@@ -7861,7 +7861,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
 
   useEffect(() => {
     if (!appStorageReady) return;
-    const fastSyncSections: Section[] = ["dashboard", "field", "jobs", "planning", "inventory"];
+    const fastSyncSections: Section[] = ["dashboard", "field", "jobs", "planning", "inventory", "tracking"];
     const intervalMs = fastSyncSections.includes(section) ? 15000 : 60000;
 
     const intervalId = supabaseSyncDisabled

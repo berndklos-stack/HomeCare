@@ -355,6 +355,13 @@ function reportCompletenessScore(record: JsonObject) {
   ].reduce((sum, value) => sum + value, 0);
 }
 
+function reportPhotoSourceCount(record: JsonObject) {
+  const checklist = Array.isArray(record.checklistResults) ? record.checklistResults as JsonObject[] : [];
+  return checklist.reduce((sum, item) => (
+    sum + (Array.isArray(item.photos) ? item.photos.filter(photoHasSource).length : 0)
+  ), 0);
+}
+
 function mergeReportChecklist(existingItem: JsonObject | undefined, patchItem: JsonObject) {
   if (!existingItem) return patchItem;
   const existingTime = Date.parse(String(existingItem.updatedAt ?? ""));
@@ -423,6 +430,33 @@ function mergeReports(existingRecords: unknown, patchRecords: unknown) {
   });
 
   return Array.from(reportsByKey.values());
+}
+
+function protectReportPhotoLinks(existingSnapshot: unknown, mergedSnapshot: unknown) {
+  const existing = existingSnapshot && typeof existingSnapshot === "object" ? existingSnapshot as JsonObject : {};
+  const merged = mergedSnapshot && typeof mergedSnapshot === "object" ? mergedSnapshot as JsonObject : {};
+  if (!Array.isArray(existing.reports) || !Array.isArray(merged.reports)) return mergedSnapshot;
+
+  const existingByKey = new Map<string, JsonObject>();
+  existing.reports.forEach((report) => {
+    if (!report || typeof report !== "object") return;
+    const item = report as JsonObject;
+    if (reportPhotoSourceCount(item) > 0) existingByKey.set(reportDedupeKey(item), item);
+  });
+  if (existingByKey.size === 0) return mergedSnapshot;
+
+  return {
+    ...merged,
+    reports: merged.reports.map((report) => {
+      if (!report || typeof report !== "object") return report;
+      const item = report as JsonObject;
+      const existingReport = existingByKey.get(reportDedupeKey(item));
+      if (!existingReport) return item;
+      return reportPhotoSourceCount(item) < reportPhotoSourceCount(existingReport)
+        ? mergeReportPair(existingReport, item)
+        : item;
+    }),
+  };
 }
 
 function mergeOdometerPhotos(existingPhotos: unknown, patchPhotos: unknown) {
@@ -734,7 +768,9 @@ async function saveAppState(request: Request) {
       return retryableSupabaseResponse(error);
     }
 
-    return saveSnapshotToSupabase(mergeSnapshotPatch(normalizeSnapshot(data?.data ?? null), (body as { patch?: unknown }).patch));
+    const existingSnapshot = normalizeSnapshot(data?.data ?? null);
+    const mergedSnapshot = mergeSnapshotPatch(existingSnapshot, (body as { patch?: unknown }).patch);
+    return saveSnapshotToSupabase(protectReportPhotoLinks(existingSnapshot, mergedSnapshot));
   }
 
   const { data, error } = await supabase
@@ -747,7 +783,9 @@ async function saveAppState(request: Request) {
     return retryableSupabaseResponse(error);
   }
 
-  return saveSnapshotToSupabase(mergeSnapshotPatch(normalizeSnapshot(data?.data ?? null), normalizedBody));
+  const existingSnapshot = normalizeSnapshot(data?.data ?? null);
+  const mergedSnapshot = mergeSnapshotPatch(existingSnapshot, normalizedBody);
+  return saveSnapshotToSupabase(protectReportPhotoLinks(existingSnapshot, mergedSnapshot));
 }
 
 export async function PUT(request: Request) {

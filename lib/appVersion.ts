@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.367.0",
+  version: "1.368.0",
   releaseDate: "2026-09-10",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.368.0",
+    date: "2026-09-10",
+    changes: [
+      "Die Positionsseite synchronisiert laufende Fahrten nun im schnellen Aktualisierungszyklus",
+      "Der Fahrtdialog passt sich auf Mobilgeraeten konsequent an die Bildschirmbreite an",
+      "Der Server verhindert jetzt explizit, dass Berichtsfoto-Verknuepfungen durch leere Report-Staende ersetzt werden",
+    ],
+  },
   {
     version: "1.367.0",
     date: "2026-09-10",
