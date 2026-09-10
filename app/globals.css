@@ -2247,6 +2247,112 @@ mark.neutral {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.tracking-page {
+  display: grid;
+  gap: 14px;
+}
+
+.tracking-summary-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.tracking-map-panel {
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  min-height: 320px;
+  overflow: hidden;
+  position: relative;
+}
+
+.tracking-map-panel iframe {
+  border: 0;
+  display: block;
+  height: 360px;
+  width: 100%;
+}
+
+.tracking-map-caption {
+  align-items: center;
+  background: color-mix(in srgb, var(--paper) 88%, transparent);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  bottom: 12px;
+  box-shadow: var(--shadow);
+  display: flex;
+  gap: 10px;
+  left: 12px;
+  max-width: calc(100% - 24px);
+  padding: 8px 10px;
+  position: absolute;
+}
+
+.tracking-map-caption strong,
+.tracking-map-caption span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tracking-empty-map {
+  align-items: center;
+  color: var(--muted);
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  min-height: 320px;
+  padding: 24px;
+  text-align: center;
+}
+
+.tracking-empty-map strong {
+  color: var(--foreground);
+}
+
+.tracking-list article {
+  align-items: center;
+  display: grid;
+  gap: 8px 14px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.tracking-list article > div:first-child {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.tracking-list article span,
+.tracking-list article small {
+  color: var(--muted);
+}
+
+.tracking-list article small {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 760px) {
+  .tracking-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tracking-map-panel iframe,
+  .tracking-empty-map {
+    height: 280px;
+    min-height: 280px;
+  }
+
+  .tracking-map-caption,
+  .tracking-list article {
+    align-items: stretch;
+    grid-template-columns: 1fr;
+  }
+
+  .tracking-map-caption {
+    display: grid;
+  }
+}
+
 .quick-trip-flow {
   display: grid;
   gap: 12px;

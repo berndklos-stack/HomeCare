@@ -27,6 +27,7 @@ import {
   List,
   LogOut,
   Mail,
+  MapPin,
   Minus,
   Moon,
   Paperclip,
@@ -58,6 +59,7 @@ type Section =
   | "jobs"
   | "planning"
   | "field"
+  | "tracking"
   | "reports"
   | "communication"
   | "billing"
@@ -475,6 +477,13 @@ type PersonnelRecord = {
   archived?: boolean;
 };
 
+type GeoCoordinates = {
+  accuracy?: number;
+  capturedAt?: string;
+  latitude: number;
+  longitude: number;
+};
+
 type VehicleLogEntry = {
   id: string;
   date: string;
@@ -482,6 +491,8 @@ type VehicleLogEntry = {
   tripType: "Dienstfahrt" | "Privatfahrt";
   startAddress: string;
   endAddress: string;
+  startCoordinates?: GeoCoordinates;
+  endCoordinates?: GeoCoordinates;
   waypoints?: VehicleWaypoint[];
   startOdometer: string;
   endOdometer: string;
@@ -496,6 +507,7 @@ type VehicleLogEntry = {
 
 type VehicleWaypoint = {
   address: string;
+  coordinates?: GeoCoordinates;
   id: string;
   odometer?: string;
   note: string;
@@ -551,6 +563,11 @@ type ResourceRecord = {
   odometerYearStart: string;
   odometerYearEnd: string;
   logbook: VehicleLogEntry[];
+  tracking?: {
+    deviceId?: string;
+    mode: "none" | "phone" | "tracker";
+    provider?: string;
+  };
   maintenanceItems?: ResourceMaintenanceItem[];
   deletedLogbookEntryIds?: string[];
   archived?: boolean;
@@ -842,6 +859,7 @@ const navLabels: Record<Language, Record<Section, string>> = {
     planning: "Einsatzplanung",
     portal: "Kundenportal",
     reports: "Berichte",
+    tracking: "Positionen",
   },
   sv: {
     billing: "Fakturering",
@@ -856,6 +874,7 @@ const navLabels: Record<Language, Record<Section, string>> = {
     planning: "Planering",
     portal: "Kundportal",
     reports: "Rapporter",
+    tracking: "Positioner",
   },
   en: {
     billing: "Billing",
@@ -870,6 +889,7 @@ const navLabels: Record<Language, Record<Section, string>> = {
     planning: "Planning",
     portal: "Customer portal",
     reports: "Reports",
+    tracking: "Positions",
   },
 };
 
@@ -880,6 +900,7 @@ const navItems: Array<{ id: Section; icon: typeof Home }> = [
   { id: "jobs", icon: ClipboardList },
   { id: "planning", icon: CalendarDays },
   { id: "field", icon: Wrench },
+  { id: "tracking", icon: MapPin },
   { id: "communication", icon: Mail },
   { id: "billing", icon: Euro },
   { id: "inventory", icon: ClipboardList },
@@ -930,6 +951,7 @@ const swedishUiText: Record<string, string> = {
   "Bilder": "Bilder",
   "Bilder zur Ressource": "Bilder för resurs",
   "Bild hinzufügen": "Lägg till bild",
+  "Bitte zuerst ein Fahrzeug in den Ressourcen anlegen.": "Skapa först ett fordon under resurser.",
   "Checklistenpunkt hinzufügen": "Lägg till checklistpunkt",
   "Dashboard": "Dashboard",
   "Datum": "Datum",
@@ -966,6 +988,8 @@ const swedishUiText: Record<string, string> = {
   "Fahrt erfassen": "Registrera körning",
   "Fahrt manuell": "Registrera körning manuellt",
   "Fahrt speichern": "Spara körning",
+  "Fahrzeuge": "Fordon",
+  "Fahrzeuge auf Karte": "Fordon på karta",
   "Heute steuern": "Styra idag",
   "Finanzen": "Ekonomi",
   "Format pro Zeile: Name|ICS-Link": "Format per rad: Namn|ICS-länk",
@@ -1002,6 +1026,20 @@ const swedishUiText: Record<string, string> = {
   "laufende Einsätze": "pågående uppdrag",
   "Leistung": "Tjänst",
   "Leistung anfragen": "Begär tjänst",
+  "Letzte per Mitarbeiter-Mobil erfasste Standorte aus dem Fahrtenbuch.": "Senaste positioner från medarbetarmobilen i körjournalen.",
+  "Mitarbeiter-Mobil": "Medarbetarmobil",
+  "mit Standort": "med position",
+  "Noch keine Fahrzeugposition erfasst.": "Ingen fordonsposition registrerad ännu.",
+  "Noch keine GPS-Position im Fahrtenbuch": "Ingen GPS-position i körjournalen ännu",
+  "Positionen": "Positioner",
+  "Starte eine Fahrt und lade die aktuelle Adresse, dann erscheint das Fahrzeug hier.": "Starta en körning och hämta aktuell adress, så visas fordonet här.",
+  "Tracking": "Spårning",
+  "Tracking aktiv": "Spårning aktiv",
+  "Tracker-Anbieter": "Trackerleverantör",
+  "Tracker-Anbieter offen": "Trackerleverantör saknas",
+  "Tracker-API noch nicht angebunden": "Tracker-API är inte anslutet ännu",
+  "Tracker-ID": "Tracker-ID",
+  "Tracker-ID offen": "Tracker-ID saknas",
   "Leistungen": "Tjänster",
   "Leistungen auswählen": "Välj tjänster",
   "Leistung hinzufügen": "Lägg till tjänst",
@@ -1239,6 +1277,8 @@ const englishUiText: Record<string, string> = {
   "Fahrt": "Trip",
   "Fahrt manuell": "Manual trip",
   "Fahrtenbuch": "Logbook",
+  "Fahrzeuge": "Vehicles",
+  "Fahrzeuge auf Karte": "Vehicles on map",
   "Firma": "Company",
   "Heute steuern": "Control today",
   "Freies Material": "Free material",
@@ -1250,6 +1290,7 @@ const englishUiText: Record<string, string> = {
   "Kaufpreis brutto": "Purchase price gross",
   "Keine Artikel für diesen Filter gefunden.": "No items found for this filter.",
   "Keine Leistung für diese Suche gefunden.": "No service found for this search.",
+  "Bitte zuerst ein Fahrzeug in den Ressourcen anlegen.": "Please create a vehicle in resources first.",
   "Keine undisponierten Aufträge.": "No undispatched jobs.",
   "Kein Material für diese Suche gefunden.": "No material found for this search.",
   "Korrektur": "Correction",
@@ -1263,7 +1304,21 @@ const englishUiText: Record<string, string> = {
   "Lagerorte": "Storage locations",
   "Lagerorte anzeigen": "Show storage locations",
   "Lagerverwaltung": "Inventory",
+  "Letzte per Mitarbeiter-Mobil erfasste Standorte aus dem Fahrtenbuch.": "Latest positions captured by employee mobile from the logbook.",
+  "Mitarbeiter-Mobil": "Employee mobile",
+  "mit Standort": "with position",
+  "Noch keine Fahrzeugposition erfasst.": "No vehicle position captured yet.",
+  "Noch keine GPS-Position im Fahrtenbuch": "No GPS position in the logbook yet",
   "Objekte pflegen": "Maintain properties",
+  "Positionen": "Positions",
+  "Starte eine Fahrt und lade die aktuelle Adresse, dann erscheint das Fahrzeug hier.": "Start a trip and load the current address, then the vehicle will appear here.",
+  "Tracking": "Tracking",
+  "Tracking aktiv": "Tracking active",
+  "Tracker-Anbieter": "Tracker provider",
+  "Tracker-Anbieter offen": "Tracker provider missing",
+  "Tracker-API noch nicht angebunden": "Tracker API not connected yet",
+  "Tracker-ID": "Tracker ID",
+  "Tracker-ID offen": "Tracker ID missing",
   "vollständige Objektakten": "complete property files",
   "Berichte prüfen": "Review reports",
   "in Listenform": "in list view",
@@ -5724,13 +5779,15 @@ function fallbackCurrentAddress(knownAddresses: string[] = []) {
 }
 
 function currentDeviceCoordinates() {
-  return new Promise<{ latitude: number; longitude: number } | null>((resolve) => {
+  return new Promise<GeoCoordinates | null>((resolve) => {
     if (!navigator.geolocation) {
       resolve(null);
       return;
     }
     navigator.geolocation.getCurrentPosition(
       (position) => resolve({
+        accuracy: position.coords.accuracy,
+        capturedAt: new Date(position.timestamp).toISOString(),
         latitude: position.coords.latitude,
         longitude: position.coords.longitude,
       }),
@@ -5751,6 +5808,7 @@ async function addressFromTripPhoto(file: File) {
 
   return {
     address,
+    coordinates,
     previewUrl,
     source: photoCoordinates ? "Fotodaten" : coordinates ? "Geräteposition" : "manuell",
   };
@@ -7409,6 +7467,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     date: currentLocalDateValue(),
     driverId: "",
     endAddress: "",
+    endCoordinates: undefined as GeoCoordinates | undefined,
     endOdometer: "",
     fuelOrCharge: "",
     fuelReceiptPhoto: undefined as VehicleFuelReceiptPhoto | undefined,
@@ -7416,6 +7475,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     purpose: "",
     resourceId: "",
     startAddress: "",
+    startCoordinates: undefined as GeoCoordinates | undefined,
     startOdometer: "",
     tripType: "Dienstfahrt" as VehicleLogEntry["tripType"],
     visited: "",
@@ -9419,6 +9479,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
         date: currentLocalDateValue(),
         driverId: current.driverId || personnel.find((person) => !person.archived)?.id || "",
         endAddress: "",
+        endCoordinates: undefined,
         endOdometer: "",
         fuelOrCharge: "",
         fuelReceiptPhoto: undefined,
@@ -9426,6 +9487,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
         purpose: "",
         resourceId,
         startAddress: defaults.endAddress,
+        startCoordinates: undefined,
         startOdometer: defaults.startOdometer,
         tripType: "Dienstfahrt",
         visited: "",
@@ -9531,6 +9593,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
         const nextKilometers = calculatedTripKilometers(nextStartOdometer, nextEndOdometer) || current.kilometers;
         return {
           ...current,
+          [source === "start" ? "startCoordinates" : "endCoordinates"]: result.coordinates,
           [source === "start" ? "startAddress" : "endAddress"]: normalizedAddress || current[source === "start" ? "startAddress" : "endAddress"],
           [source === "start" ? "startOdometer" : "endOdometer"]: odometerReading || current[source === "start" ? "startOdometer" : "endOdometer"],
           kilometers: nextKilometers,
@@ -9567,7 +9630,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
         ...current,
         waypoints: current.waypoints.map((waypoint) => (
           waypoint.id === waypointId
-            ? { ...waypoint, address: normalizedAddress || waypoint.address, photo }
+            ? { ...waypoint, address: normalizedAddress || waypoint.address, coordinates: result.coordinates ?? waypoint.coordinates, photo }
             : waypoint
         )),
       }));
@@ -9605,12 +9668,12 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
         ? normalizeKnownGpsAddress(await reverseGeocode(coordinates.latitude, coordinates.longitude), quickTripAddressOptions)
         : fallbackCurrentAddress(quickTripAddressOptions);
       setQuickTripForm((current) => {
-        if (target === "start") return { ...current, startAddress: address };
-        if (target === "end") return { ...current, endAddress: address };
+        if (target === "start") return { ...current, startAddress: address, startCoordinates: coordinates ?? current.startCoordinates };
+        if (target === "end") return { ...current, endAddress: address, endCoordinates: coordinates ?? current.endCoordinates };
         return {
           ...current,
           waypoints: current.waypoints.map((waypoint) => (
-            waypoint.id === target ? { ...waypoint, address } : waypoint
+            waypoint.id === target ? { ...waypoint, address, coordinates: coordinates ?? waypoint.coordinates } : waypoint
           )),
         };
       });
@@ -9653,6 +9716,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       date: quickTripForm.date,
       driverId: quickTripForm.driverId,
       endAddress: quickTripForm.endAddress.trim(),
+      endCoordinates: quickTripForm.endCoordinates,
       endOdometer: quickTripForm.endOdometer.trim(),
       fuelOrCharge: quickTripForm.fuelOrCharge.trim(),
       fuelReceiptPhoto: quickTripForm.fuelReceiptPhoto,
@@ -9662,6 +9726,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       odometerPhotos: quickTripForm.odometerPhotos,
       purpose: quickTripForm.purpose.trim(),
       startAddress: quickTripForm.startAddress.trim(),
+      startCoordinates: quickTripForm.startCoordinates,
       startOdometer: quickTripForm.startOdometer.trim(),
       tripType: quickTripForm.tripType,
       visited: quickTripForm.tripType === "Privatfahrt" ? "" : quickTripForm.visited.trim(),
@@ -9683,6 +9748,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       date: currentLocalDateValue(),
       driverId: quickTripForm.driverId,
       endAddress: "",
+      endCoordinates: undefined,
       endOdometer: entry.endOdometer,
       fuelOrCharge: "",
       fuelReceiptPhoto: undefined,
@@ -9690,6 +9756,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       purpose: "",
       resourceId: vehicle.id,
       startAddress: entry.endAddress,
+      startCoordinates: entry.endCoordinates,
       startOdometer: entry.endOdometer,
       tripType: "Dienstfahrt",
       visited: "",
@@ -10166,6 +10233,17 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                 services={services}
                 setInventoryLocations={setInventoryLocations}
                 setMaterials={setMaterials}
+              />
+            )}
+            {section === "tracking" && (
+              <TrackingView
+                language={language}
+                onOpenLogbook={(resourceId) => {
+                  setSection("masterData");
+                  setResourceLogbookOpenRequestId(`${resourceId}:${Date.now()}`);
+                }}
+                personnel={personnel}
+                resources={resources}
               />
             )}
             {section === "masterData" && (
@@ -13722,6 +13800,126 @@ function BillingView({
   );
 }
 
+function latestVehiclePosition(resource: ResourceRecord) {
+  const entries = [...(resource.logbook ?? [])].sort((first, second) => `${second.date}-${second.id}`.localeCompare(`${first.date}-${first.id}`));
+  for (const entry of entries) {
+    const waypoint = [...(entry.waypoints ?? [])].reverse().find((item) => item.coordinates);
+    if (entry.endCoordinates) return { address: entry.endAddress, coordinates: entry.endCoordinates, entry, source: "Ziel" };
+    if (waypoint?.coordinates) return { address: waypoint.address, coordinates: waypoint.coordinates, entry, source: "Zwischenziel" };
+    if (entry.startCoordinates) return { address: entry.startAddress, coordinates: entry.startCoordinates, entry, source: "Start" };
+  }
+  return null;
+}
+
+function formatCoordinate(value: number) {
+  return Number.isFinite(value) ? value.toFixed(5) : "";
+}
+
+function mapUrlForPosition(position: GeoCoordinates) {
+  return `https://www.openstreetmap.org/export/embed.html?bbox=${position.longitude - 0.025}%2C${position.latitude - 0.015}%2C${position.longitude + 0.025}%2C${position.latitude + 0.015}&layer=mapnik&marker=${position.latitude}%2C${position.longitude}`;
+}
+
+function TrackingView({
+  language,
+  onOpenLogbook,
+  personnel,
+  resources,
+}: {
+  language: Language;
+  onOpenLogbook: (resourceId: string) => void;
+  personnel: PersonnelRecord[];
+  resources: ResourceRecord[];
+}) {
+  const tt = (value: string) => uiText(value, language);
+  const vehicles = resources.filter((resource) => resource.type === "Fahrzeug" && !resource.archived);
+  const trackedVehicles = vehicles.filter((vehicle) => (vehicle.tracking?.mode ?? "phone") !== "none");
+  const positionedVehicles = vehicles
+    .map((vehicle) => ({ position: latestVehiclePosition(vehicle), vehicle }))
+    .filter((item): item is { position: NonNullable<ReturnType<typeof latestVehiclePosition>>; vehicle: ResourceRecord } => Boolean(item.position));
+  const selected = positionedVehicles[0];
+  const driverName = (driverId: string) => {
+    const driver = personnel.find((person) => person.id === driverId);
+    return driver ? `${driver.firstName} ${driver.lastName}` : "nicht zugeordnet";
+  };
+
+  return (
+    <section className="panel tracking-page">
+      <div className="panel-title">
+        <div>
+          <p>{tt("Positionen")}</p>
+          <h2>{tt("Fahrzeuge auf Karte")}</h2>
+          <span>{tt("Letzte per Mitarbeiter-Mobil erfasste Standorte aus dem Fahrtenbuch.")}</span>
+        </div>
+      </div>
+      <div className="inventory-summary-grid tracking-summary-grid">
+        <div className="inventory-summary-card">
+          <strong>{vehicles.length}</strong>
+          <span>{tt("Fahrzeuge")}</span>
+        </div>
+        <div className="inventory-summary-card">
+          <strong>{trackedVehicles.length}</strong>
+          <span>{tt("Tracking aktiv")}</span>
+        </div>
+        <div className="inventory-summary-card">
+          <strong>{positionedVehicles.length}</strong>
+          <span>{tt("mit Standort")}</span>
+        </div>
+      </div>
+      <div className="tracking-map-panel">
+        {selected ? (
+          <>
+            <iframe loading="lazy" src={mapUrlForPosition(selected.position.coordinates)} title={`Karte ${selected.vehicle.name}`} />
+            <div className="tracking-map-caption">
+              <strong>{selected.vehicle.name}</strong>
+              <span>{selected.position.address || `${formatCoordinate(selected.position.coordinates.latitude)}, ${formatCoordinate(selected.position.coordinates.longitude)}`}</span>
+            </div>
+          </>
+        ) : (
+          <div className="tracking-empty-map">
+            <MapPin size={22} />
+            <strong>{tt("Noch keine Fahrzeugposition erfasst.")}</strong>
+            <span>{tt("Starte eine Fahrt und lade die aktuelle Adresse, dann erscheint das Fahrzeug hier.")}</span>
+          </div>
+        )}
+      </div>
+      <div className="table-list compact-list tracking-list">
+        {vehicles.map((vehicle) => {
+          const position = latestVehiclePosition(vehicle);
+          const trackingMode = vehicle.tracking?.mode ?? "phone";
+          return (
+            <article key={vehicle.id}>
+              <div>
+                <strong>{vehicle.name}</strong>
+                <span>{vehicle.identifier || "ohne Kennzeichen"} · {trackingMode === "tracker" ? "GPS-Tracker" : trackingMode === "none" ? "Tracking aus" : "Mitarbeiter-Mobil"}</span>
+                {trackingMode === "tracker" && <span>{vehicle.tracking?.provider || "Tracker-Anbieter offen"} · {vehicle.tracking?.deviceId || "Tracker-ID offen"}</span>}
+                {position ? (
+                  <span>{position.source}: {position.address || `${formatCoordinate(position.coordinates.latitude)}, ${formatCoordinate(position.coordinates.longitude)}`} · {formatUpdatedTime(position.coordinates.capturedAt) || position.entry.date}</span>
+                ) : (
+                  <span>{trackingMode === "tracker" ? "Tracker-API noch nicht angebunden" : "Noch keine GPS-Position im Fahrtenbuch"}</span>
+                )}
+              </div>
+              <div className="row-actions">
+                {position && (
+                  <a className="ghost-button compact" href={`https://www.google.com/maps/search/?api=1&query=${position.coordinates.latitude},${position.coordinates.longitude}`} rel="noreferrer" target="_blank">
+                    <MapPin size={15} />
+                    Karte
+                  </a>
+                )}
+                <button className="ghost-button compact" onClick={() => onOpenLogbook(vehicle.id)} type="button">
+                  <List size={15} />
+                  Fahrtenbuch
+                </button>
+              </div>
+              {position && <small>{driverName(position.entry.driverId)} · {position.entry.purpose || "ohne Zweck"}</small>}
+            </article>
+          );
+        })}
+        {vehicles.length === 0 && <p>{tt("Bitte zuerst ein Fahrzeug in den Ressourcen anlegen.")}</p>}
+      </div>
+    </section>
+  );
+}
+
 function InventoryView({
   customers,
   inventoryLocations,
@@ -15379,6 +15577,9 @@ function MasterDataView({
     odometerYearStart: "",
     responsiblePersonId: "",
     status: "aktiv",
+    trackerDeviceId: "",
+    trackerProvider: "",
+    trackingMode: "phone" as NonNullable<ResourceRecord["tracking"]>["mode"],
     type: "Fahrzeug" as ResourceRecord["type"],
   });
   const [maintenanceForm, setMaintenanceForm] = useState({
@@ -15391,6 +15592,7 @@ function MasterDataView({
     date: new Date().toISOString().slice(0, 10),
     driverId: "",
     endAddress: "",
+    endCoordinates: undefined as GeoCoordinates | undefined,
     endOdometer: "",
     fuelOrCharge: "",
     fuelReceiptPhoto: undefined as VehicleFuelReceiptPhoto | undefined,
@@ -15398,6 +15600,7 @@ function MasterDataView({
     notes: "",
     purpose: "",
     startAddress: "",
+    startCoordinates: undefined as GeoCoordinates | undefined,
     startOdometer: "",
     tripType: "Dienstfahrt" as VehicleLogEntry["tripType"],
     visited: "",
@@ -15678,6 +15881,9 @@ function MasterDataView({
       odometerYearStart: "",
       responsiblePersonId: "",
       status: "aktiv",
+      trackerDeviceId: "",
+      trackerProvider: "",
+      trackingMode: "phone",
       type: "Fahrzeug",
     });
     resetLogbookForm();
@@ -15705,6 +15911,9 @@ function MasterDataView({
       odometerYearStart: resource.odometerYearStart,
       responsiblePersonId: resource.responsiblePersonId,
       status: resource.status,
+      trackerDeviceId: resource.tracking?.deviceId ?? "",
+      trackerProvider: resource.tracking?.provider ?? "",
+      trackingMode: resource.tracking?.mode ?? "phone",
       type: resource.type,
     });
     setEditingLogEntryId(null);
@@ -15748,6 +15957,13 @@ function MasterDataView({
       odometerYearStart: resourceForm.odometerYearStart.trim(),
       responsiblePersonId: resourceForm.responsiblePersonId,
       status: resourceForm.status.trim() || "aktiv",
+      tracking: resourceForm.type === "Fahrzeug"
+        ? {
+            deviceId: resourceForm.trackerDeviceId.trim(),
+            mode: resourceForm.trackingMode,
+            provider: resourceForm.trackerProvider.trim(),
+          }
+        : undefined,
       type: resourceForm.type,
       archived: existingResource?.archived ?? false,
     };
@@ -15917,6 +16133,7 @@ function MasterDataView({
       date: new Date().toISOString().slice(0, 10),
       driverId: "",
       endAddress: "",
+      endCoordinates: undefined,
       endOdometer: "",
       fuelOrCharge: "",
       fuelReceiptPhoto: undefined,
@@ -15924,6 +16141,7 @@ function MasterDataView({
       notes: "",
       purpose: "",
       startAddress: latestEntry?.endAddress ?? "",
+      startCoordinates: latestEntry?.endCoordinates,
       startOdometer: latestEntry?.endOdometer ?? selectedResource?.odometerYearStart ?? "",
       tripType: "Dienstfahrt",
       visited: "",
@@ -15934,7 +16152,7 @@ function MasterDataView({
 
   function editLogbookEntry(entry: VehicleLogEntry) {
     setEditingLogEntryId(entry.id);
-    setLogbookForm({ ...entry, fuelReceiptPhoto: entry.fuelReceiptPhoto, odometerPhotos: entry.odometerPhotos ?? [], waypoints: entry.waypoints ?? [] });
+    setLogbookForm({ ...entry, endCoordinates: entry.endCoordinates, fuelReceiptPhoto: entry.fuelReceiptPhoto, odometerPhotos: entry.odometerPhotos ?? [], startCoordinates: entry.startCoordinates, waypoints: entry.waypoints ?? [] });
     setLogbookEntryEditorOpen(true);
     setResourceModalView("logbook");
   }
@@ -15973,12 +16191,12 @@ function MasterDataView({
         ? normalizeKnownGpsAddress(await reverseGeocode(coordinates.latitude, coordinates.longitude), logbookAddressOptions)
         : fallbackCurrentAddress(logbookAddressOptions);
       setLogbookForm((current) => {
-        if (target === "start") return { ...current, startAddress: address };
-        if (target === "end") return { ...current, endAddress: address };
+        if (target === "start") return { ...current, startAddress: address, startCoordinates: coordinates ?? current.startCoordinates };
+        if (target === "end") return { ...current, endAddress: address, endCoordinates: coordinates ?? current.endCoordinates };
         return {
           ...current,
           waypoints: current.waypoints.map((waypoint) => (
-            waypoint.id === target ? { ...waypoint, address } : waypoint
+            waypoint.id === target ? { ...waypoint, address, coordinates: coordinates ?? waypoint.coordinates } : waypoint
           )),
         };
       });
@@ -16024,6 +16242,7 @@ function MasterDataView({
       date: logbookForm.date,
       driverId: logbookForm.driverId,
       endAddress: logbookForm.endAddress.trim(),
+      endCoordinates: logbookForm.endCoordinates,
       endOdometer: logbookForm.endOdometer.trim(),
       fuelOrCharge: logbookForm.fuelOrCharge.trim(),
       kilometers,
@@ -16031,6 +16250,7 @@ function MasterDataView({
       odometerPhotos: logbookForm.odometerPhotos,
       purpose: logbookForm.purpose.trim(),
       startAddress: logbookForm.startAddress.trim(),
+      startCoordinates: logbookForm.startCoordinates,
       startOdometer: logbookForm.startOdometer.trim(),
       visited: logbookForm.tripType === "Privatfahrt" ? "" : logbookForm.visited.trim(),
       waypoints: logbookForm.waypoints
@@ -17008,6 +17228,15 @@ function MasterDataView({
                   <label className="resource-field"><span>{tt("Baujahr")}</span><input inputMode="numeric" value={resourceForm.buildYear} onChange={(event) => setResourceForm({ ...resourceForm, buildYear: event.target.value })} /></label>
                   <label className="resource-field"><span>{tt("Km-Stand Jahresbeginn")}</span><input inputMode="numeric" value={resourceForm.odometerYearStart} onChange={(event) => setResourceForm({ ...resourceForm, odometerYearStart: event.target.value })} /></label>
                   <label className="resource-field"><span>{tt("Km-Stand Jahresende")}</span><input inputMode="numeric" value={resourceForm.odometerYearEnd} onChange={(event) => setResourceForm({ ...resourceForm, odometerYearEnd: event.target.value })} /></label>
+                  <label className="resource-field"><span>{tt("Tracking")}</span>
+                    <select value={resourceForm.trackingMode} onChange={(event) => setResourceForm({ ...resourceForm, trackingMode: event.target.value as NonNullable<ResourceRecord["tracking"]>["mode"] })}>
+                      <option value="phone">{tt("Mitarbeiter-Mobil")}</option>
+                      <option value="tracker">{tt("GPS-Tracker")}</option>
+                      <option value="none">{tt("Aus")}</option>
+                    </select>
+                  </label>
+                  <label className="resource-field"><span>{tt("Tracker-Anbieter")}</span><input disabled={resourceForm.trackingMode !== "tracker"} value={resourceForm.trackerProvider} onChange={(event) => setResourceForm({ ...resourceForm, trackerProvider: event.target.value })} placeholder="z.B. Teltonika" /></label>
+                  <label className="resource-field"><span>{tt("Tracker-ID")}</span><input disabled={resourceForm.trackingMode !== "tracker"} value={resourceForm.trackerDeviceId} onChange={(event) => setResourceForm({ ...resourceForm, trackerDeviceId: event.target.value })} placeholder="Geräte-ID / API-ID" /></label>
                 </>
               )}
             </div>

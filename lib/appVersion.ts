@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.365.0",
+  version: "1.366.0",
   releaseDate: "2026-09-10",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.366.0",
+    date: "2026-09-10",
+    changes: [
+      "Fahrzeuge koennen nun fuer Tracking per Mitarbeiter-Mobil, GPS-Tracker oder Aus markiert werden",
+      "Fahrten speichern Start-, Ziel- und Zwischenziel-Koordinaten aus GPS-Daten mit",
+      "Der neue Menuepunkt Positionen zeigt Fahrzeugstandorte mit Karte und Fahrtenbuch-Link",
+    ],
+  },
   {
     version: "1.365.0",
     date: "2026-09-10",
