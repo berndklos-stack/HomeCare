@@ -5172,6 +5172,9 @@ async function sendCustomerReportMail(report: ReportRecord, object: ObjectRecord
   const payload = await response.json().catch(() => ({})) as { error?: string; sent?: boolean };
 
   if (!response.ok || !payload.sent) {
+    if (response.status === 413) {
+      throw new Error("Mailanhang ist zu gross. Berichtsfotos werden ab Version 1.364.0 automatisch kleiner ins PDF eingebettet.");
+    }
     throw new Error(`Mailserver hat den Versand abgelehnt: ${payload.error || response.statusText || response.status}`);
   }
 }
@@ -5475,20 +5478,21 @@ async function normalizeImageDataUrlForPdf(source: string) {
   const image = imageDataUrl ? await loadImage(imageDataUrl) : null;
   if (!image) throw new Error("Bilddatei konnte nicht gelesen werden.");
 
-  if (/^data:image\/jpe?g;base64,/i.test(imageDataUrl)) {
-    return { dataUrl: imageDataUrl, format: "JPEG" as const, image };
-  }
-  if (/^data:image\/png;base64,/i.test(imageDataUrl)) {
-    return { dataUrl: imageDataUrl, format: "PNG" as const, image };
-  }
-
+  const maxPdfImageSize = 1400;
+  const sourceWidth = Math.max(1, image.naturalWidth || image.width || 1);
+  const sourceHeight = Math.max(1, image.naturalHeight || image.height || 1);
+  const scale = Math.min(1, maxPdfImageSize / Math.max(sourceWidth, sourceHeight));
+  const targetWidth = Math.max(1, Math.round(sourceWidth * scale));
+  const targetHeight = Math.max(1, Math.round(sourceHeight * scale));
   const canvas = document.createElement("canvas");
-  canvas.width = Math.max(1, image.naturalWidth || image.width || 1);
-  canvas.height = Math.max(1, image.naturalHeight || image.height || 1);
+  canvas.width = targetWidth;
+  canvas.height = targetHeight;
   const context = canvas.getContext("2d");
   if (!context) throw new Error("Bild konnte nicht fuer PDF vorbereitet werden.");
-  context.drawImage(image, 0, 0, canvas.width, canvas.height);
-  return { dataUrl: canvas.toDataURL("image/jpeg", 0.82), format: "JPEG" as const, image };
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, targetWidth, targetHeight);
+  context.drawImage(image, 0, 0, targetWidth, targetHeight);
+  return { dataUrl: canvas.toDataURL("image/jpeg", 0.72), format: "JPEG" as const, image };
 }
 
 async function fileToImagePreview(file: File, maxSize = 1280, quality = 0.72) {

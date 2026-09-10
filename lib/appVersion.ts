@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.363.0",
+  version: "1.364.0",
   releaseDate: "2026-09-09",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.364.0",
+    date: "2026-09-10",
+    changes: [
+      "Berichtsfotos werden fuer den PDF-Mailversand auf versandfaehige JPEG-Groesse reduziert",
+      "Grosse iPhone-Fotos erzeugen dadurch keinen 413-Fehler beim Berichtversand mehr",
+      "Der Versanddialog erkennt zu grosse Mailanhaenge und zeigt eine klare Meldung",
+    ],
+  },
   {
     version: "1.363.0",
     date: "2026-09-10",
