@@ -2892,7 +2892,14 @@ function mediaSourceFromStoragePath(storagePath?: string) {
 }
 
 function fieldPhotoSource(photo: FieldPhoto) {
-  return mediaSourceFromStoragePath(photo.storagePath) || photo.previewUrl || "";
+  return fieldPhotoSources(photo)[0] ?? "";
+}
+
+function fieldPhotoSources(photo: FieldPhoto) {
+  return [
+    mediaSourceFromStoragePath(photo.storagePath),
+    photo.previewUrl || "",
+  ].filter((source, index, sources): source is string => Boolean(source) && sources.indexOf(source) === index);
 }
 
 function fieldPhotoUploadIsStale(photo: FieldPhoto, maxAgeMs = 45_000) {
@@ -8910,8 +8917,10 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   }
 
   function updateReportRecord(report: ReportRecord, options: { forceRemote?: boolean } = {}) {
-    const stampedReport = { ...report, updatedAt: new Date().toISOString() };
     const baseReports = reportsRef.current.length ? reportsRef.current : reports;
+    const existingReport = baseReports.find((item) => item.id === report.id || reportDedupeKey(item) === reportDedupeKey(report));
+    const protectedReport = existingReport ? mergeReportPair(existingReport, report) : report;
+    const stampedReport = { ...protectedReport, updatedAt: new Date().toISOString() };
     const replaced = baseReports.some((item) => item.id === stampedReport.id);
     const nextReports = dedupeReports(replaced
       ? baseReports.map((item) => (item.id === stampedReport.id ? stampedReport : item))
@@ -11285,22 +11294,33 @@ function ReportPhotoFigure({
   photo: FieldPhoto;
 }) {
   const [imageFailed, setImageFailed] = useState(false);
-  const source = fieldPhotoSource(photo);
+  const [sourceIndex, setSourceIndex] = useState(0);
+  const sources = fieldPhotoSources(photo);
+  const source = sources[sourceIndex] ?? "";
   const downloadName = `${safeFileName(photo.name || caption || "Berichtsfoto") || "Berichtsfoto"}.jpg`;
 
   useEffect(() => {
     setImageFailed(false);
-  }, [source]);
+    setSourceIndex(0);
+  }, [photo.id, photo.previewUrl, photo.storagePath]);
+
+  function handleImageError() {
+    if (sourceIndex < sources.length - 1) {
+      setSourceIndex((current) => current + 1);
+      return;
+    }
+    setImageFailed(true);
+  }
 
   return (
     <figure>
       {source && !imageFailed ? (
         downloadable ? (
           <a className="report-photo-link" href={source} target="_blank" rel="noreferrer" download={downloadName}>
-            <img alt={alt} src={source} onError={() => setImageFailed(true)} />
+            <img alt={alt} src={source} onError={handleImageError} />
           </a>
         ) : (
-          <img alt={alt} src={source} onError={() => setImageFailed(true)} />
+          <img alt={alt} src={source} onError={handleImageError} />
         )
       ) : (
         <div className="report-gallery-placeholder error-placeholder">

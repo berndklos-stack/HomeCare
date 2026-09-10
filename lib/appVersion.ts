@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.364.0",
-  releaseDate: "2026-09-09",
+  version: "1.365.0",
+  releaseDate: "2026-09-10",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.365.0",
+    date: "2026-09-10",
+    changes: [
+      "Berichtsfotos fallen bei der Anzeige automatisch auf die zweite gespeicherte Bildquelle zurueck",
+      "Report-Updates schuetzen vorhandene Supabase-Bildverknuepfungen vor leeren lokalen Zwischenstaenden",
+      "Die Gunnabo-Fotos vom 08.09.2026 wurden aus dem App-Backup wieder mit dem Bericht verbunden",
+    ],
+  },
   {
     version: "1.364.0",
     date: "2026-09-10",
