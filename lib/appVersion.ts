@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.366.0",
+  version: "1.367.0",
   releaseDate: "2026-09-10",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.367.0",
+    date: "2026-09-10",
+    changes: [
+      "Quick-Fahrten koennen nun als laufende Fahrt gestartet und spaeter abgeschlossen werden",
+      "Gestartete Fahrten werden sofort im Fahrtenbuch gespeichert und erscheinen in der Positionsansicht",
+      "GPS- und Foto-Aktionen schreiben Zwischenstaende einer laufenden Fahrt direkt nach",
+    ],
+  },
   {
     version: "1.366.0",
     date: "2026-09-10",

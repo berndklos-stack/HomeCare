@@ -488,6 +488,9 @@ type VehicleLogEntry = {
   id: string;
   date: string;
   driverId: string;
+  status?: "laufend" | "abgeschlossen";
+  startedAt?: string;
+  endedAt?: string;
   tripType: "Dienstfahrt" | "Privatfahrt";
   startAddress: string;
   endAddress: string;
@@ -988,6 +991,8 @@ const swedishUiText: Record<string, string> = {
   "Fahrt erfassen": "Registrera körning",
   "Fahrt manuell": "Registrera körning manuellt",
   "Fahrt speichern": "Spara körning",
+  "Fahrt starten": "Starta körning",
+  "Fahrt abschließen": "Avsluta körning",
   "Fahrzeuge": "Fordon",
   "Fahrzeuge auf Karte": "Fordon på karta",
   "Heute steuern": "Styra idag",
@@ -1040,6 +1045,7 @@ const swedishUiText: Record<string, string> = {
   "Tracker-API noch nicht angebunden": "Tracker-API är inte anslutet ännu",
   "Tracker-ID": "Tracker-ID",
   "Tracker-ID offen": "Tracker-ID saknas",
+  "Zwischenstand speichern": "Spara mellanläge",
   "Leistungen": "Tjänster",
   "Leistungen auswählen": "Välj tjänster",
   "Leistung hinzufügen": "Lägg till tjänst",
@@ -1277,6 +1283,8 @@ const englishUiText: Record<string, string> = {
   "Fahrt": "Trip",
   "Fahrt manuell": "Manual trip",
   "Fahrtenbuch": "Logbook",
+  "Fahrt starten": "Start trip",
+  "Fahrt abschließen": "Finish trip",
   "Fahrzeuge": "Vehicles",
   "Fahrzeuge auf Karte": "Vehicles on map",
   "Firma": "Company",
@@ -1319,6 +1327,7 @@ const englishUiText: Record<string, string> = {
   "Tracker-API noch nicht angebunden": "Tracker API not connected yet",
   "Tracker-ID": "Tracker ID",
   "Tracker-ID offen": "Tracker ID missing",
+  "Zwischenstand speichern": "Save progress",
   "vollständige Objektakten": "complete property files",
   "Berichte prüfen": "Review reports",
   "in Listenform": "in list view",
@@ -7471,6 +7480,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     endOdometer: "",
     fuelOrCharge: "",
     fuelReceiptPhoto: undefined as VehicleFuelReceiptPhoto | undefined,
+    activeLogbookEntryId: "",
     kilometers: "",
     purpose: "",
     resourceId: "",
@@ -9440,6 +9450,12 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       .sort((first, second) => `${second.date}-${second.id}`.localeCompare(`${first.date}-${first.id}`))[0];
   }
 
+  function activeLogbookEntry(vehicle?: ResourceRecord) {
+    return vehicle?.logbook
+      .filter((entry) => entry.status === "laufend")
+      .sort((first, second) => String(second.startedAt ?? second.id).localeCompare(String(first.startedAt ?? first.id)))[0];
+  }
+
   function quickTripDefaultsForVehicle(vehicleId: string, sourceResources = resources) {
     const vehicle = sourceResources.find((resource) => resource.id === vehicleId && resource.type === "Fahrzeug");
     const latestEntry = latestLogbookEntry(vehicle);
@@ -9472,10 +9488,39 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     const freshResources = await syncedResourcesForQuickTrip();
     const freshVehicles = freshResources.filter((resource) => resource.type === "Fahrzeug" && !resource.archived);
     setQuickTripForm((current) => {
-      const resourceId = current.resourceId || freshVehicles[0]?.id || activeVehicles[0]?.id || "";
+      const vehicleWithActiveTrip = freshVehicles.find((vehicle) => activeLogbookEntry(vehicle));
+      const resourceId = current.activeLogbookEntryId
+        ? current.resourceId
+        : current.resourceId || vehicleWithActiveTrip?.id || freshVehicles[0]?.id || activeVehicles[0]?.id || "";
+      const vehicle = freshResources.find((resource) => resource.id === resourceId && resource.type === "Fahrzeug");
+      const activeEntry = activeLogbookEntry(vehicle);
       const defaults = quickTripDefaultsForVehicle(resourceId, freshResources);
+      if (activeEntry) {
+        return {
+          ...current,
+          activeLogbookEntryId: activeEntry.id,
+          date: activeEntry.date || currentLocalDateValue(),
+          driverId: activeEntry.driverId || current.driverId || personnel.find((person) => !person.archived)?.id || "",
+          endAddress: activeEntry.endAddress,
+          endCoordinates: activeEntry.endCoordinates,
+          endOdometer: activeEntry.endOdometer,
+          fuelOrCharge: activeEntry.fuelOrCharge,
+          fuelReceiptPhoto: activeEntry.fuelReceiptPhoto,
+          kilometers: activeEntry.kilometers,
+          purpose: activeEntry.purpose,
+          resourceId,
+          startAddress: activeEntry.startAddress,
+          startCoordinates: activeEntry.startCoordinates,
+          startOdometer: activeEntry.startOdometer,
+          tripType: activeEntry.tripType,
+          visited: activeEntry.visited,
+          waypoints: activeEntry.waypoints ?? [],
+          odometerPhotos: activeEntry.odometerPhotos ?? [],
+        };
+      }
       return {
         ...current,
+        activeLogbookEntryId: "",
         date: currentLocalDateValue(),
         driverId: current.driverId || personnel.find((person) => !person.archived)?.id || "",
         endAddress: "",
@@ -9591,7 +9636,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
         const nextStartOdometer = source === "start" && odometerReading ? odometerReading : current.startOdometer;
         const nextEndOdometer = source === "end" && odometerReading ? odometerReading : current.endOdometer;
         const nextKilometers = calculatedTripKilometers(nextStartOdometer, nextEndOdometer) || current.kilometers;
-        return {
+        const nextForm = {
           ...current,
           [source === "start" ? "startCoordinates" : "endCoordinates"]: result.coordinates,
           [source === "start" ? "startAddress" : "endAddress"]: normalizedAddress || current[source === "start" ? "startAddress" : "endAddress"],
@@ -9602,6 +9647,8 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
             photo,
           ],
         };
+        if (nextForm.activeLogbookEntryId) window.setTimeout(() => updateActiveQuickTripEntry(nextForm), 0);
+        return nextForm;
       });
       const parts = [
         normalizedAddress ? `${source === "start" ? "Startadresse" : "Zieladresse"} aus ${result.source}` : "Foto gespeichert",
@@ -9626,14 +9673,18 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
         name: file.name,
         previewUrl: result.previewUrl,
       };
-      setQuickTripForm((current) => ({
-        ...current,
-        waypoints: current.waypoints.map((waypoint) => (
-          waypoint.id === waypointId
-            ? { ...waypoint, address: normalizedAddress || waypoint.address, coordinates: result.coordinates ?? waypoint.coordinates, photo }
-            : waypoint
-        )),
-      }));
+      setQuickTripForm((current) => {
+        const nextForm = {
+          ...current,
+          waypoints: current.waypoints.map((waypoint) => (
+            waypoint.id === waypointId
+              ? { ...waypoint, address: normalizedAddress || waypoint.address, coordinates: result.coordinates ?? waypoint.coordinates, photo }
+              : waypoint
+          )),
+        };
+        if (nextForm.activeLogbookEntryId) window.setTimeout(() => updateActiveQuickTripEntry(nextForm), 0);
+        return nextForm;
+      });
       setRecordNotice(normalizedAddress ? "Zwischenziel-Adresse aus Foto übernommen." : "Zwischenziel-Foto gespeichert. Adresse bitte manuell ergänzen.");
     } catch (error) {
       console.warn("Zwischenziel-Foto konnte nicht verarbeitet werden.", error);
@@ -9668,14 +9719,18 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
         ? normalizeKnownGpsAddress(await reverseGeocode(coordinates.latitude, coordinates.longitude), quickTripAddressOptions)
         : fallbackCurrentAddress(quickTripAddressOptions);
       setQuickTripForm((current) => {
-        if (target === "start") return { ...current, startAddress: address, startCoordinates: coordinates ?? current.startCoordinates };
-        if (target === "end") return { ...current, endAddress: address, endCoordinates: coordinates ?? current.endCoordinates };
-        return {
-          ...current,
-          waypoints: current.waypoints.map((waypoint) => (
-            waypoint.id === target ? { ...waypoint, address, coordinates: coordinates ?? waypoint.coordinates } : waypoint
-          )),
-        };
+        const nextForm = target === "start"
+          ? { ...current, startAddress: address, startCoordinates: coordinates ?? current.startCoordinates }
+          : target === "end"
+            ? { ...current, endAddress: address, endCoordinates: coordinates ?? current.endCoordinates }
+            : {
+                ...current,
+                waypoints: current.waypoints.map((waypoint) => (
+                  waypoint.id === target ? { ...waypoint, address, coordinates: coordinates ?? waypoint.coordinates } : waypoint
+                )),
+              };
+        if (nextForm.activeLogbookEntryId) window.setTimeout(() => updateActiveQuickTripEntry(nextForm), 0);
+        return nextForm;
       });
       setRecordNotice(coordinates
         ? tx("Aktuelle Adresse wurde übernommen.")
@@ -9688,11 +9743,123 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     }
   }
 
-  function saveQuickTrip() {
+  function updateActiveQuickTripEntry(form = quickTripForm) {
+    if (!form.activeLogbookEntryId) return;
+    const vehicle = resources.find((resource) => resource.id === form.resourceId && resource.type === "Fahrzeug");
+    if (!vehicle) return;
+    const nextResources = resources.map((resource) => (
+      resource.id === vehicle.id
+        ? {
+            ...resource,
+            logbook: resource.logbook.map((entry) => (
+              entry.id === form.activeLogbookEntryId
+                ? {
+                    ...entry,
+                    date: form.date,
+                    driverId: form.driverId,
+                    endAddress: form.endAddress.trim(),
+                    endCoordinates: form.endCoordinates,
+                    endOdometer: form.endOdometer.trim(),
+                    fuelOrCharge: form.fuelOrCharge.trim(),
+                    fuelReceiptPhoto: form.fuelReceiptPhoto,
+                    kilometers: form.kilometers.trim() || calculatedTripKilometers(form.startOdometer, form.endOdometer) || "",
+                    odometerPhotos: form.odometerPhotos,
+                    purpose: form.purpose.trim(),
+                    startAddress: form.startAddress.trim(),
+                    startCoordinates: form.startCoordinates,
+                    startOdometer: form.startOdometer.trim(),
+                    tripType: form.tripType,
+                    visited: form.tripType === "Privatfahrt" ? "" : form.visited.trim(),
+                    waypoints: form.waypoints
+                      .map((waypoint) => ({ ...waypoint, address: waypoint.address.trim(), note: waypoint.note.trim(), odometer: (waypoint.odometer ?? "").trim() }))
+                      .filter((waypoint) => waypoint.address || waypoint.photo?.previewUrl),
+                  }
+                : entry
+            )),
+          }
+        : resource
+    ));
+    setResources(nextResources);
+    persistSnapshotNow({ resources: nextResources }, { forceRemote: true });
+  }
+
+  async function startQuickTrip() {
     const vehicle = resources.find((resource) => resource.id === quickTripForm.resourceId && resource.type === "Fahrzeug");
     if (!vehicle) {
       setRecordNotice("Bitte zuerst ein Fahrzeug für die Fahrt auswählen.");
       return;
+    }
+    if (quickTripForm.activeLogbookEntryId) {
+      updateActiveQuickTripEntry();
+      setRecordNotice("Laufende Fahrt wurde aktualisiert.");
+      return;
+    }
+    let startAddress = quickTripForm.startAddress.trim();
+    let startCoordinates = quickTripForm.startCoordinates;
+    if (!startCoordinates) {
+      const coordinates = await currentDeviceCoordinates();
+      if (coordinates) {
+        startCoordinates = coordinates;
+        if (!startAddress) {
+          startAddress = normalizeKnownGpsAddress(await reverseGeocode(coordinates.latitude, coordinates.longitude), quickTripAddressOptions);
+        }
+      }
+    }
+    const requiredFields = [quickTripForm.date, quickTripForm.driverId, startAddress, quickTripForm.startOdometer];
+    if (requiredFields.some((field) => !field.trim())) {
+      setRecordNotice("Zum Starten bitte Fahrzeug, Datum, Fahrer, Startadresse und Start-KM erfassen.");
+      return;
+    }
+    const logbookId = `LOG-${vehicle.id}-${quickTripForm.date.replace(/\D/g, "")}-${Date.now()}`;
+    const entry: VehicleLogEntry = {
+      date: quickTripForm.date,
+      driverId: quickTripForm.driverId,
+      endAddress: "",
+      endCoordinates: undefined,
+      endOdometer: "",
+      fuelOrCharge: "",
+      fuelReceiptPhoto: undefined,
+      id: logbookId,
+      kilometers: "",
+      notes: "Laufende Fahrt über Quickbutton gestartet.",
+      odometerPhotos: quickTripForm.odometerPhotos,
+      purpose: quickTripForm.purpose.trim(),
+      startAddress,
+      startCoordinates,
+      startedAt: new Date().toISOString(),
+      startOdometer: quickTripForm.startOdometer.trim(),
+      status: "laufend",
+      tripType: quickTripForm.tripType,
+      visited: quickTripForm.tripType === "Privatfahrt" ? "" : quickTripForm.visited.trim(),
+      waypoints: [],
+    };
+    const nextResources = resources.map((resource) => (
+      resource.id === vehicle.id
+        ? { ...resource, logbook: [entry, ...resource.logbook].sort((first, second) => first.date.localeCompare(second.date)) }
+        : resource
+    ));
+    setResources(nextResources);
+    persistSnapshotNow({ resources: nextResources }, { forceRemote: true });
+    setQuickTripForm((current) => ({ ...current, activeLogbookEntryId: logbookId, startAddress, startCoordinates }));
+    setRecordNotice("Fahrt wurde gestartet und ist in Positionen sichtbar.");
+  }
+
+  async function saveQuickTrip() {
+    const vehicle = resources.find((resource) => resource.id === quickTripForm.resourceId && resource.type === "Fahrzeug");
+    if (!vehicle) {
+      setRecordNotice("Bitte zuerst ein Fahrzeug für die Fahrt auswählen.");
+      return;
+    }
+    let endAddress = quickTripForm.endAddress.trim();
+    let endCoordinates = quickTripForm.endCoordinates;
+    if (!endCoordinates) {
+      const coordinates = await currentDeviceCoordinates();
+      if (coordinates) {
+        endCoordinates = coordinates;
+        if (!endAddress) {
+          endAddress = normalizeKnownGpsAddress(await reverseGeocode(coordinates.latitude, coordinates.longitude), quickTripAddressOptions);
+        }
+      }
     }
 
     const kilometers = quickTripForm.kilometers.trim()
@@ -9700,7 +9867,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     const requiredFields = [
       quickTripForm.date,
       quickTripForm.startAddress,
-      quickTripForm.endAddress,
+      endAddress,
       quickTripForm.startOdometer,
       quickTripForm.endOdometer,
       kilometers,
@@ -9715,19 +9882,22 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     const entry: VehicleLogEntry = {
       date: quickTripForm.date,
       driverId: quickTripForm.driverId,
-      endAddress: quickTripForm.endAddress.trim(),
-      endCoordinates: quickTripForm.endCoordinates,
+      endedAt: new Date().toISOString(),
+      endAddress,
+      endCoordinates,
       endOdometer: quickTripForm.endOdometer.trim(),
       fuelOrCharge: quickTripForm.fuelOrCharge.trim(),
       fuelReceiptPhoto: quickTripForm.fuelReceiptPhoto,
-      id: `LOG-${vehicle.id}-${quickTripForm.date.replace(/\D/g, "")}-${vehicle.logbook.length + 1}`,
+      id: quickTripForm.activeLogbookEntryId || `LOG-${vehicle.id}-${quickTripForm.date.replace(/\D/g, "")}-${vehicle.logbook.length + 1}`,
       kilometers,
-      notes: "Über Quickbutton erfasst.",
+      notes: quickTripForm.activeLogbookEntryId ? "Laufende Fahrt abgeschlossen." : "Über Quickbutton erfasst.",
       odometerPhotos: quickTripForm.odometerPhotos,
       purpose: quickTripForm.purpose.trim(),
       startAddress: quickTripForm.startAddress.trim(),
       startCoordinates: quickTripForm.startCoordinates,
+      startedAt: vehicle.logbook.find((item) => item.id === quickTripForm.activeLogbookEntryId)?.startedAt,
       startOdometer: quickTripForm.startOdometer.trim(),
+      status: "abgeschlossen",
       tripType: quickTripForm.tripType,
       visited: quickTripForm.tripType === "Privatfahrt" ? "" : quickTripForm.visited.trim(),
       waypoints: quickTripForm.waypoints
@@ -9736,7 +9906,12 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     };
     const nextResources = resources.map((resource) => (
       resource.id === vehicle.id
-        ? { ...resource, logbook: [...resource.logbook, entry].sort((first, second) => first.date.localeCompare(second.date)) }
+        ? {
+            ...resource,
+            logbook: quickTripForm.activeLogbookEntryId
+              ? resource.logbook.map((item) => (item.id === quickTripForm.activeLogbookEntryId ? entry : item)).sort((first, second) => first.date.localeCompare(second.date))
+              : [...resource.logbook, entry].sort((first, second) => first.date.localeCompare(second.date)),
+          }
         : resource
     ));
 
@@ -9752,11 +9927,12 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       endOdometer: entry.endOdometer,
       fuelOrCharge: "",
       fuelReceiptPhoto: undefined,
+      activeLogbookEntryId: "",
       kilometers: "",
       purpose: "",
       resourceId: vehicle.id,
-      startAddress: entry.endAddress,
-      startCoordinates: entry.endCoordinates,
+      startAddress: endAddress,
+      startCoordinates: endCoordinates,
       startOdometer: entry.endOdometer,
       tripType: "Dienstfahrt",
       visited: "",
@@ -10618,9 +10794,15 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
             </div>
             <div className="modal-actions">
               <button className="ghost-button" onClick={() => setQuickTripOpen(false)} type="button">Abbrechen</button>
-              <button className="primary-button" onClick={saveQuickTrip} type="button">
+              {quickTripForm.activeLogbookEntryId && (
+                <button className="ghost-button" onClick={() => updateActiveQuickTripEntry()} type="button">
+                  <Check size={16} />
+                  {tx("Zwischenstand speichern")}
+                </button>
+              )}
+              <button className="primary-button" onClick={() => quickTripForm.activeLogbookEntryId ? void saveQuickTrip() : void startQuickTrip()} type="button">
                 <Check size={16} />
-                Fahrt speichern
+                {quickTripForm.activeLogbookEntryId ? tx("Fahrt abschließen") : tx("Fahrt starten")}
               </button>
             </div>
           </section>
