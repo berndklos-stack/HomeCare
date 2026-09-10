@@ -1,10 +1,20 @@
 export const appVersion = {
-  version: "1.368.0",
+  version: "1.369.0",
   releaseDate: "2026-09-10",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.369.0",
+    date: "2026-09-10",
+    changes: [
+      "Berichte reparieren fehlende Fotoverknuepfungen nun serverseitig aus dem mobilen Fortschrittsstand",
+      "Foto-Fortschritt bleibt nach dem Berichtabschluss als Sicherung erhalten, statt sofort geloescht zu werden",
+      "Laufende Quick-Fahrten koennen verworfen werden und verschwinden dann aus Fahrtenbuch und Positionskarte",
+      "Die Positionskarte zeigt den aktuellen Fahrstatus und der Fahrtdialog ist auf Mobilgeraeten kompakter",
+    ],
+  },
   {
     version: "1.368.0",
     date: "2026-09-10",

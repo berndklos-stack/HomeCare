@@ -2287,6 +2287,16 @@ mark.neutral {
   position: absolute;
 }
 
+.tracking-map-caption small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .tracking-map-caption strong,
 .tracking-map-caption span {
   overflow: hidden;
@@ -6678,11 +6688,13 @@ button.media-thumb {
 
   .quick-trip-modal {
     overflow-x: hidden;
+    padding: 10px;
   }
 
   .quick-trip-modal header {
     align-items: stretch;
     grid-template-columns: 1fr;
+    gap: 8px;
   }
 
   .quick-trip-modal .modal-header-actions {
@@ -6699,6 +6711,41 @@ button.media-thumb {
   .quick-trip-modal .form-grid.compact-form,
   .quick-trip-modal .trip-photo-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .quick-trip-flow {
+    gap: 8px;
+  }
+
+  .quick-trip-modal .trip-step {
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .quick-trip-modal .trip-step-head {
+    gap: 3px 8px;
+    grid-template-columns: 24px minmax(0, 1fr);
+  }
+
+  .quick-trip-modal .trip-step-head span {
+    font-size: 12px;
+    height: 24px;
+    width: 24px;
+  }
+
+  .quick-trip-modal .trip-step-head small {
+    grid-column: 2;
+    justify-self: start;
+    text-align: left;
+  }
+
+  .quick-trip-modal label,
+  .quick-trip-modal input,
+  .quick-trip-modal select,
+  .quick-trip-modal textarea,
+  .quick-trip-modal button {
+    min-width: 0;
+    max-width: 100%;
   }
 
   .field-task-head {
@@ -6788,16 +6835,6 @@ button.media-thumb {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .trip-step-head {
-    grid-template-columns: 28px minmax(0, 1fr);
-  }
-
-  .trip-step-head small {
-    grid-column: 2;
-    justify-self: start;
-    text-align: left;
-  }
-
   .quick-trip-modal .waypoint-row input {
     grid-column: 1 / -1;
     min-height: 42px;
@@ -6820,7 +6857,13 @@ button.media-thumb {
   }
 
   .quick-trip-modal .modal-actions {
+    display: grid;
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .quick-trip-modal .modal-actions .ghost-button,
+  .quick-trip-modal .modal-actions .primary-button {
+    width: 100%;
   }
 
   .billing-meta-grid,

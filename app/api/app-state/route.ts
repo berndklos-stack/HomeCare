@@ -459,6 +459,88 @@ function protectReportPhotoLinks(existingSnapshot: unknown, mergedSnapshot: unkn
   };
 }
 
+function fieldProgressCandidatesForReport(report: JsonObject) {
+  const jobId = String(report.jobId ?? "");
+  const date = normalizeReportDate(report.date);
+  return Array.from(new Set([
+    `${jobId}::${date}`,
+    jobId,
+  ].filter(Boolean)));
+}
+
+function repairReportPhotosFromProgressPhotos(reportPhotos: unknown, progressPhotos: unknown) {
+  const existingPhotos = Array.isArray(reportPhotos) ? reportPhotos : [];
+  const sourcePhotos = Array.isArray(progressPhotos) ? progressPhotos : [];
+  if (sourcePhotos.length === 0) return existingPhotos;
+
+  const sourcedProgressPhotos = sourcePhotos.filter(photoHasSource);
+  const patchedPhotos = existingPhotos.map((photo, index) => {
+    if (!photo || typeof photo !== "object") return photo;
+    if (photoHasSource(photo)) return photo;
+    const sourcePhoto = sourcedProgressPhotos[index];
+    return sourcePhoto && typeof sourcePhoto === "object"
+      ? { ...(photo as JsonObject), ...(sourcePhoto as JsonObject) }
+      : photo;
+  });
+
+  return mergeFieldPhotos(patchedPhotos, sourcePhotos);
+}
+
+function repairReportPhotosFromFieldProgress(snapshot: unknown) {
+  const data = snapshot && typeof snapshot === "object" && !Array.isArray(snapshot) ? snapshot as JsonObject : {};
+  const reports = Array.isArray(data.reports) ? data.reports : null;
+  const fieldProgress = data.fieldProgress && typeof data.fieldProgress === "object" && !Array.isArray(data.fieldProgress)
+    ? data.fieldProgress as JsonObject
+    : {};
+  if (!reports || Object.keys(fieldProgress).length === 0) return snapshot;
+
+  let changed = false;
+  const repairedReports = reports.map((report) => {
+    if (!report || typeof report !== "object") return report;
+    const item = report as JsonObject;
+    const progress = fieldProgressCandidatesForReport(item)
+      .map((key) => fieldProgress[key])
+      .find((value) => value && typeof value === "object" && !Array.isArray(value)) as JsonObject | undefined;
+    if (!progress || !Array.isArray(item.checklistResults)) return item;
+
+    const progressByTitle = new Map<string, JsonObject>();
+    Object.values(progress).forEach((taskProgress) => {
+      if (!taskProgress || typeof taskProgress !== "object") return;
+      const task = taskProgress as JsonObject;
+      const title = String(task.title ?? "").trim();
+      if (title) progressByTitle.set(title, task);
+    });
+
+    let reportChanged = false;
+    const checklistResults = (item.checklistResults as unknown[]).map((result) => {
+      if (!result || typeof result !== "object") return result;
+      const checklistItem = result as JsonObject;
+      const progressTask = progress[String(checklistItem.id ?? "")]
+        ?? progress[String(checklistItem.taskId ?? "")]
+        ?? progressByTitle.get(String(checklistItem.title ?? "").trim());
+      if (!progressTask || typeof progressTask !== "object") return checklistItem;
+      const photos = repairReportPhotosFromProgressPhotos(checklistItem.photos, (progressTask as JsonObject).photos);
+      if (JSON.stringify(photos) === JSON.stringify(Array.isArray(checklistItem.photos) ? checklistItem.photos : [])) return checklistItem;
+      reportChanged = true;
+      return {
+        ...checklistItem,
+        photos,
+        updatedAt: checklistItem.updatedAt ?? (progressTask as JsonObject).updatedAt,
+      };
+    });
+
+    if (!reportChanged) return item;
+    changed = true;
+    return {
+      ...item,
+      checklistResults,
+      updatedAt: item.updatedAt ?? new Date().toISOString(),
+    };
+  });
+
+  return changed ? { ...data, reports: repairedReports } : snapshot;
+}
+
 function mergeOdometerPhotos(existingPhotos: unknown, patchPhotos: unknown) {
   const photosById = new Map<string, JsonObject>();
   [
@@ -736,7 +818,7 @@ export async function GET(request: Request) {
     return retryableSupabaseResponse(error);
   }
 
-  const snapshot = data?.data ? normalizeSnapshot(data.data) : null;
+  const snapshot = data?.data ? repairReportPhotosFromFieldProgress(normalizeSnapshot(data.data)) : null;
   cachedAppState = {
     cachedAt: Date.now(),
     data: snapshot,
@@ -769,7 +851,7 @@ async function saveAppState(request: Request) {
     }
 
     const existingSnapshot = normalizeSnapshot(data?.data ?? null);
-    const mergedSnapshot = mergeSnapshotPatch(existingSnapshot, (body as { patch?: unknown }).patch);
+    const mergedSnapshot = repairReportPhotosFromFieldProgress(mergeSnapshotPatch(existingSnapshot, (body as { patch?: unknown }).patch));
     return saveSnapshotToSupabase(protectReportPhotoLinks(existingSnapshot, mergedSnapshot));
   }
 
@@ -784,7 +866,7 @@ async function saveAppState(request: Request) {
   }
 
   const existingSnapshot = normalizeSnapshot(data?.data ?? null);
-  const mergedSnapshot = mergeSnapshotPatch(existingSnapshot, normalizedBody);
+  const mergedSnapshot = repairReportPhotosFromFieldProgress(mergeSnapshotPatch(existingSnapshot, normalizedBody));
   return saveSnapshotToSupabase(protectReportPhotoLinks(existingSnapshot, mergedSnapshot));
 }
 

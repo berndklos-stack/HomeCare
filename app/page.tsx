@@ -993,8 +993,11 @@ const swedishUiText: Record<string, string> = {
   "Fahrt speichern": "Spara körning",
   "Fahrt starten": "Starta körning",
   "Fahrt abschließen": "Avsluta körning",
+  "Fahrt verwerfen": "Kassera körning",
   "Fahrzeuge": "Fordon",
   "Fahrzeuge auf Karte": "Fordon på karta",
+  "laufende Fahrt": "pågående körning",
+  "letzte Fahrt": "senaste körning",
   "Heute steuern": "Styra idag",
   "Finanzen": "Ekonomi",
   "Format pro Zeile: Name|ICS-Link": "Format per rad: Namn|ICS-länk",
@@ -1285,6 +1288,7 @@ const englishUiText: Record<string, string> = {
   "Fahrtenbuch": "Logbook",
   "Fahrt starten": "Start trip",
   "Fahrt abschließen": "Finish trip",
+  "Fahrt verwerfen": "Discard trip",
   "Fahrzeuge": "Vehicles",
   "Fahrzeuge auf Karte": "Vehicles on map",
   "Firma": "Company",
@@ -1292,6 +1296,8 @@ const englishUiText: Record<string, string> = {
   "Freies Material": "Free material",
   "Freies Material beim Speichern in Stammdaten übernehmen": "Save free material to master data when saving",
   "für Abrechnung vormerken": "Mark for billing",
+  "laufende Fahrt": "active trip",
+  "letzte Fahrt": "latest trip",
   "Gezählter Bestand": "Counted stock",
   "Inventur": "Stock count",
   "Kalender": "Calendar",
@@ -8947,9 +8953,25 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     void saveReportTextBackup(savedReport);
     const nextObjects = objects.map((object) => (object.id === job.objectId ? { ...object, lastVisit: executionDate } : object));
     const nextBilling = ensureBillingForJobs(nextJobs, billing, nextReports);
+    const reportProgressSnapshot = Object.fromEntries(normalizedResults.map((item) => [
+      item.id,
+      {
+        completed: item.completed,
+        minutes: String(item.minutes || ""),
+        showWorkTimeInReport: item.showWorkTimeInReport ?? true,
+        note: item.note,
+        photos: normalizeFieldPhotosForSave(item.photos ?? []),
+        updatedAt: item.updatedAt ?? reportUpdatedAt,
+      },
+    ])) as Record<string, FieldTaskProgress>;
+    const reportHasPhotos = normalizedResults.some((item) => (item.photos ?? []).length > 0);
     const nextFieldProgress = { ...fieldProgress };
     const nextFieldNotes = { ...fieldNotes };
-    delete nextFieldProgress[progressKey];
+    if (reportHasPhotos) {
+      nextFieldProgress[progressKey] = reportProgressSnapshot;
+    } else {
+      delete nextFieldProgress[progressKey];
+    }
     delete nextFieldNotes[progressKey];
 
     setJobs(nextJobs);
@@ -9842,6 +9864,36 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     persistSnapshotNow({ resources: nextResources }, { forceRemote: true });
     setQuickTripForm((current) => ({ ...current, activeLogbookEntryId: logbookId, startAddress, startCoordinates }));
     setRecordNotice("Fahrt wurde gestartet und ist in Positionen sichtbar.");
+  }
+
+  function cancelQuickTrip() {
+    if (!quickTripForm.activeLogbookEntryId) {
+      setQuickTripOpen(false);
+      return;
+    }
+    const entryId = quickTripForm.activeLogbookEntryId;
+    const nextResources = resources.map((resource) => (
+      resource.id === quickTripForm.resourceId && resource.type === "Fahrzeug"
+        ? {
+            ...resource,
+            deletedLogbookEntryIds: Array.from(new Set([...(resource.deletedLogbookEntryIds ?? []), entryId])),
+            logbook: resource.logbook.filter((entry) => entry.id !== entryId),
+          }
+        : resource
+    ));
+    setResources(nextResources);
+    persistSnapshotNow({ resources: nextResources }, { forceRemote: true });
+    setQuickTripOpen(false);
+    setQuickTripForm((current) => ({
+      ...current,
+      activeLogbookEntryId: "",
+      endAddress: "",
+      endCoordinates: undefined,
+      endOdometer: "",
+      kilometers: "",
+      waypoints: [],
+    }));
+    setRecordNotice("Laufende Fahrt wurde verworfen und aus dem Fahrtenbuch entfernt.");
   }
 
   async function saveQuickTrip() {
@@ -10793,7 +10845,9 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
               </section>
             </div>
             <div className="modal-actions">
-              <button className="ghost-button" onClick={() => setQuickTripOpen(false)} type="button">Abbrechen</button>
+              <button className="ghost-button" onClick={cancelQuickTrip} type="button">
+                {quickTripForm.activeLogbookEntryId ? tx("Fahrt verwerfen") : tx("Abbrechen")}
+              </button>
               {quickTripForm.activeLogbookEntryId && (
                 <button className="ghost-button" onClick={() => updateActiveQuickTripEntry()} type="button">
                   <Check size={16} />
@@ -13983,7 +14037,13 @@ function BillingView({
 }
 
 function latestVehiclePosition(resource: ResourceRecord) {
-  const entries = [...(resource.logbook ?? [])].sort((first, second) => `${second.date}-${second.id}`.localeCompare(`${first.date}-${first.id}`));
+  const entryPositionTime = (entry: VehicleLogEntry) => {
+    const waypointTime = [...(entry.waypoints ?? [])]
+      .reverse()
+      .find((item) => item.coordinates)?.coordinates?.capturedAt;
+    return Date.parse(entry.endCoordinates?.capturedAt ?? waypointTime ?? entry.startCoordinates?.capturedAt ?? entry.endedAt ?? entry.startedAt ?? entry.date);
+  };
+  const entries = [...(resource.logbook ?? [])].sort((first, second) => entryPositionTime(second) - entryPositionTime(first));
   for (const entry of entries) {
     const waypoint = [...(entry.waypoints ?? [])].reverse().find((item) => item.coordinates);
     if (entry.endCoordinates) return { address: entry.endAddress, coordinates: entry.endCoordinates, entry, source: "Ziel" };
@@ -14023,6 +14083,10 @@ function TrackingView({
     const driver = personnel.find((person) => person.id === driverId);
     return driver ? `${driver.firstName} ${driver.lastName}` : "nicht zugeordnet";
   };
+  const positionStatus = selected?.position.entry.status === "laufend" ? tt("laufende Fahrt") : tt("letzte Fahrt");
+  const positionTooltip = selected
+    ? `${selected.vehicle.name} · ${positionStatus} · ${selected.position.address || `${formatCoordinate(selected.position.coordinates.latitude)}, ${formatCoordinate(selected.position.coordinates.longitude)}`}`
+    : "";
 
   return (
     <section className="panel tracking-page">
@@ -14051,9 +14115,10 @@ function TrackingView({
         {selected ? (
           <>
             <iframe loading="lazy" src={mapUrlForPosition(selected.position.coordinates)} title={`Karte ${selected.vehicle.name}`} />
-            <div className="tracking-map-caption">
+            <div className="tracking-map-caption" title={positionTooltip}>
               <strong>{selected.vehicle.name}</strong>
               <span>{selected.position.address || `${formatCoordinate(selected.position.coordinates.latitude)}, ${formatCoordinate(selected.position.coordinates.longitude)}`}</span>
+              <small>{positionStatus} · {selected.position.source} · {formatUpdatedTime(selected.position.coordinates.capturedAt) || selected.position.entry.date}</small>
             </div>
           </>
         ) : (
@@ -14075,7 +14140,7 @@ function TrackingView({
                 <span>{vehicle.identifier || "ohne Kennzeichen"} · {trackingMode === "tracker" ? "GPS-Tracker" : trackingMode === "none" ? "Tracking aus" : "Mitarbeiter-Mobil"}</span>
                 {trackingMode === "tracker" && <span>{vehicle.tracking?.provider || "Tracker-Anbieter offen"} · {vehicle.tracking?.deviceId || "Tracker-ID offen"}</span>}
                 {position ? (
-                  <span>{position.source}: {position.address || `${formatCoordinate(position.coordinates.latitude)}, ${formatCoordinate(position.coordinates.longitude)}`} · {formatUpdatedTime(position.coordinates.capturedAt) || position.entry.date}</span>
+                  <span>{position.entry.status === "laufend" ? tt("laufende Fahrt") : tt("letzte Fahrt")} · {position.source}: {position.address || `${formatCoordinate(position.coordinates.latitude)}, ${formatCoordinate(position.coordinates.longitude)}`} · {formatUpdatedTime(position.coordinates.capturedAt) || position.entry.date}</span>
                 ) : (
                   <span>{trackingMode === "tracker" ? "Tracker-API noch nicht angebunden" : "Noch keine GPS-Position im Fahrtenbuch"}</span>
                 )}
