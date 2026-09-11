@@ -10,6 +10,7 @@ export const versionHistory = [
     date: "2026-09-11",
     changes: [
       "Geloeschte oder verworfene laufende Fahrten werden in Fahrtenbuch- und Positionsdaten konsequent ausgefiltert",
+      "Mobile Fortschritts- und Fahrten-Patches synchronisieren ohne blockierendes Vollbackup",
       "Die Positionskarte kann nun zwischen Karten- und Satellitenansicht umgeschaltet werden",
       "Die Kartenposition zeigt den aktuellen Fahrstatus direkt am Fahrzeugstandort",
     ],

@@ -768,7 +768,13 @@ function mergeSnapshotPatch(existingSnapshot: unknown, patch: unknown) {
   return merged;
 }
 
-async function saveSnapshotToSupabase(snapshot: unknown) {
+function patchCanSkipBackup(patch: unknown) {
+  if (!patch || typeof patch !== "object" || Array.isArray(patch)) return false;
+  const keys = Object.keys(patch as JsonObject);
+  return keys.length > 0 && keys.every((key) => ["activeJobId", "fieldNotes", "fieldProgress", "resources", "updatedAt"].includes(key));
+}
+
+async function saveSnapshotToSupabase(snapshot: unknown, options: { skipBackup?: boolean } = {}) {
   const supabase = getSupabaseServerClient();
   if (!supabase) {
     return NextResponse.json({ error: "Supabase-Zugangsdaten fehlen." }, { status: 500 });
@@ -777,10 +783,12 @@ async function saveSnapshotToSupabase(snapshot: unknown) {
   const updatedAt = new Date().toISOString();
   let lastError: { message: string } | null = null;
 
-  try {
-    await createAppStateBackup(supabase, "before-app-state-save");
-  } catch (error) {
-    console.warn("App-State-Backup konnte nicht erstellt werden.", error);
+  if (!options.skipBackup) {
+    try {
+      await createAppStateBackup(supabase, "before-app-state-save");
+    } catch (error) {
+      console.warn("App-State-Backup konnte nicht erstellt werden.", error);
+    }
   }
 
   for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -872,8 +880,9 @@ async function saveAppState(request: Request) {
     }
 
     const existingSnapshot = normalizeSnapshot(data?.data ?? null);
-    const mergedSnapshot = stripDeletedLogbookEntries(repairReportPhotosFromFieldProgress(mergeSnapshotPatch(existingSnapshot, (body as { patch?: unknown }).patch)));
-    return saveSnapshotToSupabase(protectReportPhotoLinks(existingSnapshot, mergedSnapshot));
+    const patch = (body as { patch?: unknown }).patch;
+    const mergedSnapshot = stripDeletedLogbookEntries(repairReportPhotosFromFieldProgress(mergeSnapshotPatch(existingSnapshot, patch)));
+    return saveSnapshotToSupabase(protectReportPhotoLinks(existingSnapshot, mergedSnapshot), { skipBackup: patchCanSkipBackup(patch) });
   }
 
   const { data, error } = await supabase
