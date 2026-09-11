@@ -459,6 +459,27 @@ function protectReportPhotoLinks(existingSnapshot: unknown, mergedSnapshot: unkn
   };
 }
 
+function stripDeletedLogbookEntries(snapshot: unknown) {
+  const data = snapshot && typeof snapshot === "object" && !Array.isArray(snapshot) ? snapshot as JsonObject : {};
+  if (!Array.isArray(data.resources)) return snapshot;
+
+  let changed = false;
+  const resources = data.resources.map((resource) => {
+    if (!resource || typeof resource !== "object") return resource;
+    const item = resource as JsonObject;
+    const deletedIds = new Set(Array.isArray(item.deletedLogbookEntryIds) ? item.deletedLogbookEntryIds.map(String) : []);
+    if (deletedIds.size === 0 || !Array.isArray(item.logbook)) return item;
+    const logbook = item.logbook.filter((entry) => (
+      entry && typeof entry === "object" && !deletedIds.has(String((entry as JsonObject).id))
+    ));
+    if (logbook.length === item.logbook.length) return item;
+    changed = true;
+    return { ...item, logbook };
+  });
+
+  return changed ? { ...data, resources } : snapshot;
+}
+
 function fieldProgressCandidatesForReport(report: JsonObject) {
   const jobId = String(report.jobId ?? "");
   const date = normalizeReportDate(report.date);
@@ -818,7 +839,7 @@ export async function GET(request: Request) {
     return retryableSupabaseResponse(error);
   }
 
-  const snapshot = data?.data ? repairReportPhotosFromFieldProgress(normalizeSnapshot(data.data)) : null;
+  const snapshot = data?.data ? stripDeletedLogbookEntries(repairReportPhotosFromFieldProgress(normalizeSnapshot(data.data))) : null;
   cachedAppState = {
     cachedAt: Date.now(),
     data: snapshot,
@@ -851,7 +872,7 @@ async function saveAppState(request: Request) {
     }
 
     const existingSnapshot = normalizeSnapshot(data?.data ?? null);
-    const mergedSnapshot = repairReportPhotosFromFieldProgress(mergeSnapshotPatch(existingSnapshot, (body as { patch?: unknown }).patch));
+    const mergedSnapshot = stripDeletedLogbookEntries(repairReportPhotosFromFieldProgress(mergeSnapshotPatch(existingSnapshot, (body as { patch?: unknown }).patch)));
     return saveSnapshotToSupabase(protectReportPhotoLinks(existingSnapshot, mergedSnapshot));
   }
 
@@ -866,7 +887,7 @@ async function saveAppState(request: Request) {
   }
 
   const existingSnapshot = normalizeSnapshot(data?.data ?? null);
-  const mergedSnapshot = repairReportPhotosFromFieldProgress(mergeSnapshotPatch(existingSnapshot, normalizedBody));
+  const mergedSnapshot = stripDeletedLogbookEntries(repairReportPhotosFromFieldProgress(mergeSnapshotPatch(existingSnapshot, normalizedBody)));
   return saveSnapshotToSupabase(protectReportPhotoLinks(existingSnapshot, mergedSnapshot));
 }
 

@@ -1014,6 +1014,8 @@ const swedishUiText: Record<string, string> = {
   "Interne Notizen": "Interna noteringar",
   "Internet": "Internet",
   "Kalender": "Kalender",
+  "Karte": "Karta",
+  "Kartenansicht": "Kartvy",
   "Kalender heute plus 3 Tage": "Kalender idag plus 3 dagar",
   "Kalenderquellen konfigurieren": "Konfigurera kalenderkällor",
   "Kalenderquellen speichern": "Spara kalenderkällor",
@@ -1080,6 +1082,7 @@ const swedishUiText: Record<string, string> = {
   "Arbeitsliste": "Arbetslista",
   "Keine offenen Einsätze.": "Inga öppna uppdrag.",
   "Serienauftrag": "Serieuppdrag",
+  "Satellit": "Satellit",
   "Serie": "Serie",
   "Einmaliger Auftrag": "Engångsuppdrag",
   "einmalig": "en gång",
@@ -1301,6 +1304,8 @@ const englishUiText: Record<string, string> = {
   "Gezählter Bestand": "Counted stock",
   "Inventur": "Stock count",
   "Kalender": "Calendar",
+  "Karte": "Map",
+  "Kartenansicht": "Map view",
   "Kaufpreis brutto": "Purchase price gross",
   "Keine Artikel für diesen Filter gefunden.": "No items found for this filter.",
   "Keine Leistung für diese Suche gefunden.": "No service found for this search.",
@@ -1341,6 +1346,7 @@ const englishUiText: Record<string, string> = {
   "Nächste Einsätze": "Upcoming jobs",
   "Keine offenen Einsätze.": "No open jobs.",
   "Serienauftrag": "Recurring job",
+  "Satellit": "Satellite",
   "Serie": "Series",
   "Einmaliger Auftrag": "One-time job",
   "einmalig": "one-time",
@@ -9467,13 +9473,17 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   }
 
   function latestLogbookEntry(vehicle?: ResourceRecord) {
+    const deletedIds = new Set(vehicle?.deletedLogbookEntryIds ?? []);
     return vehicle?.logbook
+      .filter((entry) => !deletedIds.has(entry.id))
       .filter((entry) => entry.endOdometer.trim())
       .sort((first, second) => `${second.date}-${second.id}`.localeCompare(`${first.date}-${first.id}`))[0];
   }
 
   function activeLogbookEntry(vehicle?: ResourceRecord) {
+    const deletedIds = new Set(vehicle?.deletedLogbookEntryIds ?? []);
     return vehicle?.logbook
+      .filter((entry) => !deletedIds.has(entry.id))
       .filter((entry) => entry.status === "laufend")
       .sort((first, second) => String(second.startedAt ?? second.id).localeCompare(String(first.startedAt ?? first.id)))[0];
   }
@@ -10545,7 +10555,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                   <List size={16} />
                   {tx("Fahrtenbuch öffnen")}
                 </button>
-                <button aria-label="Fahrt erfassen schließen" onClick={() => setQuickTripOpen(false)} type="button">
+                <button aria-label="Fahrt erfassen schließen" onClick={cancelQuickTrip} type="button">
                   <X size={18} />
                 </button>
               </div>
@@ -14037,13 +14047,16 @@ function BillingView({
 }
 
 function latestVehiclePosition(resource: ResourceRecord) {
+  const deletedIds = new Set(resource.deletedLogbookEntryIds ?? []);
   const entryPositionTime = (entry: VehicleLogEntry) => {
     const waypointTime = [...(entry.waypoints ?? [])]
       .reverse()
       .find((item) => item.coordinates)?.coordinates?.capturedAt;
     return Date.parse(entry.endCoordinates?.capturedAt ?? waypointTime ?? entry.startCoordinates?.capturedAt ?? entry.endedAt ?? entry.startedAt ?? entry.date);
   };
-  const entries = [...(resource.logbook ?? [])].sort((first, second) => entryPositionTime(second) - entryPositionTime(first));
+  const entries = [...(resource.logbook ?? [])]
+    .filter((entry) => !deletedIds.has(entry.id))
+    .sort((first, second) => entryPositionTime(second) - entryPositionTime(first));
   for (const entry of entries) {
     const waypoint = [...(entry.waypoints ?? [])].reverse().find((item) => item.coordinates);
     if (entry.endCoordinates) return { address: entry.endAddress, coordinates: entry.endCoordinates, entry, source: "Ziel" };
@@ -14057,7 +14070,10 @@ function formatCoordinate(value: number) {
   return Number.isFinite(value) ? value.toFixed(5) : "";
 }
 
-function mapUrlForPosition(position: GeoCoordinates) {
+function mapUrlForPosition(position: GeoCoordinates, mapMode: "standard" | "satellite") {
+  if (mapMode === "satellite") {
+    return `https://www.google.com/maps?q=${position.latitude},${position.longitude}&z=17&t=k&output=embed`;
+  }
   return `https://www.openstreetmap.org/export/embed.html?bbox=${position.longitude - 0.025}%2C${position.latitude - 0.015}%2C${position.longitude + 0.025}%2C${position.latitude + 0.015}&layer=mapnik&marker=${position.latitude}%2C${position.longitude}`;
 }
 
@@ -14073,6 +14089,7 @@ function TrackingView({
   resources: ResourceRecord[];
 }) {
   const tt = (value: string) => uiText(value, language);
+  const [mapMode, setMapMode] = useState<"standard" | "satellite">("standard");
   const vehicles = resources.filter((resource) => resource.type === "Fahrzeug" && !resource.archived);
   const trackedVehicles = vehicles.filter((vehicle) => (vehicle.tracking?.mode ?? "phone") !== "none");
   const positionedVehicles = vehicles
@@ -14114,7 +14131,11 @@ function TrackingView({
       <div className="tracking-map-panel">
         {selected ? (
           <>
-            <iframe loading="lazy" src={mapUrlForPosition(selected.position.coordinates)} title={`Karte ${selected.vehicle.name}`} />
+            <iframe loading="lazy" src={mapUrlForPosition(selected.position.coordinates, mapMode)} title={`Karte ${selected.vehicle.name}`} />
+            <div className="tracking-map-mode" role="group" aria-label={tt("Kartenansicht")}>
+              <button className={mapMode === "standard" ? "active" : ""} onClick={() => setMapMode("standard")} type="button">{tt("Karte")}</button>
+              <button className={mapMode === "satellite" ? "active" : ""} onClick={() => setMapMode("satellite")} type="button">{tt("Satellit")}</button>
+            </div>
             <div className="tracking-map-caption" title={positionTooltip}>
               <strong>{selected.vehicle.name}</strong>
               <span>{selected.position.address || `${formatCoordinate(selected.position.coordinates.latitude)}, ${formatCoordinate(selected.position.coordinates.longitude)}`}</span>

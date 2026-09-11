@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.369.0",
-  releaseDate: "2026-09-10",
+  version: "1.370.0",
+  releaseDate: "2026-09-11",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.370.0",
+    date: "2026-09-11",
+    changes: [
+      "Geloeschte oder verworfene laufende Fahrten werden in Fahrtenbuch- und Positionsdaten konsequent ausgefiltert",
+      "Die Positionskarte kann nun zwischen Karten- und Satellitenansicht umgeschaltet werden",
+      "Die Kartenposition zeigt den aktuellen Fahrstatus direkt am Fahrzeugstandort",
+    ],
+  },
   {
     version: "1.369.0",
     date: "2026-09-10",
