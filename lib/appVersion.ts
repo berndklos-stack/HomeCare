@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.370.0",
+  version: "1.371.0",
   releaseDate: "2026-09-11",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.371.0",
+    date: "2026-09-11",
+    changes: [
+      "Verwaiste laufende Fahrten vom Vortag oder aelter als 12 Stunden werden nicht mehr als aktuelle Position angezeigt",
+      "Quick-Fahrt und Positionskarte ignorieren geloeschte oder veraltete laufende Fahrten konsequent",
+    ],
+  },
   {
     version: "1.370.0",
     date: "2026-09-11",

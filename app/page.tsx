@@ -4036,6 +4036,13 @@ function currentLocalDateValue(date = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
+function isStaleActiveLogbookEntry(entry: VehicleLogEntry, now = new Date()) {
+  if (entry.status !== "laufend") return false;
+  if (entry.date && entry.date < currentLocalDateValue(now)) return true;
+  const startedAt = Date.parse(entry.startedAt ?? "");
+  return Number.isFinite(startedAt) && now.getTime() - startedAt > 12 * 60 * 60 * 1000;
+}
+
 function invoiceTotals(item: BillingRecord) {
   if (item.lines?.length) return offerTotals(item.lines);
   const gross = decimalValue(item.amount);
@@ -9476,6 +9483,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     const deletedIds = new Set(vehicle?.deletedLogbookEntryIds ?? []);
     return vehicle?.logbook
       .filter((entry) => !deletedIds.has(entry.id))
+      .filter((entry) => !isStaleActiveLogbookEntry(entry))
       .filter((entry) => entry.endOdometer.trim())
       .sort((first, second) => `${second.date}-${second.id}`.localeCompare(`${first.date}-${first.id}`))[0];
   }
@@ -9484,6 +9492,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     const deletedIds = new Set(vehicle?.deletedLogbookEntryIds ?? []);
     return vehicle?.logbook
       .filter((entry) => !deletedIds.has(entry.id))
+      .filter((entry) => !isStaleActiveLogbookEntry(entry))
       .filter((entry) => entry.status === "laufend")
       .sort((first, second) => String(second.startedAt ?? second.id).localeCompare(String(first.startedAt ?? first.id)))[0];
   }
@@ -14056,6 +14065,7 @@ function latestVehiclePosition(resource: ResourceRecord) {
   };
   const entries = [...(resource.logbook ?? [])]
     .filter((entry) => !deletedIds.has(entry.id))
+    .filter((entry) => !isStaleActiveLogbookEntry(entry))
     .sort((first, second) => entryPositionTime(second) - entryPositionTime(first));
   for (const entry of entries) {
     const waypoint = [...(entry.waypoints ?? [])].reverse().find((item) => item.coordinates);
