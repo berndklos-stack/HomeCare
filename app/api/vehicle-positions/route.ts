@@ -3,9 +3,13 @@ import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
-const vehiclePositionPrefix = "vehicle-position:";
+const vehiclePositionsRowId = "vehicle-positions";
 
 type JsonObject = Record<string, unknown>;
+
+type VehiclePositionsState = {
+  positions?: JsonObject[];
+};
 
 function getSupabaseServerClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -17,10 +21,6 @@ function getSupabaseServerClient() {
   });
 }
 
-function rowId(resourceId: string) {
-  return `${vehiclePositionPrefix}${resourceId}`;
-}
-
 export async function GET() {
   const supabase = getSupabaseServerClient();
   if (!supabase) {
@@ -30,17 +30,21 @@ export async function GET() {
   const { data, error } = await supabase
     .from("app_state")
     .select("data, updated_at")
-    .like("id", `${vehiclePositionPrefix}%`);
+    .eq("id", vehiclePositionsRowId)
+    .maybeSingle();
 
   if (error) {
     return NextResponse.json({ data: [], error: error.message, retry: true });
   }
 
+  const state = data?.data && typeof data.data === "object" ? data.data as VehiclePositionsState : {};
+  const positions = Array.isArray(state.positions) ? state.positions : [];
+
   return NextResponse.json(
     {
-      data: (data ?? []).map((row) => ({
-        ...(row.data && typeof row.data === "object" ? row.data as JsonObject : {}),
-        syncedAt: row.updated_at,
+      data: positions.map((position) => ({
+        ...position,
+        syncedAt: data?.updated_at,
       })),
     },
     { headers: { "Cache-Control": "no-store, max-age=0, must-revalidate" } },
@@ -65,9 +69,27 @@ export async function POST(request: Request) {
     resourceId,
     updatedAt,
   };
+
+  const { data: existingRow, error: readError } = await supabase
+    .from("app_state")
+    .select("data")
+    .eq("id", vehiclePositionsRowId)
+    .maybeSingle();
+
+  if (readError) {
+    return NextResponse.json({ error: readError.message, retry: true }, { status: 500 });
+  }
+
+  const existingState = existingRow?.data && typeof existingRow.data === "object" ? existingRow.data as VehiclePositionsState : {};
+  const existingPositions = Array.isArray(existingState.positions) ? existingState.positions : [];
+  const positions = [
+    payload,
+    ...existingPositions.filter((position) => String(position.resourceId ?? "") !== resourceId),
+  ];
+
   const { error } = await supabase
     .from("app_state")
-    .upsert({ data: payload, id: rowId(resourceId), updated_at: updatedAt }, { onConflict: "id" });
+    .upsert({ data: { positions }, id: vehiclePositionsRowId, updated_at: updatedAt }, { onConflict: "id" });
 
   if (error) {
     return NextResponse.json({ error: error.message, retry: true }, { status: 500 });

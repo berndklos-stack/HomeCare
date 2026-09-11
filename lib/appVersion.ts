@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.372.0",
+  version: "1.373.0",
   releaseDate: "2026-09-11",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.373.0",
+    date: "2026-09-11",
+    changes: [
+      "Der Live-Positionssync verwendet nun eine feste kleine Positionszeile statt langsamer Prefix-Abfragen",
+      "Positionsdaten werden zusaetzlich bei Fokus, Online-Wechsel und Fensteraktivierung aktualisiert",
+      "Die am Mobilgeraet gestartete Fahrt kann dadurch am Mac ohne blockierenden Gesamt-Sync erscheinen",
+    ],
+  },
   {
     version: "1.372.0",
     date: "2026-09-11",

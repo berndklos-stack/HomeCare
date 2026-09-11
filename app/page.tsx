@@ -7937,6 +7937,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     function handleVisibilityChange() {
       if (document.visibilityState === "visible") {
         void syncRemoteSnapshot(true);
+        void syncVehiclePositions();
       }
     }
 
@@ -7949,10 +7950,12 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     function handleOnline() {
       setSupabaseSyncDisabled(false);
       void syncRemoteSnapshot(true);
+      void syncVehiclePositions();
     }
 
     function handleFocus() {
       void syncRemoteSnapshot(true);
+      void syncVehiclePositions();
     }
 
     window.addEventListener("online", handleOnline);
@@ -7967,7 +7970,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       window.removeEventListener("storage", handleStorageChange);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [appStorageReady, section, supabaseSyncDisabled, syncRemoteSnapshot]);
+  }, [appStorageReady, section, supabaseSyncDisabled, syncRemoteSnapshot, syncVehiclePositions]);
 
   useEffect(() => {
     if (!appStorageReady) return;
