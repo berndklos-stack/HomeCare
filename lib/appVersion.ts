@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.371.0",
+  version: "1.372.0",
   releaseDate: "2026-09-11",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.372.0",
+    date: "2026-09-11",
+    changes: [
+      "Fahrzeugpositionen synchronisieren nun ueber einen separaten kleinen Live-Kanal",
+      "Fahrtstart, Fahrtabbruch und Fahrtabschluss schreiben sofort eine eigene Positionszeile unabhaengig vom grossen App-State",
+      "Die Positionskarte liest aktive Fahrten bevorzugt aus dem Live-Kanal und nutzt das Fahrtenbuch nur noch als Rueckfall",
+    ],
+  },
   {
     version: "1.371.0",
     date: "2026-09-11",

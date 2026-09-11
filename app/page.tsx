@@ -484,6 +484,19 @@ type GeoCoordinates = {
   longitude: number;
 };
 
+type LiveVehiclePosition = {
+  address: string;
+  coordinates?: GeoCoordinates;
+  driverId?: string;
+  entryId: string;
+  purpose?: string;
+  resourceId: string;
+  source: "Start" | "Zwischenziel" | "Ziel";
+  status: "active" | "completed" | "canceled";
+  tripDate: string;
+  updatedAt?: string;
+};
+
 type VehicleLogEntry = {
   id: string;
   date: string;
@@ -3136,6 +3149,28 @@ async function loadSupabaseSnapshot() {
   }
 
   return payload.data ? { ...payload.data, updatedAt: payload.data.updatedAt ?? payload.updatedAt ?? undefined } : null;
+}
+
+async function loadVehiclePositions() {
+  const response = await withTimeout(fetch("/api/vehicle-positions", {
+    cache: "no-store",
+    headers: { Accept: "application/json" },
+  }), 10000);
+  const payload = await response.json() as { data?: LiveVehiclePosition[]; error?: string; retry?: boolean };
+  if (!response.ok || payload.retry) throw new Error(payload.error || "Fahrzeugpositionen konnten nicht geladen werden.");
+  return payload.data ?? [];
+}
+
+async function saveVehiclePosition(position: LiveVehiclePosition) {
+  const response = await withTimeout(fetch("/api/vehicle-positions", {
+    body: JSON.stringify(position),
+    cache: "no-store",
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  }), 10000);
+  const payload = await response.json() as { data?: LiveVehiclePosition; error?: string; retry?: boolean };
+  if (!response.ok || payload.retry) throw new Error(payload.error || "Fahrzeugposition konnte nicht gespeichert werden.");
+  return payload.data;
 }
 
 async function saveSupabaseSnapshotWithFetch(endpoint: string, snapshot: AppSnapshot) {
@@ -7454,6 +7489,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   const [personnel, setPersonnel] = useState(seedPersonnel);
   const [translationOverrides, setTranslationOverrides] = useState<TranslationFileRow[]>([]);
   const [resources, setResources] = useState(seedResources);
+  const [liveVehiclePositions, setLiveVehiclePositions] = useState<LiveVehiclePosition[]>([]);
   const [dailyMailSettings, setDailyMailSettings] = useState(seedDailyMailSettings);
   const [portalMessages, setPortalMessages] = useState<PortalMessageRecord[]>([]);
   const [deletedEntityIds, setDeletedEntityIds] = useState<Record<string, string[]>>({});
@@ -7878,6 +7914,15 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     }
   }, [appStorageReady, currentSnapshot, supabaseSyncDisabled]);
 
+  const syncVehiclePositions = useCallback(async () => {
+    if (!appStorageReady) return;
+    try {
+      setLiveVehiclePositions(await loadVehiclePositions());
+    } catch (error) {
+      console.warn("Fahrzeugpositionen konnten nicht aktualisiert werden.", error);
+    }
+  }, [appStorageReady]);
+
   useEffect(() => {
     if (!appStorageReady) return;
     const fastSyncSections: Section[] = ["dashboard", "field", "jobs", "planning", "inventory", "tracking"];
@@ -7923,6 +7968,15 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [appStorageReady, section, supabaseSyncDisabled, syncRemoteSnapshot]);
+
+  useEffect(() => {
+    if (!appStorageReady) return;
+    void syncVehiclePositions();
+    const intervalId = window.setInterval(() => {
+      void syncVehiclePositions();
+    }, 15000);
+    return () => window.clearInterval(intervalId);
+  }, [appStorageReady, syncVehiclePositions]);
 
   function persistSnapshotNow(overrides: Partial<AppSnapshot> = {}, options: { forceRemote?: boolean } = {}) {
     const snapshotUpdatedAt = new Date().toISOString();
@@ -9822,6 +9876,24 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     ));
     setResources(nextResources);
     persistSnapshotNow({ resources: nextResources }, { forceRemote: true });
+    const latestWaypoint = [...form.waypoints].reverse().find((waypoint) => waypoint.coordinates);
+    const coordinates = form.endCoordinates ?? latestWaypoint?.coordinates ?? form.startCoordinates;
+    const address = form.endAddress.trim() || latestWaypoint?.address.trim() || form.startAddress.trim();
+    if (coordinates || address) {
+      void saveVehiclePosition({
+        address,
+        coordinates,
+        driverId: form.driverId,
+        entryId: form.activeLogbookEntryId,
+        purpose: form.purpose.trim(),
+        resourceId: form.resourceId,
+        source: form.endCoordinates ? "Ziel" : latestWaypoint?.coordinates ? "Zwischenziel" : "Start",
+        status: "active",
+        tripDate: form.date,
+      }).then((position) => {
+        if (position) setLiveVehiclePositions((current) => [position, ...current.filter((item) => item.resourceId !== position.resourceId)]);
+      }).catch((error) => console.warn("Live-Fahrzeugposition konnte nicht gespeichert werden.", error));
+    }
   }
 
   async function startQuickTrip() {
@@ -9881,6 +9953,21 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     ));
     setResources(nextResources);
     persistSnapshotNow({ resources: nextResources }, { forceRemote: true });
+    if (startCoordinates || startAddress) {
+      const position: LiveVehiclePosition = {
+        address: startAddress,
+        coordinates: startCoordinates,
+        driverId: quickTripForm.driverId,
+        entryId: logbookId,
+        purpose: quickTripForm.purpose.trim(),
+        resourceId: vehicle.id,
+        source: "Start",
+        status: "active",
+        tripDate: quickTripForm.date,
+      };
+      setLiveVehiclePositions((current) => [position, ...current.filter((item) => item.resourceId !== vehicle.id)]);
+      void saveVehiclePosition(position).catch((error) => console.warn("Live-Fahrzeugposition konnte nicht gespeichert werden.", error));
+    }
     setQuickTripForm((current) => ({ ...current, activeLogbookEntryId: logbookId, startAddress, startCoordinates }));
     setRecordNotice("Fahrt wurde gestartet und ist in Positionen sichtbar.");
   }
@@ -9902,6 +9989,19 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     ));
     setResources(nextResources);
     persistSnapshotNow({ resources: nextResources }, { forceRemote: true });
+    const canceledPosition: LiveVehiclePosition = {
+      address: quickTripForm.startAddress.trim(),
+      coordinates: quickTripForm.startCoordinates,
+      driverId: quickTripForm.driverId,
+      entryId,
+      purpose: quickTripForm.purpose.trim(),
+      resourceId: quickTripForm.resourceId,
+      source: "Start",
+      status: "canceled",
+      tripDate: quickTripForm.date,
+    };
+    setLiveVehiclePositions((current) => [canceledPosition, ...current.filter((item) => item.resourceId !== quickTripForm.resourceId)]);
+    void saveVehiclePosition(canceledPosition).catch((error) => console.warn("Live-Fahrzeugposition konnte nicht verworfen werden.", error));
     setQuickTripOpen(false);
     setQuickTripForm((current) => ({
       ...current,
@@ -9988,6 +10088,19 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
 
     setResources(nextResources);
     persistSnapshotNow({ resources: nextResources }, { forceRemote: true });
+    const completedPosition: LiveVehiclePosition = {
+      address: endAddress,
+      coordinates: endCoordinates,
+      driverId: entry.driverId,
+      entryId: entry.id,
+      purpose: entry.purpose,
+      resourceId: vehicle.id,
+      source: "Ziel",
+      status: "completed",
+      tripDate: entry.date,
+    };
+    setLiveVehiclePositions((current) => [completedPosition, ...current.filter((item) => item.resourceId !== vehicle.id)]);
+    void saveVehiclePosition(completedPosition).catch((error) => console.warn("Live-Fahrzeugposition konnte nicht abgeschlossen werden.", error));
     setQuickTripOpen(false);
     setRecordNotice(`Fahrt vom ${entry.date} wurde im Fahrtenbuch gespeichert.`);
     setQuickTripForm({
@@ -10485,6 +10598,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
             {section === "tracking" && (
               <TrackingView
                 language={language}
+                livePositions={liveVehiclePositions}
                 onOpenLogbook={(resourceId) => {
                   setSection("masterData");
                   setResourceLogbookOpenRequestId(`${resourceId}:${Date.now()}`);
@@ -14055,7 +14169,48 @@ function BillingView({
   );
 }
 
-function latestVehiclePosition(resource: ResourceRecord) {
+type VehiclePositionSnapshot = {
+  address: string;
+  coordinates: GeoCoordinates;
+  entry: VehicleLogEntry;
+  source: "Start" | "Zwischenziel" | "Ziel";
+};
+
+function isCurrentLiveVehiclePosition(position: LiveVehiclePosition) {
+  if (position.status !== "active") return false;
+  const updatedAt = Date.parse(position.updatedAt ?? "");
+  if (Number.isFinite(updatedAt) && Date.now() - updatedAt > 12 * 60 * 60 * 1000) return false;
+  return Boolean(position.coordinates);
+}
+
+function latestVehiclePosition(resource: ResourceRecord, livePositions: LiveVehiclePosition[] = []): VehiclePositionSnapshot | null {
+  const latestLivePosition = livePositions
+    .filter((position) => position.resourceId === resource.id && isCurrentLiveVehiclePosition(position))
+    .sort((first, second) => Date.parse(second.updatedAt ?? "") - Date.parse(first.updatedAt ?? ""))[0];
+  if (latestLivePosition?.coordinates) {
+    return {
+      address: latestLivePosition.address,
+      coordinates: latestLivePosition.coordinates,
+      entry: {
+        date: latestLivePosition.tripDate,
+        driverId: latestLivePosition.driverId ?? "",
+        endAddress: "",
+        endOdometer: "",
+        fuelOrCharge: "",
+        id: latestLivePosition.entryId,
+        kilometers: "",
+        notes: "Live-Position",
+        purpose: latestLivePosition.purpose ?? "",
+        startAddress: latestLivePosition.address,
+        startOdometer: "",
+        startedAt: latestLivePosition.updatedAt,
+        status: "laufend",
+        tripType: "Dienstfahrt",
+        visited: "",
+      },
+      source: latestLivePosition.source,
+    };
+  }
   const deletedIds = new Set(resource.deletedLogbookEntryIds ?? []);
   const entryPositionTime = (entry: VehicleLogEntry) => {
     const waypointTime = [...(entry.waypoints ?? [])]
@@ -14089,11 +14244,13 @@ function mapUrlForPosition(position: GeoCoordinates, mapMode: "standard" | "sate
 
 function TrackingView({
   language,
+  livePositions,
   onOpenLogbook,
   personnel,
   resources,
 }: {
   language: Language;
+  livePositions: LiveVehiclePosition[];
   onOpenLogbook: (resourceId: string) => void;
   personnel: PersonnelRecord[];
   resources: ResourceRecord[];
@@ -14103,7 +14260,7 @@ function TrackingView({
   const vehicles = resources.filter((resource) => resource.type === "Fahrzeug" && !resource.archived);
   const trackedVehicles = vehicles.filter((vehicle) => (vehicle.tracking?.mode ?? "phone") !== "none");
   const positionedVehicles = vehicles
-    .map((vehicle) => ({ position: latestVehiclePosition(vehicle), vehicle }))
+    .map((vehicle) => ({ position: latestVehiclePosition(vehicle, livePositions), vehicle }))
     .filter((item): item is { position: NonNullable<ReturnType<typeof latestVehiclePosition>>; vehicle: ResourceRecord } => Boolean(item.position));
   const selected = positionedVehicles[0];
   const driverName = (driverId: string) => {
@@ -14162,7 +14319,7 @@ function TrackingView({
       </div>
       <div className="table-list compact-list tracking-list">
         {vehicles.map((vehicle) => {
-          const position = latestVehiclePosition(vehicle);
+          const position = latestVehiclePosition(vehicle, livePositions);
           const trackingMode = vehicle.tracking?.mode ?? "phone";
           return (
             <article key={vehicle.id}>
