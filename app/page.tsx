@@ -5695,6 +5695,19 @@ function loadImage(dataUrl: string) {
   });
 }
 
+async function loadImageFromFile(file: File) {
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const objectImage = await loadImage(objectUrl);
+    if (objectImage) return objectImage;
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+
+  const dataUrl = await readFileAsDataUrl(file);
+  return dataUrl ? await loadImage(dataUrl) : null;
+}
+
 async function normalizeImageDataUrlForPdf(source: string) {
   const imageDataUrl = await mediaSourceToDataUrl(source);
   const image = imageDataUrl ? await loadImage(imageDataUrl) : null;
@@ -5718,24 +5731,38 @@ async function normalizeImageDataUrlForPdf(source: string) {
 }
 
 async function fileToImagePreview(file: File, maxSize = 1280, quality = 0.72) {
-  const dataUrl = await readFileAsDataUrl(file);
-  const image = await loadImage(dataUrl);
+  let bitmap: ImageBitmap | null = null;
+  if ("createImageBitmap" in window) {
+    try {
+      bitmap = await createImageBitmap(file);
+    } catch {
+      bitmap = null;
+    }
+  }
+
+  const image = bitmap ?? await loadImageFromFile(file);
   if (!image) return "";
 
   try {
-    const scale = Math.min(1, maxSize / Math.max(image.naturalWidth, image.naturalHeight));
-    const width = Math.max(1, Math.round(image.naturalWidth * scale));
-    const height = Math.max(1, Math.round(image.naturalHeight * scale));
+    const sourceWidth = "naturalWidth" in image ? image.naturalWidth : image.width;
+    const sourceHeight = "naturalHeight" in image ? image.naturalHeight : image.height;
+    const scale = Math.min(1, maxSize / Math.max(sourceWidth, sourceHeight));
+    const width = Math.max(1, Math.round(sourceWidth * scale));
+    const height = Math.max(1, Math.round(sourceHeight * scale));
     const canvas = document.createElement("canvas");
     canvas.width = width;
     canvas.height = height;
     const context = canvas.getContext("2d");
-    if (!context) return dataUrl;
+    if (!context) return "";
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, width, height);
     context.drawImage(image, 0, 0, width, height);
     return canvas.toDataURL("image/jpeg", quality);
   } catch (error) {
     console.warn("Bildvorschau konnte nicht verkleinert werden.", error);
-    return dataUrl;
+    return "";
+  } finally {
+    bitmap?.close();
   }
 }
 
@@ -5747,15 +5774,16 @@ function previewByteSize(previewUrl?: string) {
 
 async function fileToFieldPhotoPreview(file: File) {
   const attempts = [
-    { maxSize: 1600, quality: 0.78 },
-    { maxSize: 1400, quality: 0.72 },
-    { maxSize: 1200, quality: 0.68 },
+    { maxSize: 1920, quality: 0.82 },
+    { maxSize: 1800, quality: 0.78 },
+    { maxSize: 1600, quality: 0.74 },
+    { maxSize: 1400, quality: 0.7 },
   ];
 
   let previewUrl = "";
   for (const attempt of attempts) {
     previewUrl = await fileToImagePreview(file, attempt.maxSize, attempt.quality);
-    if (previewByteSize(previewUrl) <= 1_400_000) {
+    if (previewUrl && previewByteSize(previewUrl) <= 2_200_000) {
       return previewUrl;
     }
   }
@@ -13491,6 +13519,12 @@ function FieldView({
       if (!nextPhotos.length) return;
 
       updateTaskPhotos(taskId, currentTask, (photos) => [...photos, ...nextPhotos]);
+      const localPreviewEntries = nextPhotos
+        .filter((photo) => photo.id && photo.previewUrl)
+        .map((photo) => [photo.id as string, photo.previewUrl as string]);
+      if (localPreviewEntries.length) {
+        setLocalPhotoPreviewUrls((current) => ({ ...current, ...Object.fromEntries(localPreviewEntries) }));
+      }
       if (nextPhotos[0]) openPhotoNoteEditor(taskId, nextPhotos[0]);
       nextPhotos.forEach((photo, index) => {
         const file = selectedFiles[index];
@@ -13747,7 +13781,7 @@ function FieldView({
                   <Camera size={16} />
                   <input
                     aria-label={`Bild zu ${task.title} erfassen`}
-                    accept="image/jpeg,image/png,image/webp"
+                    accept="image/*"
                     capture="environment"
                     disabled={reportLocked}
                     multiple

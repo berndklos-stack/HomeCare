@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.384.0",
+  version: "1.385.0",
   releaseDate: "2026-09-12",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.385.0",
+    date: "2026-09-12",
+    changes: [
+      "Mobil-vor-Ort-Fotos werden beim Import robuster aus Apple-Fotos/iCloud gelesen",
+      "Ausgewaehlte Einsatzfotos werden direkt als lokale Vorschau angezeigt und danach als verkleinertes JPEG hochgeladen",
+      "Der Fotoimport akzeptiert wieder alle Bildformate des Browsers und komprimiert sie fuer Bericht und Storage",
+    ],
+  },
   {
     version: "1.384.0",
     date: "2026-09-12",
