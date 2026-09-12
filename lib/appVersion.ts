@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.383.0",
+  version: "1.384.0",
   releaseDate: "2026-09-12",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.384.0",
+    date: "2026-09-12",
+    changes: [
+      "Die Datenbasis ist fuer Mandantenfaehigkeit vorbereitet: Firmen, Nutzerrollen, Einladungen, Abo-Plaene und Audit-Log",
+      "Feature-Module und die Pakete Start, Pro und Business sind als technische Freischaltung angelegt",
+      "Der aktuelle Betrieb laeuft als Standardmandant weiter und bekommt vorerst alle Module aktiviert",
+    ],
+  },
   {
     version: "1.383.0",
     date: "2026-09-12",

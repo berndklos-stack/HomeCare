@@ -601,11 +601,38 @@ type DailyMailSettings = {
 type CompanySettings = {
   address: string;
   bank: string;
+  brandColor?: string;
   email: string;
   fSkattApproved: boolean;
+  logoStoragePath?: string;
+  logoUrl?: string;
   name: string;
   organizationNumber: string;
   vatNumber: string;
+};
+
+type FeatureModule =
+  | "jobs"
+  | "reports"
+  | "time_tracking"
+  | "billing"
+  | "inventory"
+  | "logbook"
+  | "customer_portal"
+  | "dispatch"
+  | "documents"
+  | "ai"
+  | "integrations";
+
+type TenantPlan = "start" | "pro" | "business";
+
+type TenantSettings = {
+  id: string;
+  name: string;
+  plan: TenantPlan;
+  subscriptionStatus: "trialing" | "active" | "past_due" | "paused" | "cancelled";
+  subscriptionInterval: "monthly" | "quarterly" | "yearly";
+  modules: Record<FeatureModule, boolean>;
 };
 
 type AppSnapshot = {
@@ -629,11 +656,12 @@ type AppSnapshot = {
   reports: ReportRecord[];
   resources: ResourceRecord[];
   services: ServiceItem[];
+  tenantSettings?: TenantSettings;
   translationOverrides?: TranslationFileRow[];
   updatedAt?: string;
 };
 
-type SyncSectionKey = "accountingAccounts" | "activeJobId" | "billing" | "companySettings" | "customers" | "dailyMailSettings" | "deletedEntityIds" | "deletedReportIds" | "fieldNotes" | "fieldProgress" | "inventoryLocations" | "jobs" | "materials" | "objects" | "packages" | "personnel" | "portalMessages" | "reports" | "resources" | "services" | "translationOverrides";
+type SyncSectionKey = "accountingAccounts" | "activeJobId" | "billing" | "companySettings" | "customers" | "dailyMailSettings" | "deletedEntityIds" | "deletedReportIds" | "fieldNotes" | "fieldProgress" | "inventoryLocations" | "jobs" | "materials" | "objects" | "packages" | "personnel" | "portalMessages" | "reports" | "resources" | "services" | "tenantSettings" | "translationOverrides";
 type SyncSectionMap = Partial<Record<SyncSectionKey, { updatedAt?: string; value: unknown }>>;
 
 type TranslationFileRow = {
@@ -2121,6 +2149,7 @@ const storageKeys = {
   activeJobId: "kolaretorp-active-job-id",
   quickTripDraft: "kolaretorp-quick-trip-draft",
   odometerOcrUsage: "kolaretorp-odometer-ocr-usage",
+  tenantSettings: "kolaretorp-tenant-settings",
   translationOverrides: "kolaretorp-translation-overrides",
   updatedAt: "kolaretorp-updated-at",
 };
@@ -2190,6 +2219,7 @@ function readLocalSnapshot(): AppSnapshot {
     reports: dedupeReports(readStoredValue<ReportRecord[]>(storageKeys.reports, seedReports)),
     resources: readStoredValue<ResourceRecord[]>(storageKeys.resources, seedResources),
     services: readStoredValue<ServiceItem[]>(storageKeys.services, seedServices),
+    tenantSettings: readStoredValue<TenantSettings>(storageKeys.tenantSettings, seedTenantSettings),
     translationOverrides: readStoredValue<TranslationFileRow[]>(storageKeys.translationOverrides, []),
     updatedAt: readStoredValue<string | undefined>(storageKeys.updatedAt, undefined),
   }));
@@ -2217,6 +2247,7 @@ function persistLocalSnapshot(snapshot: AppSnapshot) {
   window.localStorage.setItem(storageKeys.materials, JSON.stringify(snapshot.materials ?? seedMaterials));
   window.localStorage.setItem(storageKeys.reports, JSON.stringify(snapshot.reports));
   window.localStorage.setItem(storageKeys.services, JSON.stringify(snapshot.services));
+  window.localStorage.setItem(storageKeys.tenantSettings, JSON.stringify(snapshot.tenantSettings ?? seedTenantSettings));
   window.localStorage.setItem(storageKeys.translationOverrides, JSON.stringify(snapshot.translationOverrides ?? []));
   window.localStorage.setItem(storageKeys.packages, JSON.stringify(snapshot.packages));
   window.localStorage.setItem(storageKeys.personnel, JSON.stringify(snapshot.personnel));
@@ -2885,6 +2916,7 @@ function mergeSnapshots(remoteSnapshot: AppSnapshot, localSnapshot: AppSnapshot)
     reports,
     resources: mergeResourcesById(primarySnapshot.resources ?? [], secondarySnapshot.resources ?? []),
     services: mergeRecordsById(primarySnapshot.services, secondarySnapshot.services),
+    tenantSettings: { ...seedTenantSettings, ...(secondarySnapshot.tenantSettings ?? {}), ...(primarySnapshot.tenantSettings ?? {}) },
     translationOverrides: mergeTranslationOverrides(primarySnapshot.translationOverrides, secondarySnapshot.translationOverrides),
     updatedAt: new Date(Math.max(
       Number.isFinite(remoteTime) ? remoteTime : 0,
@@ -3232,7 +3264,7 @@ async function saveSupabaseSnapshotWithFetch(endpoint: string, snapshot: AppSnap
 
 function patchUsesSmallSyncOnly(overrides: Partial<AppSnapshot>) {
   const keys = Object.keys(overrides);
-  return keys.length > 0 && keys.every((key) => key === "updatedAt" || ["accountingAccounts", "activeJobId", "billing", "companySettings", "customers", "dailyMailSettings", "deletedEntityIds", "deletedReportIds", "fieldNotes", "fieldProgress", "inventoryLocations", "jobs", "materials", "objects", "packages", "personnel", "portalMessages", "reports", "resources", "services", "translationOverrides"].includes(key));
+  return keys.length > 0 && keys.every((key) => key === "updatedAt" || ["accountingAccounts", "activeJobId", "billing", "companySettings", "customers", "dailyMailSettings", "deletedEntityIds", "deletedReportIds", "fieldNotes", "fieldProgress", "inventoryLocations", "jobs", "materials", "objects", "packages", "personnel", "portalMessages", "reports", "resources", "services", "tenantSettings", "translationOverrides"].includes(key));
 }
 
 async function saveSmallSyncPatch(overrides: Partial<AppSnapshot>) {
@@ -6665,11 +6697,37 @@ function normalizeDailyMailSettings(settings?: Partial<DailyMailSettings>): Dail
 const seedCompanySettings: CompanySettings = {
   address: "Kolaretorp 106, 382 93 Nybro",
   bank: "",
+  brandColor: "#007aff",
   email: "info@kolaretorp.se",
   fSkattApproved: true,
+  logoStoragePath: "",
+  logoUrl: "",
   name: "Kolaretorp Service AB",
   organizationNumber: "",
   vatNumber: "",
+};
+
+const allFeatureModules: FeatureModule[] = [
+  "jobs",
+  "reports",
+  "time_tracking",
+  "billing",
+  "inventory",
+  "logbook",
+  "customer_portal",
+  "dispatch",
+  "documents",
+  "ai",
+  "integrations",
+];
+
+const seedTenantSettings: TenantSettings = {
+  id: "00000000-0000-0000-0000-000000000001",
+  modules: Object.fromEntries(allFeatureModules.map((module) => [module, true])) as Record<FeatureModule, boolean>,
+  name: "Kolaretorp Service AB",
+  plan: "business",
+  subscriptionInterval: "monthly",
+  subscriptionStatus: "active",
 };
 
 function statusTone(status: string) {
@@ -7567,6 +7625,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   const [servicePackages, setServicePackages] = useState(seedPackages);
   const [personnel, setPersonnel] = useState(seedPersonnel);
   const [translationOverrides, setTranslationOverrides] = useState<TranslationFileRow[]>([]);
+  const [tenantSettings, setTenantSettings] = useState<TenantSettings>(seedTenantSettings);
   const [resources, setResources] = useState(seedResources);
   const [liveVehiclePositions, setLiveVehiclePositions] = useState<LiveVehiclePosition[]>([]);
   const [dailyMailSettings, setDailyMailSettings] = useState(seedDailyMailSettings);
@@ -7716,6 +7775,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     setServicePackages(cleanSnapshot.packages);
     setPersonnel(cleanSnapshot.personnel ?? seedPersonnel);
     setTranslationOverrides(cleanSnapshot.translationOverrides ?? []);
+    setTenantSettings({ ...seedTenantSettings, ...(cleanSnapshot.tenantSettings ?? {}) });
     setResources(cleanSnapshot.resources ?? seedResources);
     setDailyMailSettings(normalizeDailyMailSettings(cleanSnapshot.dailyMailSettings));
     setPortalMessages(cleanSnapshot.portalMessages ?? []);
@@ -7897,6 +7957,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       reports,
       resources,
       services,
+      tenantSettings,
       translationOverrides,
       updatedAt: snapshotUpdatedAt,
     };
@@ -7909,7 +7970,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     setAppUpdatedAt(snapshotUpdatedAt);
 
     scheduleRemoteSave(snapshot, 60000);
-  }, [accountingAccounts, activeJobId, appStorageReady, billing, companySettings, customers, dailyMailSettings, deletedEntityIds, deletedReportIds, fieldNotes, fieldProgress, inventoryLocations, jobs, materials, objects, personnel, portalMessages, reports, resources, scheduleRemoteSave, servicePackages, services, translationOverrides]);
+  }, [accountingAccounts, activeJobId, appStorageReady, billing, companySettings, customers, dailyMailSettings, deletedEntityIds, deletedReportIds, fieldNotes, fieldProgress, inventoryLocations, jobs, materials, objects, personnel, portalMessages, reports, resources, scheduleRemoteSave, servicePackages, services, tenantSettings, translationOverrides]);
 
   const currentSnapshot = useCallback((overrides: Partial<AppSnapshot> = {}): AppSnapshot => ({
     activeJobId,
@@ -7932,10 +7993,11 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     reports,
     resources,
     services,
+    tenantSettings,
     translationOverrides,
     updatedAt: appUpdatedAt,
     ...overrides,
-  }), [accountingAccounts, activeJobId, appUpdatedAt, billing, companySettings, customers, dailyMailSettings, deletedEntityIds, deletedReportIds, fieldNotes, fieldProgress, inventoryLocations, jobs, materials, objects, personnel, portalMessages, reports, resources, servicePackages, services, translationOverrides]);
+  }), [accountingAccounts, activeJobId, appUpdatedAt, billing, companySettings, customers, dailyMailSettings, deletedEntityIds, deletedReportIds, fieldNotes, fieldProgress, inventoryLocations, jobs, materials, objects, personnel, portalMessages, reports, resources, servicePackages, services, tenantSettings, translationOverrides]);
 
   const syncRemoteSnapshot = useCallback(async (force = false) => {
     if (!appStorageReady || remoteSyncRunningRef.current) return;

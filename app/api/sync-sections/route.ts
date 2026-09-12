@@ -24,6 +24,7 @@ const allowedSyncSections = [
   "reports",
   "resources",
   "services",
+  "tenantSettings",
   "translationOverrides",
 ] as const;
 
@@ -379,6 +380,30 @@ type SettingRow = {
   updated_at: string | null;
   value: unknown;
 };
+
+type TenantRow = {
+  id: string;
+  name: string;
+  subscription_interval: string | null;
+  subscription_status: string | null;
+  updated_at: string | null;
+};
+
+type TenantSubscriptionRow = {
+  current_period_end: string | null;
+  interval: string | null;
+  plan_id: string | null;
+  status: string | null;
+  updated_at: string | null;
+};
+
+type TenantModuleRow = {
+  enabled: boolean | null;
+  module: string;
+  updated_at: string | null;
+};
+
+const defaultTenantId = "00000000-0000-0000-0000-000000000001";
 
 function getSupabaseServerClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -1694,6 +1719,105 @@ async function saveSettingsSections(supabase: NonNullable<ReturnType<typeof getS
   if (error) throw new Error(error.message);
 }
 
+function planFromPlanId(planId: string | null | undefined) {
+  if (String(planId ?? "").startsWith("start_")) return "start";
+  if (String(planId ?? "").startsWith("pro_")) return "pro";
+  if (String(planId ?? "").startsWith("business_")) return "business";
+  return "business";
+}
+
+async function loadTenantSettingsSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
+  const { data: tenantRows, error: tenantError } = await supabase
+    .from("homecare_tenants")
+    .select("id, name, subscription_status, subscription_interval, updated_at")
+    .eq("id", defaultTenantId)
+    .limit(1);
+  if (tenantError || !tenantRows?.length) return null;
+
+  const { data: subscriptionRows } = await supabase
+    .from("homecare_subscriptions")
+    .select("plan_id, status, interval, current_period_end, updated_at")
+    .eq("tenant_id", defaultTenantId)
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  const { data: moduleRows } = await supabase
+    .from("homecare_tenant_modules")
+    .select("module, enabled, updated_at")
+    .eq("tenant_id", defaultTenantId)
+    .order("module", { ascending: true });
+
+  const tenant = (tenantRows as TenantRow[])[0];
+  const subscription = ((subscriptionRows ?? []) as TenantSubscriptionRow[])[0];
+  const modules = Object.fromEntries(((moduleRows ?? []) as TenantModuleRow[]).map((row) => [row.module, row.enabled !== false]));
+
+  return {
+    updatedAt: maxUpdatedAt([
+      tenant.updated_at,
+      subscription?.updated_at,
+      ...((moduleRows ?? []) as TenantModuleRow[]).map((row) => row.updated_at),
+    ]),
+    value: {
+      id: tenant.id,
+      modules,
+      name: tenant.name,
+      plan: planFromPlanId(subscription?.plan_id),
+      subscriptionInterval: subscription?.interval ?? tenant.subscription_interval ?? "monthly",
+      subscriptionStatus: subscription?.status ?? tenant.subscription_status ?? "active",
+    },
+  };
+}
+
+async function saveTenantSettingsSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>, value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return;
+  const settings = value as JsonObject;
+  const tenantId = typeof settings.id === "string" && settings.id ? settings.id : defaultTenantId;
+  const modules = settings.modules && typeof settings.modules === "object" && !Array.isArray(settings.modules)
+    ? settings.modules as JsonObject
+    : {};
+  const plan = ["start", "pro", "business"].includes(String(settings.plan)) ? String(settings.plan) : "business";
+  const interval = ["monthly", "quarterly", "yearly"].includes(String(settings.subscriptionInterval)) ? String(settings.subscriptionInterval) : "monthly";
+  const subscriptionStatus = ["trialing", "active", "past_due", "paused", "cancelled"].includes(String(settings.subscriptionStatus))
+    ? String(settings.subscriptionStatus)
+    : "active";
+  const planId = `${plan}_${interval === "yearly" ? "yearly" : interval === "quarterly" ? "quarterly" : "monthly"}`;
+
+  const { error: tenantError } = await supabase
+    .from("homecare_tenants")
+    .upsert({
+      id: tenantId,
+      name: stringOrEmpty(settings.name) || "Kolaretorp Service AB",
+      slug: tenantId === defaultTenantId ? "kolaretorp" : `tenant-${tenantId}`,
+      subscription_interval: interval,
+      subscription_status: subscriptionStatus,
+    }, { onConflict: "id" });
+  if (tenantError) throw new Error(tenantError.message);
+
+  await supabase
+    .from("homecare_subscriptions")
+    .upsert({
+      tenant_id: tenantId,
+      plan_id: planId,
+      status: subscriptionStatus,
+      interval,
+    }, { onConflict: "tenant_id" });
+
+  const moduleRows = Object.entries(modules)
+    .filter(([module]) => stringOrEmpty(module))
+    .map(([module, enabled]) => ({
+      enabled: enabled !== false,
+      module,
+      source: "manual",
+      tenant_id: tenantId,
+    }));
+  if (!moduleRows.length) return;
+
+  const { error: moduleError } = await supabase
+    .from("homecare_tenant_modules")
+    .upsert(moduleRows, { onConflict: "tenant_id,module" });
+  if (moduleError) throw new Error(moduleError.message);
+}
+
 async function loadFallbackSections(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>, keys: SyncSectionKey[]) {
   const { data, error } = await supabase
     .from("app_state")
@@ -1799,6 +1923,10 @@ export async function GET(request: Request) {
     if (keys.includes("translationOverrides")) {
       const translationSection = await loadTranslationOverridesSection(supabase);
       if (translationSection) sections.translationOverrides = translationSection;
+    }
+    if (keys.includes("tenantSettings")) {
+      const tenantSection = await loadTenantSettingsSection(supabase);
+      if (tenantSection) sections.tenantSettings = tenantSection;
     }
     if (keys.includes("jobs")) {
       const jobSection = await loadJobsSection(supabase);
@@ -1924,6 +2052,13 @@ export async function POST(request: Request) {
         await saveTranslationOverridesSection(supabase, filteredPatch.translationOverrides);
       } catch (error) {
         console.warn("Relationaler Sprach-Sync wurde auf Fallback reduziert.", error);
+      }
+    }
+    if ("tenantSettings" in filteredPatch) {
+      try {
+        await saveTenantSettingsSection(supabase, filteredPatch.tenantSettings);
+      } catch (error) {
+        console.warn("Relationaler Mandanten-Sync wurde auf Fallback reduziert.", error);
       }
     }
     if ("jobs" in filteredPatch) {
