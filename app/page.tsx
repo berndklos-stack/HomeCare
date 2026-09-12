@@ -6818,8 +6818,10 @@ function fieldPhotoHasSource(photo: FieldPhoto) {
 function fieldPhotoScore(photo: FieldPhoto) {
   return [
     fieldPhotoHasSource(photo) ? 20 : 0,
-    photo.previewUrl?.startsWith("data:") ? 8 : 0,
-    photo.storagePath ? 6 : 0,
+    photo.storagePath ? 14 : 0,
+    photo.previewUrl?.startsWith("data:") ? -6 : 0,
+    photo.uploadStatus === "uploaded" ? 4 : 0,
+    photo.uploadStatus === "uploading" ? -4 : 0,
     photo.note?.trim() ? 3 : 0,
     photo.createdAt ? 1 : 0,
   ].reduce((sum, value) => sum + value, 0);

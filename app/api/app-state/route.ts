@@ -600,8 +600,10 @@ function mergeFieldPhotos(existingPhotos: unknown, patchPhotos: unknown) {
   const photosByKey = new Map<string, JsonObject>();
   const photoScore = (photo: JsonObject) => [
     photoHasSource(photo) ? 20 : 0,
-    String(photo.previewUrl ?? "").startsWith("data:") ? 8 : 0,
-    photo.storagePath ? 6 : 0,
+    photo.storagePath ? 14 : 0,
+    String(photo.previewUrl ?? "").startsWith("data:") ? -6 : 0,
+    photo.uploadStatus === "uploaded" ? 4 : 0,
+    photo.uploadStatus === "uploading" ? -4 : 0,
     String(photo.note ?? "").trim() ? 3 : 0,
     photo.createdAt ? 1 : 0,
   ].reduce((sum, value) => sum + value, 0);

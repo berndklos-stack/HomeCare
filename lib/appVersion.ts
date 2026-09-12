@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.377.0",
+  version: "1.378.0",
   releaseDate: "2026-09-12",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.378.0",
+    date: "2026-09-12",
+    changes: [
+      "Foto-Merge-Regeln bevorzugen Supabase-Storage-Verweise nun eindeutig vor alten Base64-Vorschauen",
+      "Haengende Upload-Status koennen dadurch beim Zusammenfuehren nicht mehr saubere Bildquellen verdraengen",
+      "Berichts- und Feldfortschritt-Fotos bleiben beim Sync zwischen Mobilgeraet und Mac stabiler erhalten",
+    ],
+  },
   {
     version: "1.377.0",
     date: "2026-09-12",
