@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.375.0",
+  version: "1.376.0",
   releaseDate: "2026-09-12",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.376.0",
+    date: "2026-09-12",
+    changes: [
+      "Ressourcen und Fahrtenbuch werden im kleinen Sync nun aus homecare_resources und homecare_vehicle_trips aufgebaut",
+      "Fahrten werden beim Speichern zusaetzlich direkt in die relationale Fahrten-Tabelle geschrieben",
+      "Der alte kleine Sync-Fallback bleibt aktiv, falls Supabase waehrend der Umstellung eine relationale Anfrage abweist",
+    ],
+  },
   {
     version: "1.375.0",
     date: "2026-09-12",
