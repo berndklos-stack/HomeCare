@@ -1250,8 +1250,10 @@ const swedishUiText: Record<string, string> = {
   "Buchungen": "Bokningar",
   "Buchungshistorie schließen": "Stäng bokningshistorik",
   "Bewegungsliste PDF": "Rörelselista PDF",
+  "Bestand": "Lager",
   "Bestandswert FIFO": "Lagervärde FIFO",
   "Eingang": "Ingång",
+  "Einkaufsliste erstellen": "Skapa inköpslista",
   "Einkaufsbeleg scannen": "Skanna inköpskvitto",
   "für Abrechnung vormerken": "markera för fakturering",
   "Gezählter Bestand": "Räknat lager",
@@ -1282,6 +1284,7 @@ const swedishUiText: Record<string, string> = {
   "Manuelle Leistung": "Manuell tjänst",
   "Freies Material": "Fritt material",
   "Freies Material beim Speichern in Stammdaten übernehmen": "Spara fritt material i grunddata vid sparande",
+  "fehlt": "saknas",
   "Leistung, Kategorie, Einheit oder Konto suchen...": "Sök tjänst, kategori, enhet eller konto...",
   "Material, Kategorie, Lagerort oder Lieferant suchen...": "Sök material, kategori, lagerplats eller leverantör...",
   "Sprachen": "Språk",
@@ -1309,6 +1312,7 @@ const englishUiText: Record<string, string> = {
   "aktive Materialien": "active materials",
   "Artikel, Lagerort, Lieferant oder Kategorie filtern...": "Filter item, storage location, supplier or category...",
   "Bestandseinheiten gesamt": "stock units total",
+  "Bestand": "Stock",
   "Alle Buchungen": "All postings",
   "Alle Buchungen ansehen": "View all postings",
   "Auftrag": "Job",
@@ -1331,6 +1335,7 @@ const englishUiText: Record<string, string> = {
   "Disposition": "Dispatch",
   "Dispokalender": "Dispatch calendar",
   "Eingang": "Stock in",
+  "Einkaufsliste erstellen": "Create shopping list",
   "Einkaufsbeleg scannen": "Scan purchase receipt",
   "Einheit": "Unit",
   "Fahrt": "Trip",
@@ -1345,6 +1350,7 @@ const englishUiText: Record<string, string> = {
   "Heute steuern": "Control today",
   "Freies Material": "Free material",
   "Freies Material beim Speichern in Stammdaten übernehmen": "Save free material to master data when saving",
+  "fehlt": "missing",
   "für Abrechnung vormerken": "Mark for billing",
   "laufende Fahrt": "active trip",
   "letzte Fahrt": "latest trip",
@@ -3072,30 +3078,40 @@ function normalizeReportPhotoUploadStates(report: ReportRecord) {
 }
 
 async function fileToReportAttachment(file: File): Promise<ReportAttachment> {
-  if (file.size > 15_000_000) {
-    throw new Error(`"${file.name}" ist größer als 15 MB.`);
+  const isImage = file.type.startsWith("image/");
+  const uploadFileName = isImage ? fieldPhotoUploadName(file.name || "anhang.jpg") : file.name;
+  let uploadSource: File | Blob = file;
+  let dataUrl = "";
+
+  if (isImage) {
+    dataUrl = await fileToFieldPhotoPreview(file);
+    if (dataUrl) uploadSource = await dataUrlToBlob(dataUrl);
   }
 
-  const uploaded = await uploadMediaFile(file, "report-attachments");
+  if (uploadSource.size > 25_000_000) {
+    throw new Error(`"${file.name}" ist größer als 25 MB.`);
+  }
+
+  const uploaded = await uploadMediaFile(uploadSource, "report-attachments", uploadFileName);
   if (uploaded) {
     return {
       createdAt: new Date().toISOString(),
       id: globalThis.crypto?.randomUUID?.() ?? `REPORT-FILE-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      name: file.name,
-      size: file.size,
+      name: uploadFileName,
+      size: uploaded.size,
       storagePath: uploaded.path,
       storageUrl: uploaded.url,
-      type: file.type || "application/octet-stream",
+      type: uploaded.contentType || (isImage ? "image/jpeg" : file.type || "application/octet-stream"),
     };
   }
 
   return {
     createdAt: new Date().toISOString(),
-    dataUrl: await readFileAsDataUrl(file),
+    dataUrl: dataUrl || (uploadSource.size <= 8_000_000 ? await readFileAsDataUrl(uploadSource) : ""),
     id: globalThis.crypto?.randomUUID?.() ?? `REPORT-FILE-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-    name: file.name,
-    size: file.size,
-    type: file.type || "application/octet-stream",
+    name: uploadFileName,
+    size: uploadSource.size,
+    type: isImage ? "image/jpeg" : file.type || "application/octet-stream",
   };
 }
 
@@ -3112,6 +3128,11 @@ function assertBase64Content(content: string, context: string) {
 
 function reportAttachmentSource(attachment: ReportAttachment) {
   return attachment.dataUrl || attachment.storageUrl || mediaSourceFromStoragePath(attachment.storagePath);
+}
+
+function reportAttachmentCanBeMailed(attachment: ReportAttachment) {
+  if (attachment.type.startsWith("video/")) return false;
+  return attachment.size <= 8_000_000;
 }
 
 type UploadedMedia = {
@@ -5353,7 +5374,7 @@ async function sendCustomerReportMail(report: ReportRecord, object: ObjectRecord
 
   let extraAttachments: Array<{ content: string; contentType: string; filename: string }> = [];
   try {
-    extraAttachments = (await Promise.all((report.attachments ?? []).map(async (attachment) => {
+    extraAttachments = (await Promise.all((report.attachments ?? []).filter(reportAttachmentCanBeMailed).map(async (attachment) => {
       const source = reportAttachmentSource(attachment);
       if (!source) return null;
       const dataUrl = await mediaSourceToDataUrl(source);
@@ -8539,9 +8560,9 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   }
 
   function openCreateJob() {
-    const ownerCustomer = customers.find((customer) => customer.id === selectedObject.ownerCustomerId || customer.name === selectedObject.owner);
     setEditingJobId(null);
-    setNewJob({ ...emptyJobForm(), billable: ownerCustomer?.billable ?? true });
+    setSelectedObjectId("");
+    setNewJob({ ...emptyJobForm(), billable: true });
     setModal("job");
   }
 
@@ -8823,6 +8844,11 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   function saveJob() {
     const id = editingJobId ?? `JOB-${2410 + jobs.length}`;
     const existingJob = jobs.find((job) => job.id === editingJobId);
+    const jobObject = activeObjects.find((object) => object.id === selectedObjectId) ?? objects.find((object) => object.id === selectedObjectId);
+    if (!jobObject) {
+      setRecordNotice("Bitte zuerst ein Objekt auswählen oder direkt Kunde / Objekt anlegen.");
+      return;
+    }
     const customServiceName = newJob.customServiceName.trim();
     const customServiceId = existingJob?.customService?.id ?? `JOB-SVC-${id}`;
     const customService: ServiceItem | null = customServiceName
@@ -8891,8 +8917,8 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       seriesOccurrenceDate: existingJob?.seriesOccurrenceDate,
       seriesExcludedDates: existingJob?.seriesExcludedDates,
       title: newJob.title.trim() || "Neuer Auftrag",
-      objectId: selectedObject.id,
-      customerId: selectedObject.ownerCustomerId || customers.find((customer) => customer.name === selectedObject.owner)?.id || "CUS-1",
+      objectId: jobObject.id,
+      customerId: jobObject.ownerCustomerId || customers.find((customer) => customer.name === jobObject.owner)?.id || "CUS-1",
       type: newJob.type.trim() || customService?.name || "Hauskontrolle",
       status: newJob.status,
       statusUpdatedAt,
@@ -11544,6 +11570,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                 objects={activeObjects}
                 onCreateMasterData={createMasterDataFromJob}
                 selectedObject={selectedObject}
+                selectedObjectId={editingJobId ? selectedObject.id : selectedObjectId}
                 jobs={jobs}
                 materials={materials}
                 personnel={personnel}
@@ -11942,7 +11969,13 @@ function ReportAttachmentEditor({
         <div className="history-media">
           {(report.attachments ?? []).map((attachment) => (
             <span key={attachment.id}>
-              {attachment.name}
+              {reportAttachmentSource(attachment) ? (
+                <a href={reportAttachmentSource(attachment)} download={attachment.name} rel="noreferrer" target="_blank">
+                  {attachment.type.startsWith("video/") ? "Video: " : ""}{attachment.name}
+                </a>
+              ) : (
+                attachment.name
+              )}
               {!disabled && (
                 <button
                   aria-label={`${tt("Anhang entfernen")}: ${attachment.name}`}
@@ -12211,7 +12244,13 @@ function CustomerReportCard({
         <div className="report-attachment-list">
           <strong>Dateianhänge</strong>
           {(report.attachments ?? []).map((attachment) => (
-            <span key={attachment.id}>{attachment.name}</span>
+            reportAttachmentSource(attachment) ? (
+              <a href={reportAttachmentSource(attachment)} key={attachment.id} download={attachment.name} rel="noreferrer" target="_blank">
+                {attachment.type.startsWith("video/") ? "Video: " : ""}{attachment.name}
+              </a>
+            ) : (
+              <span key={attachment.id}>{attachment.name}</span>
+            )
           ))}
         </div>
       )}
@@ -13777,21 +13816,37 @@ function FieldView({
                     <small>{task.meta}</small>
                   </span>
                 </label>
-                <label className="task-photo-button" data-tooltip={`Bild zu ${task.title} erfassen`}>
-                  <Camera size={16} />
-                  <input
-                    aria-label={`Bild zu ${task.title} erfassen`}
-                    accept="image/*"
-                    capture="environment"
-                    disabled={reportLocked}
-                    multiple
-                    type="file"
-                    onChange={(event) => {
-                      void addFieldPhotoFiles(task.id, currentTask, event.target.files);
-                      event.currentTarget.value = "";
-                    }}
-                  />
-                </label>
+                <div className="task-photo-actions">
+                  <label className="task-photo-button" data-tooltip={`Foto zu ${task.title} aufnehmen`}>
+                    <Camera size={16} />
+                    <input
+                      aria-label={`Foto zu ${task.title} aufnehmen`}
+                      accept="image/*"
+                      capture="environment"
+                      disabled={reportLocked}
+                      multiple
+                      type="file"
+                      onChange={(event) => {
+                        void addFieldPhotoFiles(task.id, currentTask, event.target.files);
+                        event.currentTarget.value = "";
+                      }}
+                    />
+                  </label>
+                  <label className="task-photo-button" data-tooltip={`Bilder zu ${task.title} auswählen`}>
+                    <Plus size={16} />
+                    <input
+                      aria-label={`Bilder zu ${task.title} auswählen`}
+                      accept="image/*"
+                      disabled={reportLocked}
+                      multiple
+                      type="file"
+                      onChange={(event) => {
+                        void addFieldPhotoFiles(task.id, currentTask, event.target.files);
+                        event.currentTarget.value = "";
+                      }}
+                    />
+                  </label>
+                </div>
               </div>
               <p>{task.description}</p>
               <div className="field-task-inputs">
@@ -15077,6 +15132,10 @@ function InventoryView({
                 </select>
               </label>
               <label><span>{form.type === "Inventur" ? tt("Gezählter Bestand") : tt("Menge")}</span><input inputMode="decimal" value={form.quantity} onChange={(event) => setForm({ ...form, quantity: event.target.value })} placeholder={form.type === "Inventur" ? "z.B. 12" : "z.B. 10"} /></label>
+              <div className="inventory-unit-chip">
+                <span>{tt("Einheit")}</span>
+                <strong>{selectedMaterial.unit}</strong>
+              </div>
               {form.type === "Ausgang" ? (
                 <label><span>{tt("Lagerort mit Bestand")}</span>
                   <select value={form.location} onChange={(event) => setForm({ ...form, location: event.target.value })}>
@@ -20108,6 +20167,7 @@ function JobForm({
   onCreateMasterData,
   personnel,
   selectedObject,
+  selectedObjectId,
   services,
   setSelectedObjectId,
   onSubmit,
@@ -20124,6 +20184,7 @@ function JobForm({
   onCreateMasterData?: (input: JobQuickMasterDataInput) => void;
   personnel: PersonnelRecord[];
   selectedObject: ObjectRecord;
+  selectedObjectId: string;
   services: ServiceItem[];
   setSelectedObjectId: (id: string) => void;
   onSubmit: () => void;
@@ -20427,6 +20488,38 @@ function JobForm({
     return `${formatInventoryQuantity(total)} ${material.unit}${locations ? ` (${locations})` : ""}`;
   }
 
+  const materialShortages = newJob.materialItems.flatMap((item) => {
+    const sourceMaterial = item.materialId ? materials.find((material) => material.id === item.materialId) : undefined;
+    const stock = sourceMaterial ? materialInventoryTotal(sourceMaterial) : 0;
+    const needed = Math.max(0, decimalValue(item.quantity));
+    const missing = Math.max(0, needed - stock);
+    return sourceMaterial && missing > 0
+      ? [{ item, missing, needed, stock, supplier: sourceMaterial.supplier ?? "", unit: sourceMaterial.unit }]
+      : [];
+  });
+
+  function downloadShoppingList() {
+    if (!materialShortages.length) return;
+    const lines = [
+      "Einkaufsliste",
+      `Auftrag: ${newJob.title.trim() || "Neuer Auftrag"}`,
+      `Datum: ${new Date().toLocaleString("de-DE")}`,
+      "",
+      ...materialShortages.map(({ item, missing, needed, stock, supplier, unit }) => (
+        `${item.name}; Bedarf ${formatInventoryQuantity(needed)} ${unit}; Bestand ${formatInventoryQuantity(stock)} ${unit}; Nachkaufen ${formatInventoryQuantity(missing)} ${unit}; Lieferant ${supplier || "-"}`
+      )),
+    ];
+    const blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `Einkaufsliste-${safeFileName(newJob.title || "Auftrag")}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
   function toggleWeekday(day: string) {
     update(
       "scheduleWeekdays",
@@ -20446,7 +20539,8 @@ function JobForm({
           </label>
           <label>
             <span>Objekt</span>
-            <select value={selectedObject.id} onChange={(event) => setSelectedObjectId(event.target.value)}>
+            <select value={selectedObjectId} onChange={(event) => setSelectedObjectId(event.target.value)}>
+              <option value="">Objekt auswählen...</option>
               {objects.map((object) => <option key={object.id} value={object.id}>{object.name}</option>)}
             </select>
           </label>
@@ -20677,6 +20771,12 @@ function JobForm({
             <Plus size={16} />
             {tt("Material manuell")}
           </button>
+          {materialShortages.length > 0 && (
+            <button className="ghost-button warning-action" onClick={downloadShoppingList} type="button">
+              <ClipboardList size={16} />
+              {tt("Einkaufsliste erstellen")}
+            </button>
+          )}
         </div>
         {materialEntryMode === "manual" && (
           <div className="add-position-panel form-grid compact-form">
@@ -20706,6 +20806,18 @@ function JobForm({
                 <div className="material-position-main">
                   <strong>{item.name}</strong>
                   <span>{item.category} · {item.quantity} {item.unit} · {materialRate(item)}</span>
+                  {item.materialId && (() => {
+                    const sourceMaterial = materials.find((material) => material.id === item.materialId);
+                    if (!sourceMaterial) return null;
+                    const stock = materialInventoryTotal(sourceMaterial);
+                    const needed = Math.max(0, decimalValue(item.quantity));
+                    const missing = Math.max(0, needed - stock);
+                    return (
+                      <span className={missing > 0 ? "material-stock-warning" : ""}>
+                        {tt("Bestand")} {materialInventoryLabel(sourceMaterial)}{missing > 0 ? ` · ${tt("fehlt")} ${formatInventoryQuantity(missing)} ${sourceMaterial.unit}` : ""}
+                      </span>
+                    );
+                  })()}
                 </div>
                 <label className="material-position-quantity"><span>Menge</span><input value={item.quantity} onChange={(event) => updateMaterialItem(item.id, { quantity: event.target.value })} /></label>
                 <strong className="material-position-total">{Math.round(materialLineAmount(item)).toLocaleString("sv-SE")} {item.currency}</strong>
@@ -20788,9 +20900,9 @@ function JobForm({
                 }}>
                   <div>
                     <strong>{material.name}</strong>
-                    <span>{material.category} · {materialRate(material)}</span>
-                  </div>
-                  <span>{materialInventoryLabel(material)}</span>
+                  <span>{material.category} · {materialRate(material)}</span>
+                </div>
+                  <span>{tt("Bestand")} {materialInventoryLabel(material)}</span>
                 </article>
               ))}
               {filteredJobMaterials.length === 0 && <p>{tt("Kein Material für diese Suche gefunden.")}</p>}

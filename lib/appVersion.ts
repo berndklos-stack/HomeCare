@@ -1,16 +1,28 @@
 export const appVersion = {
-  version: "1.385.0",
+  version: "1.386.0",
   releaseDate: "2026-09-12",
   label: "Homecare",
 };
 
 export const versionHistory = [
   {
+    version: "1.386.0",
+    date: "2026-09-12",
+    changes: [
+      "Kartenansicht und Satellit sind sauber umschaltbar, ohne die Kartenbedienung zu ueberdecken",
+      "Der linke Menuebereich bleibt auf Desktop fest stehen, waehrend rechts gearbeitet wird",
+      "Auftragsanlage startet ohne vorbelegtes Objekt und zeigt Materialbestand, Fehlmenge und Einkaufsliste",
+      "Berichtsanhaenge verkleinern Bilder beim Import und halten Videos als Supabase-Dateilink aus dem Mailanhang heraus",
+      "Mobil vor Ort nutzt auf Desktop mehr Breite und bleibt auf kleinen Displays innerhalb der Bildschirmbreite",
+    ],
+  },
+  {
     version: "1.385.0",
     date: "2026-09-12",
     changes: [
       "Mobil-vor-Ort-Fotos werden beim Import robuster aus Apple-Fotos/iCloud gelesen",
       "Ausgewaehlte Einsatzfotos werden direkt als lokale Vorschau angezeigt und danach als verkleinertes JPEG hochgeladen",
+      "Auf iPhone und Mobilansicht gibt es getrennte Aktionen fuer Foto aufnehmen und Bilder aus der Mediathek auswaehlen",
       "Der Fotoimport akzeptiert wieder alle Bildformate des Browsers und komprimiert sie fuer Bericht und Storage",
     ],
   },
