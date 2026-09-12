@@ -430,6 +430,7 @@ type JobMaterialItem = {
   category: string;
   unit: string;
   quantity: string;
+  reservedQuantity?: string;
   price: string;
   currency: string;
   taxRate?: string;
@@ -1254,6 +1255,7 @@ const swedishUiText: Record<string, string> = {
   "Bewegungsliste PDF": "Rörelselista PDF",
   "Bestand": "Lager",
   "Bestandswert FIFO": "Lagervärde FIFO",
+  "Bedarf": "Behov",
   "Eingang": "Ingång",
   "Einkaufsliste erstellen": "Skapa inköpslista",
   "Einkaufsliste PDF": "Inköpslista PDF",
@@ -1280,6 +1282,8 @@ const swedishUiText: Record<string, string> = {
   "Moms %": "Moms %",
   "Netto": "Netto",
   "nur Lagerausgang": "endast lageruttag",
+  "Offene Auftragsmengen reservieren": "Reservera öppna uppdragsmängder",
+  "Reserviert": "Reserverat",
   "Standort offen": "Plats saknas",
   "Aktueller Bestand": "Aktuellt lager",
   "aktive Materialien": "aktiva material",
@@ -1317,6 +1321,7 @@ const englishUiText: Record<string, string> = {
   "Artikel, Lagerort, Lieferant oder Kategorie filtern...": "Filter item, storage location, supplier or category...",
   "Bestandseinheiten gesamt": "stock units total",
   "Bestand": "Stock",
+  "Bedarf": "Required",
   "Alle Buchungen": "All postings",
   "Alle Buchungen ansehen": "View all postings",
   "Auftrag": "Job",
@@ -1450,7 +1455,9 @@ const englishUiText: Record<string, string> = {
   "Netto": "Net",
   "nicht zugewiesen": "unassigned",
   "nur Lagerausgang": "stock out only",
+  "Offene Auftragsmengen reservieren": "Reserve open job quantities",
   "Preis netto": "Net price",
+  "Reserviert": "Reserved",
   "Schließen": "Close",
   "Sprache": "Language",
   "Sprachen": "Languages",
@@ -10888,12 +10895,15 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
               <InventoryView
                 customers={activeCustomers}
                 inventoryLocations={inventoryLocations}
+                jobs={jobs}
                 language={language}
                 materials={materials}
                 objects={objects}
                 onPersistInventoryLocations={(nextLocations) => persistSnapshotNow({ inventoryLocations: nextLocations }, { forceRemote: true })}
+                onPersistJobs={(nextJobs) => persistSnapshotNow({ jobs: nextJobs }, { forceRemote: true })}
                 onPersistMaterials={(nextMaterials) => persistSnapshotNow({ materials: nextMaterials }, { forceRemote: true })}
                 services={services}
+                setJobs={setJobs}
                 setInventoryLocations={setInventoryLocations}
                 setMaterials={setMaterials}
               />
@@ -14696,23 +14706,29 @@ function TrackingView({
 function InventoryView({
   customers,
   inventoryLocations,
+  jobs,
   language,
   materials,
   objects,
   onPersistInventoryLocations,
+  onPersistJobs,
   onPersistMaterials,
   services,
+  setJobs,
   setInventoryLocations,
   setMaterials,
 }: {
   customers: CustomerRecord[];
   inventoryLocations: InventoryLocation[];
+  jobs: JobRecord[];
   language: Language;
   materials: MaterialItem[];
   objects: ObjectRecord[];
   onPersistInventoryLocations: (locations: InventoryLocation[]) => void;
+  onPersistJobs: (jobs: JobRecord[]) => void;
   onPersistMaterials: (materials: MaterialItem[]) => void;
   services: ServiceItem[];
+  setJobs: (jobs: JobRecord[]) => void;
   setInventoryLocations: (locations: InventoryLocation[]) => void;
   setMaterials: (materials: MaterialItem[]) => void;
 }) {
@@ -14740,6 +14756,7 @@ function InventoryView({
   const [historyMaterialId, setHistoryMaterialId] = useState<string | null>(null);
   const [inventoryFilter, setInventoryFilter] = useState("");
   const [notice, setNotice] = useState("");
+  const [reservationDrafts, setReservationDrafts] = useState<Record<string, string>>({});
   const [locationForm, setLocationForm] = useState({ name: "", note: "", site: "" });
   const locationSiteOptions = uniqueSortedValues([
     ...objects.map((object) => object.name),
@@ -14785,6 +14802,49 @@ function InventoryView({
       ...Object.keys(materialInventoryByLocation(material.inventoryEntries ?? [])),
     ].join(" ").toLowerCase().includes(normalizedInventoryFilter))
     : activeMaterials;
+  const openReservationDemand = selectedMaterial
+    ? jobs
+        .filter((job) => !["erledigt", "abgerechnet", "storniert"].includes(job.status))
+        .flatMap((job) => (job.materialItems ?? [])
+          .filter((item) => item.materialId === selectedMaterial.id)
+          .map((item) => {
+            const needed = Math.max(0, decimalValue(item.quantity));
+            const reserved = Math.max(0, decimalValue(item.reservedQuantity ?? ""));
+            const open = Math.max(0, needed - reserved);
+            const object = objects.find((entry) => entry.id === job.objectId);
+            return { item, job, needed, object, open, reserved };
+          }))
+        .filter((entry) => entry.open > 0)
+        .sort((first, second) => jobExecutionDate(first.job).localeCompare(jobExecutionDate(second.job)))
+    : [];
+  const reservedDraftTotal = Object.entries(reservationDrafts).reduce((sum, [, value]) => sum + Math.max(0, decimalValue(value)), 0);
+
+  function updateReservationDraft(itemId: string, value: string) {
+    setReservationDrafts((current) => ({ ...current, [itemId]: value }));
+  }
+
+  function clearReservationDraft(itemId: string) {
+    setReservationDrafts((current) => {
+      const next = { ...current };
+      delete next[itemId];
+      return next;
+    });
+  }
+
+  function toggleReservationDemand(itemId: string, defaultQuantity: number) {
+    setReservationDrafts((current) => {
+      if (current[itemId]) {
+        const next = { ...current };
+        delete next[itemId];
+        return next;
+      }
+      const alreadyReserved = Object.values(current).reduce((sum, value) => sum + Math.max(0, decimalValue(value)), 0);
+      const bookingQuantity = Math.max(0, decimalValue(form.quantity));
+      const remainingBookingQuantity = bookingQuantity > 0 ? Math.max(0, bookingQuantity - alreadyReserved) : defaultQuantity;
+      return { ...current, [itemId]: String(formatInventoryQuantity(Math.min(defaultQuantity, remainingBookingQuantity || defaultQuantity))) };
+    });
+  }
+
   function inventoryBookingChangeSummary(previous: MaterialInventoryEntry, next: MaterialInventoryEntry, previousMaterial: MaterialItem | undefined, nextMaterial: MaterialItem | undefined) {
     const changes: string[] = [];
     const previousQuantity = formatInventoryQuantity(signedMaterialInventoryQuantity(previous));
@@ -14832,6 +14892,7 @@ function InventoryView({
       type,
     });
     setNotice("");
+    setReservationDrafts({});
     setBookingOpen(true);
   }
 
@@ -14865,6 +14926,7 @@ function InventoryView({
       type: entry.type,
     });
     setNotice("");
+    setReservationDrafts({});
     setBookingOpen(true);
   }
 
@@ -14919,10 +14981,31 @@ function InventoryView({
         return;
       }
     }
+    const reservationPlan = form.type === "Eingang" && !originalEntry
+      ? openReservationDemand
+          .map((demand) => ({
+            ...demand,
+            reserve: Math.max(0, decimalValue(reservationDrafts[demand.item.id] ?? "")),
+          }))
+          .filter((demand) => demand.reserve > 0)
+      : [];
+    const reservationTotal = reservationPlan.reduce((sum, demand) => sum + demand.reserve, 0);
+    if (reservationTotal > quantity) {
+      setNotice(`Reservierte Menge (${formatInventoryQuantity(reservationTotal)} ${material.unit}) darf nicht größer als die Eingangsbuchung sein.`);
+      return;
+    }
+    const overReservedDemand = reservationPlan.find((demand) => demand.reserve > demand.open);
+    if (overReservedDemand) {
+      setNotice(`Für "${overReservedDemand.job.title}" sind nur ${formatInventoryQuantity(overReservedDemand.open)} ${material.unit} offen.`);
+      return;
+    }
 
     const purchaseAmounts = purchaseAmountsFromGross(form.purchaseGross, form.purchaseTaxRate);
     const now = new Date().toISOString();
     const bookingQuantity = form.type === "Inventur" ? quantity - currentLocationStock : quantity;
+    const reservationNote = reservationPlan.length > 0
+      ? `Reserviert für Aufträge: ${reservationPlan.map((demand) => `${demand.job.title} ${formatInventoryQuantity(demand.reserve)} ${material.unit}`).join(", ")}`
+      : "";
     const entry: MaterialInventoryEntry = {
       billableAsService: form.type === "Ausgang" ? form.billableAsService : false,
       changes: originalEntry?.changes ?? [],
@@ -14931,7 +15014,7 @@ function InventoryView({
       customerId: form.type === "Ausgang" ? form.customerId || undefined : undefined,
       id: originalEntry?.id ?? createEntityId("MINV"),
       location,
-      note: form.note.trim(),
+      note: [form.note.trim(), reservationNote].filter(Boolean).join(" · "),
       purchaseGross: form.type === "Eingang" ? form.purchaseGross.trim() : undefined,
       purchaseNet: form.type === "Eingang" && form.purchaseGross.trim() ? String(Math.round(purchaseAmounts.net * 100) / 100) : undefined,
       purchasePrice: form.type === "Eingang" && form.purchaseGross.trim() ? String(Math.round(purchaseAmounts.net * 100) / 100) : undefined,
@@ -14969,7 +15052,21 @@ function InventoryView({
     });
     setMaterials(nextMaterials);
     onPersistMaterials(nextMaterials);
-    setNotice(`Lagerbuchung für "${material.name}" wurde ${originalEntry ? "bearbeitet" : "gespeichert"}.`);
+    if (reservationPlan.length > 0) {
+      const nextJobs = jobs.map((job) => ({
+        ...job,
+        materialItems: (job.materialItems ?? []).map((item) => {
+          const reservation = reservationPlan.find((demand) => demand.job.id === job.id && demand.item.id === item.id);
+          if (!reservation) return item;
+          const nextReserved = Math.max(0, decimalValue(item.reservedQuantity ?? "")) + reservation.reserve;
+          return { ...item, reservedQuantity: String(formatInventoryQuantity(nextReserved)) };
+        }),
+      }));
+      setJobs(nextJobs);
+      onPersistJobs(nextJobs);
+    }
+    setNotice(`Lagerbuchung für "${material.name}" wurde ${originalEntry ? "bearbeitet" : "gespeichert"}${reservationPlan.length > 0 ? " und für offene Aufträge reserviert" : ""}.`);
+    setReservationDrafts({});
     setBookingOpen(false);
     setEditingBooking(null);
   }
@@ -15221,6 +15318,47 @@ function InventoryView({
                     <div className="inventory-tax-summary">
                       <span>{tt("Netto")} {formatMoney(currentPurchaseAmounts.net, selectedMaterial.currency || "SEK")}</span>
                       <span>Moms {formatMoney(currentPurchaseAmounts.tax, selectedMaterial.currency || "SEK")}</span>
+                    </div>
+                  )}
+                  {openReservationDemand.length > 0 && (
+                    <div className="wide inventory-reservation-panel">
+                      <div className="section-heading">
+                        <span>{tt("Offene Auftragsmengen reservieren")}</span>
+                        <strong>{formatInventoryQuantity(reservedDraftTotal)} / {formatInventoryQuantity(Math.max(0, decimalValue(form.quantity)))} {selectedMaterial.unit}</strong>
+                      </div>
+                      {openReservationDemand.map((demand) => (
+                        <article key={`${demand.job.id}-${demand.item.id}`}>
+                          <label className="checkbox-line">
+                            <input
+                              checked={Boolean(reservationDrafts[demand.item.id])}
+                              type="checkbox"
+                              onChange={() => toggleReservationDemand(demand.item.id, demand.open)}
+                            />
+                            <span>
+                              <strong>{demand.job.title}</strong>
+                              <small>{demand.object?.name ?? tt("Objekt offen")} · {jobExecutionDate(demand.job)}</small>
+                            </span>
+                          </label>
+                          <span>{tt("Bedarf")} {formatInventoryQuantity(demand.needed)} {selectedMaterial.unit}</span>
+                          <span>{tt("Reserviert")} {formatInventoryQuantity(demand.reserved)} {selectedMaterial.unit}</span>
+                          <span>{tt("Offen")} {formatInventoryQuantity(demand.open)} {selectedMaterial.unit}</span>
+                          <input
+                            aria-label={`Reservierte Menge für ${demand.job.title}`}
+                            disabled={!reservationDrafts[demand.item.id]}
+                            inputMode="decimal"
+                            max={demand.open}
+                            min="0"
+                            value={reservationDrafts[demand.item.id] ?? ""}
+                            onChange={(event) => updateReservationDraft(demand.item.id, event.target.value)}
+                            placeholder="0"
+                          />
+                          {reservationDrafts[demand.item.id] && (
+                            <button className="icon-button" aria-label="Reservierung entfernen" onClick={() => clearReservationDraft(demand.item.id)} type="button">
+                              <X size={14} />
+                            </button>
+                          )}
+                        </article>
+                      ))}
                     </div>
                   )}
                 </>
@@ -20572,9 +20710,11 @@ function JobForm({
     const sourceMaterial = item.materialId ? materials.find((material) => material.id === item.materialId) : undefined;
     const stock = sourceMaterial ? materialInventoryTotal(sourceMaterial) : 0;
     const needed = Math.max(0, decimalValue(item.quantity));
-    const missing = Math.max(0, needed - stock);
+    const reserved = Math.max(0, decimalValue(item.reservedQuantity ?? ""));
+    const openNeeded = Math.max(0, needed - reserved);
+    const missing = Math.max(0, openNeeded - stock);
     return sourceMaterial && missing > 0
-      ? [{ item, missing, needed, stock, supplier: sourceMaterial.supplier ?? "", unit: sourceMaterial.unit }]
+      ? [{ item, missing, needed: openNeeded, stock, supplier: sourceMaterial.supplier ?? "", unit: sourceMaterial.unit }]
       : [];
   });
 
@@ -20932,10 +21072,12 @@ function JobForm({
                     if (!sourceMaterial) return null;
                     const stock = materialInventoryTotal(sourceMaterial);
                     const needed = Math.max(0, decimalValue(item.quantity));
-                    const missing = Math.max(0, needed - stock);
+                    const reserved = Math.max(0, decimalValue(item.reservedQuantity ?? ""));
+                    const openNeeded = Math.max(0, needed - reserved);
+                    const missing = Math.max(0, openNeeded - stock);
                     return (
                       <span className={missing > 0 ? "material-stock-warning" : ""}>
-                        {tt("Bestand")} {materialInventoryLabel(sourceMaterial)}{missing > 0 ? ` · ${tt("fehlt")} ${formatInventoryQuantity(missing)} ${sourceMaterial.unit}` : ""}
+                        {tt("Bestand")} {materialInventoryLabel(sourceMaterial)} · {tt("Reserviert")} {formatInventoryQuantity(reserved)} {sourceMaterial.unit} · {tt("Offen")} {formatInventoryQuantity(openNeeded)} {sourceMaterial.unit}{missing > 0 ? ` · ${tt("fehlt")} ${formatInventoryQuantity(missing)} ${sourceMaterial.unit}` : ""}
                       </span>
                     );
                   })()}

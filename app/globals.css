@@ -3525,6 +3525,52 @@ mark.neutral {
   line-height: 1.2;
 }
 
+.inventory-reservation-panel {
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+}
+
+.inventory-reservation-panel article {
+  align-items: center;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(220px, 1.5fr) repeat(3, minmax(88px, 0.7fr)) 92px 34px;
+  min-height: 44px;
+  padding: 7px 9px;
+}
+
+.inventory-reservation-panel .checkbox-line {
+  background: transparent;
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.inventory-reservation-panel .checkbox-line span {
+  display: grid;
+  gap: 2px;
+}
+
+.inventory-reservation-panel .checkbox-line small,
+.inventory-reservation-panel article > span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.inventory-reservation-panel input[type="text"],
+.inventory-reservation-panel input[inputmode="decimal"] {
+  min-height: 34px;
+  padding: 5px 8px;
+}
+
 .material-position-quantity {
   display: grid;
   gap: 3px;

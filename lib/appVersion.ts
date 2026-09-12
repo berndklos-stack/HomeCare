@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.387.0",
+  version: "1.388.0",
   releaseDate: "2026-09-12",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.388.0",
+    date: "2026-09-13",
+    changes: [
+      "Eingangsbuchungen koennen offene Auftragsmengen gezielt als reservierte Menge bedienen",
+      "Der Eingangsdialog zeigt offene Auftraege je Material mit Bedarf, reserviert, offen und Reservierungsmenge",
+      "Materialpositionen in Auftraegen zeigen Bestand, reservierte Menge und offene Menge",
+    ],
+  },
   {
     version: "1.387.0",
     date: "2026-09-12",
