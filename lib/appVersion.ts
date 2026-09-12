@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.388.0",
-  releaseDate: "2026-09-12",
+  version: "1.389.0",
+  releaseDate: "2026-09-13",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.389.0",
+    date: "2026-09-13",
+    changes: [
+      "Ueberfaellige Auftraege in der Einsatzplanung werden kompakt als Vierer-Raster angezeigt",
+      "Die Kundenuebersicht zeigt pro Kunde den kompletten ausklappbaren Kommunikationsverlauf mit Anhaengen und Antworten",
+      "Mobil vor Ort nutzt auf Desktop mehr Breite und bleibt auf mobilen Bildschirmen sauber innerhalb der Seitenbreite",
+    ],
+  },
   {
     version: "1.388.0",
     date: "2026-09-13",

@@ -1676,6 +1676,7 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Maximalbestand", sv: "Maxlager", en: "Maximum stock" },
   { de: "Mindestbestand", sv: "Minimilager", en: "Minimum stock" },
   { de: "Nachricht schließen", sv: "Stäng meddelande", en: "Close message" },
+  { de: "Noch keine Nachrichten vorhanden.", sv: "Inga meddelanden finns ännu.", en: "No messages yet." },
   { de: "Neue Leistung anlegen", sv: "Skapa ny tjänst", en: "Create new service" },
   { de: "Neuer Auftrag", sv: "Nytt uppdrag", en: "New job" },
   { de: "Neues Material anlegen", sv: "Skapa nytt material", en: "Create new material" },
@@ -1787,6 +1788,7 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Anfrage des Kunden", sv: "Kundens förfrågan", en: "Customer request" },
   { de: "Fehler", sv: "Fel", en: "Error" },
   { de: "Antwort an", sv: "Svar till", en: "Reply to" },
+  { de: "Antwort", sv: "Svar", en: "Reply" },
   { de: "Antwort schreiben...", sv: "Skriv svar...", en: "Write reply..." },
   { de: "Beim Kunden ist keine E-Mail-Adresse hinterlegt.", sv: "Kunden har ingen e-postadress sparad.", en: "The customer has no email address saved." },
   { de: "Letzter", sv: "Senaste", en: "Last" },
@@ -10769,6 +10771,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                 archivedCustomers={archivedCustomers}
                 customers={activeCustomers}
                 language={language}
+                messages={portalMessages}
                 objects={activeObjects}
                 onCreate={openCreateCustomer}
                 onEdit={openEditCustomer}
@@ -12454,6 +12457,7 @@ function CustomersView({
   archivedCustomers,
   customers,
   language,
+  messages,
   objects,
   onCreate,
   onEdit,
@@ -12462,6 +12466,7 @@ function CustomersView({
   archivedCustomers: CustomerRecord[];
   customers: CustomerRecord[];
   language: Language;
+  messages: PortalMessageRecord[];
   objects: ObjectRecord[];
   onCreate: () => void;
   onEdit: (customer: CustomerRecord) => void;
@@ -12470,9 +12475,23 @@ function CustomersView({
   const tt = (value: string) => uiText(value, language);
   const [activeCustomersOpen, setActiveCustomersOpen] = useState(true);
   const [archivedCustomersOpen, setArchivedCustomersOpen] = useState(false);
+  const [openCommunicationCustomerIds, setOpenCommunicationCustomerIds] = useState<string[]>([]);
   const [customerQuery, setCustomerQuery] = useState("");
   const [customerSort, setCustomerSort] = useState("name-asc");
+  const messageTimestamp = (message: PortalMessageRecord) => {
+    const parsed = new Date(message.sentAt || message.createdAt).getTime();
+    return Number.isNaN(parsed) ? 0 : parsed;
+  };
+  const messagesForCustomer = (customer: CustomerRecord) => messages
+    .filter((message) => message.customerId === customer.id)
+    .sort((first, second) => messageTimestamp(second) - messageTimestamp(first));
+  const toggleCustomerCommunication = (customerId: string) => {
+    setOpenCommunicationCustomerIds((current) => current.includes(customerId)
+      ? current.filter((id) => id !== customerId)
+      : [...current, customerId]);
+  };
   const customerMatchesQuery = (customer: CustomerRecord) => {
+    const customerMessages = messagesForCustomer(customer);
     const text = [
       customer.name,
       customer.contact,
@@ -12483,6 +12502,14 @@ function CustomersView({
       customer.notes,
       normalizeReadableNumber(customer.personalNumber),
       ...objects.filter((object) => customer.objects.includes(object.id)).flatMap((object) => [object.name, object.address, object.region]),
+      ...customerMessages.flatMap((message) => [
+        message.subject,
+        message.message,
+        message.status,
+        message.deliveryStatus,
+        message.deliveryError,
+        ...(message.replies ?? []).flatMap((reply) => [reply.subject, reply.body, reply.to, reply.deliveryStatus, reply.deliveryError]),
+      ]),
     ].join(" ").toLowerCase();
 
     return text.includes(customerQuery.trim().toLowerCase());
@@ -12545,46 +12572,108 @@ function CustomersView({
         </button>
         {activeCustomersOpen && (
           <div className="table-list">
-            {visibleCustomers.map((customer) => (
-              <article
-                className="customer-row customer-row-with-actions clickable-record-row"
-                key={customer.id}
-                onClick={() => onEdit(customer)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    onEdit(customer);
-                  }
-                }}
-                role="button"
-                tabIndex={0}
-              >
-                <div className="customer-row-main">
-                  <div>
-                  <strong>{customer.name}</strong>
-                    <span>{[customer.contact, customer.email, customer.phone, customer.phone2, customerLanguageLabel(customer.language), customer.notes].filter(Boolean).join(" · ")}</span>
-                    <small>{tt("Kundennummer")}: {normalizeReadableNumber(customer.personalNumber) || tt("fehlt")} · {tt("angelegt am")}: {formatCreatedAt(customer.createdAt)}</small>
+            {visibleCustomers.map((customer) => {
+              const customerMessages = messagesForCustomer(customer);
+              const latestMessage = customerMessages[0];
+              const communicationOpen = openCommunicationCustomerIds.includes(customer.id);
+
+              return (
+                <article
+                  className="customer-row customer-row-with-actions clickable-record-row"
+                  key={customer.id}
+                  onClick={() => onEdit(customer)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      onEdit(customer);
+                    }
+                  }}
+                  role="button"
+                  tabIndex={0}
+                >
+                  <div className="customer-row-main">
+                    <div>
+                      <strong>{customer.name}</strong>
+                      <span>{[customer.contact, customer.email, customer.phone, customer.phone2, customerLanguageLabel(customer.language), customer.notes].filter(Boolean).join(" · ")}</span>
+                      <small>{tt("Kundennummer")}: {normalizeReadableNumber(customer.personalNumber) || tt("fehlt")} · {tt("angelegt am")}: {formatCreatedAt(customer.createdAt)}</small>
+                    </div>
+                    <span>{objects.filter((object) => customer.objects.includes(object.id)).map((object) => object.name).join(", ") || tt("Keine Objekte")}</span>
+                    <span>{customer.balance}</span>
+                    <Badge value={tt(customer.portalStatus)} />
                   </div>
-                  <span>{objects.filter((object) => customer.objects.includes(object.id)).map((object) => object.name).join(", ") || tt("Keine Objekte")}</span>
-                  <span>{customer.balance}</span>
-                  <Badge value={tt(customer.portalStatus)} />
-                </div>
-                <div className="row-actions">
-                  <button
-                    aria-label={`${tt("Nachricht")} ${customer.name} ${tt("senden")}`}
-                    className="icon-button"
-                    data-tooltip={`${tt("Nachricht")} ${customer.name} ${tt("senden")}`}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onMessage(customer);
-                    }}
-                    type="button"
-                  >
-                    <Mail size={16} />
-                  </button>
-                </div>
-              </article>
-            ))}
+                  <div className="row-actions">
+                    <button
+                      aria-label={`${tt("Nachricht")} ${customer.name} ${tt("senden")}`}
+                      className="icon-button"
+                      data-tooltip={`${tt("Nachricht")} ${customer.name} ${tt("senden")}`}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onMessage(customer);
+                      }}
+                      type="button"
+                    >
+                      <Mail size={16} />
+                    </button>
+                  </div>
+                  <div className="customer-communication-summary" onClick={(event) => event.stopPropagation()}>
+                    <button className="ghost-button compact" onClick={() => toggleCustomerCommunication(customer.id)} type="button">
+                      {communicationOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+                      {tt("Kommunikation")}
+                      <strong>{customerMessages.length}</strong>
+                    </button>
+                    {latestMessage ? (
+                      <span>{formatCreatedAt(latestMessage.sentAt || latestMessage.createdAt)} · {latestMessage.subject}</span>
+                    ) : (
+                      <span>{tt("Noch keine Nachrichten vorhanden.")}</span>
+                    )}
+                  </div>
+                  {communicationOpen && (
+                    <div className="customer-communication-history" onClick={(event) => event.stopPropagation()}>
+                      {customerMessages.map((message) => {
+                        const object = objects.find((item) => item.id === message.objectId);
+                        const deliveryLabel = message.deliveryStatus === "mail-fehler"
+                          ? tt("Mailfehler")
+                          : message.deliveryStatus === "gesendet"
+                            ? tt("Mail gesendet")
+                            : tt("gespeichert");
+
+                        return (
+                          <section key={message.id}>
+                            <div>
+                              <strong>{message.subject}</strong>
+                              <span>{formatCreatedAt(message.sentAt || message.createdAt)} · {object?.name ?? tt("Objekt offen")} · {deliveryLabel}</span>
+                            </div>
+                            <p>{message.message}</p>
+                            {(message.attachments ?? []).length > 0 && (
+                              <div className="customer-communication-attachments">
+                                {(message.attachments ?? []).map((attachment) => (
+                                  reportAttachmentSource(attachment) ? (
+                                    <a href={reportAttachmentSource(attachment)} key={attachment.id} download={attachment.name} rel="noreferrer" target="_blank">
+                                      <Paperclip size={13} />
+                                      {attachment.name}
+                                    </a>
+                                  ) : (
+                                    <span key={attachment.id}><Paperclip size={13} />{attachment.name}</span>
+                                  )
+                                ))}
+                              </div>
+                            )}
+                            {(message.replies ?? []).length > 0 && (
+                              <div className="customer-communication-replies">
+                                {(message.replies ?? []).map((reply) => (
+                                  <span key={reply.id}>{tt("Antwort")}: {formatCreatedAt(reply.sentAt)} · {reply.body}</span>
+                                ))}
+                              </div>
+                            )}
+                          </section>
+                        );
+                      })}
+                      {customerMessages.length === 0 && <p>{tt("Noch keine Nachrichten vorhanden.")}</p>}
+                    </div>
+                  )}
+                </article>
+              );
+            })}
             {visibleCustomers.length === 0 && <p className="empty-list-note">{tt("Keine passenden Kunden gefunden.")}</p>}
           </div>
         )}

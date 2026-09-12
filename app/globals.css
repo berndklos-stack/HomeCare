@@ -1051,6 +1051,105 @@ button {
   -webkit-line-clamp: 2;
 }
 
+.customer-communication-summary {
+  align-items: center;
+  border-top: 1px solid var(--line);
+  display: flex;
+  gap: 10px;
+  grid-column: 1 / -1;
+  min-width: 0;
+  padding-top: 8px;
+}
+
+.customer-communication-summary .ghost-button {
+  flex: 0 0 auto;
+  min-height: 32px;
+}
+
+.customer-communication-summary .ghost-button strong {
+  color: var(--foreground);
+  font-size: 13px;
+}
+
+.customer-communication-summary > span {
+  color: var(--muted);
+  flex: 1 1 auto;
+  font-size: 12px;
+  font-weight: 700;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.customer-communication-history {
+  display: grid;
+  gap: 7px;
+  grid-column: 1 / -1;
+}
+
+.customer-communication-history section {
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 5px;
+  padding: 8px 10px;
+}
+
+.customer-communication-history section > div {
+  display: grid;
+  gap: 2px;
+}
+
+.customer-communication-history p {
+  color: var(--foreground);
+  font-size: 13px;
+  line-height: 1.35;
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.customer-communication-history span,
+.customer-communication-replies span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.customer-communication-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.customer-communication-attachments a,
+.customer-communication-attachments span {
+  align-items: center;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--brand);
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 800;
+  gap: 4px;
+  max-width: 100%;
+  min-height: 26px;
+  overflow: hidden;
+  padding: 3px 8px;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.customer-communication-replies {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 3px;
+  padding-top: 5px;
+}
+
 .archive-list {
   gap: 6px;
 }
@@ -1533,6 +1632,36 @@ mark.neutral {
 
 .dispatch-overdue {
   border-color: var(--danger);
+}
+
+.dispatch-overdue.dispatch-day {
+  min-height: 0;
+}
+
+.dispatch-overdue .dispatch-day-jobs {
+  align-items: stretch;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.dispatch-overdue .dispatch-job-card {
+  align-content: start;
+  gap: 6px;
+  min-height: 0;
+  padding: 9px;
+}
+
+.dispatch-overdue .dispatch-job-main {
+  gap: 2px;
+}
+
+.dispatch-overdue .dispatch-job-main small:nth-of-type(n + 3) {
+  display: none;
+}
+
+.dispatch-overdue .dispatch-assignment-picker select,
+.dispatch-overdue .dispatch-resource-picker select,
+.dispatch-overdue .dispatch-week-shift {
+  min-height: 30px;
 }
 
 .dispatch-undisposed-panel {
@@ -5313,8 +5442,8 @@ mark.neutral {
 
 .field-work-modal {
   max-height: min(94vh, 980px);
-  max-width: 1120px;
-  width: min(100%, 1120px);
+  max-width: 1440px;
+  width: min(calc(100vw - 32px), 1440px);
 }
 
 .field-status-backdrop {
@@ -6824,6 +6953,10 @@ button.media-thumb {
   .series-summary-chips {
     justify-content: flex-start;
   }
+
+  .dispatch-overdue .dispatch-day-jobs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 780px) {
@@ -7051,6 +7184,10 @@ button.media-thumb {
 
   .quick-trip-modal .waypoint-row,
   .quick-trip-modal .waypoint-row-with-photo {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dispatch-overdue .dispatch-day-jobs {
     grid-template-columns: minmax(0, 1fr);
   }
 
