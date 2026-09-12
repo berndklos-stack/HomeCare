@@ -6,6 +6,7 @@ export const runtime = "nodejs";
 const allowedSyncSections = [
   "accountingAccounts",
   "activeJobId",
+  "billing",
   "customers",
   "fieldNotes",
   "fieldProgress",
@@ -15,9 +16,11 @@ const allowedSyncSections = [
   "objects",
   "packages",
   "personnel",
+  "portalMessages",
   "reports",
   "resources",
   "services",
+  "translationOverrides",
 ] as const;
 
 type SyncSectionKey = typeof allowedSyncSections[number];
@@ -313,6 +316,57 @@ type ServicePackageRow = {
   name: string;
   price: number | null;
   service_ids: unknown;
+  updated_at: string | null;
+};
+
+type BillingRow = {
+  amount: number | null;
+  cancelled_at: string | null;
+  created_at: string | null;
+  customer_id: string | null;
+  due_date: string | null;
+  external_export_status: string | null;
+  external_export_system: string | null;
+  external_exported_at: string | null;
+  id: string;
+  invoice_date: string | null;
+  invoice_number: string | null;
+  invoice_status: string | null;
+  job_id: string | null;
+  label: string;
+  lines: unknown;
+  notes: string | null;
+  object_id: string | null;
+  paid_at: string | null;
+  report_id: string | null;
+  sent_at: string | null;
+  service_date: string | null;
+  source: string | null;
+  status: string | null;
+  updated_at: string | null;
+};
+
+type PortalMessageRow = {
+  created_at: string | null;
+  customer_id: string | null;
+  delivery_error: string | null;
+  delivery_status: string | null;
+  id: string;
+  message: string;
+  object_id: string | null;
+  origin: string | null;
+  replies: unknown;
+  sent_at: string | null;
+  status: string | null;
+  subject: string;
+  updated_at: string | null;
+};
+
+type TranslationRow = {
+  de: string;
+  en: string;
+  key: string;
+  sv: string;
   updated_at: string | null;
 };
 
@@ -993,6 +1047,114 @@ function rowToPackage(row: ServicePackageRow) {
   };
 }
 
+function billingToRow(item: JsonObject) {
+  return {
+    amount: numberOrNull(item.amount),
+    cancelled_at: nullableString(item.cancelledAt),
+    created_at: nullableString(item.createdAt) ?? new Date().toISOString(),
+    customer_id: nullableString(item.customerId),
+    due_date: nullableString(item.dueDate),
+    external_export_status: stringOrEmpty(item.externalExportStatus),
+    external_export_system: stringOrEmpty(item.externalExportSystem),
+    external_exported_at: nullableString(item.externalExportedAt),
+    id: String(item.id),
+    invoice_date: nullableString(item.invoiceDate),
+    invoice_number: stringOrEmpty(item.invoiceNumber),
+    invoice_status: stringOrEmpty(item.invoiceStatus),
+    job_id: nullableString(item.jobId),
+    label: stringOrEmpty(item.label) || "Abrechnung",
+    lines: Array.isArray(item.lines) ? item.lines : [],
+    notes: stringOrEmpty(item.notes),
+    object_id: nullableString(item.objectId),
+    paid_at: nullableString(item.paidAt),
+    report_id: nullableString(item.reportId),
+    sent_at: nullableString(item.sentAt ?? item.invoicedAt),
+    service_date: nullableString(item.serviceDate),
+    source: stringOrEmpty(item.source),
+    status: stringOrEmpty(item.status) || "abrechenbar",
+  };
+}
+
+function rowToBilling(row: BillingRow) {
+  return {
+    amount: row.amount === null ? "" : String(row.amount),
+    cancelledAt: row.cancelled_at ?? undefined,
+    createdAt: row.created_at ?? undefined,
+    customerId: row.customer_id ?? "",
+    dueDate: row.due_date ?? undefined,
+    externalExportStatus: row.external_export_status ?? undefined,
+    externalExportSystem: row.external_export_system ?? undefined,
+    externalExportedAt: row.external_exported_at ?? undefined,
+    id: row.id,
+    invoiceDate: row.invoice_date ?? undefined,
+    invoiceNumber: row.invoice_number ?? undefined,
+    invoiceStatus: row.invoice_status ?? undefined,
+    jobId: row.job_id ?? undefined,
+    label: row.label,
+    lines: Array.isArray(row.lines) ? row.lines : [],
+    notes: row.notes ?? "",
+    objectId: row.object_id ?? "",
+    paidAt: row.paid_at ?? undefined,
+    reportId: row.report_id ?? undefined,
+    sentAt: row.sent_at ?? undefined,
+    serviceDate: row.service_date ?? undefined,
+    source: row.source ?? "",
+    status: row.status ?? "abrechenbar",
+  };
+}
+
+function portalMessageToRow(message: JsonObject) {
+  return {
+    created_at: nullableString(message.createdAt) ?? new Date().toISOString(),
+    customer_id: nullableString(message.customerId),
+    delivery_error: stringOrEmpty(message.deliveryError),
+    delivery_status: stringOrEmpty(message.deliveryStatus),
+    id: String(message.id),
+    message: stringOrEmpty(message.message),
+    object_id: nullableString(message.objectId),
+    origin: stringOrEmpty(message.origin),
+    replies: Array.isArray(message.replies) ? message.replies : [],
+    sent_at: nullableString(message.sentAt),
+    status: stringOrEmpty(message.status) || "neu",
+    subject: stringOrEmpty(message.subject) || "Nachricht",
+  };
+}
+
+function rowToPortalMessage(row: PortalMessageRow) {
+  return {
+    createdAt: row.created_at ?? "",
+    customerId: row.customer_id ?? "",
+    deliveryError: row.delivery_error ?? undefined,
+    deliveryStatus: row.delivery_status ?? undefined,
+    id: row.id,
+    message: row.message,
+    objectId: row.object_id ?? "",
+    origin: row.origin ?? undefined,
+    replies: Array.isArray(row.replies) ? row.replies : [],
+    sentAt: row.sent_at ?? undefined,
+    status: row.status ?? "neu",
+    subject: row.subject,
+  };
+}
+
+function translationToRow(row: JsonObject) {
+  return {
+    de: stringOrEmpty(row.de) || stringOrEmpty(row.key),
+    en: stringOrEmpty(row.en) || stringOrEmpty(row.de) || stringOrEmpty(row.key),
+    key: stringOrEmpty(row.key),
+    sv: stringOrEmpty(row.sv) || stringOrEmpty(row.de) || stringOrEmpty(row.key),
+  };
+}
+
+function rowToTranslation(row: TranslationRow) {
+  return {
+    de: row.de,
+    en: row.en,
+    key: row.key,
+    sv: row.sv,
+  };
+}
+
 function rowToResource(row: ResourceRow, trips: VehicleTripRow[]) {
   return {
     archived: Boolean(row.archived),
@@ -1414,6 +1576,72 @@ async function savePackagesSection(supabase: NonNullable<ReturnType<typeof getSu
   if (error) throw new Error(error.message);
 }
 
+async function loadBillingSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
+  const { data, error } = await supabase
+    .from("homecare_billing_items")
+    .select("id, object_id, customer_id, job_id, report_id, source, label, amount, status, invoice_status, invoice_number, invoice_date, due_date, service_date, lines, notes, external_export_status, external_export_system, external_exported_at, sent_at, paid_at, cancelled_at, created_at, updated_at")
+    .order("created_at", { ascending: true });
+  if (error || !data?.length) return null;
+  return {
+    updatedAt: maxUpdatedAt((data as BillingRow[]).map((row) => row.updated_at)),
+    value: (data as BillingRow[]).map(rowToBilling),
+  };
+}
+
+async function saveBillingSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>, value: unknown) {
+  if (!Array.isArray(value)) return;
+  const items = value.filter((item): item is JsonObject => Boolean(item && typeof item === "object" && "id" in item));
+  if (!items.length) return;
+  const { error } = await supabase
+    .from("homecare_billing_items")
+    .upsert(items.map(billingToRow), { onConflict: "id" });
+  if (error) throw new Error(error.message);
+}
+
+async function loadPortalMessagesSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
+  const { data, error } = await supabase
+    .from("homecare_portal_messages")
+    .select("id, customer_id, object_id, subject, message, status, delivery_status, delivery_error, origin, replies, sent_at, created_at, updated_at")
+    .order("created_at", { ascending: true });
+  if (error || !data?.length) return null;
+  return {
+    updatedAt: maxUpdatedAt((data as PortalMessageRow[]).map((row) => row.updated_at)),
+    value: (data as PortalMessageRow[]).map(rowToPortalMessage),
+  };
+}
+
+async function savePortalMessagesSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>, value: unknown) {
+  if (!Array.isArray(value)) return;
+  const messages = value.filter((item): item is JsonObject => Boolean(item && typeof item === "object" && "id" in item));
+  if (!messages.length) return;
+  const { error } = await supabase
+    .from("homecare_portal_messages")
+    .upsert(messages.map(portalMessageToRow), { onConflict: "id" });
+  if (error) throw new Error(error.message);
+}
+
+async function loadTranslationOverridesSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
+  const { data, error } = await supabase
+    .from("homecare_translations")
+    .select("key, de, sv, en, updated_at")
+    .order("key", { ascending: true });
+  if (error || !data?.length) return null;
+  return {
+    updatedAt: maxUpdatedAt((data as TranslationRow[]).map((row) => row.updated_at)),
+    value: (data as TranslationRow[]).map(rowToTranslation),
+  };
+}
+
+async function saveTranslationOverridesSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>, value: unknown) {
+  if (!Array.isArray(value)) return;
+  const rows = value.filter((item): item is JsonObject => Boolean(item && typeof item === "object" && "key" in item && stringOrEmpty((item as JsonObject).key)));
+  if (!rows.length) return;
+  const { error } = await supabase
+    .from("homecare_translations")
+    .upsert(rows.map(translationToRow), { onConflict: "key" });
+  if (error) throw new Error(error.message);
+}
+
 async function loadFallbackSections(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>, keys: SyncSectionKey[]) {
   const { data, error } = await supabase
     .from("app_state")
@@ -1479,6 +1707,10 @@ export async function GET(request: Request) {
       const accountingSection = await loadAccountingAccountsSection(supabase);
       if (accountingSection) sections.accountingAccounts = accountingSection;
     }
+    if (keys.includes("billing")) {
+      const billingSection = await loadBillingSection(supabase);
+      if (billingSection) sections.billing = billingSection;
+    }
     if (keys.includes("customers")) {
       const customerSection = await loadCustomersSection(supabase);
       if (customerSection) sections.customers = customerSection;
@@ -1503,9 +1735,17 @@ export async function GET(request: Request) {
       const personnelSection = await loadPersonnelSection(supabase);
       if (personnelSection) sections.personnel = personnelSection;
     }
+    if (keys.includes("portalMessages")) {
+      const portalMessageSection = await loadPortalMessagesSection(supabase);
+      if (portalMessageSection) sections.portalMessages = portalMessageSection;
+    }
     if (keys.includes("services")) {
       const serviceSection = await loadServicesSection(supabase);
       if (serviceSection) sections.services = serviceSection;
+    }
+    if (keys.includes("translationOverrides")) {
+      const translationSection = await loadTranslationOverridesSection(supabase);
+      if (translationSection) sections.translationOverrides = translationSection;
     }
     if (keys.includes("jobs")) {
       const jobSection = await loadJobsSection(supabase);
@@ -1558,6 +1798,13 @@ export async function POST(request: Request) {
         console.warn("Relationaler Kontenplan-Sync wurde auf Fallback reduziert.", error);
       }
     }
+    if ("billing" in filteredPatch) {
+      try {
+        await saveBillingSection(supabase, filteredPatch.billing);
+      } catch (error) {
+        console.warn("Relationaler Abrechnungs-Sync wurde auf Fallback reduziert.", error);
+      }
+    }
     if ("customers" in filteredPatch) {
       try {
         await saveCustomersSection(supabase, filteredPatch.customers);
@@ -1600,11 +1847,25 @@ export async function POST(request: Request) {
         console.warn("Relationaler Personal-Sync wurde auf Fallback reduziert.", error);
       }
     }
+    if ("portalMessages" in filteredPatch) {
+      try {
+        await savePortalMessagesSection(supabase, filteredPatch.portalMessages);
+      } catch (error) {
+        console.warn("Relationaler Kommunikations-Sync wurde auf Fallback reduziert.", error);
+      }
+    }
     if ("services" in filteredPatch) {
       try {
         await saveServicesSection(supabase, filteredPatch.services);
       } catch (error) {
         console.warn("Relationaler Leistungs-Sync wurde auf Fallback reduziert.", error);
+      }
+    }
+    if ("translationOverrides" in filteredPatch) {
+      try {
+        await saveTranslationOverridesSection(supabase, filteredPatch.translationOverrides);
+      } catch (error) {
+        console.warn("Relationaler Sprach-Sync wurde auf Fallback reduziert.", error);
       }
     }
     if ("jobs" in filteredPatch) {
