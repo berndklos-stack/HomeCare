@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.386.0",
+  version: "1.387.0",
   releaseDate: "2026-09-12",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.387.0",
+    date: "2026-09-12",
+    changes: [
+      "Gesendete Berichte werden automatisch im Kommunikationsverlauf des Kunden dokumentiert",
+      "Der Kommunikationseintrag enthaelt Bericht-PDF und vorhandene Zusatzanhaenge als anklickbare Dateien",
+      "Einkaufslisten erscheinen in der Auftragsanlage zuerst als Vorschau und koennen als PDF heruntergeladen werden",
+    ],
+  },
   {
     version: "1.386.0",
     date: "2026-09-12",

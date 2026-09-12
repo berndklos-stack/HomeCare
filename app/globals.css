@@ -3040,7 +3040,8 @@ mark.neutral {
 }
 
 .message-replies,
-.message-reply-form {
+.message-reply-form,
+.message-attachments {
   background: var(--paper);
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -3048,6 +3049,29 @@ mark.neutral {
   gap: 6px;
   grid-column: 1 / -1;
   padding: 8px;
+}
+
+.message-attachments {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.message-attachments strong {
+  grid-column: 1 / -1;
+}
+
+.message-attachments a,
+.message-attachments span {
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--brand);
+  font-size: 13px;
+  font-weight: 800;
+  overflow: hidden;
+  padding: 8px 10px;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .message-detail-body {
@@ -3441,6 +3465,41 @@ mark.neutral {
 .warning-action {
   border-color: color-mix(in srgb, var(--warning), var(--line) 45%) !important;
   color: var(--warning) !important;
+}
+
+.shopping-list-preview {
+  background: color-mix(in srgb, var(--warning), var(--paper) 92%);
+  border: 1px solid color-mix(in srgb, var(--warning), var(--line) 55%);
+  border-radius: 8px;
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+}
+
+.shopping-list-preview article {
+  align-items: center;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(180px, 1.3fr) repeat(4, minmax(95px, 1fr));
+  min-height: 38px;
+  padding: 7px 9px;
+}
+
+.shopping-list-preview strong,
+.shopping-list-preview span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shopping-list-preview span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .inventory-unit-chip {

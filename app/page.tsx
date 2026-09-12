@@ -443,10 +443,12 @@ type PortalMessageRecord = {
   objectId: string;
   subject: string;
   message: string;
+  attachments?: ReportAttachment[];
   createdAt: string;
   deliveryError?: string;
   deliveryStatus?: "gespeichert" | "gesendet" | "mail-fehler";
   origin?: "customer" | "office";
+  reportId?: string;
   replies?: PortalMessageReplyRecord[];
   sentAt?: string;
   status: "neu" | "gelesen" | "erledigt";
@@ -1254,6 +1256,8 @@ const swedishUiText: Record<string, string> = {
   "Bestandswert FIFO": "Lagervärde FIFO",
   "Eingang": "Ingång",
   "Einkaufsliste erstellen": "Skapa inköpslista",
+  "Einkaufsliste PDF": "Inköpslista PDF",
+  "Einkaufsliste Vorschau": "Förhandsvisning inköpslista",
   "Einkaufsbeleg scannen": "Skanna inköpskvitto",
   "für Abrechnung vormerken": "markera för fakturering",
   "Gezählter Bestand": "Räknat lager",
@@ -1336,6 +1340,8 @@ const englishUiText: Record<string, string> = {
   "Dispokalender": "Dispatch calendar",
   "Eingang": "Stock in",
   "Einkaufsliste erstellen": "Create shopping list",
+  "Einkaufsliste PDF": "Shopping list PDF",
+  "Einkaufsliste Vorschau": "Shopping list preview",
   "Einkaufsbeleg scannen": "Scan purchase receipt",
   "Einheit": "Unit",
   "Fahrt": "Trip",
@@ -5420,6 +5426,39 @@ async function sendCustomerReportMail(report: ReportRecord, object: ObjectRecord
     }
     throw new Error(`Mailserver hat den Versand abgelehnt: ${payload.error || response.statusText || response.status}`);
   }
+}
+
+async function createReportCommunicationMessage(report: ReportRecord, object: ObjectRecord, job: JobRecord | undefined, customer: CustomerRecord | undefined, body: string): Promise<PortalMessageRecord> {
+  const now = new Date().toISOString();
+  const subject = customerReportSendSubject(report, object, customer);
+  const pdfFileName = `${safeFileName(subject)}.pdf`;
+  const pdfBlob = await createReportPdfBlob(report, object, job, customer);
+  const uploadedPdf = await uploadMediaFile(pdfBlob, "report-attachments", pdfFileName);
+  const pdfAttachment: ReportAttachment = {
+    createdAt: now,
+    dataUrl: uploadedPdf ? undefined : pdfBlob.size <= 8_000_000 ? await readFileAsDataUrl(pdfBlob) : undefined,
+    id: globalThis.crypto?.randomUUID?.() ?? `REPORT-PDF-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    name: pdfFileName,
+    size: uploadedPdf?.size ?? pdfBlob.size,
+    storagePath: uploadedPdf?.path,
+    storageUrl: uploadedPdf?.url,
+    type: uploadedPdf?.contentType || "application/pdf",
+  };
+
+  return {
+    attachments: [pdfAttachment, ...(report.attachments ?? [])],
+    createdAt: now,
+    customerId: customer?.id ?? object.ownerCustomerId ?? "",
+    deliveryStatus: "gesendet",
+    id: `MSG-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    message: body.trim() || customerReportSendBody(customer, report),
+    objectId: object.id,
+    origin: "office",
+    reportId: report.id,
+    sentAt: now,
+    status: "erledigt",
+    subject,
+  };
 }
 
 async function downloadOfferPdf(job: JobRecord, object: ObjectRecord, customer: CustomerRecord | undefined, services: ServiceItem[], companySettings: CompanySettings) {
@@ -10455,11 +10494,18 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
 
     try {
       await sendCustomerReportMail(nextReport, reportObject, reportJob, reportCustomer, sendPreviewReportBody, sendKey);
+      const communicationMessage = await createReportCommunicationMessage(nextReport, reportObject, reportJob, reportCustomer, sendPreviewReportBody);
+      const nextMessages = [
+        communicationMessage,
+        ...portalMessages.filter((message) => message.reportId !== nextReport.id),
+      ];
       updateReportRecord(nextReport);
+      setPortalMessages(nextMessages);
+      persistSnapshotNow({ portalMessages: nextMessages }, { forceRemote: true });
       setSendPreviewReportId(null);
       setSendPreviewReportBody("");
       setSendPreviewReportNotice("");
-      setRecordNotice(`Bericht "${preparedReport.title}" wurde gesendet.`);
+      setRecordNotice(`Bericht "${preparedReport.title}" wurde gesendet und in der Kommunikation dokumentiert.`);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Bericht konnte nicht gesendet werden.";
       setSendPreviewReportNotice(`Bericht konnte nicht gesendet werden: ${message}`);
@@ -15544,6 +15590,11 @@ function CommunicationView({
                   <span>{tt("Fehler")}: {message.deliveryError}</span>
                 </footer>
               )}
+              {(message.attachments ?? []).length > 0 && (
+                <footer className="message-meta">
+                  <span>{(message.attachments ?? []).length} {tt("Dateianhänge")}</span>
+                </footer>
+              )}
             </article>
           );
         })}
@@ -15585,6 +15636,20 @@ function CommunicationView({
             <p>{selectedMessage.message}</p>
             {selectedMessage.deliveryError && <small>{tt("Fehler")}: {selectedMessage.deliveryError}</small>}
           </div>
+          {(selectedMessage.attachments ?? []).length > 0 && (
+            <div className="message-attachments">
+              <strong>{tt("Dateianhänge")}</strong>
+              {(selectedMessage.attachments ?? []).map((attachment) => (
+                reportAttachmentSource(attachment) ? (
+                  <a href={reportAttachmentSource(attachment)} key={attachment.id} download={attachment.name} rel="noreferrer" target="_blank">
+                    {attachment.type.startsWith("video/") ? "Video: " : ""}{attachment.name}
+                  </a>
+                ) : (
+                  <span key={attachment.id}>{attachment.name}</span>
+                )
+              ))}
+            </div>
+          )}
           {selectedMessage.replies && selectedMessage.replies.length > 0 && (
             <div className="message-replies">
               <strong>{tt("Antworten")}</strong>
@@ -16124,6 +16189,7 @@ function CustomerPortalView({
                   <span>{objects.find((object) => object.id === message.objectId)?.name ?? "Objekt"} · {formatCreatedAt(message.sentAt || message.createdAt)}</span>
                   <p>{message.message}</p>
                   {message.deliveryError && <small>Mailfehler: {message.deliveryError}</small>}
+                  {(message.attachments ?? []).length > 0 && <small>{(message.attachments ?? []).length} Dateianhänge</small>}
                   {message.replies && message.replies.length > 0 && (
                     <div className="portal-message-replies">
                       {message.replies
@@ -16179,6 +16245,20 @@ function CustomerPortalView({
               <p>{selectedPortalMessage.message}</p>
               {selectedPortalMessage.deliveryError && <small>Mailfehler: {selectedPortalMessage.deliveryError}</small>}
             </div>
+            {(selectedPortalMessage.attachments ?? []).length > 0 && (
+              <div className="message-attachments">
+                <strong>Dateianhänge</strong>
+                {(selectedPortalMessage.attachments ?? []).map((attachment) => (
+                  reportAttachmentSource(attachment) ? (
+                    <a href={reportAttachmentSource(attachment)} key={attachment.id} download={attachment.name} rel="noreferrer" target="_blank">
+                      {attachment.type.startsWith("video/") ? "Video: " : ""}{attachment.name}
+                    </a>
+                  ) : (
+                    <span key={attachment.id}>{attachment.name}</span>
+                  )
+                ))}
+              </div>
+            )}
             {selectedPortalMessage.replies && selectedPortalMessage.replies.filter((reply) => reply.deliveryStatus === "gesendet").length > 0 && (
               <div className="message-replies">
                 <strong>Antworten</strong>
@@ -20498,22 +20578,46 @@ function JobForm({
       : [];
   });
 
-  function downloadShoppingList() {
+  async function downloadShoppingListPdf() {
     if (!materialShortages.length) return;
-    const lines = [
-      "Einkaufsliste",
-      `Auftrag: ${newJob.title.trim() || "Neuer Auftrag"}`,
-      `Datum: ${new Date().toLocaleString("de-DE")}`,
-      "",
-      ...materialShortages.map(({ item, missing, needed, stock, supplier, unit }) => (
-        `${item.name}; Bedarf ${formatInventoryQuantity(needed)} ${unit}; Bestand ${formatInventoryQuantity(stock)} ${unit}; Nachkaufen ${formatInventoryQuantity(missing)} ${unit}; Lieferant ${supplier || "-"}`
-      )),
-    ];
-    const blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
+    const { jsPDF } = await import("jspdf");
+    const pdf = new jsPDF({ unit: "mm", format: "a4" });
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const margin = 14;
+    let y = 18;
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(18);
+    pdf.text("Einkaufsliste", margin, y);
+    y += 9;
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(10);
+    pdf.text(`Auftrag: ${newJob.title.trim() || "Neuer Auftrag"}`, margin, y);
+    y += 6;
+    pdf.text(`Erstellt: ${new Date().toLocaleString("de-DE")}`, margin, y);
+    y += 12;
+    pdf.setFont("helvetica", "bold");
+    [["Material", 52], ["Bedarf", 92], ["Bestand", 122], ["Nachkaufen", 150], ["Lieferant", 178]].forEach(([label, x]) => {
+      pdf.text(String(label), typeof x === "number" ? x : margin, y);
+    });
+    y += 6;
+    pdf.setFont("helvetica", "normal");
+    materialShortages.forEach(({ item, missing, needed, stock, supplier, unit }) => {
+      if (y > 280) {
+        pdf.addPage();
+        y = 18;
+      }
+      const nameLines = pdf.splitTextToSize(item.name, 36);
+      pdf.text(nameLines, margin, y);
+      pdf.text(`${formatInventoryQuantity(needed)} ${unit}`, 92, y);
+      pdf.text(`${formatInventoryQuantity(stock)} ${unit}`, 122, y);
+      pdf.text(`${formatInventoryQuantity(missing)} ${unit}`, 150, y);
+      pdf.text(pdf.splitTextToSize(supplier || "-", Math.max(18, pageWidth - 178 - margin)), 178, y);
+      y += Math.max(7, nameLines.length * 5);
+    });
+    const url = URL.createObjectURL(pdf.output("blob"));
     const link = document.createElement("a");
     link.href = url;
-    link.download = `Einkaufsliste-${safeFileName(newJob.title || "Auftrag")}.txt`;
+    link.download = `Einkaufsliste-${safeFileName(newJob.title || "Auftrag")}.pdf`;
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -20772,12 +20876,29 @@ function JobForm({
             {tt("Material manuell")}
           </button>
           {materialShortages.length > 0 && (
-            <button className="ghost-button warning-action" onClick={downloadShoppingList} type="button">
+            <button className="ghost-button warning-action" onClick={() => void downloadShoppingListPdf()} type="button">
               <ClipboardList size={16} />
-              {tt("Einkaufsliste erstellen")}
+              {tt("Einkaufsliste PDF")}
             </button>
           )}
         </div>
+        {materialShortages.length > 0 && (
+          <div className="shopping-list-preview">
+            <div className="section-heading">
+              <span>{tt("Einkaufsliste Vorschau")}</span>
+              <strong>{materialShortages.length} Positionen</strong>
+            </div>
+            {materialShortages.map(({ item, missing, needed, stock, supplier, unit }) => (
+              <article key={item.id}>
+                <strong>{item.name}</strong>
+                <span>Bedarf {formatInventoryQuantity(needed)} {unit}</span>
+                <span>Bestand {formatInventoryQuantity(stock)} {unit}</span>
+                <span>Nachkaufen {formatInventoryQuantity(missing)} {unit}</span>
+                <span>{supplier || "Lieferant offen"}</span>
+              </article>
+            ))}
+          </div>
+        )}
         {materialEntryMode === "manual" && (
           <div className="add-position-panel form-grid compact-form">
             <label><span>{tt("Freies Material")}</span><input value={newJob.materialName} onChange={(event) => update("materialName", event.target.value)} placeholder="z.B. Filter, Farbe, Schrauben" /></label>
