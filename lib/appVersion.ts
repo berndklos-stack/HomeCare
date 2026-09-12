@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.379.0",
+  version: "1.380.0",
   releaseDate: "2026-09-12",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.380.0",
+    date: "2026-09-12",
+    changes: [
+      "Kunden, Objekte, Personal und Auftraege sind an den kleinen Sync angebunden und werden zusaetzlich in eigenen Tabellen gelesen und gespeichert",
+      "Auftragsanlage und Stammdaten-Aenderungen muessen dadurch nicht mehr den kompletten App-State bewegen",
+      "Der alte Gesamtzustand bleibt als Fallback aktiv, waehrend die App schrittweise voll relational wird",
+    ],
+  },
   {
     version: "1.379.0",
     date: "2026-09-12",
