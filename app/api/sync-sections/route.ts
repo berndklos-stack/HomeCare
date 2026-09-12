@@ -9,6 +9,7 @@ const allowedSyncSections = [
   "fieldProgress",
   "inventoryLocations",
   "materials",
+  "reports",
   "resources",
 ] as const;
 
@@ -61,6 +62,36 @@ type VehicleTripRow = {
   waypoints: unknown;
 };
 
+type ReportRow = {
+  attachments: unknown;
+  checklist_results: unknown;
+  customer_comment: string | null;
+  id: string;
+  internal_notes: string | null;
+  job_id: string | null;
+  media_ids: unknown;
+  object_id: string | null;
+  report_date: string | null;
+  sent_at: string | null;
+  summary: string | null;
+  title: string;
+  updated_at: string | null;
+  visible_to_customer: boolean | null;
+};
+
+type FieldProgressRow = {
+  completed: boolean | null;
+  id: string;
+  job_id: string;
+  minutes: number | null;
+  note: string | null;
+  photos: unknown;
+  show_work_time_in_report: boolean | null;
+  task_id: string;
+  updated_at: string | null;
+  work_date: string | null;
+};
+
 function getSupabaseServerClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -86,6 +117,11 @@ function numberOrNull(value: unknown) {
 
 function stringOrEmpty(value: unknown) {
   return value === null || value === undefined ? "" : String(value);
+}
+
+function nullableString(value: unknown) {
+  const text = stringOrEmpty(value).trim();
+  return text ? text : null;
 }
 
 function maxUpdatedAt(values: Array<string | null | undefined>) {
@@ -167,6 +203,83 @@ function rowToTrip(row: VehicleTripRow) {
     visited: row.visited ?? "",
     waypoints: Array.isArray(row.waypoints) ? row.waypoints : [],
   };
+}
+
+function reportToRow(report: JsonObject) {
+  return {
+    attachments: Array.isArray(report.attachments) ? report.attachments : [],
+    checklist_results: Array.isArray(report.checklistResults) ? report.checklistResults : [],
+    customer_comment: stringOrEmpty(report.customerComment),
+    id: String(report.id),
+    internal_notes: stringOrEmpty(report.internalNotes),
+    job_id: nullableString(report.jobId),
+    media_ids: Array.isArray(report.media) ? report.media : [],
+    object_id: nullableString(report.objectId),
+    report_date: nullableString(report.date),
+    sent_at: nullableString(report.sentAt),
+    summary: stringOrEmpty(report.summary),
+    title: stringOrEmpty(report.title) || "Bericht",
+    updated_at: nullableString(report.updatedAt) ?? new Date().toISOString(),
+    visible_to_customer: report.visibleToCustomer !== false,
+  };
+}
+
+function rowToReport(row: ReportRow) {
+  return {
+    attachments: Array.isArray(row.attachments) ? row.attachments : [],
+    checklistResults: Array.isArray(row.checklist_results) ? row.checklist_results : [],
+    customerComment: row.customer_comment ?? "",
+    date: row.report_date ?? "",
+    id: row.id,
+    internalNotes: row.internal_notes ?? "",
+    jobId: row.job_id ?? "",
+    media: Array.isArray(row.media_ids) ? row.media_ids : [],
+    objectId: row.object_id ?? "",
+    sentAt: row.sent_at ?? undefined,
+    summary: row.summary ?? "",
+    title: row.title,
+    updatedAt: row.updated_at ?? undefined,
+    visibleToCustomer: row.visible_to_customer !== false,
+  };
+}
+
+function progressKeyFromRow(row: FieldProgressRow) {
+  return row.work_date ? `${row.job_id}::${row.work_date}` : row.job_id;
+}
+
+function progressDateFromKey(key: string) {
+  const [, date] = key.split("::", 2);
+  return date || null;
+}
+
+function progressJobIdFromKey(key: string) {
+  return key.split("::", 1)[0] || key;
+}
+
+function fieldProgressToRows(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return [];
+  return Object.entries(value as JsonObject).flatMap(([progressKey, tasks]) => {
+    if (!tasks || typeof tasks !== "object" || Array.isArray(tasks)) return [];
+    const jobId = progressJobIdFromKey(progressKey);
+    const workDate = progressDateFromKey(progressKey);
+    return Object.entries(tasks as JsonObject)
+      .filter(([, task]) => Boolean(task && typeof task === "object" && !Array.isArray(task)))
+      .map(([taskId, task]) => {
+        const taskRecord = task as JsonObject;
+        return {
+          completed: Boolean(taskRecord.completed),
+          id: `${progressKey}:${taskId}`,
+          job_id: jobId,
+          minutes: numberOrNull(taskRecord.minutes),
+          note: stringOrEmpty(taskRecord.note),
+          photos: Array.isArray(taskRecord.photos) ? taskRecord.photos : [],
+          show_work_time_in_report: taskRecord.showWorkTimeInReport !== false,
+          task_id: taskId,
+          updated_at: nullableString(taskRecord.updatedAt) ?? new Date().toISOString(),
+          work_date: workDate,
+        };
+      });
+  });
 }
 
 function rowToResource(row: ResourceRow, trips: VehicleTripRow[]) {
@@ -265,6 +378,70 @@ async function saveResourceSection(supabase: NonNullable<ReturnType<typeof getSu
   if (tripError) await saveResourceSectionViaRpc(supabase, value);
 }
 
+async function loadReportsSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
+  const { data, error } = await supabase
+    .from("homecare_reports")
+    .select("id, job_id, object_id, title, report_date, visible_to_customer, summary, internal_notes, customer_comment, checklist_results, media_ids, attachments, sent_at, updated_at")
+    .order("report_date", { ascending: true });
+
+  if (error || !data?.length) return null;
+  return {
+    updatedAt: maxUpdatedAt((data as ReportRow[]).map((row) => row.updated_at)),
+    value: (data as ReportRow[]).map(rowToReport),
+  };
+}
+
+async function saveReportsSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>, value: unknown) {
+  if (!Array.isArray(value)) return;
+  const reports = value.filter((item): item is JsonObject => Boolean(item && typeof item === "object" && "id" in item));
+  if (!reports.length) return;
+
+  const { error } = await supabase
+    .from("homecare_reports")
+    .upsert(reports.map(reportToRow), { onConflict: "id" });
+
+  if (error) throw new Error(error.message);
+}
+
+async function loadFieldProgressSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
+  const { data, error } = await supabase
+    .from("homecare_field_progress")
+    .select("id, job_id, work_date, task_id, completed, minutes, show_work_time_in_report, note, photos, updated_at")
+    .order("updated_at", { ascending: true });
+
+  if (error || !data?.length) return null;
+
+  const value = (data as FieldProgressRow[]).reduce<Record<string, Record<string, JsonObject>>>((progress, row) => {
+    const progressKey = progressKeyFromRow(row);
+    progress[progressKey] = progress[progressKey] ?? {};
+    progress[progressKey][row.task_id] = {
+      completed: Boolean(row.completed),
+      minutes: row.minutes === null ? "" : String(row.minutes),
+      note: row.note ?? "",
+      photos: Array.isArray(row.photos) ? row.photos : [],
+      showWorkTimeInReport: row.show_work_time_in_report !== false,
+      updatedAt: row.updated_at ?? undefined,
+    };
+    return progress;
+  }, {});
+
+  return {
+    updatedAt: maxUpdatedAt((data as FieldProgressRow[]).map((row) => row.updated_at)),
+    value,
+  };
+}
+
+async function saveFieldProgressSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>, value: unknown) {
+  const rows = fieldProgressToRows(value);
+  if (!rows.length) return;
+
+  const { error } = await supabase
+    .from("homecare_field_progress")
+    .upsert(rows, { onConflict: "id" });
+
+  if (error) throw new Error(error.message);
+}
+
 async function loadFallbackSections(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>, keys: SyncSectionKey[]) {
   const { data, error } = await supabase
     .from("app_state")
@@ -326,6 +503,14 @@ export async function GET(request: Request) {
   const keys = requestedSyncKeys(request);
   try {
     const sections = await loadFallbackSections(supabase, keys);
+    if (keys.includes("fieldProgress")) {
+      const fieldProgressSection = await loadFieldProgressSection(supabase);
+      if (fieldProgressSection) sections.fieldProgress = fieldProgressSection;
+    }
+    if (keys.includes("reports")) {
+      const reportSection = await loadReportsSection(supabase);
+      if (reportSection) sections.reports = reportSection;
+    }
     if (keys.includes("resources")) {
       const resourceSection = await loadResourceSection(supabase);
       if (resourceSection) sections.resources = resourceSection;
@@ -358,6 +543,20 @@ export async function POST(request: Request) {
 
   try {
     const updatedAt = await saveFallbackSections(supabase, filteredPatch);
+    if ("fieldProgress" in filteredPatch) {
+      try {
+        await saveFieldProgressSection(supabase, filteredPatch.fieldProgress);
+      } catch (error) {
+        console.warn("Relationaler Feldfortschritt-Sync wurde auf Fallback reduziert.", error);
+      }
+    }
+    if ("reports" in filteredPatch) {
+      try {
+        await saveReportsSection(supabase, filteredPatch.reports);
+      } catch (error) {
+        console.warn("Relationaler Bericht-Sync wurde auf Fallback reduziert.", error);
+      }
+    }
     if ("resources" in filteredPatch) {
       try {
         await saveResourceSection(supabase, filteredPatch.resources);

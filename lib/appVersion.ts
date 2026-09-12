@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.376.0",
+  version: "1.377.0",
   releaseDate: "2026-09-12",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.377.0",
+    date: "2026-09-12",
+    changes: [
+      "Berichte und mobiler Feldfortschritt werden im kleinen Sync nun zusaetzlich in eigenen relationalen Tabellen gelesen und gespeichert",
+      "Foto-Nachuploads koennen Reportdaten dadurch aktualisieren, ohne den gesamten App-Zustand zu ueberschreiben",
+      "Der alte Gesamtzustand bleibt als Kompatibilitaetsschicht aktiv, waehrend die Datenbereiche schrittweise entkoppelt werden",
+    ],
+  },
   {
     version: "1.376.0",
     date: "2026-09-12",
