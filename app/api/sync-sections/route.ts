@@ -7,7 +7,11 @@ const allowedSyncSections = [
   "accountingAccounts",
   "activeJobId",
   "billing",
+  "companySettings",
   "customers",
+  "dailyMailSettings",
+  "deletedEntityIds",
+  "deletedReportIds",
   "fieldNotes",
   "fieldProgress",
   "inventoryLocations",
@@ -368,6 +372,12 @@ type TranslationRow = {
   key: string;
   sv: string;
   updated_at: string | null;
+};
+
+type SettingRow = {
+  key: string;
+  updated_at: string | null;
+  value: unknown;
 };
 
 function getSupabaseServerClient() {
@@ -1642,6 +1652,48 @@ async function saveTranslationOverridesSection(supabase: NonNullable<ReturnType<
   if (error) throw new Error(error.message);
 }
 
+async function loadSettingsSections(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>, keys: SyncSectionKey[]) {
+  const settingKeys = keys.filter((key) => [
+    "activeJobId",
+    "companySettings",
+    "dailyMailSettings",
+    "deletedEntityIds",
+    "deletedReportIds",
+    "fieldNotes",
+  ].includes(key));
+  if (!settingKeys.length) return {};
+
+  const { data, error } = await supabase
+    .from("homecare_settings")
+    .select("key, value, updated_at")
+    .in("key", settingKeys);
+  if (error) return {};
+
+  return Object.fromEntries(((data ?? []) as SettingRow[])
+    .filter((row) => isSyncSectionKey(row.key))
+    .map((row) => [row.key, { updatedAt: row.updated_at, value: row.value }]));
+}
+
+async function saveSettingsSections(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>, patch: JsonObject) {
+  const settingKeys = [
+    "activeJobId",
+    "companySettings",
+    "dailyMailSettings",
+    "deletedEntityIds",
+    "deletedReportIds",
+    "fieldNotes",
+  ];
+  const rows = Object.entries(patch)
+    .filter(([key]) => settingKeys.includes(key))
+    .map(([key, value]) => ({ key, value: value === undefined ? null : value }));
+  if (!rows.length) return;
+
+  const { error } = await supabase
+    .from("homecare_settings")
+    .upsert(rows, { onConflict: "key" });
+  if (error) throw new Error(error.message);
+}
+
 async function loadFallbackSections(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>, keys: SyncSectionKey[]) {
   const { data, error } = await supabase
     .from("app_state")
@@ -1703,6 +1755,7 @@ export async function GET(request: Request) {
   const keys = requestedSyncKeys(request);
   try {
     const sections = await loadFallbackSections(supabase, keys);
+    Object.assign(sections, await loadSettingsSections(supabase, keys));
     if (keys.includes("accountingAccounts")) {
       const accountingSection = await loadAccountingAccountsSection(supabase);
       if (accountingSection) sections.accountingAccounts = accountingSection;
@@ -1791,6 +1844,11 @@ export async function POST(request: Request) {
 
   try {
     const updatedAt = await saveFallbackSections(supabase, filteredPatch);
+    try {
+      await saveSettingsSections(supabase, filteredPatch);
+    } catch (error) {
+      console.warn("Relationaler Einstellungen-Sync wurde auf Fallback reduziert.", error);
+    }
     if ("accountingAccounts" in filteredPatch) {
       try {
         await saveAccountingAccountsSection(supabase, filteredPatch.accountingAccounts);

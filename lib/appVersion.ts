@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.382.0",
+  version: "1.383.0",
   releaseDate: "2026-09-12",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.383.0",
+    date: "2026-09-12",
+    changes: [
+      "Globale Einstellungen, Tagesmail-Konfiguration, Loeschlisten, Feldnotizen und aktiver Einsatz werden in homecare_settings gespeichert",
+      "Diese kleinen App-Bereiche laufen nun ebenfalls ueber den kleinen Sync statt ueber den kompletten App-State",
+      "Der alte App-State bleibt nur als Fallback fuer Migration und Kompatibilitaet erhalten",
+    ],
+  },
   {
     version: "1.382.0",
     date: "2026-09-12",
