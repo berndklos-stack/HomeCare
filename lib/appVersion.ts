@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.378.0",
+  version: "1.379.0",
   releaseDate: "2026-09-12",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.379.0",
+    date: "2026-09-12",
+    changes: [
+      "Alte eingebettete Foto-Dubletten ohne Foto-ID werden beim Merge entfernt, sobald ein Storage-Foto zum gleichen Eintrag vorhanden ist",
+      "Der App-State-Fallback kann dadurch bereinigte Fotoverweise uebernehmen, ohne Base64-Altlasten weiter mitzuschleppen",
+      "Client und Server verwenden dieselbe Deduplizierungsregel fuer Berichtsfotos",
+    ],
+  },
   {
     version: "1.378.0",
     date: "2026-09-12",

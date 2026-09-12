@@ -633,7 +633,20 @@ function mergeFieldPhotos(existingPhotos: unknown, patchPhotos: unknown) {
     return true;
   });
 
-  return Array.from(photosByKey.values()).sort((first, second) => String(first.createdAt ?? "").localeCompare(String(second.createdAt ?? "")));
+  const mergedPhotos = Array.from(photosByKey.values());
+  return mergedPhotos
+    .filter((photo) => {
+      const isLegacyEmbeddedPhoto = !photo.id
+        && !photo.storagePath
+        && String(photo.previewUrl ?? "").startsWith("data:image/");
+      if (!isLegacyEmbeddedPhoto) return true;
+      return !mergedPhotos.some((candidate) => (
+        candidate !== photo
+        && String(candidate.name ?? "") === String(photo.name ?? "")
+        && Boolean(candidate.storagePath)
+      ));
+    })
+    .sort((first, second) => String(first.createdAt ?? "").localeCompare(String(second.createdAt ?? "")));
 }
 
 function mergeFieldTaskProgress(existingTask: unknown, patchTask: unknown) {

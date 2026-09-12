@@ -6861,7 +6861,19 @@ function mergeFieldPhotos(primaryPhotos: FieldPhoto[] = [], secondaryPhotos: Fie
       merged.push(photo);
     });
 
-  return merged.sort((first, second) => (first.createdAt ?? "").localeCompare(second.createdAt ?? ""));
+  return merged
+    .filter((photo) => {
+      const isLegacyEmbeddedPhoto = !photo.id
+        && !photo.storagePath
+        && photo.previewUrl?.startsWith("data:image/");
+      if (!isLegacyEmbeddedPhoto) return true;
+      return !merged.some((candidate) => (
+        candidate !== photo
+        && candidate.name === photo.name
+        && Boolean(candidate.storagePath)
+      ));
+    })
+    .sort((first, second) => (first.createdAt ?? "").localeCompare(second.createdAt ?? ""));
 }
 
 function repairReportPhotosFromProgress(reportPhotos: FieldPhoto[] = [], progressPhotos: FieldPhoto[] = []) {
