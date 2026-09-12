@@ -492,9 +492,12 @@ type LiveVehiclePosition = {
   purpose?: string;
   resourceId: string;
   source: "Start" | "Zwischenziel" | "Ziel";
+  startOdometer?: string;
   status: "active" | "completed" | "canceled";
   tripDate: string;
+  tripType?: VehicleLogEntry["tripType"];
   updatedAt?: string;
+  visited?: string;
 };
 
 type VehicleLogEntry = {
@@ -629,6 +632,9 @@ type AppSnapshot = {
   translationOverrides?: TranslationFileRow[];
   updatedAt?: string;
 };
+
+type SyncSectionKey = "activeJobId" | "fieldNotes" | "fieldProgress" | "inventoryLocations" | "materials" | "resources";
+type SyncSectionMap = Partial<Record<SyncSectionKey, { updatedAt?: string; value: unknown }>>;
 
 type TranslationFileRow = {
   de: string;
@@ -3151,6 +3157,40 @@ async function loadSupabaseSnapshot() {
   return payload.data ? { ...payload.data, updatedAt: payload.data.updatedAt ?? payload.updatedAt ?? undefined } : null;
 }
 
+async function loadSyncSections() {
+  if (process.env.NEXT_PUBLIC_DISABLE_SUPABASE_SYNC === "1") {
+    return {};
+  }
+
+  const response = await withTimeout(fetch("/api/sync-sections", {
+    cache: "no-store",
+    headers: { Accept: "application/json" },
+  }), 10000);
+  const payload = await response.json() as { data?: SyncSectionMap; error?: string; retry?: boolean };
+  if (!response.ok || payload.retry) throw new Error(payload.error || "Sync-Bereiche konnten nicht geladen werden.");
+  return payload.data ?? {};
+}
+
+function mergeSnapshotWithSyncSections(snapshot: AppSnapshot, sections: SyncSectionMap): AppSnapshot {
+  const patch = Object.fromEntries(
+    Object.entries(sections)
+      .filter(([, section]) => section && "value" in section)
+      .map(([key, section]) => [key, section?.value]),
+  ) as Partial<AppSnapshot>;
+
+  return {
+    ...snapshot,
+    ...patch,
+    updatedAt: Object.values(sections).reduce((latest, section) => {
+      const sectionTime = Date.parse(section?.updatedAt ?? "");
+      const latestTime = Date.parse(latest ?? "");
+      return Number.isFinite(sectionTime) && (!Number.isFinite(latestTime) || sectionTime > latestTime)
+        ? section?.updatedAt
+        : latest;
+    }, snapshot.updatedAt),
+  };
+}
+
 async function loadVehiclePositions() {
   const response = await withTimeout(fetch("/api/vehicle-positions", {
     cache: "no-store",
@@ -3188,6 +3228,28 @@ async function saveSupabaseSnapshotWithFetch(endpoint: string, snapshot: AppSnap
   }
 
   return payload.updatedAt ?? snapshot.updatedAt;
+}
+
+function patchUsesSmallSyncOnly(overrides: Partial<AppSnapshot>) {
+  const keys = Object.keys(overrides);
+  return keys.length > 0 && keys.every((key) => key === "updatedAt" || ["activeJobId", "fieldNotes", "fieldProgress", "inventoryLocations", "materials", "resources"].includes(key));
+}
+
+async function saveSmallSyncPatch(overrides: Partial<AppSnapshot>) {
+  const patch = Object.fromEntries(
+    Object.entries(overrides).filter(([key]) => key !== "updatedAt"),
+  );
+  const response = await withTimeout(fetch("/api/sync-sections", {
+    body: JSON.stringify({ patch }),
+    cache: "no-store",
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  }), 10000);
+  const payload = await response.json() as { error?: string; retry?: boolean; updatedAt?: string };
+  if (!response.ok || payload.retry) {
+    throw new Error(payload.error || "Sync-Bereich konnte nicht gespeichert werden.");
+  }
+  return payload.updatedAt ?? overrides.updatedAt;
 }
 
 function saveSupabaseSnapshotWithXhr(endpoint: string, snapshot: AppSnapshot) {
@@ -3256,6 +3318,9 @@ async function saveSupabaseSnapshot(snapshot: AppSnapshot) {
 }
 
 async function saveSupabasePatch(overrides: Partial<AppSnapshot>) {
+  if (patchUsesSmallSyncOnly(overrides)) {
+    return saveSmallSyncPatch(overrides);
+  }
   const snapshot = { __patch: true, patch: compactPatchForRemote(overrides) };
   return saveSupabaseSnapshot(snapshot as unknown as AppSnapshot);
 }
@@ -7728,11 +7793,12 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
         if (cancelled) return;
 
         if (remoteSnapshot) {
-          lastRemoteSnapshotKeyRef.current = snapshotContentKey(remoteSnapshot);
+          const remoteSnapshotWithSections = mergeSnapshotWithSyncSections(remoteSnapshot, await loadSyncSections().catch(() => ({})));
+          lastRemoteSnapshotKeyRef.current = snapshotContentKey(remoteSnapshotWithSections);
           skipNextAutoSaveRef.current = true;
           const baseMergedSnapshot = localSnapshotIsSuspiciouslyEmpty
-            ? recoverReportsFromFieldProgress(remoteSnapshot)
-            : mergeSnapshots(remoteSnapshot, localSnapshotWithBackups);
+            ? recoverReportsFromFieldProgress(remoteSnapshotWithSections)
+            : mergeSnapshots(remoteSnapshotWithSections, localSnapshotWithBackups);
           const mergedSnapshot = sanitizePersonnelSnapshot({
             ...baseMergedSnapshot,
             reports: applyReportTextBackups(baseMergedSnapshot.reports, reportBackups),
@@ -7741,7 +7807,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
           remoteSnapshotWasApplied = true;
           persistLocalSnapshot(mergedSnapshot);
           if (!cancelled) setAppStorageReady(true);
-          if (JSON.stringify(mergedSnapshot) !== JSON.stringify(remoteSnapshot)) {
+          if (JSON.stringify(mergedSnapshot) !== JSON.stringify(remoteSnapshotWithSections)) {
             void saveSupabasePatch(snapshotPatch(mergedSnapshot))
               .then((savedAt) => {
                 lastRemoteSnapshotKeyRef.current = snapshotContentKey(mergedSnapshot);
@@ -7828,7 +7894,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     }
     setAppUpdatedAt(snapshotUpdatedAt);
 
-    scheduleRemoteSave(snapshot, 2600);
+    scheduleRemoteSave(snapshot, 60000);
   }, [accountingAccounts, activeJobId, appStorageReady, billing, companySettings, customers, dailyMailSettings, deletedEntityIds, deletedReportIds, fieldNotes, fieldProgress, inventoryLocations, jobs, materials, objects, personnel, portalMessages, reports, resources, scheduleRemoteSave, servicePackages, services, translationOverrides]);
 
   const currentSnapshot = useCallback((overrides: Partial<AppSnapshot> = {}): AppSnapshot => ({
@@ -7871,21 +7937,24 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       const remoteSnapshot = await loadSupabaseSnapshot();
       if (!remoteSnapshot) return;
 
+      const remoteSections = await loadSyncSections().catch(() => ({}));
+      const remoteSnapshotWithSections = mergeSnapshotWithSyncSections(remoteSnapshot, remoteSections);
+
       const localSnapshot = currentSnapshot();
-      const remoteTime = Date.parse(remoteSnapshot.updatedAt ?? "");
+      const remoteTime = Date.parse(remoteSnapshotWithSections.updatedAt ?? "");
       const localTime = Date.parse(localSnapshot.updatedAt ?? "");
       const remoteHasNewerData = Number.isFinite(remoteTime) && (!Number.isFinite(localTime) || remoteTime > localTime);
       const localHasNewerData = Number.isFinite(localTime) && (!Number.isFinite(remoteTime) || localTime > remoteTime);
-      const remoteHasMoreData = snapshotWeight(remoteSnapshot) > snapshotWeight(localSnapshot);
+      const remoteHasMoreData = snapshotWeight(remoteSnapshotWithSections) > snapshotWeight(localSnapshot);
       const reportBackups = await loadReportTextBackups();
-      const baseMergedSnapshot = mergeSnapshots(remoteSnapshot, localSnapshot);
+      const baseMergedSnapshot = mergeSnapshots(remoteSnapshotWithSections, localSnapshot);
       const mergedSnapshot = sanitizePersonnelSnapshot({
         ...baseMergedSnapshot,
         reports: applyReportTextBackups(baseMergedSnapshot.reports, reportBackups),
       });
-      const mergedDiffersFromRemote = JSON.stringify(mergedSnapshot) !== JSON.stringify(remoteSnapshot);
+      const mergedDiffersFromRemote = JSON.stringify(mergedSnapshot) !== JSON.stringify(remoteSnapshotWithSections);
       const mergedDiffersFromLocal = JSON.stringify(mergedSnapshot) !== JSON.stringify(localSnapshot);
-      const missingReports = missingLocalReports(remoteSnapshot.reports, localSnapshot.reports);
+      const missingReports = missingLocalReports(remoteSnapshotWithSections.reports, localSnapshot.reports);
 
       if (!force && !remoteHasNewerData && !localHasNewerData && !remoteHasMoreData && !mergedDiffersFromRemote && !mergedDiffersFromLocal) return;
 
@@ -9554,6 +9623,37 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       .sort((first, second) => String(second.startedAt ?? second.id).localeCompare(String(first.startedAt ?? first.id)))[0];
   }
 
+  function activeLiveQuickTrip(vehicleId?: string) {
+    return liveVehiclePositions
+      .filter((position) => (!vehicleId || position.resourceId === vehicleId) && isCurrentLiveVehiclePosition(position))
+      .sort((first, second) => Date.parse(second.updatedAt ?? "") - Date.parse(first.updatedAt ?? ""))[0];
+  }
+
+  function quickTripFromLivePosition(position: LiveVehiclePosition) {
+    return {
+      activeLogbookEntryId: position.entryId,
+      date: position.tripDate || currentLocalDateValue(),
+      driverId: position.driverId || personnel.find((person) => !person.archived)?.id || "",
+      endAddress: "",
+      endCoordinates: undefined,
+      endOdometer: "",
+      fuelOrCharge: "",
+      fuelReceiptPhoto: undefined,
+      kilometers: "",
+      odometerPhotos: [],
+      purpose: position.purpose ?? "",
+      resourceId: position.resourceId,
+      startAddress: position.address,
+      startCoordinates: position.coordinates,
+      startOdometer: position.startOdometer ?? "",
+      tripType: position.tripType ?? "Dienstfahrt",
+      visited: position.visited ?? "",
+      waypoints: position.source === "Zwischenziel" && position.coordinates
+        ? [{ address: position.address, coordinates: position.coordinates, id: `${position.entryId}-live`, note: "" }]
+        : [],
+    };
+  }
+
   function quickTripDefaultsForVehicle(vehicleId: string, sourceResources = resources) {
     const vehicle = sourceResources.find((resource) => resource.id === vehicleId && resource.type === "Fahrzeug");
     const latestEntry = latestLogbookEntry(vehicle);
@@ -9583,15 +9683,22 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   }
 
   async function openQuickTrip() {
+    const livePositions = await loadVehiclePositions().catch(() => liveVehiclePositions);
+    if (livePositions.length) setLiveVehiclePositions(livePositions);
     const freshResources = await syncedResourcesForQuickTrip();
     const freshVehicles = freshResources.filter((resource) => resource.type === "Fahrzeug" && !resource.archived);
     setQuickTripForm((current) => {
+      if (current.activeLogbookEntryId) return current;
       const vehicleWithActiveTrip = freshVehicles.find((vehicle) => activeLogbookEntry(vehicle));
+      const liveTrip = livePositions
+        .filter((position) => isCurrentLiveVehiclePosition(position))
+        .sort((first, second) => Date.parse(second.updatedAt ?? "") - Date.parse(first.updatedAt ?? ""))[0];
       const resourceId = current.activeLogbookEntryId
         ? current.resourceId
-        : current.resourceId || vehicleWithActiveTrip?.id || freshVehicles[0]?.id || activeVehicles[0]?.id || "";
+        : current.resourceId || vehicleWithActiveTrip?.id || liveTrip?.resourceId || freshVehicles[0]?.id || activeVehicles[0]?.id || "";
       const vehicle = freshResources.find((resource) => resource.id === resourceId && resource.type === "Fahrzeug");
       const activeEntry = activeLogbookEntry(vehicle);
+      const activeLiveTrip = activeLiveQuickTrip(resourceId) ?? liveTrip;
       const defaults = quickTripDefaultsForVehicle(resourceId, freshResources);
       if (activeEntry) {
         return {
@@ -9614,6 +9721,13 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
           visited: activeEntry.visited,
           waypoints: activeEntry.waypoints ?? [],
           odometerPhotos: activeEntry.odometerPhotos ?? [],
+        };
+      }
+      if (activeLiveTrip) {
+        return {
+          ...current,
+          ...quickTripFromLivePosition(activeLiveTrip),
+          startOdometer: activeLiveTrip.startOdometer || defaults.startOdometer,
         };
       }
       return {
@@ -9650,6 +9764,10 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     setQuickTripOpen(false);
     setSection("masterData");
     setResourceLogbookOpenRequestId(`${vehicleId}:${Date.now()}`);
+  }
+
+  function closeQuickTripDialog() {
+    setQuickTripOpen(false);
   }
 
   function reserveOdometerOcrUse() {
@@ -9891,8 +10009,11 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
         purpose: form.purpose.trim(),
         resourceId: form.resourceId,
         source: form.endCoordinates ? "Ziel" : latestWaypoint?.coordinates ? "Zwischenziel" : "Start",
+        startOdometer: form.startOdometer.trim(),
         status: "active",
         tripDate: form.date,
+        tripType: form.tripType,
+        visited: form.visited.trim(),
       }).then((position) => {
         if (position) setLiveVehiclePositions((current) => [position, ...current.filter((item) => item.resourceId !== position.resourceId)]);
       }).catch((error) => console.warn("Live-Fahrzeugposition konnte nicht gespeichert werden.", error));
@@ -9965,8 +10086,11 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
         purpose: quickTripForm.purpose.trim(),
         resourceId: vehicle.id,
         source: "Start",
+        startOdometer: quickTripForm.startOdometer.trim(),
         status: "active",
         tripDate: quickTripForm.date,
+        tripType: quickTripForm.tripType,
+        visited: quickTripForm.visited.trim(),
       };
       setLiveVehiclePositions((current) => [position, ...current.filter((item) => item.resourceId !== vehicle.id)]);
       void saveVehiclePosition(position).catch((error) => console.warn("Live-Fahrzeugposition konnte nicht gespeichert werden.", error));
@@ -10681,7 +10805,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                   <List size={16} />
                   {tx("Fahrtenbuch öffnen")}
                 </button>
-                <button aria-label="Fahrt erfassen schließen" onClick={cancelQuickTrip} type="button">
+                <button aria-label="Fahrt erfassen schließen" onClick={closeQuickTripDialog} type="button">
                   <X size={18} />
                 </button>
               </div>

@@ -771,7 +771,7 @@ function mergeSnapshotPatch(existingSnapshot: unknown, patch: unknown) {
 function patchCanSkipBackup(patch: unknown) {
   if (!patch || typeof patch !== "object" || Array.isArray(patch)) return false;
   const keys = Object.keys(patch as JsonObject);
-  return keys.length > 0 && keys.every((key) => ["activeJobId", "fieldNotes", "fieldProgress", "resources", "updatedAt"].includes(key));
+  return keys.length > 0 && keys.every((key) => ["activeJobId", "fieldNotes", "fieldProgress", "inventoryLocations", "materials", "resources", "updatedAt"].includes(key));
 }
 
 async function saveSnapshotToSupabase(snapshot: unknown, options: { skipBackup?: boolean } = {}) {

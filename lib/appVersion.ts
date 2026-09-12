@@ -1,10 +1,20 @@
 export const appVersion = {
-  version: "1.373.0",
-  releaseDate: "2026-09-11",
+  version: "1.374.0",
+  releaseDate: "2026-09-12",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.374.0",
+    date: "2026-09-12",
+    changes: [
+      "Einsatzfortschritt, Feldnotizen, Ressourcen/Fahrten sowie Material- und Lagerdaten koennen nun als kleine Sync-Bereiche gespeichert werden",
+      "Der automatische Hintergrund-Sync wird staerker gebuendelt, um Supabase Disk-IO deutlich zu reduzieren",
+      "Material- und Lager-Patches loesen keine unnoetigen Vollbackups mehr aus",
+      "Der Fahrtdialog kann eine am Mobilgeraet gestartete Fahrt aus dem Live-Sync wieder aufnehmen",
+    ],
+  },
   {
     version: "1.373.0",
     date: "2026-09-11",
