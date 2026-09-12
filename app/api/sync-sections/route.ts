@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 export const runtime = "nodejs";
 
 const allowedSyncSections = [
+  "accountingAccounts",
   "activeJobId",
   "customers",
   "fieldNotes",
@@ -12,9 +13,11 @@ const allowedSyncSections = [
   "jobs",
   "materials",
   "objects",
+  "packages",
   "personnel",
   "reports",
   "resources",
+  "services",
 ] as const;
 
 type SyncSectionKey = typeof allowedSyncSections[number];
@@ -226,6 +229,91 @@ type JobRow = {
   type: string | null;
   updated_at: string | null;
   work_minutes: number | null;
+};
+
+type AccountingAccountRow = {
+  account: string;
+  archived: boolean | null;
+  category: string;
+  label: string;
+  updated_at: string | null;
+};
+
+type InventoryLocationRow = {
+  archived: boolean | null;
+  id: string;
+  name: string;
+  note: string | null;
+  site: string | null;
+  updated_at: string | null;
+};
+
+type MaterialRow = {
+  accounting_account: string | null;
+  archived: boolean | null;
+  category: string | null;
+  currency: string | null;
+  description: string | null;
+  id: string;
+  max_stock: number | null;
+  min_stock: number | null;
+  name: string;
+  primary_location_id: string | null;
+  purchase_price: number | null;
+  sales_price: number | null;
+  sku: string | null;
+  supplier: string | null;
+  tax_rate: number | null;
+  unit: string | null;
+  updated_at: string | null;
+};
+
+type InventoryMovementRow = {
+  billable_as_service: boolean | null;
+  changes: unknown;
+  counted_quantity: number | null;
+  created_at: string | null;
+  customer_id: string | null;
+  id: string;
+  location_id: string | null;
+  material_id: string;
+  movement_type: string;
+  note: string | null;
+  purchase_gross: number | null;
+  purchase_net: number | null;
+  purchase_tax_amount: number | null;
+  purchase_tax_rate: number | null;
+  quantity: number;
+  receipt: unknown;
+  service_id: string | null;
+  supplier: string | null;
+  updated_at: string | null;
+};
+
+type ServiceRow = {
+  accounting_account: string | null;
+  archived: boolean | null;
+  category: string | null;
+  checklist: unknown;
+  currency: string | null;
+  description: string | null;
+  id: string;
+  name: string;
+  price: number | null;
+  show_work_time_in_reports: boolean | null;
+  tax_rate: number | null;
+  unit: string | null;
+  updated_at: string | null;
+};
+
+type ServicePackageRow = {
+  archived: boolean | null;
+  description: string | null;
+  id: string;
+  name: string;
+  price: number | null;
+  service_ids: unknown;
+  updated_at: string | null;
 };
 
 function getSupabaseServerClient() {
@@ -721,6 +809,190 @@ function rowToJob(row: JobRow) {
   };
 }
 
+function accountingAccountToRow(account: JsonObject) {
+  return {
+    account: stringOrEmpty(account.account),
+    archived: Boolean(account.archived),
+    category: stringOrEmpty(account.category) || "Sonstiges",
+    label: stringOrEmpty(account.label) || stringOrEmpty(account.account),
+  };
+}
+
+function rowToAccountingAccount(row: AccountingAccountRow) {
+  return {
+    account: row.account,
+    archived: Boolean(row.archived),
+    category: row.category,
+    label: row.label,
+  };
+}
+
+function inventoryLocationToRow(location: JsonObject) {
+  return {
+    archived: Boolean(location.archived),
+    id: String(location.id),
+    name: stringOrEmpty(location.name) || "Lagerort",
+    note: stringOrEmpty(location.note),
+    site: stringOrEmpty(location.site),
+  };
+}
+
+function rowToInventoryLocation(row: InventoryLocationRow) {
+  return {
+    archived: Boolean(row.archived),
+    id: row.id,
+    name: row.name,
+    note: row.note ?? "",
+    site: row.site ?? "",
+  };
+}
+
+function materialToRow(material: JsonObject) {
+  return {
+    accounting_account: stringOrEmpty(material.accountingAccount),
+    archived: Boolean(material.archived),
+    category: stringOrEmpty(material.category),
+    currency: stringOrEmpty(material.currency) || "SEK",
+    description: stringOrEmpty(material.description),
+    id: String(material.id),
+    max_stock: numberOrNull(material.maxStock),
+    min_stock: numberOrNull(material.minStock),
+    name: stringOrEmpty(material.name) || "Material",
+    primary_location_id: nullableString(material.primaryLocation),
+    purchase_price: numberOrNull(material.purchasePrice),
+    sales_price: numberOrNull(material.price),
+    sku: stringOrEmpty(material.sku),
+    supplier: stringOrEmpty(material.supplier),
+    tax_rate: numberOrNull(material.taxRate),
+    unit: stringOrEmpty(material.unit),
+  };
+}
+
+function movementToRow(materialId: string, movement: JsonObject) {
+  return {
+    billable_as_service: Boolean(movement.billableAsService),
+    changes: Array.isArray(movement.changes) ? movement.changes : [],
+    counted_quantity: numberOrNull(movement.countedQuantity),
+    created_at: nullableString(movement.createdAt) ?? new Date().toISOString(),
+    customer_id: nullableString(movement.customerId),
+    id: String(movement.id),
+    location_id: nullableString(movement.location),
+    material_id: materialId,
+    movement_type: stringOrEmpty(movement.type) || "Eingang",
+    note: stringOrEmpty(movement.note),
+    purchase_gross: numberOrNull(movement.purchaseGross),
+    purchase_net: numberOrNull(movement.purchaseNet),
+    purchase_tax_amount: numberOrNull(movement.purchaseTaxAmount),
+    purchase_tax_rate: numberOrNull(movement.purchaseTaxRate),
+    quantity: numberOrNull(movement.quantity) ?? 0,
+    receipt: movement.receipt && typeof movement.receipt === "object" ? movement.receipt : null,
+    service_id: nullableString(movement.serviceId),
+    supplier: stringOrEmpty(movement.supplier),
+    updated_at: nullableString(movement.updatedAt) ?? new Date().toISOString(),
+  };
+}
+
+function rowToMaterial(row: MaterialRow, movements: InventoryMovementRow[]) {
+  return {
+    accountingAccount: row.accounting_account ?? "",
+    archived: Boolean(row.archived),
+    category: row.category ?? "",
+    currency: row.currency ?? "SEK",
+    description: row.description ?? "",
+    id: row.id,
+    inventoryEntries: movements
+      .filter((movement) => movement.material_id === row.id)
+      .map((movement) => ({
+        billableAsService: Boolean(movement.billable_as_service),
+        changes: Array.isArray(movement.changes) ? movement.changes : [],
+        countedQuantity: movement.counted_quantity ?? undefined,
+        createdAt: movement.created_at ?? "",
+        customerId: movement.customer_id ?? undefined,
+        id: movement.id,
+        location: movement.location_id ?? "",
+        note: movement.note ?? "",
+        purchaseGross: movement.purchase_gross === null ? undefined : String(movement.purchase_gross),
+        purchaseNet: movement.purchase_net === null ? undefined : String(movement.purchase_net),
+        purchasePrice: movement.purchase_net === null ? undefined : String(movement.purchase_net),
+        purchaseTaxAmount: movement.purchase_tax_amount === null ? undefined : String(movement.purchase_tax_amount),
+        purchaseTaxRate: movement.purchase_tax_rate === null ? undefined : String(movement.purchase_tax_rate),
+        quantity: movement.quantity,
+        receipt: movement.receipt && typeof movement.receipt === "object" ? movement.receipt : undefined,
+        serviceId: movement.service_id ?? undefined,
+        supplier: movement.supplier ?? "",
+        type: movement.movement_type,
+        updatedAt: movement.updated_at ?? undefined,
+      }))
+      .sort((first, second) => String(first.createdAt).localeCompare(String(second.createdAt))),
+    maxStock: row.max_stock === null ? "" : String(row.max_stock),
+    minStock: row.min_stock === null ? "" : String(row.min_stock),
+    name: row.name,
+    price: row.sales_price === null ? "" : String(row.sales_price),
+    primaryLocation: row.primary_location_id ?? "",
+    purchasePrice: row.purchase_price === null ? "" : String(row.purchase_price),
+    sku: row.sku ?? "",
+    supplier: row.supplier ?? "",
+    taxRate: row.tax_rate === null ? "" : String(row.tax_rate),
+    unit: row.unit ?? "",
+  };
+}
+
+function serviceToRow(service: JsonObject) {
+  return {
+    accounting_account: stringOrEmpty(service.accountingAccount),
+    archived: Boolean(service.archived),
+    category: stringOrEmpty(service.category),
+    checklist: Array.isArray(service.checklist) ? service.checklist : [],
+    currency: stringOrEmpty(service.currency) || "SEK",
+    description: stringOrEmpty(service.description),
+    id: String(service.id),
+    name: stringOrEmpty(service.name) || "Leistung",
+    price: numberOrNull(service.price),
+    show_work_time_in_reports: Boolean(service.showWorkTimeInReports),
+    tax_rate: numberOrNull(service.taxRate),
+    unit: stringOrEmpty(service.unit),
+  };
+}
+
+function rowToService(row: ServiceRow) {
+  return {
+    accountingAccount: row.accounting_account ?? "",
+    archived: Boolean(row.archived),
+    category: row.category ?? "",
+    checklist: Array.isArray(row.checklist) ? row.checklist : [],
+    currency: row.currency ?? "SEK",
+    description: row.description ?? "",
+    id: row.id,
+    name: row.name,
+    price: row.price === null ? "" : String(row.price),
+    showWorkTimeInReports: Boolean(row.show_work_time_in_reports),
+    taxRate: row.tax_rate === null ? "" : String(row.tax_rate),
+    unit: row.unit ?? "",
+  };
+}
+
+function packageToRow(servicePackage: JsonObject) {
+  return {
+    archived: Boolean(servicePackage.archived),
+    description: stringOrEmpty(servicePackage.description),
+    id: String(servicePackage.id),
+    name: stringOrEmpty(servicePackage.name) || "Paket",
+    price: numberOrNull(servicePackage.price),
+    service_ids: Array.isArray(servicePackage.serviceIds) ? servicePackage.serviceIds : [],
+  };
+}
+
+function rowToPackage(row: ServicePackageRow) {
+  return {
+    archived: Boolean(row.archived),
+    description: row.description ?? "",
+    id: row.id,
+    name: row.name,
+    price: row.price === null ? "" : String(row.price),
+    serviceIds: Array.isArray(row.service_ids) ? row.service_ids : [],
+  };
+}
+
 function rowToResource(row: ResourceRow, trips: VehicleTripRow[]) {
   return {
     archived: Boolean(row.archived),
@@ -1007,6 +1279,141 @@ async function saveJobsSection(supabase: NonNullable<ReturnType<typeof getSupaba
   if (error) throw new Error(error.message);
 }
 
+async function loadAccountingAccountsSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
+  const { data, error } = await supabase
+    .from("homecare_accounting_accounts")
+    .select("account, category, label, archived, updated_at")
+    .order("account", { ascending: true });
+  if (error || !data?.length) return null;
+  return {
+    updatedAt: maxUpdatedAt((data as AccountingAccountRow[]).map((row) => row.updated_at)),
+    value: (data as AccountingAccountRow[]).map(rowToAccountingAccount),
+  };
+}
+
+async function saveAccountingAccountsSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>, value: unknown) {
+  if (!Array.isArray(value)) return;
+  const accounts = value.filter((item): item is JsonObject => Boolean(item && typeof item === "object" && "account" in item));
+  if (!accounts.length) return;
+  const { error } = await supabase
+    .from("homecare_accounting_accounts")
+    .upsert(accounts.map(accountingAccountToRow), { onConflict: "account" });
+  if (error) throw new Error(error.message);
+}
+
+async function loadInventoryLocationsSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
+  const { data, error } = await supabase
+    .from("homecare_inventory_locations")
+    .select("id, name, site, note, archived, updated_at")
+    .order("name", { ascending: true });
+  if (error || !data?.length) return null;
+  return {
+    updatedAt: maxUpdatedAt((data as InventoryLocationRow[]).map((row) => row.updated_at)),
+    value: (data as InventoryLocationRow[]).map(rowToInventoryLocation),
+  };
+}
+
+async function saveInventoryLocationsSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>, value: unknown) {
+  if (!Array.isArray(value)) return;
+  const locations = value.filter((item): item is JsonObject => Boolean(item && typeof item === "object" && "id" in item));
+  if (!locations.length) return;
+  const { error } = await supabase
+    .from("homecare_inventory_locations")
+    .upsert(locations.map(inventoryLocationToRow), { onConflict: "id" });
+  if (error) throw new Error(error.message);
+}
+
+async function loadMaterialsSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
+  const { data: materialRows, error } = await supabase
+    .from("homecare_materials")
+    .select("id, accounting_account, sku, name, category, unit, sales_price, purchase_price, currency, tax_rate, supplier, primary_location_id, min_stock, max_stock, description, archived, updated_at")
+    .order("name", { ascending: true });
+  if (error || !materialRows?.length) return null;
+
+  const { data: movementRows, error: movementError } = await supabase
+    .from("homecare_inventory_movements")
+    .select("id, material_id, location_id, movement_type, quantity, counted_quantity, note, supplier, purchase_gross, purchase_net, purchase_tax_rate, purchase_tax_amount, customer_id, service_id, billable_as_service, receipt, changes, created_at, updated_at")
+    .order("created_at", { ascending: true });
+  if (movementError) throw new Error(movementError.message);
+
+  return {
+    updatedAt: maxUpdatedAt([
+      ...(materialRows as MaterialRow[]).map((row) => row.updated_at),
+      ...((movementRows ?? []) as InventoryMovementRow[]).map((row) => row.updated_at),
+    ]),
+    value: (materialRows as MaterialRow[]).map((row) => rowToMaterial(row, (movementRows ?? []) as InventoryMovementRow[])),
+  };
+}
+
+async function saveMaterialsSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>, value: unknown) {
+  if (!Array.isArray(value)) return;
+  const materials = value.filter((item): item is JsonObject => Boolean(item && typeof item === "object" && "id" in item));
+  if (!materials.length) return;
+
+  const { error } = await supabase
+    .from("homecare_materials")
+    .upsert(materials.map(materialToRow), { onConflict: "id" });
+  if (error) throw new Error(error.message);
+
+  const movements = materials.flatMap((material) => (
+    Array.isArray(material.inventoryEntries)
+      ? material.inventoryEntries
+          .filter((entry): entry is JsonObject => Boolean(entry && typeof entry === "object" && "id" in entry))
+          .map((entry) => movementToRow(String(material.id), entry))
+      : []
+  ));
+  if (!movements.length) return;
+
+  const { error: movementError } = await supabase
+    .from("homecare_inventory_movements")
+    .upsert(movements, { onConflict: "id" });
+  if (movementError) throw new Error(movementError.message);
+}
+
+async function loadServicesSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
+  const { data, error } = await supabase
+    .from("homecare_services")
+    .select("id, accounting_account, name, category, unit, price, currency, tax_rate, show_work_time_in_reports, description, checklist, archived, updated_at")
+    .order("name", { ascending: true });
+  if (error || !data?.length) return null;
+  return {
+    updatedAt: maxUpdatedAt((data as ServiceRow[]).map((row) => row.updated_at)),
+    value: (data as ServiceRow[]).map(rowToService),
+  };
+}
+
+async function saveServicesSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>, value: unknown) {
+  if (!Array.isArray(value)) return;
+  const services = value.filter((item): item is JsonObject => Boolean(item && typeof item === "object" && "id" in item));
+  if (!services.length) return;
+  const { error } = await supabase
+    .from("homecare_services")
+    .upsert(services.map(serviceToRow), { onConflict: "id" });
+  if (error) throw new Error(error.message);
+}
+
+async function loadPackagesSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
+  const { data, error } = await supabase
+    .from("homecare_service_packages")
+    .select("id, name, price, description, service_ids, archived, updated_at")
+    .order("name", { ascending: true });
+  if (error || !data?.length) return null;
+  return {
+    updatedAt: maxUpdatedAt((data as ServicePackageRow[]).map((row) => row.updated_at)),
+    value: (data as ServicePackageRow[]).map(rowToPackage),
+  };
+}
+
+async function savePackagesSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>, value: unknown) {
+  if (!Array.isArray(value)) return;
+  const packages = value.filter((item): item is JsonObject => Boolean(item && typeof item === "object" && "id" in item));
+  if (!packages.length) return;
+  const { error } = await supabase
+    .from("homecare_service_packages")
+    .upsert(packages.map(packageToRow), { onConflict: "id" });
+  if (error) throw new Error(error.message);
+}
+
 async function loadFallbackSections(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>, keys: SyncSectionKey[]) {
   const { data, error } = await supabase
     .from("app_state")
@@ -1068,17 +1475,37 @@ export async function GET(request: Request) {
   const keys = requestedSyncKeys(request);
   try {
     const sections = await loadFallbackSections(supabase, keys);
+    if (keys.includes("accountingAccounts")) {
+      const accountingSection = await loadAccountingAccountsSection(supabase);
+      if (accountingSection) sections.accountingAccounts = accountingSection;
+    }
     if (keys.includes("customers")) {
       const customerSection = await loadCustomersSection(supabase);
       if (customerSection) sections.customers = customerSection;
+    }
+    if (keys.includes("inventoryLocations")) {
+      const inventoryLocationSection = await loadInventoryLocationsSection(supabase);
+      if (inventoryLocationSection) sections.inventoryLocations = inventoryLocationSection;
+    }
+    if (keys.includes("materials")) {
+      const materialSection = await loadMaterialsSection(supabase);
+      if (materialSection) sections.materials = materialSection;
     }
     if (keys.includes("objects")) {
       const objectSection = await loadObjectsSection(supabase);
       if (objectSection) sections.objects = objectSection;
     }
+    if (keys.includes("packages")) {
+      const packageSection = await loadPackagesSection(supabase);
+      if (packageSection) sections.packages = packageSection;
+    }
     if (keys.includes("personnel")) {
       const personnelSection = await loadPersonnelSection(supabase);
       if (personnelSection) sections.personnel = personnelSection;
+    }
+    if (keys.includes("services")) {
+      const serviceSection = await loadServicesSection(supabase);
+      if (serviceSection) sections.services = serviceSection;
     }
     if (keys.includes("jobs")) {
       const jobSection = await loadJobsSection(supabase);
@@ -1124,11 +1551,32 @@ export async function POST(request: Request) {
 
   try {
     const updatedAt = await saveFallbackSections(supabase, filteredPatch);
+    if ("accountingAccounts" in filteredPatch) {
+      try {
+        await saveAccountingAccountsSection(supabase, filteredPatch.accountingAccounts);
+      } catch (error) {
+        console.warn("Relationaler Kontenplan-Sync wurde auf Fallback reduziert.", error);
+      }
+    }
     if ("customers" in filteredPatch) {
       try {
         await saveCustomersSection(supabase, filteredPatch.customers);
       } catch (error) {
         console.warn("Relationaler Kunden-Sync wurde auf Fallback reduziert.", error);
+      }
+    }
+    if ("inventoryLocations" in filteredPatch) {
+      try {
+        await saveInventoryLocationsSection(supabase, filteredPatch.inventoryLocations);
+      } catch (error) {
+        console.warn("Relationaler Lagerort-Sync wurde auf Fallback reduziert.", error);
+      }
+    }
+    if ("materials" in filteredPatch) {
+      try {
+        await saveMaterialsSection(supabase, filteredPatch.materials);
+      } catch (error) {
+        console.warn("Relationaler Material-Sync wurde auf Fallback reduziert.", error);
       }
     }
     if ("objects" in filteredPatch) {
@@ -1138,11 +1586,25 @@ export async function POST(request: Request) {
         console.warn("Relationaler Objekt-Sync wurde auf Fallback reduziert.", error);
       }
     }
+    if ("packages" in filteredPatch) {
+      try {
+        await savePackagesSection(supabase, filteredPatch.packages);
+      } catch (error) {
+        console.warn("Relationaler Paket-Sync wurde auf Fallback reduziert.", error);
+      }
+    }
     if ("personnel" in filteredPatch) {
       try {
         await savePersonnelSection(supabase, filteredPatch.personnel);
       } catch (error) {
         console.warn("Relationaler Personal-Sync wurde auf Fallback reduziert.", error);
+      }
+    }
+    if ("services" in filteredPatch) {
+      try {
+        await saveServicesSection(supabase, filteredPatch.services);
+      } catch (error) {
+        console.warn("Relationaler Leistungs-Sync wurde auf Fallback reduziert.", error);
       }
     }
     if ("jobs" in filteredPatch) {

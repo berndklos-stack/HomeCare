@@ -633,7 +633,7 @@ type AppSnapshot = {
   updatedAt?: string;
 };
 
-type SyncSectionKey = "activeJobId" | "customers" | "fieldNotes" | "fieldProgress" | "inventoryLocations" | "jobs" | "materials" | "objects" | "personnel" | "reports" | "resources";
+type SyncSectionKey = "accountingAccounts" | "activeJobId" | "customers" | "fieldNotes" | "fieldProgress" | "inventoryLocations" | "jobs" | "materials" | "objects" | "packages" | "personnel" | "reports" | "resources" | "services";
 type SyncSectionMap = Partial<Record<SyncSectionKey, { updatedAt?: string; value: unknown }>>;
 
 type TranslationFileRow = {
@@ -3232,7 +3232,7 @@ async function saveSupabaseSnapshotWithFetch(endpoint: string, snapshot: AppSnap
 
 function patchUsesSmallSyncOnly(overrides: Partial<AppSnapshot>) {
   const keys = Object.keys(overrides);
-  return keys.length > 0 && keys.every((key) => key === "updatedAt" || ["activeJobId", "customers", "fieldNotes", "fieldProgress", "inventoryLocations", "jobs", "materials", "objects", "personnel", "reports", "resources"].includes(key));
+  return keys.length > 0 && keys.every((key) => key === "updatedAt" || ["accountingAccounts", "activeJobId", "customers", "fieldNotes", "fieldProgress", "inventoryLocations", "jobs", "materials", "objects", "packages", "personnel", "reports", "resources", "services"].includes(key));
 }
 
 async function saveSmallSyncPatch(overrides: Partial<AppSnapshot>) {

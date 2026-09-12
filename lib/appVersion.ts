@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.380.0",
+  version: "1.381.0",
   releaseDate: "2026-09-12",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.381.0",
+    date: "2026-09-12",
+    changes: [
+      "Kontenplan, Lagerorte, Material mit Lagerbewegungen, Leistungen und Leistungspakete sind an den kleinen relationalen Sync angebunden",
+      "Lagerbewegungen werden als eigene Tabellenzeilen gelesen und gespeichert statt nur als Material-Anhang",
+      "Stammdaten-Aenderungen in Buchhaltung, Leistungen und Material reduzieren dadurch den grossen App-State-Zugriff",
+    ],
+  },
   {
     version: "1.380.0",
     date: "2026-09-12",
