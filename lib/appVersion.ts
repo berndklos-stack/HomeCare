@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.374.0",
+  version: "1.375.0",
   releaseDate: "2026-09-12",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.375.0",
+    date: "2026-09-12",
+    changes: [
+      "Eine neue relationale Supabase-Migration legt die professionelle Homecare-Datenbasis an",
+      "Fahrzeugpositionen sind als erster Bereich fuer die echte Tabelle homecare_vehicle_positions vorbereitet",
+      "Der alte Positionsspeicher bleibt waehrend der Migration als Sicherheitsnetz aktiv",
+    ],
+  },
   {
     version: "1.374.0",
     date: "2026-09-12",
