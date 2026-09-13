@@ -1029,7 +1029,7 @@ button {
 
 .customer-row-with-actions {
   align-items: start;
-  grid-template-columns: minmax(0, 1fr) minmax(360px, auto);
+  grid-template-columns: minmax(0, 1fr) auto;
 }
 
 .customer-row-main {
@@ -1056,33 +1056,52 @@ button {
   align-items: center;
   display: flex;
   grid-column: 1 / 2;
-  gap: 10px;
-  margin-top: -4px;
+  gap: 8px;
+  margin-top: -2px;
   min-width: 0;
   padding: 0;
 }
 
-.customer-communication-trigger {
+.customer-communication-inline {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--brand);
   display: inline-flex;
   flex: 0 0 auto;
-  gap: 7px;
-  justify-content: center;
-  min-height: 32px;
-  min-width: 154px;
-  padding-inline: 9px;
+  font-size: 12px;
+  font-weight: 800;
+  gap: 5px;
+  justify-content: flex-start;
+  min-height: 24px;
+  padding: 0;
   width: auto;
 }
 
-.customer-communication-trigger strong {
+.table-list .customer-communication-inline {
+  min-height: 24px;
+  padding: 0;
+  width: auto;
+}
+
+.customer-communication-inline strong {
+  align-items: center;
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 999px;
   color: var(--foreground);
-  font-size: 13px;
+  display: inline-flex;
+  font-size: 11px;
+  height: 20px;
+  justify-content: center;
+  min-width: 20px;
+  padding: 0 6px;
 }
 
 .customer-row-with-actions > .row-actions {
   align-items: center;
-  display: grid;
+  display: flex;
   gap: 8px;
-  grid-template-columns: auto minmax(154px, auto) 34px;
   justify-content: end;
   min-width: 0;
 }
@@ -2996,6 +3015,20 @@ mark.neutral {
 .logbook-table td span {
   color: var(--muted);
   margin-top: 1px;
+}
+
+.logbook-table .logbook-route-cell {
+  line-height: 1.25;
+}
+
+.logbook-table .logbook-route-cell span {
+  color: var(--foreground);
+}
+
+.logbook-table .logbook-route-cell strong {
+  color: var(--muted);
+  display: inline;
+  font-weight: 800;
 }
 
 .logbook-table .number-cell {
@@ -7353,7 +7386,6 @@ button.media-thumb {
 
   .customer-row-with-actions .row-actions {
     grid-column: 1 / -1;
-    grid-template-columns: auto minmax(154px, 1fr) 34px;
     justify-content: flex-start;
     width: 100%;
   }

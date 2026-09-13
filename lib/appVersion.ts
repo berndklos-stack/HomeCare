@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.399.0",
+  version: "1.400.0",
   releaseDate: "2026-09-13",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.400.0",
+    date: "2026-09-13",
+    changes: [
+      "Kundenuebersicht zeigt Kommunikation als schlanke Infozeile unter den Kundendaten statt als rechten Block",
+      "Fahrtenbuch zeigt Zwischenziele in der Routenspalte mit Adresse, KM-Stand und Notiz an",
+    ],
+  },
   {
     version: "1.399.0",
     date: "2026-09-13",

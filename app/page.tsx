@@ -12674,18 +12674,6 @@ function CustomersView({
                   <div className="row-actions">
                     <Badge value={tt(customer.portalStatus)} />
                     <button
-                      className="ghost-button compact customer-communication-trigger"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        toggleCustomerCommunication(customer.id);
-                      }}
-                      type="button"
-                    >
-                      {communicationOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
-                      <span>{tt("Kommunikation")}</span>
-                      <strong>{customerMessages.length}</strong>
-                    </button>
-                    <button
                       aria-label={`${tt("Nachricht")} ${customer.name} ${tt("senden")}`}
                       className="icon-button"
                       data-tooltip={`${tt("Nachricht")} ${customer.name} ${tt("senden")}`}
@@ -12698,7 +12686,16 @@ function CustomersView({
                       <Mail size={16} />
                     </button>
                   </div>
-                  <div className="customer-communication-summary">
+                  <div className="customer-communication-summary" onClick={(event) => event.stopPropagation()}>
+                    <button
+                      className="customer-communication-inline"
+                      onClick={() => toggleCustomerCommunication(customer.id)}
+                      type="button"
+                    >
+                      {communicationOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+                      <span>{tt("Kommunikation")}</span>
+                      <strong>{customerMessages.length}</strong>
+                    </button>
                     {latestMessage ? (
                       <span>{formatCreatedAt(latestMessage.sentAt || latestMessage.createdAt)} · {latestMessage.subject}</span>
                     ) : (
@@ -18599,7 +18596,11 @@ function MasterDataView({
                         <td colSpan={9}>{tt("Noch keine Fahrten für dieses Fahrzeug erfasst.")}</td>
                       </tr>
                     ) : selectedResourceLogbook.map((entry) => {
-                      const waypointLabels = (entry.waypoints ?? []).map((waypoint) => [waypoint.address || waypoint.photo?.name || "Zwischenziel", waypoint.odometer ? `${waypoint.odometer} km` : ""].filter(Boolean).join(" · "));
+                      const waypointRows = (entry.waypoints ?? []).map((waypoint, waypointIndex) => {
+                        const label = waypoint.address || waypoint.photo?.name || `${tt("Zwischenziel")} ${waypointIndex + 1}`;
+                        const details = [waypoint.odometer ? `${waypoint.odometer} km` : "", waypoint.note].filter(Boolean).join(" · ");
+                        return { details, label };
+                      });
                       const attachmentLabels = [
                         entry.fuelReceiptPhoto?.previewUrl ? "Tankbeleg" : "",
                         entry.odometerPhotos?.length ? `${entry.odometerPhotos.length} Tachofoto(s)` : "",
@@ -18610,10 +18611,14 @@ function MasterDataView({
                           <td>{entry.date}</td>
                           <td>{personName(entry.driverId)}</td>
                           <td>{entry.tripType}</td>
-                          <td>
-                            <strong>{entry.startAddress || "-"}</strong>
-                            <span>{waypointLabels.length ? `über ${waypointLabels.join(" · ")}` : ""}</span>
-                            <span>{entry.endAddress || "-"}</span>
+                          <td className="logbook-route-cell">
+                            <span><strong>{tt("Start")}:</strong> {entry.startAddress || "-"}</span>
+                            {waypointRows.map((waypoint, waypointIndex) => (
+                              <span key={`${entry.id}-waypoint-${waypointIndex}`}>
+                                <strong>{tt("Zwischenziel")} {waypointIndex + 1}:</strong> {waypoint.label}{waypoint.details ? ` · ${waypoint.details}` : ""}
+                              </span>
+                            ))}
+                            <span><strong>{tt("Ziel")}:</strong> {entry.endAddress || "-"}</span>
                           </td>
                           <td>{entry.startOdometer || "-"} → {entry.endOdometer || "-"}</td>
                           <td className="number-cell">{entry.kilometers || "-"}</td>
