@@ -2381,10 +2381,7 @@ function snapshotWeight(snapshot: AppSnapshot) {
   const fieldNotes = snapshot.fieldNotes ?? {};
   const fieldProgress = snapshot.fieldProgress ?? {};
   const objectMedia = snapshot.objects.reduce((sum, object) => sum + object.media.items.length, 0);
-  const reportPhotos = snapshot.reports.reduce(
-    (sum, report) => sum + report.checklistResults.reduce((photoSum, item) => photoSum + item.photos.length, 0),
-    0,
-  );
+  const reportPhotos = analyticsReportPhotoCount(snapshot.reports);
   const progressPhotos = Object.values(fieldProgress).reduce(
     (sum, tasks) => sum + Object.values(tasks).reduce((photoSum, task) => photoSum + task.photos.length, 0),
     0,
@@ -3158,6 +3155,21 @@ function reportPhotos(report: ReportRecord) {
 
 function reportPhotoCount(report: ReportRecord) {
   return reportPhotos(report).length;
+}
+
+function analyticsReportPhotoCount(reports: ReportRecord[]) {
+  const seenSources = new Set<string>();
+  return reports
+    .filter((report) => !report.id.startsWith("WEEK-"))
+    .reduce((sum, report) => {
+      const uniquePhotos = reportPhotos(report).filter((photo) => {
+        const sourceKey = photo.storagePath || photo.previewUrl || photo.id || photo.name;
+        if (!sourceKey || seenSources.has(sourceKey)) return false;
+        seenSources.add(sourceKey);
+        return true;
+      });
+      return sum + uniquePhotos.length;
+    }, 0);
 }
 
 function mediaSourceFromStoragePath(storagePath?: string) {
@@ -12387,7 +12399,7 @@ function AnalyticsView({
   }, new Map<string, { minutes: number; name: string; reportCount: number }>()).values())
     .sort((first, second) => second.minutes - first.minutes || first.name.localeCompare(second.name, "de"));
   const totalMinutes = filteredReports.reduce((sum, report) => sum + reportWorkMinutes(report), 0);
-  const totalPhotos = filteredReports.reduce((sum, report) => sum + reportPhotoCount(report), 0);
+  const totalPhotos = analyticsReportPhotoCount(filteredReports);
   const completedJobs = jobs.filter((job) => ["erledigt", "abgerechnet"].includes(job.status) && periodMatchesDate(jobExecutionDate(job))).length;
   const detailReports = detailReport
     ? filteredReports.filter((report) => {
