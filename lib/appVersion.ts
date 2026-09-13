@@ -1,10 +1,17 @@
 export const appVersion = {
-  version: "1.406.0",
+  version: "1.407.0",
   releaseDate: "2026-09-13",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.407.0",
+    date: "2026-09-13",
+    changes: [
+      "Die obere Kennzahlen-Quickbar wird nur noch im Dashboard angezeigt",
+    ],
+  },
   {
     version: "1.406.0",
     date: "2026-09-13",

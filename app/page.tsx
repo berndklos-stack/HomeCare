@@ -11017,14 +11017,16 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
           </div>
         </header>
 
-        <div className="quickbar">
-          {dashboardStats.map((item) => (
-            <button key={item.label} onClick={() => setSection(item.section)} type="button">
-              <strong>{item.value}</strong>
-              <span>{item.label}</span>
-            </button>
-          ))}
-        </div>
+        {section === "dashboard" && (
+          <div className="quickbar">
+            {dashboardStats.map((item) => (
+              <button key={item.label} onClick={() => setSection(item.section)} type="button">
+                <strong>{item.value}</strong>
+                <span>{item.label}</span>
+              </button>
+            ))}
+          </div>
+        )}
 
         <section className="layout full">
           <div className="main-panel">
