@@ -26,6 +26,13 @@ type ReportRow = {
   visible_to_customer: boolean | null;
 };
 
+type FieldPhotoRef = {
+  photo: JsonObject;
+  task: JsonObject;
+  taskIndex: number;
+  photoIndex: number;
+};
+
 function getSupabaseServerClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -100,6 +107,59 @@ function reportPhotos(report: JsonObject) {
   });
 }
 
+function snapshotFieldProgress(snapshot: JsonObject) {
+  return snapshot.fieldProgress && typeof snapshot.fieldProgress === "object" && !Array.isArray(snapshot.fieldProgress)
+    ? snapshot.fieldProgress as Record<string, unknown>
+    : {};
+}
+
+function progressForReport(snapshot: JsonObject, report: JsonObject) {
+  const progress = snapshotFieldProgress(snapshot);
+  const jobId = String(report.jobId ?? "");
+  const date = String(report.date ?? "");
+  const direct = progress[`${jobId}::${date}`] ?? progress[jobId];
+  return direct && typeof direct === "object" && !Array.isArray(direct)
+    ? direct as Record<string, unknown>
+    : {};
+}
+
+function progressPhotosForReport(snapshot: JsonObject, report: JsonObject): FieldPhotoRef[] {
+  const progress = progressForReport(snapshot, report);
+  const tasks = Array.isArray(report.checklistResults) ? report.checklistResults : [];
+  return tasks.flatMap((task, taskIndex) => {
+    const taskRecord = task && typeof task === "object" ? task as JsonObject : {};
+    const taskProgress = progress[String(taskRecord.id ?? "")];
+    const taskProgressRecord = taskProgress && typeof taskProgress === "object" && !Array.isArray(taskProgress)
+      ? taskProgress as JsonObject
+      : {};
+    const photos = Array.isArray(taskProgressRecord.photos) ? taskProgressRecord.photos : [];
+    return photos.map((photo, photoIndex) => ({
+      photo: photo && typeof photo === "object" ? photo as JsonObject : {},
+      task: taskRecord,
+      taskIndex,
+      photoIndex,
+    }));
+  });
+}
+
+function addPhotoSourcesFromRefs(
+  refs: FieldPhotoRef[],
+  reportRecord: JsonObject,
+  sources: Map<string, JsonObject>,
+  looseSources: Map<string, JsonObject>,
+  indexedSources: Map<string, JsonObject>,
+) {
+  let sourcedPhotos = 0;
+  refs.forEach(({ task, photo, taskIndex, photoIndex }) => {
+    if (!photoHasSource(photo)) return;
+    sourcedPhotos += 1;
+    sources.set(photoMatchKey(reportRecord, task, photo), photo);
+    looseSources.set(loosePhotoKey(reportRecord, task, photo), photo);
+    indexedSources.set(indexedPhotoKey(reportRecord, task, taskIndex, photoIndex), photo);
+  });
+  return sourcedPhotos;
+}
+
 async function readBackupSnapshot(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>, backup: JsonObject) {
   const paths = Array.isArray(backup.storagePaths)
     ? backup.storagePaths.map(String)
@@ -130,7 +190,7 @@ async function recentBackups(supabase: NonNullable<ReturnType<typeof getSupabase
     .select("data, updated_at")
     .like("id", `${appBackupPrefix}%`)
     .order("updated_at", { ascending: false })
-    .limit(80);
+    .limit(30);
 
   if (error) throw new Error(error.message);
   return (data ?? [])
@@ -218,15 +278,10 @@ async function backupPhotoSources(query: string, date: string) {
       .filter((report) => report && typeof report === "object" && reportMatches(report as JsonObject, query, date))
       .forEach((report) => {
         const reportRecord = report as JsonObject;
-        let reportHasSources = false;
-        reportPhotos(reportRecord).forEach(({ task, photo, taskIndex, photoIndex }) => {
-          if (!photoHasSource(photo)) return;
-          sourcedPhotos += 1;
-          reportHasSources = true;
-          sources.set(photoMatchKey(reportRecord, task, photo), photo);
-          looseSources.set(loosePhotoKey(reportRecord, task, photo), photo);
-          indexedSources.set(indexedPhotoKey(reportRecord, task, taskIndex, photoIndex), photo);
-        });
+        const reportSourceCount = addPhotoSourcesFromRefs(reportPhotos(reportRecord), reportRecord, sources, looseSources, indexedSources);
+        const progressSourceCount = addPhotoSourcesFromRefs(progressPhotosForReport(snapshot as JsonObject, reportRecord), reportRecord, sources, looseSources, indexedSources);
+        sourcedPhotos += reportSourceCount + progressSourceCount;
+        const reportHasSources = reportSourceCount + progressSourceCount > 0;
         if (reportHasSources) backupReports.set(reportIdentityKey(reportRecord), reportRecord);
       });
     inspected.push({ backupId: String(backup.id ?? ""), sourcedPhotos });
@@ -273,6 +328,17 @@ export async function POST(request: Request) {
     const updatedReports = reports.map((report) => {
       if (!report || typeof report !== "object" || !reportMatches(report as JsonObject, query, date)) return report;
       const reportRecord = report as JsonObject;
+      const currentProgressPhotos = progressPhotosForReport(current, reportRecord);
+      const currentProgressSources = new Map<string, JsonObject>();
+      const currentProgressLooseSources = new Map<string, JsonObject>();
+      const currentProgressIndexedSources = new Map<string, JsonObject>();
+      addPhotoSourcesFromRefs(
+        currentProgressPhotos,
+        reportRecord,
+        currentProgressSources,
+        currentProgressLooseSources,
+        currentProgressIndexedSources,
+      );
       const backupReport = backupReports.get(reportIdentityKey(reportRecord));
       const backupTasks = Array.isArray(backupReport?.checklistResults) ? backupReport.checklistResults : [];
       return {
@@ -289,7 +355,10 @@ export async function POST(request: Request) {
             if (!photo || typeof photo !== "object") return photo;
             const photoRecord = photo as JsonObject;
             if (photoHasSource(photoRecord)) return photoRecord;
-            const source = sources.get(photoMatchKey(reportRecord, taskRecord, photoRecord))
+            const source = currentProgressSources.get(photoMatchKey(reportRecord, taskRecord, photoRecord))
+              ?? currentProgressLooseSources.get(loosePhotoKey(reportRecord, taskRecord, photoRecord))
+              ?? currentProgressIndexedSources.get(indexedPhotoKey(reportRecord, taskRecord, taskIndex, photoIndex))
+              ?? sources.get(photoMatchKey(reportRecord, taskRecord, photoRecord))
               ?? looseSources.get(loosePhotoKey(reportRecord, taskRecord, photoRecord))
               ?? indexedSources.get(indexedPhotoKey(reportRecord, taskRecord, taskIndex, photoIndex));
             if (!source) return photoRecord;
@@ -305,6 +374,10 @@ export async function POST(request: Request) {
           const sourcedBackupPhotos = backupTaskPhotos
             .map((photo) => photo && typeof photo === "object" ? photo as JsonObject : {})
             .filter(photoHasSource)
+            .concat(currentProgressPhotos
+              .filter((entry) => taskIdentityKey(entry.task, entry.taskIndex) === taskIdentityKey(taskRecord, taskIndex))
+              .map((entry) => entry.photo)
+              .filter(photoHasSource))
             .filter((backupPhoto) => !currentPhotos.some((currentPhoto) => (
               currentPhoto && typeof currentPhoto === "object" && samePhoto(currentPhoto as JsonObject, backupPhoto)
             )))
