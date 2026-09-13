@@ -674,6 +674,46 @@ type TranslationFileRow = {
   sv: string;
 };
 
+function numericValue(value?: string) {
+  const parsed = Number(String(value ?? "").replace(",", ".").replace(/[^\d.-]/g, ""));
+  return Number.isFinite(parsed) ? parsed : Number.NaN;
+}
+
+function vehicleLogbookSortValue(entry: VehicleLogEntry) {
+  const startOdometer = numericValue(entry.startOdometer);
+  const startedAt = Date.parse(entry.startedAt ?? "");
+  const dateValue = Date.parse(`${entry.date}T00:00:00`);
+  return {
+    date: Number.isFinite(dateValue) ? dateValue : 0,
+    odometer: Number.isFinite(startOdometer) ? startOdometer : Number.POSITIVE_INFINITY,
+    startedAt: Number.isFinite(startedAt) ? startedAt : Number.POSITIVE_INFINITY,
+  };
+}
+
+function compareVehicleLogbookEntries(first: VehicleLogEntry, second: VehicleLogEntry) {
+  const firstSort = vehicleLogbookSortValue(first);
+  const secondSort = vehicleLogbookSortValue(second);
+  if (firstSort.date !== secondSort.date) return firstSort.date - secondSort.date;
+  if (firstSort.odometer !== secondSort.odometer) return firstSort.odometer - secondSort.odometer;
+  if (firstSort.startedAt !== secondSort.startedAt) return firstSort.startedAt - secondSort.startedAt;
+  return first.id.localeCompare(second.id);
+}
+
+function sortVehicleLogbook(logbook: VehicleLogEntry[] = []) {
+  return [...logbook].sort(compareVehicleLogbookEntries);
+}
+
+function shouldDeferAutomaticSync() {
+  if (typeof document === "undefined") return false;
+  const active = document.activeElement;
+  if (active instanceof HTMLElement) {
+    const tagName = active.tagName.toLowerCase();
+    if (active.isContentEditable || ["input", "select", "textarea"].includes(tagName)) return true;
+    if (active.closest("[role='dialog']")) return true;
+  }
+  return Boolean(document.querySelector("[role='dialog']"));
+}
+
 type ServiceItem = {
   id: string;
   accountingAccount?: string;
@@ -2799,7 +2839,7 @@ function mergeVehicleLogbook(primaryLogbook: VehicleLogEntry[] = [], secondaryLo
       odometerPhotos: mergeOdometerPhotos(entry.odometerPhotos, secondaryById.get(entry.id)?.odometerPhotos),
     }))
     .filter((entry) => !deletedIds.has(entry.id))
-    .sort((first, second) => first.date.localeCompare(second.date));
+    .sort(compareVehicleLogbookEntries);
 }
 
 function mergeResourcesById(primaryResources: ResourceRecord[] = [], secondaryResources: ResourceRecord[] = []) {
@@ -7826,6 +7866,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   const resourcePersistTimerRef = useRef<number | null>(null);
   const quickTripDraftSaveTimerRef = useRef<number | null>(null);
   const lastForegroundSyncAtRef = useRef(0);
+  const lastUserInteractionAtRef = useRef(0);
   const pendingReportPhotoUploadsRef = useRef<Set<string>>(new Set());
 
   const scheduleRemoteSave = useCallback((snapshot: AppSnapshot, delayMs = 2200) => {
@@ -7876,6 +7917,30 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     if (localSaveTimerRef.current) window.clearTimeout(localSaveTimerRef.current);
     if (resourcePersistTimerRef.current) window.clearTimeout(resourcePersistTimerRef.current);
     if (quickTripDraftSaveTimerRef.current) window.clearTimeout(quickTripDraftSaveTimerRef.current);
+  }, []);
+
+  function shouldDeferBackgroundUiWork() {
+    return shouldDeferAutomaticSync() || Date.now() - lastUserInteractionAtRef.current < 3500;
+  }
+
+  useEffect(() => {
+    function markUserInteraction() {
+      lastUserInteractionAtRef.current = Date.now();
+    }
+
+    window.addEventListener("beforeinput", markUserInteraction, { capture: true });
+    window.addEventListener("click", markUserInteraction, { capture: true });
+    window.addEventListener("keydown", markUserInteraction, { capture: true });
+    window.addEventListener("pointerdown", markUserInteraction, { capture: true });
+    window.addEventListener("touchstart", markUserInteraction, { capture: true, passive: true });
+
+    return () => {
+      window.removeEventListener("beforeinput", markUserInteraction, { capture: true });
+      window.removeEventListener("click", markUserInteraction, { capture: true });
+      window.removeEventListener("keydown", markUserInteraction, { capture: true });
+      window.removeEventListener("pointerdown", markUserInteraction, { capture: true });
+      window.removeEventListener("touchstart", markUserInteraction, { capture: true });
+    };
   }, []);
 
   useEffect(() => {
@@ -8250,17 +8315,18 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     const intervalId = supabaseSyncDisabled
       ? undefined
       : window.setInterval(() => {
+          if (shouldDeferBackgroundUiWork()) return;
           void syncRemoteSnapshot();
         }, intervalMs);
 
     function handleVisibilityChange() {
       if (document.visibilityState === "visible") {
         const now = Date.now();
-        if (!quickTripOpen && now - lastForegroundSyncAtRef.current > 20000) {
+        if (!quickTripOpen && !shouldDeferBackgroundUiWork() && now - lastForegroundSyncAtRef.current > 20000) {
           lastForegroundSyncAtRef.current = now;
           void syncRemoteSnapshot(true);
         }
-        void syncVehiclePositions();
+        if (!shouldDeferBackgroundUiWork()) void syncVehiclePositions();
       } else {
         if (pendingLocalSnapshotRef.current) {
           const queuedSnapshot = pendingLocalSnapshotRef.current;
@@ -8293,7 +8359,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     }
 
     function handleStorageChange(event: StorageEvent) {
-      if (quickTripOpen) return;
+      if (quickTripOpen || shouldDeferBackgroundUiWork()) return;
       if (Object.values(storageKeys).includes(event.key ?? "")) {
         void syncRemoteSnapshot(true);
       }
@@ -8301,17 +8367,17 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
 
     function handleOnline() {
       setSupabaseSyncDisabled(false);
-      if (!quickTripOpen) void syncRemoteSnapshot(true);
-      void syncVehiclePositions();
+      if (!quickTripOpen && !shouldDeferBackgroundUiWork()) void syncRemoteSnapshot(true);
+      if (!shouldDeferBackgroundUiWork()) void syncVehiclePositions();
     }
 
     function handleFocus() {
       const now = Date.now();
-      if (!quickTripOpen && now - lastForegroundSyncAtRef.current > 20000) {
+      if (!quickTripOpen && !shouldDeferBackgroundUiWork() && now - lastForegroundSyncAtRef.current > 20000) {
         lastForegroundSyncAtRef.current = now;
         void syncRemoteSnapshot(true);
       }
-      void syncVehiclePositions();
+      if (!shouldDeferBackgroundUiWork()) void syncVehiclePositions();
     }
 
     window.addEventListener("online", handleOnline);
@@ -8330,8 +8396,9 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
 
   useEffect(() => {
     if (!appStorageReady) return;
-    void syncVehiclePositions();
+    if (!shouldDeferBackgroundUiWork()) void syncVehiclePositions();
     const intervalId = window.setInterval(() => {
+      if (shouldDeferBackgroundUiWork()) return;
       void syncVehiclePositions();
     }, 15000);
     return () => window.clearInterval(intervalId);
@@ -10401,7 +10468,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     };
     const nextResources = resources.map((resource) => (
       resource.id === vehicle.id
-        ? { ...resource, logbook: [entry, ...resource.logbook].sort((first, second) => first.date.localeCompare(second.date)) }
+        ? { ...resource, logbook: sortVehicleLogbook([entry, ...resource.logbook]) }
         : resource
     ));
     setResources(nextResources);
@@ -10536,8 +10603,8 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
         ? {
             ...resource,
             logbook: quickTripForm.activeLogbookEntryId
-              ? resource.logbook.map((item) => (item.id === quickTripForm.activeLogbookEntryId ? entry : item)).sort((first, second) => first.date.localeCompare(second.date))
-              : [...resource.logbook, entry].sort((first, second) => first.date.localeCompare(second.date)),
+              ? sortVehicleLogbook(resource.logbook.map((item) => (item.id === quickTripForm.activeLogbookEntryId ? entry : item)))
+              : sortVehicleLogbook([...resource.logbook, entry]),
           }
         : resource
     ));
@@ -16868,7 +16935,7 @@ function MasterDataView({
   const activeResources = resources.filter((resource) => !resource.archived);
   const archivedResources = resources.filter((resource) => resource.archived);
   const selectedResource = resources.find((resource) => resource.id === editingResourceId);
-  const selectedResourceLogbook = selectedResource?.type === "Fahrzeug" ? selectedResource.logbook : [];
+  const selectedResourceLogbook = selectedResource?.type === "Fahrzeug" ? sortVehicleLogbook(selectedResource.logbook) : [];
   const resourceImages = resourceForm.mediaItems.filter((item) => item.type === "Bild");
   const selectedResourceImage = resourceImages[Math.min(resourceImageIndex, Math.max(0, resourceImages.length - 1))];
   const resourceStatusOptions = uniqueSortedValues(resources.map((resource) => resource.status), ["aktiv", "Wartung", "reserviert", "defekt"]);
@@ -17315,9 +17382,9 @@ function MasterDataView({
   }
 
   function latestSelectedLogbookEntry() {
-    return selectedResource?.logbook
+    return sortVehicleLogbook(selectedResource?.logbook ?? [])
       .filter((entry) => entry.endOdometer.trim())
-      .sort((first, second) => `${second.date}-${second.id}`.localeCompare(`${first.date}-${first.id}`))[0];
+      .at(-1);
   }
 
   function resetLogbookForm() {
@@ -17461,7 +17528,7 @@ function MasterDataView({
       return {
         ...resource,
         deletedLogbookEntryIds: (resource.deletedLogbookEntryIds ?? []).filter((id) => id !== logbookId),
-        logbook: nextLogbook.sort((first, second) => first.date.localeCompare(second.date)),
+        logbook: sortVehicleLogbook(nextLogbook),
       };
     });
     setResources(nextResources);

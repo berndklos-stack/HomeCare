@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.402.0",
+  version: "1.403.0",
   releaseDate: "2026-09-13",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.403.0",
+    date: "2026-09-13",
+    changes: [
+      "Fahrtenbuch sortiert Fahrten am gleichen Tag nach Start-KM und Startzeit statt nur nach Datum",
+      "Automatische Vollsyncs und Positionsupdates werden bei laufenden Klicks, Touchs und Formulareingaben kurz zurueckgestellt",
+    ],
+  },
   {
     version: "1.402.0",
     date: "2026-09-13",
