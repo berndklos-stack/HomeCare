@@ -2063,9 +2063,11 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Verantwortlich", sv: "Ansvarig", en: "Responsible" },
   { de: "Verkaufspreis netto", sv: "Försäljningspris netto", en: "Sales price net" },
   { de: "Wasser", sv: "Vatten", en: "Water" },
+  { de: "Weiter", sv: "Nästa", en: "Next" },
   { de: "Zeit im Bericht", sv: "Tid i rapport", en: "Time in report" },
   { de: "Zimmer", sv: "Rum", en: "Rooms" },
   { de: "Zugeordnete Objekte", sv: "Tilldelade objekt", en: "Assigned properties" },
+  { de: "Zurück", sv: "Tillbaka", en: "Back" },
   { de: "Zurück zur Objektübersicht", sv: "Tillbaka till objektöversikt", en: "Back to property overview" },
   { de: "Zweck", sv: "Syfte", en: "Purpose" },
   { de: "Zweck / besucht bei", sv: "Syfte / besökt hos", en: "Purpose / visited at" },
@@ -12241,6 +12243,24 @@ function AnalyticsView({
   const totalMinutes = filteredReports.reduce((sum, report) => sum + reportWorkMinutes(report), 0);
   const totalPhotos = filteredReports.reduce((sum, report) => sum + reportPhotoCount(report), 0);
   const completedJobs = jobs.filter((job) => ["erledigt", "abgerechnet"].includes(job.status) && periodMatchesDate(jobExecutionDate(job))).length;
+  const shiftSelectedMonth = (direction: -1 | 1) => {
+    const [year, month] = selectedMonth.split("-").map(Number);
+    const date = new Date(year, (month || 1) - 1 + direction, 1, 12);
+    setSelectedMonth(`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`);
+  };
+  const shiftSelectedWeek = (direction: -1 | 1) => {
+    const baseStart = weekRange?.start ?? now.toISOString().slice(0, 10);
+    const nextStart = addDaysValue(baseStart, direction * 7);
+    setSelectedWeek(`${isoWeekYear(nextStart)}-W${String(isoWeekNumber(nextStart)).padStart(2, "0")}`);
+  };
+  const shiftCustomRange = (direction: -1 | 1) => {
+    if (!customFrom || !customTo) return;
+    const start = parseJobDate(customFrom)?.getTime() ?? 0;
+    const end = parseJobDate(customTo)?.getTime() ?? start;
+    const days = Math.max(Math.round((end - start) / 86400000) + 1, 1);
+    setCustomFrom(addDaysValue(customFrom, direction * days));
+    setCustomTo(addDaysValue(customTo, direction * days));
+  };
 
   return (
     <div className="stack analytics-view">
@@ -12251,51 +12271,63 @@ function AnalyticsView({
             <h2>{tt("Zeiten und Kunden")}</h2>
           </div>
         </div>
-        <div className="analytics-period-controls" aria-label={tt("Zeitraum")}>
-          {[
-            { id: "month", label: tt("Monat") },
-            { id: "week", label: tt("Kalenderwoche") },
-            { id: "custom", label: tt("Freier Zeitraum") },
-            { id: "all", label: tt("Alle Zeiten") },
-          ].map((item) => (
-            <button
-              className={period === item.id ? "active" : ""}
-              key={item.id}
-              onClick={() => setPeriod(item.id as typeof period)}
-              type="button"
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
-        {period !== "all" && (
-          <div className="analytics-period-fields">
-            {period === "month" && (
-              <label>
-                <span>{tt("Monat")}</span>
-                <input type="month" value={selectedMonth} onChange={(event) => setSelectedMonth(event.target.value)} />
-              </label>
-            )}
-            {period === "week" && (
-              <label>
-                <span>{tt("Kalenderwoche")}</span>
-                <input type="week" value={selectedWeek} onChange={(event) => setSelectedWeek(event.target.value)} />
-              </label>
-            )}
-            {period === "custom" && (
-              <>
-                <label>
-                  <span>{tt("Von")}</span>
-                  <input type="date" value={customFrom} onChange={(event) => setCustomFrom(event.target.value)} />
-                </label>
-                <label>
-                  <span>{tt("Bis")}</span>
-                  <input type="date" value={customTo} onChange={(event) => setCustomTo(event.target.value)} />
-                </label>
-              </>
-            )}
+        <div className="analytics-filterbar">
+          <div className="analytics-period-controls" aria-label={tt("Zeitraum")}>
+            {[
+              { id: "month", label: tt("Monat") },
+              { id: "week", label: tt("Kalenderwoche") },
+              { id: "custom", label: tt("Freier Zeitraum") },
+              { id: "all", label: tt("Alle Zeiten") },
+            ].map((item) => (
+              <button
+                className={period === item.id ? "active" : ""}
+                key={item.id}
+                onClick={() => setPeriod(item.id as typeof period)}
+                type="button"
+              >
+                {item.label}
+              </button>
+            ))}
           </div>
-        )}
+          {period !== "all" && (
+            <div className="analytics-period-fields">
+              <IconAction label={tt("Zurück")} onClick={() => {
+                if (period === "month") shiftSelectedMonth(-1);
+                if (period === "week") shiftSelectedWeek(-1);
+                if (period === "custom") shiftCustomRange(-1);
+              }}><ArrowLeft size={16} /></IconAction>
+              {period === "month" && (
+                <label>
+                  <span>{tt("Monat")}</span>
+                  <input type="month" value={selectedMonth} onChange={(event) => setSelectedMonth(event.target.value)} />
+                </label>
+              )}
+              {period === "week" && (
+                <label>
+                  <span>{tt("Kalenderwoche")}</span>
+                  <input type="week" value={selectedWeek} onChange={(event) => setSelectedWeek(event.target.value)} />
+                </label>
+              )}
+              {period === "custom" && (
+                <>
+                  <label>
+                    <span>{tt("Von")}</span>
+                    <input type="date" value={customFrom} onChange={(event) => setCustomFrom(event.target.value)} />
+                  </label>
+                  <label>
+                    <span>{tt("Bis")}</span>
+                    <input type="date" value={customTo} onChange={(event) => setCustomTo(event.target.value)} />
+                  </label>
+                </>
+              )}
+              <IconAction label={tt("Weiter")} onClick={() => {
+                if (period === "month") shiftSelectedMonth(1);
+                if (period === "week") shiftSelectedWeek(1);
+                if (period === "custom") shiftCustomRange(1);
+              }}><ArrowRight size={16} /></IconAction>
+            </div>
+          )}
+        </div>
         <div className="analytics-summary-grid">
           <div><span>{tt("Dokumentierte Arbeitszeit")}</span><strong>{formatWorkHours(totalMinutes)}</strong></div>
           <div><span>{tt("Einsatzberichte")}</span><strong>{filteredReports.length}</strong></div>

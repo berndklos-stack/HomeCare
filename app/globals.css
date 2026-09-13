@@ -745,13 +745,21 @@ button {
   grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
+.analytics-filterbar {
+  align-items: end;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(420px, 1fr) auto;
+  margin: -4px 0 12px;
+}
+
 .analytics-period-controls {
   align-items: center;
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  justify-content: center;
-  margin: -2px 0 14px;
+  gap: 6px;
+  justify-content: flex-start;
+  margin: 0;
 }
 
 .analytics-period-controls button {
@@ -761,12 +769,13 @@ button {
   border-radius: 999px;
   color: var(--muted);
   display: inline-flex;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 800;
   justify-content: center;
-  min-height: 36px;
-  min-width: 128px;
-  padding: 8px 16px;
+  min-height: 34px;
+  min-width: 118px;
+  padding: 7px 14px;
+  text-align: center;
 }
 
 .analytics-period-controls button.active {
@@ -779,15 +788,15 @@ button {
   align-items: end;
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  justify-content: center;
-  margin: 0 0 14px;
+  gap: 8px;
+  justify-content: flex-end;
+  margin: 0;
 }
 
 .analytics-period-fields label {
   display: grid;
   gap: 5px;
-  min-width: 190px;
+  min-width: 164px;
 }
 
 .analytics-period-fields span {
@@ -802,13 +811,16 @@ button {
 }
 
 .analytics-summary-grid div {
+  align-content: center;
   background: var(--paper-soft);
   border: 1px solid var(--line);
   border-radius: 8px;
   display: grid;
-  gap: 5px;
-  min-height: 70px;
-  padding: 12px;
+  gap: 6px;
+  justify-items: center;
+  min-height: 62px;
+  padding: 10px 12px;
+  text-align: center;
 }
 
 .analytics-summary-grid span,
@@ -822,6 +834,7 @@ button {
 .analytics-summary-grid strong {
   font-size: 22px;
   line-height: 1;
+  text-align: center;
 }
 
 .analytics-split {
@@ -7190,6 +7203,14 @@ button.media-thumb {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
+  .analytics-filterbar {
+    grid-template-columns: 1fr;
+  }
+
+  .analytics-period-fields {
+    justify-content: flex-start;
+  }
+
   .analytics-split {
     grid-template-columns: 1fr;
   }
@@ -7366,6 +7387,7 @@ button.media-thumb {
   .quickbar,
   .billing-summary-grid,
   .analytics-summary-grid,
+  .analytics-filterbar,
   .workboard,
   .planning-grid,
   .service-catalog,
@@ -7467,6 +7489,20 @@ button.media-thumb {
 
   .quick-trip-modal .modal-actions .ghost-button,
   .quick-trip-modal .modal-actions .primary-button {
+    width: 100%;
+  }
+
+  .analytics-period-controls,
+  .analytics-period-fields {
+    align-items: stretch;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .analytics-period-controls button,
+  .analytics-period-fields label,
+  .analytics-period-fields .icon-button {
+    min-width: 0;
     width: 100%;
   }
 

@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.407.0",
+  version: "1.408.0",
   releaseDate: "2026-09-13",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.408.0",
+    date: "2026-09-13",
+    changes: [
+      "Auswertungsfilter stehen kompakt links mit Zeitraumfeldern rechts daneben",
+      "Monat, Kalenderwoche und freier Zeitraum koennen per Pfeil vor und zurueck geschaltet werden",
+      "Kennzahlenkarten in der Auswertung zeigen Ueberschrift und Wert zentriert",
+    ],
+  },
   {
     version: "1.407.0",
     date: "2026-09-13",
