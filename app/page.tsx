@@ -4712,7 +4712,7 @@ async function createReportPdfBlob(report: ReportRecord, object: ObjectRecord, j
   pdf.text(portalHintLines, margin + 4, y + 6);
   y += 11 + portalHintLines.length * 3.8;
 
-  drawSectionTitle(swedish ? "Kontroll på plats" : "Kontrolle vor Ort");
+  drawSectionTitle(swedish ? "Arbete på plats" : "Arbeiten vor Ort");
 
   for (const [index, item] of report.checklistResults.entries()) {
     const noteLines = pdf.splitTextToSize(item.note || "Keine zusätzliche Info erfasst.", contentWidth - 8) as string[];
@@ -12259,7 +12259,7 @@ function CustomerReportCard({
       </div>
       {report.checklistResults.length > 0 ? (
         <div className="report-checklist">
-          <strong>Kontrolle vor Ort</strong>
+          <strong>Arbeiten vor Ort</strong>
           <div className="report-task-list">
             {report.checklistResults.map((item) => {
               const visibleItemPhotos = item.photos.filter(fieldPhotoHasSource);
@@ -12302,7 +12302,7 @@ function CustomerReportCard({
         </div>
       ) : job && job.checklist.length > 0 ? (
         <div className="report-checklist">
-          <strong>Kontrolle vor Ort</strong>
+          <strong>Arbeiten vor Ort</strong>
           <div className="report-task-list">
             {job.checklist.map((item) => (
               <article key={item}>
