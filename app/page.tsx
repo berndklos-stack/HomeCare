@@ -5431,7 +5431,7 @@ async function sendCustomerReportMail(report: ReportRecord, object: ObjectRecord
 
   if (!response.ok || !payload.sent) {
     if (response.status === 413) {
-      throw new Error("Mailanhang ist zu gross. Berichtsfotos werden ab Version 1.364.0 automatisch kleiner ins PDF eingebettet.");
+      throw new Error("Mailanhang ist zu gross. Berichtsfotos werden ab Version 1.394.0 nur noch als kleine Vorschau ins PDF eingebettet.");
     }
     throw new Error(`Mailserver hat den Versand abgelehnt: ${payload.error || response.statusText || response.status}`);
   }
@@ -5777,12 +5777,11 @@ async function loadImageFromFile(file: File) {
   return dataUrl ? await loadImage(dataUrl) : null;
 }
 
-async function normalizeImageDataUrlForPdf(source: string) {
+async function normalizeImageDataUrlForPdf(source: string, maxPdfImageSize = 640, quality = 0.58) {
   const imageDataUrl = await mediaSourceToDataUrl(source);
   const image = imageDataUrl ? await loadImage(imageDataUrl) : null;
   if (!image) throw new Error("Bilddatei konnte nicht gelesen werden.");
 
-  const maxPdfImageSize = 1400;
   const sourceWidth = Math.max(1, image.naturalWidth || image.width || 1);
   const sourceHeight = Math.max(1, image.naturalHeight || image.height || 1);
   const scale = Math.min(1, maxPdfImageSize / Math.max(sourceWidth, sourceHeight));
@@ -5796,7 +5795,7 @@ async function normalizeImageDataUrlForPdf(source: string) {
   context.fillStyle = "#ffffff";
   context.fillRect(0, 0, targetWidth, targetHeight);
   context.drawImage(image, 0, 0, targetWidth, targetHeight);
-  return { dataUrl: canvas.toDataURL("image/jpeg", 0.72), format: "JPEG" as const, image };
+  return { dataUrl: canvas.toDataURL("image/jpeg", quality), format: "JPEG" as const, image };
 }
 
 async function fileToImagePreview(file: File, maxSize = 1280, quality = 0.72) {
