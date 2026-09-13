@@ -311,7 +311,8 @@ export async function POST(request: Request) {
     const body = await request.json().catch(() => ({}));
     const query = String(body?.q ?? "gunnabo");
     const date = String(body?.date ?? "2026-09-08");
-    const { backupReports, indexedSources, inspected, looseSources, sources, supabase } = await backupPhotoSources(query, date);
+    const supabase = getSupabaseServerClient();
+    if (!supabase) throw new Error("Supabase-Zugangsdaten fehlen.");
     const { data: currentRow, error } = await supabase
       .from("app_state")
       .select("data")
@@ -323,6 +324,25 @@ export async function POST(request: Request) {
 
     const current = currentRow.data as JsonObject;
     const reports = Array.isArray(current.reports) ? current.reports : [];
+    const matchingReports = reports
+      .filter((report): report is JsonObject => Boolean(report && typeof report === "object" && reportMatches(report as JsonObject, query, date)));
+    const currentProgressSourceCount = matchingReports.reduce(
+      (sum, report) => sum + progressPhotosForReport(current, report).filter(({ photo }) => photoHasSource(photo)).length,
+      0,
+    );
+    let backupReports = new Map<string, JsonObject>();
+    let indexedSources = new Map<string, JsonObject>();
+    let looseSources = new Map<string, JsonObject>();
+    let sources = new Map<string, JsonObject>();
+    let inspected: Array<{ backupId: string; sourcedPhotos: number }> = [];
+    if (currentProgressSourceCount === 0) {
+      const backupResult = await backupPhotoSources(query, date);
+      backupReports = backupResult.backupReports;
+      indexedSources = backupResult.indexedSources;
+      inspected = backupResult.inspected;
+      looseSources = backupResult.looseSources;
+      sources = backupResult.sources;
+    }
     let recovered = 0;
     let inserted = 0;
     const updatedReports = reports.map((report) => {
@@ -418,7 +438,7 @@ export async function POST(request: Request) {
       if (reportSaveError) throw new Error(reportSaveError.message);
     }
 
-    return NextResponse.json({ inspected, recovered, inserted, restored: recovered + inserted });
+    return NextResponse.json({ currentProgressSourceCount, inspected, recovered, inserted, restored: recovered + inserted });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Fotos konnten nicht wiederhergestellt werden." }, { status: 500 });
   }
