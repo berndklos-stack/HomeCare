@@ -3770,6 +3770,10 @@ function portalPasswordFromAddress(address: string) {
   return `${postalCode}${houseNumber}` || "";
 }
 
+function customerPortalUrl() {
+  return "https://homecare-kolaretorp.vercel.app/portal";
+}
+
 function portalInviteSubject(customer: CustomerFormState) {
   const prefix = isSwedishCustomerLanguage(customer.language) ? "Inbjudan kundportal" : "Einladung Kundenportal";
   return `${prefix} - Kolaretorp Service AB${customer.name.trim() ? ` - ${customer.name.trim()}` : ""}`;
@@ -3808,7 +3812,7 @@ function portalInviteBody(customer: CustomerFormState) {
       "I portalen kan du se dina objekt, uppdrag, rapporter och meddelanden.",
       "",
       "Inloggningsuppgifter:",
-      `Portal: https://homecare-kolaretorp.vercel.app/portal`,
+      `Portal: ${customerPortalUrl()}`,
       `Inloggningsmejl: ${customer.portalLoginEmail.trim() || customer.email.trim() || "-"}`,
       `Lösenord: ${customer.portalPassword.trim() || "-"}`,
       "",
@@ -3827,7 +3831,7 @@ function portalInviteBody(customer: CustomerFormState) {
     "Im Portal kannst du deine Objekte, Aufträge, Berichte und Nachrichten einsehen.",
     "",
     "Zugangsdaten:",
-    `Portal: https://homecare-kolaretorp.vercel.app/portal`,
+    `Portal: ${customerPortalUrl()}`,
     `Login-E-Mail: ${customer.portalLoginEmail.trim() || customer.email.trim() || "-"}`,
     `Passwort: ${customer.portalPassword.trim() || "-"}`,
     "",
@@ -4076,18 +4080,29 @@ function fillCustomerMailTemplate(template: string, customer: CustomerRecord | u
   return template.replaceAll("{Vorname}", firstName).replaceAll("{Förnamn}", firstName);
 }
 
+function appendCustomerPortalReportHint(body: string, customer: CustomerRecord | undefined) {
+  const portalUrl = customerPortalUrl();
+  if (body.includes(portalUrl)) return body;
+  const swedish = isSwedishCustomerLanguage(customer?.language);
+  const hint = swedish
+    ? `Bilderna i PDF-rapporten är små förhandsvisningar. Du kan se och ladda ner bilderna i full kvalitet i kundportalen:\n${portalUrl}`
+    : `Die Bilder im PDF-Bericht sind kleine Vorschauen. Du kannst die Bilder in voller Qualität im Kundenportal ansehen und herunterladen:\n${portalUrl}`;
+  return `${body.trim()}\n\n${hint}`;
+}
+
 function customerReportSendBody(customer: CustomerRecord | undefined, report?: ReportRecord) {
   const customBody = report?.id.startsWith("WEEK-")
     ? customer?.weeklyReportMailBody?.trim()
     : customer?.reportMailBody?.trim();
-  if (customBody) return fillCustomerMailTemplate(customBody, customer);
+  if (customBody) return appendCustomerPortalReportHint(fillCustomerMailTemplate(customBody, customer), customer);
   const firstName = firstNameFromName(customer?.contact || customer?.name || "");
   if (isSwedishCustomerLanguage(customer?.language)) {
-    return report?.id.startsWith("WEEK-")
+    const body = report?.id.startsWith("WEEK-")
       ? `Hej ${firstName},\n\nbifogat hittar du veckorapporten från de senaste uppdragen.\nTack för ditt förtroende.\n\nMed vänliga hälsningar\nKolaretorp Service AB`
       : `Hej ${firstName},\n\nbifogat hittar du rapporten från det senaste uppdraget.\nTack för ditt förtroende.\n\nMed vänliga hälsningar\nKolaretorp Service AB`;
+    return appendCustomerPortalReportHint(body, customer);
   }
-  return fillCustomerMailTemplate(report?.id.startsWith("WEEK-") ? defaultWeeklyReportMailBody : defaultReportMailBody, customer);
+  return appendCustomerPortalReportHint(fillCustomerMailTemplate(report?.id.startsWith("WEEK-") ? defaultWeeklyReportMailBody : defaultReportMailBody, customer), customer);
 }
 
 function customerReportSendSubject(report: ReportRecord, object: ObjectRecord, customer?: CustomerRecord) {
@@ -4684,6 +4699,18 @@ async function createReportPdfBlob(report: ReportRecord, object: ObjectRecord, j
     pdf.text(summaryLines[index], x + 4, y + 11);
   });
   y += summaryHeight + 8;
+
+  const portalHint = swedish
+    ? `Bilderna i denna PDF är små förhandsvisningar. Bilder i full kvalitet finns i kundportalen: ${customerPortalUrl()}`
+    : `Die Bilder in diesem PDF sind kleine Vorschauen. Bilder in voller Qualität stehen im Kundenportal bereit: ${customerPortalUrl()}`;
+  const portalHintLines = pdf.splitTextToSize(portalHint, contentWidth - 8) as string[];
+  ensureSpace(9 + portalHintLines.length * 3.8);
+  drawCard(margin, y, contentWidth, 9 + portalHintLines.length * 3.8, [248, 251, 255]);
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(7.4);
+  pdf.setTextColor(33, 111, 148);
+  pdf.text(portalHintLines, margin + 4, y + 6);
+  y += 11 + portalHintLines.length * 3.8;
 
   drawSectionTitle(swedish ? "Kontroll på plats" : "Kontrolle vor Ort");
 
