@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.409.0",
+  version: "1.410.0",
   releaseDate: "2026-09-13",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.410.0",
+    date: "2026-09-13",
+    changes: [
+      "Kunden-, Objekt- und Mitarbeiterzeilen in der Auswertung oeffnen einen Detailrapport",
+      "Der Auswertungsrapport zeigt je Einsatz Arbeitszeit, Objekt, Bearbeiter, Beschreibung und Notiz",
+    ],
+  },
   {
     version: "1.409.0",
     date: "2026-09-13",

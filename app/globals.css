@@ -892,6 +892,102 @@ button {
   grid-template-columns: minmax(180px, 1fr) minmax(110px, 0.45fr) minmax(90px, 0.35fr);
 }
 
+.analytics-table .clickable-report-row {
+  cursor: pointer;
+}
+
+.analytics-table .clickable-report-row:hover,
+.analytics-table .clickable-report-row:focus-visible {
+  background: color-mix(in srgb, var(--brand), var(--paper) 94%);
+  outline: 0;
+}
+
+.analytics-report-modal {
+  max-width: 980px;
+}
+
+.analytics-report-summary {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 12px;
+}
+
+.analytics-report-summary div {
+  align-content: center;
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+  min-height: 58px;
+  padding: 9px 10px;
+  text-align: center;
+}
+
+.analytics-report-summary span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.analytics-report-list {
+  display: grid;
+  gap: 10px;
+}
+
+.analytics-report-list > article {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.analytics-report-list > article > header {
+  align-items: start;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.analytics-report-list > article > header div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.analytics-report-list > article > header span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.analytics-work-list {
+  display: grid;
+  gap: 6px;
+}
+
+.analytics-work-list > div {
+  background: var(--paper-soft);
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 82px minmax(0, 1fr);
+  padding: 9px 10px;
+}
+
+.analytics-work-list > div > span {
+  color: var(--accent);
+  font-weight: 850;
+}
+
+.analytics-work-list p {
+  color: var(--muted);
+  margin: 2px 0 0;
+}
+
 .billing-row {
   align-items: start;
   gap: 18px;
@@ -7226,6 +7322,10 @@ button.media-thumb {
     justify-content: flex-start;
   }
 
+  .analytics-report-summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .analytics-split {
     grid-template-columns: 1fr;
   }
@@ -7519,6 +7619,12 @@ button.media-thumb {
   .analytics-period-fields .icon-button {
     min-width: 0;
     width: 100%;
+  }
+
+  .analytics-report-summary,
+  .analytics-report-list > article > header,
+  .analytics-work-list > div {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .billing-meta-grid,

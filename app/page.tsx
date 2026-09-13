@@ -1636,12 +1636,14 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Auftrag in Abrechnung übernehmen", sv: "Överför uppdrag till fakturering", en: "Move job to billing" },
   { de: "Auftrag auswählen", sv: "Välj uppdrag", en: "Select job" },
   { de: "Auftrag schließen", sv: "Stäng uppdrag", en: "Close job" },
+  { de: "Arbeitszeit", sv: "Arbetstid", en: "Work time" },
   { de: "Auftragsabwicklung", sv: "Uppdragshantering", en: "Job processing" },
   { de: "Auftragsart", sv: "Uppdragstyp", en: "Job mode" },
   { de: "Auftragsbestätigung", sv: "Orderbekräftelse", en: "Order confirmation" },
   { de: "Auftragsübersicht", sv: "Uppdragsöversikt", en: "Job overview" },
   { de: "Ausführung", sv: "Utförande", en: "Execution" },
   { de: "Auswertung", sv: "Analys", en: "Analytics" },
+  { de: "Auswertungsbericht", sv: "Analysrapport", en: "Analytics report" },
   { de: "Aus Leistung übernehmen", sv: "Hämta från tjänst", en: "Copy from service" },
   { de: "Auswahl übernehmen", sv: "Använd urval", en: "Apply selection" },
   { de: "Backups", sv: "Säkerhetskopior", en: "Backups" },
@@ -2052,6 +2054,7 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Noch keine Mitarbeiterzeiten vorhanden.", sv: "Inga medarbetartider finns ännu.", en: "No employee times yet." },
   { de: "Noch keine Objektzeiten vorhanden.", sv: "Inga objekttider finns ännu.", en: "No property times yet." },
   { de: "Noch keine Zeiten vorhanden.", sv: "Inga tider finns ännu.", en: "No times yet." },
+  { de: "Keine Arbeitsdetails vorhanden.", sv: "Inga arbetsdetaljer finns.", en: "No work details available." },
   { de: "Zeit je Kunde", sv: "Tid per kund", en: "Time by customer" },
   { de: "Zeit je Mitarbeiter", sv: "Tid per medarbetare", en: "Time by employee" },
   { de: "Zeit je Objekt", sv: "Tid per objekt", en: "Time by property" },
@@ -12155,6 +12158,7 @@ function AnalyticsView({
   reports: ReportRecord[];
 }) {
   const tt = (value: string) => uiText(value, language);
+  const [detailReport, setDetailReport] = useState<{ id: string; title: string; type: "customer" | "object" | "personnel" } | null>(null);
   const normalizedReports = dedupeReports(reports);
   const now = new Date();
   const currentYear = String(now.getFullYear());
@@ -12243,6 +12247,16 @@ function AnalyticsView({
   const totalMinutes = filteredReports.reduce((sum, report) => sum + reportWorkMinutes(report), 0);
   const totalPhotos = filteredReports.reduce((sum, report) => sum + reportPhotoCount(report), 0);
   const completedJobs = jobs.filter((job) => ["erledigt", "abgerechnet"].includes(job.status) && periodMatchesDate(jobExecutionDate(job))).length;
+  const detailReports = detailReport
+    ? filteredReports.filter((report) => {
+      const job = jobs.find((item) => item.id === report.jobId);
+      const object = objects.find((item) => item.id === report.objectId);
+      if (detailReport.type === "object") return report.objectId === detailReport.id;
+      if (detailReport.type === "personnel") return normalizedAssigneeName(job?.assignedTo) === detailReport.id;
+      return object?.ownerCustomerId === detailReport.id || job?.customerId === detailReport.id;
+    }).sort((first, second) => normalizeReportDate(first.date).localeCompare(normalizeReportDate(second.date)))
+    : [];
+  const detailMinutes = detailReports.reduce((sum, report) => sum + reportWorkMinutes(report), 0);
   const shiftSelectedMonth = (direction: -1 | 1) => {
     const [year, month] = selectedMonth.split("-").map(Number);
     const date = new Date(year, (month || 1) - 1 + direction, 1, 12);
@@ -12353,7 +12367,19 @@ function AnalyticsView({
             <span>{tt("Letzter Bericht")}</span>
           </div>
           {customerRows.map((row) => (
-            <article key={row.customer.id}>
+            <article
+              className="clickable-report-row"
+              key={row.customer.id}
+              onClick={() => setDetailReport({ id: row.customer.id, title: row.customer.name, type: "customer" })}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  setDetailReport({ id: row.customer.id, title: row.customer.name, type: "customer" });
+                }
+              }}
+              role="button"
+              tabIndex={0}
+            >
               <strong>{row.customer.name}</strong>
               <span>{formatWorkHours(row.minutes)}</span>
               <span>{row.reportCount}</span>
@@ -12380,7 +12406,19 @@ function AnalyticsView({
               <span>{tt("Berichte")}</span>
             </div>
             {objectRows.map((row) => (
-              <article key={row.object.id}>
+              <article
+                className="clickable-report-row"
+                key={row.object.id}
+                onClick={() => setDetailReport({ id: row.object.id, title: row.object.name, type: "object" })}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    setDetailReport({ id: row.object.id, title: row.object.name, type: "object" });
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+              >
                 <strong>{row.object.name}</strong>
                 <span>{formatWorkHours(row.minutes)}</span>
                 <span>{row.reportCount}</span>
@@ -12403,7 +12441,19 @@ function AnalyticsView({
               <span>{tt("Berichte")}</span>
             </div>
             {personnelRows.map((row) => (
-              <article key={row.name}>
+              <article
+                className="clickable-report-row"
+                key={row.name}
+                onClick={() => setDetailReport({ id: row.name, title: row.name, type: "personnel" })}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    setDetailReport({ id: row.name, title: row.name, type: "personnel" });
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+              >
                 <strong>{row.name}</strong>
                 <span>{formatWorkHours(row.minutes)}</span>
                 <span>{row.reportCount}</span>
@@ -12413,6 +12463,57 @@ function AnalyticsView({
           </div>
         </div>
       </section>
+      {detailReport && (
+        <div className="modal-backdrop">
+          <section className="modal analytics-report-modal" role="dialog" aria-modal="true" aria-labelledby="analytics-report-title">
+            <header>
+              <div>
+                <p>{tt("Auswertungsbericht")}</p>
+                <h2 id="analytics-report-title">{detailReport.title}</h2>
+              </div>
+              <button aria-label={tt("Schließen")} onClick={() => setDetailReport(null)} type="button">
+                <X size={18} />
+              </button>
+            </header>
+            <div className="analytics-report-summary">
+              <div><span>{tt("Zeitraum")}</span><strong>{period === "all" ? tt("Alle Zeiten") : period === "month" ? selectedMonth : period === "week" ? selectedWeek : `${customFrom || "-"} bis ${customTo || "-"}`}</strong></div>
+              <div><span>{tt("Arbeitszeit")}</span><strong>{formatWorkHours(detailMinutes)}</strong></div>
+              <div><span>{tt("Berichte")}</span><strong>{detailReports.length}</strong></div>
+            </div>
+            <div className="analytics-report-list">
+              {detailReports.map((report) => {
+                const job = jobs.find((item) => item.id === report.jobId);
+                const object = objects.find((item) => item.id === report.objectId);
+                const tasks = report.checklistResults.filter((item) => item.completed || item.minutes > 0 || item.note.trim());
+                return (
+                  <article key={report.id}>
+                    <header>
+                      <div>
+                        <strong>{report.date} · {report.title}</strong>
+                        <span>{object?.name ?? tt("Objekt unbekannt")} · {normalizedAssigneeName(job?.assignedTo)}</span>
+                      </div>
+                      <b>{formatWorkHours(reportWorkMinutes(report))}</b>
+                    </header>
+                    <div className="analytics-work-list">
+                      {tasks.map((item) => (
+                        <div key={item.id}>
+                          <span>{formatWorkHours(item.minutes)}</span>
+                          <div>
+                            <strong>{item.title}</strong>
+                            <p>{item.note.trim() || item.description || tt("Keine zusätzliche Info erfasst.")}</p>
+                          </div>
+                        </div>
+                      ))}
+                      {tasks.length === 0 && <p className="empty-list-note">{tt("Keine Arbeitsdetails vorhanden.")}</p>}
+                    </div>
+                  </article>
+                );
+              })}
+              {detailReports.length === 0 && <p className="empty-list-note">{tt("Noch keine Zeiten vorhanden.")}</p>}
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   );
 }
