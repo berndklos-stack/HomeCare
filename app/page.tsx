@@ -9,6 +9,7 @@ import {
   ArrowRight,
   ArrowUp,
   Archive,
+  BarChart3,
   CalendarDays,
   CarFront,
   Check,
@@ -63,6 +64,7 @@ type Section =
   | "reports"
   | "communication"
   | "billing"
+  | "analytics"
   | "inventory"
   | "portal"
   | "masterData";
@@ -598,7 +600,13 @@ type ResourceRecord = {
 type DailyMailSettings = {
   birthdaySources: string;
   calendarSources: string;
+  ccRecipients: string;
+  enabled: boolean;
+  frequency: "daily" | "weekdays" | "weekly" | "custom";
   reminderSources: string;
+  sendTime: string;
+  toRecipients: string;
+  weekdays: string[];
 };
 
 type CompanySettings = {
@@ -941,6 +949,7 @@ const labels = {
 const navLabels: Record<Language, Record<Section, string>> = {
   de: {
     billing: "Abrechnung",
+    analytics: "Auswertung",
     communication: "Kommunikation",
     customers: "Kunden",
     dashboard: "Dashboard",
@@ -956,6 +965,7 @@ const navLabels: Record<Language, Record<Section, string>> = {
   },
   sv: {
     billing: "Fakturering",
+    analytics: "Analys",
     communication: "Kommunikation",
     customers: "Kunder",
     dashboard: "Dashboard",
@@ -971,6 +981,7 @@ const navLabels: Record<Language, Record<Section, string>> = {
   },
   en: {
     billing: "Billing",
+    analytics: "Analytics",
     communication: "Communication",
     customers: "Customers",
     dashboard: "Dashboard",
@@ -996,6 +1007,7 @@ const navItems: Array<{ id: Section; icon: typeof Home }> = [
   { id: "tracking", icon: MapPin },
   { id: "communication", icon: Mail },
   { id: "billing", icon: Euro },
+  { id: "analytics", icon: BarChart3 },
   { id: "inventory", icon: ClipboardList },
   { id: "portal", icon: KeyRound },
   { id: "masterData", icon: KeyRound },
@@ -1629,6 +1641,7 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Auftragsbestätigung", sv: "Orderbekräftelse", en: "Order confirmation" },
   { de: "Auftragsübersicht", sv: "Uppdragsöversikt", en: "Job overview" },
   { de: "Ausführung", sv: "Utförande", en: "Execution" },
+  { de: "Auswertung", sv: "Analys", en: "Analytics" },
   { de: "Aus Leistung übernehmen", sv: "Hämta från tjänst", en: "Copy from service" },
   { de: "Auswahl übernehmen", sv: "Använd urval", en: "Apply selection" },
   { de: "Backups", sv: "Säkerhetskopior", en: "Backups" },
@@ -1636,6 +1649,8 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Bearbeiten", sv: "Redigera", en: "Edit" },
   { de: "Beibehalten", sv: "Behåll", en: "Keep" },
   { de: "Bericht", sv: "Rapport", en: "Report" },
+  { de: "Berichte", sv: "Rapporter", en: "Reports" },
+  { de: "Berichtsfotos", sv: "Rapportbilder", en: "Report photos" },
   { de: "Bericht noch nicht gefunden", sv: "Rapporten hittades inte ännu", en: "Report not found yet" },
   { de: "Bericht entsperren", sv: "Lås upp rapport", en: "Unlock report" },
   { de: "Bericht senden", sv: "Skicka rapport", en: "Send report" },
@@ -2012,6 +2027,34 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Standardzeit min.", sv: "Standardtid min.", en: "Default time min." },
   { de: "Straße", sv: "Gata", en: "Street" },
   { de: "Tagesmail", sv: "Dagsmejl", en: "Daily mail" },
+  { de: "Tagesmail automatisch versenden", sv: "Skicka dagsmejl automatiskt", en: "Send daily mail automatically" },
+  { de: "Versandzeit", sv: "Utskickstid", en: "Send time" },
+  { de: "Häufigkeit", sv: "Frekvens", en: "Frequency" },
+  { de: "Täglich", sv: "Dagligen", en: "Daily" },
+  { de: "Werktags", sv: "Vardagar", en: "Weekdays" },
+  { de: "Wöchentlich montags", sv: "Varje måndag", en: "Weekly on Mondays" },
+  { de: "Benutzerdefiniert", sv: "Anpassat", en: "Custom" },
+  { de: "Empfänger", sv: "Mottagare", en: "Recipients" },
+  { de: "Kopie an", sv: "Kopia till", en: "Cc" },
+  { de: "Tagesmail-Einstellungen speichern", sv: "Spara dagsmejlsinställningar", en: "Save daily mail settings" },
+  { de: "Abgeschlossene Aufträge", sv: "Avslutade uppdrag", en: "Completed jobs" },
+  { de: "Alle Zeiten", sv: "Alla tider", en: "All time" },
+  { de: "Dieser Monat", sv: "Denna månad", en: "This month" },
+  { de: "Dieses Jahr", sv: "I år", en: "This year" },
+  { de: "Dokumentierte Arbeitszeit", sv: "Dokumenterad arbetstid", en: "Documented work time" },
+  { de: "Einsatzberichte", sv: "Arbetsrapporter", en: "Work reports" },
+  { de: "Kunden mit Zeiten", sv: "Kunder med tid", en: "Customers with time" },
+  { de: "Letzte 30 Tage", sv: "Senaste 30 dagarna", en: "Last 30 days" },
+  { de: "Letzter Bericht", sv: "Senaste rapport", en: "Latest report" },
+  { de: "Mitarbeiter", sv: "Medarbetare", en: "Employee" },
+  { de: "Noch keine Mitarbeiterzeiten vorhanden.", sv: "Inga medarbetartider finns ännu.", en: "No employee times yet." },
+  { de: "Noch keine Objektzeiten vorhanden.", sv: "Inga objekttider finns ännu.", en: "No property times yet." },
+  { de: "Noch keine Zeiten vorhanden.", sv: "Inga tider finns ännu.", en: "No times yet." },
+  { de: "Zeit je Kunde", sv: "Tid per kund", en: "Time by customer" },
+  { de: "Zeit je Mitarbeiter", sv: "Tid per medarbetare", en: "Time by employee" },
+  { de: "Zeit je Objekt", sv: "Tid per objekt", en: "Time by property" },
+  { de: "Zeiten und Kunden", sv: "Tider och kunder", en: "Time and customers" },
+  { de: "Zeitraum", sv: "Period", en: "Period" },
   { de: "Telefon Eigentümer", sv: "Ägarens telefon", en: "Owner phone" },
   { de: "Termine / Wartung", sv: "Tider / underhåll", en: "Appointments / maintenance" },
   { de: "Typ", sv: "Typ", en: "Type" },
@@ -2994,6 +3037,20 @@ function visibleReportWorkMinutes(checklistResults: FieldTaskResult[]) {
   return checklistResults
     .filter((item) => item.showWorkTimeInReport !== false)
     .reduce((sum, item) => sum + item.minutes, 0);
+}
+
+function reportWorkMinutes(report: ReportRecord) {
+  return report.checklistResults.reduce((sum, item) => sum + (item.minutes || 0), 0);
+}
+
+function formatWorkHours(totalMinutes: number) {
+  const hours = totalMinutes / 60;
+  if (!Number.isFinite(hours) || hours <= 0) return "0 Std.";
+  const rounded = Math.round(hours * 10) / 10;
+  const formatted = Number.isInteger(rounded)
+    ? String(rounded)
+    : rounded.toLocaleString("de-DE", { maximumFractionDigits: 1 });
+  return `${formatted} Std.`;
 }
 
 function reportMediaLabels(photoCount: number, visibleMinutes: number, extraLabels: string[] = []) {
@@ -6846,14 +6903,29 @@ const seedResources: ResourceRecord[] = [
 const seedDailyMailSettings: DailyMailSettings = {
   birthdaySources: "",
   calendarSources: "",
+  ccRecipients: "Nicole.Klos@icloud.com",
+  enabled: true,
+  frequency: "daily",
   reminderSources: "",
+  sendTime: "06:00",
+  toRecipients: "info@kolaretorp.se",
+  weekdays: ["1", "2", "3", "4", "5"],
 };
 
 function normalizeDailyMailSettings(settings?: Partial<DailyMailSettings>): DailyMailSettings {
+  const frequency = ["daily", "weekdays", "weekly", "custom"].includes(settings?.frequency ?? "")
+    ? settings?.frequency as DailyMailSettings["frequency"]
+    : "daily";
   return {
     birthdaySources: settings?.birthdaySources ?? "",
     calendarSources: settings?.calendarSources ?? "",
+    ccRecipients: settings?.ccRecipients ?? "Nicole.Klos@icloud.com",
+    enabled: settings?.enabled ?? true,
+    frequency,
     reminderSources: settings?.reminderSources ?? "",
+    sendTime: settings?.sendTime ?? "06:00",
+    toRecipients: settings?.toRecipients ?? "info@kolaretorp.se",
+    weekdays: Array.isArray(settings?.weekdays) && settings.weekdays.length > 0 ? settings.weekdays : ["1", "2", "3", "4", "5"],
   };
 }
 
@@ -11112,6 +11184,15 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                 services={services}
               />
             )}
+            {section === "analytics" && (
+              <AnalyticsView
+                customers={customers}
+                jobs={jobs}
+                language={language}
+                objects={objects}
+                reports={reports}
+              />
+            )}
             {section === "inventory" && (
               <InventoryView
                 customers={activeCustomers}
@@ -12026,6 +12107,196 @@ function Dashboard({
             </article>
           ))}
           {openDashboardJobs.length === 0 && <span className="muted-line">{tt("Keine offenen Einsätze.")}</span>}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function AnalyticsView({
+  customers,
+  jobs,
+  language,
+  objects,
+  reports,
+}: {
+  customers: CustomerRecord[];
+  jobs: JobRecord[];
+  language: Language;
+  objects: ObjectRecord[];
+  reports: ReportRecord[];
+}) {
+  const tt = (value: string) => uiText(value, language);
+  const [period, setPeriod] = useState("year");
+  const normalizedReports = dedupeReports(reports);
+  const now = new Date();
+  const currentYear = String(now.getFullYear());
+  const currentMonth = `${currentYear}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const startLast30 = new Date(now);
+  startLast30.setDate(now.getDate() - 30);
+  const startLast30Key = startLast30.toISOString().slice(0, 10);
+  const filteredReports = normalizedReports.filter((report) => {
+    const date = normalizeReportDate(report.date);
+    if (period === "month") return date.startsWith(currentMonth);
+    if (period === "last30") return date >= startLast30Key;
+    if (period === "year") return date.startsWith(currentYear);
+    return true;
+  });
+  const customerRows = customers
+    .filter((customer) => !customer.archived)
+    .map((customer) => {
+      const customerObjects = objects.filter((object) => object.ownerCustomerId === customer.id || object.owner === customer.name);
+      const objectIds = new Set(customerObjects.map((object) => object.id));
+      const customerJobs = jobs.filter((job) => job.customerId === customer.id || objectIds.has(job.objectId));
+      const customerReports = filteredReports.filter((report) => objectIds.has(report.objectId) || customerJobs.some((job) => job.id === report.jobId));
+      const minutes = customerReports.reduce((sum, report) => sum + reportWorkMinutes(report), 0);
+      const lastReport = customerReports
+        .map((report) => normalizeReportDate(report.date))
+        .sort((first, second) => second.localeCompare(first))[0] ?? "-";
+
+      return {
+        customer,
+        jobCount: customerJobs.filter((job) => job.status !== "storniert").length,
+        lastReport,
+        minutes,
+        objectCount: customerObjects.length,
+        reportCount: customerReports.length,
+      };
+    })
+    .filter((row) => row.minutes > 0 || row.reportCount > 0 || row.jobCount > 0)
+    .sort((first, second) => second.minutes - first.minutes || first.customer.name.localeCompare(second.customer.name, "de"));
+  const objectRows = objects
+    .filter((object) => !object.archived)
+    .map((object) => {
+      const objectReports = filteredReports.filter((report) => report.objectId === object.id);
+      const objectJobs = jobs.filter((job) => job.objectId === object.id && job.status !== "storniert");
+      const minutes = objectReports.reduce((sum, report) => sum + reportWorkMinutes(report), 0);
+      return {
+        object,
+        jobCount: objectJobs.length,
+        minutes,
+        reportCount: objectReports.length,
+      };
+    })
+    .filter((row) => row.minutes > 0 || row.reportCount > 0 || row.jobCount > 0)
+    .sort((first, second) => second.minutes - first.minutes || first.object.name.localeCompare(second.object.name, "de"));
+  const personnelRows = Array.from(filteredReports.reduce((map, report) => {
+    const job = jobs.find((item) => item.id === report.jobId);
+    const assignee = job?.assignedTo?.trim() && !isUnassignedJobAssignee(job.assignedTo) ? job.assignedTo.trim() : tt("nicht zugewiesen");
+    const current = map.get(assignee) ?? { minutes: 0, name: assignee, reportCount: 0 };
+    map.set(assignee, {
+      ...current,
+      minutes: current.minutes + reportWorkMinutes(report),
+      reportCount: current.reportCount + 1,
+    });
+    return map;
+  }, new Map<string, { minutes: number; name: string; reportCount: number }>()).values())
+    .sort((first, second) => second.minutes - first.minutes || first.name.localeCompare(second.name, "de"));
+  const totalMinutes = filteredReports.reduce((sum, report) => sum + reportWorkMinutes(report), 0);
+  const totalPhotos = filteredReports.reduce((sum, report) => sum + reportPhotoCount(report), 0);
+  const completedJobs = jobs.filter((job) => ["erledigt", "abgerechnet"].includes(job.status)).length;
+
+  return (
+    <div className="stack analytics-view">
+      <section className="panel">
+        <div className="panel-title">
+          <div>
+            <p>{tt("Auswertung")}</p>
+            <h2>{tt("Zeiten und Kunden")}</h2>
+          </div>
+          <label className="compact-select">
+            <span>{tt("Zeitraum")}</span>
+            <select value={period} onChange={(event) => setPeriod(event.target.value)}>
+              <option value="year">{tt("Dieses Jahr")}</option>
+              <option value="month">{tt("Dieser Monat")}</option>
+              <option value="last30">{tt("Letzte 30 Tage")}</option>
+              <option value="all">{tt("Alle Zeiten")}</option>
+            </select>
+          </label>
+        </div>
+        <div className="analytics-summary-grid">
+          <div><span>{tt("Dokumentierte Arbeitszeit")}</span><strong>{formatWorkHours(totalMinutes)}</strong></div>
+          <div><span>{tt("Einsatzberichte")}</span><strong>{filteredReports.length}</strong></div>
+          <div><span>{tt("Kunden mit Zeiten")}</span><strong>{customerRows.filter((row) => row.minutes > 0).length}</strong></div>
+          <div><span>{tt("Berichtsfotos")}</span><strong>{totalPhotos}</strong></div>
+          <div><span>{tt("Abgeschlossene Aufträge")}</span><strong>{completedJobs}</strong></div>
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="panel-title">
+          <div>
+            <p>{tt("Kunden")}</p>
+            <h2>{tt("Zeit je Kunde")}</h2>
+          </div>
+        </div>
+        <div className="analytics-table">
+          <div className="analytics-table-head">
+            <span>{tt("Kunde")}</span>
+            <span>{tt("Zeit")}</span>
+            <span>{tt("Berichte")}</span>
+            <span>{tt("Objekte")}</span>
+            <span>{tt("Letzter Bericht")}</span>
+          </div>
+          {customerRows.map((row) => (
+            <article key={row.customer.id}>
+              <strong>{row.customer.name}</strong>
+              <span>{formatWorkHours(row.minutes)}</span>
+              <span>{row.reportCount}</span>
+              <span>{row.objectCount}</span>
+              <span>{row.lastReport}</span>
+            </article>
+          ))}
+          {customerRows.length === 0 && <p className="empty-list-note">{tt("Noch keine Zeiten vorhanden.")}</p>}
+        </div>
+      </section>
+
+      <section className="analytics-split">
+        <div className="panel">
+          <div className="panel-title">
+            <div>
+              <p>{tt("Objekte")}</p>
+              <h2>{tt("Zeit je Objekt")}</h2>
+            </div>
+          </div>
+          <div className="analytics-table compact">
+            <div className="analytics-table-head">
+              <span>{tt("Objekt")}</span>
+              <span>{tt("Zeit")}</span>
+              <span>{tt("Berichte")}</span>
+            </div>
+            {objectRows.map((row) => (
+              <article key={row.object.id}>
+                <strong>{row.object.name}</strong>
+                <span>{formatWorkHours(row.minutes)}</span>
+                <span>{row.reportCount}</span>
+              </article>
+            ))}
+            {objectRows.length === 0 && <p className="empty-list-note">{tt("Noch keine Objektzeiten vorhanden.")}</p>}
+          </div>
+        </div>
+        <div className="panel">
+          <div className="panel-title">
+            <div>
+              <p>{tt("Personal")}</p>
+              <h2>{tt("Zeit je Mitarbeiter")}</h2>
+            </div>
+          </div>
+          <div className="analytics-table compact">
+            <div className="analytics-table-head">
+              <span>{tt("Mitarbeiter")}</span>
+              <span>{tt("Zeit")}</span>
+              <span>{tt("Berichte")}</span>
+            </div>
+            {personnelRows.map((row) => (
+              <article key={row.name}>
+                <strong>{row.name}</strong>
+                <span>{formatWorkHours(row.minutes)}</span>
+                <span>{row.reportCount}</span>
+              </article>
+            ))}
+            {personnelRows.length === 0 && <p className="empty-list-note">{tt("Noch keine Mitarbeiterzeiten vorhanden.")}</p>}
+          </div>
         </div>
       </section>
     </div>
@@ -17570,9 +17841,15 @@ function MasterDataView({
     setDailyMailSettings({
       birthdaySources: mailSettingsForm.birthdaySources.trim(),
       calendarSources: mailSettingsForm.calendarSources.trim(),
+      ccRecipients: mailSettingsForm.ccRecipients.trim(),
+      enabled: mailSettingsForm.enabled,
+      frequency: mailSettingsForm.frequency,
       reminderSources: mailSettingsForm.reminderSources.trim(),
+      sendTime: mailSettingsForm.sendTime || "06:00",
+      toRecipients: mailSettingsForm.toRecipients.trim(),
+      weekdays: mailSettingsForm.weekdays.length > 0 ? mailSettingsForm.weekdays : ["1", "2", "3", "4", "5"],
     });
-    setArchiveNotice("Tagesmail-Quellen für Kalender, Geburtstage und Erinnerungen wurden gespeichert.");
+    setArchiveNotice("Tagesmail-Einstellungen wurden gespeichert.");
   }
 
   function saveCompanySettings() {
@@ -18239,6 +18516,77 @@ function MasterDataView({
             </div>
           </div>
           <div className="form-grid compact-form">
+            <label className="toggle-row wide">
+              <input
+                checked={mailSettingsForm.enabled}
+                onChange={(event) => setMailSettingsForm({ ...mailSettingsForm, enabled: event.target.checked })}
+                type="checkbox"
+              />
+              <span>{tt("Tagesmail automatisch versenden")}</span>
+            </label>
+            <label>
+              <span>{tt("Versandzeit")}</span>
+              <input
+                step={3600}
+                type="time"
+                value={mailSettingsForm.sendTime}
+                onChange={(event) => setMailSettingsForm({ ...mailSettingsForm, sendTime: event.target.value })}
+              />
+            </label>
+            <label>
+              <span>{tt("Häufigkeit")}</span>
+              <select
+                value={mailSettingsForm.frequency}
+                onChange={(event) => setMailSettingsForm({ ...mailSettingsForm, frequency: event.target.value as DailyMailSettings["frequency"] })}
+              >
+                <option value="daily">{tt("Täglich")}</option>
+                <option value="weekdays">{tt("Werktags")}</option>
+                <option value="weekly">{tt("Wöchentlich montags")}</option>
+                <option value="custom">{tt("Benutzerdefiniert")}</option>
+              </select>
+            </label>
+            <label className="wide">
+              <span>{tt("Empfänger")}</span>
+              <input
+                placeholder="info@kolaretorp.se, name@example.com"
+                value={mailSettingsForm.toRecipients}
+                onChange={(event) => setMailSettingsForm({ ...mailSettingsForm, toRecipients: event.target.value })}
+              />
+            </label>
+            <label className="wide">
+              <span>{tt("Kopie an")}</span>
+              <input
+                placeholder="nicole@example.com"
+                value={mailSettingsForm.ccRecipients}
+                onChange={(event) => setMailSettingsForm({ ...mailSettingsForm, ccRecipients: event.target.value })}
+              />
+            </label>
+            <div className="wide weekday-picker">
+              {[
+                ["1", tt("Mo")],
+                ["2", tt("Di")],
+                ["3", tt("Mi")],
+                ["4", tt("Do")],
+                ["5", tt("Fr")],
+                ["6", tt("Sa")],
+                ["0", tt("So")],
+              ].map(([day, label]) => (
+                <button
+                  className={mailSettingsForm.weekdays.includes(day) ? "active" : ""}
+                  disabled={mailSettingsForm.frequency !== "custom"}
+                  key={day}
+                  onClick={() => {
+                    const weekdays = mailSettingsForm.weekdays.includes(day)
+                      ? mailSettingsForm.weekdays.filter((item) => item !== day)
+                      : [...mailSettingsForm.weekdays, day];
+                    setMailSettingsForm({ ...mailSettingsForm, weekdays });
+                  }}
+                  type="button"
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
             <label className="wide">
               <span>{tt("Kalender heute plus 3 Tage")}</span>
               <textarea
@@ -18270,7 +18618,7 @@ function MasterDataView({
             </div>
             <button className="primary-button wide" onClick={saveMailSettings} type="button">
               <Check size={16} />
-              {tt("Kalenderquellen speichern")}
+              {tt("Tagesmail-Einstellungen speichern")}
             </button>
             <button className="ghost-button wide" disabled={dailyMailSending} onClick={() => void onSendDailyMail()} type="button">
               <Mail size={16} />

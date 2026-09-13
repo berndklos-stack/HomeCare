@@ -40,7 +40,13 @@ type AppSnapshot = {
 type DailyMailSettings = {
   birthdaySources?: string;
   calendarSources?: string;
+  ccRecipients?: string;
+  enabled?: boolean;
+  frequency?: "daily" | "weekdays" | "weekly" | "custom";
   reminderSources?: string;
+  sendTime?: string;
+  toRecipients?: string;
+  weekdays?: string[];
 };
 
 type CalendarEvent = {
@@ -60,11 +66,13 @@ type ReminderItem = {
 
 type DailyMailState = {
   lastSentDate?: string;
+  lastSentKey?: string;
 };
 
 const appStateRowId = "kolaretorp-service-app";
 const dailyMailStateRowId = "kolaretorp-daily-job-mail";
 const stockholmTimeZone = "Europe/Stockholm";
+const weekdayFormatter = new Intl.DateTimeFormat("sv-SE", { timeZone: stockholmTimeZone, weekday: "short" });
 
 function getSupabaseServerClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -77,6 +85,60 @@ function getSupabaseServerClient() {
   return createClient(supabaseUrl, supabaseKey, {
     auth: { persistSession: false },
   });
+}
+
+function parseMailRecipients(value?: string) {
+  return Array.from(new Set(String(value ?? "")
+    .split(/[\n,;]+/)
+    .map((item) => item.trim())
+    .filter((item) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(item))));
+}
+
+function normalizeDailyMailSettings(settings?: DailyMailSettings): Required<DailyMailSettings> {
+  return {
+    birthdaySources: settings?.birthdaySources ?? "",
+    calendarSources: settings?.calendarSources ?? "",
+    ccRecipients: settings?.ccRecipients ?? "Nicole.Klos@icloud.com",
+    enabled: settings?.enabled ?? true,
+    frequency: settings?.frequency ?? "daily",
+    reminderSources: settings?.reminderSources ?? "",
+    sendTime: settings?.sendTime ?? "06:00",
+    toRecipients: settings?.toRecipients ?? process.env.DAILY_JOB_LIST_EMAIL ?? "info@kolaretorp.se",
+    weekdays: settings?.weekdays?.length ? settings.weekdays : ["1", "2", "3", "4", "5"],
+  };
+}
+
+function stockholmWeekdayNumber(date: string) {
+  const weekday = weekdayFormatter.format(new Date(`${date}T12:00:00Z`)).toLowerCase();
+  if (weekday.startsWith("mån")) return "1";
+  if (weekday.startsWith("tis")) return "2";
+  if (weekday.startsWith("ons")) return "3";
+  if (weekday.startsWith("tors")) return "4";
+  if (weekday.startsWith("fre")) return "5";
+  if (weekday.startsWith("lör")) return "6";
+  return "0";
+}
+
+function scheduledSendKey(settings: Required<DailyMailSettings>, today: string) {
+  const weekday = stockholmWeekdayNumber(today);
+  if (settings.frequency === "custom" && !settings.weekdays.includes(weekday)) return "";
+  if (settings.frequency === "weekdays" && !["1", "2", "3", "4", "5"].includes(weekday)) return "";
+  if (settings.frequency === "weekly" && weekday !== "1") return "";
+  return `${today}-${settings.sendTime}`;
+}
+
+function scheduledTimeReached(settings: Required<DailyMailSettings>, hour: number) {
+  const scheduledHour = Number((settings.sendTime || "06:00").split(":")[0]);
+  return Number.isFinite(scheduledHour) ? hour >= scheduledHour : true;
+}
+
+async function loadStoredDailyMailSettings(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
+  const { data } = await supabase
+    .from("homecare_settings")
+    .select("value")
+    .eq("key", "dailyMailSettings")
+    .maybeSingle();
+  return data?.value && typeof data.value === "object" ? data.value as DailyMailSettings : undefined;
 }
 
 function stockholmParts(date = new Date()) {
@@ -472,12 +534,12 @@ async function buildDailyJobMail(snapshot: AppSnapshot, today: string) {
   return { calendarCount: calendarData.calendars.length, birthdayCount: calendarData.birthdays.length, html, openJobCount: jobs.length, reminderCount: calendarData.reminders.length, text };
 }
 
-async function sendResendMail({ html, subject, text }: { html: string; subject: string; text: string }) {
+async function sendResendMail({ cc, html, subject, text, to }: { cc: string[]; html: string; subject: string; text: string; to: string[] }) {
   const resendApiKey = process.env.RESEND_API_KEY;
   const fromAddress = process.env.REPORT_SENDER_EMAIL || "info@kolaretorp.se";
-  const recipient = process.env.DAILY_JOB_LIST_EMAIL || "info@kolaretorp.se";
-  const ccRecipient = "Nicole.Klos@icloud.com";
-  const ccRecipients = recipient.toLowerCase() === ccRecipient.toLowerCase() ? [] : [ccRecipient];
+  const primaryRecipients = to.length > 0 ? to : [process.env.DAILY_JOB_LIST_EMAIL || "info@kolaretorp.se"];
+  const primaryLookup = new Set(primaryRecipients.map((recipient) => recipient.toLowerCase()));
+  const ccRecipients = cc.filter((recipient) => !primaryLookup.has(recipient.toLowerCase()));
 
   if (!resendApiKey) {
     throw new Error("RESEND_API_KEY fehlt.");
@@ -496,7 +558,7 @@ async function sendResendMail({ html, subject, text }: { html: string; subject: 
         html,
         subject,
         text,
-        to: [recipient],
+        to: primaryRecipients,
         cc: ccRecipients.length > 0 ? ccRecipients : undefined,
       }),
       headers: {
@@ -507,7 +569,7 @@ async function sendResendMail({ html, subject, text }: { html: string; subject: 
     });
 
     if (response.ok) {
-      return { cc: ccRecipients, from: sender, to: recipient };
+      return { cc: ccRecipients, from: sender, to: primaryRecipients };
     }
 
     lastError = `${response.status} ${await response.text()}`;
@@ -542,11 +604,6 @@ async function sendDailyMail(request: Request, manual = false) {
     return NextResponse.json({ error: mailStateError.message }, { status: 500 });
   }
 
-  const lastSentDate = (mailState?.data as DailyMailState | undefined)?.lastSentDate;
-  if (!force && lastSentDate === today) {
-    return NextResponse.json({ skipped: true, reason: "Tagesmail wurde heute bereits gesendet.", today });
-  }
-
   const { data: appState, error: appStateError } = await supabase
     .from("app_state")
     .select("data")
@@ -556,11 +613,41 @@ async function sendDailyMail(request: Request, manual = false) {
     return NextResponse.json({ error: appStateError.message }, { status: 500 });
   }
 
-  const mail = await buildDailyJobMail((appState?.data as AppSnapshot | undefined) ?? {}, today);
+  const storedSettings = await loadStoredDailyMailSettings(supabase);
+  const snapshot = (appState?.data as AppSnapshot | undefined) ?? {};
+  const settings = normalizeDailyMailSettings(storedSettings ?? snapshot.dailyMailSettings);
+  const sendKey = scheduledSendKey(settings, today);
+  const lastSentKey = (mailState?.data as DailyMailState | undefined)?.lastSentKey;
+
+  if (!force && !settings.enabled) {
+    return NextResponse.json({ skipped: true, reason: "Tagesmail ist deaktiviert.", today });
+  }
+  if (!force && !sendKey) {
+    return NextResponse.json({ skipped: true, reason: "Tagesmail ist für heute nicht geplant.", today });
+  }
+  if (!force && !scheduledTimeReached(settings, hour)) {
+    return NextResponse.json({ skipped: true, reason: `Tagesmail ist erst ab ${settings.sendTime} geplant.`, today });
+  }
+  if (!force && lastSentKey === sendKey) {
+    return NextResponse.json({ skipped: true, reason: "Tagesmail wurde für diesen Termin bereits gesendet.", today });
+  }
+  if (!force && !lastSentKey && (mailState?.data as DailyMailState | undefined)?.lastSentDate === today) {
+    return NextResponse.json({ skipped: true, reason: "Tagesmail wurde heute bereits gesendet.", today });
+  }
+
+  const toRecipients = parseMailRecipients(settings.toRecipients);
+  const ccRecipients = parseMailRecipients(settings.ccRecipients);
+  if (toRecipients.length === 0) {
+    return NextResponse.json({ error: "Bitte mindestens einen Tagesmail-Empfänger konfigurieren." }, { status: 400 });
+  }
+
+  const mail = await buildDailyJobMail({ ...snapshot, dailyMailSettings: settings }, today);
   const delivery = await sendResendMail({
+    cc: ccRecipients,
     html: mail.html,
     subject: `Tägliche Auftragsliste - Kolaretorp Service AB - ${displayDate(today)}`,
     text: mail.text,
+    to: toRecipients,
   });
 
   const { error: saveError } = await supabase
@@ -573,6 +660,7 @@ async function sendDailyMail(request: Request, manual = false) {
         lastReminderCount: mail.reminderCount,
         lastSentAt: new Date().toISOString(),
         lastSentDate: today,
+        lastSentKey: force ? `${today}-manual-${Date.now()}` : sendKey,
       },
       id: dailyMailStateRowId,
       updated_at: new Date().toISOString(),

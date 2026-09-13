@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.404.0",
+  version: "1.405.0",
   releaseDate: "2026-09-13",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.405.0",
+    date: "2026-09-13",
+    changes: [
+      "Neue Auswertungsseite zeigt dokumentierte Arbeitsstunden nach Kunde, Objekt und Mitarbeiter",
+      "Tagesmail kann mit Uhrzeit, Empfaengern, Kopie und Versandrhythmus konfiguriert werden",
+      "Der automatische Tagesmail-Cron prueft stuendlich und sendet nur passend zur gespeicherten Einstellung",
+    ],
+  },
   {
     version: "1.404.0",
     date: "2026-09-13",

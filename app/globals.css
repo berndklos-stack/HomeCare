@@ -722,6 +722,92 @@ button {
   font-size: 20px;
 }
 
+.compact-select {
+  display: grid;
+  gap: 5px;
+  min-width: 190px;
+}
+
+.compact-select span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.compact-select select {
+  min-height: 38px;
+}
+
+.analytics-summary-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.analytics-summary-grid div {
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 5px;
+  min-height: 70px;
+  padding: 12px;
+}
+
+.analytics-summary-grid span,
+.analytics-table-head span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.analytics-summary-grid strong {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.analytics-split {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.analytics-table {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.analytics-table-head,
+.analytics-table article {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(220px, 1.3fr) minmax(120px, 0.55fr) minmax(90px, 0.35fr) minmax(90px, 0.35fr) minmax(120px, 0.5fr);
+  padding: 10px 12px;
+}
+
+.analytics-table-head {
+  background: var(--paper-soft);
+  border-bottom: 1px solid var(--line);
+}
+
+.analytics-table article + article {
+  border-top: 1px solid var(--line);
+}
+
+.analytics-table article strong,
+.analytics-table article span {
+  min-width: 0;
+}
+
+.analytics-table.compact .analytics-table-head,
+.analytics-table.compact article {
+  grid-template-columns: minmax(180px, 1fr) minmax(110px, 0.45fr) minmax(90px, 0.35fr);
+}
+
 .billing-row {
   align-items: start;
   gap: 18px;
@@ -7024,6 +7110,14 @@ button.media-thumb {
   .dispatch-overdue .dispatch-day-jobs {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .analytics-summary-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .analytics-split {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 780px) {
@@ -7196,6 +7290,7 @@ button.media-thumb {
   .topbar,
   .quickbar,
   .billing-summary-grid,
+  .analytics-summary-grid,
   .workboard,
   .planning-grid,
   .service-catalog,
@@ -7240,6 +7335,10 @@ button.media-thumb {
 
   .table-list article,
   .billing-row,
+  .analytics-table-head,
+  .analytics-table article,
+  .analytics-table.compact .analytics-table-head,
+  .analytics-table.compact article,
   .object-list article,
   .object-row-main,
   .media-list article {
