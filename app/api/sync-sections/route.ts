@@ -443,6 +443,201 @@ function maxUpdatedAt(values: Array<string | null | undefined>) {
     .sort((first, second) => String(second).localeCompare(String(first)))[0];
 }
 
+function normalizeReportDate(value: unknown) {
+  const text = stringOrEmpty(value).trim();
+  const parsed = text ? new Date(`${text}T12:00:00`) : null;
+  return parsed && !Number.isNaN(parsed.getTime()) ? parsed.toISOString().slice(0, 10) : text;
+}
+
+function reportDedupeKey(report: JsonObject) {
+  const reportType = String(report.id ?? "").startsWith("WEEK-") ? "week" : "day";
+  return [reportType, stringOrEmpty(report.jobId), normalizeReportDate(report.date)].join("|");
+}
+
+function reportChangedTime(report: JsonObject) {
+  return Date.parse(stringOrEmpty(report.updatedAt) || stringOrEmpty(report.sentAt));
+}
+
+function photoHasSource(photo: unknown) {
+  if (!photo || typeof photo !== "object") return false;
+  const item = photo as JsonObject;
+  return Boolean(item.previewUrl || item.storagePath);
+}
+
+function chooseReportText(primaryText: unknown, fallbackText: unknown, primaryTime: number, fallbackTime: number) {
+  const primary = stringOrEmpty(primaryText);
+  const fallback = stringOrEmpty(fallbackText);
+  const primaryClean = primary.trim();
+  const fallbackClean = fallback.trim();
+  if (!primaryClean && fallbackClean) return fallback;
+  if (primaryClean && !fallbackClean) return primary;
+  if (primaryClean.length < fallbackClean.length && fallbackClean.includes(primaryClean)) return fallback;
+  if (fallbackClean.length < primaryClean.length && primaryClean.includes(fallbackClean)) return primary;
+  if (Number.isFinite(primaryTime) && Number.isFinite(fallbackTime) && primaryTime !== fallbackTime) {
+    return primaryTime > fallbackTime ? primary : fallback;
+  }
+  return primary.length >= fallback.length ? primary : fallback;
+}
+
+function mergeFieldPhotos(existingPhotos: unknown, patchPhotos: unknown) {
+  const photosByKey = new Map<string, JsonObject>();
+  const photoScore = (photo: JsonObject) => [
+    photoHasSource(photo) ? 20 : 0,
+    photo.storagePath ? 14 : 0,
+    stringOrEmpty(photo.previewUrl).startsWith("data:") ? -6 : 0,
+    photo.uploadStatus === "uploaded" ? 4 : 0,
+    photo.uploadStatus === "uploading" ? -4 : 0,
+    stringOrEmpty(photo.note).trim() ? 3 : 0,
+    photo.createdAt ? 1 : 0,
+  ].reduce((sum, value) => sum + value, 0);
+
+  [
+    ...(Array.isArray(existingPhotos) ? existingPhotos : []),
+    ...(Array.isArray(patchPhotos) ? patchPhotos : []),
+  ].forEach((photo) => {
+    if (!photo || typeof photo !== "object") return;
+    const item = photo as JsonObject;
+    const key = item.id ? `id:${String(item.id)}` : `${stringOrEmpty(item.name)}|${stringOrEmpty(item.createdAt)}|${stringOrEmpty(item.previewUrl)}`;
+    const existing = photosByKey.get(key);
+    if (!existing) {
+      photosByKey.set(key, item);
+      return;
+    }
+    const betterSource = photoScore(item) > photoScore(existing) ? item : existing;
+    const fallback = betterSource === item ? existing : item;
+    photosByKey.set(key, {
+      ...fallback,
+      ...betterSource,
+      createdAt: betterSource.createdAt ?? fallback.createdAt,
+      note: stringOrEmpty(betterSource.note).trim() ? betterSource.note : fallback.note,
+      previewUrl: stringOrEmpty(betterSource.previewUrl) || fallback.previewUrl,
+      storagePath: stringOrEmpty(betterSource.storagePath) || fallback.storagePath,
+    });
+  });
+
+  const mergedPhotos = Array.from(photosByKey.values());
+  return mergedPhotos
+    .filter((photo) => {
+      const isLegacyEmbeddedPhoto = !photo.id
+        && !photo.storagePath
+        && stringOrEmpty(photo.previewUrl).startsWith("data:image/");
+      if (!isLegacyEmbeddedPhoto) return true;
+      return !mergedPhotos.some((candidate) => (
+        candidate !== photo
+        && stringOrEmpty(candidate.name) === stringOrEmpty(photo.name)
+        && Boolean(candidate.storagePath)
+      ));
+    })
+    .sort((first, second) => stringOrEmpty(first.createdAt).localeCompare(stringOrEmpty(second.createdAt)));
+}
+
+function mergeRecordsById(existingRecords: unknown, patchRecords: unknown) {
+  const recordsById = new Map<string, JsonObject>();
+  [
+    ...(Array.isArray(existingRecords) ? existingRecords : []),
+    ...(Array.isArray(patchRecords) ? patchRecords : []),
+  ].forEach((record) => {
+    if (!record || typeof record !== "object") return;
+    const item = record as JsonObject;
+    const id = stringOrEmpty(item.id) || `${stringOrEmpty(item.name)}|${stringOrEmpty(item.createdAt)}`;
+    if (!id.trim()) return;
+    recordsById.set(id, { ...(recordsById.get(id) ?? {}), ...item });
+  });
+
+  return Array.from(recordsById.values());
+}
+
+function reportPhotoSourceCount(report: JsonObject) {
+  const checklist = Array.isArray(report.checklistResults) ? report.checklistResults as JsonObject[] : [];
+  return checklist.reduce((sum, item) => (
+    sum + (Array.isArray(item.photos) ? item.photos.filter(photoHasSource).length : 0)
+  ), 0);
+}
+
+function reportCompletenessScore(report: JsonObject) {
+  const checklist = Array.isArray(report.checklistResults) ? report.checklistResults as JsonObject[] : [];
+  const noteCount = checklist.filter((item) => stringOrEmpty(item.note).trim()).length;
+  return [
+    report.sentAt ? 100 : 0,
+    stringOrEmpty(report.customerComment).trim() ? 20 : 0,
+    checklist.length * 4,
+    reportPhotoSourceCount(report) * 4,
+    (Array.isArray(report.attachments) ? report.attachments.length : 0) * 3,
+    noteCount * 2,
+    stringOrEmpty(report.summary).trim() ? 1 : 0,
+  ].reduce((sum, value) => sum + value, 0);
+}
+
+function mergeReportChecklistItem(existingItem: JsonObject | undefined, patchItem: JsonObject) {
+  if (!existingItem) return patchItem;
+  const existingTime = Date.parse(stringOrEmpty(existingItem.updatedAt));
+  const patchTime = Date.parse(stringOrEmpty(patchItem.updatedAt));
+  const patchIsNewer = Number.isFinite(patchTime)
+    ? !Number.isFinite(existingTime) || patchTime >= existingTime
+    : true;
+  const newest = patchIsNewer ? patchItem : existingItem;
+  const fallback = patchIsNewer ? existingItem : patchItem;
+
+  return {
+    ...fallback,
+    ...newest,
+    completed: Boolean(newest.completed) || Boolean(fallback.completed),
+    minutes: newest.minutes || fallback.minutes || 0,
+    note: chooseReportText(newest.note, fallback.note, Date.parse(stringOrEmpty(newest.updatedAt)), Date.parse(stringOrEmpty(fallback.updatedAt))),
+    photos: mergeFieldPhotos(existingItem.photos, patchItem.photos),
+  };
+}
+
+function mergeReportPair(first: JsonObject, second: JsonObject) {
+  const primary = reportCompletenessScore(second) >= reportCompletenessScore(first) ? second : first;
+  const fallback = primary === first ? second : first;
+  const primaryTime = reportChangedTime(primary);
+  const fallbackTime = reportChangedTime(fallback);
+  const checklistById = new Map<string, JsonObject>();
+
+  (Array.isArray(fallback.checklistResults) ? fallback.checklistResults as JsonObject[] : []).forEach((item) => {
+    checklistById.set(stringOrEmpty(item.id) || stringOrEmpty(item.title) || String(checklistById.size), item);
+  });
+  (Array.isArray(primary.checklistResults) ? primary.checklistResults as JsonObject[] : []).forEach((item) => {
+    const id = stringOrEmpty(item.id) || stringOrEmpty(item.title) || String(checklistById.size);
+    checklistById.set(id, mergeReportChecklistItem(checklistById.get(id), item));
+  });
+
+  return {
+    ...fallback,
+    ...primary,
+    attachments: mergeRecordsById(fallback.attachments, primary.attachments),
+    checklistResults: Array.from(checklistById.values()),
+    customerComment: chooseReportText(primary.customerComment, fallback.customerComment, primaryTime, fallbackTime),
+    date: normalizeReportDate(primary.date),
+    media: Array.from(new Set([
+      ...(Array.isArray(fallback.media) ? fallback.media : []),
+      ...(Array.isArray(primary.media) ? primary.media : []),
+    ])),
+    summary: chooseReportText(primary.summary, fallback.summary, primaryTime, fallbackTime),
+    sentAt: primary.sentAt ?? fallback.sentAt,
+    updatedAt: Number.isFinite(primaryTime) && Number.isFinite(fallbackTime)
+      ? (primaryTime >= fallbackTime ? primary.updatedAt ?? primary.sentAt : fallback.updatedAt ?? fallback.sentAt)
+      : primary.updatedAt ?? fallback.updatedAt,
+  };
+}
+
+function mergeReports(existingReports: unknown, patchReports: unknown) {
+  const reportsByKey = new Map<string, JsonObject>();
+  [
+    ...(Array.isArray(existingReports) ? existingReports : []),
+    ...(Array.isArray(patchReports) ? patchReports : []),
+  ].forEach((report) => {
+    if (!report || typeof report !== "object") return;
+    const item = report as JsonObject;
+    const key = reportDedupeKey(item);
+    const existing = reportsByKey.get(key);
+    reportsByKey.set(key, existing ? mergeReportPair(existing, item) : { ...item, date: normalizeReportDate(item.date) });
+  });
+
+  return Array.from(reportsByKey.values());
+}
+
 function resourceToRow(resource: JsonObject) {
   return {
     archived: Boolean(resource.archived),
@@ -1304,9 +1499,20 @@ async function saveReportsSection(supabase: NonNullable<ReturnType<typeof getSup
   const reports = value.filter((item): item is JsonObject => Boolean(item && typeof item === "object" && "id" in item));
   if (!reports.length) return;
 
+  const { data: existingData, error: existingError } = await supabase
+    .from("homecare_reports")
+    .select("id, job_id, object_id, title, report_date, visible_to_customer, summary, internal_notes, customer_comment, checklist_results, media_ids, attachments, sent_at, updated_at");
+
+  if (existingError) throw new Error(existingError.message);
+
+  const mergedReports = mergeReports(
+    (existingData as ReportRow[] | null | undefined)?.map(rowToReport) ?? [],
+    reports,
+  );
+
   const { error } = await supabase
     .from("homecare_reports")
-    .upsert(reports.map(reportToRow), { onConflict: "id" });
+    .upsert(mergedReports.map(reportToRow), { onConflict: "id" });
 
   if (error) throw new Error(error.message);
 }
@@ -1342,10 +1548,39 @@ async function loadFieldProgressSection(supabase: NonNullable<ReturnType<typeof 
 async function saveFieldProgressSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>, value: unknown) {
   const rows = fieldProgressToRows(value);
   if (!rows.length) return;
+  const rowIds = rows.map((row) => row.id);
+  const { data: existingData, error: existingError } = await supabase
+    .from("homecare_field_progress")
+    .select("id, job_id, work_date, task_id, completed, minutes, show_work_time_in_report, note, photos, updated_at")
+    .in("id", rowIds);
+
+  if (existingError) throw new Error(existingError.message);
+
+  const existingById = new Map(((existingData as FieldProgressRow[] | null | undefined) ?? []).map((row) => [row.id, row]));
+  const mergedRows = rows.map((row) => {
+    const existing = existingById.get(row.id);
+    if (!existing) return row;
+    const existingTime = Date.parse(existing.updated_at ?? "");
+    const rowTime = Date.parse(row.updated_at ?? "");
+    const rowIsNewer = Number.isFinite(rowTime)
+      ? !Number.isFinite(existingTime) || rowTime >= existingTime
+      : true;
+
+    return {
+      ...existing,
+      ...row,
+      completed: Boolean(existing.completed) || Boolean(row.completed),
+      minutes: rowIsNewer ? row.minutes : existing.minutes,
+      note: rowIsNewer ? row.note : existing.note,
+      photos: mergeFieldPhotos(existing.photos, row.photos),
+      show_work_time_in_report: row.show_work_time_in_report !== false && existing.show_work_time_in_report !== false,
+      updated_at: rowIsNewer ? row.updated_at : existing.updated_at,
+    };
+  });
 
   const { error } = await supabase
     .from("homecare_field_progress")
-    .upsert(rows, { onConflict: "id" });
+    .upsert(mergedRows, { onConflict: "id" });
 
   if (error) throw new Error(error.message);
 }

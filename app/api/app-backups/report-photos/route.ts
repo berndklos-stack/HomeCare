@@ -9,6 +9,23 @@ const appBackupPrefix = "app-backup:";
 
 type JsonObject = Record<string, unknown>;
 
+type ReportRow = {
+  attachments: unknown;
+  checklist_results: unknown;
+  customer_comment: string | null;
+  id: string;
+  internal_notes: string | null;
+  job_id: string | null;
+  media_ids: unknown;
+  object_id: string | null;
+  report_date: string | null;
+  sent_at: string | null;
+  summary: string | null;
+  title: string;
+  updated_at: string | null;
+  visible_to_customer: boolean | null;
+};
+
 function getSupabaseServerClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -24,6 +41,34 @@ function normalizeText(value: unknown) {
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
+}
+
+function stringOrEmpty(value: unknown) {
+  return value === null || value === undefined ? "" : String(value);
+}
+
+function nullableString(value: unknown) {
+  const text = stringOrEmpty(value).trim();
+  return text ? text : null;
+}
+
+function reportToRow(report: JsonObject): ReportRow {
+  return {
+    attachments: Array.isArray(report.attachments) ? report.attachments : [],
+    checklist_results: Array.isArray(report.checklistResults) ? report.checklistResults : [],
+    customer_comment: stringOrEmpty(report.customerComment),
+    id: String(report.id),
+    internal_notes: stringOrEmpty(report.internalNotes),
+    job_id: nullableString(report.jobId),
+    media_ids: Array.isArray(report.media) ? report.media : [],
+    object_id: nullableString(report.objectId),
+    report_date: nullableString(report.date),
+    sent_at: nullableString(report.sentAt),
+    summary: stringOrEmpty(report.summary),
+    title: stringOrEmpty(report.title) || "Bericht",
+    updated_at: nullableString(report.updatedAt) ?? new Date().toISOString(),
+    visible_to_customer: report.visibleToCustomer !== false,
+  };
 }
 
 function photoSource(photo: JsonObject) {
@@ -289,6 +334,16 @@ export async function POST(request: Request) {
       .from("app_state")
       .upsert({ data: updated, id: appStateRowId, updated_at: updated.updatedAt }, { onConflict: "id" });
     if (saveError) throw new Error(saveError.message);
+
+    const recoveredReports = updatedReports
+      .filter((report): report is JsonObject => Boolean(report && typeof report === "object" && reportMatches(report as JsonObject, query, date)))
+      .filter((report) => reportPhotos(report).some(({ photo }) => photoHasSource(photo)));
+    if (recoveredReports.length > 0) {
+      const { error: reportSaveError } = await supabase
+        .from("homecare_reports")
+        .upsert(recoveredReports.map(reportToRow), { onConflict: "id" });
+      if (reportSaveError) throw new Error(reportSaveError.message);
+    }
 
     return NextResponse.json({ inspected, recovered, inserted, restored: recovered + inserted });
   } catch (error) {

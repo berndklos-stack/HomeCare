@@ -13709,7 +13709,6 @@ function FieldView({
       if (localPreviewEntries.length) {
         setLocalPhotoPreviewUrls((current) => ({ ...current, ...Object.fromEntries(localPreviewEntries) }));
       }
-      if (nextPhotos[0]) openPhotoNoteEditor(taskId, nextPhotos[0]);
       nextPhotos.forEach((photo, index) => {
         const file = selectedFiles[index];
         if (photo.id && file) void uploadFieldPhotoInBackground(taskId, photo.id, file.name, photo.previewUrl);
@@ -13961,8 +13960,8 @@ function FieldView({
                     <small>{task.meta}</small>
                   </span>
                 </label>
-                <div className="task-photo-actions">
-                  <label className="task-photo-button" data-tooltip={`Foto zu ${task.title} aufnehmen`}>
+                <div className="task-photo-actions" onClick={(event) => event.stopPropagation()}>
+                  <label className="task-photo-button" data-tooltip={`Foto zu ${task.title} aufnehmen`} onClick={(event) => event.stopPropagation()}>
                     <Camera size={16} />
                     <input
                       aria-label={`Foto zu ${task.title} aufnehmen`}
@@ -13972,12 +13971,13 @@ function FieldView({
                       multiple
                       type="file"
                       onChange={(event) => {
+                        event.stopPropagation();
                         void addFieldPhotoFiles(task.id, currentTask, event.target.files);
                         event.currentTarget.value = "";
                       }}
                     />
                   </label>
-                  <label className="task-photo-button" data-tooltip={`Bilder zu ${task.title} auswählen`}>
+                  <label className="task-photo-button" data-tooltip={`Bilder zu ${task.title} auswählen`} onClick={(event) => event.stopPropagation()}>
                     <Plus size={16} />
                     <input
                       aria-label={`Bilder zu ${task.title} auswählen`}
@@ -13986,6 +13986,7 @@ function FieldView({
                       multiple
                       type="file"
                       onChange={(event) => {
+                        event.stopPropagation();
                         void addFieldPhotoFiles(task.id, currentTask, event.target.files);
                         event.currentTarget.value = "";
                       }}

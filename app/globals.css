@@ -1970,9 +1970,9 @@ mark.neutral {
   color: var(--ink);
   display: grid;
   gap: 12px;
-  max-width: 430px;
+  max-width: 920px;
   padding: 18px;
-  width: min(100%, 430px);
+  width: min(100%, 920px);
 }
 
 .checklist {
@@ -2032,6 +2032,17 @@ mark.neutral {
 .field-job-picker {
   display: grid;
   gap: 7px;
+}
+
+@media (min-width: 900px) {
+  .field-shell {
+    justify-items: stretch;
+  }
+
+  .phone-card {
+    justify-self: center;
+    width: min(100%, 920px);
+  }
 }
 
 .field-job-picker > strong {
@@ -6985,6 +6996,13 @@ button.media-thumb {
   .field-work-modal {
     gap: 12px;
     overflow-x: hidden;
+  }
+
+  .phone-card {
+    box-shadow: none;
+    max-width: 100%;
+    padding: 12px;
+    width: 100%;
   }
 
   .field-status-backdrop {

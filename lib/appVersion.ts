@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.389.0",
+  version: "1.390.0",
   releaseDate: "2026-09-13",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.390.0",
+    date: "2026-09-13",
+    changes: [
+      "Fotoauswahl in Mobil vor Ort bleibt im aktuellen Dialog und oeffnet kein automatisches Info-Popup mehr",
+      "Berichts- und Feldfortschritt-Sync schuetzen vorhandene Fotoquellen vor Ueberschreiben durch leere Staende",
+      "Mobil vor Ort ist auf Mac und PC breiter, bleibt auf mobilen Bildschirmen aber innerhalb der Seitenbreite",
+    ],
+  },
   {
     version: "1.389.0",
     date: "2026-09-13",
