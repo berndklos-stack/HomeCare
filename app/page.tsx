@@ -7822,6 +7822,8 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   const remoteSyncRunningRef = useRef(false);
   const pendingLocalSnapshotRef = useRef<AppSnapshot | null>(null);
   const localSaveTimerRef = useRef<number | null>(null);
+  const pendingResourcePersistRef = useRef<{ resources: ResourceRecord[]; updatedAt: string } | null>(null);
+  const resourcePersistTimerRef = useRef<number | null>(null);
   const lastForegroundSyncAtRef = useRef(0);
   const pendingReportPhotoUploadsRef = useRef<Set<string>>(new Set());
 
@@ -7871,6 +7873,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   useEffect(() => () => {
     if (remoteSaveTimerRef.current) window.clearTimeout(remoteSaveTimerRef.current);
     if (localSaveTimerRef.current) window.clearTimeout(localSaveTimerRef.current);
+    if (resourcePersistTimerRef.current) window.clearTimeout(resourcePersistTimerRef.current);
   }, []);
 
   useEffect(() => {
@@ -8230,17 +8233,33 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
           void syncRemoteSnapshot(true);
         }
         void syncVehiclePositions();
-      } else if (pendingLocalSnapshotRef.current) {
-        const queuedSnapshot = pendingLocalSnapshotRef.current;
-        pendingLocalSnapshotRef.current = null;
-        if (localSaveTimerRef.current) {
-          window.clearTimeout(localSaveTimerRef.current);
-          localSaveTimerRef.current = null;
+      } else {
+        if (pendingLocalSnapshotRef.current) {
+          const queuedSnapshot = pendingLocalSnapshotRef.current;
+          pendingLocalSnapshotRef.current = null;
+          if (localSaveTimerRef.current) {
+            window.clearTimeout(localSaveTimerRef.current);
+            localSaveTimerRef.current = null;
+          }
+          try {
+            persistLocalSnapshot(queuedSnapshot);
+          } catch (error) {
+            console.warn("App-Daten konnten beim Verlassen nicht lokal gespeichert werden.", error);
+          }
+        }
+      }
+      if (document.visibilityState !== "visible" && pendingResourcePersistRef.current) {
+        const queuedResources = pendingResourcePersistRef.current;
+        pendingResourcePersistRef.current = null;
+        if (resourcePersistTimerRef.current) {
+          window.clearTimeout(resourcePersistTimerRef.current);
+          resourcePersistTimerRef.current = null;
         }
         try {
-          persistLocalSnapshot(queuedSnapshot);
+          window.localStorage.setItem(storageKeys.resources, JSON.stringify(queuedResources.resources));
+          window.localStorage.setItem(storageKeys.updatedAt, JSON.stringify(queuedResources.updatedAt));
         } catch (error) {
-          console.warn("App-Daten konnten beim Verlassen nicht lokal gespeichert werden.", error);
+          console.warn("Fahrtenbuch konnte beim Verlassen nicht lokal gespeichert werden.", error);
         }
       }
     }
@@ -8327,6 +8346,38 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     }
 
     scheduleRemoteSave(snapshot, 0);
+  }
+
+  function persistResourcesFast(nextResources: ResourceRecord[], options: { delayMs?: number } = {}) {
+    const snapshotUpdatedAt = new Date().toISOString();
+    explicitPersistAtRef.current = Date.now();
+    setAppUpdatedAt(snapshotUpdatedAt);
+    pendingResourcePersistRef.current = { resources: nextResources, updatedAt: snapshotUpdatedAt };
+
+    if (resourcePersistTimerRef.current) window.clearTimeout(resourcePersistTimerRef.current);
+    resourcePersistTimerRef.current = window.setTimeout(() => {
+      resourcePersistTimerRef.current = null;
+      const queued = pendingResourcePersistRef.current;
+      pendingResourcePersistRef.current = null;
+      if (!queued) return;
+
+      try {
+        window.localStorage.setItem(storageKeys.resources, JSON.stringify(queued.resources));
+        window.localStorage.setItem(storageKeys.updatedAt, JSON.stringify(queued.updatedAt));
+      } catch (error) {
+        console.warn("Fahrtenbuch konnte nicht lokal gespeichert werden.", error);
+      }
+
+      void saveSupabasePatch({ resources: queued.resources, updatedAt: queued.updatedAt })
+        .then((savedAt) => {
+          if (savedAt) setAppUpdatedAt(savedAt);
+          setSupabaseSyncDisabled(false);
+        })
+        .catch((error) => {
+          console.warn("Fahrtenbuch konnte nicht sofort online gespeichert werden.", error);
+          if (!isRetryableSyncError(error)) setSupabaseSyncDisabled(true);
+        });
+    }, options.delayMs ?? 120);
   }
 
   const t = labels[language];
@@ -10245,7 +10296,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
         : resource
     ));
     setResources(nextResources);
-    persistSnapshotNow({ resources: nextResources }, { forceRemote: true });
+    persistResourcesFast(nextResources);
     const latestWaypoint = [...form.waypoints].reverse().find((waypoint) => waypoint.coordinates);
     const coordinates = form.endCoordinates ?? latestWaypoint?.coordinates ?? form.startCoordinates;
     const address = form.endAddress.trim() || latestWaypoint?.address.trim() || form.startAddress.trim();
@@ -10325,7 +10376,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
         : resource
     ));
     setResources(nextResources);
-    persistSnapshotNow({ resources: nextResources }, { forceRemote: true });
+    persistResourcesFast(nextResources);
     if (startCoordinates || startAddress) {
       const position: LiveVehiclePosition = {
         address: startAddress,
@@ -10364,7 +10415,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
         : resource
     ));
     setResources(nextResources);
-    persistSnapshotNow({ resources: nextResources }, { forceRemote: true });
+    persistResourcesFast(nextResources);
     const canceledPosition: LiveVehiclePosition = {
       address: quickTripForm.startAddress.trim(),
       coordinates: quickTripForm.startCoordinates,
@@ -10463,7 +10514,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     ));
 
     setResources(nextResources);
-    persistSnapshotNow({ resources: nextResources }, { forceRemote: true });
+    persistResourcesFast(nextResources);
     const completedPosition: LiveVehiclePosition = {
       address: endAddress,
       coordinates: endCoordinates,

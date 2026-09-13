@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.400.0",
+  version: "1.401.0",
   releaseDate: "2026-09-13",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.401.0",
+    date: "2026-09-13",
+    changes: [
+      "Fahrt starten, aktualisieren, verwerfen und speichern nutzt einen leichten Fahrtenbuch-Speicherpfad statt Komplettspeicherung",
+      "Fahrtenbuch wird nach dem Speichern im Hintergrund mit Supabase synchronisiert, damit der Dialog schneller reagiert",
+    ],
+  },
   {
     version: "1.400.0",
     date: "2026-09-13",
