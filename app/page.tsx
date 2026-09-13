@@ -12629,6 +12629,18 @@ function CustomersView({
                   </div>
                   <div className="row-actions">
                     <button
+                      className="ghost-button compact customer-communication-trigger"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        toggleCustomerCommunication(customer.id);
+                      }}
+                      type="button"
+                    >
+                      {communicationOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+                      <span>{tt("Kommunikation")}</span>
+                      <strong>{customerMessages.length}</strong>
+                    </button>
+                    <button
                       aria-label={`${tt("Nachricht")} ${customer.name} ${tt("senden")}`}
                       className="icon-button"
                       data-tooltip={`${tt("Nachricht")} ${customer.name} ${tt("senden")}`}
@@ -12641,12 +12653,7 @@ function CustomersView({
                       <Mail size={16} />
                     </button>
                   </div>
-                  <div className="customer-communication-summary" onClick={(event) => event.stopPropagation()}>
-                    <button className="ghost-button compact" onClick={() => toggleCustomerCommunication(customer.id)} type="button">
-                      {communicationOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
-                      {tt("Kommunikation")}
-                      <strong>{customerMessages.length}</strong>
-                    </button>
+                  <div className="customer-communication-summary">
                     {latestMessage ? (
                       <span>{formatCreatedAt(latestMessage.sentAt || latestMessage.createdAt)} · {latestMessage.subject}</span>
                     ) : (

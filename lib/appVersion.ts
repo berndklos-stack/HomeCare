@@ -1,10 +1,17 @@
 export const appVersion = {
-  version: "1.396.0",
+  version: "1.397.0",
   releaseDate: "2026-09-13",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.397.0",
+    date: "2026-09-13",
+    changes: [
+      "Kundenuebersicht zeigt Kommunikation kompakt in der Kundenzeile statt als luftigen Innenblock",
+    ],
+  },
   {
     version: "1.396.0",
     date: "2026-09-13",
