@@ -12290,7 +12290,7 @@ function AnalyticsView({
             ))}
           </div>
           {period !== "all" && (
-            <div className="analytics-period-fields">
+            <div className={period === "custom" ? "analytics-period-fields custom" : "analytics-period-fields"}>
               <IconAction label={tt("Zurück")} onClick={() => {
                 if (period === "month") shiftSelectedMonth(-1);
                 if (period === "week") shiftSelectedWeek(-1);

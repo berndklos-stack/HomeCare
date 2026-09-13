@@ -785,18 +785,23 @@ button {
 }
 
 .analytics-period-fields {
-  align-items: end;
-  display: flex;
-  flex-wrap: wrap;
+  align-items: center;
+  display: grid;
   gap: 8px;
-  justify-content: flex-end;
+  grid-template-columns: 44px minmax(190px, 230px) 44px;
+  justify-content: end;
   margin: 0;
+}
+
+.analytics-period-fields.custom {
+  grid-template-columns: 44px minmax(150px, 190px) minmax(150px, 190px) 44px;
 }
 
 .analytics-period-fields label {
   display: grid;
   gap: 5px;
-  min-width: 164px;
+  justify-items: center;
+  min-width: 0;
 }
 
 .analytics-period-fields span {
@@ -807,7 +812,17 @@ button {
 }
 
 .analytics-period-fields input {
+  font-weight: 650;
   min-height: 38px;
+  text-align: center;
+  width: 100%;
+}
+
+.analytics-period-fields .icon-button {
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+  width: 44px;
 }
 
 .analytics-summary-grid div {
