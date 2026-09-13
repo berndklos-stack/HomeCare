@@ -1625,6 +1625,7 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Aktueller Status", sv: "Aktuell status", en: "Current status" },
   { de: "Alle Berichte", sv: "Alla rapporter", en: "All reports" },
   { de: "Alle", sv: "Alla", en: "All" },
+  { de: "An Mitarbeiter senden", sv: "Skicka till medarbetare", en: "Send to employee" },
   { de: "Ankunft und Grundkontrolle", sv: "Ankomst och grundkontroll", en: "Arrival and basic check" },
   { de: "Anmelden", sv: "Logga in", en: "Sign in" },
   { de: "Bekannte Adresse wurde übernommen.", sv: "Känd adress har lagts in.", en: "Known address was applied." },
@@ -1644,6 +1645,8 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Ausführung", sv: "Utförande", en: "Execution" },
   { de: "Auswertung", sv: "Analys", en: "Analytics" },
   { de: "Auswertungsbericht", sv: "Analysrapport", en: "Analytics report" },
+  { de: "Auswertungsbericht konnte nicht gesendet werden.", sv: "Analysrapporten kunde inte skickas.", en: "Analytics report could not be sent." },
+  { de: "Auswertungsbericht wurde gesendet.", sv: "Analysrapporten har skickats.", en: "Analytics report was sent." },
   { de: "Aus Leistung übernehmen", sv: "Hämta från tjänst", en: "Copy from service" },
   { de: "Auswahl übernehmen", sv: "Använd urval", en: "Apply selection" },
   { de: "Backups", sv: "Säkerhetskopior", en: "Backups" },
@@ -2006,6 +2009,7 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Paketname", sv: "Paketnamn", en: "Package name" },
   { de: "Paketpreis", sv: "Paketpris", en: "Package price" },
   { de: "Parken", sv: "Parkering", en: "Parking" },
+  { de: "PDF herunterladen", sv: "Ladda ner PDF", en: "Download PDF" },
   { de: "Personal anlegen", sv: "Skapa personal", en: "Create personnel" },
   { de: "Personal speichern", sv: "Spara personal", en: "Save personnel" },
   { de: "Personal verwalten", sv: "Hantera personal", en: "Manage personnel" },
@@ -5514,6 +5518,139 @@ async function downloadCustomerReportPdf(report: ReportRecord, object: ObjectRec
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
+}
+
+type AnalyticsReportPdfEntry = {
+  assignee: string;
+  date: string;
+  objectName: string;
+  tasks: Array<{ minutes: number; text: string; title: string }>;
+  title: string;
+  totalMinutes: number;
+};
+
+async function createAnalyticsReportPdfBlob(title: string, periodLabel: string, entries: AnalyticsReportPdfEntry[]) {
+  const { jsPDF } = await import("jspdf");
+  const pdf = new jsPDF({ unit: "mm", format: "a4" });
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const margin = 14;
+  const contentWidth = pageWidth - margin * 2;
+  let y = margin;
+
+  function ensureSpace(height: number) {
+    if (y + height <= pageHeight - 16) return;
+    pdf.addPage();
+    y = margin;
+  }
+
+  function addWrappedText(text: string, x: number, maxWidth: number, lineHeight = 5) {
+    const lines = pdf.splitTextToSize(text || "-", maxWidth) as string[];
+    ensureSpace(lines.length * lineHeight + 2);
+    pdf.text(lines, x, y);
+    y += lines.length * lineHeight;
+  }
+
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(18);
+  pdf.setTextColor(18, 22, 28);
+  pdf.text("Auswertungsbericht", margin, y);
+  y += 8;
+  pdf.setFontSize(12);
+  pdf.text(title, margin, y);
+  y += 6;
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(9);
+  pdf.setTextColor(105, 111, 122);
+  pdf.text(`Zeitraum: ${periodLabel}`, margin, y);
+  y += 6;
+  pdf.text(`Arbeitszeit: ${formatWorkHours(entries.reduce((sum, entry) => sum + entry.totalMinutes, 0))} · Berichte: ${entries.length}`, margin, y);
+  y += 10;
+
+  entries.forEach((entry) => {
+    ensureSpace(24);
+    pdf.setFillColor(248, 249, 251);
+    pdf.setDrawColor(225, 228, 233);
+    pdf.roundedRect(margin, y, contentWidth, 16, 2, 2, "FD");
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(10);
+    pdf.setTextColor(18, 22, 28);
+    pdf.text(`${entry.date} · ${entry.title}`, margin + 4, y + 6);
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(8);
+    pdf.setTextColor(105, 111, 122);
+    pdf.text(`${entry.objectName} · ${entry.assignee}`, margin + 4, y + 11);
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(9);
+    pdf.setTextColor(18, 22, 28);
+    pdf.text(formatWorkHours(entry.totalMinutes), pageWidth - margin - 4, y + 9, { align: "right" });
+    y += 20;
+
+    entry.tasks.forEach((task) => {
+      ensureSpace(16);
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(8.5);
+      pdf.setTextColor(33, 111, 148);
+      pdf.text(formatWorkHours(task.minutes), margin + 2, y);
+      pdf.setTextColor(18, 22, 28);
+      pdf.text(task.title, margin + 28, y, { maxWidth: contentWidth - 28 });
+      y += 5;
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(8);
+      pdf.setTextColor(105, 111, 122);
+      addWrappedText(task.text || "Keine zusätzliche Info erfasst.", margin + 28, contentWidth - 28, 4);
+      y += 2;
+    });
+    y += 3;
+  });
+
+  const pageCount = pdf.getNumberOfPages();
+  for (let page = 1; page <= pageCount; page += 1) {
+    pdf.setPage(page);
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(7);
+    pdf.setTextColor(120);
+    pdf.text(`Seite ${page} von ${pageCount}`, pageWidth - margin, pageHeight - 6, { align: "right" });
+  }
+
+  return pdf.output("blob");
+}
+
+function downloadAnalyticsReportPdf(title: string, periodLabel: string, entries: AnalyticsReportPdfEntry[]) {
+  void createAnalyticsReportPdfBlob(title, periodLabel, entries).then((pdfBlob) => {
+    const url = URL.createObjectURL(pdfBlob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${safeFileName(`Auswertungsbericht-${title}-${periodLabel}`)}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  });
+}
+
+async function sendAnalyticsReportPdf(title: string, periodLabel: string, entries: AnalyticsReportPdfEntry[], recipientEmail: string, recipientName = "") {
+  if (!recipientEmail.trim()) throw new Error("Keine Empfänger-E-Mail-Adresse gefunden.");
+  const pdfBlob = await createAnalyticsReportPdfBlob(title, periodLabel, entries);
+  const attachmentBase64 = assertBase64Content(await blobToBase64(pdfBlob), "Auswertungs-PDF");
+  const fileName = `${safeFileName(`Auswertungsbericht-${title}-${periodLabel}`)}.pdf`;
+  const response = await fetch("/api/reports/send", {
+    body: JSON.stringify({
+      attachmentBase64,
+      body: `Hej ${recipientName.trim() || ""},\n\nanbei findest du den Auswertungsbericht für ${periodLabel}.\n\nLiebe Grüße\nKolaretorp Service AB`,
+      cc: "info@kolaretorp.se",
+      filename: fileName,
+      idempotencyKey: `ANALYTICS-${safeFileName(title)}-${safeFileName(periodLabel)}-${Date.now()}`,
+      subject: `Auswertungsbericht ${title} - ${periodLabel}`,
+      to: recipientEmail.trim(),
+    }),
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  });
+  const payload = await response.json().catch(() => ({})) as { error?: string; sent?: boolean };
+  if (!response.ok || !payload.sent) {
+    throw new Error(payload.error || response.statusText || "Auswertungsbericht konnte nicht gesendet werden.");
+  }
 }
 
 async function sendCustomerReportMail(report: ReportRecord, object: ObjectRecord, job: JobRecord | undefined, customer: CustomerRecord | undefined, body?: string, idempotencyKey?: string) {
@@ -12159,6 +12296,8 @@ function AnalyticsView({
 }) {
   const tt = (value: string) => uiText(value, language);
   const [detailReport, setDetailReport] = useState<{ id: string; title: string; type: "customer" | "object" | "personnel" } | null>(null);
+  const [analyticsNotice, setAnalyticsNotice] = useState("");
+  const [sendingAnalyticsReport, setSendingAnalyticsReport] = useState(false);
   const normalizedReports = dedupeReports(reports);
   const now = new Date();
   const currentYear = String(now.getFullYear());
@@ -12178,13 +12317,16 @@ function AnalyticsView({
     if (period === "custom") return (!customFrom || date >= customFrom) && (!customTo || date <= customTo);
     return true;
   };
+  const periodLabel = period === "all" ? tt("Alle Zeiten") : period === "month" ? selectedMonth : period === "week" ? selectedWeek : `${customFrom || "-"} bis ${customTo || "-"}`;
   const filteredReports = normalizedReports.filter((report) => periodMatchesDate(report.date));
   const personnelNameByAlias = new Map<string, string>();
+  const personnelByDisplayName = new Map<string, PersonnelRecord>();
   personnel
     .filter((person) => !person.archived && person.status !== "ausgeschieden")
     .forEach((person) => {
       const fullName = `${person.firstName} ${person.lastName}`.trim();
       if (!fullName) return;
+      personnelByDisplayName.set(fullName, person);
       [fullName, person.firstName, person.lastName, person.email].forEach((alias) => {
         if (alias?.trim()) personnelNameByAlias.set(alias.trim().toLowerCase(), fullName);
       });
@@ -12257,6 +12399,36 @@ function AnalyticsView({
     }).sort((first, second) => normalizeReportDate(first.date).localeCompare(normalizeReportDate(second.date)))
     : [];
   const detailMinutes = detailReports.reduce((sum, report) => sum + reportWorkMinutes(report), 0);
+  const detailObject = detailReport?.type === "object" ? objects.find((object) => object.id === detailReport.id) : undefined;
+  const detailCustomer = detailReport?.type === "customer"
+    ? customers.find((customer) => customer.id === detailReport.id)
+    : detailObject
+      ? customers.find((customer) => customer.id === detailObject.ownerCustomerId || customer.name === detailObject.owner)
+      : undefined;
+  const detailPersonnel = detailReport?.type === "personnel" ? personnelByDisplayName.get(detailReport.id) : undefined;
+  const detailRecipientEmail = detailReport?.type === "personnel" ? detailPersonnel?.email ?? "" : detailCustomer?.email ?? "";
+  const detailRecipientName = detailReport?.type === "personnel"
+    ? detailReport.title
+    : detailCustomer?.contact || detailCustomer?.name || "";
+  const detailEntries: AnalyticsReportPdfEntry[] = detailReports.map((report) => {
+    const job = jobs.find((item) => item.id === report.jobId);
+    const object = objects.find((item) => item.id === report.objectId);
+    const tasks = report.checklistResults
+      .filter((item) => item.completed || item.minutes > 0 || item.note.trim())
+      .map((item) => ({
+        minutes: item.minutes,
+        text: item.note.trim() || item.description || tt("Keine zusätzliche Info erfasst."),
+        title: item.title,
+      }));
+    return {
+      assignee: normalizedAssigneeName(job?.assignedTo),
+      date: report.date,
+      objectName: object?.name ?? tt("Objekt unbekannt"),
+      tasks,
+      title: report.title,
+      totalMinutes: reportWorkMinutes(report),
+    };
+  });
   const shiftSelectedMonth = (direction: -1 | 1) => {
     const [year, month] = selectedMonth.split("-").map(Number);
     const date = new Date(year, (month || 1) - 1 + direction, 1, 12);
@@ -12471,40 +12643,58 @@ function AnalyticsView({
                 <p>{tt("Auswertungsbericht")}</p>
                 <h2 id="analytics-report-title">{detailReport.title}</h2>
               </div>
-              <button aria-label={tt("Schließen")} onClick={() => setDetailReport(null)} type="button">
-                <X size={18} />
-              </button>
+              <div className="modal-header-actions">
+                <IconAction label={tt("PDF herunterladen")} onClick={() => downloadAnalyticsReportPdf(detailReport.title, periodLabel, detailEntries)}><FileDown size={16} /></IconAction>
+                <button
+                  aria-label={detailReport.type === "personnel" ? tt("An Mitarbeiter senden") : tt("An Kunden senden")}
+                  className="icon-button"
+                  data-tooltip={detailReport.type === "personnel" ? tt("An Mitarbeiter senden") : tt("An Kunden senden")}
+                  disabled={sendingAnalyticsReport || !detailRecipientEmail}
+                  onClick={() => {
+                    setAnalyticsNotice("");
+                    setSendingAnalyticsReport(true);
+                    void sendAnalyticsReportPdf(detailReport.title, periodLabel, detailEntries, detailRecipientEmail, detailRecipientName)
+                      .then(() => setAnalyticsNotice(tt("Auswertungsbericht wurde gesendet.")))
+                      .catch((error) => setAnalyticsNotice(error instanceof Error ? error.message : tt("Auswertungsbericht konnte nicht gesendet werden.")))
+                      .finally(() => setSendingAnalyticsReport(false));
+                  }}
+                  type="button"
+                >
+                  <Send size={16} />
+                </button>
+                <button aria-label={tt("Schließen")} onClick={() => setDetailReport(null)} type="button">
+                  <X size={18} />
+                </button>
+              </div>
             </header>
+            {analyticsNotice && <div className="warning-line">{analyticsNotice}</div>}
             <div className="analytics-report-summary">
-              <div><span>{tt("Zeitraum")}</span><strong>{period === "all" ? tt("Alle Zeiten") : period === "month" ? selectedMonth : period === "week" ? selectedWeek : `${customFrom || "-"} bis ${customTo || "-"}`}</strong></div>
+              <div><span>{tt("Zeitraum")}</span><strong>{periodLabel}</strong></div>
               <div><span>{tt("Arbeitszeit")}</span><strong>{formatWorkHours(detailMinutes)}</strong></div>
               <div><span>{tt("Berichte")}</span><strong>{detailReports.length}</strong></div>
             </div>
             <div className="analytics-report-list">
-              {detailReports.map((report) => {
-                const job = jobs.find((item) => item.id === report.jobId);
-                const object = objects.find((item) => item.id === report.objectId);
-                const tasks = report.checklistResults.filter((item) => item.completed || item.minutes > 0 || item.note.trim());
+              {detailEntries.map((entry) => {
                 return (
-                  <article key={report.id}>
+                  <article key={`${entry.date}-${entry.title}-${entry.objectName}`}>
                     <header>
                       <div>
-                        <strong>{report.date} · {report.title}</strong>
-                        <span>{object?.name ?? tt("Objekt unbekannt")} · {normalizedAssigneeName(job?.assignedTo)}</span>
+                        <strong>{entry.date} · {entry.title}</strong>
+                        <span>{entry.objectName} · {entry.assignee}</span>
                       </div>
-                      <b>{formatWorkHours(reportWorkMinutes(report))}</b>
+                      <b>{formatWorkHours(entry.totalMinutes)}</b>
                     </header>
                     <div className="analytics-work-list">
-                      {tasks.map((item) => (
-                        <div key={item.id}>
+                      {entry.tasks.map((item) => (
+                        <div key={`${entry.date}-${entry.title}-${item.title}`}>
                           <span>{formatWorkHours(item.minutes)}</span>
                           <div>
                             <strong>{item.title}</strong>
-                            <p>{item.note.trim() || item.description || tt("Keine zusätzliche Info erfasst.")}</p>
+                            <p>{item.text}</p>
                           </div>
                         </div>
                       ))}
-                      {tasks.length === 0 && <p className="empty-list-note">{tt("Keine Arbeitsdetails vorhanden.")}</p>}
+                      {entry.tasks.length === 0 && <p className="empty-list-note">{tt("Keine Arbeitsdetails vorhanden.")}</p>}
                     </div>
                   </article>
                 );
