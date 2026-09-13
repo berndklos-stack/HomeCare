@@ -1,10 +1,26 @@
 export const appVersion = {
-  version: "1.397.0",
+  version: "1.399.0",
   releaseDate: "2026-09-13",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.399.0",
+    date: "2026-09-13",
+    changes: [
+      "Automatische Speicher- und Sync-Arbeit wurde entkoppelt, damit Klicks und Eingaben fluessiger reagieren",
+      "Grosser App-Daten-Sync laeuft seltener im Hintergrund, Fahrzeugpositionen bleiben separat aktuell",
+      "Kundenuebersicht trennt Kundendaten und rechte Aktionsgruppe klar gegen Ueberlagerungen",
+    ],
+  },
+  {
+    version: "1.398.0",
+    date: "2026-09-13",
+    changes: [
+      "Kundenuebersicht ordnet Status, Kommunikation und Nachricht sauber in einer rechten Aktionsgruppe an",
+    ],
+  },
   {
     version: "1.397.0",
     date: "2026-09-13",

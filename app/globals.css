@@ -1029,14 +1029,14 @@ button {
 
 .customer-row-with-actions {
   align-items: start;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, auto);
 }
 
 .customer-row-main {
   align-items: center;
   display: grid;
-  gap: 10px;
-  grid-template-columns: minmax(260px, 1fr) minmax(140px, 0.45fr) minmax(90px, 0.25fr) auto;
+  gap: 16px;
+  grid-template-columns: minmax(360px, 1.4fr) minmax(180px, 0.55fr) minmax(70px, 0.18fr);
   min-width: 0;
 }
 
@@ -1063,14 +1063,28 @@ button {
 }
 
 .customer-communication-trigger {
+  display: inline-flex;
   flex: 0 0 auto;
+  gap: 7px;
+  justify-content: center;
   min-height: 32px;
+  min-width: 154px;
   padding-inline: 9px;
+  width: auto;
 }
 
 .customer-communication-trigger strong {
   color: var(--foreground);
   font-size: 13px;
+}
+
+.customer-row-with-actions > .row-actions {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: auto minmax(154px, auto) 34px;
+  justify-content: end;
+  min-width: 0;
 }
 
 .customer-communication-summary > span {
@@ -7339,7 +7353,9 @@ button.media-thumb {
 
   .customer-row-with-actions .row-actions {
     grid-column: 1 / -1;
+    grid-template-columns: auto minmax(154px, 1fr) 34px;
     justify-content: flex-start;
+    width: 100%;
   }
 
   .customer-communication-summary {

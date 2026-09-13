@@ -7817,20 +7817,28 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   const explicitPersistAtRef = useRef(0);
   const lastRemoteSnapshotKeyRef = useRef<string | null>(null);
   const pendingRemoteSnapshotKeyRef = useRef<string | null>(null);
+  const pendingRemoteSnapshotRef = useRef<AppSnapshot | null>(null);
   const remoteSaveTimerRef = useRef<number | null>(null);
   const remoteSyncRunningRef = useRef(false);
+  const pendingLocalSnapshotRef = useRef<AppSnapshot | null>(null);
+  const localSaveTimerRef = useRef<number | null>(null);
+  const lastForegroundSyncAtRef = useRef(0);
   const pendingReportPhotoUploadsRef = useRef<Set<string>>(new Set());
 
   const scheduleRemoteSave = useCallback((snapshot: AppSnapshot, delayMs = 2200) => {
     if (supabaseSyncDisabled) return;
-    const snapshotKey = snapshotContentKey(snapshot);
-    if (snapshotKey === lastRemoteSnapshotKeyRef.current || snapshotKey === pendingRemoteSnapshotKeyRef.current) return;
-    pendingRemoteSnapshotKeyRef.current = snapshotKey;
+    pendingRemoteSnapshotRef.current = snapshot;
     if (remoteSaveTimerRef.current) window.clearTimeout(remoteSaveTimerRef.current);
 
     remoteSaveTimerRef.current = window.setTimeout(() => {
       remoteSaveTimerRef.current = null;
-      void saveSupabasePatch(snapshotPatch(snapshot))
+      const queuedSnapshot = pendingRemoteSnapshotRef.current;
+      pendingRemoteSnapshotRef.current = null;
+      if (!queuedSnapshot) return;
+      const snapshotKey = snapshotContentKey(queuedSnapshot);
+      if (snapshotKey === lastRemoteSnapshotKeyRef.current || snapshotKey === pendingRemoteSnapshotKeyRef.current) return;
+      pendingRemoteSnapshotKeyRef.current = snapshotKey;
+      void saveSupabasePatch(snapshotPatch(queuedSnapshot))
         .then((savedAt) => {
           lastRemoteSnapshotKeyRef.current = snapshotKey;
           pendingRemoteSnapshotKeyRef.current = null;
@@ -7844,8 +7852,25 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     }, delayMs);
   }, [supabaseSyncDisabled]);
 
+  const scheduleLocalPersist = useCallback((snapshot: AppSnapshot, delayMs = 1600) => {
+    pendingLocalSnapshotRef.current = snapshot;
+    if (localSaveTimerRef.current) window.clearTimeout(localSaveTimerRef.current);
+    localSaveTimerRef.current = window.setTimeout(() => {
+      localSaveTimerRef.current = null;
+      const queuedSnapshot = pendingLocalSnapshotRef.current;
+      pendingLocalSnapshotRef.current = null;
+      if (!queuedSnapshot) return;
+      try {
+        persistLocalSnapshot(queuedSnapshot);
+      } catch (error) {
+        console.warn("App-Daten konnten nicht lokal gespeichert werden.", error);
+      }
+    }, delayMs);
+  }, []);
+
   useEffect(() => () => {
     if (remoteSaveTimerRef.current) window.clearTimeout(remoteSaveTimerRef.current);
+    if (localSaveTimerRef.current) window.clearTimeout(localSaveTimerRef.current);
   }, []);
 
   useEffect(() => {
@@ -8085,15 +8110,11 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       updatedAt: snapshotUpdatedAt,
     };
 
-    try {
-      persistLocalSnapshot(snapshot);
-    } catch (error) {
-      console.warn("App-Daten konnten nicht lokal gespeichert werden.", error);
-    }
+    scheduleLocalPersist(snapshot);
     setAppUpdatedAt(snapshotUpdatedAt);
 
     scheduleRemoteSave(snapshot, 60000);
-  }, [accountingAccounts, activeJobId, appStorageReady, billing, companySettings, customers, dailyMailSettings, deletedEntityIds, deletedReportIds, fieldNotes, fieldProgress, inventoryLocations, jobs, materials, objects, personnel, portalMessages, reports, resources, scheduleRemoteSave, servicePackages, services, tenantSettings, translationOverrides]);
+  }, [accountingAccounts, activeJobId, appStorageReady, billing, companySettings, customers, dailyMailSettings, deletedEntityIds, deletedReportIds, fieldNotes, fieldProgress, inventoryLocations, jobs, materials, objects, personnel, portalMessages, reports, resources, scheduleLocalPersist, scheduleRemoteSave, servicePackages, services, tenantSettings, translationOverrides]);
 
   const currentSnapshot = useCallback((overrides: Partial<AppSnapshot> = {}): AppSnapshot => ({
     activeJobId,
@@ -8193,8 +8214,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
 
   useEffect(() => {
     if (!appStorageReady) return;
-    const fastSyncSections: Section[] = ["dashboard", "field", "jobs", "planning", "inventory", "tracking"];
-    const intervalMs = fastSyncSections.includes(section) ? 15000 : 60000;
+    const intervalMs = 90000;
 
     const intervalId = supabaseSyncDisabled
       ? undefined
@@ -8204,8 +8224,24 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
 
     function handleVisibilityChange() {
       if (document.visibilityState === "visible") {
-        void syncRemoteSnapshot(true);
+        const now = Date.now();
+        if (now - lastForegroundSyncAtRef.current > 20000) {
+          lastForegroundSyncAtRef.current = now;
+          void syncRemoteSnapshot(true);
+        }
         void syncVehiclePositions();
+      } else if (pendingLocalSnapshotRef.current) {
+        const queuedSnapshot = pendingLocalSnapshotRef.current;
+        pendingLocalSnapshotRef.current = null;
+        if (localSaveTimerRef.current) {
+          window.clearTimeout(localSaveTimerRef.current);
+          localSaveTimerRef.current = null;
+        }
+        try {
+          persistLocalSnapshot(queuedSnapshot);
+        } catch (error) {
+          console.warn("App-Daten konnten beim Verlassen nicht lokal gespeichert werden.", error);
+        }
       }
     }
 
@@ -8222,7 +8258,11 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     }
 
     function handleFocus() {
-      void syncRemoteSnapshot(true);
+      const now = Date.now();
+      if (now - lastForegroundSyncAtRef.current > 20000) {
+        lastForegroundSyncAtRef.current = now;
+        void syncRemoteSnapshot(true);
+      }
       void syncVehiclePositions();
     }
 
@@ -8255,6 +8295,11 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     explicitPersistAtRef.current = Date.now();
     try {
       persistLocalSnapshot(snapshot);
+      pendingLocalSnapshotRef.current = null;
+      if (localSaveTimerRef.current) {
+        window.clearTimeout(localSaveTimerRef.current);
+        localSaveTimerRef.current = null;
+      }
     } catch (error) {
       console.warn("App-Daten konnten nicht sofort lokal gespeichert werden.", error);
     }
@@ -12625,9 +12670,9 @@ function CustomersView({
                     </div>
                     <span>{objects.filter((object) => customer.objects.includes(object.id)).map((object) => object.name).join(", ") || tt("Keine Objekte")}</span>
                     <span>{customer.balance}</span>
-                    <Badge value={tt(customer.portalStatus)} />
                   </div>
                   <div className="row-actions">
+                    <Badge value={tt(customer.portalStatus)} />
                     <button
                       className="ghost-button compact customer-communication-trigger"
                       onClick={(event) => {
