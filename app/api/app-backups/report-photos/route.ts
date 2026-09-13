@@ -130,7 +130,7 @@ async function recentBackups(supabase: NonNullable<ReturnType<typeof getSupabase
     .select("data, updated_at")
     .like("id", `${appBackupPrefix}%`)
     .order("updated_at", { ascending: false })
-    .limit(14);
+    .limit(80);
 
   if (error) throw new Error(error.message);
   return (data ?? [])

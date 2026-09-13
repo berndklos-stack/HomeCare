@@ -1,10 +1,17 @@
 export const appVersion = {
-  version: "1.390.0",
+  version: "1.391.0",
   releaseDate: "2026-09-13",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.391.0",
+    date: "2026-09-13",
+    changes: [
+      "Berichtsfoto-Wiederherstellung durchsucht deutlich mehr Backups, wenn Bilder nach einem Sync fehlen",
+    ],
+  },
   {
     version: "1.390.0",
     date: "2026-09-13",
