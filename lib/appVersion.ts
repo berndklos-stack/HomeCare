@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.403.0",
+  version: "1.404.0",
   releaseDate: "2026-09-13",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.404.0",
+    date: "2026-09-13",
+    changes: [
+      "Ressourcenbilder werden im kleinen Ressourcen-Sync mit gespeichert und beim Laden wieder an Fahrzeuge und Ressourcen angehängt",
+      "Neue Fotos an bestehenden Ressourcen werden direkt gespeichert und synchronisiert, ohne extra Ressource speichern zu muessen",
+    ],
+  },
   {
     version: "1.403.0",
     date: "2026-09-13",

@@ -17277,12 +17277,23 @@ function MasterDataView({
         type: "Bild" as const,
       };
     }));
+    const nextMediaItems = [...resourceForm.mediaItems, ...added];
 
     setResourceForm({
       ...resourceForm,
-      mediaItems: [...resourceForm.mediaItems, ...added],
+      mediaItems: nextMediaItems,
     });
     setResourceImageIndex(Math.max(0, resourceImages.length));
+    if (editingResourceId) {
+      const nextResources = resources.map((resource) => (
+        resource.id === editingResourceId
+          ? { ...resource, media: nextMediaItems }
+          : resource
+      ));
+      setResources(nextResources);
+      onPersistResources(nextResources);
+      setArchiveNotice(`${added.length} Bild${added.length === 1 ? "" : "er"} zur Ressource gespeichert.`);
+    }
   }
 
   async function addResourceDocuments(files: FileList | null) {

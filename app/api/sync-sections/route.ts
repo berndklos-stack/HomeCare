@@ -851,7 +851,7 @@ function rowToCustomer(row: CustomerRow, objectRows: ObjectRow[]) {
   };
 }
 
-function mediaToRow(ownerId: string, item: JsonObject) {
+function mediaToRow(ownerType: "object" | "resource", ownerId: string, item: JsonObject) {
   return {
     description: stringOrEmpty(item.description),
     id: String(item.id),
@@ -859,7 +859,7 @@ function mediaToRow(ownerId: string, item: JsonObject) {
     kind: stringOrEmpty(item.type) || "Bild",
     name: stringOrEmpty(item.name) || "Datei",
     owner_id: ownerId,
-    owner_type: "object",
+    owner_type: ownerType,
     preview_url: stringOrEmpty(item.previewUrl),
     source: stringOrEmpty(item.source),
     storage_path: stringOrEmpty(item.storagePath),
@@ -1385,7 +1385,8 @@ function rowToTranslation(row: TranslationRow) {
   };
 }
 
-function rowToResource(row: ResourceRow, trips: VehicleTripRow[]) {
+function rowToResource(row: ResourceRow, trips: VehicleTripRow[], mediaRows: MediaRow[] = []) {
+  const media = mediaRows.filter((item) => item.owner_id === row.id).map(rowToMedia);
   return {
     archived: Boolean(row.archived),
     buildYear: row.build_year ?? undefined,
@@ -1398,7 +1399,7 @@ function rowToResource(row: ResourceRow, trips: VehicleTripRow[]) {
       .sort((first, second) => `${first.date}-${first.id}`.localeCompare(`${second.date}-${second.id}`)),
     logbookYear: row.logbook_year ?? "",
     maintenanceItems: Array.isArray(row.maintenance_items) ? row.maintenance_items : [],
-    media: [],
+    media,
     name: row.name,
     notes: row.notes ?? "",
     odometerYearEnd: row.odometer_year_end === null ? "" : String(row.odometer_year_end),
@@ -1436,7 +1437,8 @@ async function loadResourceSection(supabase: NonNullable<ReturnType<typeof getSu
 
   if (tripError) return loadResourceSectionViaRpc(supabase);
 
-  const resources = (resourceRows as ResourceRow[]).map((row) => rowToResource(row, (tripRows ?? []) as VehicleTripRow[]));
+  const mediaRows = await loadResourceMediaRows(supabase).catch(() => []);
+  const resources = (resourceRows as ResourceRow[]).map((row) => rowToResource(row, (tripRows ?? []) as VehicleTripRow[], mediaRows));
   return {
     updatedAt: maxUpdatedAt([
       ...(resourceRows as ResourceRow[]).map((row) => row.updated_at),
@@ -1473,12 +1475,28 @@ async function saveResourceSection(supabase: NonNullable<ReturnType<typeof getSu
       : []
   ));
 
-  if (!trips.length) return;
-  const { error: tripError } = await supabase
-    .from("homecare_vehicle_trips")
-    .upsert(trips, { onConflict: "id" });
+  const { error: tripError } = trips.length
+    ? await supabase
+        .from("homecare_vehicle_trips")
+        .upsert(trips, { onConflict: "id" })
+    : { error: null };
 
   if (tripError) await saveResourceSectionViaRpc(supabase, value);
+
+  const mediaRows = resources.flatMap((resource) => (
+    Array.isArray(resource.media)
+      ? resource.media
+          .filter((item): item is JsonObject => Boolean(item && typeof item === "object" && "id" in item))
+          .map((item) => mediaToRow("resource", String(resource.id), item))
+      : []
+  ));
+  if (!mediaRows.length) return;
+
+  const { error: mediaError } = await supabase
+    .from("homecare_media")
+    .upsert(mediaRows, { onConflict: "id" });
+
+  if (mediaError) await saveResourceSectionViaRpc(supabase, value);
 }
 
 async function loadReportsSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
@@ -1604,6 +1622,16 @@ async function loadObjectMediaRows(supabase: NonNullable<ReturnType<typeof getSu
   return (data ?? []) as MediaRow[];
 }
 
+async function loadResourceMediaRows(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
+  const { data, error } = await supabase
+    .from("homecare_media")
+    .select("id, owner_id, kind, name, description, source, storage_path, preview_url, is_primary")
+    .eq("owner_type", "resource")
+    .order("name", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as MediaRow[];
+}
+
 async function loadCustomersSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
   const { data, error } = await supabase
     .from("homecare_customers")
@@ -1654,7 +1682,7 @@ async function saveObjectsSection(supabase: NonNullable<ReturnType<typeof getSup
     return Array.isArray(media.items)
       ? media.items
           .filter((item): item is JsonObject => Boolean(item && typeof item === "object" && "id" in item))
-          .map((item) => mediaToRow(String(object.id), item))
+          .map((item) => mediaToRow("object", String(object.id), item))
       : [];
   });
   if (!mediaRows.length) return;
