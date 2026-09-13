@@ -7824,6 +7824,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   const localSaveTimerRef = useRef<number | null>(null);
   const pendingResourcePersistRef = useRef<{ resources: ResourceRecord[]; updatedAt: string } | null>(null);
   const resourcePersistTimerRef = useRef<number | null>(null);
+  const quickTripDraftSaveTimerRef = useRef<number | null>(null);
   const lastForegroundSyncAtRef = useRef(0);
   const pendingReportPhotoUploadsRef = useRef<Set<string>>(new Set());
 
@@ -7874,6 +7875,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     if (remoteSaveTimerRef.current) window.clearTimeout(remoteSaveTimerRef.current);
     if (localSaveTimerRef.current) window.clearTimeout(localSaveTimerRef.current);
     if (resourcePersistTimerRef.current) window.clearTimeout(resourcePersistTimerRef.current);
+    if (quickTripDraftSaveTimerRef.current) window.clearTimeout(quickTripDraftSaveTimerRef.current);
   }, []);
 
   useEffect(() => {
@@ -7894,15 +7896,41 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     } finally {
       setQuickTripDraftLoaded(true);
     }
-  }, [appStorageReady, quickTripDraftLoaded, quickTripForm]);
+  }, [appStorageReady, quickTripDraftLoaded]);
 
   useEffect(() => {
     if (!appStorageReady || !quickTripDraftLoaded) return;
-    try {
-      window.localStorage.setItem(storageKeys.quickTripDraft, JSON.stringify(quickTripForm));
-    } catch (error) {
-      console.warn("Fahrten-Entwurf konnte nicht gespeichert werden.", error);
-    }
+    if (quickTripDraftSaveTimerRef.current) window.clearTimeout(quickTripDraftSaveTimerRef.current);
+    quickTripDraftSaveTimerRef.current = window.setTimeout(() => {
+      quickTripDraftSaveTimerRef.current = null;
+      try {
+        const draft = {
+          ...quickTripForm,
+          fuelReceiptPhoto: quickTripForm.fuelReceiptPhoto
+            ? {
+                ...quickTripForm.fuelReceiptPhoto,
+                previewUrl: quickTripForm.fuelReceiptPhoto.previewUrl?.startsWith("data:") ? undefined : quickTripForm.fuelReceiptPhoto.previewUrl,
+              }
+            : undefined,
+          odometerPhotos: quickTripForm.odometerPhotos.map((photo) => ({
+            ...photo,
+            previewUrl: photo.previewUrl?.startsWith("data:") ? undefined : photo.previewUrl,
+          })),
+          waypoints: quickTripForm.waypoints.map((waypoint) => ({
+            ...waypoint,
+            photo: waypoint.photo
+              ? {
+                  ...waypoint.photo,
+                  previewUrl: waypoint.photo.previewUrl?.startsWith("data:") ? undefined : waypoint.photo.previewUrl,
+                }
+              : undefined,
+          })),
+        };
+        window.localStorage.setItem(storageKeys.quickTripDraft, JSON.stringify(draft));
+      } catch (error) {
+        console.warn("Fahrten-Entwurf konnte nicht gespeichert werden.", error);
+      }
+    }, 1200);
   }, [appStorageReady, quickTripDraftLoaded, quickTripForm]);
 
   function applySnapshot(snapshot: AppSnapshot) {
@@ -8228,7 +8256,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     function handleVisibilityChange() {
       if (document.visibilityState === "visible") {
         const now = Date.now();
-        if (now - lastForegroundSyncAtRef.current > 20000) {
+        if (!quickTripOpen && now - lastForegroundSyncAtRef.current > 20000) {
           lastForegroundSyncAtRef.current = now;
           void syncRemoteSnapshot(true);
         }
@@ -8265,6 +8293,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     }
 
     function handleStorageChange(event: StorageEvent) {
+      if (quickTripOpen) return;
       if (Object.values(storageKeys).includes(event.key ?? "")) {
         void syncRemoteSnapshot(true);
       }
@@ -8272,13 +8301,13 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
 
     function handleOnline() {
       setSupabaseSyncDisabled(false);
-      void syncRemoteSnapshot(true);
+      if (!quickTripOpen) void syncRemoteSnapshot(true);
       void syncVehiclePositions();
     }
 
     function handleFocus() {
       const now = Date.now();
-      if (now - lastForegroundSyncAtRef.current > 20000) {
+      if (!quickTripOpen && now - lastForegroundSyncAtRef.current > 20000) {
         lastForegroundSyncAtRef.current = now;
         void syncRemoteSnapshot(true);
       }
@@ -8297,7 +8326,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       window.removeEventListener("storage", handleStorageChange);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [appStorageReady, section, supabaseSyncDisabled, syncRemoteSnapshot, syncVehiclePositions]);
+  }, [appStorageReady, quickTripOpen, section, supabaseSyncDisabled, syncRemoteSnapshot, syncVehiclePositions]);
 
   useEffect(() => {
     if (!appStorageReady) return;

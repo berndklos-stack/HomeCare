@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.401.0",
+  version: "1.402.0",
   releaseDate: "2026-09-13",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.402.0",
+    date: "2026-09-13",
+    changes: [
+      "Fahrt erfassen speichert den Entwurf verzögert statt bei jedem Tastendruck sofort",
+      "Grosse Foto-Daten werden nicht mehr in den Fahrten-Entwurf geschrieben",
+      "Während der Fahrt-Dialog offen ist, werden Fokus- und Tab-Syncs nicht als Vollabgleich gestartet",
+    ],
+  },
   {
     version: "1.401.0",
     date: "2026-09-13",
