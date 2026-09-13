@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.405.0",
+  version: "1.406.0",
   releaseDate: "2026-09-13",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.406.0",
+    date: "2026-09-13",
+    changes: [
+      "Leistungskatalog zeigt Preise dezent und spaltenrein statt gelb markiert",
+      "Auswertung zaehlt nur echte Berichtsfotos und bietet Monat, Kalenderwoche sowie freien Zeitraum",
+      "Mitarbeiternamen wie Bernd und Bernd Klos werden in der Auswertung zusammengefuehrt",
+    ],
+  },
   {
     version: "1.405.0",
     date: "2026-09-13",

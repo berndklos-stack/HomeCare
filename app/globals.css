@@ -745,6 +745,62 @@ button {
   grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
+.analytics-period-controls {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin: -2px 0 14px;
+}
+
+.analytics-period-controls button {
+  align-items: center;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  display: inline-flex;
+  font-size: 14px;
+  font-weight: 800;
+  justify-content: center;
+  min-height: 36px;
+  min-width: 128px;
+  padding: 8px 16px;
+}
+
+.analytics-period-controls button.active {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: white;
+}
+
+.analytics-period-fields {
+  align-items: end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  margin: 0 0 14px;
+}
+
+.analytics-period-fields label {
+  display: grid;
+  gap: 5px;
+  min-width: 190px;
+}
+
+.analytics-period-fields span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.analytics-period-fields input {
+  min-height: 38px;
+}
+
 .analytics-summary-grid div {
   background: var(--paper-soft);
   border: 1px solid var(--line);
@@ -2918,8 +2974,9 @@ mark.neutral {
 }
 
 .service-master-list article {
-  grid-template-columns: 140px minmax(220px, 1fr) 150px 110px auto auto;
-  min-height: 54px;
+  align-items: center;
+  grid-template-columns: minmax(120px, 0.22fr) minmax(280px, 1fr) minmax(190px, 0.38fr) minmax(140px, 0.22fr) auto;
+  min-height: 68px;
 }
 
 .service-master-list strong,
@@ -2933,16 +2990,34 @@ mark.neutral {
   margin-top: 2px;
 }
 
-.service-master-list mark {
-  justify-self: start;
-  white-space: nowrap;
-}
-
 .service-master-category {
   color: var(--accent);
   font-size: 12px;
   font-weight: 800;
   text-transform: uppercase;
+}
+
+.service-master-side,
+.service-master-main {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.service-master-side small,
+.service-master-main small,
+.service-master-checklist,
+.service-master-price,
+.service-selection-price {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.service-master-price {
+  color: var(--foreground);
+  justify-self: start;
+  white-space: nowrap;
 }
 
 .package-master-list article {
@@ -7499,14 +7574,17 @@ button.media-thumb {
     grid-template-columns: minmax(0, 1fr) auto;
   }
 
-  .service-master-list article > div:first-of-type,
-  .service-master-list article > span:not(.service-master-category),
+  .service-master-list .service-master-side,
+  .service-master-list .service-master-main,
+  .service-master-list .service-master-price,
+  .service-master-list .service-master-checklist,
   .package-master-list .tags {
     grid-column: 1 / -1;
   }
 
-  .service-master-list mark {
-    grid-column: 1;
+  .service-master-list .row-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
   }
 
   .inventory-location-grid {

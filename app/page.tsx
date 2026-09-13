@@ -2044,9 +2044,11 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Dokumentierte Arbeitszeit", sv: "Dokumenterad arbetstid", en: "Documented work time" },
   { de: "Einsatzberichte", sv: "Arbetsrapporter", en: "Work reports" },
   { de: "Kunden mit Zeiten", sv: "Kunder med tid", en: "Customers with time" },
+  { de: "Kalenderwoche", sv: "Kalendervecka", en: "Calendar week" },
   { de: "Letzte 30 Tage", sv: "Senaste 30 dagarna", en: "Last 30 days" },
   { de: "Letzter Bericht", sv: "Senaste rapport", en: "Latest report" },
   { de: "Mitarbeiter", sv: "Medarbetare", en: "Employee" },
+  { de: "Freier Zeitraum", sv: "Fri period", en: "Custom period" },
   { de: "Noch keine Mitarbeiterzeiten vorhanden.", sv: "Inga medarbetartider finns ännu.", en: "No employee times yet." },
   { de: "Noch keine Objektzeiten vorhanden.", sv: "Inga objekttider finns ännu.", en: "No property times yet." },
   { de: "Noch keine Zeiten vorhanden.", sv: "Inga tider finns ännu.", en: "No times yet." },
@@ -3053,6 +3055,17 @@ function formatWorkHours(totalMinutes: number) {
   return `${formatted} Std.`;
 }
 
+function isoWeekRangeValue(year: number, week: number) {
+  const januaryFourth = new Date(`${year}-01-04T12:00:00`);
+  const januaryFourthDay = januaryFourth.getDay() || 7;
+  januaryFourth.setDate(januaryFourth.getDate() - januaryFourthDay + 1 + ((week - 1) * 7));
+  const start = januaryFourth.toISOString().slice(0, 10);
+  return {
+    end: addDaysValue(start, 6),
+    start,
+  };
+}
+
 function reportMediaLabels(photoCount: number, visibleMinutes: number, extraLabels: string[] = []) {
   return [
     `${photoCount} Fotos`,
@@ -3119,11 +3132,19 @@ function reportAttachmentsLabel(report: ReportRecord) {
 }
 
 function reportPhotos(report: ReportRecord) {
-  return report.checklistResults.flatMap((item) => (
-    item.photos
+  const seenSources = new Set<string>();
+  return report.checklistResults.flatMap((item) => {
+    const photos = Array.isArray(item.photos) ? item.photos : [];
+    return photos
       .filter((photo) => fieldPhotoHasSource(photo))
-      .map((photo) => ({ ...photo, taskTitle: item.title }))
-  ));
+      .filter((photo) => {
+        const sourceKey = photo.storagePath || photo.previewUrl || photo.id || photo.name;
+        if (!sourceKey || seenSources.has(sourceKey)) return false;
+        seenSources.add(sourceKey);
+        return true;
+      })
+      .map((photo) => ({ ...photo, taskTitle: item.title }));
+  });
 }
 
 function reportPhotoCount(report: ReportRecord) {
@@ -11190,6 +11211,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                 jobs={jobs}
                 language={language}
                 objects={objects}
+                personnel={personnel}
                 reports={reports}
               />
             )}
@@ -12118,30 +12140,52 @@ function AnalyticsView({
   jobs,
   language,
   objects,
+  personnel,
   reports,
 }: {
   customers: CustomerRecord[];
   jobs: JobRecord[];
   language: Language;
   objects: ObjectRecord[];
+  personnel: PersonnelRecord[];
   reports: ReportRecord[];
 }) {
   const tt = (value: string) => uiText(value, language);
-  const [period, setPeriod] = useState("year");
   const normalizedReports = dedupeReports(reports);
   const now = new Date();
   const currentYear = String(now.getFullYear());
   const currentMonth = `${currentYear}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-  const startLast30 = new Date(now);
-  startLast30.setDate(now.getDate() - 30);
-  const startLast30Key = startLast30.toISOString().slice(0, 10);
-  const filteredReports = normalizedReports.filter((report) => {
-    const date = normalizeReportDate(report.date);
-    if (period === "month") return date.startsWith(currentMonth);
-    if (period === "last30") return date >= startLast30Key;
-    if (period === "year") return date.startsWith(currentYear);
+  const currentWeek = `${currentYear}-W${String(isoWeekNumber(now.toISOString().slice(0, 10))).padStart(2, "0")}`;
+  const [period, setPeriod] = useState<"month" | "week" | "custom" | "all">("month");
+  const [selectedMonth, setSelectedMonth] = useState(currentMonth);
+  const [selectedWeek, setSelectedWeek] = useState(currentWeek);
+  const [customFrom, setCustomFrom] = useState(currentMonth ? `${currentMonth}-01` : "");
+  const [customTo, setCustomTo] = useState(now.toISOString().slice(0, 10));
+  const selectedWeekMatch = selectedWeek.match(/^(\d{4})-W(\d{2})$/);
+  const weekRange = selectedWeekMatch ? isoWeekRangeValue(Number(selectedWeekMatch[1]), Number(selectedWeekMatch[2])) : undefined;
+  const periodMatchesDate = (value: string) => {
+    const date = normalizeReportDate(value);
+    if (period === "month") return selectedMonth ? date.startsWith(selectedMonth) : true;
+    if (period === "week") return weekRange ? date >= weekRange.start && date <= weekRange.end : true;
+    if (period === "custom") return (!customFrom || date >= customFrom) && (!customTo || date <= customTo);
     return true;
-  });
+  };
+  const filteredReports = normalizedReports.filter((report) => periodMatchesDate(report.date));
+  const personnelNameByAlias = new Map<string, string>();
+  personnel
+    .filter((person) => !person.archived && person.status !== "ausgeschieden")
+    .forEach((person) => {
+      const fullName = `${person.firstName} ${person.lastName}`.trim();
+      if (!fullName) return;
+      [fullName, person.firstName, person.lastName, person.email].forEach((alias) => {
+        if (alias?.trim()) personnelNameByAlias.set(alias.trim().toLowerCase(), fullName);
+      });
+    });
+  const normalizedAssigneeName = (value?: string) => {
+    const rawName = value?.trim() ?? "";
+    if (!rawName || isUnassignedJobAssignee(rawName)) return tt("nicht zugewiesen");
+    return personnelNameByAlias.get(rawName.toLowerCase()) ?? rawName;
+  };
   const customerRows = customers
     .filter((customer) => !customer.archived)
     .map((customer) => {
@@ -12182,7 +12226,7 @@ function AnalyticsView({
     .sort((first, second) => second.minutes - first.minutes || first.object.name.localeCompare(second.object.name, "de"));
   const personnelRows = Array.from(filteredReports.reduce((map, report) => {
     const job = jobs.find((item) => item.id === report.jobId);
-    const assignee = job?.assignedTo?.trim() && !isUnassignedJobAssignee(job.assignedTo) ? job.assignedTo.trim() : tt("nicht zugewiesen");
+    const assignee = normalizedAssigneeName(job?.assignedTo);
     const current = map.get(assignee) ?? { minutes: 0, name: assignee, reportCount: 0 };
     map.set(assignee, {
       ...current,
@@ -12194,7 +12238,7 @@ function AnalyticsView({
     .sort((first, second) => second.minutes - first.minutes || first.name.localeCompare(second.name, "de"));
   const totalMinutes = filteredReports.reduce((sum, report) => sum + reportWorkMinutes(report), 0);
   const totalPhotos = filteredReports.reduce((sum, report) => sum + reportPhotoCount(report), 0);
-  const completedJobs = jobs.filter((job) => ["erledigt", "abgerechnet"].includes(job.status)).length;
+  const completedJobs = jobs.filter((job) => ["erledigt", "abgerechnet"].includes(job.status) && periodMatchesDate(jobExecutionDate(job))).length;
 
   return (
     <div className="stack analytics-view">
@@ -12204,16 +12248,52 @@ function AnalyticsView({
             <p>{tt("Auswertung")}</p>
             <h2>{tt("Zeiten und Kunden")}</h2>
           </div>
-          <label className="compact-select">
-            <span>{tt("Zeitraum")}</span>
-            <select value={period} onChange={(event) => setPeriod(event.target.value)}>
-              <option value="year">{tt("Dieses Jahr")}</option>
-              <option value="month">{tt("Dieser Monat")}</option>
-              <option value="last30">{tt("Letzte 30 Tage")}</option>
-              <option value="all">{tt("Alle Zeiten")}</option>
-            </select>
-          </label>
         </div>
+        <div className="analytics-period-controls" aria-label={tt("Zeitraum")}>
+          {[
+            { id: "month", label: tt("Monat") },
+            { id: "week", label: tt("Kalenderwoche") },
+            { id: "custom", label: tt("Freier Zeitraum") },
+            { id: "all", label: tt("Alle Zeiten") },
+          ].map((item) => (
+            <button
+              className={period === item.id ? "active" : ""}
+              key={item.id}
+              onClick={() => setPeriod(item.id as typeof period)}
+              type="button"
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+        {period !== "all" && (
+          <div className="analytics-period-fields">
+            {period === "month" && (
+              <label>
+                <span>{tt("Monat")}</span>
+                <input type="month" value={selectedMonth} onChange={(event) => setSelectedMonth(event.target.value)} />
+              </label>
+            )}
+            {period === "week" && (
+              <label>
+                <span>{tt("Kalenderwoche")}</span>
+                <input type="week" value={selectedWeek} onChange={(event) => setSelectedWeek(event.target.value)} />
+              </label>
+            )}
+            {period === "custom" && (
+              <>
+                <label>
+                  <span>{tt("Von")}</span>
+                  <input type="date" value={customFrom} onChange={(event) => setCustomFrom(event.target.value)} />
+                </label>
+                <label>
+                  <span>{tt("Bis")}</span>
+                  <input type="date" value={customTo} onChange={(event) => setCustomTo(event.target.value)} />
+                </label>
+              </>
+            )}
+          </div>
+        )}
         <div className="analytics-summary-grid">
           <div><span>{tt("Dokumentierte Arbeitszeit")}</span><strong>{formatWorkHours(totalMinutes)}</strong></div>
           <div><span>{tt("Einsatzberichte")}</span><strong>{filteredReports.length}</strong></div>
@@ -19561,14 +19641,16 @@ function MasterDataView({
         <div className="table-list compact-list service-master-list">
           {activeServices.map((service) => (
             <article key={service.id}>
-              <span className="service-master-category">{service.category}</span>
-              <div>
+              <div className="service-master-side">
+                <span className="service-master-category">{service.category}</span>
+                <small>{tt("Konto")} {service.accountingAccount || defaultAccountingAccount("Leistung", service.name)}</small>
+              </div>
+              <div className="service-master-main">
                 <strong>{service.name}</strong>
                 <small>{service.description}</small>
               </div>
-              <span>{service.checklist?.length ?? 0} {tt("Checklistenpunkte")}</span>
-              <span>{tt("Konto")} {service.accountingAccount || defaultAccountingAccount("Leistung", service.name)}</span>
-              <mark>{serviceRate(service)}</mark>
+              <span className="service-master-price">{serviceRate(service)}</span>
+              <span className="service-master-checklist">{service.checklist?.length ?? 0} {tt("Checklistenpunkte")}</span>
               <div className="row-actions">
                 <IconAction label={`Leistung ${service.name} bearbeiten`} onClick={() => editService(service)}><Pencil size={16} /></IconAction>
                 <IconAction danger label={`Leistung ${service.name} archivieren`} onClick={() => archiveService(service)}><Archive size={16} /></IconAction>
@@ -19624,7 +19706,7 @@ function MasterDataView({
                   return service ? <span key={id}>{service.name}</span> : null;
                 })}
               </div>
-              <mark>{servicePackage.price}</mark>
+              <span className="service-master-price">{servicePackage.price}</span>
               <div className="row-actions">
                 <IconAction label={`Paket ${servicePackage.name} bearbeiten`} onClick={() => editPackage(servicePackage)}><Pencil size={16} /></IconAction>
                 <IconAction danger label={`Paket ${servicePackage.name} archivieren`} onClick={() => archivePackage(servicePackage)}><Archive size={16} /></IconAction>
@@ -19901,7 +19983,7 @@ function MasterDataView({
                         <strong>{service.name}</strong>
                         <small>{service.description}</small>
                       </span>
-                      <mark>{serviceRate(service)}</mark>
+                      <small className="service-selection-price">{serviceRate(service)}</small>
                     </label>
                   ))}
                 </section>
