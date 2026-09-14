@@ -605,6 +605,7 @@ type DailyMailSettings = {
   frequency: "daily" | "weekdays" | "weekly" | "custom";
   reminderSources: string;
   sendTime: string;
+  sendTimes: string[];
   toRecipients: string;
   weekdays: string[];
 };
@@ -1280,6 +1281,8 @@ const swedishUiText: Record<string, string> = {
   "Tagesmail": "Dagligt mejl",
   "Tagesmail jetzt senden": "Skicka dagligt mejl nu",
   "Tagesmail wird gesendet...": "Dagligt mejl skickas...",
+  "Keine Empfänger-E-Mail-Adresse gefunden.": "Ingen mottagaradress hittades.",
+  "Mailtext": "Mejltext",
   "Telefon": "Telefon",
   "Telefon 2": "Telefon 2",
   "Termin": "Tid",
@@ -1603,6 +1606,8 @@ const englishUiText: Record<string, string> = {
   "Startet am": "Starts on",
   "Tagesmail jetzt senden": "Send daily email now",
   "Tagesmail wird gesendet...": "Daily email is being sent...",
+  "Keine Empfänger-E-Mail-Adresse gefunden.": "No recipient email address found.",
+  "Mailtext": "Email text",
   "Überfällig": "Overdue",
   "Versandvorschau": "Send preview",
   "z.B. Einsatzleitung": "e.g. operations manager",
@@ -2035,6 +2040,11 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Tagesmail", sv: "Dagsmejl", en: "Daily mail" },
   { de: "Tagesmail automatisch versenden", sv: "Skicka dagsmejl automatiskt", en: "Send daily mail automatically" },
   { de: "Versandzeit", sv: "Utskickstid", en: "Send time" },
+  { de: "Versandzeiten", sv: "Utskickstider", en: "Send times" },
+  { de: "Versandzeit hinzufügen", sv: "Lägg till utskickstid", en: "Add send time" },
+  { de: "Versandzeit entfernen", sv: "Ta bort utskickstid", en: "Remove send time" },
+  { de: "Mailtext", sv: "Mejltext", en: "Email text" },
+  { de: "Keine Empfänger-E-Mail-Adresse gefunden.", sv: "Ingen mottagaradress hittades.", en: "No recipient email address found." },
   { de: "Häufigkeit", sv: "Frekvens", en: "Frequency" },
   { de: "Täglich", sv: "Dagligen", en: "Daily" },
   { de: "Werktags", sv: "Vardagar", en: "Weekdays" },
@@ -5641,19 +5651,31 @@ function downloadAnalyticsReportPdf(title: string, periodLabel: string, entries:
   });
 }
 
-async function sendAnalyticsReportPdf(title: string, periodLabel: string, entries: AnalyticsReportPdfEntry[], recipientEmail: string, recipientName = "") {
+function analyticsReportMailSubject(title: string, periodLabel: string) {
+  return `Auswertungsbericht ${title} - ${periodLabel}`;
+}
+
+function analyticsReportMailBody(periodLabel: string, recipientName = "") {
+  return `Hej ${recipientName.trim() || ""},\n\nanbei findest du den Auswertungsbericht für ${periodLabel}.\n\nLiebe Grüße\nKolaretorp Service AB`;
+}
+
+function analyticsReportFileName(title: string, periodLabel: string) {
+  return `${safeFileName(`Auswertungsbericht-${title}-${periodLabel}`)}.pdf`;
+}
+
+async function sendAnalyticsReportPdf(title: string, periodLabel: string, entries: AnalyticsReportPdfEntry[], recipientEmail: string, recipientName = "", body?: string) {
   if (!recipientEmail.trim()) throw new Error("Keine Empfänger-E-Mail-Adresse gefunden.");
   const pdfBlob = await createAnalyticsReportPdfBlob(title, periodLabel, entries);
   const attachmentBase64 = assertBase64Content(await blobToBase64(pdfBlob), "Auswertungs-PDF");
-  const fileName = `${safeFileName(`Auswertungsbericht-${title}-${periodLabel}`)}.pdf`;
+  const fileName = analyticsReportFileName(title, periodLabel);
   const response = await fetch("/api/reports/send", {
     body: JSON.stringify({
       attachmentBase64,
-      body: `Hej ${recipientName.trim() || ""},\n\nanbei findest du den Auswertungsbericht für ${periodLabel}.\n\nLiebe Grüße\nKolaretorp Service AB`,
+      body: body?.trim() || analyticsReportMailBody(periodLabel, recipientName),
       cc: "info@kolaretorp.se",
       filename: fileName,
       idempotencyKey: `ANALYTICS-${safeFileName(title)}-${safeFileName(periodLabel)}-${Date.now()}`,
-      subject: `Auswertungsbericht ${title} - ${periodLabel}`,
+      subject: analyticsReportMailSubject(title, periodLabel),
       to: recipientEmail.trim(),
     }),
     headers: { "Content-Type": "application/json" },
@@ -7083,14 +7105,26 @@ const seedDailyMailSettings: DailyMailSettings = {
   frequency: "daily",
   reminderSources: "",
   sendTime: "06:00",
+  sendTimes: ["06:00"],
   toRecipients: "info@kolaretorp.se",
   weekdays: ["1", "2", "3", "4", "5"],
 };
+
+function normalizeDailyMailSendTimes(settings?: Partial<DailyMailSettings>) {
+  const sourceTimes = Array.isArray(settings?.sendTimes) && settings.sendTimes.length > 0
+    ? settings.sendTimes
+    : [settings?.sendTime ?? "06:00"];
+  const validTimes = sourceTimes
+    .map((time) => String(time || "").trim())
+    .filter((time) => /^\d{2}:\d{2}$/.test(time));
+  return Array.from(new Set(validTimes.length > 0 ? validTimes : ["06:00"])).sort();
+}
 
 function normalizeDailyMailSettings(settings?: Partial<DailyMailSettings>): DailyMailSettings {
   const frequency = ["daily", "weekdays", "weekly", "custom"].includes(settings?.frequency ?? "")
     ? settings?.frequency as DailyMailSettings["frequency"]
     : "daily";
+  const sendTimes = normalizeDailyMailSendTimes(settings);
   return {
     birthdaySources: settings?.birthdaySources ?? "",
     calendarSources: settings?.calendarSources ?? "",
@@ -7098,7 +7132,8 @@ function normalizeDailyMailSettings(settings?: Partial<DailyMailSettings>): Dail
     enabled: settings?.enabled ?? true,
     frequency,
     reminderSources: settings?.reminderSources ?? "",
-    sendTime: settings?.sendTime ?? "06:00",
+    sendTime: sendTimes[0] ?? "06:00",
+    sendTimes,
     toRecipients: settings?.toRecipients ?? "info@kolaretorp.se",
     weekdays: Array.isArray(settings?.weekdays) && settings.weekdays.length > 0 ? settings.weekdays : ["1", "2", "3", "4", "5"],
   };
@@ -12308,6 +12343,8 @@ function AnalyticsView({
 }) {
   const tt = (value: string) => uiText(value, language);
   const [detailReport, setDetailReport] = useState<{ id: string; title: string; type: "customer" | "object" | "personnel" } | null>(null);
+  const [analyticsSendPreviewOpen, setAnalyticsSendPreviewOpen] = useState(false);
+  const [analyticsSendBody, setAnalyticsSendBody] = useState("");
   const [analyticsNotice, setAnalyticsNotice] = useState("");
   const [sendingAnalyticsReport, setSendingAnalyticsReport] = useState(false);
   const normalizedReports = dedupeReports(reports);
@@ -12422,6 +12459,9 @@ function AnalyticsView({
   const detailRecipientName = detailReport?.type === "personnel"
     ? detailReport.title
     : detailCustomer?.contact || detailCustomer?.name || "";
+  const detailMailSubject = detailReport ? analyticsReportMailSubject(detailReport.title, periodLabel) : "";
+  const detailMailFileName = detailReport ? analyticsReportFileName(detailReport.title, periodLabel) : "";
+  const detailDefaultMailBody = analyticsReportMailBody(periodLabel, detailRecipientName);
   const detailEntries: AnalyticsReportPdfEntry[] = detailReports.map((report) => {
     const job = jobs.find((item) => item.id === report.jobId);
     const object = objects.find((item) => item.id === report.objectId);
@@ -12664,11 +12704,8 @@ function AnalyticsView({
                   disabled={sendingAnalyticsReport || !detailRecipientEmail}
                   onClick={() => {
                     setAnalyticsNotice("");
-                    setSendingAnalyticsReport(true);
-                    void sendAnalyticsReportPdf(detailReport.title, periodLabel, detailEntries, detailRecipientEmail, detailRecipientName)
-                      .then(() => setAnalyticsNotice(tt("Auswertungsbericht wurde gesendet.")))
-                      .catch((error) => setAnalyticsNotice(error instanceof Error ? error.message : tt("Auswertungsbericht konnte nicht gesendet werden.")))
-                      .finally(() => setSendingAnalyticsReport(false));
+                    setAnalyticsSendBody(detailDefaultMailBody);
+                    setAnalyticsSendPreviewOpen(true);
                   }}
                   type="button"
                 >
@@ -12680,6 +12717,50 @@ function AnalyticsView({
               </div>
             </header>
             {analyticsNotice && <div className="warning-line">{analyticsNotice}</div>}
+            {analyticsSendPreviewOpen && (
+              <div className="analytics-send-preview">
+                <div className="send-preview-grid">
+                  <div>
+                    <span>{tt("An")}</span>
+                    <strong>{detailRecipientEmail || tt("Keine Empfänger-E-Mail-Adresse gefunden.")}</strong>
+                  </div>
+                  <div>
+                    <span>{tt("Betreff")}</span>
+                    <strong>{detailMailSubject}</strong>
+                  </div>
+                  <div>
+                    <span>{tt("PDF herunterladen")}</span>
+                    <strong>{detailMailFileName}</strong>
+                  </div>
+                  <label className="wide">
+                    <span>{tt("Mailtext")}</span>
+                    <textarea value={analyticsSendBody} onChange={(event) => setAnalyticsSendBody(event.target.value)} />
+                  </label>
+                </div>
+                <div className="modal-actions">
+                  <button className="ghost-button" onClick={() => setAnalyticsSendPreviewOpen(false)} type="button">{tt("Abbrechen")}</button>
+                  <button
+                    className="primary-button"
+                    disabled={sendingAnalyticsReport || !detailRecipientEmail}
+                    onClick={() => {
+                      setAnalyticsNotice("");
+                      setSendingAnalyticsReport(true);
+                      void sendAnalyticsReportPdf(detailReport.title, periodLabel, detailEntries, detailRecipientEmail, detailRecipientName, analyticsSendBody)
+                        .then(() => {
+                          setAnalyticsSendPreviewOpen(false);
+                          setAnalyticsNotice(tt("Auswertungsbericht wurde gesendet."));
+                        })
+                        .catch((error) => setAnalyticsNotice(error instanceof Error ? error.message : tt("Auswertungsbericht konnte nicht gesendet werden.")))
+                        .finally(() => setSendingAnalyticsReport(false));
+                    }}
+                    type="button"
+                  >
+                    <Send size={16} />
+                    {sendingAnalyticsReport ? tt("Wird gesendet...") : tt("Jetzt senden")}
+                  </button>
+                </div>
+              </div>
+            )}
             <div className="analytics-report-summary">
               <div><span>{tt("Zeitraum")}</span><strong>{periodLabel}</strong></div>
               <div><span>{tt("Arbeitszeit")}</span><strong>{formatWorkHours(detailMinutes)}</strong></div>
@@ -18255,6 +18336,7 @@ function MasterDataView({
   }
 
   function saveMailSettings() {
+    const sendTimes = normalizeDailyMailSendTimes(mailSettingsForm);
     setDailyMailSettings({
       birthdaySources: mailSettingsForm.birthdaySources.trim(),
       calendarSources: mailSettingsForm.calendarSources.trim(),
@@ -18262,11 +18344,34 @@ function MasterDataView({
       enabled: mailSettingsForm.enabled,
       frequency: mailSettingsForm.frequency,
       reminderSources: mailSettingsForm.reminderSources.trim(),
-      sendTime: mailSettingsForm.sendTime || "06:00",
+      sendTime: sendTimes[0] ?? "06:00",
+      sendTimes,
       toRecipients: mailSettingsForm.toRecipients.trim(),
       weekdays: mailSettingsForm.weekdays.length > 0 ? mailSettingsForm.weekdays : ["1", "2", "3", "4", "5"],
     });
     setArchiveNotice("Tagesmail-Einstellungen wurden gespeichert.");
+  }
+
+  function updateMailSendTime(index: number, value: string) {
+    const sendTimes = mailSettingsForm.sendTimes.length > 0 ? [...mailSettingsForm.sendTimes] : [mailSettingsForm.sendTime || "06:00"];
+    sendTimes[index] = value;
+    setMailSettingsForm({ ...mailSettingsForm, sendTime: sendTimes[0] || "06:00", sendTimes });
+  }
+
+  function addMailSendTime() {
+    const currentTimes = mailSettingsForm.sendTimes.length > 0 ? mailSettingsForm.sendTimes : [mailSettingsForm.sendTime || "06:00"];
+    const lastHour = Number((currentTimes[currentTimes.length - 1] || "06:00").split(":")[0]);
+    const nextHour = Number.isFinite(lastHour) ? Math.min(lastHour + 4, 23) : 12;
+    const nextTime = `${String(nextHour).padStart(2, "0")}:00`;
+    const sendTimes = [...currentTimes, nextTime];
+    setMailSettingsForm({ ...mailSettingsForm, sendTime: sendTimes[0] || "06:00", sendTimes });
+  }
+
+  function removeMailSendTime(index: number) {
+    const currentTimes = mailSettingsForm.sendTimes.length > 0 ? mailSettingsForm.sendTimes : [mailSettingsForm.sendTime || "06:00"];
+    const sendTimes = currentTimes.filter((_, itemIndex) => itemIndex !== index);
+    const nextSendTimes = sendTimes.length > 0 ? sendTimes : ["06:00"];
+    setMailSettingsForm({ ...mailSettingsForm, sendTime: nextSendTimes[0] || "06:00", sendTimes: nextSendTimes });
   }
 
   function saveCompanySettings() {
@@ -18941,15 +19046,34 @@ function MasterDataView({
               />
               <span>{tt("Tagesmail automatisch versenden")}</span>
             </label>
-            <label>
-              <span>{tt("Versandzeit")}</span>
-              <input
-                step={3600}
-                type="time"
-                value={mailSettingsForm.sendTime}
-                onChange={(event) => setMailSettingsForm({ ...mailSettingsForm, sendTime: event.target.value })}
-              />
-            </label>
+            <div className="daily-mail-times">
+              <span>{tt("Versandzeiten")}</span>
+              {(mailSettingsForm.sendTimes.length > 0 ? mailSettingsForm.sendTimes : [mailSettingsForm.sendTime || "06:00"]).map((sendTime, index) => (
+                <div className="daily-mail-time-row" key={`${sendTime}-${index}`}>
+                  <input
+                    aria-label={tt("Versandzeit")}
+                    step={300}
+                    type="time"
+                    value={sendTime}
+                    onChange={(event) => updateMailSendTime(index, event.target.value)}
+                  />
+                  <button
+                    aria-label={tt("Versandzeit entfernen")}
+                    className="icon-button"
+                    disabled={(mailSettingsForm.sendTimes.length || 1) <= 1}
+                    onClick={() => removeMailSendTime(index)}
+                    title={tt("Versandzeit entfernen")}
+                    type="button"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              ))}
+              <button className="ghost-button compact-action" onClick={addMailSendTime} type="button">
+                <Plus size={16} />
+                {tt("Versandzeit hinzufügen")}
+              </button>
+            </div>
             <label>
               <span>{tt("Häufigkeit")}</span>
               <select

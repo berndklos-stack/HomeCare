@@ -3440,6 +3440,34 @@ mark.neutral {
   color: var(--foreground);
 }
 
+.daily-mail-times {
+  display: grid;
+  gap: 8px;
+}
+
+.daily-mail-times > span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.daily-mail-time-row {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) 40px;
+}
+
+.daily-mail-time-row .icon-button {
+  height: 40px;
+  width: 40px;
+}
+
+.daily-mail-times .compact-action {
+  min-height: 38px;
+  width: fit-content;
+}
+
 .message-list {
   display: grid;
   gap: 6px;
@@ -6140,6 +6168,15 @@ mark.neutral {
   padding: 10px;
   resize: vertical;
   width: 100%;
+}
+
+.analytics-send-preview {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  padding: 12px;
 }
 
 .customer-message-compose {

@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.412.0",
+  version: "1.413.0",
   releaseDate: "2026-09-13",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.413.0",
+    date: "2026-09-13",
+    changes: [
+      "Tagesmail kann mehrere Versandzeiten pro Tag verwalten",
+      "Automatischer Tagesmail-Versand sperrt jeden geplanten Termin separat",
+      "Auswertungsberichte zeigen vor dem Versand Empfaenger, Betreff, PDF-Datei und Mailtext",
+    ],
+  },
   {
     version: "1.412.0",
     date: "2026-09-13",

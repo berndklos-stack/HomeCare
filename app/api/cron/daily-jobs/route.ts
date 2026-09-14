@@ -45,6 +45,7 @@ type DailyMailSettings = {
   frequency?: "daily" | "weekdays" | "weekly" | "custom";
   reminderSources?: string;
   sendTime?: string;
+  sendTimes?: string[];
   toRecipients?: string;
   weekdays?: string[];
 };
@@ -67,6 +68,7 @@ type ReminderItem = {
 type DailyMailState = {
   lastSentDate?: string;
   lastSentKey?: string;
+  sentKeys?: string[];
 };
 
 const appStateRowId = "kolaretorp-service-app";
@@ -94,7 +96,18 @@ function parseMailRecipients(value?: string) {
     .filter((item) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(item))));
 }
 
+function normalizeDailyMailSendTimes(settings?: DailyMailSettings) {
+  const sourceTimes = Array.isArray(settings?.sendTimes) && settings.sendTimes.length > 0
+    ? settings.sendTimes
+    : [settings?.sendTime ?? "06:00"];
+  const validTimes = sourceTimes
+    .map((time) => String(time || "").trim())
+    .filter((time) => /^\d{2}:\d{2}$/.test(time));
+  return Array.from(new Set(validTimes.length > 0 ? validTimes : ["06:00"])).sort();
+}
+
 function normalizeDailyMailSettings(settings?: DailyMailSettings): Required<DailyMailSettings> {
+  const sendTimes = normalizeDailyMailSendTimes(settings);
   return {
     birthdaySources: settings?.birthdaySources ?? "",
     calendarSources: settings?.calendarSources ?? "",
@@ -102,7 +115,8 @@ function normalizeDailyMailSettings(settings?: DailyMailSettings): Required<Dail
     enabled: settings?.enabled ?? true,
     frequency: settings?.frequency ?? "daily",
     reminderSources: settings?.reminderSources ?? "",
-    sendTime: settings?.sendTime ?? "06:00",
+    sendTime: sendTimes[0] ?? "06:00",
+    sendTimes,
     toRecipients: settings?.toRecipients ?? process.env.DAILY_JOB_LIST_EMAIL ?? "info@kolaretorp.se",
     weekdays: settings?.weekdays?.length ? settings.weekdays : ["1", "2", "3", "4", "5"],
   };
@@ -119,17 +133,29 @@ function stockholmWeekdayNumber(date: string) {
   return "0";
 }
 
-function scheduledSendKey(settings: Required<DailyMailSettings>, today: string) {
+function isDailyMailScheduledToday(settings: Required<DailyMailSettings>, today: string) {
   const weekday = stockholmWeekdayNumber(today);
-  if (settings.frequency === "custom" && !settings.weekdays.includes(weekday)) return "";
-  if (settings.frequency === "weekdays" && !["1", "2", "3", "4", "5"].includes(weekday)) return "";
-  if (settings.frequency === "weekly" && weekday !== "1") return "";
-  return `${today}-${settings.sendTime}`;
+  if (settings.frequency === "custom" && !settings.weekdays.includes(weekday)) return false;
+  if (settings.frequency === "weekdays" && !["1", "2", "3", "4", "5"].includes(weekday)) return false;
+  if (settings.frequency === "weekly" && weekday !== "1") return false;
+  return true;
 }
 
-function scheduledTimeReached(settings: Required<DailyMailSettings>, hour: number) {
-  const scheduledHour = Number((settings.sendTime || "06:00").split(":")[0]);
-  return Number.isFinite(scheduledHour) ? hour >= scheduledHour : true;
+function dailyMailMinutes(time: string) {
+  const [hours, minutes] = (time || "06:00").split(":").map((part) => Number(part));
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return 0;
+  return (hours * 60) + minutes;
+}
+
+function scheduledSendKeys(settings: Required<DailyMailSettings>, today: string, currentMinutes: number) {
+  if (!isDailyMailScheduledToday(settings, today)) return [];
+  return settings.sendTimes
+    .filter((sendTime) => currentMinutes >= dailyMailMinutes(sendTime))
+    .map((sendTime) => `${today}-${sendTime}`);
+}
+
+function nextScheduledSendTime(settings: Required<DailyMailSettings>) {
+  return settings.sendTimes[0] ?? settings.sendTime ?? "06:00";
 }
 
 async function loadStoredDailyMailSettings(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
@@ -146,6 +172,7 @@ function stockholmParts(date = new Date()) {
     day: "2-digit",
     hour: "2-digit",
     hour12: false,
+    minute: "2-digit",
     month: "2-digit",
     timeZone: stockholmTimeZone,
     year: "numeric",
@@ -155,6 +182,7 @@ function stockholmParts(date = new Date()) {
   return {
     date: `${parts.year}-${parts.month}-${parts.day}`,
     hour: Number(parts.hour),
+    minute: Number(parts.minute),
   };
 }
 
@@ -588,7 +616,8 @@ async function sendDailyMail(request: Request, manual = false) {
 
   const url = new URL(request.url);
   const force = manual || url.searchParams.get("force") === "1";
-  const { date: today, hour } = stockholmParts();
+  const { date: today, hour, minute } = stockholmParts();
+  const currentMinutes = (hour * 60) + minute;
 
   const supabase = getSupabaseServerClient();
   if (!supabase) {
@@ -616,22 +645,25 @@ async function sendDailyMail(request: Request, manual = false) {
   const storedSettings = await loadStoredDailyMailSettings(supabase);
   const snapshot = (appState?.data as AppSnapshot | undefined) ?? {};
   const settings = normalizeDailyMailSettings(storedSettings ?? snapshot.dailyMailSettings);
-  const sendKey = scheduledSendKey(settings, today);
-  const lastSentKey = (mailState?.data as DailyMailState | undefined)?.lastSentKey;
+  const mailStateData = (mailState?.data as DailyMailState | undefined) ?? {};
+  const lastSentKey = mailStateData.lastSentKey;
+  const sentKeys = Array.isArray(mailStateData.sentKeys) ? mailStateData.sentKeys : [];
+  const dueSendKeys = scheduledSendKeys(settings, today, currentMinutes);
+  const sendKey = dueSendKeys.find((key) => key !== lastSentKey && !sentKeys.includes(key)) ?? "";
 
   if (!force && !settings.enabled) {
     return NextResponse.json({ skipped: true, reason: "Tagesmail ist deaktiviert.", today });
   }
-  if (!force && !sendKey) {
+  if (!force && !isDailyMailScheduledToday(settings, today)) {
     return NextResponse.json({ skipped: true, reason: "Tagesmail ist für heute nicht geplant.", today });
   }
-  if (!force && !scheduledTimeReached(settings, hour)) {
-    return NextResponse.json({ skipped: true, reason: `Tagesmail ist erst ab ${settings.sendTime} geplant.`, today });
+  if (!force && dueSendKeys.length === 0) {
+    return NextResponse.json({ skipped: true, reason: `Tagesmail ist erst ab ${nextScheduledSendTime(settings)} geplant.`, today });
   }
-  if (!force && lastSentKey === sendKey) {
+  if (!force && !sendKey) {
     return NextResponse.json({ skipped: true, reason: "Tagesmail wurde für diesen Termin bereits gesendet.", today });
   }
-  if (!force && !lastSentKey && (mailState?.data as DailyMailState | undefined)?.lastSentDate === today) {
+  if (!force && settings.sendTimes.length <= 1 && !lastSentKey && mailStateData.lastSentDate === today) {
     return NextResponse.json({ skipped: true, reason: "Tagesmail wurde heute bereits gesendet.", today });
   }
 
@@ -661,6 +693,7 @@ async function sendDailyMail(request: Request, manual = false) {
         lastSentAt: new Date().toISOString(),
         lastSentDate: today,
         lastSentKey: force ? `${today}-manual-${Date.now()}` : sendKey,
+        sentKeys: force ? sentKeys : Array.from(new Set([...sentKeys.filter((key) => key.startsWith(`${today}-`)), sendKey])),
       },
       id: dailyMailStateRowId,
       updated_at: new Date().toISOString(),
