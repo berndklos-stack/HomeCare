@@ -14776,15 +14776,12 @@ function JobsView({
                   <span className="consulting-entry-description">{entry.description}</span>
                   <Badge value={tt(entry.billingStatus === "offen" ? "offen" : "abgerechnet")} />
                   {entry.billingStatus === "offen" && (
-                    <button
-                      aria-label={`${tt("Leistung bearbeiten")} ${entry.date}`}
-                      className="icon-button consulting-entry-edit-button"
-                      data-tooltip={`${tt("Leistung bearbeiten")} ${entry.date}`}
+                    <IconAction
+                      label={`${tt("Leistung bearbeiten")} ${entry.date}`}
                       onClick={() => openEditConsultingEntry(job, entry)}
-                      type="button"
                     >
                       <Pencil size={16} />
-                    </button>
+                    </IconAction>
                   )}
                 </div>
               )) : <span className="muted-line">{tt("Noch keine Leistungen erfasst.")}</span>}

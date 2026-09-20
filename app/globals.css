@@ -9599,14 +9599,4 @@ button.media-thumb {
 }
 
 
-.consulting-entry-edit-button {
-  color: var(--brand);
-}
-
-.consulting-entry-edit-button svg {
-  display: block;
-  height: 16px;
-  stroke: currentColor;
-  width: 16px;
-}
 
