@@ -9597,3 +9597,15 @@ button.media-thumb {
     justify-self: end;
   }
 }
+
+
+.consulting-entry-edit-button {
+  color: var(--brand);
+}
+
+.consulting-entry-edit-button svg {
+  display: block;
+  height: 15px;
+  stroke: currentColor;
+  width: 15px;
+}
