@@ -1903,6 +1903,7 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Leistung erfassen", sv: "Registrera arbete", en: "Record work" },
   { de: "Offene Leistungen abrechnen", sv: "Fakturera öppet arbete", en: "Bill open work" },
   { de: "Leistung speichern", sv: "Spara arbete", en: "Save work" },
+  { de: "Änderungen speichern", sv: "Spara ändringar", en: "Save changes" },
   { de: "Tätigkeit", sv: "Arbete", en: "Activity" },
   { de: "Was wurde gemacht?", sv: "Vad har gjorts?", en: "What was done?" },
   { de: "Startzeit", sv: "Starttid", en: "Start time" },
@@ -9657,6 +9658,29 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     setRecordNotice(`Leistung zu "${job.title}" wurde erfasst.`);
   }
 
+  function updateConsultingEntry(job: JobRecord, entryId: string, entry: Omit<ConsultingTimeEntry, "id" | "billingStatus">) {
+    const consulting = job.consulting;
+    if (!consulting?.enabled) return;
+    const currentEntry = consulting.entries.find((item) => item.id === entryId);
+    if (!currentEntry || currentEntry.billingStatus !== "offen") return;
+    const nextJobs = jobs.map((item) => (
+      item.id === job.id
+        ? {
+            ...item,
+            consulting: {
+              ...consulting,
+              entries: consulting.entries.map((existing) => (
+                existing.id === entryId ? { ...existing, ...entry } : existing
+              )),
+            },
+          }
+        : item
+    ));
+    setJobs(nextJobs);
+    persistSnapshotNow({ jobs: nextJobs }, { forceRemote: true });
+    setRecordNotice(`Leistung zu "${job.title}" wurde aktualisiert.`);
+  }
+
   function billConsultingEntries(job: JobRecord) {
     const consulting = job.consulting;
     if (!consulting?.enabled) return;
@@ -11901,6 +11925,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                 onEdit={openEditJob}
                 onMoveToBilling={moveJobToBilling}
                 onAddConsultingEntry={addConsultingEntry}
+                onUpdateConsultingEntry={updateConsultingEntry}
                 onBillConsultingEntries={billConsultingEntries}
                 onRestore={restoreJob}
                 onSendOrderConfirmation={sendOrderConfirmationToCustomer}
@@ -14337,6 +14362,7 @@ function JobsView({
   onEdit,
   onMoveToBilling,
   onAddConsultingEntry,
+  onUpdateConsultingEntry,
   onBillConsultingEntries,
   onRestore,
   onSendOrderConfirmation,
@@ -14356,6 +14382,7 @@ function JobsView({
   onEdit: (job: JobRecord) => void;
   onMoveToBilling: (job: JobRecord) => void;
   onAddConsultingEntry: (job: JobRecord, entry: Omit<ConsultingTimeEntry, "id" | "billingStatus">) => void;
+  onUpdateConsultingEntry: (job: JobRecord, entryId: string, entry: Omit<ConsultingTimeEntry, "id" | "billingStatus">) => void;
   onBillConsultingEntries: (job: JobRecord) => void;
   onRestore: (job: JobRecord) => void;
   onSendOrderConfirmation: (job: JobRecord) => void;
@@ -14370,6 +14397,7 @@ function JobsView({
   const [cancelledGroupOpen, setCancelledGroupOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState("alle");
   const [consultingEntryJobId, setConsultingEntryJobId] = useState("");
+  const [consultingEditingEntryId, setConsultingEditingEntryId] = useState("");
   const [consultingEntryDate, setConsultingEntryDate] = useState(currentLocalDateValue());
   const [consultingEntryStart, setConsultingEntryStart] = useState("");
   const [consultingEntryEnd, setConsultingEntryEnd] = useState("");
@@ -14434,11 +14462,22 @@ function JobsView({
   }
 
   function openConsultingEntry(job: JobRecord) {
+    setConsultingEditingEntryId("");
     setConsultingEntryJobId(job.id);
     setConsultingEntryDate(currentLocalDateValue());
     setConsultingEntryStart("");
     setConsultingEntryEnd("");
     setConsultingEntryDescription("");
+  }
+
+  function openEditConsultingEntry(job: JobRecord, entry: ConsultingTimeEntry) {
+    if (entry.billingStatus !== "offen") return;
+    setConsultingEditingEntryId(entry.id);
+    setConsultingEntryJobId(job.id);
+    setConsultingEntryDate(entry.date);
+    setConsultingEntryStart(entry.startTime);
+    setConsultingEntryEnd(entry.endTime);
+    setConsultingEntryDescription(entry.description);
   }
 
   function saveConsultingEntry() {
@@ -14448,13 +14487,19 @@ function JobsView({
     const [endHour, endMinute] = consultingEntryEnd.split(":").map(Number);
     const minutes = (endHour * 60 + endMinute) - (startHour * 60 + startMinute);
     if (!Number.isFinite(minutes) || minutes <= 0) return;
-    onAddConsultingEntry(job, {
+    const entryData = {
       date: consultingEntryDate,
       startTime: consultingEntryStart,
       endTime: consultingEntryEnd,
       minutes,
       description: consultingEntryDescription.trim(),
-    });
+    };
+    if (consultingEditingEntryId) {
+      onUpdateConsultingEntry(job, consultingEditingEntryId, entryData);
+    } else {
+      onAddConsultingEntry(job, entryData);
+    }
+    setConsultingEditingEntryId("");
     setConsultingEntryJobId("");
   }
 
@@ -14558,6 +14603,11 @@ function JobsView({
                   <span>{(entry.minutes / 60).toLocaleString(language === "sv" ? "sv-SE" : "de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} h</span>
                   <span className="consulting-entry-description">{entry.description}</span>
                   <Badge value={tt(entry.billingStatus === "offen" ? "offen" : "abgerechnet")} />
+                  {entry.billingStatus === "offen" && (
+                    <IconAction label={`${tt("Leistung bearbeiten")} ${entry.date}`} onClick={() => openEditConsultingEntry(job, entry)}>
+                      <Pencil size={15} />
+                    </IconAction>
+                  )}
                 </div>
               )) : <span className="muted-line">{tt("Noch keine Leistungen erfasst.")}</span>}
           </div>
@@ -14679,13 +14729,13 @@ function JobsView({
             <header>
               <div className="consulting-entry-header-copy">
                 <p>{tt("Consulting")}</p>
-                <h2 id="consulting-entry-title">{tt("Leistung erfassen")}</h2>
+                <h2 id="consulting-entry-title">{tt(consultingEditingEntryId ? "Leistung bearbeiten" : "Leistung erfassen")}</h2>
                 <span className="consulting-entry-subtitle">
                   {activeConsultingJob?.title}
                   {activeConsultingObject ? ` · ${activeConsultingObject.name}` : ""}
                 </span>
               </div>
-              <button aria-label={tt("Schließen")} onClick={() => setConsultingEntryJobId("")} type="button"><X size={18} /></button>
+              <button aria-label={tt("Schließen")} onClick={() => { setConsultingEditingEntryId(""); setConsultingEntryJobId(""); }} type="button"><X size={18} /></button>
             </header>
             <div className="consulting-entry-body">
               <div className="consulting-entry-grid consulting-entry-grid-top">
@@ -14703,10 +14753,10 @@ function JobsView({
               </label>
             </div>
             <div className="modal-actions consulting-entry-actions">
-              <button className="ghost-button" onClick={() => setConsultingEntryJobId("")} type="button">{tt("Abbrechen")}</button>
+              <button className="ghost-button" onClick={() => { setConsultingEditingEntryId(""); setConsultingEntryJobId(""); }} type="button">{tt("Abbrechen")}</button>
               <button className="primary-button" disabled={!consultingEntryDate || !consultingEntryStart || !consultingEntryEnd || !consultingEntryDescription.trim() || consultingEntryEnd <= consultingEntryStart} onClick={saveConsultingEntry} type="button">
                 <Check size={16} />
-                {tt("Leistung speichern")}
+                {tt(consultingEditingEntryId ? "Änderungen speichern" : "Leistung speichern")}
               </button>
             </div>
           </section>
