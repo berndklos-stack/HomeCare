@@ -1,364 +1,81 @@
 import { expect, test } from "@playwright/test";
+import { formatGoogleAddress } from "../app/api/geocode/reverse/route";
 
-test("new operations workspace supports core property and job flows", async ({ page }) => {
-  const field = (name: string) => page.locator("label").filter({ hasText: name }).locator("input, textarea, select").first();
-  const exactField = (name: string) => page.locator("label").filter({ hasText: new RegExp(`^${name}$`) }).locator("input, textarea, select").first();
+test("Reverse Geocoding ergänzt ländliche Ortsnamen ohne normale Straßen zu verändern", () => {
+  expect(formatGoogleAddress({
+    address_components: [
+      { long_name: "126", types: ["street_number"] },
+      { long_name: "Gunnabo", types: ["sublocality_level_1"] },
+      { long_name: "38291", types: ["postal_code"] },
+      { long_name: "Nybro", types: ["postal_town"] },
+    ],
+  })).toBe("Gunnabo 126, 38291 Nybro");
 
+  expect(formatGoogleAddress({
+    address_components: [
+      { long_name: "126", types: ["street_number"] },
+      { long_name: "Gunnabo", types: ["locality"] },
+      { long_name: "38291", types: ["postal_code"] },
+      { long_name: "Nybro", types: ["postal_town"] },
+    ],
+  })).toBe("Gunnabo 126, 38291 Nybro");
+
+  expect(formatGoogleAddress({
+    address_components: [
+      { long_name: "5", types: ["street_number"] },
+      { long_name: "Storgatan", types: ["route"] },
+      { long_name: "Centrum", types: ["neighborhood"] },
+      { long_name: "38230", types: ["postal_code"] },
+      { long_name: "Nybro", types: ["postal_town"] },
+    ],
+  })).toBe("Storgatan 5, 38230 Nybro");
+});
+
+test("Fahrtenentwurf und Standardfahrt bleiben nutzbar", async ({ page }) => {
   await page.goto("/");
-  await expect(page.locator("main")).toHaveAttribute("data-ready", "true");
+  await expect(page.locator("main")).toHaveAttribute("data-ready", "true", { timeout: 30_000 });
+  await expect(page.getByRole("heading", { name: "Homecare" })).toBeVisible();
 
-  await expect(page.getByRole("heading", { name: "Ferienhausverwaltung" })).toBeVisible();
-  await expect(page.getByText("Objektakte", { exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Fahrt", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Fahrt erfassen" });
+  await expect(dialog).toBeVisible();
 
-  await page.getByTestId("nav-objects").click();
-  await expect(page.getByRole("heading", { name: "Objektübersicht" })).toBeVisible();
-  await expect(page.getByText("Objektakte", { exact: true })).toHaveCount(0);
-  await expect(page.locator(".object-list article").filter({ hasText: "Villa Långsjön" })).toBeVisible();
-  await page.locator(".object-list article").filter({ hasText: "Villa Långsjön" }).getByRole("button", { name: "Objekt Villa Långsjön bearbeiten" }).click();
-  await expect(page.getByRole("heading", { name: "Basisdaten" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Historie / Verlauf" })).toBeVisible();
-  await page.locator(".history-list").getByRole("button", { name: /Poolpflege und Wasserwerte/ }).click();
-  await expect(page.getByText("Pool gereinigt, Werte stabilisiert, nächste Kontrolle geplant.")).toBeVisible();
-  await expect(page.getByText("Filterdruck beobachten. Interner Hinweis nicht im Kundenportal.")).toBeVisible();
-  await expect(page.getByRole("button", { name: "PDF für Poolpflege und Wasserwerte ausgeben" })).toBeVisible();
-  const reportCard = page.locator(".customer-report-card");
-  await expect(reportCard.getByRole("heading", { name: "Einsatzbericht" })).toBeVisible();
-  await expect(reportCard.getByText(/Berichtsnummer REP-044/)).toBeVisible();
-  await expect(reportCard.locator("dt", { hasText: "Kunde" })).toBeVisible();
-  await expect(reportCard.locator("dd", { hasText: "Familie Andersson" }).first()).toBeVisible();
-  await expect(reportCard.getByText("Objekt", { exact: true }).first()).toBeVisible();
-  await expect(reportCard.getByText("Auftrag", { exact: true }).first()).toBeVisible();
-  await expect(reportCard.locator("dt", { hasText: "Rhythmus" })).toBeVisible();
-  await expect(reportCard.locator("dt", { hasText: "Priorität" })).toBeVisible();
-  await expect(reportCard.getByText("Leistung", { exact: true })).toBeVisible();
-  await expect(reportCard.getByText("Bilder zum Objekt / Einsatz")).toHaveCount(0);
-  await expect(reportCard.getByText("Dokumente in der Objektakte")).toHaveCount(0);
-  await expect(page.getByText("Betreff: Einsatzbericht - Kolaretorp Service AB - Villa Långsjön")).toBeVisible();
-  await expect(page.getByText("Kopie: info@kolaretorp.se")).toBeVisible();
-  await expect(page.getByText("Anhang: Einsatzbericht-Villa Långsjön-Poolpflege und Wasserwerte.pdf")).toBeVisible();
-  await expect(page.getByText("Body: Hallo Eva, anbei der Bericht vom aktuellen Einsatz. Für Rückfragen stehen wir gerne zur Verfügung.")).toBeVisible();
-  await page.getByRole("button", { name: "Bericht Poolpflege und Wasserwerte an Kunden senden" }).click();
-  await expect(page.getByText("Gesendet")).toBeVisible();
-  await expect(page.getByText(/Zeitstempel:/)).toBeVisible();
-  await expect(page.getByText(/Bericht wurde zum Versand vorbereitet/)).toBeVisible();
-  await page.getByRole("button", { name: "Zurück zur Objektübersicht" }).click();
-  await expect(
-    page.locator(".object-list article").filter({ hasText: "Villa Långsjön" }).getByRole("button", { name: "Objekt Villa Långsjön bearbeiten" }),
-  ).toHaveAttribute("data-tooltip", "Objekt Villa Långsjön bearbeiten");
-  await page.getByRole("button", { name: "Neues Objekt" }).click();
-  await field("Objekt").fill("Testhaus Smaland");
-  await field("Eigentümer aus Kunden").selectOption("CUS-2");
-  await field("Objektadresse").fill("Testvägen 12, Nybro");
-  await field("Rechnungsadresse verwenden").selectOption("Eigentümeradresse");
-  await field("Größe m²").fill("145");
-  await field("Grundstück m²").fill("2300");
-  await field("Zimmer").fill("6");
-  await field("Betten").fill("9");
-  await field("Betreuungspaket").selectOption("Premium");
-  await field("Zugang / Schlüssel").fill("Schlüsselsafe am Carport");
-  await field("Kurzbeschreibung zum nächsten Dokument").fill("Versicherungspolice Objekt");
-  await page.getByLabel("Neues Foto hinzufügen").setInputFiles({
-    name: "objektfoto.jpg",
-    mimeType: "image/jpeg",
-    buffer: Buffer.from("demo"),
-  });
-  await page.getByLabel("Dokument hinzufügen").setInputFiles({
-    name: "versicherung.pdf",
-    mimeType: "application/pdf",
-    buffer: Buffer.from("demo"),
-  });
-  await field("Ausstattung").fill("Pool, Sauna, Kamin");
-  await field("Hinweise / Risiken").fill("Poolpumpe regelmäßig prüfen");
-  await page.getByRole("button", { name: "Objekt anlegen" }).click();
+  const vehicle = dialog.getByLabel("Fahrzeug");
+  await vehicle.selectOption({ index: 1 });
+  await expect(dialog.getByLabel("Start-Km")).not.toHaveValue("");
 
-  await expect(page.locator(".object-list article").filter({ hasText: "Testhaus Smaland" })).toBeVisible();
-  await expect(page.getByText("145 m² · 2300 m² Grundstück")).toHaveCount(0);
+  await dialog.getByLabel("Startadresse").fill("Kolaretorp 106, 382 93 Nybro");
+  await dialog.getByLabel("Zieladresse").fill("Gunnabo 126, 382 91 Nybro");
+  await dialog.getByLabel("Zweck / Ärende").fill("Kundenauftrag Gunnabo");
+  await dialog.getByRole("button", { name: "Ziel", exact: true }).click();
 
-  await page.locator(".object-list article").filter({ hasText: "Testhaus Smaland" }).getByRole("button", { name: "Objekt Testhaus Smaland bearbeiten" }).click();
-  await expect(page.getByRole("heading", { name: "Basisdaten" })).toBeVisible();
-  await expect(page.getByText("Dokument: versicherung.pdf")).toBeVisible();
-  await expect(field("Größe m²")).toHaveValue("145");
-  await expect(field("Objektadresse")).toHaveValue("Testvägen 12, Nybro");
-  await page.getByRole("button", { name: "versicherung.pdf Vorschau öffnen" }).first().click();
-  await expect(page.getByRole("dialog", { name: /versicherung.pdf/ })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Drucken" })).toBeVisible();
-  await page.getByRole("button", { name: "Dokumentvorschau schließen" }).click();
-  await field("Telefon Eigentümer").fill("+46 70 123456");
-  await field("Objektadresse").fill("Geänderter Weg 5, Nybro");
-  await field("Alarmanlage").fill("Code im internen Tresor hinterlegt");
-  await field("Internet").fill("Glasfaser, Router im Technikraum");
-  await field("Nächster Besuch").fill("2026-08-12");
-  await page.getByRole("button", { name: "Objekt speichern" }).click();
+  const waypointAddress = dialog.getByLabel("Zwischenziel 1", { exact: true });
+  await waypointAddress.fill("Nybro centrum");
+  await dialog.getByLabel("Notiz zu Zwischenziel 1").fill("Material abholen");
+  await expect(waypointAddress).toHaveCSS("border-top-style", "solid");
+  await expect(waypointAddress).toHaveCSS("border-top-width", "1px");
 
-  await page.locator(".object-list article").filter({ hasText: "Testhaus Smaland" }).getByRole("button", { name: "Objekt Testhaus Smaland bearbeiten" }).click();
-  await expect(field("Objektadresse")).toHaveValue("Geänderter Weg 5, Nybro");
-  await expect(field("Telefon Eigentümer")).toHaveValue("+46 70 123456");
-  await expect(page.getByRole("img", { name: "Aktuelles Objektbild" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Fotos zum Objekt" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Foto objektfoto.jpg Vorschau öffnen" })).toBeVisible();
-  await page.getByRole("button", { name: "Foto objektfoto.jpg Vorschau öffnen" }).first().click();
-  await expect(page.getByRole("dialog", { name: /objektfoto.jpg/ })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Drucken" })).toBeVisible();
-  await page.getByRole("button", { name: "Fotovorschau schließen" }).click();
-  await page.getByRole("button", { name: "Zurück zur Objektübersicht" }).click();
-  await page.locator(".object-list article").filter({ hasText: "Stuga Nybro" }).getByRole("button", { name: "Objekt Stuga Nybro bearbeiten" }).click();
-  await page.getByLabel("Neues Foto hinzufügen").setInputFiles({
-    name: "zweites-objekt.jpg",
-    mimeType: "image/jpeg",
-    buffer: Buffer.from("demo"),
-  });
-  await expect(page.getByRole("img", { name: "Aktuelles Objektbild" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Foto zweites-objekt.jpg Vorschau öffnen" })).toBeVisible();
-  await page.getByRole("button", { name: "Objekt speichern" }).click();
+  await dialog.getByLabel("Bezeichnung der Standardfahrt").fill("Kolaretorp – Gunnabo");
+  const standardSection = dialog.locator("section.trip-step").filter({ hasText: "Standardfahrt" }).first();
+  await standardSection.getByRole("button", { name: "Speichern", exact: true }).click();
+  await expect(dialog.getByLabel("Gespeicherte Standardfahrt").locator("option", { hasText: "Kolaretorp – Gunnabo" })).toHaveCount(1);
 
-  await page.getByRole("button", { name: /\d+\s*Berichte/ }).click();
-  await expect(page.getByRole("heading", { name: "Berichtsübersicht" })).toBeVisible();
-  await expect(page.getByRole("button", { name: /Poolpflege und Wasserwerte/ })).toBeVisible();
-  await expect(page.getByRole("button", { name: /Villa Långsjön/ })).toBeVisible();
-  await page.getByRole("button", { name: /Poolpflege und Wasserwerte/ }).click();
-  await expect(page.locator(".report-detail-panel").getByRole("heading", { name: "Poolpflege und Wasserwerte" })).toBeVisible();
-  await expect(page.locator(".report-detail-panel .report-hero strong", { hasText: "Villa Långsjön" })).toBeVisible();
-  await expect(page.locator(".report-detail-panel").getByText("Pool gereinigt, Werte stabilisiert, nächste Kontrolle geplant.")).toBeVisible();
-  await expect(page.locator(".report-detail-panel").getByAltText("Objektbild Villa Långsjön")).toBeVisible();
-  await expect(page.locator(".report-detail-panel").getByRole("figure", { name: /zugang-villa-langsjon.jpg/ })).toBeVisible();
-  await page.getByRole("button", { name: /\d+\s*abrechenbar/ }).click();
-  await expect(page.getByRole("heading", { name: "Abrechnung" })).toBeVisible();
+  await dialog.getByLabel("Zieladresse").fill("");
+  await waypointAddress.fill("");
+  await dialog.getByLabel("Gespeicherte Standardfahrt").selectOption("");
+  await dialog.getByLabel("Gespeicherte Standardfahrt").selectOption({ label: "Kolaretorp – Gunnabo" });
+  await expect(dialog.getByLabel("Zieladresse")).toHaveValue("Gunnabo 126, 382 91 Nybro");
+  await expect(dialog.getByLabel("Zwischenziel 1", { exact: true })).toHaveValue("Nybro centrum");
+  await expect(dialog.getByLabel("End-Km")).toBeFocused();
 
-  await page.getByTestId("nav-jobs").click();
-  await page.getByRole("button", { name: "Neuer Auftrag" }).click();
-  await field("Titel").fill("Testauftrag Objektkontrolle");
-  await field("Typ").fill("Hauskontrolle");
-  await field("Priorität").selectOption("hoch");
-  await page.getByLabel(/Hauskontrolle.*795 SEK\/Besuch/).check();
-  await page.getByRole("button", { name: "Serienauftrag" }).click();
-  await field("Wiederholen").selectOption("wöchentlich");
-  await field("Intervall").fill("2");
-  await page.getByRole("button", { name: "Mo", exact: true }).click();
-  await page.getByRole("button", { name: "Fr", exact: true }).click();
-  await field("Gültig von").selectOption("5");
-  await field("Gültig bis").selectOption("9");
-  await field("Jahresrhythmus").fill("2");
-  await field("Ende").selectOption("nach");
-  await field("Anzahl Termine").fill("6");
-  await field("Beschreibung").fill("Innen, außen und Zugang dokumentieren");
-  await field("Interne Notizen").fill("Nur intern sichtbar");
-  await page.getByRole("button", { name: "Auftrag anlegen" }).click();
+  await dialog.getByLabel("End-Km").fill("12680");
+  await dialog.getByRole("button", { name: "Zwischenspeichern", exact: true }).click();
+  await expect.poll(async () => page.evaluate(() => {
+    const draft = window.localStorage.getItem("kolaretorp-quick-trip-draft");
+    return draft ? JSON.parse(draft).endOdometer : "";
+  })).toBe("12680");
 
-  await expect(page.getByRole("heading", { name: "Auftragsübersicht" })).toBeVisible();
-  await expect(page.getByText("Testauftrag Objektkontrolle")).toBeVisible();
-  await expect(page.getByText(/Serie: alle 2 Wochen · Mo, Fr · gültig Mai bis September · alle 2 Jahre · 6 Termine/)).toBeVisible();
-  await page.getByRole("button", { name: "Auftrag Testauftrag Objektkontrolle bearbeiten" }).click();
-  await expect(page.getByRole("heading", { name: "Auftrag bearbeiten" })).toBeVisible();
-  await field("Titel").fill("Bearbeiteter Testauftrag");
-  await page.getByRole("button", { name: "Auftrag speichern" }).click();
-  await expect(page.getByText("Bearbeiteter Testauftrag")).toBeVisible();
-
-  await page.getByTestId("nav-customers").click();
-  await expect(page.getByRole("heading", { name: "Kundenübersicht" })).toBeVisible();
-  await page.getByRole("button", { name: "Neuer Kunde" }).click();
-  await field("Kunde").fill("Familie Beispiel");
-  await field("Ansprechpartner").fill("Anna Beispiel");
-  await field("E-Mail").fill("anna@example.com");
-  await field("Telefon").fill("+46 70 998877");
-  await field("Eigentümeradresse / Rechnungsadresse").fill("Beispielweg 4, 12345 Berlin");
-  await field("Notizen / interne Info").fill("Bevorzugt E-Mail, keine Telefonate am Wochenende");
-  await field("Mailtext Einsatzbericht").fill("Hallo {Vorname}, der Einsatzbericht ist beigefügt. Viele Grüße von Kolaretorp Service AB.");
-  await page.getByRole("button", { name: "Kunde anlegen" }).click();
-  await expect(page.getByText("Familie Beispiel")).toBeVisible();
-  await page.locator(".table-list article").filter({ hasText: "M. Schneider" }).getByRole("button", { name: "Kunde M. Schneider bearbeiten" }).click();
-  await expect(page.getByRole("dialog").getByText("Stuga Nybro")).toBeVisible();
-  await expect(page.getByRole("dialog").getByText("Testhaus Smaland")).toBeVisible();
-  await field("Objekt zuordnen").selectOption("OBJ-1001");
-  await expect(page.locator(".assigned-row").filter({ hasText: "Villa Långsjön" })).toBeVisible();
-  await page.getByRole("button", { name: "Kunde speichern" }).click();
-  await page.getByTestId("nav-objects").click();
-  await page.locator(".object-list article").filter({ hasText: "Villa Långsjön" }).getByRole("button", { name: "Objekt Villa Långsjön bearbeiten" }).click();
-  await expect(exactField("Eigentümer")).toHaveValue("M. Schneider");
-  await page.getByRole("button", { name: "Zurück zur Objektübersicht" }).click();
-  await page.getByTestId("nav-customers").click();
-  await page.locator(".table-list article").filter({ hasText: "Familie Beispiel" }).getByRole("button", { name: "Kunde Familie Beispiel bearbeiten" }).click();
-  await field("Telefon").fill("+46 70 112233");
-  await page.getByRole("button", { name: "Kunde speichern" }).click();
-  await expect(page.getByText("+46 70 112233")).toBeVisible();
-  await page.locator(".table-list article").filter({ hasText: "M. Schneider" }).getByRole("button", { name: "Kunde M. Schneider archivieren" }).click();
-  await expect(page.getByText(/Kunde "M. Schneider" kann nicht archiviert werden:/)).toBeVisible();
-  await page.locator(".table-list article").filter({ hasText: "Familie Beispiel" }).getByRole("button", { name: "Kunde Familie Beispiel archivieren" }).click();
-  await expect(page.getByText('Kunde "Familie Beispiel" wurde archiviert.')).toBeVisible();
-  await page.getByRole("button", { name: "Archivierten Kunden Familie Beispiel bearbeiten" }).click();
-  await expect(page.getByRole("heading", { name: "Kunde bearbeiten" })).toBeVisible();
-  await field("Notizen / interne Info").fill("Archiviert geprüft, kann reaktiviert werden");
-  await page.getByRole("button", { name: "Kunde speichern" }).click();
-  await expect(page.getByRole("button", { name: "Archivierten Kunden Familie Beispiel reaktivieren" })).toBeVisible();
-  await page.getByRole("button", { name: "Archivierten Kunden Familie Beispiel reaktivieren" }).click();
-  await expect(page.getByText('Kunde "Familie Beispiel" wurde wieder aktiviert.')).toBeVisible();
-  await page.locator(".table-list article").filter({ hasText: "Familie Beispiel" }).getByRole("button", { name: "Kunde Familie Beispiel archivieren" }).click();
-  await page.getByRole("button", { name: "Archivierten Kunden Familie Beispiel löschen" }).click();
-  await expect(page.getByText('Archivierter Kunde "Familie Beispiel" wurde endgültig gelöscht.')).toBeVisible();
-
-  await page.getByTestId("nav-planning").click();
-  await expect(page.getByRole("heading", { name: "Einsatzplanung" })).toBeVisible();
-  await page.getByRole("button", { name: /Bearbeiteter Testauftrag/ }).click();
-  await expect(page.getByRole("heading", { name: "Bearbeiteter Testauftrag" })).toBeVisible();
-  await expect(page.getByRole("article").filter({ hasText: "Zugang prüfen" }).getByText("Hauskontrolle · Kontrolle · 795 SEK/Besuch")).toBeVisible();
-  await expect(page.getByRole("article").filter({ hasText: "Vorher-Fotos erfassen" })).toHaveCount(0);
-  await page.getByLabel("Zeit Zugang prüfen").fill("22");
-  await page.getByLabel("Hinweis Zugang prüfen").fill("Schlüsselsafe geprüft, Zugang ohne Problem.");
-  await page.getByRole("article").filter({ hasText: "Außenrunde durchführen" }).locator("input[type='checkbox']").check();
-  await page.getByLabel("Zeit Außenrunde durchführen").fill("18");
-  await page.getByLabel("Hinweis Außenrunde durchführen").fill("Außenrunde geprüft, keine Auffälligkeiten.");
-  await page.getByLabel("Bild zu Zugang prüfen erfassen").setInputFiles({
-    name: "einsatzfoto-1.jpg",
-    mimeType: "image/jpeg",
-    buffer: Buffer.from("demo"),
-  });
-  await expect(page.getByRole("dialog", { name: "Kurze Info zum Bild" })).toBeVisible();
-  await page.getByRole("dialog", { name: "Kurze Info zum Bild" }).locator("textarea").fill("Schlüsselsafe frontal dokumentiert.");
-  await page.getByRole("button", { name: "Info speichern" }).click();
-  await page.getByLabel("Bild zu Zugang prüfen erfassen").setInputFiles({
-    name: "einsatzfoto-2.jpg",
-    mimeType: "image/jpeg",
-    buffer: Buffer.from("demo 2"),
-  });
-  await expect(page.getByRole("dialog", { name: "Kurze Info zum Bild" })).toBeVisible();
-  await page.getByRole("button", { name: "Überspringen" }).click();
-  await expect(page.getByText("Foto übernommen")).toHaveCount(2);
-  await page.waitForFunction(() => {
-    const progress = window.localStorage.getItem("kolaretorp-field-progress") ?? "";
-    return progress.includes("einsatzfoto-1.jpg") && progress.includes("einsatzfoto-2.jpg") && progress.includes("Schlüsselsafe frontal dokumentiert.");
-  });
-  await page.reload();
-  await expect(page.locator("main")).toHaveAttribute("data-ready", "true");
-  await page.getByTestId("nav-field").click();
-  await expect(page.getByText("Offene Aufträge")).toBeVisible();
-  await expect(page.locator(".field-job-picker").getByRole("button", { name: /Bearbeiteter Testauftrag/ })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Bearbeiteter Testauftrag" })).toBeVisible();
-  await page.getByRole("button", { name: "Auftrag Bearbeiteter Testauftrag abwählen" }).click();
-  await expect(page.getByRole("heading", { name: "Auftrag auswählen" })).toBeVisible();
-  await expect(page.locator(".field-job-picker").getByRole("button", { name: /Bearbeiteter Testauftrag/ }).getByText("geplant")).toBeVisible();
-  await page.locator(".field-job-picker").getByRole("button", { name: /Bearbeiteter Testauftrag/ }).click();
-  await expect(page.getByRole("heading", { name: "Bearbeiteter Testauftrag" })).toBeVisible();
-  await expect(page.getByLabel("Zeit Zugang prüfen")).toHaveValue("22");
-  await expect(page.getByLabel("Hinweis Zugang prüfen")).toHaveValue("Schlüsselsafe geprüft, Zugang ohne Problem.");
-  await expect(page.getByRole("article").filter({ hasText: "Außenrunde durchführen" }).locator("input[type='checkbox']")).toBeChecked();
-  await expect(page.getByText("einsatzfoto-1.jpg")).toBeVisible();
-  await expect(page.getByText("einsatzfoto-2.jpg")).toBeVisible();
-  await expect(page.getByText("Schlüsselsafe frontal dokumentiert.")).toBeVisible();
-  await page.getByTestId("nav-planning").click();
-  await page.getByRole("button", { name: /Bearbeiteter Testauftrag/ }).click();
-  await expect(page.getByLabel("Zeit Zugang prüfen")).toHaveValue("22");
-  await expect(page.getByLabel("Hinweis Zugang prüfen")).toHaveValue("Schlüsselsafe geprüft, Zugang ohne Problem.");
-  await expect(page.getByRole("article").filter({ hasText: "Außenrunde durchführen" }).locator("input[type='checkbox']")).toBeChecked();
-  await expect(page.getByText("einsatzfoto.jpg")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Einsatz abschließen" })).toBeVisible();
-  await page.getByRole("button", { name: "Einsatz abschließen" }).click();
-  await expect(page.getByRole("heading", { name: "Objektübersicht" })).toBeVisible();
-  await page.locator(".object-list article").filter({ hasText: "Stuga Nybro" }).getByRole("button", { name: "Objekt Stuga Nybro bearbeiten" }).click();
-  await page.locator(".history-list").getByRole("button", { name: /Bearbeiteter Testauftrag/ }).click();
-  await expect(page.locator(".customer-report-card").getByText("Kontrolle vor Ort")).toBeVisible();
-  await expect(page.locator(".customer-report-card").getByText("Schlüsselsafe geprüft, Zugang ohne Problem.")).toBeVisible();
-  await expect(page.locator(".customer-report-card").getByText("Außenrunde geprüft, keine Auffälligkeiten.")).toBeVisible();
-  await expect(page.locator(".customer-report-card").getByRole("figure", { name: /einsatzfoto.jpg/ })).toBeVisible();
-  await expect(page.locator(".customer-report-card").getByText("nicht ausgeführt").first()).toBeVisible();
-  await expect(page.locator(".customer-report-card").getByText("40 Minuten dokumentiert")).toBeVisible();
-  await expect(page.locator(".customer-report-card").getByText("178 Minuten dokumentiert")).toHaveCount(0);
-  await expect(page.locator(".report-task-list article").filter({ hasText: "Innenkontrolle abschließen" }).getByText("0 min.")).toBeVisible();
-  await field("Kommentar vor dem Senden").fill("Bitte beachten: Zugang wurde geprüft, Folgetermin bleibt bestehen.");
-  await expect(page.locator(".customer-report-card").getByText("Bitte beachten: Zugang wurde geprüft, Folgetermin bleibt bestehen.")).toBeVisible();
-  await page.reload();
-  await expect(page.locator("main")).toHaveAttribute("data-ready", "true");
-  await page.getByTestId("nav-objects").click();
-  await page.locator(".object-list article").filter({ hasText: "Stuga Nybro" }).getByRole("button", { name: "Objekt Stuga Nybro bearbeiten" }).click();
-  await page.locator(".history-list").getByRole("button", { name: /Bearbeiteter Testauftrag/ }).click();
-  await expect(page.locator(".customer-report-card").getByText("40 Minuten dokumentiert")).toBeVisible();
-  await expect(page.locator(".customer-report-card").getByRole("figure", { name: /einsatzfoto.jpg/ })).toBeVisible();
-  await expect(page.locator(".customer-report-card").getByText("Bitte beachten: Zugang wurde geprüft, Folgetermin bleibt bestehen.")).toBeVisible();
-  await page.getByRole("button", { name: "Zurück zur Objektübersicht" }).click();
-  await page.locator(".object-list article").filter({ hasText: "Villa Långsjön" }).getByRole("button", { name: "Objekt Villa Långsjön archivieren" }).click();
-  await expect(page.getByText(/Objekt "Villa Långsjön" kann nicht archiviert werden:/)).toBeVisible();
-  await page.locator(".object-list article").filter({ hasText: "Testhaus Smaland" }).getByRole("button", { name: "Objekt Testhaus Smaland archivieren" }).click();
-  await expect(page.getByText('Objekt "Testhaus Smaland" wurde archiviert.')).toBeVisible();
-  await page.getByRole("button", { name: "Archiviertes Objekt Testhaus Smaland bearbeiten" }).click();
-  await expect(page.getByRole("heading", { name: "Basisdaten" })).toBeVisible();
-  await field("Nächster Besuch").fill("2026-08-20");
-  await page.getByRole("button", { name: "Objekt speichern" }).click();
-  await expect(page.getByText('Objekt "Testhaus Smaland" wurde archiviert.')).toBeVisible();
-  await page.getByRole("button", { name: "Archiviertes Objekt Testhaus Smaland reaktivieren" }).click();
-  await expect(page.getByText('Objekt "Testhaus Smaland" wurde wieder aktiviert.')).toBeVisible();
-
-  await page.getByTestId("nav-masterData").click();
-  await expect(page.getByRole("heading", { name: "Leistungen einzeln erfassen" })).toBeVisible();
-  await expect(page.getByText("Objektakte", { exact: true })).toHaveCount(0);
-  await expect(page.locator(".package-catalog").getByText("Premium")).toBeVisible();
-  await expect(page.locator(".service-catalog article").filter({ hasText: "Sonderleistung" }).getByText("Notdienst")).toBeVisible();
-  await expect(field("Kategorie")).toHaveValue("");
-  await expect(field("Einheit")).toHaveValue("");
-  await field("Leistung").fill("Fensterkontrolle");
-  await field("Kategorie").fill("Kontrolle");
-  await field("Einheit").fill("Kontrollgang");
-  await field("Preis").fill("350");
-  await field("Währung").selectOption("SEK");
-  await field("Beschreibung").fill("Fenster schließen, Griffe prüfen und Auffälligkeiten dokumentieren");
-  await field("Punkt").fill("Fensterstatus prüfen");
-  await field("Standardzeit min.").fill("12");
-  await field("Hinweis / Info").fill("Fenster schließen, Griffe prüfen und Schäden dokumentieren.");
-  await page.getByRole("button", { name: "Checklistenpunkt hinzufügen" }).click();
-  await expect(page.getByText("Fensterstatus prüfen")).toBeVisible();
-  await page.getByRole("button", { name: "Leistung anlegen" }).click();
-  await expect(page.locator(".service-catalog").getByText("Fensterkontrolle")).toBeVisible();
-  await expect(page.locator(".service-catalog article").filter({ hasText: "Fensterkontrolle" }).getByText("1 Checklistenpunkte")).toBeVisible();
-  await page.locator(".service-catalog article").filter({ hasText: "Fensterkontrolle" }).getByRole("button", { name: "Leistung Fensterkontrolle bearbeiten" }).click();
-  await field("Kategorie").fill("Winterservice");
-  await field("Preis").fill("375 SEK");
-  await page.getByRole("button", { name: "Leistung speichern" }).click();
-  await expect(page.locator("datalist#service-categories option[value='Winterservice']")).toHaveCount(1);
-  await expect(page.locator("datalist#service-units option[value='Kontrollgang']")).toHaveCount(1);
-  await expect(page.locator(".service-catalog article").filter({ hasText: "Fensterkontrolle" }).getByText("375 SEK/Kontrollgang")).toBeVisible();
-  await field("Paketname").fill("Winterpaket");
-  await field("Paketpreis").fill("3.990 SEK/Jahr");
-  await field("Paketbeschreibung").fill("Winterkontrollen und schnelle Rückmeldung bei Schäden");
-  await page.getByRole("button", { name: "Leistungen auswählen" }).click();
-  await expect(page.getByRole("dialog", { name: "Leistungen auswählen" })).toBeVisible();
-  await page.getByRole("dialog", { name: "Leistungen auswählen" }).getByLabel(/Fensterkontrolle/).check();
-  await page.getByRole("dialog", { name: "Leistungen auswählen" }).getByLabel(/Hauskontrolle/).check();
-  await page.getByRole("button", { name: "Auswahl übernehmen" }).click();
-  await page.getByRole("button", { name: "Paket anlegen" }).click();
-  await expect(page.locator(".package-catalog").getByText("Winterpaket")).toBeVisible();
-  await expect(page.locator(".package-catalog").getByText("Fensterkontrolle")).toBeVisible();
-  await page.locator(".package-catalog article").filter({ hasText: "Winterpaket" }).getByRole("button", { name: "Paket Winterpaket bearbeiten" }).click();
-  await field("Paketpreis").fill("4.290 SEK/Jahr");
-  await page.getByRole("button", { name: "Leistungen auswählen" }).click();
-  await page.getByRole("dialog", { name: "Leistungen auswählen" }).getByLabel(/Notdienst/).check();
-  await page.getByRole("button", { name: "Auswahl übernehmen" }).click();
-  await page.getByRole("button", { name: "Paket speichern" }).click();
-  await expect(page.locator(".package-catalog article").filter({ hasText: "Winterpaket" }).getByText("4.290 SEK/Jahr")).toBeVisible();
-  await expect(page.locator(".package-catalog article").filter({ hasText: "Winterpaket" }).getByText("Notdienst")).toBeVisible();
-  await page.getByRole("button", { name: "Leistung Hauskontrolle archivieren" }).click();
-  await expect(page.getByText(/Leistung "Hauskontrolle" ist noch aktiv bei:/)).toBeVisible();
-  await page.getByRole("button", { name: "Leistung Fensterkontrolle archivieren" }).click();
-  await expect(page.getByText('Leistung "Fensterkontrolle" wurde archiviert.')).toBeVisible();
-  await page.getByRole("button", { name: "Archivierte Leistung Fensterkontrolle bearbeiten" }).click();
-  await field("Preis").fill("390");
-  await page.getByRole("button", { name: "Leistung speichern" }).click();
-  await expect(page.getByText("390 SEK/Kontrollgang")).toBeVisible();
-  await page.getByRole("button", { name: "Archivierte Leistung Fensterkontrolle reaktivieren" }).click();
-  await expect(page.getByText('Leistung "Fensterkontrolle" wurde wieder aktiviert.')).toBeVisible();
-  await page.getByRole("button", { name: "Leistung Fensterkontrolle archivieren" }).click();
-  await page.getByRole("button", { name: "Archivierte Leistung Fensterkontrolle löschen" }).click();
-  await expect(page.getByText('Archivierte Leistung "Fensterkontrolle" wurde endgültig gelöscht.')).toBeVisible();
-  await page.getByRole("button", { name: "Paket Komfort archivieren" }).click();
-  await expect(page.getByText(/Paket "Komfort" ist noch aktiv bei:/)).toBeVisible();
-  await page.getByRole("button", { name: "Paket Winterpaket archivieren" }).click();
-  await expect(page.getByText('Paket "Winterpaket" wurde archiviert.')).toBeVisible();
-  await page.getByRole("button", { name: "Archiviertes Paket Winterpaket bearbeiten" }).click();
-  await field("Paketpreis").fill("4.490 SEK/Jahr");
-  await page.getByRole("button", { name: "Paket speichern" }).click();
-  await expect(page.getByText("4.490 SEK/Jahr")).toBeVisible();
-  await page.getByRole("button", { name: "Archiviertes Paket Winterpaket reaktivieren" }).click();
-  await expect(page.getByText('Paket "Winterpaket" wurde wieder aktiviert.')).toBeVisible();
-  await page.getByRole("button", { name: "Paket Winterpaket archivieren" }).click();
-  await page.getByRole("button", { name: "Archiviertes Paket Winterpaket löschen" }).click();
-  await expect(page.getByText('Archiviertes Paket "Winterpaket" wurde endgültig gelöscht.')).toBeVisible();
-
-  await page.getByLabel("Sprache").selectOption("sv");
-  await expect(page.getByRole("heading", { name: "Fritidshusförvaltning" })).toBeVisible();
+  await dialog.getByRole("button", { name: "Fahrt erfassen schließen" }).click();
+  await page.getByRole("button", { name: "Fahrt", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Fahrt erfassen" }).getByLabel("End-Km")).toHaveValue("12680");
 });

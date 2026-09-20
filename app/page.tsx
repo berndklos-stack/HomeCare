@@ -630,6 +630,17 @@ type VehicleOdometerPhoto = {
   source: "start" | "end";
 };
 
+type StandardTrip = {
+  endAddress: string;
+  id: string;
+  label: string;
+  purpose: string;
+  startAddress: string;
+  tripType: VehicleLogEntry["tripType"];
+  visited: string;
+  waypoints: VehicleWaypoint[];
+};
+
 type ResourceMaintenanceItem = {
   id: string;
   title: string;
@@ -676,6 +687,7 @@ type ResourceRecord = {
     provider?: string;
   };
   maintenanceItems?: ResourceMaintenanceItem[];
+  standardTrips?: StandardTrip[];
   deletedLogbookEntryIds?: string[];
   archived?: boolean;
 };
@@ -2209,6 +2221,7 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Fahrzeugdokument hinzufügen", sv: "Lägg till fordonsdokument", en: "Add vehicle document" },
   { de: "Firmenadresse", sv: "Företagsadress", en: "Company address" },
   { de: "Firma", sv: "Företag", en: "Company" },
+  { de: "Gespeicherte Standardfahrt", sv: "Sparad standardresa", en: "Saved standard trip" },
   { de: "Fotos zum Objekt", sv: "Foton för objektet", en: "Property photos" },
   { de: "Fotos werden vorbereitet...", sv: "Foton förbereds...", en: "Preparing photos..." },
   { de: "Foto wird hochgeladen", sv: "Foto laddas upp", en: "Photo is uploading" },
@@ -2259,6 +2272,10 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Nachricht", sv: "Meddelande", en: "Message" },
   { de: "Neue Aufträge in Abrechnung übernehmen", sv: "Ta med nya uppdrag i fakturering", en: "Include new jobs in billing" },
   { de: "Neue Fahrt", sv: "Ny körning", en: "New trip" },
+  { de: "Standardfahrt", sv: "Standardresa", en: "Standard trip" },
+  { de: "Standardfahrt auswählen", sv: "Välj standardresa", en: "Select standard trip" },
+  { de: "Standardfahrt löschen", sv: "Radera standardresa", en: "Delete standard trip" },
+  { de: "Zwischenspeichern", sv: "Spara utkast", en: "Save draft" },
   { de: "Neues Foto hinzufügen", sv: "Lägg till nytt foto", en: "Add new photo" },
   { de: "Neues Konto anlegen", sv: "Skapa nytt konto", en: "Create new account" },
   { de: "Neues Paket anlegen", sv: "Skapa nytt paket", en: "Create new package" },
@@ -6798,12 +6815,13 @@ function normalizeAddressLookupValue(value: string) {
 function formatGpsAddress(address?: Record<string, string | undefined>) {
   if (!address) return "";
   const street = address.road || address.pedestrian || address.residential || address.footway || address.path || address.cycleway;
+  const localArea = address.hamlet || address.neighbourhood || address.suburb || address.quarter || address.village;
   const place = address.house_number && street
     ? `${street} ${address.house_number}`
     : address.house_number
-      ? address.house_number
-      : street || address.hamlet || address.neighbourhood || address.suburb || address.quarter;
-  const city = address.city || address.town || address.village || address.municipality || address.county;
+      ? [localArea, address.house_number].filter(Boolean).join(" ")
+      : street || localArea;
+  const city = address.city || address.town || (address.village !== localArea ? address.village : "") || address.municipality || address.county;
   const postcode = formatSwedishPostcode(address.postcode);
   const cityLine = [postcode, city].filter(Boolean).join(" ");
   return [place, cityLine].filter(Boolean).join(", ");
@@ -6813,35 +6831,25 @@ function normalizeKnownGpsAddress(address: string, knownAddresses: string[] = []
   const normalized = normalizeAddressLookupValue(address);
   if (!normalized) return address;
 
-  const kolaretorpAddress = knownAddresses.find((candidate) => {
+  const addressNumber = normalized.match(/\b\d+[a-z]?\b/)?.[0];
+  const postcodeMatch = address.match(/\b(\d{3})\s?(\d{2})\b/);
+  const postcode = postcodeMatch ? `${postcodeMatch[1]}${postcodeMatch[2]}` : undefined;
+  const matchingKnownAddress = knownAddresses.find((candidate) => {
     const normalizedCandidate = normalizeAddressLookupValue(candidate);
-    return normalizedCandidate.includes("kolaretorp") && normalizedCandidate.includes("nybro");
-  }) || "Kolaretorp 106, 382 93 Nybro";
-  const normalizedKolaretorpAddress = normalizeAddressLookupValue(kolaretorpAddress);
-  const knownStreet = normalizedKolaretorpAddress.match(/[a-z]+/)?.[0] ?? "kolaretorp";
-  const knownHouseNumber = kolaretorpAddress.match(/\b\d+[a-zA-Z]?\b/)?.[0] ?? "106";
-  const hasKnownHouseAddress = normalized.includes(knownStreet) && normalized.includes(knownHouseNumber.toLowerCase());
-  if (hasKnownHouseAddress) return kolaretorpAddress;
-  const looksLikeStreetlessKnownHouse = normalized.includes(knownHouseNumber.toLowerCase())
-    && normalized.includes("nybro")
-    && !normalized.includes(knownStreet);
-  if (looksLikeStreetlessKnownHouse) return kolaretorpAddress;
-
-  if (
-    normalized.includes("solbacken")
-    || normalized.includes("duvetorp")
-    || normalized.includes("nybro kommun")
-    || (normalized.includes("kolaretorp") && normalized.includes("nybro"))
-  ) return kolaretorpAddress;
+    const candidateNumber = normalizedCandidate.match(/\b\d+[a-z]?\b/)?.[0];
+    const candidatePostcodeMatch = candidate.match(/\b(\d{3})\s?(\d{2})\b/);
+    const candidatePostcode = candidatePostcodeMatch ? `${candidatePostcodeMatch[1]}${candidatePostcodeMatch[2]}` : undefined;
+    if (!addressNumber || addressNumber !== candidateNumber) return false;
+    if (postcode && candidatePostcode && postcode !== candidatePostcode) return false;
+    const candidateWords = normalizedCandidate.split(" ").filter((word) => word.length > 2 && !/^\d/.test(word));
+    return candidateWords.some((word) => normalized.includes(word));
+  });
+  if (matchingKnownAddress) return matchingKnownAddress;
   return address;
 }
 
 function fallbackCurrentAddress(knownAddresses: string[] = []) {
-  const kolaretorpAddress = knownAddresses.find((candidate) => {
-    const normalizedCandidate = normalizeAddressLookupValue(candidate);
-    return normalizedCandidate.includes("kolaretorp") && normalizedCandidate.includes("nybro");
-  });
-  return kolaretorpAddress || knownAddresses.find((candidate) => candidate.trim()) || "Kolaretorp 106, 382 93 Nybro";
+  return knownAddresses.find((candidate) => candidate.trim()) || "";
 }
 
 function currentDeviceCoordinates() {
@@ -8599,6 +8607,8 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   const [dailyMailSending, setDailyMailSending] = useState(false);
   const [manualRefreshRunning, setManualRefreshRunning] = useState(false);
   const [quickTripAddressLoading, setQuickTripAddressLoading] = useState("");
+  const [quickTripStandardId, setQuickTripStandardId] = useState("");
+  const [quickTripStandardLabel, setQuickTripStandardLabel] = useState("");
   const [quickTripForm, setQuickTripForm] = useState({
     date: currentLocalDateValue(),
     driverId: "",
@@ -8639,6 +8649,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   const pendingResourcePersistRef = useRef<{ resources: ResourceRecord[]; updatedAt: string } | null>(null);
   const resourcePersistTimerRef = useRef<number | null>(null);
   const quickTripDraftSaveTimerRef = useRef<number | null>(null);
+  const quickTripEndOdometerRef = useRef<HTMLInputElement | null>(null);
   const lastForegroundSyncAtRef = useRef(0);
   const lastUserInteractionAtRef = useRef(0);
   const pendingReportPhotoUploadsRef = useRef<Set<string>>(new Set());
@@ -8899,6 +8910,13 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
         || isSuspiciouslyEmptyLocalSnapshot(localSnapshotWithBackups)
         || isSeedOnlySnapshot(localSnapshotWithBackups);
       if (!cancelled && !localSnapshotIsSuspiciouslyEmpty) applySnapshot(localSnapshotWithBackups);
+      if (process.env.NEXT_PUBLIC_DISABLE_SUPABASE_SYNC === "1") {
+        if (!cancelled) {
+          setSupabaseSyncDisabled(true);
+          setAppStorageReady(true);
+        }
+        return;
+      }
       let remoteSnapshotWasApplied = false;
 
       try {
@@ -9362,6 +9380,8 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   const customerLanguageOptions = uniqueSortedValues(customers.map((customer) => customer.language), ["Deutsch", "Svenska", "English", "DE", "SV", "EN", "SV / DE", "DE / EN"]);
   const objectStatusOptions = uniqueSortedValues(objects.map((object) => object.status), ["Saison aktiv", "Kontrolle offen", "Winterruhe"]);
   const activeVehicles = resources.filter((resource) => resource.type === "Fahrzeug" && !resource.archived);
+  const quickTripVehicle = activeVehicles.find((vehicle) => vehicle.id === quickTripForm.resourceId);
+  const quickTripStandardTrips = quickTripVehicle?.standardTrips ?? [];
   const quickTripAddressOptions = uniqueSortedValues(
     resources.flatMap((resource) => resource.logbook.flatMap((entry) => [
       entry.startAddress,
@@ -11092,9 +11112,12 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   }
 
   async function openQuickTrip() {
-    const livePositions = await loadVehiclePositions().catch(() => liveVehiclePositions);
+    setQuickTripOpen(true);
+    const livePositions = supabaseSyncDisabled
+      ? liveVehiclePositions
+      : await loadVehiclePositions().catch(() => liveVehiclePositions);
     if (livePositions.length) setLiveVehiclePositions(livePositions);
-    const freshResources = await syncedResourcesForQuickTrip();
+    const freshResources = supabaseSyncDisabled ? resources : await syncedResourcesForQuickTrip();
     const freshVehicles = freshResources.filter((resource) => resource.type === "Fahrzeug" && !resource.archived);
     setQuickTripForm((current) => {
       if (current.activeLogbookEntryId) return current;
@@ -11139,6 +11162,26 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
           startOdometer: activeLiveTrip.startOdometer || defaults.startOdometer,
         };
       }
+      const hasSavedDraft = Boolean(
+        current.resourceId
+        && (
+          current.endAddress.trim()
+          || current.endOdometer.trim()
+          || current.purpose.trim()
+          || current.visited.trim()
+          || current.waypoints.length
+          || current.fuelOrCharge.trim()
+          || current.fuelReceiptPhoto
+          || current.odometerPhotos.length
+        )
+      );
+      if (hasSavedDraft && freshVehicles.some((item) => item.id === current.resourceId)) {
+        return {
+          ...current,
+          date: current.date || currentLocalDateValue(),
+          startOdometer: current.startOdometer || defaults.startOdometer,
+        };
+      }
       return {
         ...current,
         activeLogbookEntryId: "",
@@ -11161,7 +11204,6 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
         odometerPhotos: [],
       };
     });
-    setQuickTripOpen(true);
   }
 
   function openLogbookFromQuickTrip() {
@@ -11177,6 +11219,123 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
 
   function closeQuickTripDialog() {
     setQuickTripOpen(false);
+  }
+
+  function selectQuickTripStandard(standardId: string) {
+    setQuickTripStandardId(standardId);
+    const standardTrip = quickTripStandardTrips.find((item) => item.id === standardId);
+    if (!standardTrip) {
+      setQuickTripStandardLabel("");
+      return;
+    }
+    setQuickTripStandardLabel(standardTrip.label);
+    setQuickTripForm((current) => ({
+      ...current,
+      endAddress: standardTrip.endAddress,
+      endCoordinates: undefined,
+      endOdometer: "",
+      kilometers: "",
+      purpose: standardTrip.purpose,
+      startAddress: standardTrip.startAddress,
+      startCoordinates: undefined,
+      tripType: standardTrip.tripType,
+      visited: standardTrip.visited,
+      waypoints: standardTrip.waypoints.map((waypoint, index) => ({
+        address: waypoint.address,
+        id: globalThis.crypto?.randomUUID?.() ?? `${standardTrip.id}-WAY-${index}-${Date.now()}`,
+        note: waypoint.note,
+        odometer: "",
+      })),
+    }));
+    window.setTimeout(() => quickTripEndOdometerRef.current?.focus(), 0);
+    setRecordNotice(`Standardfahrt „${standardTrip.label}“ wurde übernommen.`);
+  }
+
+  function saveQuickTripStandard() {
+    const vehicle = resources.find((resource) => resource.id === quickTripForm.resourceId && resource.type === "Fahrzeug");
+    const label = quickTripStandardLabel.trim();
+    if (!vehicle) {
+      setRecordNotice("Bitte zuerst ein Fahrzeug auswählen.");
+      return;
+    }
+    if (!label || !quickTripForm.startAddress.trim() || !quickTripForm.endAddress.trim()) {
+      setRecordNotice("Für eine Standardfahrt bitte Bezeichnung, Startadresse und Zieladresse erfassen.");
+      return;
+    }
+
+    const id = quickTripStandardId || globalThis.crypto?.randomUUID?.() || `STANDARD-${Date.now()}`;
+    const standardTrip: StandardTrip = {
+      endAddress: quickTripForm.endAddress.trim(),
+      id,
+      label,
+      purpose: quickTripForm.purpose.trim(),
+      startAddress: quickTripForm.startAddress.trim(),
+      tripType: quickTripForm.tripType,
+      visited: quickTripForm.visited.trim(),
+      waypoints: quickTripForm.waypoints
+        .map((waypoint, index) => ({
+          address: waypoint.address.trim(),
+          id: `${id}-WAY-${index + 1}`,
+          note: waypoint.note.trim(),
+          odometer: "",
+        }))
+        .filter((waypoint) => waypoint.address),
+    };
+    const nextResources = resources.map((resource) => resource.id === vehicle.id
+      ? {
+          ...resource,
+          standardTrips: [
+            ...(resource.standardTrips ?? []).filter((item) => item.id !== id),
+            standardTrip,
+          ].sort((first, second) => first.label.localeCompare(second.label, "de")),
+        }
+      : resource);
+    setResources(nextResources);
+    persistResourcesFast(nextResources);
+    setQuickTripStandardId(id);
+    setRecordNotice(quickTripStandardId ? "Standardfahrt wurde aktualisiert." : "Standardfahrt wurde gespeichert.");
+  }
+
+  function deleteQuickTripStandard() {
+    if (!quickTripStandardId || !quickTripVehicle) return;
+    const nextResources = resources.map((resource) => resource.id === quickTripVehicle.id
+      ? { ...resource, standardTrips: (resource.standardTrips ?? []).filter((item) => item.id !== quickTripStandardId) }
+      : resource);
+    setResources(nextResources);
+    persistResourcesFast(nextResources);
+    setQuickTripStandardId("");
+    setQuickTripStandardLabel("");
+    setRecordNotice("Standardfahrt wurde gelöscht.");
+  }
+
+  function saveQuickTripDraft() {
+    if (quickTripForm.activeLogbookEntryId) {
+      updateActiveQuickTripEntry();
+      setRecordNotice("Zwischenstand wurde gespeichert.");
+      return;
+    }
+    try {
+      window.localStorage.setItem(storageKeys.quickTripDraft, JSON.stringify({
+        ...quickTripForm,
+        fuelReceiptPhoto: quickTripForm.fuelReceiptPhoto
+          ? { ...quickTripForm.fuelReceiptPhoto, previewUrl: quickTripForm.fuelReceiptPhoto.previewUrl?.startsWith("data:") ? undefined : quickTripForm.fuelReceiptPhoto.previewUrl }
+          : undefined,
+        odometerPhotos: quickTripForm.odometerPhotos.map((photo) => ({
+          ...photo,
+          previewUrl: photo.previewUrl?.startsWith("data:") ? undefined : photo.previewUrl,
+        })),
+        waypoints: quickTripForm.waypoints.map((waypoint) => ({
+          ...waypoint,
+          photo: waypoint.photo
+            ? { ...waypoint.photo, previewUrl: waypoint.photo.previewUrl?.startsWith("data:") ? undefined : waypoint.photo.previewUrl }
+            : undefined,
+        })),
+      }));
+      setRecordNotice("Fahrt wurde als Entwurf zwischengespeichert.");
+    } catch (error) {
+      console.warn("Fahrten-Entwurf konnte nicht gespeichert werden.", error);
+      setRecordNotice("Fahrten-Entwurf konnte nicht gespeichert werden.");
+    }
   }
 
   function reserveOdometerOcrUse() {
@@ -11714,7 +11873,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       driverId: quickTripForm.driverId,
       endAddress: "",
       endCoordinates: undefined,
-      endOdometer: entry.endOdometer,
+      endOdometer: "",
       fuelOrCharge: "",
       fuelReceiptPhoto: undefined,
       activeLogbookEntryId: "",
@@ -12318,6 +12477,49 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
               </div>
             </header>
             <div className="quick-trip-flow">
+              <section className="trip-step" aria-labelledby="standard-trip-title">
+                <div className="trip-step-head">
+                  <span><List size={14} /></span>
+                  <strong id="standard-trip-title">{tx("Standardfahrt")}</strong>
+                  <small>Häufige Route auswählen oder die aktuelle Route als Vorlage speichern.</small>
+                </div>
+                <div className="standard-trip-controls">
+                  <label>
+                    <span>{tx("Gespeicherte Standardfahrt")}</span>
+                    <select
+                      aria-label={tx("Gespeicherte Standardfahrt")}
+                      disabled={!quickTripForm.resourceId}
+                      value={quickTripStandardId}
+                      onChange={(event) => selectQuickTripStandard(event.target.value)}
+                    >
+                      <option value="">{tx("Standardfahrt auswählen")}</option>
+                      {quickTripStandardTrips.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+                    </select>
+                  </label>
+                  <label>
+                    <span>{tx("Bezeichnung")}</span>
+                    <input
+                      aria-label="Bezeichnung der Standardfahrt"
+                      placeholder="z. B. Kolaretorp – Gunnabo"
+                      value={quickTripStandardLabel}
+                      onChange={(event) => setQuickTripStandardLabel(event.target.value)}
+                    />
+                  </label>
+                  <button className="ghost-button compact" onClick={saveQuickTripStandard} type="button">
+                    <Check size={15} />
+                    {quickTripStandardId ? "Aktualisieren" : "Speichern"}
+                  </button>
+                  <button
+                    aria-label={tx("Standardfahrt löschen")}
+                    className="icon-button danger"
+                    disabled={!quickTripStandardId}
+                    onClick={deleteQuickTripStandard}
+                    type="button"
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+              </section>
               <section className="trip-step">
                 <div className="trip-step-head">
                   <span>1</span>
@@ -12328,6 +12530,8 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                   <label><span>Fahrzeug</span>
                     <select value={quickTripForm.resourceId} onChange={(event) => {
                       const defaults = quickTripDefaultsForVehicle(event.target.value);
+                      setQuickTripStandardId("");
+                      setQuickTripStandardLabel("");
                       setQuickTripForm({
                         ...quickTripForm,
                         driverId: activeVehicles.find((vehicle) => vehicle.id === event.target.value)?.defaultDriverId || quickTripForm.driverId,
@@ -12531,7 +12735,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                   <small>Zieladresse und End-KM beim Abstellen erfassen.</small>
                 </div>
                 <div className="form-grid compact-form">
-                  <label><span>End-Km</span><input inputMode="numeric" value={quickTripForm.endOdometer} onChange={(event) => setQuickTripForm({ ...quickTripForm, endOdometer: event.target.value })} /></label>
+                  <label><span>End-Km</span><input ref={quickTripEndOdometerRef} inputMode="numeric" value={quickTripForm.endOdometer} onChange={(event) => setQuickTripForm({ ...quickTripForm, endOdometer: event.target.value })} /></label>
                   <label><span>Kilometer</span><input inputMode="numeric" placeholder="wird aus Km-Ständen berechnet" value={quickTripForm.kilometers} onChange={(event) => setQuickTripForm({ ...quickTripForm, kilometers: event.target.value })} /></label>
                   <label className="wide"><span>Zieladresse</span>
                     <div className="address-gps-row">
@@ -12617,12 +12821,10 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
               <button className="ghost-button" onClick={cancelQuickTrip} type="button">
                 {quickTripForm.activeLogbookEntryId ? tx("Fahrt verwerfen") : tx("Abbrechen")}
               </button>
-              {quickTripForm.activeLogbookEntryId && (
-                <button className="ghost-button" onClick={() => updateActiveQuickTripEntry()} type="button">
-                  <Check size={16} />
-                  {tx("Zwischenstand speichern")}
-                </button>
-              )}
+              <button className="ghost-button" onClick={saveQuickTripDraft} type="button">
+                <Check size={16} />
+                {tx("Zwischenspeichern")}
+              </button>
               <button className="primary-button" onClick={() => quickTripForm.activeLogbookEntryId ? void saveQuickTrip() : void startQuickTrip()} type="button">
                 <Check size={16} />
                 {quickTripForm.activeLogbookEntryId ? tx("Fahrt abschließen") : tx("Fahrt starten")}

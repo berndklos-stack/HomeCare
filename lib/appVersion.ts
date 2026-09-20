@@ -1,10 +1,21 @@
 export const appVersion = {
-  version: "1.414.0",
+  version: "1.415.0",
   releaseDate: "2026-09-20",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.415.0",
+    date: "2026-09-20",
+    changes: [
+      "Reverse Geocoding ergänzt vorhandene Orts- und Gebietsnamen ohne fest verdrahtete Adressen",
+      "Zwischenziel-Felder sind dauerhaft klar umrandet",
+      "Fahrten können vor dem Start ausdrücklich als Entwurf zwischengespeichert und wieder geöffnet werden",
+      "Standardfahrten speichern Routendaten und setzen nach der Auswahl den Fokus auf End-Km",
+      "Playwright prüft den aktuellen Fahrtenentwurf- und Standardfahrten-Ablauf",
+    ],
+  },
   {
     version: "1.414.0",
     date: "2026-09-20",

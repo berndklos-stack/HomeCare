@@ -60,6 +60,7 @@ type ResourceRow = {
   registration_country: string | null;
   responsible_person_id: string | null;
   status: string | null;
+  standard_trips: unknown;
   tax_country: string | null;
   tracking: unknown;
   type: string;
@@ -692,6 +693,7 @@ function resourceToRow(resource: JsonObject) {
     registration_country: stringOrEmpty(resource.registrationCountry),
     responsible_person_id: resource.responsiblePersonId ? String(resource.responsiblePersonId) : null,
     status: stringOrEmpty(resource.status),
+    standard_trips: Array.isArray(resource.standardTrips) ? resource.standardTrips : [],
     tax_country: stringOrEmpty(resource.taxCountry),
     tracking: resource.tracking && typeof resource.tracking === "object" ? resource.tracking : {},
     type: stringOrEmpty(resource.type) || "Fahrzeug",
@@ -1477,6 +1479,7 @@ function rowToResource(row: ResourceRow, trips: VehicleTripRow[], mediaRows: Med
     registrationCountry: row.registration_country ?? "",
     responsiblePersonId: row.responsible_person_id ?? "",
     status: row.status ?? "",
+    standardTrips: Array.isArray(row.standard_trips) ? row.standard_trips : [],
     taxCountry: row.tax_country ?? "",
     tracking: row.tracking && typeof row.tracking === "object" ? row.tracking : undefined,
     type: row.type,
@@ -1496,7 +1499,7 @@ async function loadResourceSectionViaRpc(supabase: NonNullable<ReturnType<typeof
 async function loadResourceSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
   const { data: resourceRows, error: resourceError } = await supabase
     .from("homecare_resources")
-    .select("id, type, brand, build_year, current_odometer, current_odometer_date, default_driver_id, name, identifier, license_plate, status, responsible_person_id, location, logbook_active, notes, logbook_year, model, odometer_year_start, odometer_year_end, odometer_history, odometer_last_confirmed, odometer_last_confirmed_at, odometer_last_confirmed_by, odometer_last_confirmed_photo, owner_company, private_use_allowed, registration_country, tax_country, tracking, maintenance_items, deleted_logbook_entry_ids, archived, updated_at")
+    .select("id, type, brand, build_year, current_odometer, current_odometer_date, default_driver_id, name, identifier, license_plate, status, responsible_person_id, location, logbook_active, notes, logbook_year, model, odometer_year_start, odometer_year_end, odometer_history, odometer_last_confirmed, odometer_last_confirmed_at, odometer_last_confirmed_by, odometer_last_confirmed_photo, owner_company, private_use_allowed, registration_country, tax_country, tracking, maintenance_items, standard_trips, deleted_logbook_entry_ids, archived, updated_at")
     .order("name", { ascending: true });
 
   if (resourceError) return loadResourceSectionViaRpc(supabase);
