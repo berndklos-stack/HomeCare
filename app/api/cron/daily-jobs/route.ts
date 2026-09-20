@@ -51,10 +51,14 @@ type DailyMailSettings = {
 };
 
 type CalendarEvent = {
+  allDay: boolean;
   calendar: string;
   date: string;
   endDate: string;
+  endTime: string;
   location: string;
+  sortTimestamp: number;
+  startTime: string;
   title: string;
 };
 
@@ -75,6 +79,7 @@ const appStateRowId = "kolaretorp-service-app";
 const dailyMailStateRowId = "kolaretorp-daily-job-mail";
 const stockholmTimeZone = "Europe/Stockholm";
 const weekdayFormatter = new Intl.DateTimeFormat("sv-SE", { timeZone: stockholmTimeZone, weekday: "short" });
+const closedJobStatuses = new Set(["erledigt", "abgeschlossen", "abgerechnet", "storniert"]);
 
 function getSupabaseServerClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -229,17 +234,27 @@ function sortedByDueDate(jobs: JobRecord[]) {
   return [...jobs].sort((first, second) => parseJobTime(first) - parseJobTime(second));
 }
 
+function normalizeJobStatus(status: string) {
+  return status.trim().toLocaleLowerCase("de-DE");
+}
+
+export function isClosedDailyMailJob(job: Pick<JobRecord, "status">) {
+  return closedJobStatuses.has(normalizeJobStatus(job.status));
+}
+
+function openOccurrences(occurrences: JobRecord[]) {
+  return occurrences.filter((occurrence) => !isClosedDailyMailJob(occurrence));
+}
+
 function jobSortGroup(job: JobRecord, occurrences: JobRecord[]) {
-  const statuses = occurrences.length > 0 ? occurrences.map((item) => item.status) : [job.status];
-  if (statuses.some((status) => status === "in Arbeit")) return 0;
+  const statuses = (occurrences.length > 0 ? occurrences.map((item) => item.status) : [job.status]).map(normalizeJobStatus);
+  if (statuses.some((status) => status === "in arbeit")) return 0;
   if (statuses.some((status) => status === "geplant" || status === "pausiert")) return 1;
-  if (statuses.some((status) => status === "erledigt")) return 2;
-  if (statuses.some((status) => status === "abgerechnet")) return 3;
+  if (statuses.some((status) => closedJobStatuses.has(status))) return 2;
   return 4;
 }
 
-function activeOverviewJobs(jobs: JobRecord[]) {
-  const closedStatuses = new Set(["erledigt", "abgerechnet", "storniert"]);
+export function activeOverviewJobs(jobs: JobRecord[]) {
   const occurrenceGroups = jobs.reduce<Record<string, JobRecord[]>>((groups, job) => {
     if (!job.seriesMasterId) return groups;
     return {
@@ -250,22 +265,24 @@ function activeOverviewJobs(jobs: JobRecord[]) {
 
   return jobs
     .filter((job) => !job.seriesMasterId)
-    // A completed/cancelled master job must never reappear in the daily mail,
-    // even if old or pre-generated series occurrences are still present.
-    .filter((job) => !closedStatuses.has(job.status))
-    .filter((job) => jobSortGroup(job, occurrenceGroups[job.id] ?? []) < 2)
+    .filter((job) => !isClosedDailyMailJob(job))
+    .filter((job) => {
+      const occurrences = occurrenceGroups[job.id] ?? [];
+      return occurrences.length === 0 || openOccurrences(occurrences).length > 0;
+    })
+    .filter((job) => jobSortGroup(job, openOccurrences(occurrenceGroups[job.id] ?? [])) < 2)
     .sort((first, second) => {
-      const firstOccurrences = occurrenceGroups[first.id] ?? [];
-      const secondOccurrences = occurrenceGroups[second.id] ?? [];
+      const firstOccurrences = openOccurrences(occurrenceGroups[first.id] ?? []);
+      const secondOccurrences = openOccurrences(occurrenceGroups[second.id] ?? []);
       const groupDiff = jobSortGroup(first, firstOccurrences) - jobSortGroup(second, secondOccurrences);
-      const firstDate = parseJobTime(sortedByDueDate(firstOccurrences).find((job) => !["erledigt", "abgerechnet", "storniert"].includes(job.status)) ?? first);
-      const secondDate = parseJobTime(sortedByDueDate(secondOccurrences).find((job) => !["erledigt", "abgerechnet", "storniert"].includes(job.status)) ?? second);
+      const firstDate = parseJobTime(sortedByDueDate(firstOccurrences)[0] ?? first);
+      const secondDate = parseJobTime(sortedByDueDate(secondOccurrences)[0] ?? second);
       return groupDiff || firstDate - secondDate;
     });
 }
 
 function jobBucket(job: JobRecord, today: string, occurrences: JobRecord[]) {
-  const nextOccurrence = sortedByDueDate(occurrences).find((item) => !["erledigt", "abgerechnet", "storniert"].includes(item.status));
+  const nextOccurrence = sortedByDueDate(openOccurrences(occurrences))[0];
   const dueDate = normalizeJobDate(nextOccurrence?.dueDate ?? job.dueDate);
   if (!dueDate) return "Ohne Datum";
   if (dueDate < today) return "Überfällig";
@@ -304,7 +321,72 @@ function parseIcsDate(value: string) {
   return "";
 }
 
-function parseIcsEvents(ics: string, calendar: string, fromDate: string, toDate: string): CalendarEvent[] {
+function dateTimeParts(date: Date, timeZone: string) {
+  const formatter = new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    hour: "2-digit",
+    hour12: false,
+    hourCycle: "h23",
+    minute: "2-digit",
+    month: "2-digit",
+    second: "2-digit",
+    timeZone,
+    year: "numeric",
+  });
+  return Object.fromEntries(formatter.formatToParts(date).map((part) => [part.type, part.value]));
+}
+
+function zonedDateToUtc(year: number, month: number, day: number, hour: number, minute: number, second: number, timeZone: string) {
+  const target = Date.UTC(year, month - 1, day, hour, minute, second);
+  let instant = target;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const parts = dateTimeParts(new Date(instant), timeZone);
+    const represented = Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day), Number(parts.hour), Number(parts.minute), Number(parts.second));
+    instant += target - represented;
+  }
+  return new Date(instant);
+}
+
+function validTimeZone(value: string) {
+  try {
+    new Intl.DateTimeFormat("de-DE", { timeZone: value }).format();
+    return value;
+  } catch {
+    return stockholmTimeZone;
+  }
+}
+
+function parseIcsDateTime(value: string, property = "") {
+  const normalized = value.trim();
+  const allDay = /(?:^|;)VALUE=DATE(?:;|$)/i.test(property) || /^\d{8}$/.test(normalized);
+  const date = parseIcsDate(normalized);
+  if (!date) return { allDay, date: "", sortTimestamp: Number.MAX_SAFE_INTEGER, time: "" };
+  if (allDay) return { allDay: true, date, sortTimestamp: new Date(`${date}T00:00:00Z`).getTime(), time: "" };
+
+  const match = normalized.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})?(Z)?$/);
+  if (!match) return { allDay: false, date, sortTimestamp: new Date(`${date}T00:00:00Z`).getTime(), time: "" };
+  const [, year, month, day, hour, minute, second = "00", utcSuffix] = match;
+  const timeZoneMatch = property.match(/(?:^|;)TZID=([^;:]+)/i);
+  const sourceTimeZone = validTimeZone(timeZoneMatch?.[1] ?? stockholmTimeZone);
+  const instant = utcSuffix
+    ? new Date(Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute), Number(second)))
+    : zonedDateToUtc(Number(year), Number(month), Number(day), Number(hour), Number(minute), Number(second), sourceTimeZone);
+  const stockholm = dateTimeParts(instant, stockholmTimeZone);
+  return {
+    allDay: false,
+    date: `${stockholm.year}-${stockholm.month}-${stockholm.day}`,
+    sortTimestamp: instant.getTime(),
+    time: `${stockholm.hour}:${stockholm.minute}`,
+  };
+}
+
+export function calendarEventTimeLabel(event: Pick<CalendarEvent, "allDay" | "startTime" | "endTime">) {
+  if (event.allDay) return "Ganztägig";
+  if (event.startTime && event.endTime) return `${event.startTime}–${event.endTime}`;
+  return event.startTime;
+}
+
+export function parseIcsEvents(ics: string, calendar: string, fromDate: string, toDate: string): CalendarEvent[] {
   const lines = unfoldIcsLines(ics);
   const events: CalendarEvent[] = [];
   let current: Record<string, string> | null = null;
@@ -316,14 +398,18 @@ function parseIcsEvents(ics: string, calendar: string, fromDate: string, toDate:
     }
     if (line === "END:VEVENT") {
       if (current) {
-        const date = parseIcsDate(current.DTSTART ?? "");
-        const endDate = parseIcsDate(current.DTEND ?? "");
-        if (date >= fromDate && date <= toDate) {
+        const start = parseIcsDateTime(current.DTSTART ?? "", current.DTSTART_PROPERTY ?? "");
+        const end = parseIcsDateTime(current.DTEND ?? "", current.DTEND_PROPERTY ?? "");
+        if (start.date >= fromDate && start.date <= toDate) {
           events.push({
+            allDay: start.allDay,
             calendar,
-            date,
-            endDate,
+            date: start.date,
+            endDate: end.date,
+            endTime: end.time,
             location: cleanIcsValue(current.LOCATION ?? ""),
+            sortTimestamp: start.sortTimestamp,
+            startTime: start.time,
             title: cleanIcsValue(current.SUMMARY ?? "Termin ohne Titel"),
           });
         }
@@ -335,9 +421,10 @@ function parseIcsEvents(ics: string, calendar: string, fromDate: string, toDate:
     const [rawKey, ...valueParts] = line.split(":");
     const key = rawKey.split(";")[0];
     current[key] = valueParts.join(":");
+    current[`${key}_PROPERTY`] = rawKey;
   });
 
-  return events.sort((first, second) => first.date.localeCompare(second.date) || first.title.localeCompare(second.title, "de"));
+  return events.sort((first, second) => first.sortTimestamp - second.sortTimestamp || first.title.localeCompare(second.title, "de"));
 }
 
 function parseIcsReminders(ics: string, list: string, fromDate: string, toDate: string): ReminderItem[] {
@@ -436,7 +523,7 @@ async function loadCalendarEvents(today: string, settings?: DailyMailSettings) {
   };
 }
 
-async function buildDailyJobMail(snapshot: AppSnapshot, today: string) {
+export async function buildDailyJobMail(snapshot: AppSnapshot, today: string) {
   const allJobs = snapshot.jobs ?? [];
   const jobs = activeOverviewJobs(allJobs);
   const objects = snapshot.objects ?? [];
@@ -459,7 +546,7 @@ async function buildDailyJobMail(snapshot: AppSnapshot, today: string) {
         ${calendarData.calendars.map((event) => `
           <tr>
             <td style="border:1px solid #d2d2d7;border-radius:8px;padding:12px 14px;">
-              <strong style="display:block;font-size:15px;color:#1d1d1f;">${escapeHtml(event.title)}</strong>
+              <strong style="display:block;font-size:15px;color:#1d1d1f;">${escapeHtml(calendarEventTimeLabel(event))} – ${escapeHtml(event.title)}</strong>
               <span style="display:block;margin-top:4px;color:#6e6e73;">${displayDate(event.date)} · ${escapeHtml(event.calendar)}${event.location ? ` · ${escapeHtml(event.location)}` : ""}</span>
             </td>
           </tr>
@@ -509,7 +596,7 @@ async function buildDailyJobMail(snapshot: AppSnapshot, today: string) {
         ${group.jobs.map((job) => {
           const object = objects.find((item) => item.id === job.objectId);
           const occurrences = occurrenceGroups[job.id] ?? [];
-          const nextOccurrence = sortedByDueDate(occurrences).find((item) => !["erledigt", "abgerechnet", "storniert"].includes(item.status));
+          const nextOccurrence = sortedByDueDate(openOccurrences(occurrences))[0];
           const visibleDate = nextOccurrence?.dueDate ?? job.dueDate;
           const seriesInfo = isSeriesMaster(job) ? ` · Serienauftrag${nextOccurrence ? ` · nächster Termin ${displayDate(nextOccurrence.dueDate)}` : ""}` : "";
           return `
@@ -549,12 +636,12 @@ async function buildDailyJobMail(snapshot: AppSnapshot, today: string) {
     ...jobs.map((job) => {
       const object = objects.find((item) => item.id === job.objectId);
       const occurrences = occurrenceGroups[job.id] ?? [];
-      const nextOccurrence = sortedByDueDate(occurrences).find((item) => !["erledigt", "abgerechnet", "storniert"].includes(item.status));
+      const nextOccurrence = sortedByDueDate(openOccurrences(occurrences))[0];
       return `${displayDate(nextOccurrence?.dueDate ?? job.dueDate)} | ${job.status} | ${job.priority} | ${job.title} | ${object?.name ?? "Objekt unbekannt"} | ${job.assignedTo}`;
     }),
     "",
     "Kalender heute plus 3 Tage",
-    ...(calendarData.calendars.length > 0 ? calendarData.calendars.map((event) => `${displayDate(event.date)} | ${event.calendar} | ${event.title}${event.location ? ` | ${event.location}` : ""}`) : ["Keine Kalendertermine gefunden."]),
+    ...(calendarData.calendars.length > 0 ? calendarData.calendars.map((event) => `${displayDate(event.date)} | ${calendarEventTimeLabel(event)} – ${event.title} | ${event.calendar}${event.location ? ` | ${event.location}` : ""}`) : ["Keine Kalendertermine gefunden."]),
     "",
     "Erinnerungen nächste 5 Tage",
     ...(calendarData.reminders.length > 0 ? calendarData.reminders.map((reminder) => `${displayDate(reminder.date)} | ${reminder.list} | ${reminder.title}${reminder.notes ? ` | ${reminder.notes}` : ""}`) : ["Keine fälligen Erinnerungen in den nächsten 5 Tagen."]),
@@ -646,8 +733,43 @@ async function sendDailyMail(request: Request, manual = false) {
     return NextResponse.json({ error: appStateError.message }, { status: 500 });
   }
 
+  const [{ data: jobRows, error: jobsError }, { data: objectRows, error: objectsError }] = await Promise.all([
+    supabase
+      .from("homecare_jobs")
+      .select("id, series_master_id, series_occurrence_date, title, object_id, status, priority, due_date, assigned_to, description, schedule")
+      .order("due_date", { ascending: true }),
+    supabase
+      .from("homecare_objects")
+      .select("id, name, address")
+      .order("name", { ascending: true }),
+  ]);
+  if (jobsError || objectsError) {
+    return NextResponse.json({ error: jobsError?.message ?? objectsError?.message ?? "Aktuelle Auftragsdaten konnten nicht geladen werden." }, { status: 500 });
+  }
+
   const storedSettings = await loadStoredDailyMailSettings(supabase);
-  const snapshot = (appState?.data as AppSnapshot | undefined) ?? {};
+  const legacySnapshot = (appState?.data as AppSnapshot | undefined) ?? {};
+  const snapshot: AppSnapshot = {
+    ...legacySnapshot,
+    jobs: (jobRows ?? []).map((row) => ({
+      assignedTo: row.assigned_to ?? "",
+      description: row.description ?? "",
+      dueDate: row.due_date ?? "",
+      id: row.id,
+      objectId: row.object_id ?? "",
+      priority: row.priority ?? "normal",
+      schedule: row.schedule && typeof row.schedule === "object" ? row.schedule as JobRecord["schedule"] : undefined,
+      seriesMasterId: row.series_master_id ?? undefined,
+      seriesOccurrenceDate: row.series_occurrence_date ?? undefined,
+      status: row.status ?? "geplant",
+      title: row.title,
+    })),
+    objects: (objectRows ?? []).map((row) => ({
+      address: row.address ?? "",
+      id: row.id,
+      name: row.name,
+    })),
+  };
   const settings = normalizeDailyMailSettings(storedSettings ?? snapshot.dailyMailSettings);
   const mailStateData = (mailState?.data as DailyMailState | undefined) ?? {};
   const lastSentKey = mailStateData.lastSentKey;
