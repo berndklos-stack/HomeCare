@@ -9346,21 +9346,23 @@ button.media-thumb {
 }
 
 .consulting-action-strip {
-  display: flex;
   align-items: center;
+  display: flex;
   flex-wrap: nowrap;
   gap: 10px;
   margin-top: 8px;
   min-width: 0;
+  width: 100%;
 }
 
 .consulting-primary-actions {
-  display: flex;
   align-items: center;
+  display: inline-flex;
   flex: 0 0 auto;
   flex-wrap: nowrap;
   gap: 8px;
   min-width: 0;
+  width: fit-content;
 }
 
 .consulting-history-toggle.compact {
@@ -9387,11 +9389,19 @@ button.media-thumb {
 
 .consulting-entry-button,
 .consulting-bill-button {
-  flex: 0 0 auto;
+  flex: 0 0 auto !important;
+  justify-content: center;
   min-height: 34px;
+  max-width: none;
   padding-inline: 14px;
   white-space: nowrap;
-  width: auto;
+  width: max-content !important;
+}
+
+.consulting-primary-actions > .ghost-button,
+.consulting-primary-actions > .primary-button {
+  flex: 0 0 auto !important;
+  width: max-content !important;
 }
 
 .consulting-entry-modal {
