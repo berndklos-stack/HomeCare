@@ -8749,3 +8749,271 @@ button.media-thumb {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* iPhone refinement: compact top controls and properly stacked card headers */
+@media (max-width: 600px) {
+  .toolbar {
+    align-items: stretch;
+    display: grid;
+    gap: 7px;
+    grid-template-columns: minmax(74px, 0.8fr) minmax(82px, 0.8fr) minmax(116px, 1.2fr) 44px;
+    width: 100%;
+  }
+
+  .toolbar .search {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+
+  .toolbar .select-field {
+    grid-column: 1;
+    grid-row: 2;
+    width: 100%;
+  }
+
+  .toolbar > .ghost-button:not(.theme-toggle):not(.refresh-button) {
+    grid-column: 2;
+    grid-row: 2;
+    justify-content: center;
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
+  .toolbar .refresh-button {
+    grid-column: 3;
+    grid-row: 2;
+    justify-content: center;
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
+  .toolbar .theme-toggle {
+    grid-column: 4;
+    grid-row: 2;
+    height: 44px;
+    min-width: 44px;
+    padding: 0;
+    width: 44px;
+  }
+
+  .toolbar .toolbar-notice {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    margin: 0;
+    text-align: left;
+    width: 100%;
+  }
+
+  /* Base panel headings were flex on desktop. Switch them to a true mobile stack. */
+  .panel-title {
+    align-items: stretch;
+    display: grid;
+    gap: 12px;
+    grid-template-columns: minmax(0, 1fr);
+    justify-content: stretch;
+  }
+
+  .panel-title > div:first-child {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .panel-title > div:first-child > span {
+    display: block;
+    max-width: 100%;
+    overflow-wrap: normal;
+    word-break: normal;
+  }
+
+  .panel-title .row-actions,
+  .inventory-page .panel-title .row-actions {
+    display: grid;
+    gap: 8px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    justify-content: stretch;
+    width: 100%;
+  }
+
+  .panel-title .row-actions > button,
+  .panel-title .row-actions > .ghost-button,
+  .panel-title .row-actions > .primary-button,
+  .inventory-page .panel-title .row-actions > button {
+    min-width: 0;
+    padding-left: 10px;
+    padding-right: 10px;
+    white-space: normal;
+    width: 100%;
+  }
+
+  /* Make the horizontal app navigation lighter and less desktop-like. */
+  .sidebar nav button {
+    font-size: 14px;
+    min-height: 40px;
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+}
+
+@media (max-width: 380px) {
+  .toolbar {
+    grid-template-columns: minmax(64px, 0.8fr) minmax(72px, 0.8fr) minmax(106px, 1.2fr) 44px;
+  }
+
+  .toolbar > .ghost-button:not(.theme-toggle),
+  .toolbar > .select-field {
+    width: auto;
+  }
+
+  .panel-title .row-actions,
+  .inventory-page .panel-title .row-actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* iPhone structural layout fix – 2026-09-20
+   Uses dedicated classes so older generic toolbar/panel rules cannot rearrange these controls. */
+.app-toolbar-actions {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+@media (max-width: 600px) {
+  .topbar .app-toolbar {
+    display: grid !important;
+    gap: 8px !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    width: 100% !important;
+  }
+
+  .topbar .app-toolbar-search {
+    grid-column: 1 !important;
+    grid-row: auto !important;
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  .topbar .app-toolbar-actions {
+    align-items: stretch;
+    display: grid !important;
+    gap: 7px;
+    grid-column: 1;
+    grid-template-columns: minmax(72px, 0.8fr) minmax(78px, 0.9fr) minmax(112px, 1.25fr) 44px;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .topbar .app-toolbar-actions > * {
+    box-sizing: border-box;
+    flex: none !important;
+    grid-column: auto !important;
+    grid-row: auto !important;
+    margin: 0 !important;
+    max-width: 100%;
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  .topbar .app-toolbar-language,
+  .topbar .app-toolbar-trip,
+  .topbar .app-toolbar-refresh,
+  .topbar .app-toolbar-theme {
+    height: 44px !important;
+    min-height: 44px !important;
+  }
+
+  .topbar .app-toolbar-language,
+  .topbar .app-toolbar-trip,
+  .topbar .app-toolbar-refresh {
+    justify-content: center;
+    padding-left: 7px !important;
+    padding-right: 7px !important;
+  }
+
+  .topbar .app-toolbar-language select {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .topbar .app-toolbar-theme {
+    padding: 0 !important;
+    width: 44px !important;
+  }
+
+  .topbar .app-toolbar-notice {
+    grid-column: 1 !important;
+    grid-row: auto !important;
+    margin: 0 !important;
+    max-width: none !important;
+    text-align: left !important;
+    width: 100% !important;
+  }
+
+  /* Force the inventory heading to a real vertical mobile layout. */
+  .inventory-page > .inventory-panel-title {
+    align-items: stretch !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+    width: 100% !important;
+  }
+
+  .inventory-page > .inventory-panel-title > .inventory-panel-copy {
+    display: block !important;
+    flex: none !important;
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  .inventory-page > .inventory-panel-title > .inventory-panel-copy > h2,
+  .inventory-page > .inventory-panel-title > .inventory-panel-copy > span {
+    max-width: none !important;
+    overflow-wrap: normal !important;
+    white-space: normal !important;
+    width: 100% !important;
+    word-break: normal !important;
+  }
+
+  .inventory-page > .inventory-panel-title > .row-actions {
+    display: grid !important;
+    flex: none !important;
+    gap: 8px !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    justify-content: stretch !important;
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  .inventory-page > .inventory-panel-title > .row-actions > button {
+    box-sizing: border-box;
+    flex: none !important;
+    min-height: 44px !important;
+    min-width: 0 !important;
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+    white-space: normal !important;
+    width: 100% !important;
+  }
+}
+
+@media (max-width: 390px) {
+  .topbar .app-toolbar-actions {
+    grid-template-columns: minmax(64px, 0.75fr) minmax(68px, 0.8fr) minmax(104px, 1.2fr) 42px;
+    gap: 6px;
+  }
+
+  .topbar .app-toolbar-theme {
+    width: 42px !important;
+  }
+
+  .topbar .app-toolbar-language,
+  .topbar .app-toolbar-trip,
+  .topbar .app-toolbar-refresh {
+    font-size: 13px;
+    gap: 5px;
+  }
+
+  .inventory-page > .inventory-panel-title > .row-actions {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}

@@ -11451,8 +11451,8 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
             <h1>{t.appTitle}</h1>
             <span>{t.subtitle}</span>
           </div>
-          <div className="toolbar">
-            <label className="search">
+          <div className="toolbar app-toolbar">
+            <label className="search app-toolbar-search">
               <Search size={16} />
               <input
                 aria-label={t.search}
@@ -11461,30 +11461,32 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                 onChange={(event) => setQuery(event.target.value)}
               />
             </label>
-            <label className="select-field">
-              <Languages size={16} />
-              <select
-                aria-label={t.language}
-                value={language}
-                onChange={(event) => setLanguage(event.target.value as Language)}
-              >
-                <option value="de">DE</option>
-                <option value="sv">SV</option>
-                <option value="en">EN</option>
-              </select>
-            </label>
-            <button className="ghost-button" onClick={openQuickTrip} type="button">
-              <CarFront size={16} />
-              {tx("Fahrt")}
-            </button>
-            <button className={`ghost-button refresh-button ${manualRefreshRunning ? "running" : ""}`} disabled={manualRefreshRunning} onClick={() => void refreshAppDataNow()} type="button">
-              <RefreshCw size={16} />
-              {manualRefreshRunning ? tx("Aktualisiere") : tx("Aktualisieren")}
-            </button>
-            {formatUpdatedTime(appUpdatedAt) && <p className="toolbar-notice" role="status">{tx("Daten aktualisiert")}: {formatUpdatedTime(appUpdatedAt)}</p>}
-            <button aria-label={theme === "dark" ? t.light : t.dark} className="ghost-button icon-button theme-toggle" data-tooltip={theme === "dark" ? t.light : t.dark} onClick={() => setTheme(theme === "dark" ? "light" : "dark")} type="button">
-              {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
-            </button>
+            <div className="app-toolbar-actions">
+              <label className="select-field app-toolbar-language">
+                <Languages size={16} />
+                <select
+                  aria-label={t.language}
+                  value={language}
+                  onChange={(event) => setLanguage(event.target.value as Language)}
+                >
+                  <option value="de">DE</option>
+                  <option value="sv">SV</option>
+                  <option value="en">EN</option>
+                </select>
+              </label>
+              <button className="ghost-button app-toolbar-trip" onClick={openQuickTrip} type="button">
+                <CarFront size={16} />
+                {tx("Fahrt")}
+              </button>
+              <button className={`ghost-button refresh-button app-toolbar-refresh ${manualRefreshRunning ? "running" : ""}`} disabled={manualRefreshRunning} onClick={() => void refreshAppDataNow()} type="button">
+                <RefreshCw size={16} />
+                {manualRefreshRunning ? tx("Aktualisiere") : tx("Aktualisieren")}
+              </button>
+              <button aria-label={theme === "dark" ? t.light : t.dark} className="ghost-button icon-button theme-toggle app-toolbar-theme" data-tooltip={theme === "dark" ? t.light : t.dark} onClick={() => setTheme(theme === "dark" ? "light" : "dark")} type="button">
+                {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+              </button>
+            </div>
+            {formatUpdatedTime(appUpdatedAt) && <p className="toolbar-notice app-toolbar-notice" role="status">{tx("Daten aktualisiert")}: {formatUpdatedTime(appUpdatedAt)}</p>}
           </div>
         </header>
 
@@ -16494,8 +16496,8 @@ function InventoryView({
 
   return (
     <section className="panel inventory-page">
-      <div className="panel-title">
-        <div>
+      <div className="panel-title inventory-panel-title">
+        <div className="inventory-panel-copy">
           <p>{tt("Lagerverwaltung")}</p>
           <h2>Bestände und Buchungen</h2>
           <span>{tt("Materialbestand, Lagerorte, Ein- und Ausgänge sowie Einkaufsbelege zentral verwalten.")}</span>
