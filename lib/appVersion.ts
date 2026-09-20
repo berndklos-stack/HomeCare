@@ -1,10 +1,21 @@
 export const appVersion = {
-  version: "1.413.0",
-  releaseDate: "2026-09-13",
+  version: "1.414.0",
+  releaseDate: "2026-09-20",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.414.0",
+    date: "2026-09-20",
+    changes: [
+      "Fahrzeuge verwalten Steuerland, Regelversion und erweiterte Fahrtenbuch-Stammdaten",
+      "Start-Kilometerstand wird aus dem letzten bekannten Stand vorgeschlagen und Abweichungen werden protokolliert",
+      "Monatliche Kilometerstand-Kontrolle mit Pflichtfoto und Historie ist im Fahrtenbuch verfuegbar",
+      "Deutschland- und Schweden-Regelwerke sind versioniert als PDF hinterlegt",
+      "Fahrten speichern Regelwerks-Snapshot, aufgeloeste Adressen, Plausibilitaetswarnungen und Aenderungshistorie",
+    ],
+  },
   {
     version: "1.413.0",
     date: "2026-09-13",

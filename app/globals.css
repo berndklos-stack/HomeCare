@@ -1,5 +1,3 @@
-@import "tailwindcss";
-
 :root {
   --background: #f5f5f7;
   --foreground: #1d1d1f;
@@ -14,6 +12,44 @@
   --warning: #b26a00;
   --danger: #d70015;
   --shadow: rgba(0, 0, 0, 0.08);
+}
+
+html {
+  line-height: 1.5;
+  -webkit-text-size-adjust: 100%;
+}
+
+body,
+h1,
+h2,
+h3,
+h4,
+p,
+figure,
+blockquote,
+dl,
+dd {
+  margin: 0;
+}
+
+ol,
+ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+img,
+svg,
+video,
+canvas {
+  display: block;
+  max-width: 100%;
+}
+
+a {
+  color: inherit;
+  text-decoration: inherit;
 }
 
 [data-theme="dark"] {
@@ -4590,6 +4626,164 @@ mark.neutral {
   display: inline-flex;
   justify-content: center;
   min-height: 38px;
+}
+
+.regulation-info-card,
+.regulation-inline,
+.logbook-warning {
+  align-items: center;
+  background: var(--surface, #fff);
+  border: 1px solid var(--line, #d2d2d7);
+  border-radius: 8px;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  padding: 12px 14px;
+}
+
+.regulation-info-card > div:first-child,
+.regulation-inline > div,
+.logbook-warning-copy {
+  display: grid;
+  gap: 3px;
+}
+
+.regulation-info-card span,
+.regulation-inline span,
+.logbook-warning span {
+  color: var(--muted, #6e6e73);
+  font-size: 0.82rem;
+}
+
+.regulation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.logbook-warning {
+  align-items: stretch;
+  background: #f5f8fc;
+  flex-direction: column;
+}
+
+.logbook-warning.strong {
+  background: #fff7ea;
+  border-color: #e5b869;
+}
+
+.monthly-odometer-check {
+  align-items: end;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(120px, 0.7fr) minmax(170px, 1fr) auto auto;
+}
+
+.monthly-odometer-check label:not(.ghost-button) {
+  display: grid;
+  gap: 5px;
+}
+
+.monthly-odometer-check input,
+.monthly-odometer-check select {
+  min-height: 42px;
+}
+
+.odometer-check-photo {
+  cursor: pointer;
+  min-height: 42px;
+}
+
+.odometer-check-photo input {
+  display: none;
+}
+
+.warning-text {
+  color: #9a5b00;
+  display: block;
+  margin-top: 3px;
+}
+
+.regulation-viewer-modal {
+  height: min(92vh, 980px);
+  max-width: 1120px;
+  width: min(94vw, 1120px);
+}
+
+.regulation-viewer-modal iframe {
+  background: #fff;
+  border: 1px solid var(--line, #d2d2d7);
+  border-radius: 6px;
+  flex: 1;
+  min-height: 58vh;
+  width: 100%;
+}
+
+.regulation-summary {
+  background: #f5f8fc;
+  border: 1px solid var(--line, #d2d2d7);
+  border-radius: 6px;
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+}
+
+.regulation-summary ul {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  padding-left: 20px;
+}
+
+.regulation-admin-section {
+  border-top: 1px solid var(--line, #d2d2d7);
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+  padding-top: 16px;
+}
+
+.regulation-admin-list {
+  display: grid;
+  gap: 8px;
+}
+
+.regulation-admin-list article {
+  align-items: center;
+  border: 1px solid var(--line, #d2d2d7);
+  border-radius: 6px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  padding: 10px 12px;
+}
+
+.regulation-admin-list article > div {
+  display: grid;
+  gap: 3px;
+}
+
+.regulation-admin-list span,
+.regulation-admin-section > small {
+  color: var(--muted, #6e6e73);
+  font-size: 0.82rem;
+}
+
+@media (max-width: 760px) {
+  .regulation-info-card,
+  .regulation-inline {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .monthly-odometer-check {
+    grid-template-columns: 1fr;
+  }
+
+  .monthly-odometer-check .primary-button,
+  .odometer-check-photo {
+    width: 100%;
+  }
 }
 
 .clickable-master-card {

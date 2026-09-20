@@ -33,18 +33,34 @@ type JsonObject = Record<string, unknown>;
 
 type ResourceRow = {
   archived: boolean | null;
+  brand: string | null;
   build_year: string | null;
+  current_odometer: number | null;
+  current_odometer_date: string | null;
+  default_driver_id: string | null;
   deleted_logbook_entry_ids: unknown;
   identifier: string | null;
+  license_plate: string | null;
   location: string | null;
+  logbook_active: boolean | null;
   logbook_year: string | null;
   maintenance_items: unknown;
+  model: string | null;
   name: string;
   notes: string | null;
   odometer_year_end: number | null;
   odometer_year_start: number | null;
+  odometer_history: unknown;
+  odometer_last_confirmed: number | null;
+  odometer_last_confirmed_at: string | null;
+  odometer_last_confirmed_by: string | null;
+  odometer_last_confirmed_photo: unknown;
+  owner_company: string | null;
+  private_use_allowed: boolean | null;
+  registration_country: string | null;
   responsible_person_id: string | null;
   status: string | null;
+  tax_country: string | null;
   tracking: unknown;
   type: string;
   id: string;
@@ -52,8 +68,10 @@ type ResourceRow = {
 };
 
 type VehicleTripRow = {
+  audit_log: unknown;
   driver_id: string | null;
   end_address: string | null;
+  end_address_resolved: string | null;
   end_coordinates: unknown;
   end_odometer: number | null;
   ended_at: string | null;
@@ -65,14 +83,20 @@ type VehicleTripRow = {
   odometer_photos: unknown;
   purpose: string | null;
   resource_id: string;
+  rule_country: string | null;
+  rule_title: string | null;
+  rule_version: string | null;
   start_address: string | null;
+  start_address_resolved: string | null;
   start_coordinates: unknown;
   start_odometer: number | null;
   started_at: string | null;
   status: string | null;
+  trip_category: string | null;
   trip_date: string | null;
   trip_type: string | null;
   updated_at: string | null;
+  validation_warnings: unknown;
   visited: string | null;
   waypoints: unknown;
 };
@@ -641,18 +665,34 @@ function mergeReports(existingReports: unknown, patchReports: unknown) {
 function resourceToRow(resource: JsonObject) {
   return {
     archived: Boolean(resource.archived),
+    brand: stringOrEmpty(resource.brand),
     build_year: resource.buildYear ? String(resource.buildYear) : null,
+    current_odometer: numberOrNull(resource.currentOdometer),
+    current_odometer_date: stringOrEmpty(resource.currentOdometerDate) || null,
+    default_driver_id: resource.defaultDriverId ? String(resource.defaultDriverId) : null,
     deleted_logbook_entry_ids: Array.isArray(resource.deletedLogbookEntryIds) ? resource.deletedLogbookEntryIds : [],
     identifier: stringOrEmpty(resource.identifier),
+    license_plate: stringOrEmpty(resource.licensePlate),
     location: stringOrEmpty(resource.location),
+    logbook_active: resource.logbookActive !== false,
     logbook_year: stringOrEmpty(resource.logbookYear),
     maintenance_items: Array.isArray(resource.maintenanceItems) ? resource.maintenanceItems : [],
+    model: stringOrEmpty(resource.model),
     name: stringOrEmpty(resource.name) || "Ressource",
     notes: stringOrEmpty(resource.notes),
+    odometer_history: Array.isArray(resource.odometerHistory) ? resource.odometerHistory : [],
+    odometer_last_confirmed: numberOrNull(resource.odometerLastConfirmed),
+    odometer_last_confirmed_at: stringOrEmpty(resource.odometerLastConfirmedAt) || null,
+    odometer_last_confirmed_by: resource.odometerLastConfirmedBy ? String(resource.odometerLastConfirmedBy) : null,
+    odometer_last_confirmed_photo: resource.odometerLastConfirmedPhoto && typeof resource.odometerLastConfirmedPhoto === "object" ? resource.odometerLastConfirmedPhoto : null,
     odometer_year_end: numberOrNull(resource.odometerYearEnd),
     odometer_year_start: numberOrNull(resource.odometerYearStart),
+    owner_company: stringOrEmpty(resource.ownerCompany),
+    private_use_allowed: resource.privateUseAllowed !== false,
+    registration_country: stringOrEmpty(resource.registrationCountry),
     responsible_person_id: resource.responsiblePersonId ? String(resource.responsiblePersonId) : null,
     status: stringOrEmpty(resource.status),
+    tax_country: stringOrEmpty(resource.taxCountry),
     tracking: resource.tracking && typeof resource.tracking === "object" ? resource.tracking : {},
     type: stringOrEmpty(resource.type) || "Fahrzeug",
     id: String(resource.id),
@@ -661,8 +701,10 @@ function resourceToRow(resource: JsonObject) {
 
 function tripToRow(resourceId: string, trip: JsonObject) {
   return {
+    audit_log: Array.isArray(trip.auditLog) ? trip.auditLog : [],
     driver_id: trip.driverId ? String(trip.driverId) : null,
     end_address: stringOrEmpty(trip.endAddress),
+    end_address_resolved: stringOrEmpty(trip.endAddressResolved),
     end_coordinates: trip.endCoordinates && typeof trip.endCoordinates === "object" ? trip.endCoordinates : null,
     end_odometer: numberOrNull(trip.endOdometer),
     ended_at: trip.endedAt ? String(trip.endedAt) : null,
@@ -674,14 +716,20 @@ function tripToRow(resourceId: string, trip: JsonObject) {
     odometer_photos: Array.isArray(trip.odometerPhotos) ? trip.odometerPhotos : [],
     purpose: stringOrEmpty(trip.purpose),
     resource_id: resourceId,
+    rule_country: stringOrEmpty(trip.ruleCountry),
+    rule_title: stringOrEmpty(trip.ruleTitle),
+    rule_version: stringOrEmpty(trip.ruleVersion),
     start_address: stringOrEmpty(trip.startAddress),
+    start_address_resolved: stringOrEmpty(trip.startAddressResolved),
     start_coordinates: trip.startCoordinates && typeof trip.startCoordinates === "object" ? trip.startCoordinates : null,
     start_odometer: numberOrNull(trip.startOdometer),
     started_at: trip.startedAt ? String(trip.startedAt) : null,
     status: stringOrEmpty(trip.status) || "abgeschlossen",
+    trip_category: stringOrEmpty(trip.tripCategory),
     trip_date: stringOrEmpty(trip.date) || new Date().toISOString().slice(0, 10),
     trip_type: stringOrEmpty(trip.tripType) || "Dienstfahrt",
     updated_at: new Date().toISOString(),
+    validation_warnings: Array.isArray(trip.validationWarnings) ? trip.validationWarnings : [],
     visited: stringOrEmpty(trip.visited),
     waypoints: Array.isArray(trip.waypoints) ? trip.waypoints : [],
   };
@@ -689,9 +737,11 @@ function tripToRow(resourceId: string, trip: JsonObject) {
 
 function rowToTrip(row: VehicleTripRow) {
   return {
+    auditLog: Array.isArray(row.audit_log) ? row.audit_log : [],
     date: row.trip_date ?? "",
     driverId: row.driver_id ?? "",
     endAddress: row.end_address ?? "",
+    endAddressResolved: row.end_address_resolved ?? undefined,
     endCoordinates: row.end_coordinates ?? undefined,
     endOdometer: row.end_odometer === null ? "" : String(row.end_odometer),
     endedAt: row.ended_at ?? undefined,
@@ -702,12 +752,18 @@ function rowToTrip(row: VehicleTripRow) {
     notes: row.notes ?? "",
     odometerPhotos: Array.isArray(row.odometer_photos) ? row.odometer_photos : [],
     purpose: row.purpose ?? "",
+    ruleCountry: row.rule_country ?? "",
+    ruleTitle: row.rule_title ?? "",
+    ruleVersion: row.rule_version ?? "",
     startAddress: row.start_address ?? "",
+    startAddressResolved: row.start_address_resolved ?? undefined,
     startCoordinates: row.start_coordinates ?? undefined,
     startOdometer: row.start_odometer === null ? "" : String(row.start_odometer),
     startedAt: row.started_at ?? undefined,
     status: row.status ?? "abgeschlossen",
+    tripCategory: row.trip_category ?? undefined,
     tripType: row.trip_type ?? "Dienstfahrt",
+    validationWarnings: Array.isArray(row.validation_warnings) ? row.validation_warnings : [],
     visited: row.visited ?? "",
     waypoints: Array.isArray(row.waypoints) ? row.waypoints : [],
   };
@@ -1389,10 +1445,16 @@ function rowToResource(row: ResourceRow, trips: VehicleTripRow[], mediaRows: Med
   const media = mediaRows.filter((item) => item.owner_id === row.id).map(rowToMedia);
   return {
     archived: Boolean(row.archived),
+    brand: row.brand ?? "",
     buildYear: row.build_year ?? undefined,
+    currentOdometer: row.current_odometer === null ? "" : String(row.current_odometer),
+    currentOdometerDate: row.current_odometer_date ?? "",
+    defaultDriverId: row.default_driver_id ?? "",
     deletedLogbookEntryIds: Array.isArray(row.deleted_logbook_entry_ids) ? row.deleted_logbook_entry_ids : [],
     identifier: row.identifier ?? "",
+    licensePlate: row.license_plate ?? "",
     location: row.location ?? "",
+    logbookActive: row.logbook_active !== false,
     logbook: trips
       .filter((trip) => trip.resource_id === row.id)
       .map(rowToTrip)
@@ -1400,12 +1462,22 @@ function rowToResource(row: ResourceRow, trips: VehicleTripRow[], mediaRows: Med
     logbookYear: row.logbook_year ?? "",
     maintenanceItems: Array.isArray(row.maintenance_items) ? row.maintenance_items : [],
     media,
+    model: row.model ?? "",
     name: row.name,
     notes: row.notes ?? "",
     odometerYearEnd: row.odometer_year_end === null ? "" : String(row.odometer_year_end),
     odometerYearStart: row.odometer_year_start === null ? "" : String(row.odometer_year_start),
+    odometerHistory: Array.isArray(row.odometer_history) ? row.odometer_history : [],
+    odometerLastConfirmed: row.odometer_last_confirmed === null ? "" : String(row.odometer_last_confirmed),
+    odometerLastConfirmedAt: row.odometer_last_confirmed_at ?? undefined,
+    odometerLastConfirmedBy: row.odometer_last_confirmed_by ?? undefined,
+    odometerLastConfirmedPhoto: row.odometer_last_confirmed_photo && typeof row.odometer_last_confirmed_photo === "object" ? row.odometer_last_confirmed_photo : undefined,
+    ownerCompany: row.owner_company ?? "",
+    privateUseAllowed: row.private_use_allowed !== false,
+    registrationCountry: row.registration_country ?? "",
     responsiblePersonId: row.responsible_person_id ?? "",
     status: row.status ?? "",
+    taxCountry: row.tax_country ?? "",
     tracking: row.tracking && typeof row.tracking === "object" ? row.tracking : undefined,
     type: row.type,
     id: row.id,
@@ -1424,7 +1496,7 @@ async function loadResourceSectionViaRpc(supabase: NonNullable<ReturnType<typeof
 async function loadResourceSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
   const { data: resourceRows, error: resourceError } = await supabase
     .from("homecare_resources")
-    .select("id, type, build_year, name, identifier, status, responsible_person_id, location, notes, logbook_year, odometer_year_start, odometer_year_end, tracking, maintenance_items, deleted_logbook_entry_ids, archived, updated_at")
+    .select("id, type, brand, build_year, current_odometer, current_odometer_date, default_driver_id, name, identifier, license_plate, status, responsible_person_id, location, logbook_active, notes, logbook_year, model, odometer_year_start, odometer_year_end, odometer_history, odometer_last_confirmed, odometer_last_confirmed_at, odometer_last_confirmed_by, odometer_last_confirmed_photo, owner_company, private_use_allowed, registration_country, tax_country, tracking, maintenance_items, deleted_logbook_entry_ids, archived, updated_at")
     .order("name", { ascending: true });
 
   if (resourceError) return loadResourceSectionViaRpc(supabase);
@@ -1432,7 +1504,7 @@ async function loadResourceSection(supabase: NonNullable<ReturnType<typeof getSu
 
   const { data: tripRows, error: tripError } = await supabase
     .from("homecare_vehicle_trips")
-    .select("id, resource_id, trip_date, driver_id, status, started_at, ended_at, trip_type, start_address, end_address, start_coordinates, end_coordinates, waypoints, start_odometer, end_odometer, kilometers, purpose, visited, fuel_or_charge, fuel_receipt_photo, odometer_photos, notes, updated_at")
+    .select("id, resource_id, trip_date, driver_id, status, started_at, ended_at, trip_type, trip_category, rule_country, rule_version, rule_title, start_address, start_address_resolved, end_address, end_address_resolved, start_coordinates, end_coordinates, waypoints, start_odometer, end_odometer, kilometers, purpose, visited, fuel_or_charge, fuel_receipt_photo, odometer_photos, validation_warnings, audit_log, notes, updated_at")
     .order("trip_date", { ascending: true });
 
   if (tripError) return loadResourceSectionViaRpc(supabase);

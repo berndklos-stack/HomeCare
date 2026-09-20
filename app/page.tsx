@@ -29,6 +29,7 @@ import {
   LogOut,
   Mail,
   MapPin,
+  Maximize2,
   Minus,
   Moon,
   Paperclip,
@@ -505,16 +506,51 @@ type LiveVehiclePosition = {
   visited?: string;
 };
 
+type DrivingLogRuleCountry = "" | "DE" | "SE";
+type DrivingLogTripCategory = "business" | "private" | "commute";
+
+type DrivingLogAuditEntry = {
+  changedAt: string;
+  changedBy: string;
+  field: string;
+  id: string;
+  newValue: string;
+  oldValue: string;
+  reason: string;
+};
+
+type VehicleOdometerHistoryEntry = {
+  changedReason?: string;
+  createdAt: string;
+  id: string;
+  odometer: string;
+  photoId?: string;
+  photoName?: string;
+  photoPresent: boolean;
+  photoUrl?: string;
+  source: "Fahrt Start" | "Fahrt Ende" | "manuelle Eingabe" | "monatliche Kontrolle";
+  userId: string;
+  warnings?: string[];
+};
+
 type VehicleLogEntry = {
   id: string;
   date: string;
   driverId: string;
   status?: "laufend" | "abgeschlossen";
+  auditLog?: DrivingLogAuditEntry[];
+  validationWarnings?: string[];
+  ruleCountry?: DrivingLogRuleCountry;
+  ruleVersion?: string;
+  ruleTitle?: string;
+  tripCategory?: DrivingLogTripCategory;
   startedAt?: string;
   endedAt?: string;
-  tripType: "Dienstfahrt" | "Privatfahrt";
+  tripType: "Dienstfahrt" | "Privatfahrt" | "Arbeitsweg";
   startAddress: string;
   endAddress: string;
+  startAddressResolved?: string;
+  endAddressResolved?: string;
   startCoordinates?: GeoCoordinates;
   endCoordinates?: GeoCoordinates;
   waypoints?: VehicleWaypoint[];
@@ -578,6 +614,22 @@ type ResourceRecord = {
   buildYear?: string;
   name: string;
   identifier: string;
+  licensePlate?: string;
+  brand?: string;
+  model?: string;
+  ownerCompany?: string;
+  registrationCountry?: string;
+  taxCountry?: DrivingLogRuleCountry;
+  logbookActive?: boolean;
+  currentOdometer?: string;
+  currentOdometerDate?: string;
+  privateUseAllowed?: boolean;
+  defaultDriverId?: string;
+  odometerLastConfirmed?: string;
+  odometerLastConfirmedAt?: string;
+  odometerLastConfirmedBy?: string;
+  odometerLastConfirmedPhoto?: VehicleOdometerPhoto;
+  odometerHistory?: VehicleOdometerHistoryEntry[];
   media?: MediaItem[];
   status: string;
   responsiblePersonId: string;
@@ -688,6 +740,74 @@ function numericValue(value?: string) {
   return Number.isFinite(parsed) ? parsed : Number.NaN;
 }
 
+type DrivingLogRegulation = {
+  active: boolean;
+  authority: string;
+  countryCode: Exclude<DrivingLogRuleCountry, "">;
+  pdfStoragePath: string;
+  ruleVersion: string;
+  sourceUrl: string;
+  summary: string[];
+  title: string;
+  updatedAt: string;
+  validFrom: string;
+  validUntil?: string;
+};
+
+const drivingLogRegulations: DrivingLogRegulation[] = [
+  {
+    active: true,
+    authority: "Bundesministerium der Finanzen / Finanzverwaltung",
+    countryCode: "DE",
+    pdfStoragePath: "/regulations/DE-Fahrtenbuch-2026.pdf",
+    ruleVersion: "DE-Fahrtenbuch-2026",
+    sourceUrl: "https://amtliche-handbuecher.bundesfinanzministerium.de/lsth/2025/A-Einkommensteuergesetz/II-Einkommen-2-24b/4-Ueberschuss-d-Einnahmen-ueber-die-Werbungsk-8-9a/Paragraf-8/h-8-1-9-10.html",
+    summary: [
+      "Fahrtenbuch zeitnah und nachvollziehbar führen.",
+      "Betriebliche Fahrten mit Zweck und Geschäftspartner dokumentieren.",
+      "Kilometerstände, Start, Ziel und Änderungen revisionsfähig halten.",
+    ],
+    title: "Vorgaben Fahrtenbuch – Deutschland",
+    updatedAt: "2026-09-20",
+    validFrom: "2026-01-01",
+  },
+  {
+    active: true,
+    authority: "Skatteverket",
+    countryCode: "SE",
+    pdfStoragePath: "/regulations/SE-Korjournal-2026.pdf",
+    ruleVersion: "SE-Körjournal-2026",
+    sourceUrl: "https://www.skatteverket.se/privat/skatter/arbeteochinkomst/formaner/bilforman/korjournal.4.18e1b10334ebe8bc8000695.html",
+    summary: [
+      "Körjournal trennt private Fahrten und Dienstfahrten nachvollziehbar.",
+      "Mätarställning, Datum, Start, Ziel, Kilometer und Zweck dokumentieren.",
+      "Besuchte Firmen, Orte oder Kontaktpersonen bei tjänsteresa ergänzen.",
+    ],
+    title: "Vorgaben Körjournal – Schweden",
+    updatedAt: "2026-09-20",
+    validFrom: "2026-01-01",
+  },
+];
+
+function drivingLogRegulationForCountry(country?: DrivingLogRuleCountry) {
+  return drivingLogRegulations.find((item) => item.countryCode === country && item.active);
+}
+
+function drivingLogCountryName(country?: DrivingLogRuleCountry) {
+  if (country === "DE") return "Deutschland";
+  if (country === "SE") return "Schweden";
+  return "nicht festgelegt";
+}
+
+function vehicleRuleSnapshot(vehicle?: ResourceRecord) {
+  const regulation = drivingLogRegulationForCountry(vehicle?.taxCountry);
+  return {
+    ruleCountry: regulation?.countryCode ?? vehicle?.taxCountry ?? "",
+    ruleTitle: regulation?.title ?? "",
+    ruleVersion: regulation?.ruleVersion ?? "",
+  };
+}
+
 function vehicleLogbookSortValue(entry: VehicleLogEntry) {
   const startOdometer = numericValue(entry.startOdometer);
   const startedAt = Date.parse(entry.startedAt ?? "");
@@ -710,6 +830,63 @@ function compareVehicleLogbookEntries(first: VehicleLogEntry, second: VehicleLog
 
 function sortVehicleLogbook(logbook: VehicleLogEntry[] = []) {
   return [...logbook].sort(compareVehicleLogbookEntries);
+}
+
+function latestCompletedLogbookEntry(vehicle?: ResourceRecord) {
+  const deletedIds = new Set(vehicle?.deletedLogbookEntryIds ?? []);
+  return sortVehicleLogbook(vehicle?.logbook ?? [])
+    .filter((entry) => !deletedIds.has(entry.id))
+    .filter((entry) => entry.status !== "laufend")
+    .filter((entry) => String(entry.endOdometer ?? "").trim())
+    .at(-1);
+}
+
+function latestKnownVehicleOdometer(vehicle?: ResourceRecord) {
+  const history = [...(vehicle?.odometerHistory ?? [])]
+    .filter((entry) => String(entry.odometer ?? "").trim())
+    .sort((first, second) => String(second.createdAt).localeCompare(String(first.createdAt)));
+  const historyValue = history[0]?.odometer;
+  if (historyValue) return historyValue;
+  return latestCompletedLogbookEntry(vehicle)?.endOdometer ?? vehicle?.currentOdometer ?? vehicle?.odometerYearStart ?? "";
+}
+
+function odometerDifference(value?: string, reference?: string) {
+  const next = numericValue(value);
+  const previous = numericValue(reference);
+  if (!Number.isFinite(next) || !Number.isFinite(previous)) return Number.NaN;
+  return next - previous;
+}
+
+function createOdometerHistoryEntry(params: {
+  odometer: string;
+  photo?: VehicleOdometerPhoto;
+  reason?: string;
+  source: VehicleOdometerHistoryEntry["source"];
+  userId: string;
+  warnings?: string[];
+}): VehicleOdometerHistoryEntry {
+  return {
+    changedReason: params.reason,
+    createdAt: new Date().toISOString(),
+    id: `ODO-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    odometer: params.odometer,
+    photoId: params.photo?.id,
+    photoName: params.photo?.name,
+    photoPresent: Boolean(params.photo?.previewUrl),
+    photoUrl: params.photo?.previewUrl,
+    source: params.source,
+    userId: params.userId,
+    warnings: params.warnings,
+  };
+}
+
+function currentMonthLabel(date = new Date()) {
+  return new Intl.DateTimeFormat("de-DE", { month: "long", year: "numeric" }).format(date);
+}
+
+function needsCurrentMonthOdometerCheck(vehicle?: ResourceRecord, date = new Date()) {
+  const confirmedAt = vehicle?.odometerLastConfirmedAt || vehicle?.currentOdometerDate || "";
+  return !confirmedAt.startsWith(date.toISOString().slice(0, 7));
 }
 
 function shouldDeferAutomaticSync() {
@@ -1619,6 +1796,41 @@ const englishUiText: Record<string, string> = {
 };
 
 const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
+  { de: "Arbeitsweg", sv: "Arbetsresa", en: "Commute" },
+  { de: "Benutzer", sv: "Användare", en: "User" },
+  { de: "Datum Kilometerstand", sv: "Datum för mätarställning", en: "Odometer date" },
+  { de: "Deutschland", sv: "Tyskland", en: "Germany" },
+  { de: "Download", sv: "Ladda ner", en: "Download" },
+  { de: "Eigentümer / Firma", sv: "Ägare / företag", en: "Owner / company" },
+  { de: "Fahrtenbuch aktiv", sv: "Körjournal aktiv", en: "Driving log active" },
+  { de: "Fahrtenbuch", sv: "Körjournal", en: "Driving log" },
+  { de: "Foto erfasst", sv: "Foto registrerat", en: "Photo captured" },
+  { de: "Diese Zusammenfassung ersetzt nicht die offiziellen steuerlichen Vorgaben.", sv: "Den här sammanfattningen ersätter inte de officiella skattereglerna.", en: "This summary does not replace the official tax regulations." },
+  { de: "Kein Regelwerk ausgewählt", sv: "Inget regelverk valt", en: "No regulation selected" },
+  { de: "Kennzeichen", sv: "Registreringsnummer", en: "License plate" },
+  { de: "Kilometerstand", sv: "Mätarställning", en: "Odometer reading" },
+  { de: "Kilometerstand aktuell", sv: "Aktuell mätarställning", en: "Current odometer" },
+  { de: "Kilometerstand in diesem Monat bestätigt.", sv: "Mätarställningen är bekräftad denna månad.", en: "Odometer confirmed this month." },
+  { de: "Kontrolle speichern", sv: "Spara kontroll", en: "Save check" },
+  { de: "Land der Zulassung", sv: "Registreringsland", en: "Country of registration" },
+  { de: "Letzte Prüfung", sv: "Senaste kontroll", en: "Last check" },
+  { de: "Marke", sv: "Märke", en: "Make" },
+  { de: "Modell", sv: "Modell", en: "Model" },
+  { de: "Monatliche Kilometerstand-Kontrolle noch offen.", sv: "Månadens mätarställningskontroll är fortfarande öppen.", en: "Monthly odometer check is still pending." },
+  { de: "nicht festgelegt", sv: "inte angivet", en: "not specified" },
+  { de: "Bitte Steuerland Fahrtenbuch auswählen.", sv: "Välj skatteland för körjournalen.", en: "Please select the driving log tax country." },
+  { de: "Privatnutzung erlaubt", sv: "Privat användning tillåten", en: "Private use allowed" },
+  { de: "Schweden", sv: "Sverige", en: "Sweden" },
+  { de: "Standardfahrer", sv: "Standardförare", en: "Default driver" },
+  { de: "Steuerland Fahrtenbuch", sv: "Skatteland för körjournal", en: "Driving log tax country" },
+  { de: "Steuerliche Vorgaben", sv: "Skatteregler", en: "Tax regulations" },
+  { de: "Steuerländer & Regelwerke", sv: "Skatteländer och regelverk", en: "Tax countries and regulations" },
+  { de: "Tachofoto aufnehmen", sv: "Ta foto av mätarställningen", en: "Take odometer photo" },
+  { de: "Vollbild", sv: "Helskärm", en: "Full screen" },
+  { de: "Vorgaben anzeigen", sv: "Visa regler", en: "View regulations" },
+  { de: "Vorgaben für dieses Fahrzeug", sv: "Regler för detta fordon", en: "Regulations for this vehicle" },
+  { de: "wichtigste Punkte", sv: "viktigaste punkterna", en: "key points" },
+  { de: "Historische Regelwerke bleiben versioniert erhalten und werden nicht überschrieben.", sv: "Historiska regelverk behålls versionshanterade och skrivs inte över.", en: "Historical regulations remain versioned and are not overwritten." },
   { de: "Alle bekannten App-Texte als Übersetzungsdatei mit Deutsch, Schwedisch und Englisch.", sv: "Alla kända apptexter som översättningsfil med tyska, svenska och engelska.", en: "All known app texts as a translation file with German, Swedish and English." },
   { de: "Aktuell gibt es keine geplanten oder laufende Einsätze.", sv: "Det finns för närvarande inga planerade eller pågående uppdrag.", en: "There are currently no planned or active jobs." },
   { de: "Aktuell sind keine offenen Aufträge für dich vorhanden.", sv: "Det finns för närvarande inga öppna uppdrag för dig.", en: "There are currently no open jobs for you." },
@@ -10337,7 +10549,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     const latestEntry = latestLogbookEntry(vehicle);
     return {
       endAddress: latestEntry?.endAddress ?? "",
-      startOdometer: latestEntry?.endOdometer ?? vehicle?.odometerYearStart ?? "",
+      startOdometer: latestKnownVehicleOdometer(vehicle),
     };
   }
 
@@ -10412,7 +10624,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
         ...current,
         activeLogbookEntryId: "",
         date: currentLocalDateValue(),
-        driverId: current.driverId || personnel.find((person) => !person.archived)?.id || "",
+        driverId: current.driverId || vehicle?.defaultDriverId || personnel.find((person) => !person.archived)?.id || "",
         endAddress: "",
         endCoordinates: undefined,
         endOdometer: "",
@@ -10726,7 +10938,23 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       return;
     }
     const logbookId = `LOG-${vehicle.id}-${quickTripForm.date.replace(/\D/g, "")}-${Date.now()}`;
+    const ruleSnapshot = vehicleRuleSnapshot(vehicle);
+    const suggestedOdometer = latestKnownVehicleOdometer(vehicle);
+    const startDifference = odometerDifference(quickTripForm.startOdometer, suggestedOdometer);
+    const validationWarnings = Number.isFinite(startDifference) && startDifference !== 0
+      ? [`Der Kilometerstand weicht um ${Math.abs(startDifference)} km vom letzten gespeicherten Kilometerstand ab. Fehlt eine Fahrt oder soll der Wert korrigiert werden?`]
+      : [];
+    const startPhoto = quickTripForm.odometerPhotos.find((photo) => photo.source === "start");
     const entry: VehicleLogEntry = {
+      auditLog: validationWarnings.length > 0 ? [{
+        changedAt: new Date().toISOString(),
+        changedBy: quickTripForm.driverId,
+        field: "Start-Km",
+        id: `AUD-${logbookId}-start-odometer`,
+        newValue: quickTripForm.startOdometer.trim(),
+        oldValue: suggestedOdometer,
+        reason: "Start-Kilometerstand weicht vom Vorschlag ab.",
+      }] : [],
       date: quickTripForm.date,
       driverId: quickTripForm.driverId,
       endAddress: "",
@@ -10740,17 +10968,39 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       odometerPhotos: quickTripForm.odometerPhotos,
       purpose: quickTripForm.purpose.trim(),
       startAddress,
+      startAddressResolved: startAddress,
       startCoordinates,
       startedAt: new Date().toISOString(),
       startOdometer: quickTripForm.startOdometer.trim(),
       status: "laufend",
+      ruleCountry: ruleSnapshot.ruleCountry,
+      ruleTitle: ruleSnapshot.ruleTitle,
+      ruleVersion: ruleSnapshot.ruleVersion,
+      tripCategory: quickTripForm.tripType === "Privatfahrt" ? "private" : quickTripForm.tripType === "Arbeitsweg" ? "commute" : "business",
       tripType: quickTripForm.tripType,
-      visited: quickTripForm.tripType === "Privatfahrt" ? "" : quickTripForm.visited.trim(),
+      validationWarnings,
+      visited: quickTripForm.tripType === "Dienstfahrt" ? quickTripForm.visited.trim() : "",
       waypoints: [],
     };
     const nextResources = resources.map((resource) => (
       resource.id === vehicle.id
-        ? { ...resource, logbook: sortVehicleLogbook([entry, ...resource.logbook]) }
+        ? {
+            ...resource,
+            currentOdometer: quickTripForm.startOdometer.trim(),
+            currentOdometerDate: quickTripForm.date,
+            logbook: sortVehicleLogbook([entry, ...resource.logbook]),
+            odometerHistory: [
+              createOdometerHistoryEntry({
+                odometer: quickTripForm.startOdometer.trim(),
+                photo: startPhoto,
+                reason: validationWarnings[0],
+                source: "Fahrt Start",
+                userId: quickTripForm.driverId,
+                warnings: validationWarnings,
+              }),
+              ...(resource.odometerHistory ?? []),
+            ],
+          }
         : resource
     ));
     setResources(nextResources);
@@ -10774,7 +11024,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       void saveVehiclePosition(position).catch((error) => console.warn("Live-Fahrzeugposition konnte nicht gespeichert werden.", error));
     }
     setQuickTripForm((current) => ({ ...current, activeLogbookEntryId: logbookId, startAddress, startCoordinates }));
-    setRecordNotice("Fahrt wurde gestartet und ist in Positionen sichtbar.");
+    setRecordNotice(validationWarnings[0] || "Fahrt wurde gestartet und ist in Positionen sichtbar.");
   }
 
   function cancelQuickTrip() {
@@ -10840,6 +11090,12 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
 
     const kilometers = quickTripForm.kilometers.trim()
       || String(Math.max(0, (Number(quickTripForm.endOdometer) || 0) - (Number(quickTripForm.startOdometer) || 0)) || "");
+    const startKm = numericValue(quickTripForm.startOdometer);
+    const endKm = numericValue(quickTripForm.endOdometer);
+    if (Number.isFinite(startKm) && Number.isFinite(endKm) && endKm < startKm) {
+      setRecordNotice("End-Kilometerstand darf nicht kleiner als Start-Kilometerstand sein.");
+      return;
+    }
     const requiredFields = [
       quickTripForm.date,
       quickTripForm.startAddress,
@@ -10848,18 +11104,27 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       quickTripForm.endOdometer,
       kilometers,
       quickTripForm.purpose,
-      quickTripForm.tripType === "Privatfahrt" ? "privat" : quickTripForm.visited,
+      quickTripForm.tripType === "Dienstfahrt" ? quickTripForm.visited : "nicht betrieblich",
     ];
     if (requiredFields.some((field) => !field.trim())) {
       setRecordNotice("Für die Quickfahrt bitte Datum, Start/Ziel, Kilometerstände, Kilometer, Zweck und Namen erfassen.");
       return;
     }
 
+    const existingEntry = vehicle.logbook.find((item) => item.id === quickTripForm.activeLogbookEntryId);
+    const ruleSnapshot = existingEntry?.ruleVersion ? {
+      ruleCountry: existingEntry.ruleCountry ?? "",
+      ruleTitle: existingEntry.ruleTitle ?? "",
+      ruleVersion: existingEntry.ruleVersion ?? "",
+    } : vehicleRuleSnapshot(vehicle);
+    const endPhoto = quickTripForm.odometerPhotos.find((photo) => photo.source === "end");
     const entry: VehicleLogEntry = {
+      auditLog: existingEntry?.auditLog ?? [],
       date: quickTripForm.date,
       driverId: quickTripForm.driverId,
       endedAt: new Date().toISOString(),
       endAddress,
+      endAddressResolved: endAddress,
       endCoordinates,
       endOdometer: quickTripForm.endOdometer.trim(),
       fuelOrCharge: quickTripForm.fuelOrCharge.trim(),
@@ -10870,12 +11135,18 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       odometerPhotos: quickTripForm.odometerPhotos,
       purpose: quickTripForm.purpose.trim(),
       startAddress: quickTripForm.startAddress.trim(),
+      startAddressResolved: existingEntry?.startAddressResolved ?? quickTripForm.startAddress.trim(),
       startCoordinates: quickTripForm.startCoordinates,
-      startedAt: vehicle.logbook.find((item) => item.id === quickTripForm.activeLogbookEntryId)?.startedAt,
+      startedAt: existingEntry?.startedAt,
       startOdometer: quickTripForm.startOdometer.trim(),
       status: "abgeschlossen",
+      ruleCountry: ruleSnapshot.ruleCountry,
+      ruleTitle: ruleSnapshot.ruleTitle,
+      ruleVersion: ruleSnapshot.ruleVersion,
+      tripCategory: quickTripForm.tripType === "Privatfahrt" ? "private" : quickTripForm.tripType === "Arbeitsweg" ? "commute" : "business",
       tripType: quickTripForm.tripType,
-      visited: quickTripForm.tripType === "Privatfahrt" ? "" : quickTripForm.visited.trim(),
+      validationWarnings: existingEntry?.validationWarnings ?? [],
+      visited: quickTripForm.tripType === "Dienstfahrt" ? quickTripForm.visited.trim() : "",
       waypoints: quickTripForm.waypoints
         .map((waypoint) => ({ ...waypoint, address: waypoint.address.trim(), note: waypoint.note.trim(), odometer: (waypoint.odometer ?? "").trim() }))
         .filter((waypoint) => waypoint.address || waypoint.photo?.previewUrl),
@@ -10884,9 +11155,20 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       resource.id === vehicle.id
         ? {
             ...resource,
+            currentOdometer: quickTripForm.endOdometer.trim(),
+            currentOdometerDate: quickTripForm.date,
             logbook: quickTripForm.activeLogbookEntryId
               ? sortVehicleLogbook(resource.logbook.map((item) => (item.id === quickTripForm.activeLogbookEntryId ? entry : item)))
               : sortVehicleLogbook([...resource.logbook, entry]),
+            odometerHistory: [
+              createOdometerHistoryEntry({
+                odometer: quickTripForm.endOdometer.trim(),
+                photo: endPhoto,
+                source: "Fahrt Ende",
+                userId: quickTripForm.driverId,
+              }),
+              ...(resource.odometerHistory ?? []),
+            ],
           }
         : resource
     ));
@@ -11524,6 +11806,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                       const defaults = quickTripDefaultsForVehicle(event.target.value);
                       setQuickTripForm({
                         ...quickTripForm,
+                        driverId: activeVehicles.find((vehicle) => vehicle.id === event.target.value)?.defaultDriverId || quickTripForm.driverId,
                         resourceId: event.target.value,
                         startAddress: defaults.endAddress,
                         startOdometer: defaults.startOdometer,
@@ -11598,10 +11881,11 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                     <select value={quickTripForm.tripType} onChange={(event) => setQuickTripForm({ ...quickTripForm, tripType: event.target.value as VehicleLogEntry["tripType"] })}>
                       <option>Dienstfahrt</option>
                       <option>Privatfahrt</option>
+                      <option>Arbeitsweg</option>
                     </select>
                   </label>
                   <label><span>Zweck / Ärende</span><input list="quick-trip-purpose-options" value={quickTripForm.purpose} onChange={(event) => setQuickTripForm({ ...quickTripForm, purpose: event.target.value })} /></label>
-                  <label><span>Name / besucht bei</span><input disabled={quickTripForm.tripType === "Privatfahrt"} value={quickTripForm.visited} onChange={(event) => setQuickTripForm({ ...quickTripForm, visited: event.target.value })} /></label>
+                  <label><span>Name / besucht bei</span><input disabled={quickTripForm.tripType !== "Dienstfahrt"} value={quickTripForm.visited} onChange={(event) => setQuickTripForm({ ...quickTripForm, visited: event.target.value })} /></label>
                 </div>
               </section>
               <datalist id="quick-trip-purpose-options">
@@ -17571,6 +17855,7 @@ function MasterDataView({
   const [packageEditorOpen, setPackageEditorOpen] = useState(false);
   const [personEditorOpen, setPersonEditorOpen] = useState(false);
   const [resourceEditorOpen, setResourceEditorOpen] = useState(false);
+  const [regulationViewer, setRegulationViewer] = useState<DrivingLogRegulation | null>(null);
   const [resourceModalView, setResourceModalView] = useState<"details" | "logbook">("details");
   const [logbookEntryEditorOpen, setLogbookEntryEditorOpen] = useState(false);
   const [resourceImageIndex, setResourceImageIndex] = useState(0);
@@ -17595,18 +17880,29 @@ function MasterDataView({
     status: "aktiv" as PersonnelRecord["status"],
   });
   const [resourceForm, setResourceForm] = useState({
+    brand: "",
     buildYear: "",
+    currentOdometer: "",
+    currentOdometerDate: "",
+    defaultDriverId: "",
     identifier: "",
+    licensePlate: "",
     location: "",
+    logbookActive: true,
     logbookYear: String(new Date().getFullYear()),
     maintenanceItems: [] as ResourceMaintenanceItem[],
     mediaItems: [] as MediaItem[],
+    model: "",
     name: "",
     notes: "",
     odometerYearEnd: "",
     odometerYearStart: "",
+    ownerCompany: "",
+    privateUseAllowed: true,
+    registrationCountry: "",
     responsiblePersonId: "",
     status: "aktiv",
+    taxCountry: "" as DrivingLogRuleCountry,
     trackerDeviceId: "",
     trackerProvider: "",
     trackingMode: "phone" as NonNullable<ResourceRecord["tracking"]>["mode"],
@@ -17636,6 +17932,11 @@ function MasterDataView({
     visited: "",
     waypoints: [] as VehicleWaypoint[],
     odometerPhotos: [] as VehicleOdometerPhoto[],
+  });
+  const [monthlyOdometerForm, setMonthlyOdometerForm] = useState({
+    driverId: "",
+    odometer: "",
+    photo: undefined as VehicleOdometerPhoto | undefined,
   });
   const [mailSettingsForm, setMailSettingsForm] = useState(dailyMailSettings);
   const [companySettingsForm, setCompanySettingsForm] = useState(companySettings);
@@ -17705,6 +18006,8 @@ function MasterDataView({
   const archivedResources = resources.filter((resource) => resource.archived);
   const selectedResource = resources.find((resource) => resource.id === editingResourceId);
   const selectedResourceLogbook = selectedResource?.type === "Fahrzeug" ? sortVehicleLogbook(selectedResource.logbook) : [];
+  const selectedResourceRegulation = selectedResource?.type === "Fahrzeug" ? drivingLogRegulationForCountry(selectedResource.taxCountry) : undefined;
+  const selectedResourceNeedsOdometerCheck = selectedResource?.type === "Fahrzeug" ? needsCurrentMonthOdometerCheck(selectedResource) : false;
   const resourceImages = resourceForm.mediaItems.filter((item) => item.type === "Bild");
   const selectedResourceImage = resourceImages[Math.min(resourceImageIndex, Math.max(0, resourceImages.length - 1))];
   const resourceStatusOptions = uniqueSortedValues(resources.map((resource) => resource.status), ["aktiv", "Wartung", "reserviert", "defekt"]);
@@ -17899,18 +18202,29 @@ function MasterDataView({
     setResourceEditorOpen(false);
     setResourceModalView("details");
     setResourceForm({
+      brand: "",
       buildYear: "",
+      currentOdometer: "",
+      currentOdometerDate: "",
+      defaultDriverId: "",
       identifier: "",
+      licensePlate: "",
       location: "",
+      logbookActive: true,
       logbookYear: String(new Date().getFullYear()),
       maintenanceItems: [],
       mediaItems: [],
+      model: "",
       name: "",
       notes: "",
       odometerYearEnd: "",
       odometerYearStart: "",
+      ownerCompany: "",
+      privateUseAllowed: true,
+      registrationCountry: "",
       responsiblePersonId: "",
       status: "aktiv",
+      taxCountry: "",
       trackerDeviceId: "",
       trackerProvider: "",
       trackingMode: "phone",
@@ -17929,18 +18243,29 @@ function MasterDataView({
     setEditingResourceId(resource.id);
     setResourceEditorOpen(true);
     setResourceForm({
+      brand: resource.brand ?? "",
       buildYear: resource.buildYear ?? "",
+      currentOdometer: resource.currentOdometer ?? latestKnownVehicleOdometer(resource),
+      currentOdometerDate: resource.currentOdometerDate ?? "",
+      defaultDriverId: resource.defaultDriverId ?? "",
       identifier: resource.identifier,
+      licensePlate: resource.licensePlate ?? resource.identifier,
       location: resource.location,
+      logbookActive: resource.logbookActive ?? true,
       logbookYear: resource.logbookYear || String(new Date().getFullYear()),
       maintenanceItems: resource.maintenanceItems ?? [],
       mediaItems: resource.media ?? [],
+      model: resource.model ?? "",
       name: resource.name,
       notes: resource.notes,
       odometerYearEnd: resource.odometerYearEnd,
       odometerYearStart: resource.odometerYearStart,
+      ownerCompany: resource.ownerCompany ?? "",
+      privateUseAllowed: resource.privateUseAllowed ?? true,
+      registrationCountry: resource.registrationCountry ?? "",
       responsiblePersonId: resource.responsiblePersonId,
       status: resource.status,
+      taxCountry: resource.taxCountry ?? "",
       trackerDeviceId: resource.tracking?.deviceId ?? "",
       trackerProvider: resource.tracking?.provider ?? "",
       trackingMode: resource.tracking?.mode ?? "phone",
@@ -17955,7 +18280,71 @@ function MasterDataView({
 
   function openResourceLogbook(resource: ResourceRecord) {
     editResource(resource);
+    setMonthlyOdometerForm({
+      driverId: resource.defaultDriverId || activePersonnel[0]?.id || "",
+      odometer: latestKnownVehicleOdometer(resource),
+      photo: undefined,
+    });
     setResourceModalView("logbook");
+  }
+
+  async function captureMonthlyOdometerPhoto(file: File) {
+    setArchiveNotice("Foto der Kilometerstand-Kontrolle wird verarbeitet...");
+    try {
+      const previewUrl = await fileToImagePreview(file, 1280, 0.76);
+      const uploaded = previewUrl ? await uploadMediaFile(await dataUrlToBlob(previewUrl), "odometer-checks", file.name) : null;
+      const photo: VehicleOdometerPhoto = {
+        capturedAt: new Date().toISOString(),
+        id: globalThis.crypto?.randomUUID?.() ?? `ODO-CHECK-${Date.now()}`,
+        name: file.name,
+        odometerReading: monthlyOdometerForm.odometer,
+        previewUrl: uploaded?.url ?? previewUrl,
+        source: "end",
+      };
+      setMonthlyOdometerForm((current) => ({ ...current, photo }));
+      setArchiveNotice("Foto der Kilometerstand-Kontrolle wurde vorbereitet.");
+    } catch (error) {
+      console.warn("Kontrollfoto konnte nicht verarbeitet werden.", error);
+      setArchiveNotice("Kontrollfoto konnte nicht verarbeitet werden.");
+    }
+  }
+
+  function saveMonthlyOdometerCheck() {
+    if (!selectedResource || selectedResource.type !== "Fahrzeug") return;
+    if (!monthlyOdometerForm.odometer.trim() || !monthlyOdometerForm.driverId || !monthlyOdometerForm.photo?.previewUrl) {
+      setArchiveNotice("Für die monatliche Kontrolle bitte Kilometerstand, Benutzer und Foto erfassen.");
+      return;
+    }
+    const lastTrip = latestCompletedLogbookEntry(selectedResource);
+    const difference = odometerDifference(monthlyOdometerForm.odometer, lastTrip?.endOdometer ?? "");
+    const warnings = Number.isFinite(difference) && difference !== 0
+      ? [`${Math.abs(difference)} km Differenz zum Fahrtenbuch. Bitte prüfen, ob Fahrten fehlen.`]
+      : [];
+    const confirmedAt = new Date().toISOString();
+    const nextResources = resources.map((resource) => resource.id === selectedResource.id ? {
+      ...resource,
+      currentOdometer: monthlyOdometerForm.odometer.trim(),
+      currentOdometerDate: confirmedAt.slice(0, 10),
+      odometerLastConfirmed: monthlyOdometerForm.odometer.trim(),
+      odometerLastConfirmedAt: confirmedAt,
+      odometerLastConfirmedBy: monthlyOdometerForm.driverId,
+      odometerLastConfirmedPhoto: monthlyOdometerForm.photo,
+      odometerHistory: [
+        createOdometerHistoryEntry({
+          odometer: monthlyOdometerForm.odometer.trim(),
+          photo: monthlyOdometerForm.photo,
+          reason: warnings[0],
+          source: "monatliche Kontrolle",
+          userId: monthlyOdometerForm.driverId,
+          warnings,
+        }),
+        ...(resource.odometerHistory ?? []),
+      ],
+    } : resource);
+    setResources(nextResources);
+    onPersistResources(nextResources);
+    setMonthlyOdometerForm((current) => ({ ...current, photo: undefined }));
+    setArchiveNotice(warnings[0] || "Monatliche Kilometerstand-Kontrolle wurde gespeichert.");
   }
 
   useEffect(() => {
@@ -17974,19 +18363,35 @@ function MasterDataView({
     const existingResource = resources.find((resource) => resource.id === editingResourceId);
     const saved: ResourceRecord = {
       id: editingResourceId ?? `RES-${Date.now()}`,
+      brand: resourceForm.brand.trim(),
       buildYear: resourceForm.buildYear.trim(),
+      currentOdometer: resourceForm.currentOdometer.trim(),
+      currentOdometerDate: resourceForm.currentOdometerDate,
+      defaultDriverId: resourceForm.defaultDriverId,
       identifier: resourceForm.identifier.trim(),
+      licensePlate: resourceForm.licensePlate.trim() || resourceForm.identifier.trim(),
       location: resourceForm.location.trim(),
+      logbookActive: resourceForm.logbookActive,
       logbook: existingResource?.logbook ?? [],
       logbookYear: resourceForm.logbookYear.trim() || String(new Date().getFullYear()),
       maintenanceItems: resourceForm.maintenanceItems,
       media: resourceForm.mediaItems,
+      model: resourceForm.model.trim(),
       name: resourceForm.name.trim(),
       notes: resourceForm.notes.trim(),
       odometerYearEnd: resourceForm.odometerYearEnd.trim(),
       odometerYearStart: resourceForm.odometerYearStart.trim(),
+      odometerHistory: existingResource?.odometerHistory ?? [],
+      odometerLastConfirmed: existingResource?.odometerLastConfirmed,
+      odometerLastConfirmedAt: existingResource?.odometerLastConfirmedAt,
+      odometerLastConfirmedBy: existingResource?.odometerLastConfirmedBy,
+      odometerLastConfirmedPhoto: existingResource?.odometerLastConfirmedPhoto,
+      ownerCompany: resourceForm.ownerCompany.trim(),
+      privateUseAllowed: resourceForm.privateUseAllowed,
+      registrationCountry: resourceForm.registrationCountry.trim(),
       responsiblePersonId: resourceForm.responsiblePersonId,
       status: resourceForm.status.trim() || "aktiv",
+      taxCountry: resourceForm.taxCountry,
       tracking: resourceForm.type === "Fahrzeug"
         ? {
             deviceId: resourceForm.trackerDeviceId.trim(),
@@ -18183,7 +18588,7 @@ function MasterDataView({
       purpose: "",
       startAddress: latestEntry?.endAddress ?? "",
       startCoordinates: latestEntry?.endCoordinates,
-      startOdometer: latestEntry?.endOdometer ?? selectedResource?.odometerYearStart ?? "",
+      startOdometer: latestKnownVehicleOdometer(selectedResource),
       tripType: "Dienstfahrt",
       visited: "",
       waypoints: [],
@@ -18260,6 +18665,12 @@ function MasterDataView({
 
     const kilometers = logbookForm.kilometers.trim()
       || String(Math.max(0, (Number(logbookForm.endOdometer) || 0) - (Number(logbookForm.startOdometer) || 0)) || "");
+    const startKm = numericValue(logbookForm.startOdometer);
+    const endKm = numericValue(logbookForm.endOdometer);
+    if (Number.isFinite(startKm) && Number.isFinite(endKm) && endKm < startKm) {
+      setArchiveNotice("End-Kilometerstand darf nicht kleiner als Start-Kilometerstand sein.");
+      return;
+    }
     const requiredFields = [
       logbookForm.date,
       logbookForm.startAddress,
@@ -18268,7 +18679,7 @@ function MasterDataView({
       logbookForm.endOdometer,
       kilometers,
       logbookForm.purpose,
-      logbookForm.tripType === "Privatfahrt" ? "privat" : logbookForm.visited,
+      logbookForm.tripType === "Dienstfahrt" ? logbookForm.visited : "nicht betrieblich",
     ];
     if (requiredFields.some((field) => !field.trim())) {
       setArchiveNotice("Für das Fahrtenbuch bitte Datum, Start/Ziel, Kilometerstände, Kilometer, Zweck und Namen erfassen.");
@@ -18277,12 +18688,38 @@ function MasterDataView({
 
     const logbookId = editingLogEntryId
       ?? `LOG-${selectedResource.id}-${logbookForm.date.replace(/\D/g, "")}-${selectedResource.logbook.length + 1}`;
+    const existingEntry = selectedResource.logbook.find((entry) => entry.id === editingLogEntryId);
+    const ruleSnapshot = existingEntry?.ruleVersion ? {
+      ruleCountry: existingEntry.ruleCountry ?? "",
+      ruleTitle: existingEntry.ruleTitle ?? "",
+      ruleVersion: existingEntry.ruleVersion ?? "",
+    } : vehicleRuleSnapshot(selectedResource);
+    const suggestedOdometer = editingLogEntryId ? existingEntry?.startOdometer ?? "" : latestKnownVehicleOdometer(selectedResource);
+    const startDifference = odometerDifference(logbookForm.startOdometer, suggestedOdometer);
+    const validationWarnings = Number.isFinite(startDifference) && startDifference !== 0
+      ? [`Der Kilometerstand weicht um ${Math.abs(startDifference)} km vom letzten gespeicherten Kilometerstand ab. Fehlt eine Fahrt oder soll der Wert korrigiert werden?`]
+      : [];
+    const startPhoto = logbookForm.odometerPhotos.find((photo) => photo.source === "start");
+    const endPhoto = logbookForm.odometerPhotos.find((photo) => photo.source === "end");
     const saved: VehicleLogEntry = {
       ...logbookForm,
+      auditLog: [
+        ...(existingEntry?.auditLog ?? []),
+        ...(validationWarnings.length > 0 ? [{
+          changedAt: new Date().toISOString(),
+          changedBy: logbookForm.driverId,
+          field: "Start-Km",
+          id: `AUD-${logbookId}-start-odometer-${Date.now()}`,
+          newValue: logbookForm.startOdometer.trim(),
+          oldValue: suggestedOdometer,
+          reason: "Start-Kilometerstand weicht vom Vorschlag ab.",
+        }] : []),
+      ],
       id: logbookId,
       date: logbookForm.date,
       driverId: logbookForm.driverId,
       endAddress: logbookForm.endAddress.trim(),
+      endAddressResolved: logbookForm.endAddress.trim(),
       endCoordinates: logbookForm.endCoordinates,
       endOdometer: logbookForm.endOdometer.trim(),
       fuelOrCharge: logbookForm.fuelOrCharge.trim(),
@@ -18290,10 +18727,17 @@ function MasterDataView({
       notes: logbookForm.notes.trim(),
       odometerPhotos: logbookForm.odometerPhotos,
       purpose: logbookForm.purpose.trim(),
+      ruleCountry: ruleSnapshot.ruleCountry,
+      ruleTitle: ruleSnapshot.ruleTitle,
+      ruleVersion: ruleSnapshot.ruleVersion,
       startAddress: logbookForm.startAddress.trim(),
+      startAddressResolved: logbookForm.startAddress.trim(),
       startCoordinates: logbookForm.startCoordinates,
       startOdometer: logbookForm.startOdometer.trim(),
-      visited: logbookForm.tripType === "Privatfahrt" ? "" : logbookForm.visited.trim(),
+      status: "abgeschlossen",
+      tripCategory: logbookForm.tripType === "Privatfahrt" ? "private" : logbookForm.tripType === "Arbeitsweg" ? "commute" : "business",
+      validationWarnings,
+      visited: logbookForm.tripType === "Dienstfahrt" ? logbookForm.visited.trim() : "",
       waypoints: logbookForm.waypoints
         .map((waypoint) => ({ ...waypoint, address: waypoint.address.trim(), note: waypoint.note.trim(), odometer: (waypoint.odometer ?? "").trim() }))
         .filter((waypoint) => waypoint.address || waypoint.photo?.previewUrl),
@@ -18307,13 +18751,32 @@ function MasterDataView({
 
       return {
         ...resource,
+        currentOdometer: logbookForm.endOdometer.trim(),
+        currentOdometerDate: logbookForm.date,
         deletedLogbookEntryIds: (resource.deletedLogbookEntryIds ?? []).filter((id) => id !== logbookId),
         logbook: sortVehicleLogbook(nextLogbook),
+        odometerHistory: [
+          createOdometerHistoryEntry({
+            odometer: logbookForm.startOdometer.trim(),
+            photo: startPhoto,
+            reason: validationWarnings[0],
+            source: "Fahrt Start",
+            userId: logbookForm.driverId,
+            warnings: validationWarnings,
+          }),
+          createOdometerHistoryEntry({
+            odometer: logbookForm.endOdometer.trim(),
+            photo: endPhoto,
+            source: "Fahrt Ende",
+            userId: logbookForm.driverId,
+          }),
+          ...(resource.odometerHistory ?? []),
+        ],
       };
     });
     setResources(nextResources);
     onPersistResources(nextResources);
-    setArchiveNotice(`Fahrt vom ${saved.date} wurde gespeichert.`);
+    setArchiveNotice(validationWarnings[0] || `Fahrt vom ${saved.date} wurde gespeichert.`);
     setLogbookEntryEditorOpen(false);
     resetLogbookForm();
   }
@@ -19026,6 +19489,25 @@ function MasterDataView({
             </label>
             <button className="primary-button wide" onClick={saveCompanySettings} type="button">{tt("Firmenstammdaten speichern")}</button>
           </div>
+          <section className="regulation-admin-section">
+            <div>
+              <p>{tt("Einstellungen")} · {tt("Fahrtenbuch")}</p>
+              <h3>{tt("Steuerländer & Regelwerke")}</h3>
+            </div>
+            <div className="regulation-admin-list">
+              {drivingLogRegulations.map((regulation) => (
+                <article key={regulation.ruleVersion}>
+                  <div>
+                    <strong>{drivingLogCountryName(regulation.countryCode)} · {regulation.ruleVersion}</strong>
+                    <span>{regulation.authority} · {regulation.validFrom}{regulation.validUntil ? ` - ${regulation.validUntil}` : ""}</span>
+                  </div>
+                  <Badge value={regulation.active ? tt("aktiv") : tt("archiviert")} />
+                  <button className="ghost-button" onClick={() => setRegulationViewer(regulation)} type="button"><FileText size={16} />{tt("Vorgaben anzeigen")}</button>
+                </article>
+              ))}
+            </div>
+            <small>{tt("Historische Regelwerke bleiben versioniert erhalten und werden nicht überschrieben.")}</small>
+          </section>
         </section>
       )}
 
@@ -19314,6 +19796,10 @@ function MasterDataView({
                           <FileDown size={16} />
                           {tt("PDF mit Bildern")}
                         </button>
+                        <button className="ghost-button" disabled={!selectedResourceRegulation} onClick={() => selectedResourceRegulation && setRegulationViewer(selectedResourceRegulation)} type="button">
+                          <FileText size={16} />
+                          {tt("Vorgaben für dieses Fahrzeug")}
+                        </button>
                       </>
                     )}
                     {selectedResource?.type === "Fahrzeug" && (
@@ -19371,6 +19857,42 @@ function MasterDataView({
               </label>
               <label className="resource-field"><span>{tt("Name")}</span><input value={resourceForm.name} onChange={(event) => setResourceForm({ ...resourceForm, name: event.target.value })} /></label>
               <label className="resource-field"><span>{tt("Kennzeichen / Inventarnr.")}</span><input value={resourceForm.identifier} onChange={(event) => setResourceForm({ ...resourceForm, identifier: event.target.value })} /></label>
+              {resourceForm.type === "Fahrzeug" && (
+                <>
+                  <label className="resource-field"><span>{tt("Kennzeichen")}</span><input value={resourceForm.licensePlate} onChange={(event) => setResourceForm({ ...resourceForm, licensePlate: event.target.value })} /></label>
+                  <label className="resource-field"><span>{tt("Marke")}</span><input value={resourceForm.brand} onChange={(event) => setResourceForm({ ...resourceForm, brand: event.target.value })} /></label>
+                  <label className="resource-field"><span>{tt("Modell")}</span><input value={resourceForm.model} onChange={(event) => setResourceForm({ ...resourceForm, model: event.target.value })} /></label>
+                  <label className="resource-field"><span>{tt("Eigentümer / Firma")}</span><input value={resourceForm.ownerCompany} onChange={(event) => setResourceForm({ ...resourceForm, ownerCompany: event.target.value })} /></label>
+                  <label className="resource-field"><span>{tt("Land der Zulassung")}</span><input value={resourceForm.registrationCountry} onChange={(event) => setResourceForm({ ...resourceForm, registrationCountry: event.target.value })} placeholder="z.B. Schweden" /></label>
+                  <label className="resource-field"><span>{tt("Steuerland Fahrtenbuch")}</span>
+                    <select value={resourceForm.taxCountry} onChange={(event) => setResourceForm({ ...resourceForm, taxCountry: event.target.value as DrivingLogRuleCountry })}>
+                      <option value="">{tt("nicht festgelegt")}</option>
+                      <option value="DE">{tt("Deutschland")}</option>
+                      <option value="SE">{tt("Schweden")}</option>
+                    </select>
+                  </label>
+                  <label className="resource-field"><span>{tt("Fahrtenbuch aktiv")}</span>
+                    <select value={resourceForm.logbookActive ? "ja" : "nein"} onChange={(event) => setResourceForm({ ...resourceForm, logbookActive: event.target.value === "ja" })}>
+                      <option value="ja">{tt("Ja")}</option>
+                      <option value="nein">{tt("Nein")}</option>
+                    </select>
+                  </label>
+                  <label className="resource-field"><span>{tt("Privatnutzung erlaubt")}</span>
+                    <select value={resourceForm.privateUseAllowed ? "ja" : "nein"} onChange={(event) => setResourceForm({ ...resourceForm, privateUseAllowed: event.target.value === "ja" })}>
+                      <option value="ja">{tt("Ja")}</option>
+                      <option value="nein">{tt("Nein")}</option>
+                    </select>
+                  </label>
+                  <label className="resource-field"><span>{tt("Standardfahrer")}</span>
+                    <select value={resourceForm.defaultDriverId} onChange={(event) => setResourceForm({ ...resourceForm, defaultDriverId: event.target.value })}>
+                      <option value="">{tt("Nicht zugeordnet")}</option>
+                      {activePersonnel.map((person) => <option key={person.id} value={person.id}>{person.firstName} {person.lastName}</option>)}
+                    </select>
+                  </label>
+                  <label className="resource-field"><span>{tt("Kilometerstand aktuell")}</span><input inputMode="numeric" value={resourceForm.currentOdometer} onChange={(event) => setResourceForm({ ...resourceForm, currentOdometer: event.target.value })} /></label>
+                  <label className="resource-field"><span>{tt("Datum Kilometerstand")}</span><input type="date" value={resourceForm.currentOdometerDate} onChange={(event) => setResourceForm({ ...resourceForm, currentOdometerDate: event.target.value })} /></label>
+                </>
+              )}
               <label className="resource-field"><span>{tt("Status")}</span>
                 <input list="resource-status-options" value={resourceForm.status} onChange={(event) => setResourceForm({ ...resourceForm, status: event.target.value })} />
                 <datalist id="resource-status-options">
@@ -19401,6 +19923,29 @@ function MasterDataView({
                 </>
               )}
             </div>
+            {resourceForm.type === "Fahrzeug" && (
+              <section className="wide regulation-info-card">
+                <div>
+                  <span>{tt("Steuerliche Vorgaben")}</span>
+                  <strong>{drivingLogCountryName(resourceForm.taxCountry)}</strong>
+                  <small>{drivingLogRegulationForCountry(resourceForm.taxCountry)?.ruleVersion ?? tt("Kein Regelwerk ausgewählt")}</small>
+                </div>
+                {drivingLogRegulationForCountry(resourceForm.taxCountry) ? (
+                  <div className="regulation-actions">
+                    <button className="ghost-button" onClick={() => setRegulationViewer(drivingLogRegulationForCountry(resourceForm.taxCountry) ?? null)} type="button">
+                      <FileText size={16} />
+                      {tt("Vorgaben anzeigen")}
+                    </button>
+                    <a className="ghost-button" download href={drivingLogRegulationForCountry(resourceForm.taxCountry)?.pdfStoragePath}>
+                      <FileDown size={16} />
+                      {tt("Download")}
+                    </a>
+                  </div>
+                ) : (
+                  <small>{tt("Bitte Steuerland Fahrtenbuch auswählen.")}</small>
+                )}
+              </section>
+            )}
             <label className="resource-notes"><span>{tt("Notizen")}</span><textarea value={resourceForm.notes} onChange={(event) => setResourceForm({ ...resourceForm, notes: event.target.value })} /></label>
             {resourceForm.type === "Fahrzeug" && (
               <>
@@ -19490,6 +20035,45 @@ function MasterDataView({
           </div>
           ) : selectedResource?.type === "Fahrzeug" ? (
             <section className="vehicle-logbook resource-modal-logbook">
+              <div className={selectedResourceNeedsOdometerCheck && new Date().getDate() >= 20 ? "logbook-warning strong" : "logbook-warning"}>
+                <div className="logbook-warning-copy">
+                  <strong>{selectedResourceNeedsOdometerCheck ? tt("Monatliche Kilometerstand-Kontrolle noch offen.") : tt("Kilometerstand in diesem Monat bestätigt.")}</strong>
+                  <span>{selectedResourceNeedsOdometerCheck ? `Kilometerstand für ${currentMonthLabel()} noch nicht bestätigt.` : `${tt("Letzte Prüfung")}: ${selectedResource.odometerLastConfirmedAt ? formatCreatedAt(selectedResource.odometerLastConfirmedAt) : "-"}`}</span>
+                </div>
+                {selectedResourceNeedsOdometerCheck && (
+                  <div className="monthly-odometer-check">
+                    <label><span>{tt("Kilometerstand")}</span><input inputMode="numeric" value={monthlyOdometerForm.odometer} onChange={(event) => setMonthlyOdometerForm({ ...monthlyOdometerForm, odometer: event.target.value })} /></label>
+                    <label><span>{tt("Benutzer")}</span>
+                      <select value={monthlyOdometerForm.driverId} onChange={(event) => setMonthlyOdometerForm({ ...monthlyOdometerForm, driverId: event.target.value })}>
+                        <option value="">{tt("Nicht zugeordnet")}</option>
+                        {activePersonnel.map((person) => <option key={person.id} value={person.id}>{person.firstName} {person.lastName}</option>)}
+                      </select>
+                    </label>
+                    <label className="ghost-button odometer-check-photo">
+                      <Camera size={16} />
+                      {monthlyOdometerForm.photo ? tt("Foto erfasst") : tt("Tachofoto aufnehmen")}
+                      <input accept="image/*" capture="environment" onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        if (file) void captureMonthlyOdometerPhoto(file);
+                        event.target.value = "";
+                      }} type="file" />
+                    </label>
+                    <button className="primary-button" onClick={saveMonthlyOdometerCheck} type="button"><Check size={16} />{tt("Kontrolle speichern")}</button>
+                  </div>
+                )}
+              </div>
+              {selectedResourceRegulation && (
+                <div className="regulation-inline">
+                  <div>
+                    <span>{tt("Steuerliche Vorgaben")}</span>
+                    <strong>{drivingLogCountryName(selectedResource.taxCountry)} · {selectedResourceRegulation.ruleVersion}</strong>
+                  </div>
+                  <button className="ghost-button" onClick={() => setRegulationViewer(selectedResourceRegulation)} type="button">
+                    <FileText size={16} />
+                    {tt("Vorgaben anzeigen")}
+                  </button>
+                </div>
+              )}
               {logbookEntryEditorOpen && (
                 <div className="form-grid compact-form logbook-entry-editor">
                   <label><span>{tt("Datum")}</span><input type="date" value={logbookForm.date} onChange={(event) => setLogbookForm({ ...logbookForm, date: event.target.value })} /></label>
@@ -19503,6 +20087,7 @@ function MasterDataView({
                     <select value={logbookForm.tripType} onChange={(event) => setLogbookForm({ ...logbookForm, tripType: event.target.value as VehicleLogEntry["tripType"] })}>
                       <option value="Dienstfahrt">{tt("Dienstfahrt")}</option>
                       <option value="Privatfahrt">{tt("Privatfahrt")}</option>
+                      <option value="Arbeitsweg">{tt("Arbeitsweg")}</option>
                     </select>
                   </label>
                   <label><span>{tt("Start-Km")}</span><input inputMode="numeric" value={logbookForm.startOdometer} onChange={(event) => setLogbookForm({ ...logbookForm, startOdometer: event.target.value })} /></label>
@@ -19533,7 +20118,7 @@ function MasterDataView({
                   <datalist id="logbook-purpose-options">
                     {logbookPurposeOptions.map((purpose) => <option key={purpose} value={purpose} />)}
                   </datalist>
-                  <label><span>{tt("Besucht bei")}</span><input disabled={logbookForm.tripType === "Privatfahrt"} value={logbookForm.visited} onChange={(event) => setLogbookForm({ ...logbookForm, visited: event.target.value })} /></label>
+                  <label><span>{tt("Besucht bei")}</span><input disabled={logbookForm.tripType !== "Dienstfahrt"} value={logbookForm.visited} onChange={(event) => setLogbookForm({ ...logbookForm, visited: event.target.value })} /></label>
                   <label><span>{tt("Tanken / Laden")}</span><input value={logbookForm.fuelOrCharge} onChange={(event) => setLogbookForm({ ...logbookForm, fuelOrCharge: event.target.value })} /></label>
                   <label className="wide"><span>{tt("Notiz")}</span><textarea value={logbookForm.notes} onChange={(event) => setLogbookForm({ ...logbookForm, notes: event.target.value })} /></label>
                   <div className="wide waypoint-editor">
@@ -19672,6 +20257,7 @@ function MasterDataView({
                           <td>
                             <strong>{entry.purpose || "-"}</strong>
                             <span>{entry.visited || ""}</span>
+                            {(entry.validationWarnings ?? []).map((warning) => <small className="warning-text" key={warning}>{warning}</small>)}
                           </td>
                           <td>
                             <span>{entry.fuelOrCharge || ""}</span>
@@ -19877,7 +20463,7 @@ function MasterDataView({
                 <datalist id="logbook-purpose-options">
                   {logbookPurposeOptions.map((purpose) => <option key={purpose} value={purpose} />)}
                 </datalist>
-                <label><span>Besucht bei</span><input disabled={logbookForm.tripType === "Privatfahrt"} value={logbookForm.visited} onChange={(event) => setLogbookForm({ ...logbookForm, visited: event.target.value })} /></label>
+                <label><span>Besucht bei</span><input disabled={logbookForm.tripType !== "Dienstfahrt"} value={logbookForm.visited} onChange={(event) => setLogbookForm({ ...logbookForm, visited: event.target.value })} /></label>
                 <label><span>Tanken / Laden</span><input value={logbookForm.fuelOrCharge} onChange={(event) => setLogbookForm({ ...logbookForm, fuelOrCharge: event.target.value })} /></label>
                 <div className="wide receipt-photo-field">
                   <label className="ghost-button">
@@ -20451,6 +21037,30 @@ function MasterDataView({
               ))}
             </div>
             <button className="primary-button" onClick={() => setServicePickerOpen(false)} type="button">{tt("Auswahl übernehmen")}</button>
+          </section>
+        </div>
+      )}
+      {regulationViewer && (
+        <div className="modal-backdrop nested-backdrop">
+          <section aria-labelledby="regulation-viewer-title" aria-modal="true" className="modal regulation-viewer-modal" role="dialog">
+            <header>
+              <div>
+                <p>{tt("Steuerliche Vorgaben")}</p>
+                <h2 id="regulation-viewer-title">{regulationViewer.title}</h2>
+                <span>{regulationViewer.ruleVersion} · {regulationViewer.authority}</span>
+              </div>
+              <div className="modal-header-actions">
+                <a className="ghost-button" download href={regulationViewer.pdfStoragePath}><FileDown size={16} />{tt("Download")}</a>
+                <a className="ghost-button" href={regulationViewer.pdfStoragePath} rel="noreferrer" target="_blank"><Maximize2 size={16} />{tt("Vollbild")}</a>
+                <button aria-label={tt("Schließen")} onClick={() => setRegulationViewer(null)} type="button"><X size={18} /></button>
+              </div>
+            </header>
+            <div className="regulation-summary">
+              <strong>{drivingLogCountryName(regulationViewer.countryCode)} - {tt("wichtigste Punkte")}</strong>
+              <ul>{regulationViewer.summary.map((item) => <li key={item}>{item}</li>)}</ul>
+              <small>{tt("Diese Zusammenfassung ersetzt nicht die offiziellen steuerlichen Vorgaben.")}</small>
+            </div>
+            <iframe src={regulationViewer.pdfStoragePath} title={regulationViewer.title} />
           </section>
         </div>
       )}
