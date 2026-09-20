@@ -9017,3 +9017,89 @@ button.media-thumb {
     grid-template-columns: minmax(0, 1fr) !important;
   }
 }
+
+/* iPhone communication cards: prevent status/date metadata from overflowing cards */
+@media (max-width: 600px) {
+  .communication-toolbar {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .communication-toolbar > label {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .communication-toolbar input,
+  .communication-toolbar select {
+    max-width: 100%;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .message-list {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .message-list article.message-card {
+    align-items: stretch !important;
+    display: grid !important;
+    gap: 10px !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    max-width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    width: 100%;
+  }
+
+  .message-main,
+  .message-text,
+  .message-side,
+  .message-meta {
+    grid-column: 1 !important;
+    max-width: 100%;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .message-main strong,
+  .message-main span,
+  .message-text,
+  .message-meta span {
+    overflow-wrap: anywhere;
+    word-break: normal;
+  }
+
+  .message-text {
+    overflow: visible;
+    white-space: pre-wrap;
+  }
+
+  .message-side {
+    align-items: stretch !important;
+    display: grid !important;
+    gap: 5px !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    justify-content: stretch !important;
+  }
+
+  .message-side .badge {
+    justify-self: start;
+    max-width: 100%;
+    width: fit-content;
+  }
+
+  .message-side > span {
+    display: block;
+    max-width: 100%;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    white-space: normal !important;
+    width: 100%;
+  }
+
+  .message-side > button {
+    justify-self: start;
+    max-width: 100%;
+  }
+}
