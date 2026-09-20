@@ -9600,3 +9600,21 @@ button.media-thumb {
 
 
 
+
+.consulting-entry-history-row > .consulting-entry-inline-edit {
+  color: var(--brand);
+  padding: 0;
+}
+
+.consulting-entry-history-row > .consulting-entry-inline-edit .consulting-entry-inline-edit-icon {
+  display: block !important;
+  fill: none !important;
+  height: 16px !important;
+  max-width: none !important;
+  overflow: visible;
+  stroke: currentColor !important;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+  width: 16px !important;
+}
