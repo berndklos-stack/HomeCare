@@ -3496,6 +3496,20 @@ function mergeSnapshots(remoteSnapshot: AppSnapshot, localSnapshot: AppSnapshot)
   });
 }
 
+function mergePendingLocalSections(
+  remoteSnapshot: AppSnapshot,
+  localSnapshot: AppSnapshot,
+  pendingKeys: SyncSectionKey[],
+) {
+  if (pendingKeys.length === 0) return remoteSnapshot;
+  const mergedPendingSnapshot = mergeSnapshots(remoteSnapshot, localSnapshot);
+  return {
+    ...remoteSnapshot,
+    ...sectionPatch(mergedPendingSnapshot, pendingKeys),
+    updatedAt: mergedPendingSnapshot.updatedAt,
+  };
+}
+
 function reportSummaryNote(summary: string) {
   return summary.replace(/^\d+ von \d+ Checklistenpunkten ausgeführt\.\s*/, "").trim();
 }
@@ -8626,6 +8640,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   const [selectedObjectId, setSelectedObjectId] = useState("OBJ-1001");
   const [objects, setObjects] = useState<ObjectRecord[]>(seedObjects);
   const [appStorageReady, setAppStorageReady] = useState(false);
+  const [initialSyncComplete, setInitialSyncComplete] = useState(false);
   const [appLoadError, setAppLoadError] = useState("");
   const [appUpdatedAt, setAppUpdatedAt] = useState<string | undefined>(undefined);
   const [supabaseSyncDisabled, setSupabaseSyncDisabled] = useState(false);
@@ -8917,7 +8932,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   }, [reports]);
 
   useEffect(() => {
-    if (!appStorageReady) return;
+    if (!appStorageReady || !initialSyncComplete) return;
     const pendingPhotos = reports.flatMap((report) => (
       report.checklistResults.flatMap((item) => (
         (item.photos ?? [])
@@ -8967,7 +8982,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
         }
       })();
     });
-  }, [appStorageReady, reports]);
+  }, [appStorageReady, initialSyncComplete, reports]);
 
   useEffect(() => {
     let cancelled = false;
@@ -8976,31 +8991,55 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       setAppLoadError("");
       const hasLocalData = hasSavedLocalSnapshot();
       const localSnapshot = readLocalSnapshot();
-      const reportBackups = await loadReportTextBackups();
-      const localSnapshotWithBackups = {
-        ...localSnapshot,
-        reports: applyReportTextBackups(localSnapshot.reports, reportBackups),
-      };
       const localSnapshotIsSuspiciouslyEmpty = !hasLocalData
-        || isSuspiciouslyEmptyLocalSnapshot(localSnapshotWithBackups)
-        || isSeedOnlySnapshot(localSnapshotWithBackups);
-      if (!cancelled && !localSnapshotIsSuspiciouslyEmpty) applySnapshot(localSnapshotWithBackups);
+        || isSuspiciouslyEmptyLocalSnapshot(localSnapshot)
+        || isSeedOnlySnapshot(localSnapshot);
+
+      if (!cancelled && !localSnapshotIsSuspiciouslyEmpty) {
+        applySnapshot(localSnapshot);
+        setAppStorageReady(true);
+      }
+
       if (process.env.NEXT_PUBLIC_DISABLE_SUPABASE_SYNC === "1") {
         if (!cancelled) {
           setSupabaseSyncDisabled(true);
           setAppStorageReady(true);
+          setInitialSyncComplete(true);
         }
         return;
       }
+
+      const remoteSnapshotPromise = loadSupabaseSnapshot();
+      const remoteSectionsPromise = loadSyncSections().catch((error) => {
+        console.warn("Sync-Bereiche konnten beim Start nicht geladen werden.", error);
+        return {};
+      });
+      const reportBackupsPromise = loadReportTextBackups();
       let remoteSnapshotWasApplied = false;
 
       try {
-        const remoteSnapshot = await loadSupabaseSnapshot();
+        const remoteSnapshot = await remoteSnapshotPromise;
         if (cancelled) return;
 
         if (remoteSnapshot) {
-          const remoteSnapshotWithSections = mergeSnapshotWithSyncSections(remoteSnapshot, await loadSyncSections().catch(() => ({})));
+          if (localSnapshotIsSuspiciouslyEmpty) {
+            applySnapshot(remoteSnapshot);
+            setAppStorageReady(true);
+          }
+
+          const [remoteSections, reportBackups] = await Promise.all([
+            remoteSectionsPromise,
+            reportBackupsPromise,
+          ]);
+          if (cancelled) return;
+
+          const remoteSnapshotWithSections = mergeSnapshotWithSyncSections(remoteSnapshot, remoteSections);
           const pendingKeys = readPendingSyncKeys();
+          const latestLocalSnapshot = pendingKeys.length > 0 ? readLocalSnapshot() : localSnapshot;
+          const latestLocalSnapshotWithBackups = {
+            ...latestLocalSnapshot,
+            reports: applyReportTextBackups(latestLocalSnapshot.reports, reportBackups),
+          };
           lastRemoteSnapshotKeyRef.current = snapshotContentKey(remoteSnapshotWithSections);
           syncedSectionHashesRef.current = snapshotSectionHashes(remoteSnapshotWithSections);
           skipNextAutoSaveRef.current = true;
@@ -9008,9 +9047,9 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
           // Server data is authoritative. Only locally marked, not-yet-synced
           // sections are merged on top so stale browser caches cannot overwrite
           // newer data from another device.
-          const baseMergedSnapshot = localSnapshotIsSuspiciouslyEmpty || pendingKeys.length === 0
+          const baseMergedSnapshot = pendingKeys.length === 0
             ? recoverReportsFromFieldProgress(remoteSnapshotWithSections)
-            : mergeSnapshots(remoteSnapshotWithSections, localSnapshotWithBackups);
+            : mergePendingLocalSections(remoteSnapshotWithSections, latestLocalSnapshotWithBackups, pendingKeys);
           const mergedSnapshot = sanitizePersonnelSnapshot({
             ...baseMergedSnapshot,
             reports: applyReportTextBackups(baseMergedSnapshot.reports, reportBackups),
@@ -9041,6 +9080,11 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
             console.warn("Leerer lokaler Speicher wurde nicht als Online-Datenbestand gespeichert.");
             return;
           }
+          const reportBackups = await reportBackupsPromise;
+          const localSnapshotWithBackups = {
+            ...localSnapshot,
+            reports: applyReportTextBackups(localSnapshot.reports, reportBackups),
+          };
           const savedAt = await saveSupabaseSnapshot(localSnapshotWithBackups);
           lastRemoteSnapshotKeyRef.current = snapshotContentKey(localSnapshotWithBackups);
           syncedSectionHashesRef.current = snapshotSectionHashes(localSnapshotWithBackups);
@@ -9053,9 +9097,14 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
           if (!cancelled) setAppLoadError(error instanceof Error ? error.message : "Online-Daten konnten nicht geladen werden.");
           return;
         }
+        syncedSectionHashesRef.current = snapshotSectionHashes(localSnapshot);
+        skipNextAutoSaveRef.current = true;
         if (!cancelled && !isRetryableSyncError(error)) setSupabaseSyncDisabled(true);
       } finally {
-        if (!cancelled && (!localSnapshotIsSuspiciouslyEmpty || remoteSnapshotWasApplied)) setAppStorageReady(true);
+        if (!cancelled) {
+          if (!localSnapshotIsSuspiciouslyEmpty || remoteSnapshotWasApplied) setAppStorageReady(true);
+          if (!localSnapshotIsSuspiciouslyEmpty || remoteSnapshotWasApplied) setInitialSyncComplete(true);
+        }
       }
     }
 
@@ -9067,16 +9116,16 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   }, []);
 
   useEffect(() => {
-    if (!appStorageReady) return;
+    if (!appStorageReady || !initialSyncComplete) return;
     const timeoutId = window.setTimeout(() => {
       setJobs((current) => ensureSeriesOccurrences(current, reports));
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
-  }, [appStorageReady, reports]);
+  }, [appStorageReady, initialSyncComplete, reports]);
 
   useEffect(() => {
-    if (!appStorageReady) return;
+    if (!appStorageReady || !initialSyncComplete) return;
     if (skipNextAutoSaveRef.current) {
       skipNextAutoSaveRef.current = false;
       return;
@@ -9115,7 +9164,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     scheduleLocalPersist(snapshot, changedKeys);
     setAppUpdatedAt(snapshotUpdatedAt);
     scheduleRemoteSave(snapshot, changedKeys, 1000);
-  }, [accountingAccounts, activeJobId, appStorageReady, billing, companySettings, customers, dailyMailSettings, deletedEntityIds, deletedReportIds, fieldNotes, fieldProgress, inventoryLocations, jobs, materials, objects, personnel, portalMessages, reports, resources, scheduleLocalPersist, scheduleRemoteSave, servicePackages, services, tenantSettings, translationOverrides]);
+  }, [accountingAccounts, activeJobId, appStorageReady, billing, companySettings, customers, dailyMailSettings, deletedEntityIds, deletedReportIds, fieldNotes, fieldProgress, initialSyncComplete, inventoryLocations, jobs, materials, objects, personnel, portalMessages, reports, resources, scheduleLocalPersist, scheduleRemoteSave, servicePackages, services, tenantSettings, translationOverrides]);
 
   const currentSnapshot = useCallback((overrides: Partial<AppSnapshot> = {}): AppSnapshot => ({
     activeJobId,
@@ -9145,7 +9194,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   }), [accountingAccounts, activeJobId, appUpdatedAt, billing, companySettings, customers, dailyMailSettings, deletedEntityIds, deletedReportIds, fieldNotes, fieldProgress, inventoryLocations, jobs, materials, objects, personnel, portalMessages, reports, resources, servicePackages, services, tenantSettings, translationOverrides]);
 
   const syncRemoteSnapshot = useCallback(async (force = false) => {
-    if (!appStorageReady || remoteSyncRunningRef.current) return;
+    if (!appStorageReady || !initialSyncComplete || remoteSyncRunningRef.current) return;
     if (supabaseSyncDisabled && !force) return;
     if (force && remoteSaveTimerRef.current) {
       window.clearTimeout(remoteSaveTimerRef.current);
@@ -9165,7 +9214,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       const pendingKeys = readPendingSyncKeys();
       const reportBackups = await loadReportTextBackups();
       const baseMergedSnapshot = pendingKeys.length > 0
-        ? mergeSnapshots(remoteSnapshotWithSections, localSnapshot)
+        ? mergePendingLocalSections(remoteSnapshotWithSections, localSnapshot, pendingKeys)
         : remoteSnapshotWithSections;
       const mergedSnapshot = sanitizePersonnelSnapshot({
         ...baseMergedSnapshot,
@@ -9198,7 +9247,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     } finally {
       remoteSyncRunningRef.current = false;
     }
-  }, [appStorageReady, currentSnapshot, supabaseSyncDisabled]);
+  }, [appStorageReady, currentSnapshot, initialSyncComplete, supabaseSyncDisabled]);
 
   const syncVehiclePositions = useCallback(async () => {
     if (!appStorageReady) return;
@@ -12130,7 +12179,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
           <header className="topbar">
             <div>
               <h1>Homecare</h1>
-              <p>Online-Daten werden geladen...</p>
+                <p>HomeCare wird vorbereitet ...</p>
             </div>
             <div className="toolbar">
               <button aria-label={theme === "dark" ? t.light : t.dark} className="ghost-button icon-button theme-toggle" data-tooltip={theme === "dark" ? t.light : t.dark} onClick={() => setTheme(theme === "dark" ? "light" : "dark")} type="button">
@@ -12142,8 +12191,8 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
             <div className="panel-title">
               <div>
                 <p>Datenbestand</p>
-                <h2>{appLoadError ? "Online-Daten konnten nicht geladen werden" : "Serverdaten werden geladen"}</h2>
-                <span>{appLoadError || "Der lokale Startzustand wird nicht angezeigt, damit keine Demo-Daten mit echten Daten verwechselt werden."}</span>
+                <h2>{appLoadError ? "Online-Daten konnten nicht geladen werden" : "Daten werden synchronisiert ..."}</h2>
+                <span>{appLoadError || "HomeCare lädt den aktuellen Datenstand."}</span>
               </div>
             </div>
             {appLoadError && (

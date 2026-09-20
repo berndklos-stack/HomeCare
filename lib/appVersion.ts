@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.416.0",
+  version: "1.417.0",
   releaseDate: "2026-09-20",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.417.0",
+    date: "2026-09-20",
+    changes: [
+      "Ein gültiger lokaler Cache macht HomeCare beim Start sofort benutzbar",
+      "App-State, Bereichssynchronisation und Berichtssicherungen werden parallel im Hintergrund abgeglichen",
+      "Der Startabgleich schreibt keine alten Cache-Daten zurück und übernimmt nur ausdrücklich ausstehende lokale Bereiche",
+    ],
+  },
   {
     version: "1.416.0",
     date: "2026-09-20",
