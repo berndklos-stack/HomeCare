@@ -557,7 +557,7 @@ button {
   border-color: var(--brand-2);
   box-shadow: 0 10px 24px var(--shadow), 0 0 0 3px color-mix(in srgb, var(--brand-2), transparent 78%);
   outline: none;
-  transform: translateY(-1px);
+  transform: translateY(-1px) scaleX(-1);
 }
 
 .quickbar strong {
