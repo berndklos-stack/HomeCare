@@ -239,6 +239,7 @@ function jobSortGroup(job: JobRecord, occurrences: JobRecord[]) {
 }
 
 function activeOverviewJobs(jobs: JobRecord[]) {
+  const closedStatuses = new Set(["erledigt", "abgerechnet", "storniert"]);
   const occurrenceGroups = jobs.reduce<Record<string, JobRecord[]>>((groups, job) => {
     if (!job.seriesMasterId) return groups;
     return {
@@ -249,6 +250,9 @@ function activeOverviewJobs(jobs: JobRecord[]) {
 
   return jobs
     .filter((job) => !job.seriesMasterId)
+    // A completed/cancelled master job must never reappear in the daily mail,
+    // even if old or pre-generated series occurrences are still present.
+    .filter((job) => !closedStatuses.has(job.status))
     .filter((job) => jobSortGroup(job, occurrenceGroups[job.id] ?? []) < 2)
     .sort((first, second) => {
       const firstOccurrences = occurrenceGroups[first.id] ?? [];
