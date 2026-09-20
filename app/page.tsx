@@ -354,6 +354,15 @@ type BillingRecord = {
   invoicedAt?: string;
   jobId?: string;
   lines?: BillingLineItem[];
+  consultingDetails?: Array<{
+    date: string;
+    startTime: string;
+    endTime: string;
+    minutes: number;
+    description: string;
+    hourlyRate: string;
+    currency: string;
+  }>;
   notes?: string;
   outgoingBookNumber?: string;
   paidAt?: string;
@@ -6250,6 +6259,109 @@ async function createInvoicePdfBlob(item: BillingRecord, object: ObjectRecord, c
     });
   });
 
+  if (item.consultingDetails?.length) {
+    const details = item.consultingDetails;
+    pdf.addPage();
+    y = margin;
+
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(15);
+    pdf.setTextColor(18, 22, 28);
+    pdf.text(swedish ? "Arbetsredovisning" : "Leistungsnachweis", margin, y + 7);
+    pdf.setFontSize(9);
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(105, 111, 122);
+    pdf.text(`${swedish ? "Bilaga till faktura" : "Anlage zur Rechnung"} ${item.invoiceNumber || item.id}`, margin, y + 14);
+    y += 26;
+
+    const firstDate = details[0]?.date || "";
+    const lastDate = details.at(-1)?.date || firstDate;
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(9);
+    pdf.setTextColor(18, 22, 28);
+    pdf.text(item.label, margin, y);
+    y += 6;
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(105, 111, 122);
+    pdf.text(`${swedish ? "Period" : "Zeitraum"}: ${firstDate}${lastDate && lastDate !== firstDate ? `–${lastDate}` : ""}`, margin, y);
+    y += 10;
+
+    const colDate = margin;
+    const colTime = 42;
+    const colHours = 72;
+    const colDescription = 92;
+    const colAmount = pageWidth - margin;
+
+    const drawConsultingHeader = () => {
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(8);
+      pdf.setTextColor(18, 22, 28);
+      pdf.text(swedish ? "Datum" : "Datum", colDate, y);
+      pdf.text(swedish ? "Tid" : "Zeit", colTime, y);
+      pdf.text(swedish ? "Timmar" : "Std.", colHours, y);
+      pdf.text(swedish ? "Arbete" : "Tätigkeit", colDescription, y);
+      pdf.text(swedish ? "Belopp" : "Betrag", colAmount, y, { align: "right" });
+      y += 3;
+      pdf.setDrawColor(190);
+      pdf.line(margin, y, pageWidth - margin, y);
+      y += 6;
+    };
+
+    drawConsultingHeader();
+    let totalMinutes = 0;
+    let totalAmount = 0;
+    details.forEach((detail) => {
+      const hoursValue = detail.minutes / 60;
+      const rateValue = decimalValue(detail.hourlyRate);
+      const amount = hoursValue * rateValue;
+      const descriptionLines = pdf.splitTextToSize(detail.description || "-", 72) as string[];
+      const rowHeight = Math.max(8, descriptionLines.length * 4.2 + 2);
+      if (y + rowHeight > pageHeight - 35) {
+        pdf.addPage();
+        y = margin + 4;
+        drawConsultingHeader();
+      }
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(8);
+      pdf.setTextColor(18, 22, 28);
+      pdf.text(detail.date, colDate, y);
+      pdf.text(`${detail.startTime}–${detail.endTime}`, colTime, y);
+      pdf.text(hoursValue.toLocaleString("sv-SE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }), colHours, y);
+      pdf.text(descriptionLines, colDescription, y);
+      pdf.text(formatMoney(amount, detail.currency), colAmount, y, { align: "right" });
+      y += rowHeight;
+      pdf.setDrawColor(232);
+      pdf.line(margin, y - 2, pageWidth - margin, y - 2);
+      totalMinutes += detail.minutes;
+      totalAmount += amount;
+    });
+
+    y += 5;
+    if (y > pageHeight - 48) {
+      pdf.addPage();
+      y = margin + 4;
+    }
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(9);
+    pdf.text(`${swedish ? "Totalt" : "Gesamt"}: ${(totalMinutes / 60).toLocaleString("sv-SE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} h`, colDescription, y);
+    pdf.text(formatMoney(totalAmount, details[0]?.currency || "SEK"), colAmount, y, { align: "right" });
+
+    pdf.setDrawColor(215);
+    pdf.line(margin, pageHeight - 30, pageWidth - margin, pageHeight - 30);
+    footerBlocks.forEach((block, index) => {
+      const blockWidth = (pageWidth - margin * 2) / footerBlocks.length;
+      const x = margin + index * blockWidth;
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(6.6);
+      pdf.text(block.title, x, pageHeight - 24);
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(7.2);
+      block.lines.slice(0, 3).forEach((line, lineIndex) => {
+        pdf.text(line, x, pageHeight - 19 + lineIndex * 4.2, { maxWidth: blockWidth - 8 });
+      });
+    });
+  }
+
   return pdf.output("blob");
 }
 
@@ -9583,7 +9695,19 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
         currency: consulting.currency || "SEK",
         taxRate: "25",
       }],
-      notes: openEntries.map((entry) => `${entry.date} ${entry.startTime}–${entry.endTime}: ${entry.description}`).join("\n"),
+      consultingDetails: openEntries
+        .slice()
+        .sort((first, second) => `${first.date} ${first.startTime}`.localeCompare(`${second.date} ${second.startTime}`))
+        .map((entry) => ({
+          date: entry.date,
+          startTime: entry.startTime,
+          endTime: entry.endTime,
+          minutes: entry.minutes,
+          description: entry.description,
+          hourlyRate: consulting.hourlyRate || "0",
+          currency: consulting.currency || "SEK",
+        })),
+      notes: `${openEntries.length} Einzelleistung(en) im Leistungsnachweis auf Seite 2.`,
       objectId: job.objectId,
       serviceDate: toDate,
       source: `${job.id} · Consulting`,
