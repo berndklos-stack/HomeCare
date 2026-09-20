@@ -14628,7 +14628,7 @@ function JobsView({
                       onClick={() => openEditConsultingEntry(job, entry)}
                       type="button"
                     >
-                      <Pencil size={15} strokeWidth={2.25} />
+                      <span aria-hidden="true" className="consulting-edit-glyph">✎</span>
                     </button>
                   )}
                 </div>
