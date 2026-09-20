@@ -3050,6 +3050,21 @@ function mergeCustomersById(primaryCustomers: CustomerRecord[], secondaryCustome
   return merged;
 }
 
+function mergeConsultingData(primary: JobRecord["consulting"], secondary: JobRecord["consulting"]) {
+  if (!primary) return secondary;
+  if (!secondary) return primary;
+
+  const entriesById = new Map<string, ConsultingTimeEntry>();
+  (secondary.entries ?? []).forEach((entry) => entriesById.set(entry.id, entry));
+  (primary.entries ?? []).forEach((entry) => entriesById.set(entry.id, entry));
+
+  return {
+    ...secondary,
+    ...primary,
+    entries: Array.from(entriesById.values()),
+  };
+}
+
 function jobStatusScore(job: JobRecord) {
   if (job.status === "abgerechnet") return 5;
   if (job.status === "erledigt") return 4;
@@ -3083,9 +3098,11 @@ function mergeJobsById(primaryJobs: JobRecord[], secondaryJobs: JobRecord[]) {
         ? primaryJob
         : secondaryJob;
     const merged = { ...secondaryJob, ...primaryJob };
+    const mergedConsulting = mergeConsultingData(primaryJob.consulting, secondaryJob.consulting);
 
     jobsById.set(primaryJob.id, {
       ...merged,
+      consulting: mergedConsulting,
       dueDate: statusWinner.dueDate,
       material: statusWinner.material,
       resetAt: statusWinner.resetAt,
