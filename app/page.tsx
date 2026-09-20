@@ -663,6 +663,7 @@ type ResourceRecord = {
   registrationCountry?: string;
   taxCountry?: DrivingLogRuleCountry;
   logbookActive?: boolean;
+  logbookLanguage?: Language;
   currentOdometer?: string;
   currentOdometerDate?: string;
   privateUseAllowed?: boolean;
@@ -683,6 +684,7 @@ type ResourceRecord = {
   logbook: VehicleLogEntry[];
   tracking?: {
     deviceId?: string;
+    logbookLanguage?: Language;
     mode: "none" | "phone" | "tracker";
     provider?: string;
   };
@@ -932,8 +934,16 @@ function createOdometerHistoryEntry(params: {
   };
 }
 
-function currentMonthLabel(date = new Date()) {
-  return new Intl.DateTimeFormat("de-DE", { month: "long", year: "numeric" }).format(date);
+function currentMonthLabel(date = new Date(), language: Language = "de") {
+  const locale = language === "sv" ? "sv-SE" : language === "en" ? "en-GB" : "de-DE";
+  return new Intl.DateTimeFormat(locale, { month: "long", year: "numeric" }).format(date);
+}
+
+function missingMonthlyOdometerText(language: Language, date = new Date()) {
+  const month = currentMonthLabel(date, language);
+  if (language === "sv") return `Mätarställningen för ${month} är ännu inte bekräftad.`;
+  if (language === "en") return `The odometer reading for ${month} has not yet been confirmed.`;
+  return `Kilometerstand für ${month} noch nicht bestätigt.`;
 }
 
 function needsCurrentMonthOdometerCheck(vehicle?: ResourceRecord, date = new Date()) {
@@ -1853,7 +1863,14 @@ const englishUiText: Record<string, string> = {
 };
 
 const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
+  { de: "Ankunft", sv: "Ankomst", en: "Arrival" },
   { de: "Arbeitsweg", sv: "Arbetsresa", en: "Commute" },
+  { de: "Baujahr", sv: "Tillverkningsår", en: "Year of manufacture" },
+  { de: "Beim Abstellen aufnehmen", sv: "Ta foto när fordonet parkeras", en: "Take when parking" },
+  { de: "Beim Losfahren aufnehmen", sv: "Ta foto före avfärd", en: "Take before departure" },
+  { de: "Bezeichnung der Standardfahrt", sv: "Standardresans namn", en: "Standard trip name" },
+  { de: "Bild konnte nicht eingebettet werden.", sv: "Bilden kunde inte bäddas in.", en: "The image could not be embedded." },
+  { de: "Bilder zum Fahrtenbuch", sv: "Bilder till körjournalen", en: "Logbook images" },
   { de: "Benutzer", sv: "Användare", en: "User" },
   { de: "Datum Kilometerstand", sv: "Datum för mätarställning", en: "Odometer date" },
   { de: "Deutschland", sv: "Tyskland", en: "Germany" },
@@ -1861,6 +1878,53 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Eigentümer / Firma", sv: "Ägare / företag", en: "Owner / company" },
   { de: "Fahrtenbuch aktiv", sv: "Körjournal aktiv", en: "Driving log active" },
   { de: "Fahrtenbuch", sv: "Körjournal", en: "Driving log" },
+  { de: "Fahrtenbuchsprache", sv: "Körjournalspråk", en: "Logbook language" },
+  { de: "Fahrt einordnen", sv: "Klassificera körningen", en: "Classify trip" },
+  { de: "Fahrzeug auswählen", sv: "Välj fordon", en: "Select vehicle" },
+  { de: "Fahrzeug, Datum, Fahrer, Start-KM und Startadresse prüfen.", sv: "Kontrollera fordon, datum, förare, startmätarställning och startadress.", en: "Check vehicle, date, driver, starting odometer and start address." },
+  { de: "Foto wählen", sv: "Välj foto", en: "Choose photo" },
+  { de: "Foto", sv: "Foto", en: "Photo" },
+  { de: "Foto zu Zwischenziel", sv: "Foto för mellanstopp", en: "Photo for waypoint" },
+  { de: "Fahrzeugdaten", sv: "Fordonsuppgifter", en: "Vehicle data" },
+  { de: "Häufige Route auswählen oder die aktuelle Route als Vorlage speichern.", sv: "Välj en vanlig rutt eller spara den aktuella rutten som mall.", en: "Select a frequent route or save the current route as a template." },
+  { de: "KM lesen", sv: "Läs mätarställning", en: "Read odometer" },
+  { de: "KM-Stand zu Zwischenziel", sv: "Mätarställning vid mellanstopp", en: "Odometer at waypoint" },
+  { de: "Jahr", sv: "År", en: "Year" },
+  { de: "Löschen", sv: "Radera", en: "Delete" },
+  { de: "mit Bildern", sv: "med bilder", en: "with images" },
+  { de: "Keine Zwischenziele erfasst.", sv: "Inga mellanstopp registrerade.", en: "No waypoints recorded." },
+  { de: "Name / besucht bei", sv: "Namn / besökt hos", en: "Name / visited at" },
+  { de: "Notiz zu Zwischenziel", sv: "Anteckning för mellanstopp", en: "Note for waypoint" },
+  { de: "Aktuelle Adresse für Zwischenziel", sv: "Aktuell adress för mellanstopp", en: "Current address for waypoint" },
+  { de: "Optional", sv: "Valfritt", en: "Optional" },
+  { de: "PDF mit Bildern", sv: "PDF med bilder", en: "PDF with images" },
+  { de: "PDF ohne Bilder", sv: "PDF utan bilder", en: "PDF without images" },
+  { de: "ohne Bilder", sv: "utan bilder", en: "without images" },
+  { de: "Noch keine Fahrten erfasst.", sv: "Inga körningar har registrerats ännu.", en: "No trips recorded yet." },
+  { de: "Seite", sv: "Sida", en: "Page" },
+  { de: "Speichern", sv: "Spara", en: "Save" },
+  { de: "Start im Auto", sv: "Start i bilen", en: "Start in vehicle" },
+  { de: "Startfoto", sv: "Startfoto", en: "Start photo" },
+  { de: "Startfoto Tacho", sv: "Startfoto av mätarställning", en: "Starting odometer photo" },
+  { de: "Endfoto Tacho", sv: "Slutfoto av mätarställning", en: "Ending odometer photo" },
+  { de: "Endfoto", sv: "Slutfoto", en: "End photo" },
+  { de: "Tanken, Laden oder Beleg zur Fahrt ergänzen.", sv: "Lägg till tankning, laddning eller kvitto för körningen.", en: "Add fuel, charging or a receipt to the trip." },
+  { de: "Tank-/Ladebeleg scannen", sv: "Skanna tank-/laddningskvitto", en: "Scan fuel/charging receipt" },
+  { de: "Tank-/Ladebeleg", sv: "Tank-/laddningskvitto", en: "Fuel/charging receipt" },
+  { de: "Tankbeleg", sv: "Tankkvitto", en: "Fuel receipt" },
+  { de: "Tankbeleg vorhanden", sv: "Tankkvitto finns", en: "Fuel receipt available" },
+  { de: "Tachofoto(s)", sv: "Mätarfoto(n)", en: "Odometer photo(s)" },
+  { de: "Unterwegs", sv: "På väg", en: "En route" },
+  { de: "Zwischenziel-Foto(s)", sv: "Foto(n) från mellanstopp", en: "Waypoint photo(s)" },
+  { de: "Zwischenziele nur bei Bedarf erfassen.", sv: "Registrera mellanstopp endast vid behov.", en: "Record waypoints only when needed." },
+  { de: "Dienstfahrt oder privat, Grund und Ansprechpartner erfassen.", sv: "Ange tjänsteresa eller privatresa, syfte och kontaktperson.", en: "Choose business or private trip and enter purpose and contact." },
+  { de: "Zieladresse und End-KM beim Abstellen erfassen.", sv: "Registrera måladress och slutmätarställning när fordonet parkeras.", en: "Enter destination address and ending odometer when parking." },
+  { de: "wird aus Km-Ständen berechnet", sv: "beräknas från mätarställningarna", en: "calculated from odometer readings" },
+  { de: "km gesamt", sv: "km totalt", en: "km total" },
+  { de: "km dienstlich", sv: "km i tjänsten", en: "business km" },
+  { de: "km privat", sv: "km privat", en: "private km" },
+  { de: "Privatfahrten", sv: "Privatresor", en: "Private trips" },
+  { de: "von", sv: "av", en: "of" },
   { de: "Foto erfasst", sv: "Foto registrerat", en: "Photo captured" },
   { de: "Diese Zusammenfassung ersetzt nicht die offiziellen steuerlichen Vorgaben.", sv: "Den här sammanfattningen ersätter inte de officiella skattereglerna.", en: "This summary does not replace the official tax regulations." },
   { de: "Kein Regelwerk ausgewählt", sv: "Inget regelverk valt", en: "No regulation selected" },
@@ -2501,6 +2565,15 @@ function uiTextWithOverrides(value: string, language: Language, overrides: Trans
     return override.de || value;
   }
   return uiText(value, language);
+}
+
+function vehicleLogbookLanguage(resource: ResourceRecord | undefined, fallback: Language): Language {
+  if (resource?.logbookLanguage === "de" || resource?.logbookLanguage === "sv" || resource?.logbookLanguage === "en") {
+    return resource.logbookLanguage;
+  }
+  if (resource?.taxCountry === "SE") return "sv";
+  if (resource?.taxCountry === "DE") return "de";
+  return fallback;
 }
 
 function translationFileRows(overrides: TranslationFileRow[] = []) {
@@ -5746,6 +5819,8 @@ async function downloadMaterialInventoryMovementPdf(material: MaterialItem, cust
 }
 
 async function downloadVehicleLogbookPdf(resource: ResourceRecord, entries: VehicleLogEntry[], personnel: PersonnelRecord[], includeImages = false) {
+  const pdfLanguage = vehicleLogbookLanguage(resource, "de");
+  const pt = (value: string) => uiText(value, pdfLanguage);
   const { jsPDF } = await import("jspdf");
   const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "landscape" });
   const pageWidth = pdf.internal.pageSize.getWidth();
@@ -5753,14 +5828,14 @@ async function downloadVehicleLogbookPdf(resource: ResourceRecord, entries: Vehi
   const margin = 12;
   const contentWidth = pageWidth - margin * 2;
   const columns = [
-    { key: "date", label: "Datum", width: 22 },
-    { key: "driver", label: "Fahrer", width: 28 },
-    { key: "tripType", label: "Art", width: 24 },
-    { key: "route", label: "Start / Ziel / Zwischenziele", width: 70 },
-    { key: "odometer", label: "KM-Stand", width: 32 },
-    { key: "kilometers", label: "KM", width: 16 },
-    { key: "purpose", label: "Zweck / besucht bei", width: 52 },
-    { key: "extras", label: "Belege / Fotos / Notizen", width: 29 },
+    { key: "date", label: pt("Datum"), width: 22 },
+    { key: "driver", label: pt("Fahrer"), width: 28 },
+    { key: "tripType", label: pt("Art"), width: 24 },
+    { key: "route", label: `${pt("Start")} / ${pt("Ziel")} / ${pt("Zwischenziele")}`, width: 70 },
+    { key: "odometer", label: pt("KM-Stand"), width: 32 },
+    { key: "kilometers", label: pt("KM"), width: 16 },
+    { key: "purpose", label: pt("Zweck / besucht bei"), width: 52 },
+    { key: "extras", label: `${pt("Belege / Fotos")} / ${pt("Notizen")}`, width: 29 },
   ] as const;
   const driverName = (driverId: string) => {
     const person = personnel.find((item) => item.id === driverId);
@@ -5774,17 +5849,17 @@ async function downloadVehicleLogbookPdf(resource: ResourceRecord, entries: Vehi
     pdf.setTextColor(18, 22, 28);
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(16);
-    pdf.text(`Fahrtenbuch ${resource.name}`, margin, y);
+    pdf.text(`${pt("Fahrtenbuch")} ${resource.name}`, margin, y);
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(8);
     pdf.setTextColor(105, 111, 122);
     pdf.text(
       [
         resource.identifier,
-        resource.logbookYear ? `Jahr ${resource.logbookYear}` : "",
-        resource.odometerYearStart ? `Start ${resource.odometerYearStart} km` : "",
-        resource.odometerYearEnd ? `Ende ${resource.odometerYearEnd} km` : "",
-      ].filter(Boolean).join(" · ") || "Fahrzeugdaten",
+        resource.logbookYear ? `${pt("Jahr")} ${resource.logbookYear}` : "",
+        resource.odometerYearStart ? `${pt("Start")} ${resource.odometerYearStart} km` : "",
+        resource.odometerYearEnd ? `${pt("Ende")} ${resource.odometerYearEnd} km` : "",
+      ].filter(Boolean).join(" · ") || pt("Fahrzeugdaten"),
       margin,
       y + 6,
     );
@@ -5820,7 +5895,7 @@ async function downloadVehicleLogbookPdf(resource: ResourceRecord, entries: Vehi
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(9);
     pdf.setTextColor(105, 111, 122);
-    pdf.text("Noch keine Fahrten erfasst.", margin, y + 8);
+    pdf.text(pt("Noch keine Fahrten erfasst."), margin, y + 8);
   } else {
     sortedEntries.forEach((entry) => {
       const route = [
@@ -5829,10 +5904,10 @@ async function downloadVehicleLogbookPdf(resource: ResourceRecord, entries: Vehi
         cleanText(entry.endAddress),
       ].filter((item) => item && item !== "-").join(" -> ");
       const extras = [
-        entry.fuelOrCharge ? `Tanken/Laden: ${entry.fuelOrCharge}` : "",
-        entry.fuelReceiptPhoto?.previewUrl ? "Tankbeleg vorhanden" : "",
-        entry.odometerPhotos?.length ? `${entry.odometerPhotos.length} Tachofoto(s)` : "",
-        (entry.waypoints ?? []).some((waypoint) => waypoint.photo?.previewUrl) ? "Zwischenziel-Foto(s)" : "",
+        entry.fuelOrCharge ? `${pt("Tanken / Laden")}: ${entry.fuelOrCharge}` : "",
+        entry.fuelReceiptPhoto?.previewUrl ? pt("Tankbeleg vorhanden") : "",
+        entry.odometerPhotos?.length ? `${entry.odometerPhotos.length} ${pt("Tachofoto(s)")}` : "",
+        (entry.waypoints ?? []).some((waypoint) => waypoint.photo?.previewUrl) ? pt("Zwischenziel-Foto(s)") : "",
         entry.notes,
       ].filter(Boolean).join(" · ") || "-";
       const row = {
@@ -5843,7 +5918,7 @@ async function downloadVehicleLogbookPdf(resource: ResourceRecord, entries: Vehi
         odometer: `${cleanText(entry.startOdometer)} -> ${cleanText(entry.endOdometer)}`,
         purpose: [entry.purpose, entry.visited].filter(Boolean).join(" · ") || "-",
         route: route || "-",
-        tripType: entry.tripType,
+        tripType: pt(entry.tripType),
       };
       const lines = columns.map((column) => pdf.splitTextToSize(row[column.key], column.width - 3) as string[]);
       const rowHeight = Math.max(9, Math.max(...lines.map((line) => line.length)) * 3.5 + 4);
@@ -5866,15 +5941,15 @@ async function downloadVehicleLogbookPdf(resource: ResourceRecord, entries: Vehi
   if (includeImages) {
     const imageItems = sortedEntries.flatMap((entry) => [
       ...(entry.odometerPhotos ?? []).filter((photo) => photo.previewUrl).map((photo) => ({
-        caption: `${entry.date} · ${photo.source === "start" ? "Startfoto" : "Endfoto"}${photo.odometerReading ? ` · ${photo.odometerReading} km` : ""}`,
+        caption: `${entry.date} · ${photo.source === "start" ? pt("Startfoto") : pt("Endfoto")}${photo.odometerReading ? ` · ${photo.odometerReading} km` : ""}`,
         src: photo.previewUrl ?? "",
       })),
       ...(entry.waypoints ?? []).filter((waypoint) => waypoint.photo?.previewUrl).map((waypoint, index) => ({
-        caption: `${entry.date} · Zwischenziel ${index + 1}${waypoint.address ? ` · ${waypoint.address}` : ""}${waypoint.odometer ? ` · ${waypoint.odometer} km` : ""}`,
+        caption: `${entry.date} · ${pt("Zwischenziel")} ${index + 1}${waypoint.address ? ` · ${waypoint.address}` : ""}${waypoint.odometer ? ` · ${waypoint.odometer} km` : ""}`,
         src: waypoint.photo?.previewUrl ?? "",
       })),
       ...(entry.fuelReceiptPhoto?.previewUrl ? [{
-        caption: `${entry.date} · Tank-/Ladebeleg`,
+        caption: `${entry.date} · ${pt("Tank-/Ladebeleg")}`,
         src: entry.fuelReceiptPhoto.previewUrl,
       }] : []),
     ]);
@@ -5884,7 +5959,7 @@ async function downloadVehicleLogbookPdf(resource: ResourceRecord, entries: Vehi
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(14);
       pdf.setTextColor(18, 22, 28);
-      pdf.text("Bilder zum Fahrtenbuch", margin, y);
+      pdf.text(pt("Bilder zum Fahrtenbuch"), margin, y);
       y += 10;
       const gap = 6;
       const imageWidth = (contentWidth - gap * 2) / 3;
@@ -5911,7 +5986,7 @@ async function downloadVehicleLogbookPdf(resource: ResourceRecord, entries: Vehi
           pdf.setFont("helvetica", "normal");
           pdf.setFontSize(8);
           pdf.setTextColor(120);
-          pdf.text("Bild konnte nicht eingebettet werden.", x + 3, y + 24, { maxWidth: imageWidth - 6 });
+          pdf.text(pt("Bild konnte nicht eingebettet werden."), x + 3, y + 24, { maxWidth: imageWidth - 6 });
         }
         pdf.setFont("helvetica", "normal");
         pdf.setFontSize(6.8);
@@ -5927,9 +6002,9 @@ async function downloadVehicleLogbookPdf(resource: ResourceRecord, entries: Vehi
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(7);
     pdf.setTextColor(120);
-    pdf.text(`Seite ${page} von ${pageCount}`, pageWidth - margin, pageHeight - 6, { align: "right" });
+    pdf.text(`${pt("Seite")} ${page} ${pt("von")} ${pageCount}`, pageWidth - margin, pageHeight - 6, { align: "right" });
   }
-  downloadBlob(pdf.output("blob"), `${safeFileName(`Fahrtenbuch-${resource.name}-${resource.logbookYear || new Date().getFullYear()}${includeImages ? "-mit-Bildern" : "-ohne-Bilder"}`)}.pdf`);
+  downloadBlob(pdf.output("blob"), `${safeFileName(`${pt("Fahrtenbuch")}-${resource.name}-${resource.logbookYear || new Date().getFullYear()}${includeImages ? `-${pt("mit Bildern")}` : `-${pt("ohne Bilder")}`}`)}.pdf`);
 }
 
 async function downloadCustomerReportPdf(report: ReportRecord, object: ObjectRecord, job: JobRecord | undefined, customer: CustomerRecord | undefined) {
@@ -9333,15 +9408,16 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
 
   const t = labels[language];
   const translationOverrideLookup = translationOverrideMap(translationOverrides);
-  const tx = (value: string) => {
+  const translateForLanguage = (value: string, targetLanguage: Language) => {
     const override = translationOverrideLookup.get(value);
     if (override) {
-      if (language === "sv") return override.sv || override.de || value;
-      if (language === "en") return override.en || override.de || value;
+      if (targetLanguage === "sv") return override.sv || override.de || value;
+      if (targetLanguage === "en") return override.en || override.de || value;
       return override.de || value;
     }
-    return uiText(value, language);
+    return uiText(value, targetLanguage);
   };
+  const tx = (value: string) => translateForLanguage(value, language);
   const activeObjects = objects.filter((object) => !object.archived);
   const archivedObjects = objects.filter((object) => object.archived);
   const activeCustomers = customers.filter((customer) => !customer.archived);
@@ -9381,6 +9457,8 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   const objectStatusOptions = uniqueSortedValues(objects.map((object) => object.status), ["Saison aktiv", "Kontrolle offen", "Winterruhe"]);
   const activeVehicles = resources.filter((resource) => resource.type === "Fahrzeug" && !resource.archived);
   const quickTripVehicle = activeVehicles.find((vehicle) => vehicle.id === quickTripForm.resourceId);
+  const quickTripLanguage = vehicleLogbookLanguage(quickTripVehicle, language);
+  const qtx = (value: string) => translateForLanguage(value, quickTripLanguage);
   const quickTripStandardTrips = quickTripVehicle?.standardTrips ?? [];
   const quickTripAddressOptions = uniqueSortedValues(
     resources.flatMap((resource) => resource.logbook.flatMap((entry) => [
@@ -12463,15 +12541,15 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
           <section className="modal quick-trip-modal" role="dialog" aria-modal="true" aria-labelledby="quick-trip-title">
             <header>
               <div>
-                <p>Fahrtenbuch</p>
-                <h2 id="quick-trip-title">Fahrt erfassen</h2>
+                <p>{qtx("Fahrtenbuch")}</p>
+                <h2 id="quick-trip-title">{qtx("Fahrt erfassen")}</h2>
               </div>
               <div className="modal-header-actions">
                 <button className="ghost-button compact" onClick={openLogbookFromQuickTrip} type="button">
                   <List size={16} />
-                  {tx("Fahrtenbuch öffnen")}
+                  {qtx("Fahrtenbuch öffnen")}
                 </button>
-                <button aria-label="Fahrt erfassen schließen" onClick={closeQuickTripDialog} type="button">
+                <button aria-label={`${qtx("Fahrt erfassen")} ${qtx("Schließen")}`} onClick={closeQuickTripDialog} type="button">
                   <X size={18} />
                 </button>
               </div>
@@ -12480,26 +12558,26 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
               <section className="trip-step" aria-labelledby="standard-trip-title">
                 <div className="trip-step-head">
                   <span><List size={14} /></span>
-                  <strong id="standard-trip-title">{tx("Standardfahrt")}</strong>
-                  <small>Häufige Route auswählen oder die aktuelle Route als Vorlage speichern.</small>
+                  <strong id="standard-trip-title">{qtx("Standardfahrt")}</strong>
+                  <small>{qtx("Häufige Route auswählen oder die aktuelle Route als Vorlage speichern.")}</small>
                 </div>
                 <div className="standard-trip-controls">
                   <label>
-                    <span>{tx("Gespeicherte Standardfahrt")}</span>
+                    <span>{qtx("Gespeicherte Standardfahrt")}</span>
                     <select
-                      aria-label={tx("Gespeicherte Standardfahrt")}
+                      aria-label={qtx("Gespeicherte Standardfahrt")}
                       disabled={!quickTripForm.resourceId}
                       value={quickTripStandardId}
                       onChange={(event) => selectQuickTripStandard(event.target.value)}
                     >
-                      <option value="">{tx("Standardfahrt auswählen")}</option>
+                      <option value="">{qtx("Standardfahrt auswählen")}</option>
                       {quickTripStandardTrips.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
                     </select>
                   </label>
                   <label>
-                    <span>{tx("Bezeichnung")}</span>
+                    <span>{qtx("Bezeichnung")}</span>
                     <input
-                      aria-label="Bezeichnung der Standardfahrt"
+                      aria-label={qtx("Bezeichnung der Standardfahrt")}
                       placeholder="z. B. Kolaretorp – Gunnabo"
                       value={quickTripStandardLabel}
                       onChange={(event) => setQuickTripStandardLabel(event.target.value)}
@@ -12507,10 +12585,10 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                   </label>
                   <button className="ghost-button compact" onClick={saveQuickTripStandard} type="button">
                     <Check size={15} />
-                    {quickTripStandardId ? "Aktualisieren" : "Speichern"}
+                    {quickTripStandardId ? qtx("Aktualisieren") : qtx("Speichern")}
                   </button>
                   <button
-                    aria-label={tx("Standardfahrt löschen")}
+                    aria-label={qtx("Standardfahrt löschen")}
                     className="icon-button danger"
                     disabled={!quickTripStandardId}
                     onClick={deleteQuickTripStandard}
@@ -12523,11 +12601,11 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
               <section className="trip-step">
                 <div className="trip-step-head">
                   <span>1</span>
-                  <strong>Start im Auto</strong>
-                  <small>Fahrzeug, Datum, Fahrer, Start-KM und Startadresse prüfen.</small>
+                  <strong>{qtx("Start im Auto")}</strong>
+                  <small>{qtx("Fahrzeug, Datum, Fahrer, Start-KM und Startadresse prüfen.")}</small>
                 </div>
                 <div className="form-grid compact-form">
-                  <label><span>Fahrzeug</span>
+                  <label><span>{qtx("Fahrzeug")}</span>
                     <select value={quickTripForm.resourceId} onChange={(event) => {
                       const defaults = quickTripDefaultsForVehicle(event.target.value);
                       setQuickTripStandardId("");
@@ -12540,24 +12618,24 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                         startOdometer: defaults.startOdometer,
                       });
                     }}>
-                      <option value="">Fahrzeug auswählen</option>
+                      <option value="">{qtx("Fahrzeug auswählen")}</option>
                       {activeVehicles.map((vehicle) => <option key={vehicle.id} value={vehicle.id}>{vehicle.name} · {vehicle.identifier}</option>)}
                     </select>
                   </label>
-                  <label><span>Datum</span><input type="date" value={quickTripForm.date} onChange={(event) => setQuickTripForm({ ...quickTripForm, date: event.target.value })} /></label>
-                  <label><span>Fahrer</span>
+                  <label><span>{qtx("Datum")}</span><input type="date" value={quickTripForm.date} onChange={(event) => setQuickTripForm({ ...quickTripForm, date: event.target.value })} /></label>
+                  <label><span>{qtx("Fahrer")}</span>
                     <select value={quickTripForm.driverId} onChange={(event) => setQuickTripForm({ ...quickTripForm, driverId: event.target.value })}>
-                      <option value="">Nicht zugeordnet</option>
+                      <option value="">{qtx("Nicht zugeordnet")}</option>
                       {personnel.filter((person) => !person.archived).map((person) => <option key={person.id} value={person.id}>{person.firstName} {person.lastName}</option>)}
                     </select>
                   </label>
-                  <label><span>Start-Km</span><input inputMode="numeric" value={quickTripForm.startOdometer} onChange={(event) => setQuickTripForm({ ...quickTripForm, startOdometer: event.target.value })} /></label>
-                  <label className="wide"><span>Startadresse</span>
+                  <label><span>{qtx("Start-Km")}</span><input inputMode="numeric" value={quickTripForm.startOdometer} onChange={(event) => setQuickTripForm({ ...quickTripForm, startOdometer: event.target.value })} /></label>
+                  <label className="wide"><span>{qtx("Startadresse")}</span>
                     <div className="address-gps-row">
                       <input list="quick-trip-address-options" value={quickTripForm.startAddress} onChange={(event) => setQuickTripForm({ ...quickTripForm, startAddress: event.target.value })} />
                       <button className="ghost-button compact" disabled={Boolean(quickTripAddressLoading)} onClick={() => void loadCurrentQuickTripAddress("start")} type="button">
                         <ScanLine size={15} />
-                        {quickTripAddressLoading === "start" ? tx("Lädt...") : tx("Aktuelle Adresse")}
+                        {quickTripAddressLoading === "start" ? qtx("Lädt...") : qtx("Aktuelle Adresse")}
                       </button>
                     </div>
                   </label>
@@ -12565,18 +12643,18 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                     const photo = quickTripForm.odometerPhotos.find((item) => item.source === source);
                     return (
                       <div className="trip-photo-capture" key={source}>
-                        <span>Startfoto Tacho</span>
-                        <strong>{photo ? photo.name : "Beim Losfahren aufnehmen"}</strong>
-                        {photo?.previewUrl ? <img alt="Start Tachofoto" src={photo.previewUrl} /> : <Camera size={18} />}
-                        {photo?.odometerReading && <small>KM-Stand: {photo.odometerReading}</small>}
+                        <span>{qtx("Startfoto Tacho")}</span>
+                        <strong>{photo ? photo.name : qtx("Beim Losfahren aufnehmen")}</strong>
+                        {photo?.previewUrl ? <img alt={qtx("Startfoto Tacho")} src={photo.previewUrl} /> : <Camera size={18} />}
+                        {photo?.odometerReading && <small>{qtx("KM-Stand")}: {photo.odometerReading}</small>}
                         {photo?.address && <small>{photo.address}</small>}
                         <div className="trip-photo-actions">
                           <label className="ghost-button">
                             <Camera size={15} />
-                            Foto wählen
+                            {qtx("Foto wählen")}
                             <input
                               accept="image/*"
-                              aria-label="Startfoto Tacho aufnehmen"
+                              aria-label={qtx("Startfoto Tacho")}
                               capture="environment"
                               type="file"
                               onChange={(event) => {
@@ -12589,7 +12667,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                           {photo?.previewUrl && (
                             <button className="ghost-button" type="button" onClick={() => void readQuickTripOdometerFromPhoto(source)}>
                               <ScanLine size={15} />
-                              KM lesen
+                              {qtx("KM lesen")}
                             </button>
                           )}
                         </div>
@@ -12601,19 +12679,19 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
               <section className="trip-step">
                 <div className="trip-step-head">
                   <span>2</span>
-                  <strong>Fahrt einordnen</strong>
-                  <small>Dienstfahrt oder privat, Grund und Ansprechpartner erfassen.</small>
+                  <strong>{qtx("Fahrt einordnen")}</strong>
+                  <small>{qtx("Dienstfahrt oder privat, Grund und Ansprechpartner erfassen.")}</small>
                 </div>
                 <div className="form-grid compact-form">
-                  <label><span>Art</span>
+                  <label><span>{qtx("Art")}</span>
                     <select value={quickTripForm.tripType} onChange={(event) => setQuickTripForm({ ...quickTripForm, tripType: event.target.value as VehicleLogEntry["tripType"] })}>
-                      <option>Dienstfahrt</option>
-                      <option>Privatfahrt</option>
-                      <option>Arbeitsweg</option>
+                      <option value="Dienstfahrt">{qtx("Dienstfahrt")}</option>
+                      <option value="Privatfahrt">{qtx("Privatfahrt")}</option>
+                      <option value="Arbeitsweg">{qtx("Arbeitsweg")}</option>
                     </select>
                   </label>
-                  <label><span>Zweck / Ärende</span><input list="quick-trip-purpose-options" value={quickTripForm.purpose} onChange={(event) => setQuickTripForm({ ...quickTripForm, purpose: event.target.value })} /></label>
-                  <label><span>Name / besucht bei</span><input disabled={quickTripForm.tripType !== "Dienstfahrt"} value={quickTripForm.visited} onChange={(event) => setQuickTripForm({ ...quickTripForm, visited: event.target.value })} /></label>
+                  <label><span>{qtx("Zweck / Ärende")}</span><input list="quick-trip-purpose-options" value={quickTripForm.purpose} onChange={(event) => setQuickTripForm({ ...quickTripForm, purpose: event.target.value })} /></label>
+                  <label><span>{qtx("Name / besucht bei")}</span><input disabled={quickTripForm.tripType !== "Dienstfahrt"} value={quickTripForm.visited} onChange={(event) => setQuickTripForm({ ...quickTripForm, visited: event.target.value })} /></label>
                 </div>
               </section>
               <datalist id="quick-trip-purpose-options">
@@ -12625,12 +12703,12 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
               <section className="trip-step">
                 <div className="trip-step-head">
                   <span>3</span>
-                  <strong>Unterwegs</strong>
-                  <small>Zwischenziele nur bei Bedarf erfassen.</small>
+                  <strong>{qtx("Unterwegs")}</strong>
+                  <small>{qtx("Zwischenziele nur bei Bedarf erfassen.")}</small>
                 </div>
                 <div className="waypoint-editor">
                   <div className="waypoint-editor-head">
-                    <span>Zwischenziele</span>
+                    <span>{qtx("Zwischenziele")}</span>
                     <button
                       className="ghost-button"
                       onClick={() => setQuickTripForm({
@@ -12643,17 +12721,17 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                       type="button"
                     >
                       <Plus size={14} />
-                      Ziel
+                      {qtx("Ziel")}
                     </button>
                   </div>
-                  {quickTripForm.waypoints.length === 0 && <small>Keine Zwischenziele erfasst.</small>}
+                  {quickTripForm.waypoints.length === 0 && <small>{qtx("Keine Zwischenziele erfasst.")}</small>}
                   {quickTripForm.waypoints.map((waypoint, waypointIndex) => (
                     <div className="waypoint-row-wrap" key={waypoint.id}>
                       <div className="waypoint-row waypoint-row-with-photo">
                         <input
-                          aria-label={`Zwischenziel ${waypointIndex + 1}`}
+                          aria-label={`${qtx("Zwischenziel")} ${waypointIndex + 1}`}
                           list="quick-trip-address-options"
-                          placeholder={`Zwischenziel ${waypointIndex + 1}`}
+                          placeholder={`${qtx("Zwischenziel")} ${waypointIndex + 1}`}
                           value={waypoint.address}
                           onChange={(event) => setQuickTripForm({
                             ...quickTripForm,
@@ -12663,9 +12741,9 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                           })}
                         />
                         <button
-                          aria-label={`Aktuelle Adresse für Zwischenziel ${waypointIndex + 1} laden`}
+                          aria-label={`${qtx("Aktuelle Adresse für Zwischenziel")} ${waypointIndex + 1}`}
                           className="icon-button"
-                          data-tooltip={tx("Aktuelle Adresse")}
+                          data-tooltip={qtx("Aktuelle Adresse")}
                           disabled={Boolean(quickTripAddressLoading)}
                           onClick={() => void loadCurrentQuickTripAddress(waypoint.id)}
                           type="button"
@@ -12673,8 +12751,8 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                           <ScanLine size={14} />
                         </button>
                         <input
-                          aria-label={`Notiz zu Zwischenziel ${waypointIndex + 1}`}
-                          placeholder="Notiz"
+                          aria-label={`${qtx("Notiz zu Zwischenziel")} ${waypointIndex + 1}`}
+                          placeholder={qtx("Notiz")}
                           value={waypoint.note}
                           onChange={(event) => setQuickTripForm({
                             ...quickTripForm,
@@ -12684,9 +12762,9 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                           })}
                         />
                         <input
-                          aria-label={`KM-Stand zu Zwischenziel ${waypointIndex + 1}`}
+                          aria-label={`${qtx("KM-Stand zu Zwischenziel")} ${waypointIndex + 1}`}
                           inputMode="numeric"
-                          placeholder="KM"
+                          placeholder={qtx("KM")}
                           value={waypoint.odometer ?? ""}
                           onChange={(event) => setQuickTripForm({
                             ...quickTripForm,
@@ -12695,11 +12773,11 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                             )),
                           })}
                         />
-                        <label className="icon-button waypoint-photo-button" data-tooltip={`Foto zu Zwischenziel ${waypointIndex + 1}`}>
+                        <label className="icon-button waypoint-photo-button" data-tooltip={`${qtx("Foto zu Zwischenziel")} ${waypointIndex + 1}`}>
                           <Camera size={14} />
                           <input
                             accept="image/*"
-                            aria-label={`Foto zu Zwischenziel ${waypointIndex + 1} aufnehmen`}
+                            aria-label={`${qtx("Foto zu Zwischenziel")} ${waypointIndex + 1}`}
                             capture="environment"
                             type="file"
                             onChange={(event) => {
@@ -12710,7 +12788,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                           />
                         </label>
                         <button
-                          aria-label={`Zwischenziel ${waypointIndex + 1} löschen`}
+                          aria-label={`${qtx("Zwischenziel")} ${waypointIndex + 1} ${qtx("Löschen")}`}
                           className="icon-button"
                           onClick={() => setQuickTripForm({ ...quickTripForm, waypoints: quickTripForm.waypoints.filter((item) => item.id !== waypoint.id) })}
                           type="button"
@@ -12720,7 +12798,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                       </div>
                       {waypoint.photo && (
                         <div className="waypoint-photo-preview">
-                          {waypoint.photo.previewUrl && <img alt={`Foto zu Zwischenziel ${waypointIndex + 1}`} src={waypoint.photo.previewUrl} />}
+                          {waypoint.photo.previewUrl && <img alt={`${qtx("Foto zu Zwischenziel")} ${waypointIndex + 1}`} src={waypoint.photo.previewUrl} />}
                           <small>{waypoint.photo.address || waypoint.photo.name}</small>
                         </div>
                       )}
@@ -12731,18 +12809,18 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
               <section className="trip-step">
                 <div className="trip-step-head">
                   <span>4</span>
-                  <strong>Ankunft</strong>
-                  <small>Zieladresse und End-KM beim Abstellen erfassen.</small>
+                  <strong>{qtx("Ankunft")}</strong>
+                  <small>{qtx("Zieladresse und End-KM beim Abstellen erfassen.")}</small>
                 </div>
                 <div className="form-grid compact-form">
-                  <label><span>End-Km</span><input ref={quickTripEndOdometerRef} inputMode="numeric" value={quickTripForm.endOdometer} onChange={(event) => setQuickTripForm({ ...quickTripForm, endOdometer: event.target.value })} /></label>
-                  <label><span>Kilometer</span><input inputMode="numeric" placeholder="wird aus Km-Ständen berechnet" value={quickTripForm.kilometers} onChange={(event) => setQuickTripForm({ ...quickTripForm, kilometers: event.target.value })} /></label>
-                  <label className="wide"><span>Zieladresse</span>
+                  <label><span>{qtx("End-Km")}</span><input ref={quickTripEndOdometerRef} inputMode="numeric" value={quickTripForm.endOdometer} onChange={(event) => setQuickTripForm({ ...quickTripForm, endOdometer: event.target.value })} /></label>
+                  <label><span>{qtx("Kilometer")}</span><input inputMode="numeric" placeholder={qtx("wird aus Km-Ständen berechnet")} value={quickTripForm.kilometers} onChange={(event) => setQuickTripForm({ ...quickTripForm, kilometers: event.target.value })} /></label>
+                  <label className="wide"><span>{qtx("Zieladresse")}</span>
                     <div className="address-gps-row">
                       <input list="quick-trip-address-options" value={quickTripForm.endAddress} onChange={(event) => setQuickTripForm({ ...quickTripForm, endAddress: event.target.value })} />
                       <button className="ghost-button compact" disabled={Boolean(quickTripAddressLoading)} onClick={() => void loadCurrentQuickTripAddress("end")} type="button">
                         <ScanLine size={15} />
-                        {quickTripAddressLoading === "end" ? tx("Lädt...") : tx("Aktuelle Adresse")}
+                        {quickTripAddressLoading === "end" ? qtx("Lädt...") : qtx("Aktuelle Adresse")}
                       </button>
                     </div>
                   </label>
@@ -12750,18 +12828,18 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                     const photo = quickTripForm.odometerPhotos.find((item) => item.source === source);
                     return (
                       <div className="trip-photo-capture" key={source}>
-                        <span>Endfoto Tacho</span>
-                        <strong>{photo ? photo.name : "Beim Abstellen aufnehmen"}</strong>
-                        {photo?.previewUrl ? <img alt="Ende Tachofoto" src={photo.previewUrl} /> : <Camera size={18} />}
-                        {photo?.odometerReading && <small>KM-Stand: {photo.odometerReading}</small>}
+                        <span>{qtx("Endfoto Tacho")}</span>
+                        <strong>{photo ? photo.name : qtx("Beim Abstellen aufnehmen")}</strong>
+                        {photo?.previewUrl ? <img alt={qtx("Endfoto Tacho")} src={photo.previewUrl} /> : <Camera size={18} />}
+                        {photo?.odometerReading && <small>{qtx("KM-Stand")}: {photo.odometerReading}</small>}
                         {photo?.address && <small>{photo.address}</small>}
                         <div className="trip-photo-actions">
                           <label className="ghost-button">
                             <Camera size={15} />
-                            Foto wählen
+                            {qtx("Foto wählen")}
                             <input
                               accept="image/*"
-                              aria-label="Endfoto Tacho aufnehmen"
+                              aria-label={qtx("Endfoto Tacho")}
                               capture="environment"
                               type="file"
                               onChange={(event) => {
@@ -12774,7 +12852,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                           {photo?.previewUrl && (
                             <button className="ghost-button" type="button" onClick={() => void readQuickTripOdometerFromPhoto(source)}>
                               <ScanLine size={15} />
-                              KM lesen
+                              {qtx("KM lesen")}
                             </button>
                           )}
                         </div>
@@ -12786,18 +12864,18 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
               <section className="trip-step">
                 <div className="trip-step-head">
                   <span>5</span>
-                  <strong>Optional</strong>
-                  <small>Tanken, Laden oder Beleg zur Fahrt ergänzen.</small>
+                  <strong>{qtx("Optional")}</strong>
+                  <small>{qtx("Tanken, Laden oder Beleg zur Fahrt ergänzen.")}</small>
                 </div>
                 <div className="form-grid compact-form">
-                  <label className="wide"><span>Tanken / Laden</span><input placeholder="z.B. Diesel 42 l, laddning 18 kWh" value={quickTripForm.fuelOrCharge} onChange={(event) => setQuickTripForm({ ...quickTripForm, fuelOrCharge: event.target.value })} /></label>
+                  <label className="wide"><span>{qtx("Tanken / Laden")}</span><input placeholder="z.B. Diesel 42 l, laddning 18 kWh" value={quickTripForm.fuelOrCharge} onChange={(event) => setQuickTripForm({ ...quickTripForm, fuelOrCharge: event.target.value })} /></label>
                   <div className="wide receipt-photo-field">
                     <label className="ghost-button">
                       <Paperclip size={15} />
-                      Tank-/Ladebeleg scannen
+                      {qtx("Tank-/Ladebeleg scannen")}
                       <input
                         accept="image/*"
-                        aria-label="Tank- oder Ladebeleg scannen"
+                        aria-label={qtx("Tank-/Ladebeleg scannen")}
                         capture="environment"
                         type="file"
                         onChange={(event) => {
@@ -12809,7 +12887,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                     </label>
                     {quickTripForm.fuelReceiptPhoto?.previewUrl && (
                       <div className="receipt-photo-preview">
-                        <img alt="Tank- oder Ladebeleg" src={quickTripForm.fuelReceiptPhoto.previewUrl} />
+                        <img alt={qtx("Tank-/Ladebeleg scannen")} src={quickTripForm.fuelReceiptPhoto.previewUrl} />
                         <small>{quickTripForm.fuelReceiptPhoto.name}</small>
                       </div>
                     )}
@@ -12819,15 +12897,15 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
             </div>
             <div className="modal-actions">
               <button className="ghost-button" onClick={cancelQuickTrip} type="button">
-                {quickTripForm.activeLogbookEntryId ? tx("Fahrt verwerfen") : tx("Abbrechen")}
+                {quickTripForm.activeLogbookEntryId ? qtx("Fahrt verwerfen") : qtx("Abbrechen")}
               </button>
               <button className="ghost-button" onClick={saveQuickTripDraft} type="button">
                 <Check size={16} />
-                {tx("Zwischenspeichern")}
+                {qtx("Zwischenspeichern")}
               </button>
               <button className="primary-button" onClick={() => quickTripForm.activeLogbookEntryId ? void saveQuickTrip() : void startQuickTrip()} type="button">
                 <Check size={16} />
-                {quickTripForm.activeLogbookEntryId ? tx("Fahrt abschließen") : tx("Fahrt starten")}
+                {quickTripForm.activeLogbookEntryId ? qtx("Fahrt abschließen") : qtx("Fahrt starten")}
               </button>
             </div>
           </section>
@@ -18798,6 +18876,7 @@ function MasterDataView({
     licensePlate: "",
     location: "",
     logbookActive: true,
+    logbookLanguage: "sv" as Language,
     logbookYear: String(new Date().getFullYear()),
     maintenanceItems: [] as ResourceMaintenanceItem[],
     mediaItems: [] as MediaItem[],
@@ -18914,6 +18993,8 @@ function MasterDataView({
   const activeResources = resources.filter((resource) => !resource.archived);
   const archivedResources = resources.filter((resource) => resource.archived);
   const selectedResource = resources.find((resource) => resource.id === editingResourceId);
+  const selectedLogbookLanguage = vehicleLogbookLanguage(selectedResource, language);
+  const lt = (value: string) => uiTextWithOverrides(value, selectedLogbookLanguage, translationOverrides);
   const selectedResourceLogbook = selectedResource?.type === "Fahrzeug" ? sortVehicleLogbook(selectedResource.logbook) : [];
   const selectedResourceRegulation = selectedResource?.type === "Fahrzeug" ? drivingLogRegulationForCountry(selectedResource.taxCountry) : undefined;
   const selectedResourceNeedsOdometerCheck = selectedResource?.type === "Fahrzeug" ? needsCurrentMonthOdometerCheck(selectedResource) : false;
@@ -19120,6 +19201,7 @@ function MasterDataView({
       licensePlate: "",
       location: "",
       logbookActive: true,
+      logbookLanguage: "sv",
       logbookYear: String(new Date().getFullYear()),
       maintenanceItems: [],
       mediaItems: [],
@@ -19161,6 +19243,7 @@ function MasterDataView({
       licensePlate: resource.licensePlate ?? resource.identifier,
       location: resource.location,
       logbookActive: resource.logbookActive ?? true,
+      logbookLanguage: vehicleLogbookLanguage(resource, language),
       logbookYear: resource.logbookYear || String(new Date().getFullYear()),
       maintenanceItems: resource.maintenanceItems ?? [],
       mediaItems: resource.media ?? [],
@@ -19281,6 +19364,7 @@ function MasterDataView({
       licensePlate: resourceForm.licensePlate.trim() || resourceForm.identifier.trim(),
       location: resourceForm.location.trim(),
       logbookActive: resourceForm.logbookActive,
+      logbookLanguage: resourceForm.logbookLanguage,
       logbook: existingResource?.logbook ?? [],
       logbookYear: resourceForm.logbookYear.trim() || String(new Date().getFullYear()),
       maintenanceItems: resourceForm.maintenanceItems,
@@ -19302,8 +19386,9 @@ function MasterDataView({
       status: resourceForm.status.trim() || "aktiv",
       taxCountry: resourceForm.taxCountry,
       tracking: resourceForm.type === "Fahrzeug"
-        ? {
+          ? {
             deviceId: resourceForm.trackerDeviceId.trim(),
+            logbookLanguage: resourceForm.logbookLanguage,
             mode: resourceForm.trackingMode,
             provider: resourceForm.trackerProvider.trim(),
           }
@@ -20686,8 +20771,8 @@ function MasterDataView({
               <section className={`modal resource-editor-modal${resourceModalView === "logbook" ? " resource-logbook-modal" : ""}`} role="dialog" aria-modal="true" aria-labelledby="resource-editor-title">
                 <header>
                   <div>
-                    <p>{resourceModalView === "logbook" ? tt("Fahrtenbuch") : tt("Ressourcen")}</p>
-                    <h2 id="resource-editor-title">{resourceModalView === "logbook" ? tt("Fahrtenbuch") : editingResourceId ? resourceForm.name || tt("Ressource bearbeiten") : tt("Neue Ressource anlegen")}</h2>
+                    <p>{resourceModalView === "logbook" ? lt("Fahrtenbuch") : tt("Ressourcen")}</p>
+                    <h2 id="resource-editor-title">{resourceModalView === "logbook" ? lt("Fahrtenbuch") : editingResourceId ? resourceForm.name || tt("Ressource bearbeiten") : tt("Neue Ressource anlegen")}</h2>
                     {resourceModalView === "logbook" && selectedResource ? <span>{selectedResource.name}</span> : null}
                   </div>
                   <div className="modal-header-actions">
@@ -20695,29 +20780,29 @@ function MasterDataView({
                       <>
                         <button className="primary-button" onClick={openCreateLogbookEntry} type="button">
                           <Plus size={16} />
-                          {tt("Neue Fahrt")}
+                          {lt("Neue Fahrt")}
                         </button>
                         <button className="ghost-button" onClick={() => void downloadVehicleLogbookPdf(selectedResource, selectedResourceLogbook, activePersonnel, false)} type="button">
                           <FileDown size={16} />
-                          {tt("PDF ohne Bilder")}
+                          {lt("PDF ohne Bilder")}
                         </button>
                         <button className="ghost-button" onClick={() => void downloadVehicleLogbookPdf(selectedResource, selectedResourceLogbook, activePersonnel, true)} type="button">
                           <FileDown size={16} />
-                          {tt("PDF mit Bildern")}
+                          {lt("PDF mit Bildern")}
                         </button>
                         <button className="ghost-button" disabled={!selectedResourceRegulation} onClick={() => selectedResourceRegulation && setRegulationViewer(selectedResourceRegulation)} type="button">
                           <FileText size={16} />
-                          {tt("Vorgaben für dieses Fahrzeug")}
+                          {lt("Vorgaben für dieses Fahrzeug")}
                         </button>
                       </>
                     )}
                     {selectedResource?.type === "Fahrzeug" && (
                       <button className="ghost-button" onClick={() => setResourceModalView(resourceModalView === "logbook" ? "details" : "logbook")} type="button">
                         <CarFront size={16} />
-                        {resourceModalView === "logbook" ? tt("Stammdaten") : tt("Fahrtenbuch")}
+                        {resourceModalView === "logbook" ? lt("Stammdaten") : tt("Fahrtenbuch")}
                       </button>
                     )}
-                    <button aria-label={tt("Ressource schließen")} onClick={resetResourceForm} type="button">
+                    <button aria-label={resourceModalView === "logbook" ? lt("Ressource schließen") : tt("Ressource schließen")} onClick={resetResourceForm} type="button">
                       <X size={18} />
                     </button>
                   </div>
@@ -20784,6 +20869,13 @@ function MasterDataView({
                     <select value={resourceForm.logbookActive ? "ja" : "nein"} onChange={(event) => setResourceForm({ ...resourceForm, logbookActive: event.target.value === "ja" })}>
                       <option value="ja">{tt("Ja")}</option>
                       <option value="nein">{tt("Nein")}</option>
+                    </select>
+                  </label>
+                  <label className="resource-field"><span>{tt("Fahrtenbuchsprache")}</span>
+                    <select value={resourceForm.logbookLanguage} onChange={(event) => setResourceForm({ ...resourceForm, logbookLanguage: event.target.value as Language })}>
+                      <option value="de">{tt("Deutsch")}</option>
+                      <option value="sv">{tt("Schwedisch")}</option>
+                      <option value="en">{tt("Englisch")}</option>
                     </select>
                   </label>
                   <label className="resource-field"><span>{tt("Privatnutzung erlaubt")}</span>
@@ -20946,93 +21038,93 @@ function MasterDataView({
             <section className="vehicle-logbook resource-modal-logbook">
               <div className={selectedResourceNeedsOdometerCheck && new Date().getDate() >= 20 ? "logbook-warning strong" : "logbook-warning"}>
                 <div className="logbook-warning-copy">
-                  <strong>{selectedResourceNeedsOdometerCheck ? tt("Monatliche Kilometerstand-Kontrolle noch offen.") : tt("Kilometerstand in diesem Monat bestätigt.")}</strong>
-                  <span>{selectedResourceNeedsOdometerCheck ? `Kilometerstand für ${currentMonthLabel()} noch nicht bestätigt.` : `${tt("Letzte Prüfung")}: ${selectedResource.odometerLastConfirmedAt ? formatCreatedAt(selectedResource.odometerLastConfirmedAt) : "-"}`}</span>
+                  <strong>{selectedResourceNeedsOdometerCheck ? lt("Monatliche Kilometerstand-Kontrolle noch offen.") : lt("Kilometerstand in diesem Monat bestätigt.")}</strong>
+                  <span>{selectedResourceNeedsOdometerCheck ? missingMonthlyOdometerText(selectedLogbookLanguage) : `${lt("Letzte Prüfung")}: ${selectedResource.odometerLastConfirmedAt ? formatCreatedAt(selectedResource.odometerLastConfirmedAt) : "-"}`}</span>
                 </div>
                 {selectedResourceNeedsOdometerCheck && (
                   <div className="monthly-odometer-check">
-                    <label><span>{tt("Kilometerstand")}</span><input inputMode="numeric" value={monthlyOdometerForm.odometer} onChange={(event) => setMonthlyOdometerForm({ ...monthlyOdometerForm, odometer: event.target.value })} /></label>
-                    <label><span>{tt("Benutzer")}</span>
+                    <label><span>{lt("Kilometerstand")}</span><input inputMode="numeric" value={monthlyOdometerForm.odometer} onChange={(event) => setMonthlyOdometerForm({ ...monthlyOdometerForm, odometer: event.target.value })} /></label>
+                    <label><span>{lt("Benutzer")}</span>
                       <select value={monthlyOdometerForm.driverId} onChange={(event) => setMonthlyOdometerForm({ ...monthlyOdometerForm, driverId: event.target.value })}>
-                        <option value="">{tt("Nicht zugeordnet")}</option>
+                        <option value="">{lt("Nicht zugeordnet")}</option>
                         {activePersonnel.map((person) => <option key={person.id} value={person.id}>{person.firstName} {person.lastName}</option>)}
                       </select>
                     </label>
                     <label className="ghost-button odometer-check-photo">
                       <Camera size={16} />
-                      {monthlyOdometerForm.photo ? tt("Foto erfasst") : tt("Tachofoto aufnehmen")}
+                      {monthlyOdometerForm.photo ? lt("Foto erfasst") : lt("Tachofoto aufnehmen")}
                       <input accept="image/*" capture="environment" onChange={(event) => {
                         const file = event.target.files?.[0];
                         if (file) void captureMonthlyOdometerPhoto(file);
                         event.target.value = "";
                       }} type="file" />
                     </label>
-                    <button className="primary-button" onClick={saveMonthlyOdometerCheck} type="button"><Check size={16} />{tt("Kontrolle speichern")}</button>
+                    <button className="primary-button" onClick={saveMonthlyOdometerCheck} type="button"><Check size={16} />{lt("Kontrolle speichern")}</button>
                   </div>
                 )}
               </div>
               {selectedResourceRegulation && (
                 <div className="regulation-inline">
                   <div>
-                    <span>{tt("Steuerliche Vorgaben")}</span>
-                    <strong>{drivingLogCountryName(selectedResource.taxCountry)} · {selectedResourceRegulation.ruleVersion}</strong>
+                    <span>{lt("Steuerliche Vorgaben")}</span>
+                    <strong>{lt(drivingLogCountryName(selectedResource.taxCountry))} · {selectedResourceRegulation.ruleVersion}</strong>
                   </div>
                   <button className="ghost-button" onClick={() => setRegulationViewer(selectedResourceRegulation)} type="button">
                     <FileText size={16} />
-                    {tt("Vorgaben anzeigen")}
+                    {lt("Vorgaben anzeigen")}
                   </button>
                 </div>
               )}
               {logbookEntryEditorOpen && (
                 <div className="form-grid compact-form logbook-entry-editor">
-                  <label><span>{tt("Datum")}</span><input type="date" value={logbookForm.date} onChange={(event) => setLogbookForm({ ...logbookForm, date: event.target.value })} /></label>
-                  <label><span>{tt("Fahrer")}</span>
+                  <label><span>{lt("Datum")}</span><input type="date" value={logbookForm.date} onChange={(event) => setLogbookForm({ ...logbookForm, date: event.target.value })} /></label>
+                  <label><span>{lt("Fahrer")}</span>
                     <select value={logbookForm.driverId} onChange={(event) => setLogbookForm({ ...logbookForm, driverId: event.target.value })}>
-                      <option value="">{tt("Nicht zugeordnet")}</option>
+                      <option value="">{lt("Nicht zugeordnet")}</option>
                       {activePersonnel.map((person) => <option key={person.id} value={person.id}>{person.firstName} {person.lastName}</option>)}
                     </select>
                   </label>
-                  <label><span>{tt("Art")}</span>
+                  <label><span>{lt("Art")}</span>
                     <select value={logbookForm.tripType} onChange={(event) => setLogbookForm({ ...logbookForm, tripType: event.target.value as VehicleLogEntry["tripType"] })}>
-                      <option value="Dienstfahrt">{tt("Dienstfahrt")}</option>
-                      <option value="Privatfahrt">{tt("Privatfahrt")}</option>
-                      <option value="Arbeitsweg">{tt("Arbeitsweg")}</option>
+                      <option value="Dienstfahrt">{lt("Dienstfahrt")}</option>
+                      <option value="Privatfahrt">{lt("Privatfahrt")}</option>
+                      <option value="Arbeitsweg">{lt("Arbeitsweg")}</option>
                     </select>
                   </label>
-                  <label><span>{tt("Start-Km")}</span><input inputMode="numeric" value={logbookForm.startOdometer} onChange={(event) => setLogbookForm({ ...logbookForm, startOdometer: event.target.value })} /></label>
-                  <label><span>{tt("End-Km")}</span><input inputMode="numeric" value={logbookForm.endOdometer} onChange={(event) => setLogbookForm({ ...logbookForm, endOdometer: event.target.value })} /></label>
-                  <label><span>{tt("Kilometer")}</span><input inputMode="numeric" value={logbookForm.kilometers} onChange={(event) => setLogbookForm({ ...logbookForm, kilometers: event.target.value })} /></label>
-                  <label><span>{tt("Startadresse")}</span>
+                  <label><span>{lt("Start-Km")}</span><input inputMode="numeric" value={logbookForm.startOdometer} onChange={(event) => setLogbookForm({ ...logbookForm, startOdometer: event.target.value })} /></label>
+                  <label><span>{lt("End-Km")}</span><input inputMode="numeric" value={logbookForm.endOdometer} onChange={(event) => setLogbookForm({ ...logbookForm, endOdometer: event.target.value })} /></label>
+                  <label><span>{lt("Kilometer")}</span><input inputMode="numeric" value={logbookForm.kilometers} onChange={(event) => setLogbookForm({ ...logbookForm, kilometers: event.target.value })} /></label>
+                  <label><span>{lt("Startadresse")}</span>
                     <div className="address-gps-row">
                       <input list="logbook-address-options" value={logbookForm.startAddress} onChange={(event) => setLogbookForm({ ...logbookForm, startAddress: event.target.value })} />
                       <button className="ghost-button compact" disabled={Boolean(logbookAddressLoading)} onClick={() => void loadCurrentLogbookAddress("start")} type="button">
                         <ScanLine size={15} />
-                        {logbookAddressLoading === "start" ? tt("Lädt...") : tt("Aktuelle Adresse")}
+                        {logbookAddressLoading === "start" ? lt("Lädt...") : lt("Aktuelle Adresse")}
                       </button>
                     </div>
                   </label>
-                  <label><span>{tt("Zieladresse")}</span>
+                  <label><span>{lt("Zieladresse")}</span>
                     <div className="address-gps-row">
                       <input list="logbook-address-options" value={logbookForm.endAddress} onChange={(event) => setLogbookForm({ ...logbookForm, endAddress: event.target.value })} />
                       <button className="ghost-button compact" disabled={Boolean(logbookAddressLoading)} onClick={() => void loadCurrentLogbookAddress("end")} type="button">
                         <ScanLine size={15} />
-                        {logbookAddressLoading === "end" ? tt("Lädt...") : tt("Aktuelle Adresse")}
+                        {logbookAddressLoading === "end" ? lt("Lädt...") : lt("Aktuelle Adresse")}
                       </button>
                     </div>
                   </label>
                   <datalist id="logbook-address-options">
                     {logbookAddressOptions.map((address) => <option key={address} value={address} />)}
                   </datalist>
-                  <label><span>{tt("Zweck")}</span><input list="logbook-purpose-options" value={logbookForm.purpose} onChange={(event) => setLogbookForm({ ...logbookForm, purpose: event.target.value })} /></label>
+                  <label><span>{lt("Zweck")}</span><input list="logbook-purpose-options" value={logbookForm.purpose} onChange={(event) => setLogbookForm({ ...logbookForm, purpose: event.target.value })} /></label>
                   <datalist id="logbook-purpose-options">
                     {logbookPurposeOptions.map((purpose) => <option key={purpose} value={purpose} />)}
                   </datalist>
-                  <label><span>{tt("Besucht bei")}</span><input disabled={logbookForm.tripType !== "Dienstfahrt"} value={logbookForm.visited} onChange={(event) => setLogbookForm({ ...logbookForm, visited: event.target.value })} /></label>
-                  <label><span>{tt("Tanken / Laden")}</span><input value={logbookForm.fuelOrCharge} onChange={(event) => setLogbookForm({ ...logbookForm, fuelOrCharge: event.target.value })} /></label>
-                  <label className="wide"><span>{tt("Notiz")}</span><textarea value={logbookForm.notes} onChange={(event) => setLogbookForm({ ...logbookForm, notes: event.target.value })} /></label>
+                  <label><span>{lt("Besucht bei")}</span><input disabled={logbookForm.tripType !== "Dienstfahrt"} value={logbookForm.visited} onChange={(event) => setLogbookForm({ ...logbookForm, visited: event.target.value })} /></label>
+                  <label><span>{lt("Tanken / Laden")}</span><input value={logbookForm.fuelOrCharge} onChange={(event) => setLogbookForm({ ...logbookForm, fuelOrCharge: event.target.value })} /></label>
+                  <label className="wide"><span>{lt("Notiz")}</span><textarea value={logbookForm.notes} onChange={(event) => setLogbookForm({ ...logbookForm, notes: event.target.value })} /></label>
                   <div className="wide waypoint-editor">
                     <div className="waypoint-editor-head">
-                      <span>{tt("Zwischenziele")}</span>
+                      <span>{lt("Zwischenziele")}</span>
                       <button
                         className="ghost-button"
                         onClick={() => setLogbookForm({
@@ -21045,15 +21137,15 @@ function MasterDataView({
                         type="button"
                       >
                         <Plus size={14} />
-                        {tt("Ziel")}
+                        {lt("Ziel")}
                       </button>
                     </div>
                     {logbookForm.waypoints.map((waypoint, waypointIndex) => (
                       <div className="waypoint-row" key={waypoint.id}>
                         <input
-                          aria-label={`Zwischenziel ${waypointIndex + 1}`}
+                          aria-label={`${lt("Zwischenziel")} ${waypointIndex + 1}`}
                           list="logbook-address-options"
-                          placeholder={`${tt("Zwischenziel")} ${waypointIndex + 1}`}
+                          placeholder={`${lt("Zwischenziel")} ${waypointIndex + 1}`}
                           value={waypoint.address}
                           onChange={(event) => setLogbookForm({
                             ...logbookForm,
@@ -21063,9 +21155,9 @@ function MasterDataView({
                           })}
                         />
                         <button
-                          aria-label={`Aktuelle Adresse für Zwischenziel ${waypointIndex + 1} laden`}
+                          aria-label={`${lt("Aktuelle Adresse für Zwischenziel")} ${waypointIndex + 1}`}
                           className="icon-button"
-                          data-tooltip={tt("Aktuelle Adresse")}
+                          data-tooltip={lt("Aktuelle Adresse")}
                           disabled={Boolean(logbookAddressLoading)}
                           onClick={() => void loadCurrentLogbookAddress(waypoint.id)}
                           type="button"
@@ -21073,8 +21165,8 @@ function MasterDataView({
                           <ScanLine size={14} />
                         </button>
                         <input
-                          aria-label={`Notiz zu Zwischenziel ${waypointIndex + 1}`}
-                          placeholder={tt("Notiz")}
+                          aria-label={`${lt("Notiz zu Zwischenziel")} ${waypointIndex + 1}`}
+                          placeholder={lt("Notiz")}
                           value={waypoint.note}
                           onChange={(event) => setLogbookForm({
                             ...logbookForm,
@@ -21084,9 +21176,9 @@ function MasterDataView({
                           })}
                         />
                         <input
-                          aria-label={`KM-Stand zu Zwischenziel ${waypointIndex + 1}`}
+                          aria-label={`${lt("KM-Stand zu Zwischenziel")} ${waypointIndex + 1}`}
                           inputMode="numeric"
-                          placeholder={tt("KM")}
+                          placeholder={lt("KM")}
                           value={waypoint.odometer ?? ""}
                           onChange={(event) => setLogbookForm({
                             ...logbookForm,
@@ -21096,7 +21188,7 @@ function MasterDataView({
                           })}
                         />
                         <button
-                          aria-label={`Zwischenziel ${waypointIndex + 1} löschen`}
+                          aria-label={`${lt("Zwischenziel")} ${waypointIndex + 1} ${lt("Löschen")}`}
                           className="icon-button"
                           onClick={() => setLogbookForm({ ...logbookForm, waypoints: logbookForm.waypoints.filter((item) => item.id !== waypoint.id) })}
                           type="button"
@@ -21106,60 +21198,60 @@ function MasterDataView({
                       </div>
                     ))}
                   </div>
-                  <button className="primary-button wide" onClick={saveLogbookEntry} type="button">{editingLogEntryId ? tt("Fahrt speichern") : tt("Fahrt eintragen")}</button>
-                  <button className="ghost-button wide" onClick={() => { resetLogbookForm(); setLogbookEntryEditorOpen(false); }} type="button">{tt("Bearbeitung abbrechen")}</button>
+                  <button className="primary-button wide" onClick={saveLogbookEntry} type="button">{editingLogEntryId ? lt("Fahrt speichern") : lt("Fahrt eintragen")}</button>
+                  <button className="ghost-button wide" onClick={() => { resetLogbookForm(); setLogbookEntryEditorOpen(false); }} type="button">{lt("Bearbeitung abbrechen")}</button>
                 </div>
               )}
               <div className="logbook-summary">
-                <span><strong>{logbookStats.totalKm}</strong> km gesamt</span>
-                <span><strong>{logbookStats.businessKm}</strong> km dienstlich</span>
-                <span><strong>{logbookStats.privateKm}</strong> km privat</span>
-                <span><strong>{logbookStats.privateTrips}</strong> Privatfahrten</span>
+                <span><strong>{logbookStats.totalKm}</strong> {lt("km gesamt")}</span>
+                <span><strong>{logbookStats.businessKm}</strong> {lt("km dienstlich")}</span>
+                <span><strong>{logbookStats.privateKm}</strong> {lt("km privat")}</span>
+                <span><strong>{logbookStats.privateTrips}</strong> {lt("Privatfahrten")}</span>
               </div>
               <div className="logbook-table-wrap">
                 <table className="logbook-table">
                   <thead>
                     <tr>
-                      <th>{tt("Datum")}</th>
-                      <th>{tt("Fahrer")}</th>
-                      <th>{tt("Art")}</th>
-                      <th>{tt("Route")}</th>
-                      <th>{tt("KM-Stand")}</th>
-                      <th>{tt("KM")}</th>
-                      <th>{tt("Zweck / besucht bei")}</th>
-                      <th>{tt("Belege / Fotos")}</th>
-                      <th aria-label={tt("Aktionen")} />
+                      <th>{lt("Datum")}</th>
+                      <th>{lt("Fahrer")}</th>
+                      <th>{lt("Art")}</th>
+                      <th>{lt("Route")}</th>
+                      <th>{lt("KM-Stand")}</th>
+                      <th>{lt("KM")}</th>
+                      <th>{lt("Zweck / besucht bei")}</th>
+                      <th>{lt("Belege / Fotos")}</th>
+                      <th aria-label={lt("Aktionen")} />
                     </tr>
                   </thead>
                   <tbody>
                     {selectedResourceLogbook.length === 0 ? (
                       <tr>
-                        <td colSpan={9}>{tt("Noch keine Fahrten für dieses Fahrzeug erfasst.")}</td>
+                        <td colSpan={9}>{lt("Noch keine Fahrten für dieses Fahrzeug erfasst.")}</td>
                       </tr>
                     ) : selectedResourceLogbook.map((entry) => {
                       const waypointRows = (entry.waypoints ?? []).map((waypoint, waypointIndex) => {
-                        const label = waypoint.address || waypoint.photo?.name || `${tt("Zwischenziel")} ${waypointIndex + 1}`;
+                        const label = waypoint.address || waypoint.photo?.name || `${lt("Zwischenziel")} ${waypointIndex + 1}`;
                         const details = [waypoint.odometer ? `${waypoint.odometer} km` : "", waypoint.note].filter(Boolean).join(" · ");
                         return { details, label };
                       });
                       const attachmentLabels = [
-                        entry.fuelReceiptPhoto?.previewUrl ? "Tankbeleg" : "",
-                        entry.odometerPhotos?.length ? `${entry.odometerPhotos.length} Tachofoto(s)` : "",
-                        (entry.waypoints ?? []).some((waypoint) => waypoint.photo?.previewUrl) ? "Zwischenziel-Foto(s)" : "",
+                        entry.fuelReceiptPhoto?.previewUrl ? lt("Tankbeleg") : "",
+                        entry.odometerPhotos?.length ? `${entry.odometerPhotos.length} ${lt("Tachofoto(s)")}` : "",
+                        (entry.waypoints ?? []).some((waypoint) => waypoint.photo?.previewUrl) ? lt("Zwischenziel-Foto(s)") : "",
                       ].filter(Boolean);
                       return (
                         <tr key={entry.id}>
                           <td>{entry.date}</td>
                           <td>{personName(entry.driverId)}</td>
-                          <td>{entry.tripType}</td>
+                          <td>{lt(entry.tripType)}</td>
                           <td className="logbook-route-cell">
-                            <span><strong>{tt("Start")}:</strong> {entry.startAddress || "-"}</span>
+                            <span><strong>{lt("Start")}:</strong> {entry.startAddress || "-"}</span>
                             {waypointRows.map((waypoint, waypointIndex) => (
                               <span key={`${entry.id}-waypoint-${waypointIndex}`}>
-                                <strong>{tt("Zwischenziel")} {waypointIndex + 1}:</strong> {waypoint.label}{waypoint.details ? ` · ${waypoint.details}` : ""}
+                                <strong>{lt("Zwischenziel")} {waypointIndex + 1}:</strong> {waypoint.label}{waypoint.details ? ` · ${waypoint.details}` : ""}
                               </span>
                             ))}
-                            <span><strong>{tt("Ziel")}:</strong> {entry.endAddress || "-"}</span>
+                            <span><strong>{lt("Ziel")}:</strong> {entry.endAddress || "-"}</span>
                           </td>
                           <td>{entry.startOdometer || "-"} → {entry.endOdometer || "-"}</td>
                           <td className="number-cell">{entry.kilometers || "-"}</td>
@@ -21174,8 +21266,8 @@ function MasterDataView({
                           </td>
                           <td>
                             <div className="row-actions">
-                              <IconAction label={`Fahrt vom ${entry.date} bearbeiten`} onClick={() => editLogbookEntry(entry)}><Pencil size={16} /></IconAction>
-                              <IconAction danger label={`Fahrt vom ${entry.date} löschen`} onClick={() => deleteLogbookEntry(entry.id)}><Trash2 size={16} /></IconAction>
+                              <IconAction label={`${lt("Fahrt")} ${entry.date} ${lt("Bearbeiten")}`} onClick={() => editLogbookEntry(entry)}><Pencil size={16} /></IconAction>
+                              <IconAction danger label={`${lt("Fahrt")} ${entry.date} ${lt("Löschen")}`} onClick={() => deleteLogbookEntry(entry.id)}><Trash2 size={16} /></IconAction>
                             </div>
                           </td>
                         </tr>

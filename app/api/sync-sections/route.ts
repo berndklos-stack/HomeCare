@@ -664,6 +664,9 @@ function mergeReports(existingReports: unknown, patchReports: unknown) {
 }
 
 function resourceToRow(resource: JsonObject) {
+  const tracking = resource.tracking && typeof resource.tracking === "object" && !Array.isArray(resource.tracking)
+    ? resource.tracking as JsonObject
+    : {};
   return {
     archived: Boolean(resource.archived),
     brand: stringOrEmpty(resource.brand),
@@ -695,7 +698,10 @@ function resourceToRow(resource: JsonObject) {
     status: stringOrEmpty(resource.status),
     standard_trips: Array.isArray(resource.standardTrips) ? resource.standardTrips : [],
     tax_country: stringOrEmpty(resource.taxCountry),
-    tracking: resource.tracking && typeof resource.tracking === "object" ? resource.tracking : {},
+    tracking: {
+      ...tracking,
+      logbookLanguage: stringOrEmpty(resource.logbookLanguage),
+    },
     type: stringOrEmpty(resource.type) || "Fahrzeug",
     id: String(resource.id),
   };
@@ -1445,6 +1451,7 @@ function rowToTranslation(row: TranslationRow) {
 
 function rowToResource(row: ResourceRow, trips: VehicleTripRow[], mediaRows: MediaRow[] = []) {
   const media = mediaRows.filter((item) => item.owner_id === row.id).map(rowToMedia);
+  const tracking = row.tracking && typeof row.tracking === "object" && !Array.isArray(row.tracking) ? row.tracking as JsonObject : {};
   return {
     archived: Boolean(row.archived),
     brand: row.brand ?? "",
@@ -1457,6 +1464,7 @@ function rowToResource(row: ResourceRow, trips: VehicleTripRow[], mediaRows: Med
     licensePlate: row.license_plate ?? "",
     location: row.location ?? "",
     logbookActive: row.logbook_active !== false,
+    logbookLanguage: ["de", "sv", "en"].includes(stringOrEmpty(tracking.logbookLanguage)) ? stringOrEmpty(tracking.logbookLanguage) : undefined,
     logbook: trips
       .filter((trip) => trip.resource_id === row.id)
       .map(rowToTrip)
@@ -1481,7 +1489,7 @@ function rowToResource(row: ResourceRow, trips: VehicleTripRow[], mediaRows: Med
     status: row.status ?? "",
     standardTrips: Array.isArray(row.standard_trips) ? row.standard_trips : [],
     taxCountry: row.tax_country ?? "",
-    tracking: row.tracking && typeof row.tracking === "object" ? row.tracking : undefined,
+    tracking: Object.keys(tracking).length > 0 ? tracking : undefined,
     type: row.type,
     id: row.id,
   };

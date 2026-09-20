@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.415.0",
+  version: "1.416.0",
   releaseDate: "2026-09-20",
   label: "Homecare",
 };
 
 export const versionHistory = [
+  {
+    version: "1.416.0",
+    date: "2026-09-20",
+    changes: [
+      "Fahrzeuge speichern eine eigene Fahrtenbuchsprache für Deutsch, Schwedisch oder Englisch",
+      "Fahrtenbuch, Schnellfahrt und Fahrtenbuch-PDF verwenden durchgehend die Sprache des Fahrzeugs",
+      "Fahrtarten, Kilometerangaben, Foto- und Belegtexte sowie Baujahr sind vollständig übersetzt",
+    ],
+  },
   {
     version: "1.415.0",
     date: "2026-09-20",
