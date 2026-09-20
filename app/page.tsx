@@ -13844,7 +13844,7 @@ function CustomersView({
           <small>{visibleCustomers.length}</small>
         </button>
         {activeCustomersOpen && (
-          <div className="table-list">
+          <div className="table-list customer-table-list">
             {visibleCustomers.map((customer) => {
               const customerMessages = messagesForCustomer(customer);
               const latestMessage = customerMessages[0];

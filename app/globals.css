@@ -9103,3 +9103,79 @@ button.media-thumb {
     max-width: 100%;
   }
 }
+
+/* Customer overview: compact desktop cards with full-width communication row */
+.customer-table-list .customer-row-with-actions {
+  align-items: start;
+  column-gap: 12px;
+  row-gap: 6px;
+  min-height: 0;
+  padding: 9px 12px 8px;
+}
+
+.customer-table-list .customer-row-main {
+  gap: 14px;
+  grid-template-columns: minmax(340px, 1.45fr) minmax(220px, 0.7fr) minmax(52px, 0.12fr);
+}
+
+.customer-table-list .customer-row-main > div {
+  display: grid;
+  gap: 2px;
+}
+
+.customer-table-list .customer-row-main > div > span {
+  -webkit-line-clamp: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.customer-table-list .customer-row-with-actions > .row-actions {
+  align-self: start;
+}
+
+.customer-table-list .customer-communication-summary {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 10px;
+  margin-top: 0;
+  min-width: 0;
+  width: 100%;
+}
+
+.customer-table-list .customer-communication-inline {
+  min-width: 150px;
+}
+
+.customer-table-list .customer-communication-summary > span {
+  align-self: center;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 820px) {
+  .customer-table-list .customer-row-with-actions {
+    padding: 10px;
+  }
+
+  .customer-table-list .customer-row-main {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .customer-table-list .customer-row-main > div > span {
+    -webkit-line-clamp: 2;
+    white-space: normal;
+  }
+
+  .customer-table-list .customer-communication-summary {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
+
+  .customer-table-list .customer-communication-inline {
+    min-width: 0;
+    width: max-content;
+  }
+}
