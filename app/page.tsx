@@ -759,6 +759,15 @@ type AppSnapshot = {
 type SyncSectionKey = "accountingAccounts" | "activeJobId" | "billing" | "companySettings" | "customers" | "dailyMailSettings" | "deletedEntityIds" | "deletedReportIds" | "fieldNotes" | "fieldProgress" | "inventoryLocations" | "jobs" | "materials" | "objects" | "packages" | "personnel" | "portalMessages" | "reports" | "resources" | "services" | "tenantSettings" | "translationOverrides";
 type SyncSectionMap = Partial<Record<SyncSectionKey, { updatedAt?: string; value: unknown }>>;
 
+const syncSectionKeys: SyncSectionKey[] = [
+  "accountingAccounts", "activeJobId", "billing", "companySettings", "customers", "dailyMailSettings",
+  "deletedEntityIds", "deletedReportIds", "fieldNotes", "fieldProgress", "inventoryLocations", "jobs",
+  "materials", "objects", "packages", "personnel", "portalMessages", "reports", "resources", "services",
+  "tenantSettings", "translationOverrides",
+];
+
+type SectionHashMap = Partial<Record<SyncSectionKey, string>>;
+
 type TranslationFileRow = {
   de: string;
   en: string;
@@ -2548,6 +2557,69 @@ const storageKeys = {
   translationOverrides: "kolaretorp-translation-overrides",
   updatedAt: "kolaretorp-updated-at",
 };
+
+
+const pendingSyncKeysStorageKey = "kolaretorp-pending-sync-keys-v2";
+
+function readPendingSyncKeys(): SyncSectionKey[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(pendingSyncKeysStorageKey) || "[]");
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((key): key is SyncSectionKey => syncSectionKeys.includes(key as SyncSectionKey));
+  } catch {
+    return [];
+  }
+}
+
+function writePendingSyncKeys(keys: Iterable<SyncSectionKey>) {
+  if (typeof window === "undefined") return;
+  const unique = Array.from(new Set(keys));
+  window.localStorage.setItem(pendingSyncKeysStorageKey, JSON.stringify(unique));
+}
+
+function addPendingSyncKeys(keys: Iterable<SyncSectionKey>) {
+  writePendingSyncKeys([...readPendingSyncKeys(), ...Array.from(keys)]);
+}
+
+function removePendingSyncKeys(keys: Iterable<SyncSectionKey>) {
+  const removed = new Set(keys);
+  writePendingSyncKeys(readPendingSyncKeys().filter((key) => !removed.has(key)));
+}
+
+function sectionHash(value: unknown) {
+  const serialized = JSON.stringify(value ?? null);
+  return `${serialized.length}:${stableStringHash(serialized)}`;
+}
+
+function snapshotSectionValue(snapshot: AppSnapshot, key: SyncSectionKey): unknown {
+  return snapshot[key];
+}
+
+function snapshotSectionHashes(snapshot: AppSnapshot): SectionHashMap {
+  return Object.fromEntries(syncSectionKeys.map((key) => [key, sectionHash(snapshotSectionValue(snapshot, key))])) as SectionHashMap;
+}
+
+function sectionPatch(snapshot: AppSnapshot, keys: Iterable<SyncSectionKey>): Partial<AppSnapshot> {
+  const patch: Partial<AppSnapshot> = { updatedAt: snapshot.updatedAt };
+  Array.from(new Set(keys)).forEach((key) => {
+    (patch as Record<string, unknown>)[key] = snapshotSectionValue(snapshot, key);
+  });
+  return patch;
+}
+
+function changedSyncSections(snapshot: AppSnapshot, syncedHashes: SectionHashMap): SyncSectionKey[] {
+  return syncSectionKeys.filter((key) => sectionHash(snapshotSectionValue(snapshot, key)) !== syncedHashes[key]);
+}
+
+function persistLocalSections(snapshot: AppSnapshot, keys: Iterable<SyncSectionKey>) {
+  Array.from(new Set(keys)).forEach((key) => {
+    const storageKey = storageKeys[key];
+    if (!storageKey) return;
+    window.localStorage.setItem(storageKey, JSON.stringify(snapshotSectionValue(snapshot, key)));
+  });
+  window.localStorage.setItem(storageKeys.updatedAt, JSON.stringify(snapshot.updatedAt ?? new Date().toISOString()));
+}
 
 const retryableSyncErrorMessages = [
   "Failed to fetch",
@@ -8557,9 +8629,12 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   const lastRemoteSnapshotKeyRef = useRef<string | null>(null);
   const pendingRemoteSnapshotKeyRef = useRef<string | null>(null);
   const pendingRemoteSnapshotRef = useRef<AppSnapshot | null>(null);
+  const pendingRemoteSectionKeysRef = useRef<Set<SyncSectionKey>>(new Set());
+  const syncedSectionHashesRef = useRef<SectionHashMap>({});
   const remoteSaveTimerRef = useRef<number | null>(null);
   const remoteSyncRunningRef = useRef(false);
   const pendingLocalSnapshotRef = useRef<AppSnapshot | null>(null);
+  const pendingLocalSectionKeysRef = useRef<Set<SyncSectionKey>>(new Set());
   const localSaveTimerRef = useRef<number | null>(null);
   const pendingResourcePersistRef = useRef<{ resources: ResourceRecord[]; updatedAt: string } | null>(null);
   const resourcePersistTimerRef = useRef<number | null>(null);
@@ -8568,43 +8643,64 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   const lastUserInteractionAtRef = useRef(0);
   const pendingReportPhotoUploadsRef = useRef<Set<string>>(new Set());
 
-  const scheduleRemoteSave = useCallback((snapshot: AppSnapshot, delayMs = 2200) => {
-    if (supabaseSyncDisabled) return;
+  const scheduleRemoteSave = useCallback((snapshot: AppSnapshot, keys: SyncSectionKey[], delayMs = 900) => {
+    if (keys.length === 0) return;
     pendingRemoteSnapshotRef.current = snapshot;
+    keys.forEach((key) => pendingRemoteSectionKeysRef.current.add(key));
+    addPendingSyncKeys(keys);
+    if (supabaseSyncDisabled) return;
     if (remoteSaveTimerRef.current) window.clearTimeout(remoteSaveTimerRef.current);
 
     remoteSaveTimerRef.current = window.setTimeout(() => {
       remoteSaveTimerRef.current = null;
       const queuedSnapshot = pendingRemoteSnapshotRef.current;
       pendingRemoteSnapshotRef.current = null;
-      if (!queuedSnapshot) return;
-      const snapshotKey = snapshotContentKey(queuedSnapshot);
-      if (snapshotKey === lastRemoteSnapshotKeyRef.current || snapshotKey === pendingRemoteSnapshotKeyRef.current) return;
-      pendingRemoteSnapshotKeyRef.current = snapshotKey;
-      void saveSupabasePatch(snapshotPatch(queuedSnapshot))
+      const queuedKeys = Array.from(pendingRemoteSectionKeysRef.current) as SyncSectionKey[];
+      pendingRemoteSectionKeysRef.current.clear();
+      if (!queuedSnapshot || queuedKeys.length === 0) return;
+
+      const patch = sectionPatch(queuedSnapshot, queuedKeys);
+      const patchKey = `${queuedKeys.sort().join(",")}:${snapshotContentKey({ ...queuedSnapshot, ...patch })}`;
+      if (patchKey === pendingRemoteSnapshotKeyRef.current) return;
+      pendingRemoteSnapshotKeyRef.current = patchKey;
+
+      void saveSupabasePatch(patch)
         .then((savedAt) => {
-          lastRemoteSnapshotKeyRef.current = snapshotKey;
           pendingRemoteSnapshotKeyRef.current = null;
+          queuedKeys.forEach((key) => {
+            syncedSectionHashesRef.current[key] = sectionHash(snapshotSectionValue(queuedSnapshot, key));
+          });
+          const stillPending = pendingRemoteSectionKeysRef.current;
+          removePendingSyncKeys(queuedKeys.filter((key) => !stillPending.has(key)));
+          lastRemoteSnapshotKeyRef.current = snapshotContentKey(queuedSnapshot);
           if (savedAt) setAppUpdatedAt(savedAt);
+          setSupabaseSyncDisabled(false);
         })
         .catch((error) => {
           pendingRemoteSnapshotKeyRef.current = null;
+          queuedKeys.forEach((key) => pendingRemoteSectionKeysRef.current.add(key));
+          addPendingSyncKeys(queuedKeys);
           console.warn("App-Daten konnten nicht nach Supabase synchronisiert werden.", error);
           if (!isRetryableSyncError(error)) setSupabaseSyncDisabled(true);
         });
     }, delayMs);
   }, [supabaseSyncDisabled]);
 
-  const scheduleLocalPersist = useCallback((snapshot: AppSnapshot, delayMs = 1600) => {
+  const scheduleLocalPersist = useCallback((snapshot: AppSnapshot, keys: SyncSectionKey[], delayMs = 180) => {
+    if (keys.length === 0) return;
     pendingLocalSnapshotRef.current = snapshot;
+    keys.forEach((key) => pendingLocalSectionKeysRef.current.add(key));
+    addPendingSyncKeys(keys);
     if (localSaveTimerRef.current) window.clearTimeout(localSaveTimerRef.current);
     localSaveTimerRef.current = window.setTimeout(() => {
       localSaveTimerRef.current = null;
       const queuedSnapshot = pendingLocalSnapshotRef.current;
       pendingLocalSnapshotRef.current = null;
-      if (!queuedSnapshot) return;
+      const queuedKeys = Array.from(pendingLocalSectionKeysRef.current) as SyncSectionKey[];
+      pendingLocalSectionKeysRef.current.clear();
+      if (!queuedSnapshot || queuedKeys.length === 0) return;
       try {
-        persistLocalSnapshot(queuedSnapshot);
+        persistLocalSections(queuedSnapshot, queuedKeys);
       } catch (error) {
         console.warn("App-Daten konnten nicht lokal gespeichert werden.", error);
       }
@@ -8811,9 +8907,15 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
 
         if (remoteSnapshot) {
           const remoteSnapshotWithSections = mergeSnapshotWithSyncSections(remoteSnapshot, await loadSyncSections().catch(() => ({})));
+          const pendingKeys = readPendingSyncKeys();
           lastRemoteSnapshotKeyRef.current = snapshotContentKey(remoteSnapshotWithSections);
+          syncedSectionHashesRef.current = snapshotSectionHashes(remoteSnapshotWithSections);
           skipNextAutoSaveRef.current = true;
-          const baseMergedSnapshot = localSnapshotIsSuspiciouslyEmpty
+
+          // Server data is authoritative. Only locally marked, not-yet-synced
+          // sections are merged on top so stale browser caches cannot overwrite
+          // newer data from another device.
+          const baseMergedSnapshot = localSnapshotIsSuspiciouslyEmpty || pendingKeys.length === 0
             ? recoverReportsFromFieldProgress(remoteSnapshotWithSections)
             : mergeSnapshots(remoteSnapshotWithSections, localSnapshotWithBackups);
           const mergedSnapshot = sanitizePersonnelSnapshot({
@@ -8824,14 +8926,21 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
           remoteSnapshotWasApplied = true;
           persistLocalSnapshot(mergedSnapshot);
           if (!cancelled) setAppStorageReady(true);
-          if (JSON.stringify(mergedSnapshot) !== JSON.stringify(remoteSnapshotWithSections)) {
-            void saveSupabasePatch(snapshotPatch(mergedSnapshot))
+
+          if (pendingKeys.length > 0) {
+            const pendingPatch = sectionPatch(mergedSnapshot, pendingKeys);
+            void saveSupabasePatch(pendingPatch)
               .then((savedAt) => {
+                pendingKeys.forEach((key) => {
+                  syncedSectionHashesRef.current[key] = sectionHash(snapshotSectionValue(mergedSnapshot, key));
+                });
+                removePendingSyncKeys(pendingKeys);
                 lastRemoteSnapshotKeyRef.current = snapshotContentKey(mergedSnapshot);
                 if (!cancelled && savedAt) setAppUpdatedAt(savedAt);
               })
               .catch((error) => {
-                console.warn("Zusammengeführter App-Stand konnte nicht sofort online gespeichert werden.", error);
+                addPendingSyncKeys(pendingKeys);
+                console.warn("Lokale, noch nicht synchronisierte Änderungen konnten nicht sofort online gespeichert werden.", error);
               });
           }
         } else {
@@ -8841,6 +8950,8 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
           }
           const savedAt = await saveSupabaseSnapshot(localSnapshotWithBackups);
           lastRemoteSnapshotKeyRef.current = snapshotContentKey(localSnapshotWithBackups);
+          syncedSectionHashesRef.current = snapshotSectionHashes(localSnapshotWithBackups);
+          removePendingSyncKeys(syncSectionKeys);
           if (!cancelled) setAppUpdatedAt(savedAt);
         }
       } catch (error) {
@@ -8905,10 +9016,12 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       updatedAt: snapshotUpdatedAt,
     };
 
-    scheduleLocalPersist(snapshot);
-    setAppUpdatedAt(snapshotUpdatedAt);
+    const changedKeys = changedSyncSections(snapshot, syncedSectionHashesRef.current);
+    if (changedKeys.length === 0) return;
 
-    scheduleRemoteSave(snapshot, 60000);
+    scheduleLocalPersist(snapshot, changedKeys);
+    setAppUpdatedAt(snapshotUpdatedAt);
+    scheduleRemoteSave(snapshot, changedKeys, 1000);
   }, [accountingAccounts, activeJobId, appStorageReady, billing, companySettings, customers, dailyMailSettings, deletedEntityIds, deletedReportIds, fieldNotes, fieldProgress, inventoryLocations, jobs, materials, objects, personnel, portalMessages, reports, resources, scheduleLocalPersist, scheduleRemoteSave, servicePackages, services, tenantSettings, translationOverrides]);
 
   const currentSnapshot = useCallback((overrides: Partial<AppSnapshot> = {}): AppSnapshot => ({
@@ -8956,38 +9069,34 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       const remoteSnapshotWithSections = mergeSnapshotWithSyncSections(remoteSnapshot, remoteSections);
 
       const localSnapshot = currentSnapshot();
-      const remoteTime = Date.parse(remoteSnapshotWithSections.updatedAt ?? "");
-      const localTime = Date.parse(localSnapshot.updatedAt ?? "");
-      const remoteHasNewerData = Number.isFinite(remoteTime) && (!Number.isFinite(localTime) || remoteTime > localTime);
-      const localHasNewerData = Number.isFinite(localTime) && (!Number.isFinite(remoteTime) || localTime > remoteTime);
-      const remoteHasMoreData = snapshotWeight(remoteSnapshotWithSections) > snapshotWeight(localSnapshot);
+      const pendingKeys = readPendingSyncKeys();
       const reportBackups = await loadReportTextBackups();
-      const baseMergedSnapshot = mergeSnapshots(remoteSnapshotWithSections, localSnapshot);
+      const baseMergedSnapshot = pendingKeys.length > 0
+        ? mergeSnapshots(remoteSnapshotWithSections, localSnapshot)
+        : remoteSnapshotWithSections;
       const mergedSnapshot = sanitizePersonnelSnapshot({
         ...baseMergedSnapshot,
         reports: applyReportTextBackups(baseMergedSnapshot.reports, reportBackups),
       });
-      const mergedDiffersFromRemote = JSON.stringify(mergedSnapshot) !== JSON.stringify(remoteSnapshotWithSections);
-      const mergedDiffersFromLocal = JSON.stringify(mergedSnapshot) !== JSON.stringify(localSnapshot);
-      const missingReports = missingLocalReports(remoteSnapshotWithSections.reports, localSnapshot.reports);
 
-      if (!force && !remoteHasNewerData && !localHasNewerData && !remoteHasMoreData && !mergedDiffersFromRemote && !mergedDiffersFromLocal) return;
-
+      syncedSectionHashesRef.current = snapshotSectionHashes(remoteSnapshotWithSections);
       skipNextAutoSaveRef.current = true;
       applySnapshot(mergedSnapshot);
       persistLocalSnapshot(mergedSnapshot);
+      lastRemoteSnapshotKeyRef.current = snapshotContentKey(remoteSnapshotWithSections);
 
-      if (mergedDiffersFromRemote) {
-        const savedAt = await saveSupabasePatch(snapshotPatch(mergedSnapshot));
+      if (pendingKeys.length > 0) {
+        const savedAt = await saveSupabasePatch(sectionPatch(mergedSnapshot, pendingKeys));
+        pendingKeys.forEach((key) => {
+          syncedSectionHashesRef.current[key] = sectionHash(snapshotSectionValue(mergedSnapshot, key));
+        });
+        removePendingSyncKeys(pendingKeys);
         lastRemoteSnapshotKeyRef.current = snapshotContentKey(mergedSnapshot);
         setAppUpdatedAt(savedAt);
-        if (force) {
-          setRecordNotice(missingReports.length > 0
-            ? `${missingReports.length} lokaler Bericht wurde online zusammengeführt.`
-            : "Lokale Änderungen wurden online zusammengeführt.");
-        }
+        if (force) setRecordNotice("Lokale Änderungen wurden online synchronisiert.");
       } else {
-        lastRemoteSnapshotKeyRef.current = snapshotContentKey(remoteSnapshot);
+        setAppUpdatedAt(remoteSnapshotWithSections.updatedAt);
+        if (force) setRecordNotice("Daten sind auf dem aktuellen Stand.");
       }
       if (force) setSupabaseSyncDisabled(false);
     } catch (error) {
@@ -9030,12 +9139,14 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
         if (pendingLocalSnapshotRef.current) {
           const queuedSnapshot = pendingLocalSnapshotRef.current;
           pendingLocalSnapshotRef.current = null;
+          const queuedKeys = Array.from(pendingLocalSectionKeysRef.current) as SyncSectionKey[];
+          pendingLocalSectionKeysRef.current.clear();
           if (localSaveTimerRef.current) {
             window.clearTimeout(localSaveTimerRef.current);
             localSaveTimerRef.current = null;
           }
           try {
-            persistLocalSnapshot(queuedSnapshot);
+            if (queuedKeys.length > 0) persistLocalSections(queuedSnapshot, queuedKeys);
           } catch (error) {
             console.warn("App-Daten konnten beim Verlassen nicht lokal gespeichert werden.", error);
           }
@@ -9106,9 +9217,23 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   function persistSnapshotNow(overrides: Partial<AppSnapshot> = {}, options: { forceRemote?: boolean } = {}) {
     const snapshotUpdatedAt = new Date().toISOString();
     const snapshot = currentSnapshot({ ...overrides, updatedAt: snapshotUpdatedAt });
+    const explicitKeys = Object.keys(overrides)
+      .filter((key): key is SyncSectionKey => key !== "updatedAt" && syncSectionKeys.includes(key as SyncSectionKey));
+    const changedKeys = explicitKeys.length > 0
+      ? Array.from(new Set(explicitKeys))
+      : changedSyncSections(snapshot, syncedSectionHashesRef.current);
+
     explicitPersistAtRef.current = Date.now();
     try {
-      persistLocalSnapshot(snapshot);
+      const localKeysToPersist = Array.from(new Set([
+        ...Array.from(pendingLocalSectionKeysRef.current),
+        ...changedKeys,
+      ])) as SyncSectionKey[];
+      if (localKeysToPersist.length > 0) {
+        persistLocalSections(snapshot, localKeysToPersist);
+        addPendingSyncKeys(localKeysToPersist);
+      }
+      pendingLocalSectionKeysRef.current.clear();
       pendingLocalSnapshotRef.current = null;
       if (localSaveTimerRef.current) {
         window.clearTimeout(localSaveTimerRef.current);
@@ -9119,28 +9244,38 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     }
     setAppUpdatedAt(snapshotUpdatedAt);
 
+    if (changedKeys.length === 0) return;
+
     if (options.forceRemote) {
       if (remoteSaveTimerRef.current) {
         window.clearTimeout(remoteSaveTimerRef.current);
         remoteSaveTimerRef.current = null;
       }
+      changedKeys.forEach((key) => pendingRemoteSectionKeysRef.current.delete(key));
       pendingRemoteSnapshotKeyRef.current = null;
-      const snapshotKey = snapshotContentKey(snapshot);
-      void saveSupabasePatch({ ...overrides, updatedAt: snapshotUpdatedAt })
+      const patch = sectionPatch(snapshot, changedKeys);
+      void saveSupabasePatch(patch)
         .then((savedAt) => {
-          lastRemoteSnapshotKeyRef.current = snapshotKey;
+          changedKeys.forEach((key) => {
+            syncedSectionHashesRef.current[key] = sectionHash(snapshotSectionValue(snapshot, key));
+          });
+          removePendingSyncKeys(changedKeys.filter((key) => !pendingRemoteSectionKeysRef.current.has(key)));
+          lastRemoteSnapshotKeyRef.current = snapshotContentKey(snapshot);
           setAppUpdatedAt(savedAt);
           setSupabaseSyncDisabled(false);
           setRecordNotice("Online gespeichert.");
+          const remainingKeys = Array.from(pendingRemoteSectionKeysRef.current) as SyncSectionKey[];
+          if (remainingKeys.length > 0) scheduleRemoteSave(snapshot, remainingKeys, 250);
         })
         .catch((error) => {
+          addPendingSyncKeys(changedKeys);
           console.warn("App-Daten konnten nicht sofort online gespeichert werden.", error);
           setRecordNotice(error instanceof Error ? `Online-Speichern fehlgeschlagen: ${error.message}` : "Online-Speichern fehlgeschlagen.");
         });
       return;
     }
 
-    scheduleRemoteSave(snapshot, 0);
+    scheduleRemoteSave(snapshot, changedKeys, 0);
   }
 
   function persistResourcesFast(nextResources: ResourceRecord[], options: { delayMs?: number } = {}) {
@@ -9148,6 +9283,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     explicitPersistAtRef.current = Date.now();
     setAppUpdatedAt(snapshotUpdatedAt);
     pendingResourcePersistRef.current = { resources: nextResources, updatedAt: snapshotUpdatedAt };
+    addPendingSyncKeys(["resources"]);
 
     if (resourcePersistTimerRef.current) window.clearTimeout(resourcePersistTimerRef.current);
     resourcePersistTimerRef.current = window.setTimeout(() => {
@@ -9165,6 +9301,8 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
 
       void saveSupabasePatch({ resources: queued.resources, updatedAt: queued.updatedAt })
         .then((savedAt) => {
+          syncedSectionHashesRef.current.resources = sectionHash(queued.resources);
+          removePendingSyncKeys(["resources"]);
           if (savedAt) setAppUpdatedAt(savedAt);
           setSupabaseSyncDisabled(false);
         })
@@ -14638,9 +14776,15 @@ function JobsView({
                   <span className="consulting-entry-description">{entry.description}</span>
                   <Badge value={tt(entry.billingStatus === "offen" ? "offen" : "abgerechnet")} />
                   {entry.billingStatus === "offen" && (
-                    <IconAction label={`${tt("Leistung bearbeiten")} ${entry.date}`} onClick={() => openEditConsultingEntry(job, entry)}>
+                    <button
+                      aria-label={`${tt("Leistung bearbeiten")} ${entry.date}`}
+                      className="icon-button consulting-entry-edit-button"
+                      data-tooltip={`${tt("Leistung bearbeiten")} ${entry.date}`}
+                      onClick={() => openEditConsultingEntry(job, entry)}
+                      type="button"
+                    >
                       <Pencil size={16} />
-                    </IconAction>
+                    </button>
                   )}
                 </div>
               )) : <span className="muted-line">{tt("Noch keine Leistungen erfasst.")}</span>}
