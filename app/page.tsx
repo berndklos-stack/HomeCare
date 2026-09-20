@@ -13805,39 +13805,42 @@ function CustomersView({
   };
 
   return (
-    <section className="panel">
-      <div className="panel-title">
-        <div>
-          <p>{tt("Eigentümer")}</p>
-          <h2>{tt("Kundenübersicht")}</h2>
+    <section className="panel customer-overview-panel">
+      <div className="customer-overview-fixed">
+        <div className="panel-title">
+          <div>
+            <p>{tt("Eigentümer")}</p>
+            <h2>{tt("Kundenübersicht")}</h2>
+          </div>
+          <button className="primary-button" onClick={onCreate} type="button">
+            <Plus size={16} />
+            {tt("Neuer Kunde")}
+          </button>
         </div>
-        <button className="primary-button" onClick={onCreate} type="button">
-          <Plus size={16} />
-          {tt("Neuer Kunde")}
-        </button>
+        <div className="list-toolbar">
+          <label>
+            <span>{tt("Kunden suchen")}</span>
+            <input
+              placeholder={tt("Name, Telefon, E-Mail, Objekt...")}
+              type="search"
+              value={customerQuery}
+              onChange={(event) => setCustomerQuery(event.target.value)}
+            />
+          </label>
+          <label>
+            <span>{tt("Sortieren")}</span>
+            <select value={customerSort} onChange={(event) => setCustomerSort(event.target.value)}>
+              <option value="name-asc">{tt("Name A-Z")}</option>
+              <option value="name-desc">{tt("Name Z-A")}</option>
+              <option value="created-desc">{tt("Neueste zuerst")}</option>
+              <option value="created-asc">{tt("Älteste zuerst")}</option>
+              <option value="object-asc">{tt("Objekt A-Z")}</option>
+            </select>
+          </label>
+        </div>
       </div>
-      <div className="list-toolbar">
-        <label>
-          <span>{tt("Kunden suchen")}</span>
-          <input
-            placeholder={tt("Name, Telefon, E-Mail, Objekt...")}
-            type="search"
-            value={customerQuery}
-            onChange={(event) => setCustomerQuery(event.target.value)}
-          />
-        </label>
-        <label>
-          <span>{tt("Sortieren")}</span>
-          <select value={customerSort} onChange={(event) => setCustomerSort(event.target.value)}>
-            <option value="name-asc">{tt("Name A-Z")}</option>
-            <option value="name-desc">{tt("Name Z-A")}</option>
-            <option value="created-desc">{tt("Neueste zuerst")}</option>
-            <option value="created-asc">{tt("Älteste zuerst")}</option>
-            <option value="object-asc">{tt("Objekt A-Z")}</option>
-          </select>
-        </label>
-      </div>
-      <div className="active-fold-group">
+      <div className="customer-overview-scroll">
+        <div className="active-fold-group">
         <button className="job-fold-toggle" onClick={() => setActiveCustomersOpen((open) => !open)} type="button">
           {activeCustomersOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
           <span>{tt("Aktive Kunden")}</span>
@@ -13991,6 +13994,7 @@ function CustomersView({
           )}
         </div>
       )}
+      </div>
     </section>
   );
 }

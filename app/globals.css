@@ -9179,3 +9179,38 @@ button.media-thumb {
     width: max-content;
   }
 }
+
+/* Customer overview: fixed controls with independently scrolling customer list on desktop */
+.customer-overview-panel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  max-height: calc(100dvh - 150px);
+  overflow: hidden;
+}
+
+.customer-overview-fixed {
+  background: var(--paper);
+  position: relative;
+  z-index: 2;
+}
+
+.customer-overview-scroll {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 4px;
+  scrollbar-gutter: stable;
+}
+
+@media (max-width: 820px) {
+  .customer-overview-panel {
+    display: block;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .customer-overview-scroll {
+    overflow: visible;
+    padding-right: 0;
+  }
+}
