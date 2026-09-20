@@ -9327,6 +9327,16 @@ button.media-thumb {
   gap: 12px;
 }
 
+.job-consulting-fields .wide {
+  grid-column: 1 / -1;
+}
+
+.job-consulting-fields .wide small {
+  color: var(--muted);
+  display: block;
+  margin-top: 4px;
+}
+
 .consulting-job-summary {
   display: flex;
   flex-wrap: wrap;

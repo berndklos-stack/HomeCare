@@ -180,6 +180,7 @@ type JobConsulting = {
   openEnded: boolean;
   hourlyRate: string;
   currency: string;
+  invoiceText?: string;
   entries: ConsultingTimeEntry[];
 };
 
@@ -1052,6 +1053,7 @@ type NewJobFormState = {
   consultingOpenEnded: boolean;
   consultingHourlyRate: string;
   consultingCurrency: string;
+  consultingInvoiceText: string;
 };
 
 type JobQuickMasterDataInput = {
@@ -1896,6 +1898,8 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "laufend", sv: "löpande", en: "ongoing" },
   { de: "Stundensatz", sv: "Timpris", en: "Hourly rate" },
   { de: "Währung", sv: "Valuta", en: "Currency" },
+  { de: "Rechnungstext", sv: "Fakturatext", en: "Invoice text" },
+  { de: "Dieser Text wird als Sammelposition auf der Rechnung verwendet.", sv: "Den här texten används som samlingsrad på fakturan.", en: "This text is used as the summary line on the invoice." },
   { de: "Leistung erfassen", sv: "Registrera arbete", en: "Record work" },
   { de: "Offene Leistungen abrechnen", sv: "Fakturera öppet arbete", en: "Bill open work" },
   { de: "Leistung speichern", sv: "Spara arbete", en: "Save work" },
@@ -4059,6 +4063,7 @@ function emptyJobForm(): NewJobFormState {
     consultingOpenEnded: true,
     consultingHourlyRate: "",
     consultingCurrency: "SEK",
+    consultingInvoiceText: "",
   };
 }
 
@@ -4476,6 +4481,7 @@ function jobToForm(job: JobRecord): NewJobFormState {
     consultingOpenEnded: job.consulting?.openEnded ?? true,
     consultingHourlyRate: job.consulting?.hourlyRate ?? "",
     consultingCurrency: job.consulting?.currency ?? "SEK",
+    consultingInvoiceText: job.consulting?.invoiceText ?? "",
   };
 }
 
@@ -9671,6 +9677,9 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     const fromDate = openEntries.map((entry) => entry.date).sort()[0];
     const toDate = openEntries.map((entry) => entry.date).sort().at(-1) || fromDate;
     const hours = totalMinutes / 60;
+    const consultingCustomer = customers.find((customer) => customer.id === job.customerId);
+    const defaultInvoiceText = isSwedishCustomerLanguage(consultingCustomer?.language) ? "Konsulttjänster" : "Consulting-Leistungen";
+    const consultingInvoiceText = consulting.invoiceText?.trim() || defaultInvoiceText;
     const billingRecord: BillingRecord = {
       amount: `${amountValue.toLocaleString("sv-SE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${consulting.currency}`,
       createdAt: new Date().toISOString(),
@@ -9683,12 +9692,12 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       invoiceNumber: `INV-${new Date().getFullYear()}-${String(invoiceIndex).padStart(4, "0")}`,
       invoiceStatus: "entwurf",
       jobId: job.id,
-      label: `${job.title} · Consulting ${fromDate}${toDate !== fromDate ? `–${toDate}` : ""}`,
+      label: `${job.title} · ${consultingInvoiceText} ${fromDate}${toDate !== fromDate ? `–${toDate}` : ""}`,
       lines: [{
         id: `${billingId}-TIME`,
         accountingAccount: defaultAccountingAccount("Leistung", "Consulting"),
         kind: "Leistung",
-        name: `Consulting-Leistungen ${fromDate}${toDate !== fromDate ? `–${toDate}` : ""}`,
+        name: `${consultingInvoiceText} ${fromDate}${toDate !== fromDate ? `–${toDate}` : ""}`,
         quantity: hours.toFixed(2).replace(".", ","),
         unit: "Stunde",
         unitPrice: consulting.hourlyRate || "0",
@@ -10030,6 +10039,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
             openEnded: newJob.consultingOpenEnded,
             hourlyRate: newJob.consultingHourlyRate.trim() || existingJob?.consulting?.hourlyRate || "0",
             currency: newJob.consultingCurrency.trim() || existingJob?.consulting?.currency || "SEK",
+            invoiceText: newJob.consultingInvoiceText.trim() || existingJob?.consulting?.invoiceText || "",
             entries: existingJob?.consulting?.entries ?? [],
           }
         : undefined,
@@ -23162,6 +23172,7 @@ function JobForm({
               <label className="checkbox-line"><input checked={newJob.consultingOpenEnded} onChange={(event) => setNewJob({ ...newJob, consultingOpenEnded: event.target.checked })} type="checkbox" /><span>{tt("ohne Enddatum")}</span></label>
               <label><span>{tt("Stundensatz")}</span><input inputMode="decimal" placeholder="950" value={newJob.consultingHourlyRate} onChange={(event) => setNewJob({ ...newJob, consultingHourlyRate: event.target.value })} /></label>
               <label><span>{tt("Währung")}</span><select value={newJob.consultingCurrency} onChange={(event) => setNewJob({ ...newJob, consultingCurrency: event.target.value })}><option>SEK</option><option>EUR</option></select></label>
+              <label className="wide"><span>{tt("Rechnungstext")}</span><input placeholder={language === "sv" ? "t.ex. Logistikkonsulting projekt Sydtyskland" : "z. B. Logistikberatung Projekt Süddeutschland"} value={newJob.consultingInvoiceText} onChange={(event) => setNewJob({ ...newJob, consultingInvoiceText: event.target.value })} /><small>{tt("Dieser Text wird als Sammelposition auf der Rechnung verwendet.")}</small></label>
             </div>
           )}
         </section>
