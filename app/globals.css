@@ -9389,22 +9389,103 @@ button.media-thumb {
 }
 
 .consulting-entry-modal {
-  width: min(620px, calc(100vw - 32px));
+  gap: 18px;
+  max-width: 820px;
+  padding: 24px;
+  width: min(820px, calc(100vw - 32px));
+}
+
+.consulting-entry-modal > header {
+  align-items: start;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 14px;
+}
+
+.consulting-entry-header-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.consulting-entry-subtitle {
+  color: var(--muted);
+  font-size: 0.96rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.consulting-entry-body {
+  display: grid;
+  gap: 16px;
 }
 
 .consulting-entry-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  gap: 14px;
 }
 
-.consulting-entry-grid .wide {
-  grid-column: 1 / -1;
+.consulting-entry-grid label,
+.consulting-entry-description-field {
+  display: grid;
+  gap: 6px;
 }
 
-.consulting-entry-grid textarea {
-  min-height: 120px;
+.consulting-entry-grid label > span,
+.consulting-entry-description-field > span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.consulting-entry-grid input,
+.consulting-entry-description-field textarea {
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-sizing: border-box;
+  color: var(--foreground);
+  font: inherit;
+  width: 100%;
+}
+
+.consulting-entry-grid input {
+  min-height: 48px;
+  padding: 10px 12px;
+}
+
+.consulting-entry-helper {
+  align-items: center;
+  background: color-mix(in srgb, var(--paper-soft) 82%, var(--paper));
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  justify-content: space-between;
+  padding: 12px 14px;
+}
+
+.consulting-entry-helper span {
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.consulting-entry-helper strong {
+  color: var(--foreground);
+  font-size: 1rem;
+}
+
+.consulting-entry-description-field textarea {
+  min-height: 180px;
+  padding: 12px 14px;
   resize: vertical;
+}
+
+.consulting-entry-actions {
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
 }
 
 @media (max-width: 700px) {
@@ -9418,8 +9499,14 @@ button.media-thumb {
     grid-template-columns: 1fr;
   }
 
-  .consulting-entry-grid .wide {
-    grid-column: auto;
+  .consulting-entry-modal {
+    padding: 18px;
+    width: min(calc(100vw - 20px), 820px);
+  }
+
+  .consulting-entry-helper {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .consulting-action-strip,

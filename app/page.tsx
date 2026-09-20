@@ -14398,6 +14398,17 @@ function JobsView({
   });
   const cancelledRootJobs = rootJobs.filter((job) => jobSortGroup(job, occurrenceGroups[job.id] ?? []) >= 4);
 
+  const activeConsultingJob = consultingEntryJobId ? jobs.find((item) => item.id === consultingEntryJobId) : undefined;
+  const activeConsultingObject = activeConsultingJob ? objects.find((object) => object.id === activeConsultingJob.objectId) : undefined;
+  const consultingEntryMinutesPreview = (() => {
+    if (!consultingEntryStart || !consultingEntryEnd) return 0;
+    const [startHour, startMinute] = consultingEntryStart.split(":").map(Number);
+    const [endHour, endMinute] = consultingEntryEnd.split(":").map(Number);
+    const minutes = (endHour * 60 + endMinute) - (startHour * 60 + startMinute);
+    return Number.isFinite(minutes) && minutes > 0 ? minutes : 0;
+  })();
+
+
   function toggleSeries(id: string) {
     setExpandedSeriesIds((current) => (
       current.includes(id) ? current.filter((item) => item !== id) : [...current, id]
@@ -14666,19 +14677,32 @@ function JobsView({
         <div className="modal-backdrop">
           <section className="modal consulting-entry-modal" role="dialog" aria-modal="true" aria-labelledby="consulting-entry-title">
             <header>
-              <div>
+              <div className="consulting-entry-header-copy">
                 <p>{tt("Consulting")}</p>
                 <h2 id="consulting-entry-title">{tt("Leistung erfassen")}</h2>
+                <span className="consulting-entry-subtitle">
+                  {activeConsultingJob?.title}
+                  {activeConsultingObject ? ` · ${activeConsultingObject.name}` : ""}
+                </span>
               </div>
               <button aria-label={tt("Schließen")} onClick={() => setConsultingEntryJobId("")} type="button"><X size={18} /></button>
             </header>
-            <div className="consulting-entry-grid">
-              <label><span>{tt("Datum")}</span><input type="date" value={consultingEntryDate} onChange={(event) => setConsultingEntryDate(event.target.value)} /></label>
-              <label><span>{tt("Startzeit")}</span><input type="time" value={consultingEntryStart} onChange={(event) => setConsultingEntryStart(event.target.value)} /></label>
-              <label><span>{tt("Endzeit")}</span><input type="time" value={consultingEntryEnd} onChange={(event) => setConsultingEntryEnd(event.target.value)} /></label>
-              <label className="wide"><span>{tt("Tätigkeit")}</span><textarea autoFocus placeholder={tt("Was wurde gemacht?")} value={consultingEntryDescription} onChange={(event) => setConsultingEntryDescription(event.target.value)} /></label>
+            <div className="consulting-entry-body">
+              <div className="consulting-entry-grid consulting-entry-grid-top">
+                <label><span>{tt("Datum")}</span><input type="date" value={consultingEntryDate} onChange={(event) => setConsultingEntryDate(event.target.value)} /></label>
+                <label><span>{tt("Startzeit")}</span><input type="time" value={consultingEntryStart} onChange={(event) => setConsultingEntryStart(event.target.value)} /></label>
+                <label><span>{tt("Endzeit")}</span><input type="time" value={consultingEntryEnd} onChange={(event) => setConsultingEntryEnd(event.target.value)} /></label>
+              </div>
+              <div className="consulting-entry-helper">
+                <span>{tt("Stundensatz")}: {activeConsultingJob?.consulting?.hourlyRate || "0"} {activeConsultingJob?.consulting?.currency || "SEK"}/h</span>
+                <strong>{consultingEntryMinutesPreview > 0 ? `${(consultingEntryMinutesPreview / 60).toLocaleString(language === "sv" ? "sv-SE" : "de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} h` : "—"}</strong>
+              </div>
+              <label className="consulting-entry-description-field">
+                <span>{tt("Tätigkeit")}</span>
+                <textarea autoFocus placeholder={tt("Was wurde gemacht?")} value={consultingEntryDescription} onChange={(event) => setConsultingEntryDescription(event.target.value)} />
+              </label>
             </div>
-            <div className="modal-actions">
+            <div className="modal-actions consulting-entry-actions">
               <button className="ghost-button" onClick={() => setConsultingEntryJobId("")} type="button">{tt("Abbrechen")}</button>
               <button className="primary-button" disabled={!consultingEntryDate || !consultingEntryStart || !consultingEntryEnd || !consultingEntryDescription.trim() || consultingEntryEnd <= consultingEntryStart} onClick={saveConsultingEntry} type="button">
                 <Check size={16} />
