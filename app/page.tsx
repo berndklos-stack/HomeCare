@@ -14338,10 +14338,28 @@ function JobsView({
             <div className="consulting-job-summary">
               <span>{tt("Stundensatz")}: {job.consulting.hourlyRate || "0"} {job.consulting.currency}/h</span>
               <span>{tt("Offen")}: {(consultingOpenMinutes(job) / 60).toLocaleString(language === "sv" ? "sv-SE" : "de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} h · {consultingOpenAmount(job).toLocaleString(language === "sv" ? "sv-SE" : "de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {job.consulting.currency}</span>
-              <button className="consulting-history-toggle" onClick={() => toggleConsultingHistory(job.id)} type="button">
+            </div>
+          )}
+          {job.consulting?.enabled && (
+            <div className="consulting-action-strip">
+              <button className="consulting-history-toggle compact" onClick={() => toggleConsultingHistory(job.id)} type="button">
                 {expandedConsultingIds.includes(job.id) ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                {tt("Leistungsnachweise")} ({job.consulting.entries.length})
+                <span>{tt("Leistungsnachweise")} ({job.consulting.entries.length})</span>
               </button>
+              {!isRecurring && !["storniert", "abgerechnet"].includes(job.status) && (
+                <div className="consulting-primary-actions">
+                  <button className="ghost-button compact consulting-entry-button" onClick={() => openConsultingEntry(job)} type="button">
+                    <Plus size={15} />
+                    {tt("Leistung erfassen")}
+                  </button>
+                  {consultingOpenMinutes(job) > 0 && (
+                    <button className="ghost-button compact consulting-bill-button" onClick={() => onBillConsultingEntries(job)} type="button">
+                      <Euro size={15} />
+                      {tt("Offene Leistungen abrechnen")}
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           )}
           {!isRecurring && job.executionDate && jobDateRangeLabel(job) !== jobOriginalDateRangeLabel(job) && (
@@ -14368,20 +14386,6 @@ function JobsView({
               </>
             )}
             <IconAction label={`${tt("Auftrag")} ${job.title} ${tt("Bearbeiten")}`} onClick={() => onEdit(job)}><Pencil size={16} /></IconAction>
-            {!isRecurring && job.consulting?.enabled && !["storniert", "abgerechnet"].includes(job.status) && (
-              <>
-                <button className="ghost-button compact consulting-entry-button" onClick={() => openConsultingEntry(job)} type="button">
-                  <Plus size={15} />
-                  {tt("Leistung erfassen")}
-                </button>
-                {consultingOpenMinutes(job) > 0 && (
-                  <button className="ghost-button compact consulting-bill-button" onClick={() => onBillConsultingEntries(job)} type="button">
-                    <Euro size={15} />
-                    {tt("Offene Leistungen abrechnen")}
-                  </button>
-                )}
-              </>
-            )}
             {!isRecurring && !["offerte", "storniert", "erledigt", "abgerechnet"].includes(job.status) && (
               <>
                 <IconAction label={`${tt("Auftragsbestätigung")} ${job.title} als PDF herunterladen`} onClick={() => void onDownloadOrderConfirmation(job)}><FileDown size={16} /></IconAction>

@@ -9335,8 +9335,46 @@ button.media-thumb {
   font-size: 0.86rem;
 }
 
+.consulting-action-strip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  min-width: 0;
+}
+
+.consulting-primary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.consulting-history-toggle.compact {
+  align-items: center;
+  align-self: stretch;
+  background: color-mix(in srgb, var(--paper-soft) 78%, var(--paper));
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  display: inline-flex;
+  flex: 0 1 280px;
+  font-weight: 700;
+  gap: 6px;
+  justify-content: flex-start;
+  min-height: 40px;
+  padding: 8px 12px;
+}
+
+.consulting-history-toggle.compact span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .consulting-entry-button,
 .consulting-bill-button {
+  min-height: 40px;
   white-space: nowrap;
 }
 
@@ -9374,6 +9412,13 @@ button.media-thumb {
     grid-column: auto;
   }
 
+  .consulting-action-strip,
+  .consulting-primary-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .consulting-history-toggle.compact,
   .consulting-entry-button,
   .consulting-bill-button {
     width: 100%;
