@@ -19774,7 +19774,7 @@ function MasterDataView({
           </div>
           {resourceEditorOpen && (
             <div className="modal-backdrop">
-              <section className="modal resource-editor-modal" role="dialog" aria-modal="true" aria-labelledby="resource-editor-title">
+              <section className={`modal resource-editor-modal${resourceModalView === "logbook" ? " resource-logbook-modal" : ""}`} role="dialog" aria-modal="true" aria-labelledby="resource-editor-title">
                 <header>
                   <div>
                     <p>{resourceModalView === "logbook" ? tt("Fahrtenbuch") : tt("Ressourcen")}</p>
