@@ -9288,3 +9288,142 @@ button.media-thumb {
     white-space: normal;
   }
 }
+
+/* Laufender Consulting-Auftrag */
+.job-consulting-compact {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 14px 16px;
+  display: grid;
+  gap: 12px;
+  background: color-mix(in srgb, var(--panel) 94%, var(--accent) 6%);
+}
+
+.job-consulting-compact.active {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
+}
+
+.job-consulting-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.job-consulting-heading > div {
+  display: grid;
+  gap: 3px;
+}
+
+.job-consulting-heading span,
+.consulting-job-summary {
+  color: var(--muted);
+}
+
+.job-consulting-fields {
+  display: grid;
+  grid-template-columns: auto minmax(160px, 220px) minmax(110px, 140px);
+  align-items: end;
+  gap: 12px;
+}
+
+.consulting-job-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-top: 5px;
+  font-size: 0.86rem;
+}
+
+.consulting-entry-button,
+.consulting-bill-button {
+  white-space: nowrap;
+}
+
+.consulting-entry-modal {
+  width: min(620px, calc(100vw - 32px));
+}
+
+.consulting-entry-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.consulting-entry-grid .wide {
+  grid-column: 1 / -1;
+}
+
+.consulting-entry-grid textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+@media (max-width: 700px) {
+  .job-consulting-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .job-consulting-fields,
+  .consulting-entry-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .consulting-entry-grid .wide {
+    grid-column: auto;
+  }
+
+  .consulting-entry-button,
+  .consulting-bill-button {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+.consulting-history-toggle {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.consulting-entry-history {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.consulting-entry-history-row {
+  display: grid;
+  grid-template-columns: 170px 80px minmax(220px, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--panel) 94%, var(--line) 6%);
+  font-size: 0.88rem;
+}
+
+.consulting-entry-description {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 700px) {
+  .consulting-entry-history-row {
+    grid-template-columns: 1fr auto;
+  }
+
+  .consulting-entry-description {
+    grid-column: 1 / -1;
+  }
+}

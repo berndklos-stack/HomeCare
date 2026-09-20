@@ -163,6 +163,26 @@ type PortalLoginEntry = {
   userAgent: string;
 };
 
+type ConsultingTimeEntry = {
+  id: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  minutes: number;
+  description: string;
+  billingStatus: "offen" | "abgerechnet";
+  billedAt?: string;
+  billingRecordId?: string;
+};
+
+type JobConsulting = {
+  enabled: boolean;
+  openEnded: boolean;
+  hourlyRate: string;
+  currency: string;
+  entries: ConsultingTimeEntry[];
+};
+
 type JobRecord = {
   id: string;
   seriesMasterId?: string;
@@ -202,6 +222,7 @@ type JobRecord = {
   material: string;
   workMinutes: number;
   schedule: JobSchedule;
+  consulting?: JobConsulting;
 };
 
 type JobExecutionLogEntry = {
@@ -1018,6 +1039,10 @@ type NewJobFormState = {
   scheduleActiveFromMonth: string;
   scheduleActiveToMonth: string;
   scheduleYearInterval: string;
+  consultingEnabled: boolean;
+  consultingOpenEnded: boolean;
+  consultingHourlyRate: string;
+  consultingCurrency: string;
 };
 
 type JobQuickMasterDataInput = {
@@ -1854,6 +1879,25 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Auftrag in Abrechnung übernehmen", sv: "Överför uppdrag till fakturering", en: "Move job to billing" },
   { de: "Auftrag auswählen", sv: "Välj uppdrag", en: "Select job" },
   { de: "Auftrag schließen", sv: "Stäng uppdrag", en: "Close job" },
+  { de: "Dauerauftrag / Consulting", sv: "Löpande uppdrag / konsulting", en: "Ongoing job / consulting" },
+  { de: "Laufenden Auftrag ohne festes Enddatum führen und Leistungen nach Zeit erfassen.", sv: "Hantera uppdraget utan fast slutdatum och registrera arbete efter tid.", en: "Run the job without a fixed end date and record work by time." },
+  { de: "als laufenden Consulting-Auftrag führen", sv: "hantera som löpande konsultuppdrag", en: "manage as an ongoing consulting job" },
+  { de: "ohne Enddatum", sv: "utan slutdatum", en: "without end date" },
+  { de: "Laufend seit", sv: "Löpande sedan", en: "Ongoing since" },
+  { de: "laufend", sv: "löpande", en: "ongoing" },
+  { de: "Stundensatz", sv: "Timpris", en: "Hourly rate" },
+  { de: "Währung", sv: "Valuta", en: "Currency" },
+  { de: "Leistung erfassen", sv: "Registrera arbete", en: "Record work" },
+  { de: "Offene Leistungen abrechnen", sv: "Fakturera öppet arbete", en: "Bill open work" },
+  { de: "Leistung speichern", sv: "Spara arbete", en: "Save work" },
+  { de: "Tätigkeit", sv: "Arbete", en: "Activity" },
+  { de: "Was wurde gemacht?", sv: "Vad har gjorts?", en: "What was done?" },
+  { de: "Startzeit", sv: "Starttid", en: "Start time" },
+  { de: "Endzeit", sv: "Sluttid", en: "End time" },
+  { de: "Einträge", sv: "Poster", en: "Entries" },
+  { de: "Consulting", sv: "Konsulting", en: "Consulting" },
+  { de: "Leistungsnachweise", sv: "Arbetslogg", en: "Work log" },
+  { de: "Noch keine Leistungen erfasst.", sv: "Inget arbete har registrerats ännu.", en: "No work has been recorded yet." },
   { de: "Arbeitszeit", sv: "Arbetstid", en: "Work time" },
   { de: "Auftragsabwicklung", sv: "Uppdragshantering", en: "Job processing" },
   { de: "Auftragsart", sv: "Uppdragstyp", en: "Job mode" },
@@ -4002,6 +4046,10 @@ function emptyJobForm(): NewJobFormState {
     scheduleActiveFromMonth: "",
     scheduleActiveToMonth: "",
     scheduleYearInterval: "1",
+    consultingEnabled: false,
+    consultingOpenEnded: true,
+    consultingHourlyRate: "",
+    consultingCurrency: "SEK",
   };
 }
 
@@ -4415,6 +4463,10 @@ function jobToForm(job: JobRecord): NewJobFormState {
     scheduleActiveFromMonth: job.schedule.activeFromMonth ? String(job.schedule.activeFromMonth) : "",
     scheduleActiveToMonth: job.schedule.activeToMonth ? String(job.schedule.activeToMonth) : "",
     scheduleYearInterval: String(job.schedule.yearInterval || 1),
+    consultingEnabled: job.consulting?.enabled ?? false,
+    consultingOpenEnded: job.consulting?.openEnded ?? true,
+    consultingHourlyRate: job.consulting?.hourlyRate ?? "",
+    consultingCurrency: job.consulting?.currency ?? "SEK",
   };
 }
 
@@ -9469,6 +9521,97 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     setRecordNotice(`Auftrag "${job.title}" steht jetzt in der Abrechnung.`);
   }
 
+  function addConsultingEntry(job: JobRecord, entry: Omit<ConsultingTimeEntry, "id" | "billingStatus">) {
+    const consulting = job.consulting;
+    if (!consulting?.enabled) return;
+    const savedEntry: ConsultingTimeEntry = {
+      ...entry,
+      id: `CT-${job.id}-${Date.now()}`,
+      billingStatus: "offen",
+    };
+    const nextJobs = jobs.map((item) => (
+      item.id === job.id
+        ? { ...item, consulting: { ...consulting, entries: [...consulting.entries, savedEntry] } }
+        : item
+    ));
+    setJobs(nextJobs);
+    persistSnapshotNow({ jobs: nextJobs }, { forceRemote: true });
+    setRecordNotice(`Leistung zu "${job.title}" wurde erfasst.`);
+  }
+
+  function billConsultingEntries(job: JobRecord) {
+    const consulting = job.consulting;
+    if (!consulting?.enabled) return;
+    if (!job.billable) {
+      setRecordNotice(`Auftrag "${job.title}" ist von der Abrechnung ausgeschlossen.`);
+      return;
+    }
+    const openEntries = consulting.entries.filter((entry) => entry.billingStatus === "offen");
+    if (openEntries.length === 0) {
+      setRecordNotice(`Für "${job.title}" gibt es keine offenen Consulting-Leistungen.`);
+      return;
+    }
+    const totalMinutes = openEntries.reduce((sum, entry) => sum + entry.minutes, 0);
+    const rate = decimalValue(consulting.hourlyRate);
+    const amountValue = Number.isFinite(rate) ? (totalMinutes / 60) * rate : 0;
+    const invoiceIndex = billing.length + 1;
+    const billingId = `BIL-CONS-${job.id}-${Date.now()}`;
+    const fromDate = openEntries.map((entry) => entry.date).sort()[0];
+    const toDate = openEntries.map((entry) => entry.date).sort().at(-1) || fromDate;
+    const hours = totalMinutes / 60;
+    const billingRecord: BillingRecord = {
+      amount: `${amountValue.toLocaleString("sv-SE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${consulting.currency}`,
+      createdAt: new Date().toISOString(),
+      customerId: job.customerId,
+      dueDate: addDays(new Date().toISOString().slice(0, 10), 30),
+      externalExportStatus: "nicht gesendet",
+      externalExportSystem: "Spiris / Visma Buchhaltung",
+      id: billingId,
+      invoiceDate: new Date().toISOString().slice(0, 10),
+      invoiceNumber: `INV-${new Date().getFullYear()}-${String(invoiceIndex).padStart(4, "0")}`,
+      invoiceStatus: "entwurf",
+      jobId: job.id,
+      label: `${job.title} · Consulting ${fromDate}${toDate !== fromDate ? `–${toDate}` : ""}`,
+      lines: [{
+        id: `${billingId}-TIME`,
+        accountingAccount: defaultAccountingAccount("Leistung", "Consulting"),
+        kind: "Leistung",
+        name: `Consulting-Leistungen ${fromDate}${toDate !== fromDate ? `–${toDate}` : ""}`,
+        quantity: hours.toFixed(2).replace(".", ","),
+        unit: "Stunde",
+        unitPrice: consulting.hourlyRate || "0",
+        currency: consulting.currency || "SEK",
+        taxRate: "25",
+      }],
+      notes: openEntries.map((entry) => `${entry.date} ${entry.startTime}–${entry.endTime}: ${entry.description}`).join("\n"),
+      objectId: job.objectId,
+      serviceDate: toDate,
+      source: `${job.id} · Consulting`,
+      status: "abrechenbar",
+    };
+    const billedAt = new Date().toISOString();
+    const nextJobs = jobs.map((item) => (
+      item.id === job.id
+        ? {
+            ...item,
+            consulting: {
+              ...consulting,
+              entries: consulting.entries.map((entry) => (
+                entry.billingStatus === "offen"
+                  ? { ...entry, billingStatus: "abgerechnet" as const, billedAt, billingRecordId: billingId }
+                  : entry
+              )),
+            },
+          }
+        : item
+    ));
+    const nextBilling = [billingRecord, ...billing];
+    setJobs(nextJobs);
+    setBilling(nextBilling);
+    persistSnapshotNow({ billing: nextBilling, jobs: nextJobs }, { forceRemote: true });
+    setRecordNotice(`${openEntries.length} Consulting-Leistung(en) wurden als Rechnungsentwurf übernommen. Der Auftrag bleibt laufend.`);
+  }
+
   function collectBillableJobs() {
     const nextBilling = ensureBillingForJobs(jobs, billing, reports);
     setBilling(nextBilling);
@@ -9493,7 +9636,11 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
         : entry
     ));
     const nextJobs = item.jobId
-      ? jobs.map((job) => (job.id === item.jobId ? { ...job, status: "abgerechnet" as const, statusUpdatedAt } : job))
+      ? jobs.map((job) => (
+          job.id === item.jobId
+            ? (job.consulting?.enabled ? job : { ...job, status: "abgerechnet" as const, statusUpdatedAt })
+            : job
+        ))
       : jobs;
     setBilling(nextBilling);
     setJobs(nextJobs);
@@ -9576,7 +9723,21 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
         : entry
     ));
     const nextJobs = item.jobId
-      ? jobs.map((job) => (job.id === item.jobId ? { ...job, status: "erledigt" as const, statusUpdatedAt } : job))
+      ? jobs.map((job) => {
+          if (job.id !== item.jobId) return job;
+          if (!job.consulting?.enabled) return { ...job, status: "erledigt" as const, statusUpdatedAt };
+          return {
+            ...job,
+            consulting: {
+              ...job.consulting,
+              entries: job.consulting.entries.map((entry) => (
+                entry.billingRecordId === item.id
+                  ? { ...entry, billingStatus: "offen" as const, billedAt: undefined, billingRecordId: undefined }
+                  : entry
+              )),
+            },
+          };
+        })
       : jobs;
     setBilling(nextBilling);
     setJobs(nextJobs);
@@ -9593,12 +9754,29 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     const relatedJobId = item.jobId || item.source.split(" · ")[0];
     const nextBilling = billing.filter((entry) => entry.id !== item.id);
     const nextJobs = relatedJobId
-      ? jobs.map((job) => (job.id === relatedJobId ? { ...job, billable: false } : job))
+      ? jobs.map((job) => {
+          if (job.id !== relatedJobId) return job;
+          if (!job.consulting?.enabled) return { ...job, billable: false };
+          return {
+            ...job,
+            consulting: {
+              ...job.consulting,
+              entries: job.consulting.entries.map((entry) => (
+                entry.billingRecordId === item.id
+                  ? { ...entry, billingStatus: "offen" as const, billedAt: undefined, billingRecordId: undefined }
+                  : entry
+              )),
+            },
+          };
+        })
       : jobs;
     setBilling(nextBilling);
     setJobs(nextJobs);
     persistSnapshotNow({ billing: nextBilling, jobs: nextJobs }, { forceRemote: true });
-    setRecordNotice(`"${item.invoiceNumber || item.label}" wurde aus der Abrechnung entfernt und der Auftrag ist nicht mehr abrechenbar.`);
+    const relatedJob = relatedJobId ? jobs.find((job) => job.id === relatedJobId) : undefined;
+    setRecordNotice(relatedJob?.consulting?.enabled
+      ? `"${item.invoiceNumber || item.label}" wurde entfernt. Die enthaltenen Consulting-Leistungen sind wieder offen.`
+      : `"${item.invoiceNumber || item.label}" wurde aus der Abrechnung entfernt und der Auftrag ist nicht mehr abrechenbar.`);
   }
 
   function saveJob() {
@@ -9632,7 +9810,9 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     const customServiceTasks = customService ? serviceToFieldTasks(customService) : [];
     const checklist = [...selectedServiceTasks, ...customServiceTasks].map((task) => task.title);
     const startDate = newJob.startDate || newJob.dueDate;
-    const endDate = (newJob.endDate || startDate) < startDate ? startDate : (newJob.endDate || startDate);
+    const endDate = newJob.consultingEnabled && newJob.consultingOpenEnded
+      ? startDate
+      : ((newJob.endDate || startDate) < startDate ? startDate : (newJob.endDate || startDate));
     const newMasterMaterials: MaterialItem[] = [];
     const materialItems = newJob.materialItems.map((item) => {
       if (!item.saveToMaster || item.materialId) return { ...item, accountingAccount: item.accountingAccount || defaultAccountingAccount("Material", item.name), discount: cleanDiscount(item.discount), saveToMaster: false };
@@ -9709,7 +9889,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       material: existingJob?.material ?? "-",
       workMinutes: existingJob?.workMinutes ?? 0,
       schedule: {
-        type: newJob.scheduleType,
+        type: newJob.consultingEnabled ? "einmalig" : newJob.scheduleType,
         frequency: newJob.scheduleFrequency,
         interval: Math.max(Number(newJob.scheduleInterval) || 1, 1),
         weekdays: newJob.scheduleFrequency === "wöchentlich" ? newJob.scheduleWeekdays : [],
@@ -9720,6 +9900,15 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
         activeToMonth: newJob.scheduleActiveToMonth ? Number(newJob.scheduleActiveToMonth) : undefined,
         yearInterval: Math.max(Number(newJob.scheduleYearInterval) || 1, 1),
       },
+      consulting: newJob.consultingEnabled
+        ? {
+            enabled: true,
+            openEnded: newJob.consultingOpenEnded,
+            hourlyRate: newJob.consultingHourlyRate.trim() || existingJob?.consulting?.hourlyRate || "0",
+            currency: newJob.consultingCurrency.trim() || existingJob?.consulting?.currency || "SEK",
+            entries: existingJob?.consulting?.entries ?? [],
+          }
+        : undefined,
     };
 
     const nextMaterials = newMasterMaterials.length > 0 ? [...newMasterMaterials, ...materials] : materials;
@@ -11577,6 +11766,8 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                 onDownloadOrderConfirmation={downloadJobOrderConfirmation}
                 onEdit={openEditJob}
                 onMoveToBilling={moveJobToBilling}
+                onAddConsultingEntry={addConsultingEntry}
+                onBillConsultingEntries={billConsultingEntries}
                 onRestore={restoreJob}
                 onSendOrderConfirmation={sendOrderConfirmationToCustomer}
                 onSendOffer={sendOfferToCustomer}
@@ -14011,6 +14202,8 @@ function JobsView({
   onDownloadOrderConfirmation,
   onEdit,
   onMoveToBilling,
+  onAddConsultingEntry,
+  onBillConsultingEntries,
   onRestore,
   onSendOrderConfirmation,
   onSendOffer,
@@ -14028,6 +14221,8 @@ function JobsView({
   onDownloadOrderConfirmation: (job: JobRecord) => Promise<void>;
   onEdit: (job: JobRecord) => void;
   onMoveToBilling: (job: JobRecord) => void;
+  onAddConsultingEntry: (job: JobRecord, entry: Omit<ConsultingTimeEntry, "id" | "billingStatus">) => void;
+  onBillConsultingEntries: (job: JobRecord) => void;
   onRestore: (job: JobRecord) => void;
   onSendOrderConfirmation: (job: JobRecord) => void;
   onSendOffer: (job: JobRecord) => void;
@@ -14040,6 +14235,12 @@ function JobsView({
   const [completedGroupOpen, setCompletedGroupOpen] = useState(false);
   const [cancelledGroupOpen, setCancelledGroupOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState("alle");
+  const [consultingEntryJobId, setConsultingEntryJobId] = useState("");
+  const [consultingEntryDate, setConsultingEntryDate] = useState(currentLocalDateValue());
+  const [consultingEntryStart, setConsultingEntryStart] = useState("");
+  const [consultingEntryEnd, setConsultingEntryEnd] = useState("");
+  const [consultingEntryDescription, setConsultingEntryDescription] = useState("");
+  const [expandedConsultingIds, setExpandedConsultingIds] = useState<string[]>([]);
   const occurrenceGroups = jobs.reduce<Record<string, JobRecord[]>>((groups, job) => {
     if (!job.seriesMasterId) return groups;
     return {
@@ -14069,6 +14270,49 @@ function JobsView({
     ));
   }
 
+  function consultingOpenMinutes(job: JobRecord) {
+    return (job.consulting?.entries ?? [])
+      .filter((entry) => entry.billingStatus === "offen")
+      .reduce((sum, entry) => sum + entry.minutes, 0);
+  }
+
+  function consultingOpenAmount(job: JobRecord) {
+    const rate = decimalValue(job.consulting?.hourlyRate);
+    if (!Number.isFinite(rate)) return 0;
+    return (consultingOpenMinutes(job) / 60) * rate;
+  }
+
+  function toggleConsultingHistory(jobId: string) {
+    setExpandedConsultingIds((current) => (
+      current.includes(jobId) ? current.filter((id) => id !== jobId) : [...current, jobId]
+    ));
+  }
+
+  function openConsultingEntry(job: JobRecord) {
+    setConsultingEntryJobId(job.id);
+    setConsultingEntryDate(currentLocalDateValue());
+    setConsultingEntryStart("");
+    setConsultingEntryEnd("");
+    setConsultingEntryDescription("");
+  }
+
+  function saveConsultingEntry() {
+    const job = jobs.find((item) => item.id === consultingEntryJobId);
+    if (!job || !consultingEntryDate || !consultingEntryStart || !consultingEntryEnd || !consultingEntryDescription.trim()) return;
+    const [startHour, startMinute] = consultingEntryStart.split(":").map(Number);
+    const [endHour, endMinute] = consultingEntryEnd.split(":").map(Number);
+    const minutes = (endHour * 60 + endMinute) - (startHour * 60 + startMinute);
+    if (!Number.isFinite(minutes) || minutes <= 0) return;
+    onAddConsultingEntry(job, {
+      date: consultingEntryDate,
+      startTime: consultingEntryStart,
+      endTime: consultingEntryEnd,
+      minutes,
+      description: consultingEntryDescription.trim(),
+    });
+    setConsultingEntryJobId("");
+  }
+
   function renderJobRow(job: JobRecord) {
     const occurrences = sortedByDueDate(occurrenceGroups[job.id] ?? []);
     const isRecurring = isSeriesMaster(job);
@@ -14089,14 +14333,24 @@ function JobsView({
               </div>
             )}
           </div>
-          <span>{objects.find((object) => object.id === job.objectId)?.name} · {isRecurring && summary ? scheduleLabel(job.schedule, language).replace(/^Serie:\s*/, "").replace(/^Series:\s*/, "") : scheduleLabel(job.schedule, language)} · {job.description}</span>
+          <span>{objects.find((object) => object.id === job.objectId)?.name} · {job.consulting?.enabled && job.consulting.openEnded ? `${tt("Laufend seit")} ${job.startDate ?? job.dueDate} · ${tt("ohne Enddatum")}` : (isRecurring && summary ? scheduleLabel(job.schedule, language).replace(/^Serie:\s*/, "").replace(/^Series:\s*/, "") : scheduleLabel(job.schedule, language))} · {job.description}</span>
+          {job.consulting?.enabled && (
+            <div className="consulting-job-summary">
+              <span>{tt("Stundensatz")}: {job.consulting.hourlyRate || "0"} {job.consulting.currency}/h</span>
+              <span>{tt("Offen")}: {(consultingOpenMinutes(job) / 60).toLocaleString(language === "sv" ? "sv-SE" : "de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} h · {consultingOpenAmount(job).toLocaleString(language === "sv" ? "sv-SE" : "de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {job.consulting.currency}</span>
+              <button className="consulting-history-toggle" onClick={() => toggleConsultingHistory(job.id)} type="button">
+                {expandedConsultingIds.includes(job.id) ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                {tt("Leistungsnachweise")} ({job.consulting.entries.length})
+              </button>
+            </div>
+          )}
           {!isRecurring && job.executionDate && jobDateRangeLabel(job) !== jobOriginalDateRangeLabel(job) && (
             <span>{tt("Ausführung")}: {jobDateRangeLabel(job)} · {tt("Original")}: {jobOriginalDateRangeLabel(job)} · {job.executionLog?.length ?? 0} {tt("Verschiebungen")}</span>
           )}
         </div>
         <div className="job-row-meta">
           <div className="job-row-meta-line">
-            <span>{isRecurring ? `${occurrences.length} ${tt("Teilaufträge")}` : jobDateRangeLabel(job)}</span>
+            <span>{isRecurring ? `${occurrences.length} ${tt("Teilaufträge")}` : (job.consulting?.enabled && job.consulting.openEnded ? tt("laufend") : jobDateRangeLabel(job))}</span>
             <span>{tt(job.priority)}</span>
             {!isRecurring && <Badge value={tt(job.status)} />}
           </div>
@@ -14114,6 +14368,20 @@ function JobsView({
               </>
             )}
             <IconAction label={`${tt("Auftrag")} ${job.title} ${tt("Bearbeiten")}`} onClick={() => onEdit(job)}><Pencil size={16} /></IconAction>
+            {!isRecurring && job.consulting?.enabled && !["storniert", "abgerechnet"].includes(job.status) && (
+              <>
+                <button className="ghost-button compact consulting-entry-button" onClick={() => openConsultingEntry(job)} type="button">
+                  <Plus size={15} />
+                  {tt("Leistung erfassen")}
+                </button>
+                {consultingOpenMinutes(job) > 0 && (
+                  <button className="ghost-button compact consulting-bill-button" onClick={() => onBillConsultingEntries(job)} type="button">
+                    <Euro size={15} />
+                    {tt("Offene Leistungen abrechnen")}
+                  </button>
+                )}
+              </>
+            )}
             {!isRecurring && !["offerte", "storniert", "erledigt", "abgerechnet"].includes(job.status) && (
               <>
                 <IconAction label={`${tt("Auftragsbestätigung")} ${job.title} als PDF herunterladen`} onClick={() => void onDownloadOrderConfirmation(job)}><FileDown size={16} /></IconAction>
@@ -14131,6 +14399,20 @@ function JobsView({
             )}
           </div>
         </div>
+        {job.consulting?.enabled && expandedConsultingIds.includes(job.id) && (
+          <div className="consulting-entry-history">
+            {job.consulting.entries.length > 0 ? [...job.consulting.entries]
+              .sort((first, second) => `${second.date} ${second.startTime}`.localeCompare(`${first.date} ${first.startTime}`))
+              .map((entry) => (
+                <div className="consulting-entry-history-row" key={entry.id}>
+                  <span><strong>{entry.date}</strong> · {entry.startTime}–{entry.endTime}</span>
+                  <span>{(entry.minutes / 60).toLocaleString(language === "sv" ? "sv-SE" : "de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} h</span>
+                  <span className="consulting-entry-description">{entry.description}</span>
+                  <Badge value={tt(entry.billingStatus === "offen" ? "offen" : "abgerechnet")} />
+                </div>
+              )) : <span className="muted-line">{tt("Noch keine Leistungen erfasst.")}</span>}
+          </div>
+        )}
         {isRecurring && isExpanded && (
           <div className="series-occurrence-list">
             {weekReports.length > 0 && (
@@ -14242,6 +14524,32 @@ function JobsView({
       {activeRootJobs.length === 0 && completedRootJobs.length === 0 && cancelledRootJobs.length === 0 && <span className="muted-line">{tt("Keine Aufträge für diesen Status.")}</span>}
       {renderJobGroup(tt("Erledigte Aufträge"), completedRootJobs.length, completedGroupOpen, () => setCompletedGroupOpen((open) => !open), completedRootJobs)}
       {renderJobGroup(tt("Stornierte Aufträge"), cancelledRootJobs.length, cancelledGroupOpen, () => setCancelledGroupOpen((open) => !open), cancelledRootJobs, "job-list-cancelled")}
+      {consultingEntryJobId && (
+        <div className="modal-backdrop">
+          <section className="modal consulting-entry-modal" role="dialog" aria-modal="true" aria-labelledby="consulting-entry-title">
+            <header>
+              <div>
+                <p>{tt("Consulting")}</p>
+                <h2 id="consulting-entry-title">{tt("Leistung erfassen")}</h2>
+              </div>
+              <button aria-label={tt("Schließen")} onClick={() => setConsultingEntryJobId("")} type="button"><X size={18} /></button>
+            </header>
+            <div className="consulting-entry-grid">
+              <label><span>{tt("Datum")}</span><input type="date" value={consultingEntryDate} onChange={(event) => setConsultingEntryDate(event.target.value)} /></label>
+              <label><span>{tt("Startzeit")}</span><input type="time" value={consultingEntryStart} onChange={(event) => setConsultingEntryStart(event.target.value)} /></label>
+              <label><span>{tt("Endzeit")}</span><input type="time" value={consultingEntryEnd} onChange={(event) => setConsultingEntryEnd(event.target.value)} /></label>
+              <label className="wide"><span>{tt("Tätigkeit")}</span><textarea autoFocus placeholder={tt("Was wurde gemacht?")} value={consultingEntryDescription} onChange={(event) => setConsultingEntryDescription(event.target.value)} /></label>
+            </div>
+            <div className="modal-actions">
+              <button className="ghost-button" onClick={() => setConsultingEntryJobId("")} type="button">{tt("Abbrechen")}</button>
+              <button className="primary-button" disabled={!consultingEntryDate || !consultingEntryStart || !consultingEntryEnd || !consultingEntryDescription.trim() || consultingEntryEnd <= consultingEntryStart} onClick={saveConsultingEntry} type="button">
+                <Check size={16} />
+                {tt("Leistung speichern")}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </section>
   );
 }
@@ -22703,11 +23011,32 @@ function JobForm({
             <span>Startet am</span>
             <input type="date" value={newJob.startDate} onChange={(event) => updateStartDate(event.target.value)} />
           </label>
-          <label>
-            <span>Endet am</span>
-            <input min={newJob.startDate} type="date" value={newJob.endDate} onChange={(event) => updateEndDate(event.target.value)} />
-          </label>
+          {!(newJob.consultingEnabled && newJob.consultingOpenEnded) && (
+            <label>
+              <span>Endet am</span>
+              <input min={newJob.startDate} type="date" value={newJob.endDate} onChange={(event) => updateEndDate(event.target.value)} />
+            </label>
+          )}
         </div>
+        <section className={`job-consulting-compact ${newJob.consultingEnabled ? "active" : ""}`}>
+          <div className="job-consulting-heading">
+            <div>
+              <strong>{tt("Dauerauftrag / Consulting")}</strong>
+              <span>{tt("Laufenden Auftrag ohne festes Enddatum führen und Leistungen nach Zeit erfassen.")}</span>
+            </div>
+            <label className="checkbox-line">
+              <input checked={newJob.consultingEnabled} onChange={(event) => setNewJob({ ...newJob, consultingEnabled: event.target.checked, consultingOpenEnded: event.target.checked ? true : newJob.consultingOpenEnded, status: event.target.checked && newJob.status === "geplant" ? "in Arbeit" : newJob.status })} type="checkbox" />
+              <span>{tt("als laufenden Consulting-Auftrag führen")}</span>
+            </label>
+          </div>
+          {newJob.consultingEnabled && (
+            <div className="job-consulting-fields">
+              <label className="checkbox-line"><input checked={newJob.consultingOpenEnded} onChange={(event) => setNewJob({ ...newJob, consultingOpenEnded: event.target.checked })} type="checkbox" /><span>{tt("ohne Enddatum")}</span></label>
+              <label><span>{tt("Stundensatz")}</span><input inputMode="decimal" placeholder="950" value={newJob.consultingHourlyRate} onChange={(event) => setNewJob({ ...newJob, consultingHourlyRate: event.target.value })} /></label>
+              <label><span>{tt("Währung")}</span><select value={newJob.consultingCurrency} onChange={(event) => setNewJob({ ...newJob, consultingCurrency: event.target.value })}><option>SEK</option><option>EUR</option></select></label>
+            </div>
+          )}
+        </section>
         <section className="job-billing-compact">
           <div>
             <strong>Abrechnung</strong>
