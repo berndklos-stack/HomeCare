@@ -3681,10 +3681,16 @@ function mergeSnapshotWithSyncSections(snapshot: AppSnapshot, sections: SyncSect
       .filter(([, section]) => section && "value" in section)
       .map(([key, section]) => [key, section?.value]),
   ) as Partial<AppSnapshot>;
+  const sectionJobs = Array.isArray(patch.jobs) ? patch.jobs : undefined;
+  const { jobs: _sectionJobs, ...safePatch } = patch;
 
   return {
     ...snapshot,
-    ...patch,
+    ...safePatch,
+    // The normalized homecare_jobs sync table does not currently contain the
+    // nested consulting payload. Merge jobs instead of replacing them so that
+    // consulting time entries stored in app_state/local state survive reloads.
+    jobs: sectionJobs ? mergeJobsById(snapshot.jobs, sectionJobs) : snapshot.jobs,
     updatedAt: Object.values(sections).reduce((latest, section) => {
       const sectionTime = Date.parse(section?.updatedAt ?? "");
       const latestTime = Date.parse(latest ?? "");
@@ -3823,7 +3829,18 @@ async function saveSupabaseSnapshot(snapshot: AppSnapshot) {
 
 async function saveSupabasePatch(overrides: Partial<AppSnapshot>) {
   if (patchUsesSmallSyncOnly(overrides)) {
-    return saveSmallSyncPatch(overrides);
+    const smallSyncSavedAt = await saveSmallSyncPatch(overrides);
+
+    // Jobs are also stored in app_state because the normalized homecare_jobs
+    // table intentionally contains only the common job fields and would drop
+    // nested consulting entries. Dual-write job patches so consulting data is
+    // durable across refreshes/restarts while the structured job sync remains current.
+    if (overrides.jobs) {
+      const snapshot = { __patch: true, patch: compactPatchForRemote(overrides) };
+      return (await saveSupabaseSnapshot(snapshot as unknown as AppSnapshot)) ?? smallSyncSavedAt;
+    }
+
+    return smallSyncSavedAt;
   }
   const snapshot = { __patch: true, patch: compactPatchForRemote(overrides) };
   return saveSupabaseSnapshot(snapshot as unknown as AppSnapshot);
@@ -14628,7 +14645,7 @@ function JobsView({
                       onClick={() => openEditConsultingEntry(job, entry)}
                       type="button"
                     >
-                      <span aria-hidden="true" className="consulting-edit-glyph">✎</span>
+                      <Pencil size={16} />
                     </button>
                   )}
                 </div>

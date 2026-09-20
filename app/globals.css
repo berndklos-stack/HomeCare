@@ -9605,17 +9605,8 @@ button.media-thumb {
 
 .consulting-entry-edit-button svg {
   display: block;
-  height: 15px;
+  height: 16px;
   stroke: currentColor;
-  width: 15px;
+  width: 16px;
 }
 
-.consulting-edit-glyph {
-  color: currentColor;
-  display: block;
-  font-family: Arial, Helvetica, sans-serif;
-  font-size: 19px;
-  font-weight: 700;
-  line-height: 1;
-  transform: translateY(-1px);
-}
