@@ -8409,3 +8409,343 @@ button.media-thumb {
     text-align: left;
   }
 }
+
+/* iPhone / small-phone app optimization */
+@media (max-width: 600px) {
+  html,
+  body {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  body {
+    min-height: 100dvh;
+    overscroll-behavior-y: none;
+  }
+
+  .app {
+    display: block;
+    min-height: 100dvh;
+    width: 100%;
+  }
+
+  /* Compact app-like navigation instead of a tall desktop sidebar. */
+  .sidebar {
+    gap: 8px;
+    height: auto;
+    overflow: visible;
+    padding: max(8px, env(safe-area-inset-top)) 8px 8px;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+
+  .brand {
+    min-height: 34px;
+    padding: 0 4px;
+  }
+
+  .brand img {
+    max-height: 26px;
+    max-width: 190px;
+    width: auto;
+  }
+
+  .sidebar nav {
+    display: flex;
+    gap: 6px;
+    margin: 0 -8px;
+    overflow-x: auto;
+    padding: 0 8px 4px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .sidebar nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .sidebar nav button {
+    flex: 0 0 auto;
+    min-height: 42px;
+    padding: 0 12px;
+    white-space: nowrap;
+  }
+
+  .version {
+    display: none;
+  }
+
+  .workspace {
+    gap: 8px;
+    padding: 10px max(10px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+  }
+
+  .topbar {
+    gap: 10px;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .topbar h1 {
+    font-size: clamp(24px, 8vw, 32px);
+    line-height: 1.08;
+  }
+
+  .topbar span {
+    font-size: 13px;
+    line-height: 1.35;
+    margin-top: 4px;
+  }
+
+  .toolbar {
+    display: grid;
+    gap: 7px;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    width: 100%;
+  }
+
+  .toolbar .search {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .toolbar .select-field,
+  .toolbar .ghost-button,
+  .toolbar .primary-button {
+    flex: initial;
+    min-width: 0;
+    width: auto;
+  }
+
+  .toolbar .select-field {
+    width: 100%;
+  }
+
+  .toolbar .toolbar-notice {
+    grid-column: 1 / -1;
+    margin: 0;
+    text-align: left;
+  }
+
+  .toolbar .theme-toggle {
+    height: 44px;
+    min-width: 44px;
+    width: 44px;
+  }
+
+  /* Prevent iOS Safari from zooming when an input receives focus. */
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  button,
+  .ghost-button,
+  .primary-button,
+  .icon-button,
+  input,
+  select {
+    min-height: 44px;
+  }
+
+  textarea {
+    min-height: 96px;
+  }
+
+  .panel,
+  .quickbar button {
+    border-radius: 10px;
+  }
+
+  .panel {
+    padding: 12px;
+  }
+
+  .panel-title {
+    align-items: stretch;
+    gap: 10px;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .panel-title .row-actions,
+  .section-heading .row-actions,
+  .row-actions {
+    flex-wrap: wrap;
+    max-width: 100%;
+  }
+
+  .panel-title .row-actions > button,
+  .panel-title .row-actions > .ghost-button,
+  .panel-title .row-actions > .primary-button {
+    flex: 1 1 auto;
+  }
+
+  .quickbar {
+    display: grid;
+    gap: 7px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .quickbar button {
+    min-height: 72px;
+    padding: 10px;
+  }
+
+  .quickbar strong {
+    font-size: 20px;
+  }
+
+  .quickbar span {
+    font-size: 12px;
+    line-height: 1.2;
+  }
+
+  .layout,
+  .layout.full,
+  .main-panel {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .form-grid,
+  .compact-form,
+  .summary-grid,
+  .billing-summary-grid,
+  .inventory-summary-grid,
+  .analytics-summary-grid,
+  .portal-grid,
+  .portal-object-detail-grid,
+  .job-form-layout,
+  .job-form-control-grid,
+  .job-quick-master-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .form-grid label,
+  .form-grid input,
+  .form-grid select,
+  .form-grid textarea,
+  .search,
+  .search input,
+  .select-field,
+  .select-field select {
+    max-width: 100%;
+    min-width: 0;
+    width: 100%;
+  }
+
+  /* Cards and rows stay readable instead of shrinking into desktop columns. */
+  .table-list article,
+  .compact-list article,
+  .object-list article,
+  .media-list article,
+  .message-list article,
+  .billing-row,
+  .job-row,
+  .inventory-overview-list article,
+  .service-master-list article,
+  .package-master-list article {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .table-list .row-actions,
+  .compact-list .row-actions,
+  .job-row .row-actions,
+  .billing-actions {
+    justify-content: flex-start;
+    width: 100%;
+  }
+
+  .table-list .row-actions button,
+  .compact-list .row-actions button {
+    min-height: 44px;
+  }
+
+  /* Desktop-like data tables may scroll horizontally rather than becoming unreadable. */
+  .analytics-table,
+  .logbook-table-wrap,
+  .resource-modal-logbook .logbook-table-wrap {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Full-height mobile dialogs with safe-area padding. */
+  .modal-backdrop {
+    padding: 0;
+  }
+
+  .modal,
+  .field-work-modal,
+  .send-preview-modal,
+  .quick-trip-modal,
+  .report-detail-modal,
+  .resource-editor-modal,
+  .document-preview-modal,
+  .communication-detail-modal,
+  .invoice-preview-modal {
+    border-radius: 0;
+    height: 100dvh;
+    max-height: 100dvh;
+    max-width: 100dvw;
+    padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+    width: 100dvw;
+  }
+
+  .modal > header,
+  .resource-editor-modal > header,
+  .quick-trip-modal > header {
+    background: var(--paper);
+    position: sticky;
+    top: calc(-1 * max(12px, env(safe-area-inset-top)));
+    z-index: 5;
+  }
+
+  .modal-actions {
+    background: var(--paper);
+    bottom: calc(-1 * max(14px, env(safe-area-inset-bottom)));
+    display: grid;
+    gap: 8px;
+    grid-template-columns: minmax(0, 1fr);
+    margin-left: calc(-1 * max(12px, env(safe-area-inset-left)));
+    margin-right: calc(-1 * max(12px, env(safe-area-inset-right)));
+    padding: 10px max(12px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+    position: sticky;
+    z-index: 4;
+  }
+
+  .modal-actions > button,
+  .modal-actions > .ghost-button,
+  .modal-actions > .primary-button {
+    min-height: 46px;
+    width: 100%;
+  }
+
+  img,
+  video,
+  iframe {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 380px) {
+  .workspace {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
+  .toolbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .toolbar > .ghost-button:not(.theme-toggle),
+  .toolbar > .select-field {
+    width: 100%;
+  }
+
+  .quickbar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
