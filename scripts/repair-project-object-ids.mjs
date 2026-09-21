@@ -29,6 +29,68 @@ function attachObject(customers, customerId, objectId, removedIds) {
   });
 }
 
+function stringOrEmpty(value) {
+  return value === null || value === undefined ? "" : String(value);
+}
+
+function nullableString(value) {
+  const text = stringOrEmpty(value).trim();
+  return text || null;
+}
+
+function numberOrNull(value) {
+  const numeric = Number(String(value ?? "").replace(",", "."));
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+function jobToRow(job, updatedAt) {
+  const discount = job.discount && typeof job.discount === "object"
+    ? job.discount
+    : {
+        reason: stringOrEmpty(job.discountReason),
+        type: stringOrEmpty(job.discountType),
+        value: stringOrEmpty(job.discountValue),
+      };
+  return {
+    assigned_to: stringOrEmpty(job.assignedTo),
+    billable: job.billable !== false,
+    checklist: Array.isArray(job.checklist) ? job.checklist : [],
+    custom_service: job.customService && typeof job.customService === "object" ? job.customService : null,
+    customer_id: nullableString(job.customerId),
+    description: stringOrEmpty(job.description),
+    discount,
+    due_date: nullableString(job.dueDate),
+    end_date: nullableString(job.endDate),
+    execution_date: nullableString(job.executionDate),
+    execution_log: Array.isArray(job.executionLog) ? job.executionLog : [],
+    id: String(job.id),
+    internal_notes: stringOrEmpty(job.internalNotes),
+    material: stringOrEmpty(job.material),
+    material_items: Array.isArray(job.materialItems) ? job.materialItems : [],
+    object_id: nullableString(job.objectId),
+    offer_number: stringOrEmpty(job.offerNumber),
+    offer_sent_at: nullableString(job.offerSentAt),
+    order_confirmation_number: stringOrEmpty(job.orderConfirmationNumber),
+    order_confirmation_sent_at: nullableString(job.orderConfirmationSentAt),
+    priority: stringOrEmpty(job.priority) || "normal",
+    resource_ids: Array.isArray(job.resourceIds) ? job.resourceIds : [],
+    schedule: job.schedule && typeof job.schedule === "object" ? job.schedule : {},
+    series_excluded_dates: Array.isArray(job.seriesExcludedDates) ? job.seriesExcludedDates : [],
+    series_master_id: nullableString(job.seriesMasterId),
+    series_occurrence_date: nullableString(job.seriesOccurrenceDate),
+    service_discounts: job.serviceDiscounts && typeof job.serviceDiscounts === "object" ? job.serviceDiscounts : {},
+    service_ids: Array.isArray(job.serviceIds) ? job.serviceIds : [],
+    service_quantities: job.serviceQuantities && typeof job.serviceQuantities === "object" ? job.serviceQuantities : {},
+    start_date: nullableString(job.startDate),
+    status: stringOrEmpty(job.status) || "geplant",
+    status_updated_at: nullableString(job.statusUpdatedAt),
+    title: stringOrEmpty(job.title) || "Auftrag",
+    type: stringOrEmpty(job.type),
+    updated_at: updatedAt,
+    work_minutes: numberOrNull(job.workMinutes) ?? 0,
+  };
+}
+
 async function checked(query, label) {
   const result = await query;
   if (result.error) throw new Error(`${label}: ${result.error.message}`);
@@ -83,26 +145,25 @@ const nextState = {
 };
 
 if (supabase) {
-  const duplicateRows = await checked(
-    supabase.from("homecare_objects").select("*").eq("id", oldSharedId),
-    "Kollidierte Objekte lesen",
+  const relationalObjects = await checked(
+    supabase
+      .from("homecare_objects")
+      .select("id, name, owner_customer_id")
+      .in("id", [oldSharedId, cdkObjectId, boerjesObjectId]),
+    "Reparierte Projekte lesen",
   );
-  const etzelRow = assertSingle(duplicateRows.filter((row) => row.name === "Etzel Uvasjön"), "Relationales Etzel-Objekt");
-  const cdkRow = assertSingle(duplicateRows.filter((row) => row.name === "CDK Family Office Gbr"), "Relationales CDK-Projekt");
-  const boerjesRow = assertSingle(duplicateRows.filter((row) => row.name === "Kährs"), "Relationales Börjes-Projekt");
+  assertSingle(relationalObjects.filter((row) => row.id === oldSharedId && row.name === "Etzel Uvasjön"), "Relationales Etzel-Objekt");
+  assertSingle(relationalObjects.filter((row) => row.id === cdkObjectId && row.name === "CDK Family Office Gbr"), "Relationales CDK-Projekt");
+  assertSingle(relationalObjects.filter((row) => row.id === boerjesObjectId && row.name === "Kährs"), "Relationales Börjes-Projekt");
 
-  await checked(supabase.from("homecare_objects").insert([
-    { ...cdkRow, id: cdkObjectId, owner_customer_id: cdkCustomerId, owner_name: "CDK Vermietung", updated_at: updatedAt },
-    { ...boerjesRow, id: boerjesObjectId, owner_customer_id: boerjesCustomerId, updated_at: updatedAt },
-  ]), "Projekte mit eindeutigen IDs anlegen");
+  const targetJobIds = new Set([...cdkJobIds, "JOB-2519", "JOB-2521", "JOB-2522"]);
+  const targetJobs = repairedJobs.filter((job) => targetJobIds.has(job.id));
+  if (targetJobs.length !== targetJobIds.size) {
+    throw new Error(`Zielaufträge: erwartet ${targetJobIds.size} Datensätze, gefunden ${targetJobs.length}.`);
+  }
   await checked(
-    supabase.from("homecare_jobs").update({ customer_id: cdkCustomerId, object_id: cdkObjectId, updated_at: updatedAt }).in("id", cdkJobIds),
-    "CDK-Aufträge zuordnen",
-  );
-  await checked(supabase.from("homecare_objects").delete().eq("id", oldSharedId), "Kollidierte Objektzeilen entfernen");
-  await checked(
-    supabase.from("homecare_objects").insert({ ...etzelRow, id: oldSharedId, owner_customer_id: etzelCustomerId, updated_at: updatedAt }),
-    "Etzel-Objekt wiederherstellen",
+    supabase.from("homecare_jobs").upsert(targetJobs.map((job) => jobToRow(job, updatedAt)), { onConflict: "id" }),
+    "CDK-/Börjes-Aufträge relational speichern",
   );
 }
 

@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.421.1",
+  version: "1.421.2",
   releaseDate: "2026-09-21",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  {
+    version: "1.421.2",
+    date: "2026-09-21",
+    changes: [
+      "Freie Besuchshinweise und deutsche Datumswerte blockieren den relationalen Projekt-Sync nicht mehr",
+      "CDK und Kährs/Börjes sind auch relational eindeutig mit ihren Aufträgen verknüpft",
+      "Die Projekt-Reparatur ist wiederholbar und prüft den Zielzustand vor jeder Änderung",
+    ],
+  },
   {
     version: "1.421.1",
     date: "2026-09-21",

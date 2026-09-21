@@ -462,6 +462,25 @@ function nullableString(value: unknown) {
   return text ? text : null;
 }
 
+function dateOrNull(value: unknown) {
+  const text = stringOrEmpty(value).trim();
+  if (!text) return null;
+
+  const isoMatch = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const germanMatch = text.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+  const normalized = isoMatch
+    ? text
+    : germanMatch
+      ? `${germanMatch[3]}-${germanMatch[2]}-${germanMatch[1]}`
+      : null;
+  if (!normalized) return null;
+
+  const parsed = new Date(`${normalized}T00:00:00Z`);
+  return Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== normalized
+    ? null
+    : normalized;
+}
+
 function maxUpdatedAt(values: Array<string | null | undefined>) {
   return values
     .filter(Boolean)
@@ -962,9 +981,9 @@ function objectToRow(object: JsonObject) {
     id: String(object.id),
     internet: stringOrEmpty(utilities.internet),
     key_safe: stringOrEmpty(access.keySafe),
-    last_visit: nullableString(object.lastVisit),
+    last_visit: dateOrNull(object.lastVisit),
     name: stringOrEmpty(object.name) || "Unbenanntes Objekt",
-    next_visit: nullableString(object.nextVisit),
+    next_visit: dateOrNull(object.nextVisit),
     owner_address: stringOrEmpty(object.ownerAddress),
     owner_customer_id: nullableString(object.ownerCustomerId),
     owner_email: stringOrEmpty(object.ownerEmail),
