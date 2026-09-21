@@ -10143,6 +10143,86 @@ button.media-thumb {
   padding-top: 14px;
 }
 
+.consulting-billing-controls {
+  align-items: end;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(220px, 0.7fr) minmax(280px, 1.3fr);
+}
+
+.consulting-billing-controls > label:first-child {
+  display: grid;
+  gap: 6px;
+}
+
+.consulting-billing-controls > label:first-child > span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.consulting-billing-controls input[type="date"] {
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  color: var(--foreground);
+  font: inherit;
+  min-height: 48px;
+  padding: 10px 12px;
+}
+
+.consulting-billing-select-all {
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  min-height: 48px;
+  padding: 10px 14px;
+}
+
+.consulting-billing-list {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  display: grid;
+  max-height: min(48vh, 430px);
+  overflow: auto;
+}
+
+.consulting-billing-row {
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 22px minmax(130px, 0.55fr) minmax(220px, 1.6fr) 80px;
+  min-height: 62px;
+  padding: 10px 14px;
+}
+
+.consulting-billing-row:last-child {
+  border-bottom: 0;
+}
+
+.consulting-billing-row > span {
+  display: grid;
+  gap: 2px;
+}
+
+.consulting-billing-row small {
+  color: var(--muted);
+}
+
+.consulting-billing-row > strong:last-child {
+  text-align: right;
+}
+
+.consulting-billing-row.disabled {
+  opacity: 0.45;
+}
+
+.consulting-billing-description {
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 700px) {
   .job-consulting-heading {
     align-items: flex-start;
@@ -10157,6 +10237,20 @@ button.media-thumb {
   .consulting-entry-modal {
     padding: 18px;
     width: min(calc(100vw - 20px), 820px);
+  }
+
+  .consulting-billing-controls {
+    align-items: stretch;
+    grid-template-columns: 1fr;
+  }
+
+  .consulting-billing-row {
+    align-items: start;
+    grid-template-columns: 22px minmax(0, 1fr) auto;
+  }
+
+  .consulting-billing-description {
+    grid-column: 2 / -1;
   }
 
   .consulting-entry-helper {

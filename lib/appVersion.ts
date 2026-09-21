@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.421.2",
+  version: "1.422.0",
   releaseDate: "2026-09-21",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  {
+    version: "1.422.0",
+    date: "2026-09-21",
+    changes: [
+      "Offene Consulting-Leistungen lassen sich bis zu einem Stichtag und positionsweise abrechnen",
+      "Kunden erhalten ein zentral synchronisiertes Systemfeld fuer den Firmennamen",
+      "Buttons, Feldbezeichnungen und Platzhalter passen sich dem gewaehlten Projekt- oder Objekttyp an",
+    ],
+  },
   {
     version: "1.421.2",
     date: "2026-09-21",

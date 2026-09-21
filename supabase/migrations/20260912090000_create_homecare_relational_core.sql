@@ -3,6 +3,7 @@ create extension if not exists pgcrypto;
 create table if not exists public.homecare_customers (
   id text primary key,
   personal_number text,
+  company_name text,
   name text not null,
   contact text,
   email text,

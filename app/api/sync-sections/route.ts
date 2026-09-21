@@ -139,6 +139,7 @@ type CustomerRow = {
   billable: boolean | null;
   billing_address: string | null;
   billing_address_mode: string | null;
+  company_name: string | null;
   contact: string | null;
   created_at: string | null;
   email: string | null;
@@ -881,6 +882,7 @@ function customerToRow(customer: JsonObject) {
     billable: customer.billable !== false,
     billing_address: stringOrEmpty(customer.billingAddress),
     billing_address_mode: stringOrEmpty(customer.billingAddressMode) || "Kundenadresse",
+    company_name: stringOrEmpty(customer.company),
     contact: stringOrEmpty(customer.contact),
     created_at: nullableString(customer.createdAt),
     email: stringOrEmpty(customer.email),
@@ -911,6 +913,7 @@ function rowToCustomer(row: CustomerRow, objectRows: ObjectRow[]) {
     billable: row.billable !== false,
     billingAddress: row.billing_address ?? "",
     billingAddressMode: row.billing_address_mode ?? "Kundenadresse",
+    company: row.company_name ?? "",
     contact: row.contact ?? "",
     createdAt: row.created_at ?? undefined,
     email: row.email ?? "",
@@ -1737,7 +1740,7 @@ async function loadResourceMediaRows(supabase: NonNullable<ReturnType<typeof get
 async function loadCustomersSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
   const { data, error } = await supabase
     .from("homecare_customers")
-    .select("id, personal_number, name, contact, email, phone, phone2, address, billing_address, billing_address_mode, language, portal_login_email, portal_password, portal_status, balance, notes, report_mail_body, weekly_report_mail_body, offer_mail_body, order_confirmation_mail_body, work_time_visibility, billable, archived, portal_login_history, created_at, updated_at")
+    .select("id, personal_number, company_name, name, contact, email, phone, phone2, address, billing_address, billing_address_mode, language, portal_login_email, portal_password, portal_status, balance, notes, report_mail_body, weekly_report_mail_body, offer_mail_body, order_confirmation_mail_body, work_time_visibility, billable, archived, portal_login_history, created_at, updated_at")
     .order("name", { ascending: true });
   if (error || !data?.length) return null;
 

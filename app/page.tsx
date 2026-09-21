@@ -166,6 +166,7 @@ type CustomerRecord = {
   id: string;
   personalNumber?: string;
   createdAt?: string;
+  company?: string;
   name: string;
   contact: string;
   email: string;
@@ -1154,6 +1155,7 @@ type JobQuickMasterDataInput = {
 type CustomerFormState = {
   personalNumber: string;
   createdAt: string;
+  company: string;
   name: string;
   contact: string;
   email: string;
@@ -2044,6 +2046,10 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Dieser Text wird als Sammelposition auf der Rechnung verwendet.", sv: "Den här texten används som samlingsrad på fakturan.", en: "This text is used as the summary line on the invoice." },
   { de: "Leistung erfassen", sv: "Registrera arbete", en: "Record work" },
   { de: "Offene Leistungen abrechnen", sv: "Fakturera öppet arbete", en: "Bill open work" },
+  { de: "Leistungen bis einschließlich", sv: "Arbete till och med", en: "Work through" },
+  { de: "Alle Positionen bis zum Stichtag auswählen", sv: "Välj alla poster till brytdatumet", en: "Select all items through the cutoff date" },
+  { de: "Positionen ausgewählt", sv: "poster valda", en: "items selected" },
+  { de: "Ausgewählte Positionen abrechnen", sv: "Fakturera valda poster", en: "Bill selected items" },
   { de: "Leistung speichern", sv: "Spara arbete", en: "Save work" },
   { de: "Änderungen speichern", sv: "Spara ändringar", en: "Save changes" },
   { de: "Tätigkeit", sv: "Arbete", en: "Activity" },
@@ -2344,6 +2350,7 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Fahrzeugdokument hinzufügen", sv: "Lägg till fordonsdokument", en: "Add vehicle document" },
   { de: "Firmenadresse", sv: "Företagsadress", en: "Company address" },
   { de: "Firma", sv: "Företag", en: "Company" },
+  { de: "Firmenname (optional)", sv: "Företagsnamn (valfritt)", en: "Company name (optional)" },
   { de: "Gespeicherte Standardfahrt", sv: "Sparad standardresa", en: "Saved standard trip" },
   { de: "Fotos zum Objekt", sv: "Foton för objektet", en: "Property photos" },
   { de: "Fotos werden vorbereitet...", sv: "Foton förbereds...", en: "Preparing photos..." },
@@ -7196,6 +7203,7 @@ function emptyCustomerForm(): CustomerFormState {
   return {
     personalNumber: "",
     createdAt: "",
+    company: "",
     name: "",
     contact: "",
     email: "",
@@ -7225,6 +7233,7 @@ function customerToForm(customer: CustomerRecord): CustomerFormState {
   return {
     personalNumber: normalizeReadableNumber(customer.personalNumber),
     createdAt: customer.createdAt || "",
+    company: customer.company || "",
     name: customer.name,
     contact: customer.contact,
     email: customer.email,
@@ -7263,6 +7272,7 @@ function formToCustomer(form: CustomerFormState, id: string, existingCustomer?: 
     id,
     personalNumber: normalizeReadableNumber(form.personalNumber) || normalizeReadableNumber(existingCustomer?.personalNumber) || generatedPersonalNumber || "001",
     createdAt,
+    company: form.company.trim(),
     name: form.name.trim() || "Neuer Kunde",
     contact: form.contact.trim() || "Kontakt ergänzen",
     email,
@@ -10345,16 +10355,17 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     setRecordNotice(`Leistung zu "${job.title}" wurde aktualisiert.`);
   }
 
-  function billConsultingEntries(job: JobRecord) {
+  function billConsultingEntries(job: JobRecord, selectedEntryIds: string[]) {
     const consulting = job.consulting;
     if (!consulting?.enabled) return;
     if (!job.billable) {
       setRecordNotice(`Auftrag "${job.title}" ist von der Abrechnung ausgeschlossen.`);
       return;
     }
-    const openEntries = consulting.entries.filter((entry) => entry.billingStatus === "offen");
+    const selectedIds = new Set(selectedEntryIds);
+    const openEntries = consulting.entries.filter((entry) => entry.billingStatus === "offen" && selectedIds.has(entry.id));
     if (openEntries.length === 0) {
-      setRecordNotice(`Für "${job.title}" gibt es keine offenen Consulting-Leistungen.`);
+      setRecordNotice(`Für "${job.title}" wurden keine offenen Consulting-Leistungen ausgewählt.`);
       return;
     }
     const totalMinutes = openEntries.reduce((sum, entry) => sum + entry.minutes, 0);
@@ -10418,7 +10429,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
             consulting: {
               ...consulting,
               entries: consulting.entries.map((entry) => (
-                entry.billingStatus === "offen"
+                entry.billingStatus === "offen" && selectedIds.has(entry.id)
                   ? { ...entry, billingStatus: "abgerechnet" as const, billedAt, billingRecordId: billingId }
                   : entry
               )),
@@ -10430,7 +10441,8 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     setJobs(nextJobs);
     setBilling(nextBilling);
     persistSnapshotNow({ billing: nextBilling, jobs: nextJobs }, { forceRemote: true });
-    setRecordNotice(`${openEntries.length} Consulting-Leistung(en) wurden als Rechnungsentwurf übernommen. Der Auftrag bleibt laufend.`);
+    const remainingOpenEntries = consulting.entries.filter((entry) => entry.billingStatus === "offen" && !selectedIds.has(entry.id)).length;
+    setRecordNotice(`${openEntries.length} Consulting-Leistung(en) wurden als Rechnungsentwurf übernommen. ${remainingOpenEntries} Position(en) bleiben offen.`);
   }
 
   function collectBillableJobs() {
@@ -12753,7 +12765,6 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                 reports={reports}
                 newObject={newObject}
                 setNewObject={setNewObject}
-                submitLabel={editingObjectId ? t.saveObject : t.createObject}
               />
             )}
             {section === "objects" && !objectEditorOpen && (
@@ -15199,6 +15210,28 @@ function objectServiceSummary(object: ObjectRecord, definitions: ObjectTypeDefin
   return groups.includes("service") ? object.carePackage || "-" : "-";
 }
 
+function objectTypeActionLabel(typeName: string, language: Language, action: "create" | "save" | "archive" | "restore" | "delete") {
+  const labels = {
+    create: { de: `${typeName} anlegen`, sv: `Skapa ${typeName}`, en: `Create ${typeName}` },
+    save: { de: `${typeName} speichern`, sv: `Spara ${typeName}`, en: `Save ${typeName}` },
+    archive: { de: `${typeName} archivieren`, sv: `Arkivera ${typeName}`, en: `Archive ${typeName}` },
+    restore: { de: `${typeName} wiederherstellen`, sv: `Återställ ${typeName}`, en: `Restore ${typeName}` },
+    delete: { de: `${typeName} endgültig löschen`, sv: `Radera ${typeName} permanent`, en: `Delete ${typeName} permanently` },
+  };
+  return labels[action][language];
+}
+
+function objectTypeContextLabel(typeName: string, language: Language, subject: "address" | "image" | "photos" | "documents" | "history") {
+  const labels = {
+    address: { de: `${typeName}adresse`, sv: `Adress för ${typeName}`, en: `${typeName} address` },
+    image: { de: `${typeName}bild`, sv: `Bild för ${typeName}`, en: `${typeName} image` },
+    photos: { de: `Fotos zum ${typeName}`, sv: `Foton för ${typeName}`, en: `Photos for ${typeName}` },
+    documents: { de: `Dokumente zum ${typeName}`, sv: `Dokument för ${typeName}`, en: `Documents for ${typeName}` },
+    history: { de: `${typeName}verlauf`, sv: `Historik för ${typeName}`, en: `${typeName} history` },
+  };
+  return labels[subject][language];
+}
+
 function isInactiveObject(object: ObjectRecord) {
   return /inaktiv|pausiert|winterruhe|verkauft|gekündigt|gekuendigt/i.test(object.status);
 }
@@ -15391,6 +15424,7 @@ function CustomersView({
     const customerMessages = messagesForCustomer(customer);
     const text = [
       customer.name,
+      customer.company,
       customer.contact,
       customer.email,
       customer.phone,
@@ -15493,8 +15527,8 @@ function CustomersView({
                 >
                   <div className="customer-row-main">
                     <div>
-                      <strong>{customer.name}</strong>
-                      <span>{[customer.contact, customer.email, customer.phone, customer.phone2, customerLanguageLabel(customer.language), customer.notes].filter(Boolean).join(" · ")}</span>
+                      <strong>{customer.company || customer.name}</strong>
+                      <span>{[customer.company ? customer.name : "", customer.contact, customer.email, customer.phone, customer.phone2, customerLanguageLabel(customer.language), customer.notes].filter(Boolean).join(" · ")}</span>
                       <small>{tt("Kundennummer")}: {normalizeReadableNumber(customer.personalNumber) || tt("fehlt")} · {tt("angelegt am")}: {formatCreatedAt(customer.createdAt)}</small>
                     </div>
                     <span>{objects.filter((object) => customer.objects.includes(object.id)).map((object) => object.name).join(", ") || tt("Keine Objekte")}</span>
@@ -15606,8 +15640,8 @@ function CustomersView({
                   tabIndex={0}
                 >
                   <div>
-                    <strong>{customer.name}</strong>
-                    <span>{[customer.contact, customer.email, customer.phone, customer.phone2].filter(Boolean).join(" · ")}</span>
+                    <strong>{customer.company || customer.name}</strong>
+                    <span>{[customer.company ? customer.name : "", customer.contact, customer.email, customer.phone, customer.phone2].filter(Boolean).join(" · ")}</span>
                     <small>{tt("Kundennummer")}: {normalizeReadableNumber(customer.personalNumber) || tt("fehlt")} · {tt("angelegt am")}: {formatCreatedAt(customer.createdAt)}</small>
                   </div>
                   <Badge value={tt("archiviert")} />
@@ -15657,7 +15691,7 @@ function JobsView({
   onMoveToBilling: (job: JobRecord) => void;
   onAddConsultingEntry: (job: JobRecord, entry: Omit<ConsultingTimeEntry, "id" | "billingStatus">) => void;
   onUpdateConsultingEntry: (job: JobRecord, entryId: string, entry: Omit<ConsultingTimeEntry, "id" | "billingStatus">) => void;
-  onBillConsultingEntries: (job: JobRecord) => void;
+  onBillConsultingEntries: (job: JobRecord, selectedEntryIds: string[]) => void;
   onRestore: (job: JobRecord) => void;
   onSendOrderConfirmation: (job: JobRecord) => void;
   onSendOffer: (job: JobRecord) => void;
@@ -15677,6 +15711,9 @@ function JobsView({
   const [consultingEntryEnd, setConsultingEntryEnd] = useState("");
   const [consultingEntryDescription, setConsultingEntryDescription] = useState("");
   const [expandedConsultingIds, setExpandedConsultingIds] = useState<string[]>([]);
+  const [consultingBillingJobId, setConsultingBillingJobId] = useState("");
+  const [consultingBillingThroughDate, setConsultingBillingThroughDate] = useState(currentLocalDateValue());
+  const [consultingBillingEntryIds, setConsultingBillingEntryIds] = useState<string[]>([]);
   const occurrenceGroups = jobs.reduce<Record<string, JobRecord[]>>((groups, job) => {
     if (!job.seriesMasterId) return groups;
     return {
@@ -15702,6 +15739,18 @@ function JobsView({
 
   const activeConsultingJob = consultingEntryJobId ? jobs.find((item) => item.id === consultingEntryJobId) : undefined;
   const activeConsultingObject = activeConsultingJob ? objects.find((object) => object.id === activeConsultingJob.objectId) : undefined;
+  const activeConsultingBillingJob = consultingBillingJobId ? jobs.find((item) => item.id === consultingBillingJobId) : undefined;
+  const activeConsultingBillingObject = activeConsultingBillingJob ? objects.find((object) => object.id === activeConsultingBillingJob.objectId) : undefined;
+  const openConsultingBillingEntries = (activeConsultingBillingJob?.consulting?.entries ?? [])
+    .filter((entry) => entry.billingStatus === "offen")
+    .sort((first, second) => `${first.date} ${first.startTime}`.localeCompare(`${second.date} ${second.startTime}`));
+  const eligibleConsultingBillingEntries = openConsultingBillingEntries.filter((entry) => !consultingBillingThroughDate || entry.date <= consultingBillingThroughDate);
+  const selectedConsultingBillingEntries = eligibleConsultingBillingEntries.filter((entry) => consultingBillingEntryIds.includes(entry.id));
+  const selectedConsultingBillingMinutes = selectedConsultingBillingEntries.reduce((sum, entry) => sum + entry.minutes, 0);
+  const selectedConsultingBillingRate = decimalValue(activeConsultingBillingJob?.consulting?.hourlyRate);
+  const selectedConsultingBillingAmount = Number.isFinite(selectedConsultingBillingRate)
+    ? (selectedConsultingBillingMinutes / 60) * selectedConsultingBillingRate
+    : 0;
   const consultingEntryMinutesPreview = (() => {
     if (!consultingEntryStart || !consultingEntryEnd) return 0;
     const [startHour, startMinute] = consultingEntryStart.split(":").map(Number);
@@ -15742,6 +15791,32 @@ function JobsView({
     setConsultingEntryStart("");
     setConsultingEntryEnd("");
     setConsultingEntryDescription("");
+  }
+
+  function openConsultingBilling(job: JobRecord) {
+    const throughDate = currentLocalDateValue();
+    const eligibleIds = (job.consulting?.entries ?? [])
+      .filter((entry) => entry.billingStatus === "offen" && entry.date <= throughDate)
+      .map((entry) => entry.id);
+    setConsultingBillingJobId(job.id);
+    setConsultingBillingThroughDate(throughDate);
+    setConsultingBillingEntryIds(eligibleIds);
+  }
+
+  function updateConsultingBillingThroughDate(value: string) {
+    setConsultingBillingThroughDate(value);
+    setConsultingBillingEntryIds(openConsultingBillingEntries.filter((entry) => !value || entry.date <= value).map((entry) => entry.id));
+  }
+
+  function closeConsultingBilling() {
+    setConsultingBillingJobId("");
+    setConsultingBillingEntryIds([]);
+  }
+
+  function submitConsultingBilling() {
+    if (!activeConsultingBillingJob || selectedConsultingBillingEntries.length === 0) return;
+    onBillConsultingEntries(activeConsultingBillingJob, selectedConsultingBillingEntries.map((entry) => entry.id));
+    closeConsultingBilling();
   }
 
   function openEditConsultingEntry(job: JobRecord, entry: ConsultingTimeEntry) {
@@ -15817,7 +15892,7 @@ function JobsView({
                     {tt("Leistung erfassen")}
                   </button>
                   {consultingOpenMinutes(job) > 0 && (
-                    <button className="ghost-button compact consulting-bill-button" onClick={() => onBillConsultingEntries(job)} type="button">
+                    <button className="ghost-button compact consulting-bill-button" onClick={() => openConsultingBilling(job)} type="button">
                       <Euro size={15} />
                       {tt("Offene Leistungen abrechnen")}
                     </button>
@@ -16040,6 +16115,67 @@ function JobsView({
               <button className="primary-button" disabled={!consultingEntryDate || !consultingEntryStart || !consultingEntryEnd || !consultingEntryDescription.trim() || consultingEntryEnd <= consultingEntryStart} onClick={saveConsultingEntry} type="button">
                 <Check size={16} />
                 {tt(consultingEditingEntryId ? "Änderungen speichern" : "Leistung speichern")}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+      {consultingBillingJobId && activeConsultingBillingJob && (
+        <div className="modal-backdrop">
+          <section aria-labelledby="consulting-billing-title" aria-modal="true" className="modal consulting-entry-modal consulting-billing-modal" role="dialog">
+            <header>
+              <div className="consulting-entry-header-copy">
+                <p>{tt("Abrechnung")}</p>
+                <h2 id="consulting-billing-title">{tt("Offene Leistungen abrechnen")}</h2>
+                <span className="consulting-entry-subtitle">
+                  {activeConsultingBillingJob.title}{activeConsultingBillingObject ? ` · ${activeConsultingBillingObject.name}` : ""}
+                </span>
+              </div>
+              <button aria-label={tt("Schließen")} onClick={closeConsultingBilling} type="button"><X size={18} /></button>
+            </header>
+            <div className="consulting-entry-body">
+              <div className="consulting-billing-controls">
+                <label>
+                  <span>{tt("Leistungen bis einschließlich")}</span>
+                  <input type="date" value={consultingBillingThroughDate} onChange={(event) => updateConsultingBillingThroughDate(event.target.value)} />
+                </label>
+                <label className="checkbox-line consulting-billing-select-all">
+                  <input
+                    checked={eligibleConsultingBillingEntries.length > 0 && selectedConsultingBillingEntries.length === eligibleConsultingBillingEntries.length}
+                    onChange={(event) => setConsultingBillingEntryIds(event.target.checked ? eligibleConsultingBillingEntries.map((entry) => entry.id) : [])}
+                    type="checkbox"
+                  />
+                  <span>{tt("Alle Positionen bis zum Stichtag auswählen")}</span>
+                </label>
+              </div>
+              <div className="consulting-billing-list">
+                {openConsultingBillingEntries.map((entry) => {
+                  const eligible = !consultingBillingThroughDate || entry.date <= consultingBillingThroughDate;
+                  return (
+                    <label className={eligible ? "consulting-billing-row" : "consulting-billing-row disabled"} key={entry.id}>
+                      <input
+                        checked={eligible && consultingBillingEntryIds.includes(entry.id)}
+                        disabled={!eligible}
+                        onChange={(event) => setConsultingBillingEntryIds((current) => event.target.checked ? [...current, entry.id] : current.filter((id) => id !== entry.id))}
+                        type="checkbox"
+                      />
+                      <span><strong>{entry.date}</strong><small>{entry.startTime}–{entry.endTime}</small></span>
+                      <span className="consulting-billing-description">{entry.description}</span>
+                      <strong>{(entry.minutes / 60).toLocaleString(language === "sv" ? "sv-SE" : "de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} h</strong>
+                    </label>
+                  );
+                })}
+              </div>
+              <div className="consulting-entry-helper">
+                <span>{selectedConsultingBillingEntries.length} {tt("Positionen ausgewählt")} · {(selectedConsultingBillingMinutes / 60).toLocaleString(language === "sv" ? "sv-SE" : "de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} h</span>
+                <strong>{selectedConsultingBillingAmount.toLocaleString(language === "sv" ? "sv-SE" : "de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {activeConsultingBillingJob.consulting?.currency || "SEK"}</strong>
+              </div>
+            </div>
+            <div className="modal-actions consulting-entry-actions">
+              <button className="ghost-button" onClick={closeConsultingBilling} type="button">{tt("Abbrechen")}</button>
+              <button className="primary-button" disabled={selectedConsultingBillingEntries.length === 0} onClick={submitConsultingBilling} type="button">
+                <Euro size={16} />
+                {tt("Ausgewählte Positionen abrechnen")}
               </button>
             </div>
           </section>
@@ -23135,7 +23271,6 @@ function ObjectEditorPage({
   reports,
   newObject,
   setNewObject,
-  submitLabel,
 }: {
   customers: CustomerRecord[];
   jobs: JobRecord[];
@@ -23156,9 +23291,13 @@ function ObjectEditorPage({
   reports: ReportRecord[];
   newObject: NewObjectFormState;
   setNewObject: (value: NewObjectFormState) => void;
-  submitLabel: string;
 }) {
   const tt = (value: string) => uiText(value, language);
+  const entityName = objectTypeName(objectTypeDefinitions, newObject.type, language);
+  const entityImageLabel = objectTypeContextLabel(entityName, language, "image");
+  const dynamicSubmitLabel = object
+    ? objectTypeActionLabel(entityName, language, "save")
+    : objectTypeActionLabel(entityName, language, "create");
   const primaryImage = newObject.mediaItems.find((item) => item.type === "Bild" && item.isPrimary && item.previewUrl)
     ?? newObject.mediaItems.find((item) => item.type === "Bild" && item.previewUrl);
 
@@ -23174,7 +23313,7 @@ function ObjectEditorPage({
           </div>
           {primaryImage?.previewUrl ? (
             <div
-              aria-label={tt("Aktuelles Objektbild")}
+              aria-label={`${language === "de" ? "Aktuelles" : language === "sv" ? "Aktuell" : "Current"} ${entityImageLabel}`}
               className="object-editor-image"
               role="img"
               style={{ backgroundImage: `url(${primaryImage.previewUrl})` }}
@@ -23182,7 +23321,7 @@ function ObjectEditorPage({
           ) : (
             <div className="object-editor-image object-editor-image-empty">
               <Home size={26} />
-              <span>{tt("Noch kein Objektbild definiert")}</span>
+              <span>{language === "de" ? `Noch kein ${entityImageLabel} definiert` : language === "sv" ? `Ingen bild har angetts för ${entityName}` : `No ${entityImageLabel.toLowerCase()} defined`}</span>
             </div>
           )}
         </div>
@@ -23192,17 +23331,17 @@ function ObjectEditorPage({
               <>
                 <button className="ghost-button" onClick={onRestore} type="button">
                   <RotateCcw size={16} />
-                  {tt("Objekt wiederherstellen")}
+                  {objectTypeActionLabel(entityName, language, "restore")}
                 </button>
                 <button className="ghost-button danger-action" onClick={onDelete} type="button">
                   <Trash2 size={16} />
-                  {tt("Objekt endgültig löschen")}
+                  {objectTypeActionLabel(entityName, language, "delete")}
                 </button>
               </>
             ) : (
               <button className="ghost-button danger-action" onClick={onArchive} type="button">
                 <Archive size={16} />
-                {tt("Objekt archivieren")}
+                {objectTypeActionLabel(entityName, language, "archive")}
               </button>
             )}
           </div>
@@ -23217,10 +23356,10 @@ function ObjectEditorPage({
           setNewObject={setNewObject}
           onAutoSave={onAutoSave}
           onSubmit={onSubmit}
-          submitLabel={submitLabel}
+          submitLabel={dynamicSubmitLabel}
         />
       </section>
-      {object && <ObjectHistory customers={customers} jobs={jobs} language={language} object={object} onSendReport={onSendReport} onUnlockReport={onUnlockReport} onUpdateReport={onUpdateReport} reports={reports} />}
+      {object && <ObjectHistory customers={customers} jobs={jobs} language={language} object={object} objectTypeDefinitions={objectTypeDefinitions} onSendReport={onSendReport} onUnlockReport={onUnlockReport} onUpdateReport={onUpdateReport} reports={reports} />}
     </div>
   );
 }
@@ -23230,6 +23369,7 @@ function ObjectHistory({
   jobs,
   language,
   object,
+  objectTypeDefinitions,
   onSendReport,
   onUnlockReport,
   onUpdateReport,
@@ -23239,12 +23379,14 @@ function ObjectHistory({
   jobs: JobRecord[];
   language: Language;
   object: ObjectRecord;
+  objectTypeDefinitions: ObjectTypeDefinition[];
   onSendReport: (report: ReportRecord) => void;
   onUnlockReport: (report: ReportRecord) => void;
   onUpdateReport: (report: ReportRecord, options?: { forceRemote?: boolean }) => void;
   reports: ReportRecord[];
 }) {
   const tt = (value: string) => uiText(value, language);
+  const entityName = objectTypeName(objectTypeDefinitions, object.type, language);
   const objectJobs = jobs.filter((job) => job.objectId === object.id);
   const normalizedReports = dedupeReports(reports);
   const objectReports = normalizedReports.filter((report) => report.objectId === object.id);
@@ -23305,7 +23447,7 @@ function ObjectHistory({
     <section className="panel object-history">
       <div className="panel-title">
         <div>
-          <p>Objektverlauf</p>
+          <p>{objectTypeContextLabel(entityName, language, "history")}</p>
           <h2>Historie / Verlauf</h2>
           <span>{object.name}</span>
         </div>
@@ -23492,6 +23634,11 @@ function ObjectForm({
   const selectedObjectType = objectTypeDefinitions.find((definition) => definition.id === newObject.type)
     ?? objectTypeDefinitions[0]
     ?? defaultObjectTypeDefinitions[0];
+  const entityName = objectTypeName(objectTypeDefinitions, newObject.type, language);
+  const entityAddressLabel = objectTypeContextLabel(entityName, language, "address");
+  const entityImageLabel = objectTypeContextLabel(entityName, language, "image");
+  const entityPhotosLabel = objectTypeContextLabel(entityName, language, "photos");
+  const entityDocumentsLabel = objectTypeContextLabel(entityName, language, "documents");
   const availableObjectTypes = objectTypeDefinitions.filter((definition) => definition.active || definition.id === newObject.type);
   const packageOptions = uniqueSortedValues(
     packages.filter((servicePackage) => !servicePackage.archived).map((servicePackage) => servicePackage.name),
@@ -23686,7 +23833,7 @@ function ObjectForm({
           ))}
         </select>
       </label>
-      <label><span>{objectTypeName(objectTypeDefinitions, newObject.type, language)}</span><input value={newObject.name} onChange={(event) => update("name", event.target.value)} /></label>
+      <label><span>{entityName}</span><input placeholder={`${entityName} ${language === "de" ? "benennen" : language === "sv" ? "namn" : "name"}`} value={newObject.name} onChange={(event) => update("name", event.target.value)} /></label>
       <label><span>{tt("Status")}</span>
         <input list="object-status-options" value={newObject.status} onChange={(event) => update("status", event.target.value)} />
         <datalist id="object-status-options">
@@ -23711,7 +23858,7 @@ function ObjectForm({
       {hasFieldGroup("address") && <>
         <h3>{tt("Adresse / Region")}</h3>
         {isFieldVisible("region") && <label><span>{fieldLabel("region", "Ort/Region")}</span><input value={newObject.region} onChange={(event) => update("region", event.target.value)} /></label>}
-        {isFieldVisible("address") && <AddressFields label={fieldLabel("address", "Projekt-/Objektadresse")} language={language} value={newObject.address} onChange={(part, value) => updateObjectAddress("address", part, value)} />}
+        {isFieldVisible("address") && <AddressFields label={selectedObjectType.fieldLabels?.address?.[language]?.trim() || entityAddressLabel} language={language} value={newObject.address} onChange={(part, value) => updateObjectAddress("address", part, value)} />}
         {renderCustomFields("address")}
       </>}
       {hasFieldGroup("billing") && <>
@@ -23720,7 +23867,7 @@ function ObjectForm({
           <span>{fieldLabel("billingAddressMode", "Rechnungsadresse verwenden")}</span>
           <select value={newObject.billingAddressMode} onChange={(event) => updateBillingMode(event.target.value as ObjectRecord["billingAddressMode"])}>
             <option value="Eigentümeradresse">{tt("Kunden-/Eigentümeradresse")}</option>
-            <option value="Objektadresse">{tt("Projekt-/Objektadresse")}</option>
+            <option value="Objektadresse">{entityAddressLabel}</option>
             <option value="Abweichend">{tt("Abweichend")}</option>
           </select>
         </label>}
@@ -23780,7 +23927,7 @@ function ObjectForm({
       <section className="wide object-attachment-section">
         <div className="attachment-section-head">
           <div>
-            <h3>{fieldLabel("photos", "Fotos zum Objekt")}</h3>
+            <h3>{selectedObjectType.fieldLabels?.photos?.[language]?.trim() || entityPhotosLabel}</h3>
             <span>{photoItems.length} {tt("Fotos")}</span>
           </div>
           <label className="ghost-button attachment-upload">
@@ -23810,21 +23957,21 @@ function ObjectForm({
                   <IconAction label={`${item.name} nach oben verschieben`} onClick={() => moveMedia(item.id, -1)}><ArrowUp size={16} /></IconAction>
                   <IconAction label={`${item.name} nach unten verschieben`} onClick={() => moveMedia(item.id, 1)}><ArrowDown size={16} /></IconAction>
                   <IconAction label={`${item.name} Vorschau öffnen`} onClick={() => setPreviewPhoto(item)}><FileText size={16} /></IconAction>
-                  <IconAction label={`${item.name} als Objektbild verwenden`} onClick={() => setPrimaryImage(item.id)}><Home size={16} /></IconAction>
+                  <IconAction label={`${item.name} ${language === "de" ? `als ${entityImageLabel} verwenden` : language === "sv" ? `använd som ${entityImageLabel}` : `use as ${entityImageLabel}`}`} onClick={() => setPrimaryImage(item.id)}><Home size={16} /></IconAction>
                   <IconAction danger label={`Datei ${item.name} entfernen`} onClick={() => removeMedia(item.id)}><Trash2 size={16} /></IconAction>
                 </div>
               </article>
             ))}
           </div>
         ) : (
-          <p className="empty-attachment">{tt("Noch keine Fotos zum Objekt vorhanden.")}</p>
+          <p className="empty-attachment">{language === "de" ? `Noch keine Fotos zum ${entityName} vorhanden.` : language === "sv" ? `Inga foton finns ännu för ${entityName}.` : `No photos available for ${entityName} yet.`}</p>
         )}
       </section>}
       {hasFieldGroup("documentation") && isFieldVisible("documents") &&
       <section className="wide object-attachment-section">
         <div className="attachment-section-head">
           <div>
-            <h3>{fieldLabel("documents", "Dokumente zum Objekt")}</h3>
+            <h3>{selectedObjectType.fieldLabels?.documents?.[language]?.trim() || entityDocumentsLabel}</h3>
             <span>{fileItems.length} {tt("Dokumente und Grundrisse")}</span>
           </div>
           <label className="ghost-button attachment-upload">
@@ -23866,7 +24013,7 @@ function ObjectForm({
           ))}
           </div>
         ) : (
-          <p className="empty-attachment">{tt("Noch keine Dokumente zum Objekt vorhanden.")}</p>
+          <p className="empty-attachment">{language === "de" ? `Noch keine Dokumente zum ${entityName} vorhanden.` : language === "sv" ? `Inga dokument finns ännu för ${entityName}.` : `No documents available for ${entityName} yet.`}</p>
         )}
       </section>}
       {previewDocument && (
@@ -24116,6 +24263,7 @@ function CustomerForm({
         <span>{tt("Kundennummer")}: {normalizeReadableNumber(customer.personalNumber) || tt("wird beim Speichern erstellt")}</span>
         <span>{tt("angelegt am")}: {formatCreatedAt(customer.createdAt)}</span>
       </div>
+      <label className="wide"><span>{tt("Firma")}</span><input value={customer.company} onChange={(event) => update("company", event.target.value)} placeholder={tt("Firmenname (optional)")} /></label>
       <label><span>{tt("Vorname")}</span><input value={customerNameParts.firstName} onChange={(event) => updateCustomerName("firstName", event.target.value)} /></label>
       <label><span>{tt("Nachname")}</span><input value={customerNameParts.lastName} onChange={(event) => updateCustomerName("lastName", event.target.value)} /></label>
       <label><span>{tt("Ansprechpartner")}</span><input value={customer.contact} onChange={(event) => update("contact", event.target.value)} /></label>
