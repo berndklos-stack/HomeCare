@@ -13,9 +13,26 @@ export type ObjectFieldGroup =
   | "planning"
   | "documentation";
 
+export type ObjectFieldInputType = "text" | "number" | "date" | "textarea";
+
+export type ObjectTypeCustomField = {
+  active: boolean;
+  group: ObjectFieldGroup;
+  id: string;
+  inputType: ObjectFieldInputType;
+  names: {
+    de: string;
+    en: string;
+    sv: string;
+  };
+};
+
 export type ObjectTypeDefinition = {
   active: boolean;
+  customFields?: ObjectTypeCustomField[];
   fieldGroups: ObjectFieldGroup[];
+  fieldLabels?: Record<string, Partial<Record<"de" | "sv" | "en", string>>>;
+  hiddenFields?: string[];
   id: string;
   names: {
     de: string;
@@ -38,6 +55,47 @@ export const objectFieldGroups: Array<{ id: ObjectFieldGroup; label: string }> =
   { id: "risks", label: "Hinweise / Risiken" },
   { id: "planning", label: "Planung / Besuche" },
   { id: "documentation", label: "Fotos / Dokumente" },
+];
+
+export const objectTypeBuiltInFields: Array<{ group: ObjectFieldGroup; id: string; label: string }> = [
+  { group: "customer", id: "ownerCustomerId", label: "Kunde / Eigentümer auswählen" },
+  { group: "customer", id: "owner", label: "Kunde / Eigentümer" },
+  { group: "customer", id: "ownerEmail", label: "E-Mail" },
+  { group: "customer", id: "ownerPhone", label: "Telefon" },
+  { group: "customer", id: "ownerAddress", label: "Kunden-/Eigentümeradresse" },
+  { group: "address", id: "region", label: "Ort/Region" },
+  { group: "address", id: "address", label: "Projekt-/Objektadresse" },
+  { group: "billing", id: "billingAddressMode", label: "Rechnungsadresse verwenden" },
+  { group: "billing", id: "billingAddress", label: "Rechnungsadresse" },
+  { group: "property", id: "sizeSqm", label: "Größe m²" },
+  { group: "property", id: "plotSqm", label: "Grundstück m²" },
+  { group: "property", id: "buildYear", label: "Baujahr" },
+  { group: "property", id: "rooms", label: "Zimmer" },
+  { group: "property", id: "beds", label: "Betten" },
+  { group: "property", id: "bathrooms", label: "Bäder" },
+  { group: "project", id: "projectStart", label: "Projektbeginn" },
+  { group: "project", id: "projectEnd", label: "Projektende" },
+  { group: "project", id: "projectManager", label: "Projektleitung" },
+  { group: "project", id: "budget", label: "Budget" },
+  { group: "asset", id: "manufacturer", label: "Hersteller" },
+  { group: "asset", id: "model", label: "Modell" },
+  { group: "asset", id: "serialNumber", label: "Seriennummer" },
+  { group: "asset", id: "maintenanceInterval", label: "Wartungsintervall" },
+  { group: "service", id: "carePackage", label: "Betreuungspaket" },
+  { group: "access", id: "keySafe", label: "Zugang / Schlüssel" },
+  { group: "access", id: "alarm", label: "Alarmanlage" },
+  { group: "access", id: "parking", label: "Parken" },
+  { group: "access", id: "accessNotes", label: "Zugangshinweise" },
+  { group: "utilities", id: "heating", label: "Heizung" },
+  { group: "utilities", id: "water", label: "Wasser" },
+  { group: "utilities", id: "septic", label: "Abwasser" },
+  { group: "utilities", id: "internet", label: "Internet" },
+  { group: "equipment", id: "equipment", label: "Ausstattung" },
+  { group: "risks", id: "risks", label: "Hinweise / Risiken" },
+  { group: "planning", id: "lastVisit", label: "Letzter Besuch" },
+  { group: "planning", id: "nextVisit", label: "Nächster Besuch" },
+  { group: "documentation", id: "photos", label: "Fotos zum Objekt" },
+  { group: "documentation", id: "documents", label: "Dokumente zum Objekt" },
 ];
 
 const commonGroups: ObjectFieldGroup[] = ["customer", "address", "billing", "planning", "documentation"];
@@ -98,7 +156,31 @@ export function normalizeObjectTypeDefinitions(value: unknown): ObjectTypeDefini
 
     return [{
       active: candidate.active !== false,
+      customFields: Array.isArray(candidate.customFields)
+        ? candidate.customFields.flatMap((field): ObjectTypeCustomField[] => {
+            if (!field || typeof field !== "object") return [];
+            const customField = field as Partial<ObjectTypeCustomField>;
+            const fieldId = typeof customField.id === "string" ? customField.id.trim() : "";
+            if (!fieldId || !validGroups.has(customField.group as ObjectFieldGroup)) return [];
+            const inputType = ["text", "number", "date", "textarea"].includes(String(customField.inputType))
+              ? customField.inputType as ObjectFieldInputType
+              : "text";
+            return [{
+              active: customField.active !== false,
+              group: customField.group as ObjectFieldGroup,
+              id: fieldId,
+              inputType,
+              names: {
+                de: customField.names?.de || "Neues Feld",
+                en: customField.names?.en || customField.names?.de || "New field",
+                sv: customField.names?.sv || customField.names?.de || "Nytt fält",
+              },
+            }];
+          })
+        : [],
       fieldGroups: Array.from(new Set(fieldGroups)),
+      fieldLabels: candidate.fieldLabels && typeof candidate.fieldLabels === "object" ? candidate.fieldLabels : {},
+      hiddenFields: Array.isArray(candidate.hiddenFields) ? candidate.hiddenFields.filter((field): field is string => typeof field === "string") : [],
       id,
       names: {
         de: typeof names?.de === "string" && names.de.trim() ? names.de.trim() : id,

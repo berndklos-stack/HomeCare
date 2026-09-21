@@ -56,8 +56,10 @@ import {
   defaultObjectTypeDefinitions,
   normalizeObjectTypeDefinitions,
   objectFieldGroups,
+  objectTypeBuiltInFields,
   objectTypeName,
   type ObjectFieldGroup,
+  type ObjectFieldInputType,
   type ObjectTypeDefinition,
 } from "@/lib/objectTypes";
 
@@ -82,6 +84,7 @@ type Modal = "customer" | "job" | "version" | null;
 type ObjectRecordType = string;
 
 type ObjectCustomFields = {
+  [key: string]: string | undefined;
   budget?: string;
   manufacturer?: string;
   maintenanceInterval?: string;
@@ -2401,6 +2404,16 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Projekt-/Objekttypen speichern", sv: "Spara projekt-/objekttyper", en: "Save project/object types" },
   { de: "Bezeichnungen und sichtbare Feldgruppen je Typ zentral festlegen.", sv: "Ange centralt namn och synliga fältgrupper för varje typ.", en: "Centrally define names and visible field groups for each type." },
   { de: "Typ hinzufügen", sv: "Lägg till typ", en: "Add type" },
+  { de: "Felder bearbeiten", sv: "Redigera fält", en: "Edit fields" },
+  { de: "Feld hinzufügen", sv: "Lägg till fält", en: "Add field" },
+  { de: "Feld löschen", sv: "Radera fält", en: "Delete field" },
+  { de: "Feldname", sv: "Fältnamn", en: "Field name" },
+  { de: "Feldtyp", sv: "Fälttyp", en: "Field type" },
+  { de: "Sichtbar", sv: "Synligt", en: "Visible" },
+  { de: "Systemfeld", sv: "Systemfält", en: "System field" },
+  { de: "Text", sv: "Text", en: "Text" },
+  { de: "Zahl", sv: "Tal", en: "Number" },
+  { de: "Notizfeld", sv: "Anteckningsfält", en: "Notes field" },
   { de: "Kunde / Eigentümer", sv: "Kund / ägare", en: "Customer / owner" },
   { de: "Kunde / Eigentümer auswählen", sv: "Välj kund / ägare", en: "Select customer / owner" },
   { de: "Kunden-/Eigentümeradresse", sv: "Kund-/ägaradress", en: "Customer/owner address" },
@@ -12278,7 +12291,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
         <section className="workspace">
           <header className="topbar">
             <div>
-              <h1>{appBranding.brandName}</h1>
+              <h1 className="brand-wordmark">{appBranding.brandName}</h1>
                 <p>{appBranding.claim}</p>
             </div>
             <div className="toolbar">
@@ -12353,7 +12366,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       <section className="workspace">
         <header className="topbar">
           <div>
-            <h1>{appBranding.brandName}</h1>
+            <h1 className="brand-wordmark">{appBranding.brandName}</h1>
             <span>{appBranding.claim}</span>
           </div>
           <div className="toolbar app-toolbar">
@@ -20047,6 +20060,56 @@ function MasterDataView({
     setCompanySettingsForm({ ...companySettingsForm, objectTypes });
   }
 
+  function updateObjectTypeFieldLabel(typeId: string, fieldId: string, value: string) {
+    updateObjectTypeDefinition(typeId, (current) => ({
+      ...current,
+      fieldLabels: {
+        ...(current.fieldLabels ?? {}),
+        [fieldId]: { ...(current.fieldLabels?.[fieldId] ?? {}), [language]: value },
+      },
+    }));
+  }
+
+  function setObjectTypeFieldVisible(typeId: string, fieldId: string, visible: boolean) {
+    updateObjectTypeDefinition(typeId, (current) => ({
+      ...current,
+      hiddenFields: visible
+        ? (current.hiddenFields ?? []).filter((id) => id !== fieldId)
+        : Array.from(new Set([...(current.hiddenFields ?? []), fieldId])),
+    }));
+  }
+
+  function addObjectTypeCustomField(typeId: string, group: ObjectFieldGroup) {
+    const id = `custom-${Date.now()}`;
+    updateObjectTypeDefinition(typeId, (current) => ({
+      ...current,
+      customFields: [
+        ...(current.customFields ?? []),
+        {
+          active: true,
+          group,
+          id,
+          inputType: "text",
+          names: { de: "Neues Feld", en: "New field", sv: "Nytt fält" },
+        },
+      ],
+    }));
+  }
+
+  function updateObjectTypeCustomField(typeId: string, fieldId: string, update: (field: NonNullable<ObjectTypeDefinition["customFields"]>[number]) => NonNullable<ObjectTypeDefinition["customFields"]>[number]) {
+    updateObjectTypeDefinition(typeId, (current) => ({
+      ...current,
+      customFields: (current.customFields ?? []).map((field) => field.id === fieldId ? update(field) : field),
+    }));
+  }
+
+  function removeObjectTypeCustomField(typeId: string, fieldId: string) {
+    updateObjectTypeDefinition(typeId, (current) => ({
+      ...current,
+      customFields: (current.customFields ?? []).filter((field) => field.id !== fieldId),
+    }));
+  }
+
   function resetAccountForm() {
     setEditingAccountId(null);
     setAccountEditorOpen(false);
@@ -20787,6 +20850,58 @@ function MasterDataView({
                       </label>
                     ))}
                   </div>
+                  <details className="object-type-fields-editor">
+                    <summary>{tt("Felder bearbeiten")}</summary>
+                    <div className="object-type-block-list">
+                      {objectFieldGroups.filter((group) => definition.fieldGroups.includes(group.id)).map((group) => {
+                        const builtInFields = objectTypeBuiltInFields.filter((field) => field.group === group.id);
+                        const customFields = (definition.customFields ?? []).filter((field) => field.group === group.id);
+                        return (
+                          <section className="object-type-block" key={group.id}>
+                            <div className="object-type-block-head">
+                              <strong>{tt(group.label)}</strong>
+                              <button className="ghost-button compact-action" onClick={() => addObjectTypeCustomField(definition.id, group.id)} type="button">
+                                <Plus size={15} />
+                                {tt("Feld hinzufügen")}
+                              </button>
+                            </div>
+                            <div className="object-type-field-rows">
+                              {builtInFields.map((field) => {
+                                const visible = !(definition.hiddenFields ?? []).includes(field.id);
+                                const label = definition.fieldLabels?.[field.id]?.[language] ?? tt(field.label);
+                                return (
+                                  <div className="object-type-field-row" key={field.id}>
+                                    <label className="checkbox-line">
+                                      <input checked={visible} onChange={(event) => setObjectTypeFieldVisible(definition.id, field.id, event.target.checked)} type="checkbox" />
+                                      <span>{tt("Sichtbar")}</span>
+                                    </label>
+                                    <input aria-label={`${tt("Feldname")} ${definition.id} ${field.id}`} disabled={!visible} value={label} onChange={(event) => updateObjectTypeFieldLabel(definition.id, field.id, event.target.value)} />
+                                    <span>{tt("Systemfeld")}</span>
+                                  </div>
+                                );
+                              })}
+                              {customFields.map((field) => (
+                                <div className="object-type-field-row custom" key={field.id}>
+                                  <label className="checkbox-line">
+                                    <input checked={field.active} onChange={(event) => updateObjectTypeCustomField(definition.id, field.id, (current) => ({ ...current, active: event.target.checked }))} type="checkbox" />
+                                    <span>{tt("Sichtbar")}</span>
+                                  </label>
+                                  <input aria-label={`${tt("Feldname")} ${definition.id} ${field.id}`} value={field.names[language]} onChange={(event) => updateObjectTypeCustomField(definition.id, field.id, (current) => ({ ...current, names: { ...current.names, [language]: event.target.value } }))} />
+                                  <select aria-label={`${tt("Feldtyp")} ${definition.id} ${field.id}`} value={field.inputType} onChange={(event) => updateObjectTypeCustomField(definition.id, field.id, (current) => ({ ...current, inputType: event.target.value as ObjectFieldInputType }))}>
+                                    <option value="text">{tt("Text")}</option>
+                                    <option value="number">{tt("Zahl")}</option>
+                                    <option value="date">{tt("Datum")}</option>
+                                    <option value="textarea">{tt("Notizfeld")}</option>
+                                  </select>
+                                  <IconAction danger label={`${tt("Feld löschen")} ${field.names[language]}`} onClick={() => removeObjectTypeCustomField(definition.id, field.id)}><Trash2 size={15} /></IconAction>
+                                </div>
+                              ))}
+                            </div>
+                          </section>
+                        );
+                      })}
+                    </div>
+                  </details>
                 </article>
               );
             })}
@@ -22765,6 +22880,33 @@ function ObjectForm({
     return selectedObjectType.fieldGroups.includes(group);
   }
 
+  function isFieldVisible(fieldId: string) {
+    return !(selectedObjectType.hiddenFields ?? []).includes(fieldId);
+  }
+
+  function fieldLabel(fieldId: string, fallback: string) {
+    return selectedObjectType.fieldLabels?.[fieldId]?.[language]?.trim() || tt(fallback);
+  }
+
+  function renderCustomFields(group: ObjectFieldGroup) {
+    return (selectedObjectType.customFields ?? [])
+      .filter((field) => field.active && field.group === group)
+      .map((field) => {
+        const label = field.names[language] || field.names.de;
+        const value = newObject.customFields[field.id] ?? "";
+        return (
+          <label className={field.inputType === "textarea" ? "wide" : ""} key={field.id}>
+            <span>{label}</span>
+            {field.inputType === "textarea" ? (
+              <textarea value={value} onChange={(event) => updateCustomField(field.id, event.target.value)} />
+            ) : (
+              <input type={field.inputType} value={value} onChange={(event) => updateCustomField(field.id, event.target.value)} />
+            )}
+          </label>
+        );
+      });
+  }
+
   function updateObjectAddress(key: keyof Pick<NewObjectFormState, "address" | "billingAddress" | "ownerAddress">, part: keyof AddressParts, value: string) {
     const nextAddress = updateAddressPart(newObject[key], part, value);
     setNewObject({
@@ -22914,82 +23056,92 @@ function ObjectForm({
       </label>
       {hasFieldGroup("customer") && <>
         <h3>{tt("Kunde / Eigentümer")}</h3>
-        <label className="wide">
-          <span>{tt("Kunde / Eigentümer auswählen")}</span>
+        {isFieldVisible("ownerCustomerId") && <label className="wide">
+          <span>{fieldLabel("ownerCustomerId", "Kunde / Eigentümer auswählen")}</span>
           <select value={newObject.ownerCustomerId} onChange={(event) => selectOwner(event.target.value)}>
             <option value="">{tt("Manuell pflegen")}</option>
             {customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}</option>)}
           </select>
-        </label>
-        <label><span>{tt("Kunde / Eigentümer")}</span><input value={newObject.owner} onChange={(event) => update("owner", event.target.value)} /></label>
-        <label><span>{tt("E-Mail")}</span><input type="email" value={newObject.ownerEmail} onChange={(event) => update("ownerEmail", event.target.value)} /></label>
-        <label><span>{tt("Telefon")}</span><input value={newObject.ownerPhone} onChange={(event) => update("ownerPhone", event.target.value)} /></label>
-        <AddressFields label={tt("Kunden-/Eigentümeradresse")} language={language} value={newObject.ownerAddress} onChange={(part, value) => updateObjectAddress("ownerAddress", part, value)} />
+        </label>}
+        {isFieldVisible("owner") && <label><span>{fieldLabel("owner", "Kunde / Eigentümer")}</span><input value={newObject.owner} onChange={(event) => update("owner", event.target.value)} /></label>}
+        {isFieldVisible("ownerEmail") && <label><span>{fieldLabel("ownerEmail", "E-Mail")}</span><input type="email" value={newObject.ownerEmail} onChange={(event) => update("ownerEmail", event.target.value)} /></label>}
+        {isFieldVisible("ownerPhone") && <label><span>{fieldLabel("ownerPhone", "Telefon")}</span><input value={newObject.ownerPhone} onChange={(event) => update("ownerPhone", event.target.value)} /></label>}
+        {isFieldVisible("ownerAddress") && <AddressFields label={fieldLabel("ownerAddress", "Kunden-/Eigentümeradresse")} language={language} value={newObject.ownerAddress} onChange={(part, value) => updateObjectAddress("ownerAddress", part, value)} />}
+        {renderCustomFields("customer")}
       </>}
       {hasFieldGroup("address") && <>
         <h3>{tt("Adresse / Region")}</h3>
-        <label><span>{tt("Ort/Region")}</span><input value={newObject.region} onChange={(event) => update("region", event.target.value)} /></label>
-        <AddressFields label={tt("Projekt-/Objektadresse")} language={language} value={newObject.address} onChange={(part, value) => updateObjectAddress("address", part, value)} />
+        {isFieldVisible("region") && <label><span>{fieldLabel("region", "Ort/Region")}</span><input value={newObject.region} onChange={(event) => update("region", event.target.value)} /></label>}
+        {isFieldVisible("address") && <AddressFields label={fieldLabel("address", "Projekt-/Objektadresse")} language={language} value={newObject.address} onChange={(part, value) => updateObjectAddress("address", part, value)} />}
+        {renderCustomFields("address")}
       </>}
       {hasFieldGroup("billing") && <>
         <h3>{tt("Abrechnung")}</h3>
-        <label>
-          <span>{tt("Rechnungsadresse verwenden")}</span>
+        {isFieldVisible("billingAddressMode") && <label>
+          <span>{fieldLabel("billingAddressMode", "Rechnungsadresse verwenden")}</span>
           <select value={newObject.billingAddressMode} onChange={(event) => updateBillingMode(event.target.value as ObjectRecord["billingAddressMode"])}>
             <option value="Eigentümeradresse">{tt("Kunden-/Eigentümeradresse")}</option>
             <option value="Objektadresse">{tt("Projekt-/Objektadresse")}</option>
             <option value="Abweichend">{tt("Abweichend")}</option>
           </select>
-        </label>
-        <AddressFields disabled={newObject.billingAddressMode !== "Abweichend"} label={tt("Rechnungsadresse")} language={language} value={newObject.billingAddressMode === "Objektadresse" ? newObject.address : newObject.billingAddressMode === "Eigentümeradresse" ? newObject.ownerAddress : newObject.billingAddress} onChange={(part, value) => updateObjectAddress("billingAddress", part, value)} />
+        </label>}
+        {isFieldVisible("billingAddress") && <AddressFields disabled={newObject.billingAddressMode !== "Abweichend"} label={fieldLabel("billingAddress", "Rechnungsadresse")} language={language} value={newObject.billingAddressMode === "Objektadresse" ? newObject.address : newObject.billingAddressMode === "Eigentümeradresse" ? newObject.ownerAddress : newObject.billingAddress} onChange={(part, value) => updateObjectAddress("billingAddress", part, value)} />}
+        {renderCustomFields("billing")}
       </>}
       {hasFieldGroup("property") && <>
         <h3>{tt("Gebäude / Flächen")}</h3>
-        <label><span>{tt("Größe m²")}</span><input type="number" value={newObject.sizeSqm} onChange={(event) => update("sizeSqm", event.target.value)} /></label>
-        <label><span>{tt("Grundstück m²")}</span><input type="number" value={newObject.plotSqm} onChange={(event) => update("plotSqm", event.target.value)} /></label>
-        <label><span>{tt("Baujahr")}</span><input type="number" value={newObject.buildYear} onChange={(event) => update("buildYear", event.target.value)} /></label>
-        <label><span>{tt("Zimmer")}</span><input type="number" value={newObject.rooms} onChange={(event) => update("rooms", event.target.value)} /></label>
-        <label><span>{tt("Betten")}</span><input type="number" value={newObject.beds} onChange={(event) => update("beds", event.target.value)} /></label>
-        <label><span>{tt("Bäder")}</span><input type="number" value={newObject.bathrooms} onChange={(event) => update("bathrooms", event.target.value)} /></label>
+        {isFieldVisible("sizeSqm") && <label><span>{fieldLabel("sizeSqm", "Größe m²")}</span><input type="number" value={newObject.sizeSqm} onChange={(event) => update("sizeSqm", event.target.value)} /></label>}
+        {isFieldVisible("plotSqm") && <label><span>{fieldLabel("plotSqm", "Grundstück m²")}</span><input type="number" value={newObject.plotSqm} onChange={(event) => update("plotSqm", event.target.value)} /></label>}
+        {isFieldVisible("buildYear") && <label><span>{fieldLabel("buildYear", "Baujahr")}</span><input type="number" value={newObject.buildYear} onChange={(event) => update("buildYear", event.target.value)} /></label>}
+        {isFieldVisible("rooms") && <label><span>{fieldLabel("rooms", "Zimmer")}</span><input type="number" value={newObject.rooms} onChange={(event) => update("rooms", event.target.value)} /></label>}
+        {isFieldVisible("beds") && <label><span>{fieldLabel("beds", "Betten")}</span><input type="number" value={newObject.beds} onChange={(event) => update("beds", event.target.value)} /></label>}
+        {isFieldVisible("bathrooms") && <label><span>{fieldLabel("bathrooms", "Bäder")}</span><input type="number" value={newObject.bathrooms} onChange={(event) => update("bathrooms", event.target.value)} /></label>}
+        {renderCustomFields("property")}
       </>}
       {hasFieldGroup("project") && <>
         <h3>{tt("Projektangaben")}</h3>
-        <label><span>{tt("Projektbeginn")}</span><input type="date" value={newObject.customFields.projectStart ?? ""} onChange={(event) => updateCustomField("projectStart", event.target.value)} /></label>
-        <label><span>{tt("Projektende")}</span><input type="date" value={newObject.customFields.projectEnd ?? ""} onChange={(event) => updateCustomField("projectEnd", event.target.value)} /></label>
-        <label><span>{tt("Projektleitung")}</span><input value={newObject.customFields.projectManager ?? ""} onChange={(event) => updateCustomField("projectManager", event.target.value)} /></label>
-        <label><span>{tt("Budget")}</span><input value={newObject.customFields.budget ?? ""} onChange={(event) => updateCustomField("budget", event.target.value)} /></label>
+        {isFieldVisible("projectStart") && <label><span>{fieldLabel("projectStart", "Projektbeginn")}</span><input type="date" value={newObject.customFields.projectStart ?? ""} onChange={(event) => updateCustomField("projectStart", event.target.value)} /></label>}
+        {isFieldVisible("projectEnd") && <label><span>{fieldLabel("projectEnd", "Projektende")}</span><input type="date" value={newObject.customFields.projectEnd ?? ""} onChange={(event) => updateCustomField("projectEnd", event.target.value)} /></label>}
+        {isFieldVisible("projectManager") && <label><span>{fieldLabel("projectManager", "Projektleitung")}</span><input value={newObject.customFields.projectManager ?? ""} onChange={(event) => updateCustomField("projectManager", event.target.value)} /></label>}
+        {isFieldVisible("budget") && <label><span>{fieldLabel("budget", "Budget")}</span><input value={newObject.customFields.budget ?? ""} onChange={(event) => updateCustomField("budget", event.target.value)} /></label>}
+        {renderCustomFields("project")}
       </>}
       {hasFieldGroup("asset") && <>
         <h3>{tt("Anlagendaten")}</h3>
-        <label><span>{tt("Hersteller")}</span><input value={newObject.customFields.manufacturer ?? ""} onChange={(event) => updateCustomField("manufacturer", event.target.value)} /></label>
-        <label><span>{tt("Modell")}</span><input value={newObject.customFields.model ?? ""} onChange={(event) => updateCustomField("model", event.target.value)} /></label>
-        <label><span>{tt("Seriennummer")}</span><input value={newObject.customFields.serialNumber ?? ""} onChange={(event) => updateCustomField("serialNumber", event.target.value)} /></label>
-        <label><span>{tt("Wartungsintervall")}</span><input value={newObject.customFields.maintenanceInterval ?? ""} onChange={(event) => updateCustomField("maintenanceInterval", event.target.value)} /></label>
+        {isFieldVisible("manufacturer") && <label><span>{fieldLabel("manufacturer", "Hersteller")}</span><input value={newObject.customFields.manufacturer ?? ""} onChange={(event) => updateCustomField("manufacturer", event.target.value)} /></label>}
+        {isFieldVisible("model") && <label><span>{fieldLabel("model", "Modell")}</span><input value={newObject.customFields.model ?? ""} onChange={(event) => updateCustomField("model", event.target.value)} /></label>}
+        {isFieldVisible("serialNumber") && <label><span>{fieldLabel("serialNumber", "Seriennummer")}</span><input value={newObject.customFields.serialNumber ?? ""} onChange={(event) => updateCustomField("serialNumber", event.target.value)} /></label>}
+        {isFieldVisible("maintenanceInterval") && <label><span>{fieldLabel("maintenanceInterval", "Wartungsintervall")}</span><input value={newObject.customFields.maintenanceInterval ?? ""} onChange={(event) => updateCustomField("maintenanceInterval", event.target.value)} /></label>}
+        {renderCustomFields("asset")}
       </>}
       {hasFieldGroup("service") && <>
         <h3>{tt("Betreuung")}</h3>
-        <label><span>{tt("Betreuungspaket")}</span><select value={newObject.carePackage} onChange={(event) => update("carePackage", event.target.value)}>{packageOptions.map((option) => <option key={option} value={option}>{option}</option>)}</select></label>
+        {isFieldVisible("carePackage") && <label><span>{fieldLabel("carePackage", "Betreuungspaket")}</span><select value={newObject.carePackage} onChange={(event) => update("carePackage", event.target.value)}>{packageOptions.map((option) => <option key={option} value={option}>{option}</option>)}</select></label>}
+        {renderCustomFields("service")}
       </>}
       {hasFieldGroup("access") && <>
         <h3>{tt("Zugang")}</h3>
-        <label><span>{tt("Zugang / Schlüssel")}</span><textarea value={newObject.keySafe} onChange={(event) => update("keySafe", event.target.value)} /></label>
-        <label><span>{tt("Alarmanlage")}</span><textarea value={newObject.alarm} onChange={(event) => update("alarm", event.target.value)} /></label>
-        <label><span>{tt("Parken")}</span><textarea value={newObject.parking} onChange={(event) => update("parking", event.target.value)} /></label>
-        <label><span>{tt("Zugangshinweise")}</span><textarea value={newObject.accessNotes} onChange={(event) => update("accessNotes", event.target.value)} /></label>
+        {isFieldVisible("keySafe") && <label><span>{fieldLabel("keySafe", "Zugang / Schlüssel")}</span><textarea value={newObject.keySafe} onChange={(event) => update("keySafe", event.target.value)} /></label>}
+        {isFieldVisible("alarm") && <label><span>{fieldLabel("alarm", "Alarmanlage")}</span><textarea value={newObject.alarm} onChange={(event) => update("alarm", event.target.value)} /></label>}
+        {isFieldVisible("parking") && <label><span>{fieldLabel("parking", "Parken")}</span><textarea value={newObject.parking} onChange={(event) => update("parking", event.target.value)} /></label>}
+        {isFieldVisible("accessNotes") && <label><span>{fieldLabel("accessNotes", "Zugangshinweise")}</span><textarea value={newObject.accessNotes} onChange={(event) => update("accessNotes", event.target.value)} /></label>}
+        {renderCustomFields("access")}
       </>}
       {hasFieldGroup("utilities") && <>
         <h3>{tt("Technik / Versorgung")}</h3>
-        <label><span>{tt("Heizung")}</span><input value={newObject.heating} onChange={(event) => update("heating", event.target.value)} /></label>
-        <label><span>{tt("Wasser")}</span><input value={newObject.water} onChange={(event) => update("water", event.target.value)} /></label>
-        <label><span>{tt("Abwasser")}</span><input value={newObject.septic} onChange={(event) => update("septic", event.target.value)} /></label>
-        <label><span>{tt("Internet")}</span><input value={newObject.internet} onChange={(event) => update("internet", event.target.value)} /></label>
+        {isFieldVisible("heating") && <label><span>{fieldLabel("heating", "Heizung")}</span><input value={newObject.heating} onChange={(event) => update("heating", event.target.value)} /></label>}
+        {isFieldVisible("water") && <label><span>{fieldLabel("water", "Wasser")}</span><input value={newObject.water} onChange={(event) => update("water", event.target.value)} /></label>}
+        {isFieldVisible("septic") && <label><span>{fieldLabel("septic", "Abwasser")}</span><input value={newObject.septic} onChange={(event) => update("septic", event.target.value)} /></label>}
+        {isFieldVisible("internet") && <label><span>{fieldLabel("internet", "Internet")}</span><input value={newObject.internet} onChange={(event) => update("internet", event.target.value)} /></label>}
+        {renderCustomFields("utilities")}
       </>}
       {hasFieldGroup("documentation") && <h3>{tt("Fotos & Dokumente")}</h3>}
-      {hasFieldGroup("documentation") &&
+      {hasFieldGroup("documentation") && renderCustomFields("documentation")}
+      {hasFieldGroup("documentation") && isFieldVisible("photos") &&
       <section className="wide object-attachment-section">
         <div className="attachment-section-head">
           <div>
-            <h3>{tt("Fotos zum Objekt")}</h3>
+            <h3>{fieldLabel("photos", "Fotos zum Objekt")}</h3>
             <span>{photoItems.length} {tt("Fotos")}</span>
           </div>
           <label className="ghost-button attachment-upload">
@@ -23029,11 +23181,11 @@ function ObjectForm({
           <p className="empty-attachment">{tt("Noch keine Fotos zum Objekt vorhanden.")}</p>
         )}
       </section>}
-      {hasFieldGroup("documentation") &&
+      {hasFieldGroup("documentation") && isFieldVisible("documents") &&
       <section className="wide object-attachment-section">
         <div className="attachment-section-head">
           <div>
-            <h3>{tt("Dokumente zum Objekt")}</h3>
+            <h3>{fieldLabel("documents", "Dokumente zum Objekt")}</h3>
             <span>{fileItems.length} {tt("Dokumente und Grundrisse")}</span>
           </div>
           <label className="ghost-button attachment-upload">
@@ -23148,16 +23300,19 @@ function ObjectForm({
       )}
       {hasFieldGroup("planning") && <>
         <h3>{tt("Planung / Besuche")}</h3>
-        <label><span>{tt("Letzter Besuch")}</span><input value={newObject.lastVisit} onChange={(event) => update("lastVisit", event.target.value)} /></label>
-        <label><span>{tt("Nächster Besuch")}</span><input value={newObject.nextVisit} onChange={(event) => update("nextVisit", event.target.value)} /></label>
+        {isFieldVisible("lastVisit") && <label><span>{fieldLabel("lastVisit", "Letzter Besuch")}</span><input value={newObject.lastVisit} onChange={(event) => update("lastVisit", event.target.value)} /></label>}
+        {isFieldVisible("nextVisit") && <label><span>{fieldLabel("nextVisit", "Nächster Besuch")}</span><input value={newObject.nextVisit} onChange={(event) => update("nextVisit", event.target.value)} /></label>}
+        {renderCustomFields("planning")}
       </>}
       {hasFieldGroup("equipment") && <>
         <h3>{tt("Ausstattung")}</h3>
-        <label className="wide"><span>{tt("Ausstattung")}</span><textarea value={newObject.equipment} onChange={(event) => update("equipment", event.target.value)} placeholder="Pool, Sauna, Kamin" /></label>
+        {isFieldVisible("equipment") && <label className="wide"><span>{fieldLabel("equipment", "Ausstattung")}</span><textarea value={newObject.equipment} onChange={(event) => update("equipment", event.target.value)} placeholder="Pool, Sauna, Kamin" /></label>}
+        {renderCustomFields("equipment")}
       </>}
       {hasFieldGroup("risks") && <>
         <h3>{tt("Hinweise / Risiken")}</h3>
-        <label className="wide"><span>{tt("Hinweise / Risiken")}</span><textarea value={newObject.risks} onChange={(event) => update("risks", event.target.value)} /></label>
+        {isFieldVisible("risks") && <label className="wide"><span>{fieldLabel("risks", "Hinweise / Risiken")}</span><textarea value={newObject.risks} onChange={(event) => update("risks", event.target.value)} /></label>}
+        {renderCustomFields("risks")}
       </>}
       <button className="primary-button wide" onClick={onSubmit} type="button">{submitLabel}</button>
     </div>

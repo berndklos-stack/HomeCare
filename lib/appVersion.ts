@@ -1,10 +1,27 @@
 export const appVersion = {
-  version: "1.419.0",
+  version: "1.420.0",
   releaseDate: "2026-09-21",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  {
+    version: "1.420.0",
+    date: "2026-09-21",
+    changes: [
+      "Einzelne Felder lassen sich je Projekt-/Objekttyp und Block umbenennen oder ausblenden",
+      "Eigene Text-, Zahl-, Datums- und Notizfelder können direkt in den Typ-Stammdaten ergänzt werden",
+      "Dynamische Feldwerte bleiben beim Ausblenden und bei Typwechseln erhalten und werden zentral synchronisiert",
+    ],
+  },
+  {
+    version: "1.419.1",
+    date: "2026-09-21",
+    changes: [
+      "Koll und WorkCore erhalten mit Syne ExtraBold eine eigenständige, einprägsame Wortmarken-Schrift",
+      "Die neue Wortmarke erscheint einheitlich im Programmstart und im Hauptkopf der App",
+    ],
+  },
   {
     version: "1.419.0",
     date: "2026-09-21",
