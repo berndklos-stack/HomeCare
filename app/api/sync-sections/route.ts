@@ -2253,13 +2253,22 @@ export async function GET(request: Request) {
           && Array.isArray((sections.objects as { value?: unknown }).value)
           ? (sections.objects as { value: JsonObject[] }).value
           : [];
-        const fallbackTypes = new Map(fallbackObjectRows.map((object) => [String(object.id), stringOrEmpty(object.type) || "Objekt"]));
+        const fallbackObjectExtensions = new Map(fallbackObjectRows.map((object) => [String(object.id), {
+          customFields: object.customFields && typeof object.customFields === "object" && !Array.isArray(object.customFields)
+            ? object.customFields
+            : {},
+          type: stringOrEmpty(object.type) || "Objekt",
+        }]));
         sections.objects = {
           ...objectSection,
-          value: objectSection.value.map((object) => ({
-            ...object,
-            type: fallbackTypes.get(String(object.id)) || "Objekt",
-          })),
+          value: objectSection.value.map((object) => {
+            const extension = fallbackObjectExtensions.get(String(object.id));
+            return {
+              ...object,
+              customFields: extension?.customFields ?? {},
+              type: extension?.type ?? "Objekt",
+            };
+          }),
         };
       }
     }

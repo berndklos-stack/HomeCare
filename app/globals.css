@@ -4609,6 +4609,76 @@ mark.neutral {
   margin-bottom: 18px;
 }
 
+.object-type-settings-list {
+  display: grid;
+  gap: 12px;
+}
+
+.object-type-settings-card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.object-type-settings-head {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.object-type-settings-head > div {
+  display: grid;
+  gap: 2px;
+}
+
+.object-type-settings-head span,
+.object-type-name-grid span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.object-type-name-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.object-type-name-grid label {
+  display: grid;
+  gap: 5px;
+}
+
+.object-type-name-grid input {
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--foreground);
+  min-height: 40px;
+  padding: 8px 10px;
+}
+
+.object-type-field-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.object-type-field-grid .checkbox-line {
+  justify-self: stretch;
+  width: auto;
+}
+
+@media (max-width: 780px) {
+  .object-type-name-grid,
+  .object-type-field-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .master-list-toolbar {
   display: flex;
   justify-content: flex-end;

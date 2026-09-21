@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { resolveAppBranding } from "../lib/branding";
+import { defaultObjectTypeDefinitions, normalizeObjectTypeDefinitions } from "../lib/objectTypes";
 
 test("Branding wird aus Unternehmensland und Sprache zentral aufgelöst", () => {
   expect(resolveAppBranding({ countryCode: "SE" }, "sv")).toMatchObject({
@@ -21,6 +22,14 @@ test("Branding wird aus Unternehmensland und Sprache zentral aufgelöst", () => 
   }, "de")).toMatchObject({ brandName: "FieldSuite", claim: "Alles im Blick." });
 });
 
+test("Objekttypen erhalten robuste Standardfelder", () => {
+  const definitions = normalizeObjectTypeDefinitions(undefined);
+  expect(definitions).toEqual(defaultObjectTypeDefinitions);
+  expect(definitions.find((definition) => definition.id === "Projekt")?.fieldGroups).toContain("project");
+  expect(definitions.find((definition) => definition.id === "Projekt")?.fieldGroups).not.toContain("property");
+  expect(definitions.find((definition) => definition.id === "Anlage")?.fieldGroups).toContain("asset");
+});
+
 test("Branding und Objekttyp bleiben nach dem Speichern erhalten", async ({ page }) => {
   await page.goto("/");
   await expect(page.locator("main")).toHaveAttribute("data-ready", "true", { timeout: 30_000 });
@@ -38,18 +47,28 @@ test("Branding und Objekttyp bleiben nach dem Speichern erhalten", async ({ page
   await expect(page.getByRole("heading", { name: "FieldSuite" })).toBeVisible();
   await expect(page.getByText("Alles im Blick.", { exact: true })).toBeVisible();
 
+  await page.getByRole("button", { name: "Projekt-/Objekttypen", exact: true }).click();
+  await page.getByLabel("Deutsch Projekt").fill("Kundenprojekt");
+  await page.getByRole("button", { name: "Projekt-/Objekttypen speichern", exact: true }).click();
+
   await page.getByTestId("nav-objects").click();
-  await page.getByRole("button", { name: "Neues Objekt", exact: true }).click();
+  await page.getByRole("button", { name: "Neues Projekt / Objekt", exact: true }).click();
   await page.getByLabel("Typ").selectOption("Projekt");
-  await page.getByRole("textbox", { name: "Projekt", exact: true }).fill("Logistik-Hub Süddeutschland");
-  await page.getByRole("button", { name: "Objekt anlegen", exact: true }).click();
-  await expect(page.getByText("Projekt · Logistik-Hub Süddeutschland", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Projektbeginn")).toBeVisible();
+  await expect(page.getByLabel("Größe m²")).toHaveCount(0);
+  await page.getByRole("textbox", { name: "Kundenprojekt", exact: true }).fill("Logistik-Hub Süddeutschland");
+  await page.getByLabel("Projektleitung").fill("Bernd Klos");
+  await page.getByRole("button", { name: "Projekt / Objekt anlegen", exact: true }).click();
+  await expect(page.getByText("Kundenprojekt · Logistik-Hub Süddeutschland", { exact: true })).toBeVisible();
 
   await page.reload();
   await expect(page.locator("main")).toHaveAttribute("data-ready", "true", { timeout: 2_000 });
   await expect(page.getByRole("heading", { name: "FieldSuite" })).toBeVisible();
   await page.getByTestId("nav-objects").click();
-  await expect(page.getByText("Projekt · Logistik-Hub Süddeutschland", { exact: true })).toBeVisible();
+  const projectRow = page.getByText("Kundenprojekt · Logistik-Hub Süddeutschland", { exact: true });
+  await expect(projectRow).toBeVisible();
+  await projectRow.click();
+  await expect(page.getByLabel("Projektleitung")).toHaveValue("Bernd Klos");
 });
 
 test("Kundenportal zeigt keine Branding-Administration", async ({ page }) => {

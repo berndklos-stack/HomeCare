@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.418.0",
+  version: "1.419.0",
   releaseDate: "2026-09-21",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  {
+    version: "1.419.0",
+    date: "2026-09-21",
+    changes: [
+      "Projekte und Objekte werden in einem gemeinsamen, neutral benannten Bereich verwaltet",
+      "Projekt-/Objekttypen lassen sich mit dreisprachigen Namen und sichtbaren Feldgruppen in den Stammdaten konfigurieren",
+      "Die Bearbeitungsmaske zeigt je Typ nur passende Gebäude-, Projekt-, Anlagen-, Zugangs- und Dokumentationsfelder",
+    ],
+  },
   {
     version: "1.418.0",
     date: "2026-09-21",

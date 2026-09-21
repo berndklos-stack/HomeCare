@@ -52,6 +52,14 @@ import {
 import { type CSSProperties, type DragEvent, type MouseEvent, type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { appVersion, versionHistory } from "@/lib/appVersion";
 import { defaultAppBranding, resolveAppBranding } from "@/lib/branding";
+import {
+  defaultObjectTypeDefinitions,
+  normalizeObjectTypeDefinitions,
+  objectFieldGroups,
+  objectTypeName,
+  type ObjectFieldGroup,
+  type ObjectTypeDefinition,
+} from "@/lib/objectTypes";
 
 type Language = "de" | "sv" | "en";
 type Theme = "light" | "dark";
@@ -71,7 +79,18 @@ type Section =
   | "portal"
   | "masterData";
 type Modal = "customer" | "job" | "version" | null;
-type ObjectRecordType = "Objekt" | "Projekt" | "Baustelle" | "Standort" | "Anlage" | "Sonstiges";
+type ObjectRecordType = string;
+
+type ObjectCustomFields = {
+  budget?: string;
+  manufacturer?: string;
+  maintenanceInterval?: string;
+  model?: string;
+  projectEnd?: string;
+  projectManager?: string;
+  projectStart?: string;
+  serialNumber?: string;
+};
 
 type ObjectRecord = {
   id: string;
@@ -92,6 +111,7 @@ type ObjectRecord = {
   bathrooms: number;
   buildYear: number;
   carePackage: string;
+  customFields?: ObjectCustomFields;
   status: string;
   type?: ObjectRecordType;
   access: {
@@ -726,6 +746,7 @@ type CompanySettings = {
   logoUrl?: string;
   name: string;
   organizationNumber: string;
+  objectTypes?: ObjectTypeDefinition[];
   vatNumber: string;
 };
 
@@ -1020,6 +1041,7 @@ type NewObjectFormState = {
   bathrooms: string;
   buildYear: string;
   carePackage: ObjectRecord["carePackage"];
+  customFields: ObjectCustomFields;
   status: string;
   type: ObjectRecordType;
   keySafe: string;
@@ -1140,13 +1162,13 @@ const labels = {
     appTitle: "WorkCore",
     subtitle: defaultAppBranding.claimGerman,
     search: "Suchen",
-    newObject: "Neues Objekt",
-    editObject: "Objekt bearbeiten",
+    newObject: "Neues Projekt / Objekt",
+    editObject: "Projekt / Objekt bearbeiten",
     newCustomer: "Neuer Kunde",
     editCustomer: "Kunde bearbeiten",
     newJob: "Neuer Auftrag",
-    createObject: "Objekt anlegen",
-    saveObject: "Objekt speichern",
+    createObject: "Projekt / Objekt anlegen",
+    saveObject: "Projekt / Objekt speichern",
     createCustomer: "Kunde anlegen",
     saveCustomer: "Kunde speichern",
     createJob: "Auftrag anlegen",
@@ -1161,13 +1183,13 @@ const labels = {
     appTitle: "Koll",
     subtitle: defaultAppBranding.claimSweden,
     search: "Sök",
-    newObject: "Nytt objekt",
-    editObject: "Redigera objekt",
+    newObject: "Nytt projekt / objekt",
+    editObject: "Redigera projekt / objekt",
     newCustomer: "Ny kund",
     editCustomer: "Redigera kund",
     newJob: "Nytt uppdrag",
-    createObject: "Skapa objekt",
-    saveObject: "Spara objekt",
+    createObject: "Skapa projekt / objekt",
+    saveObject: "Spara projekt / objekt",
     createCustomer: "Skapa kund",
     saveCustomer: "Spara kund",
     createJob: "Skapa uppdrag",
@@ -1182,13 +1204,13 @@ const labels = {
     appTitle: "WorkCore",
     subtitle: defaultAppBranding.claimEnglish,
     search: "Search",
-    newObject: "New property",
-    editObject: "Edit property",
+    newObject: "New project / object",
+    editObject: "Edit project / object",
     newCustomer: "New customer",
     editCustomer: "Edit customer",
     newJob: "New job",
-    createObject: "Create property",
-    saveObject: "Save property",
+    createObject: "Create project / object",
+    saveObject: "Save project / object",
     createCustomer: "Create customer",
     saveCustomer: "Save customer",
     createJob: "Create job",
@@ -1212,7 +1234,7 @@ const navLabels: Record<Language, Record<Section, string>> = {
     inventory: "Lagerverwaltung",
     jobs: "Aufträge",
     masterData: "Stammdaten",
-    objects: "Objekte",
+    objects: "Projekte & Objekte",
     planning: "Einsatzplanung",
     portal: "Kundenportal",
     reports: "Berichte",
@@ -1228,7 +1250,7 @@ const navLabels: Record<Language, Record<Section, string>> = {
     inventory: "Lager",
     jobs: "Uppdrag",
     masterData: "Grunddata",
-    objects: "Objekt",
+    objects: "Projekt & objekt",
     planning: "Planering",
     portal: "Kundportal",
     reports: "Rapporter",
@@ -1244,7 +1266,7 @@ const navLabels: Record<Language, Record<Section, string>> = {
     inventory: "Inventory",
     jobs: "Jobs",
     masterData: "Master data",
-    objects: "Properties",
+    objects: "Projects & objects",
     planning: "Planning",
     portal: "Customer portal",
     reports: "Reports",
@@ -2367,6 +2389,38 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Notizen", sv: "Anteckningar", en: "Notes" },
   { de: "Notizen / interne Info", sv: "Anteckningar / intern info", en: "Notes / internal info" },
   { de: "Objekt", sv: "Objekt", en: "Object" },
+  { de: "Projekte & Objekte", sv: "Projekt & objekt", en: "Projects & objects" },
+  { de: "Neues Projekt / Objekt", sv: "Nytt projekt / objekt", en: "New project / object" },
+  { de: "Aktive Projekte & Objekte", sv: "Aktiva projekt & objekt", en: "Active projects & objects" },
+  { de: "aktive Projekte & Objekte", sv: "aktiva projekt & objekt", en: "active projects & objects" },
+  { de: "Archivierte Projekte & Objekte", sv: "Arkiverade projekt & objekt", en: "Archived projects & objects" },
+  { de: "Projekte & Objekte pflegen", sv: "Hantera projekt & objekt", en: "Manage projects & objects" },
+  { de: "vollständige Projekt- und Objektakten", sv: "fullständiga projekt- och objektakter", en: "complete project and object records" },
+  { de: "Zurück zu Projekte & Objekte", sv: "Tillbaka till projekt & objekt", en: "Back to projects & objects" },
+  { de: "Projekt-/Objekttypen", sv: "Projekt-/objekttyper", en: "Project/object types" },
+  { de: "Projekt-/Objekttypen speichern", sv: "Spara projekt-/objekttyper", en: "Save project/object types" },
+  { de: "Bezeichnungen und sichtbare Feldgruppen je Typ zentral festlegen.", sv: "Ange centralt namn och synliga fältgrupper för varje typ.", en: "Centrally define names and visible field groups for each type." },
+  { de: "Typ hinzufügen", sv: "Lägg till typ", en: "Add type" },
+  { de: "Kunde / Eigentümer", sv: "Kund / ägare", en: "Customer / owner" },
+  { de: "Kunde / Eigentümer auswählen", sv: "Välj kund / ägare", en: "Select customer / owner" },
+  { de: "Kunden-/Eigentümeradresse", sv: "Kund-/ägaradress", en: "Customer/owner address" },
+  { de: "Adresse / Region", sv: "Adress / region", en: "Address / region" },
+  { de: "Projekt-/Objektadresse", sv: "Projekt-/objektadress", en: "Project/object address" },
+  { de: "Gebäude / Flächen", sv: "Byggnad / ytor", en: "Building / areas" },
+  { de: "Projektangaben", sv: "Projektuppgifter", en: "Project details" },
+  { de: "Projektbeginn", sv: "Projektstart", en: "Project start" },
+  { de: "Projektende", sv: "Projektslut", en: "Project end" },
+  { de: "Projektleitung", sv: "Projektledning", en: "Project manager" },
+  { de: "Budget", sv: "Budget", en: "Budget" },
+  { de: "Anlagendaten", sv: "Anläggningsdata", en: "Asset details" },
+  { de: "Hersteller", sv: "Tillverkare", en: "Manufacturer" },
+  { de: "Seriennummer", sv: "Serienummer", en: "Serial number" },
+  { de: "Wartungsintervall", sv: "Serviceintervall", en: "Maintenance interval" },
+  { de: "Betreuung", sv: "Service", en: "Service" },
+  { de: "Zugang", sv: "Åtkomst", en: "Access" },
+  { de: "Technik / Versorgung", sv: "Teknik / försörjning", en: "Utilities / systems" },
+  { de: "Fotos & Dokumente", sv: "Foton & dokument", en: "Photos & documents" },
+  { de: "Planung / Besuche", sv: "Planering / besök", en: "Planning / visits" },
   { de: "Objekt auswählen", sv: "Välj objekt", en: "Select property" },
   { de: "Objekt zuordnen", sv: "Tilldela objekt", en: "Assign property" },
   { de: "Objektadresse", sv: "Objektadress", en: "Property address" },
@@ -4214,14 +4268,15 @@ function emptyObjectForm(): NewObjectFormState {
     address: "",
     billingAddressMode: "Eigentümeradresse",
     billingAddress: "",
-    region: "Nybro",
-    sizeSqm: "95",
-    plotSqm: "1800",
-    rooms: "4",
-    beds: "6",
-    bathrooms: "1",
-    buildYear: "1990",
+    region: "",
+    sizeSqm: "",
+    plotSqm: "",
+    rooms: "",
+    beds: "",
+    bathrooms: "",
+    buildYear: "",
     carePackage: "Basis",
+    customFields: {},
     status: "Kontrolle offen",
     type: "Objekt",
     keySafe: "",
@@ -4322,6 +4377,7 @@ function objectToForm(object: ObjectRecord): NewObjectFormState {
     bathrooms: String(object.bathrooms),
     buildYear: String(object.buildYear),
     carePackage: object.carePackage,
+    customFields: object.customFields ?? {},
     status: object.status,
     type: object.type ?? "Objekt",
     keySafe: object.access.keySafe,
@@ -7057,16 +7113,16 @@ function formToObject(form: NewObjectFormState, id: string): ObjectRecord {
 
   return {
     id,
-    name: form.name.trim() || "Neues Ferienhaus",
+    name: form.name.trim() || "Neues Projekt / Objekt",
     ownerCustomerId: form.ownerCustomerId,
-    owner: form.owner.trim() || "Neuer Eigentümer",
+    owner: form.owner.trim() || "Kunde / Eigentümer offen",
     ownerEmail: form.ownerEmail.trim(),
     ownerPhone: form.ownerPhone.trim() || "-",
     ownerAddress,
     address: objectAddress,
     billingAddressMode: form.billingAddressMode,
     billingAddress,
-    region: form.region.trim() || "Nybro",
+    region: form.region.trim() || "Region offen",
     sizeSqm: Number(form.sizeSqm) || 0,
     plotSqm: Number(form.plotSqm) || 0,
     rooms: Number(form.rooms) || 0,
@@ -7074,6 +7130,7 @@ function formToObject(form: NewObjectFormState, id: string): ObjectRecord {
     bathrooms: Number(form.bathrooms) || 0,
     buildYear: Number(form.buildYear) || 0,
     carePackage: form.carePackage,
+    customFields: form.customFields,
     status: form.status,
     type: form.type || "Objekt",
     access: {
@@ -7769,6 +7826,7 @@ const seedCompanySettings: CompanySettings = {
   logoUrl: "",
   name: "Kolaretorp Service AB",
   organizationNumber: "",
+  objectTypes: defaultObjectTypeDefinitions,
   vatNumber: "",
 };
 
@@ -9502,6 +9560,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   };
   const tx = (value: string) => translateForLanguage(value, language);
   const appBranding = resolveAppBranding(companySettings, language);
+  const objectTypeDefinitions = normalizeObjectTypeDefinitions(companySettings.objectTypes);
 
   useEffect(() => {
     document.title = `${appBranding.brandName} | ${companySettings.name}`;
@@ -9537,7 +9596,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     ? fieldProgressKey(currentFieldJob, currentFieldWorkDate)
     : currentFieldJobId;
   const dashboardStats: Array<{ label: string; value: number; section: Section }> = [
-    { label: tx("aktive Objekte"), value: activeObjects.length, section: "objects" },
+    { label: tx("aktive Projekte & Objekte"), value: activeObjects.length, section: "objects" },
     { label: tx("offene Einsätze"), value: upcomingOperationalJobs.filter((job) => !["offerte", "erledigt", "abgerechnet", "storniert"].includes(job.status)).length, section: "planning" },
     { label: tx("Berichte"), value: reports.length, section: "reports" },
     { label: tx("abrechenbar"), value: billing.filter((item) => item.status === "abrechenbar").length, section: "billing" },
@@ -9564,7 +9623,8 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
 
   function openCreateObject() {
     setEditingObjectId(null);
-    setNewObject(emptyObjectForm());
+    const firstActiveType = objectTypeDefinitions.find((definition) => definition.active)?.id ?? "Objekt";
+    setNewObject({ ...emptyObjectForm(), type: firstActiveType });
     setObjectEditorOpen(true);
     setSection("objects");
   }
@@ -12364,6 +12424,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                 language={language}
                 object={editingObject}
                 objectStatusOptions={objectStatusOptions}
+                objectTypeDefinitions={objectTypeDefinitions}
                 onArchive={editingObject ? () => {
                   if (archiveObject(editingObject)) closeObjectEditor();
                 } : undefined}
@@ -12391,6 +12452,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                 archivedObjects={archivedObjects}
                 language={language}
                 objects={filteredObjects}
+                objectTypeDefinitions={objectTypeDefinitions}
                 selectedObjectId={selectedObject.id}
                 onCreate={openCreateObject}
                 onEdit={openEditObject}
@@ -13464,7 +13526,7 @@ function Dashboard({
   const openDashboardJobs = dashboardWorkJobs(allJobs);
   const workBlocks = [
     { label: tt("Heute steuern"), value: openDashboardJobs.filter((job) => job.status === "in Arbeit").length, text: tt("laufende Einsätze"), section: "planning" as Section },
-    { label: tt("Objekte pflegen"), value: objects.length, text: tt("vollständige Objektakten"), section: "objects" as Section },
+    { label: tt("Projekte & Objekte pflegen"), value: objects.length, text: tt("vollständige Projekt- und Objektakten"), section: "objects" as Section },
     { label: tt("Berichte prüfen"), value: reports.length, text: tt("in Listenform"), section: "reports" as Section },
   ];
 
@@ -14488,10 +14550,30 @@ function CustomerReportCard({
   );
 }
 
+function objectTypeSummary(object: ObjectRecord, definitions: ObjectTypeDefinition[], language: Language) {
+  const groups = definitions.find((definition) => definition.id === object.type)?.fieldGroups ?? defaultObjectTypeDefinitions[0].fieldGroups;
+  if (groups.includes("property")) {
+    return [object.sizeSqm ? `${object.sizeSqm} m²` : "", object.rooms ? `${object.rooms} ${uiText("Zi.", language)}` : "", object.beds ? `${object.beds} ${uiText("Betten", language)}` : ""].filter(Boolean).join(" · ");
+  }
+  if (groups.includes("project")) {
+    return [object.customFields?.projectStart, object.customFields?.projectEnd, object.customFields?.projectManager].filter(Boolean).join(" · ") || displayAddress(object.address);
+  }
+  if (groups.includes("asset")) {
+    return [object.customFields?.manufacturer, object.customFields?.model, object.customFields?.serialNumber].filter(Boolean).join(" · ") || displayAddress(object.address);
+  }
+  return displayAddress(object.address);
+}
+
+function objectServiceSummary(object: ObjectRecord, definitions: ObjectTypeDefinition[]) {
+  const groups = definitions.find((definition) => definition.id === object.type)?.fieldGroups ?? defaultObjectTypeDefinitions[0].fieldGroups;
+  return groups.includes("service") ? object.carePackage || "-" : "-";
+}
+
 function ObjectsView({
   archivedObjects,
   language,
   objects,
+  objectTypeDefinitions,
   selectedObjectId,
   onCreate,
   onEdit,
@@ -14500,6 +14582,7 @@ function ObjectsView({
   archivedObjects: ObjectRecord[];
   language: Language;
   objects: ObjectRecord[];
+  objectTypeDefinitions: ObjectTypeDefinition[];
   selectedObjectId: string;
   onCreate: () => void;
   onEdit: (object: ObjectRecord) => void;
@@ -14514,17 +14597,17 @@ function ObjectsView({
       <div className="panel-title">
         <div>
           <p>{tt("Stammdaten")}</p>
-          <h2>{tt("Objektübersicht")}</h2>
+          <h2>{tt("Projekte & Objekte")}</h2>
         </div>
         <button className="primary-button" onClick={onCreate} type="button">
           <Plus size={16} />
-          {tt("Neues Objekt")}
+          {tt("Neues Projekt / Objekt")}
         </button>
       </div>
       <div className="active-fold-group">
         <button className="job-fold-toggle" onClick={() => setActiveObjectsOpen((open) => !open)} type="button">
           {activeObjectsOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-          <span>{tt("Aktive Objekte")}</span>
+          <span>{tt("Aktive Projekte & Objekte")}</span>
           <small>{objects.length}</small>
         </button>
         {activeObjectsOpen && (
@@ -14550,12 +14633,12 @@ function ObjectsView({
                 <div className="object-row-main">
                   <ObjectThumbnail object={object} />
                   <div>
-                    <strong>{tt(object.type ?? "Objekt")} · {object.name}</strong>
+                    <strong>{objectTypeName(objectTypeDefinitions, object.type, language)} · {object.name}</strong>
                     <span>{object.owner}</span>
                   </div>
                   <span>{object.region}</span>
-                  <span>{object.sizeSqm} m² · {object.rooms} {tt("Zi.")} · {object.beds} {tt("Betten")}</span>
-                  <span>{object.carePackage}</span>
+                  <span>{objectTypeSummary(object, objectTypeDefinitions, language)}</span>
+                  <span>{objectServiceSummary(object, objectTypeDefinitions)}</span>
                   <Badge value={tt(object.status)} />
                 </div>
               </article>
@@ -14567,7 +14650,7 @@ function ObjectsView({
         <div className="archive-section archive-fold-group">
           <button className="job-fold-toggle" onClick={() => setArchivedObjectsOpen((open) => !open)} type="button">
             {archivedObjectsOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-            <span>{tt("Archivierte Objekte")}</span>
+            <span>{tt("Archivierte Projekte & Objekte")}</span>
             <small>{archivedObjects.length}</small>
           </button>
           {archivedObjectsOpen && (
@@ -14587,7 +14670,7 @@ function ObjectsView({
                   tabIndex={0}
                 >
                   <div>
-                    <strong>{tt(object.type ?? "Objekt")} · {object.name}</strong>
+                    <strong>{objectTypeName(objectTypeDefinitions, object.type, language)} · {object.name}</strong>
                     <span>{displayAddress(object.address)}</span>
                   </div>
                   <Badge value={tt("archiviert")} />
@@ -18920,7 +19003,7 @@ function MasterDataView({
   translationOverrides: TranslationFileRow[];
 }) {
   const tt = translate;
-  const [masterDataTab, setMasterDataTab] = useState<"company" | "branding" | "personal" | "resources" | "services" | "materials" | "accounting" | "mail" | "languages" | "backups">("company");
+  const [masterDataTab, setMasterDataTab] = useState<"company" | "branding" | "objectTypes" | "personal" | "resources" | "services" | "materials" | "accounting" | "mail" | "languages" | "backups">("company");
   const [editingPersonId, setEditingPersonId] = useState<string | null>(null);
   const [editingResourceId, setEditingResourceId] = useState<string | null>(null);
   const [editingLogEntryId, setEditingLogEntryId] = useState<string | null>(null);
@@ -19937,10 +20020,31 @@ function MasterDataView({
       email: companySettingsForm.email.trim(),
       fSkattApproved: companySettingsForm.fSkattApproved,
       name: companySettingsForm.name.trim() || "Kolaretorp Service AB",
+      objectTypes: normalizeObjectTypeDefinitions(companySettingsForm.objectTypes),
       organizationNumber: companySettingsForm.organizationNumber.trim(),
       vatNumber: companySettingsForm.vatNumber.trim(),
     });
     setArchiveNotice("Firmenstammdaten wurden gespeichert.");
+  }
+
+  function updateObjectTypeDefinition(id: string, update: (definition: ObjectTypeDefinition) => ObjectTypeDefinition) {
+    const objectTypes = normalizeObjectTypeDefinitions(companySettingsForm.objectTypes)
+      .map((definition) => definition.id === id ? update(definition) : definition);
+    setCompanySettingsForm({ ...companySettingsForm, objectTypes });
+  }
+
+  function addObjectTypeDefinition() {
+    const id = `custom-${Date.now()}`;
+    const objectTypes = [
+      ...normalizeObjectTypeDefinitions(companySettingsForm.objectTypes),
+      {
+        active: true,
+        fieldGroups: ["customer", "address", "billing", "planning", "documentation"] as ObjectFieldGroup[],
+        id,
+        names: { de: "Neuer Typ", en: "New type", sv: "Ny typ" },
+      },
+    ];
+    setCompanySettingsForm({ ...companySettingsForm, objectTypes });
   }
 
   function resetAccountForm() {
@@ -20403,6 +20507,10 @@ function MasterDataView({
           <Wrench size={16} />
           {tt("System / Branding")}
         </button>
+        <button className={masterDataTab === "objectTypes" ? "active" : ""} onClick={() => setMasterDataTab("objectTypes")} type="button">
+          <LayoutGrid size={16} />
+          {tt("Projekt-/Objekttypen")}
+        </button>
         <button className={masterDataTab === "personal" ? "active" : ""} onClick={() => { setMasterDataTab("personal"); resetPersonForm(); }} type="button">
           <UserRound size={16} />
           {tt("Personal")}
@@ -20625,6 +20733,66 @@ function MasterDataView({
             <label><span>{tt("Deutscher Claim")}</span><input placeholder={defaultAppBranding.claimGerman} value={companySettingsForm.claimGerman ?? ""} onChange={(event) => setCompanySettingsForm({ ...companySettingsForm, claimGerman: event.target.value })} /></label>
             <label className="wide"><span>{tt("Englischer Claim")}</span><input placeholder={defaultAppBranding.claimEnglish} value={companySettingsForm.claimEnglish ?? ""} onChange={(event) => setCompanySettingsForm({ ...companySettingsForm, claimEnglish: event.target.value })} /></label>
             <button className="primary-button wide" onClick={saveCompanySettings} type="button">{tt("Branding speichern")}</button>
+          </div>
+        </section>
+      )}
+
+      {masterDataTab === "objectTypes" && (
+        <section className="panel">
+          <div className="panel-title">
+            <div>
+              <p>{tt("Stammdaten")}</p>
+              <h2>{tt("Projekt-/Objekttypen")}</h2>
+              <span>{tt("Bezeichnungen und sichtbare Feldgruppen je Typ zentral festlegen.")}</span>
+            </div>
+            <button className="ghost-button" onClick={addObjectTypeDefinition} type="button">
+              <Plus size={16} />
+              {tt("Typ hinzufügen")}
+            </button>
+          </div>
+          <div className="object-type-settings-list">
+            {normalizeObjectTypeDefinitions(companySettingsForm.objectTypes).map((definition) => {
+              const usageCount = objects.filter((object) => (object.type ?? "Objekt") === definition.id).length;
+              return (
+                <article className="object-type-settings-card" key={definition.id}>
+                  <div className="object-type-settings-head">
+                    <div>
+                      <strong>{definition.names[language]}</strong>
+                      <span>{usageCount} {tt(usageCount === 1 ? "Eintrag" : "Einträge")}</span>
+                    </div>
+                    <label className="checkbox-line">
+                      <input checked={definition.active} onChange={(event) => updateObjectTypeDefinition(definition.id, (current) => ({ ...current, active: event.target.checked }))} type="checkbox" />
+                      <span>{tt("Aktiv")}</span>
+                    </label>
+                  </div>
+                  <div className="object-type-name-grid">
+                    <label><span>Deutsch</span><input aria-label={`Deutsch ${definition.id}`} value={definition.names.de} onChange={(event) => updateObjectTypeDefinition(definition.id, (current) => ({ ...current, names: { ...current.names, de: event.target.value } }))} /></label>
+                    <label><span>Svenska</span><input aria-label={`Svenska ${definition.id}`} value={definition.names.sv} onChange={(event) => updateObjectTypeDefinition(definition.id, (current) => ({ ...current, names: { ...current.names, sv: event.target.value } }))} /></label>
+                    <label><span>English</span><input aria-label={`English ${definition.id}`} value={definition.names.en} onChange={(event) => updateObjectTypeDefinition(definition.id, (current) => ({ ...current, names: { ...current.names, en: event.target.value } }))} /></label>
+                  </div>
+                  <div className="object-type-field-grid">
+                    {objectFieldGroups.map((group) => (
+                      <label className="checkbox-line" key={group.id}>
+                        <input
+                          checked={definition.fieldGroups.includes(group.id)}
+                          onChange={(event) => updateObjectTypeDefinition(definition.id, (current) => ({
+                            ...current,
+                            fieldGroups: event.target.checked
+                              ? [...current.fieldGroups, group.id]
+                              : current.fieldGroups.filter((fieldGroup) => fieldGroup !== group.id),
+                          }))}
+                          type="checkbox"
+                        />
+                        <span>{tt(group.label)}</span>
+                      </label>
+                    ))}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+          <div className="message-actions">
+            <button className="primary-button" onClick={saveCompanySettings} type="button">{tt("Projekt-/Objekttypen speichern")}</button>
           </div>
         </section>
       )}
@@ -22199,6 +22367,7 @@ function ObjectEditorPage({
   language,
   object,
   objectStatusOptions,
+  objectTypeDefinitions,
   onArchive,
   onBack,
   onAutoSave,
@@ -22219,6 +22388,7 @@ function ObjectEditorPage({
   language: Language;
   object?: ObjectRecord;
   objectStatusOptions: string[];
+  objectTypeDefinitions: ObjectTypeDefinition[];
   onArchive?: () => void;
   onBack: () => void;
   onAutoSave?: (value: NewObjectFormState) => void;
@@ -22245,7 +22415,7 @@ function ObjectEditorPage({
           <div className="editor-title-main">
             <button className="ghost-button" onClick={onBack} type="button">
               <ArrowLeft size={16} />
-              {tt("Zurück zur Objektübersicht")}
+              {tt("Zurück zu Projekte & Objekte")}
             </button>
           </div>
           {primaryImage?.previewUrl ? (
@@ -22287,6 +22457,7 @@ function ObjectEditorPage({
           customers={customers}
           language={language}
           newObject={newObject}
+          objectTypeDefinitions={objectTypeDefinitions}
           packages={packages}
           statusOptions={objectStatusOptions}
           setNewObject={setNewObject}
@@ -22539,6 +22710,7 @@ function ObjectForm({
   customers,
   language,
   newObject,
+  objectTypeDefinitions,
   packages,
   setNewObject,
   statusOptions,
@@ -22549,6 +22721,7 @@ function ObjectForm({
   customers: CustomerRecord[];
   language: Language;
   newObject: NewObjectFormState;
+  objectTypeDefinitions: ObjectTypeDefinition[];
   packages: ServicePackage[];
   setNewObject: (value: NewObjectFormState) => void;
   statusOptions: string[];
@@ -22562,6 +22735,10 @@ function ObjectForm({
   const [previewDocument, setPreviewDocument] = useState<MediaItem | null>(null);
   const [previewPhoto, setPreviewPhoto] = useState<MediaItem | null>(null);
   const objectFormRef = useRef(newObject);
+  const selectedObjectType = objectTypeDefinitions.find((definition) => definition.id === newObject.type)
+    ?? objectTypeDefinitions[0]
+    ?? defaultObjectTypeDefinitions[0];
+  const availableObjectTypes = objectTypeDefinitions.filter((definition) => definition.active || definition.id === newObject.type);
   const packageOptions = uniqueSortedValues(
     packages.filter((servicePackage) => !servicePackage.archived).map((servicePackage) => servicePackage.name),
     [newObject.carePackage, "Basis", "Plus", "Komfort", "Premium"],
@@ -22578,6 +22755,14 @@ function ObjectForm({
 
   function update(key: keyof typeof newObject, value: string) {
     setNewObject({ ...newObject, [key]: value });
+  }
+
+  function updateCustomField(key: keyof ObjectCustomFields, value: string) {
+    setNewObject({ ...newObject, customFields: { ...newObject.customFields, [key]: value } });
+  }
+
+  function hasFieldGroup(group: ObjectFieldGroup) {
+    return selectedObjectType.fieldGroups.includes(group);
   }
 
   function updateObjectAddress(key: keyof Pick<NewObjectFormState, "address" | "billingAddress" | "ownerAddress">, part: keyof AddressParts, value: string) {
@@ -22714,82 +22899,93 @@ function ObjectForm({
     <div className="form-grid" onBlurCapture={autosaveField}>
       <h3>{tt("Basisdaten")}</h3>
       <label><span>{tt("Typ")}</span>
-        <select value={newObject.type} onChange={(event) => setNewObject({ ...newObject, type: event.target.value as ObjectRecordType })}>
-          {(["Objekt", "Projekt", "Baustelle", "Standort", "Anlage", "Sonstiges"] as ObjectRecordType[]).map((type) => (
-            <option key={type} value={type}>{tt(type)}</option>
+        <select value={newObject.type} onChange={(event) => setNewObject({ ...newObject, type: event.target.value })}>
+          {availableObjectTypes.map((definition) => (
+            <option key={definition.id} value={definition.id}>{definition.names[language]}</option>
           ))}
         </select>
       </label>
-      <label><span>{tt(newObject.type)}</span><input value={newObject.name} onChange={(event) => update("name", event.target.value)} /></label>
+      <label><span>{objectTypeName(objectTypeDefinitions, newObject.type, language)}</span><input value={newObject.name} onChange={(event) => update("name", event.target.value)} /></label>
       <label><span>{tt("Status")}</span>
         <input list="object-status-options" value={newObject.status} onChange={(event) => update("status", event.target.value)} />
         <datalist id="object-status-options">
           {statusOptions.map((status) => <option key={status} value={status} />)}
         </datalist>
       </label>
-      <label className="wide">
-        <span>{tt("Eigentümer aus Kunden")}</span>
-        <select value={newObject.ownerCustomerId} onChange={(event) => selectOwner(event.target.value)}>
-          <option value="">{tt("Manuell pflegen")}</option>
-          {customers.map((customer) => (
-            <option key={customer.id} value={customer.id}>{customer.name}</option>
-          ))}
-        </select>
-      </label>
-      <label><span>{tt("Eigentümer")}</span><input value={newObject.owner} onChange={(event) => update("owner", event.target.value)} /></label>
-      <label><span>{tt("E-Mail Eigentümer")}</span><input type="email" value={newObject.ownerEmail} onChange={(event) => update("ownerEmail", event.target.value)} /></label>
-      <label><span>{tt("Telefon Eigentümer")}</span><input value={newObject.ownerPhone} onChange={(event) => update("ownerPhone", event.target.value)} /></label>
-      <label><span>{tt("Ort/Region")}</span><input value={newObject.region} onChange={(event) => update("region", event.target.value)} /></label>
-      <AddressFields
-        label={tt("Eigentümeradresse")}
-        language={language}
-        value={newObject.ownerAddress}
-        onChange={(part, value) => updateObjectAddress("ownerAddress", part, value)}
-      />
-      <AddressFields
-        label={tt("Objektadresse")}
-        language={language}
-        value={newObject.address}
-        onChange={(part, value) => updateObjectAddress("address", part, value)}
-      />
-      <label>
-        <span>{tt("Rechnungsadresse verwenden")}</span>
-        <select value={newObject.billingAddressMode} onChange={(event) => updateBillingMode(event.target.value as ObjectRecord["billingAddressMode"])}>
-          <option value="Eigentümeradresse">{tt("Eigentümeradresse")}</option>
-          <option value="Objektadresse">{tt("Objektadresse")}</option>
-          <option value="Abweichend">{tt("Abweichend")}</option>
-        </select>
-      </label>
-      <AddressFields
-        disabled={newObject.billingAddressMode !== "Abweichend"}
-        label={tt("Rechnungsadresse")}
-        language={language}
-        value={newObject.billingAddressMode === "Objektadresse" ? newObject.address : newObject.billingAddressMode === "Eigentümeradresse" ? newObject.ownerAddress : newObject.billingAddress}
-        onChange={(part, value) => updateObjectAddress("billingAddress", part, value)}
-      />
-      <h3>{tt("Objektmerkmale")}</h3>
-      <label><span>{tt("Größe m²")}</span><input type="number" value={newObject.sizeSqm} onChange={(event) => update("sizeSqm", event.target.value)} /></label>
-      <label><span>{tt("Grundstück m²")}</span><input type="number" value={newObject.plotSqm} onChange={(event) => update("plotSqm", event.target.value)} /></label>
-      <label><span>{tt("Baujahr")}</span><input type="number" value={newObject.buildYear} onChange={(event) => update("buildYear", event.target.value)} /></label>
-      <label><span>{tt("Zimmer")}</span><input type="number" value={newObject.rooms} onChange={(event) => update("rooms", event.target.value)} /></label>
-      <label><span>{tt("Betten")}</span><input type="number" value={newObject.beds} onChange={(event) => update("beds", event.target.value)} /></label>
-      <label><span>{tt("Bäder")}</span><input type="number" value={newObject.bathrooms} onChange={(event) => update("bathrooms", event.target.value)} /></label>
-      <label>
-        <span>{tt("Betreuungspaket")}</span>
-        <select value={newObject.carePackage} onChange={(event) => update("carePackage", event.target.value)}>
-          {packageOptions.map((option) => <option key={option} value={option}>{option}</option>)}
-        </select>
-      </label>
-      <h3>{tt("Zugang & Technik")}</h3>
-      <label><span>{tt("Zugang / Schlüssel")}</span><textarea value={newObject.keySafe} onChange={(event) => update("keySafe", event.target.value)} /></label>
-      <label><span>{tt("Alarmanlage")}</span><textarea value={newObject.alarm} onChange={(event) => update("alarm", event.target.value)} /></label>
-      <label><span>{tt("Parken")}</span><textarea value={newObject.parking} onChange={(event) => update("parking", event.target.value)} /></label>
-      <label><span>{tt("Zugangshinweise")}</span><textarea value={newObject.accessNotes} onChange={(event) => update("accessNotes", event.target.value)} /></label>
-      <label><span>{tt("Heizung")}</span><input value={newObject.heating} onChange={(event) => update("heating", event.target.value)} /></label>
-      <label><span>{tt("Wasser")}</span><input value={newObject.water} onChange={(event) => update("water", event.target.value)} /></label>
-      <label><span>{tt("Abwasser")}</span><input value={newObject.septic} onChange={(event) => update("septic", event.target.value)} /></label>
-      <label><span>{tt("Internet")}</span><input value={newObject.internet} onChange={(event) => update("internet", event.target.value)} /></label>
-      <h3>{tt("Dokumentation & Planung")}</h3>
+      {hasFieldGroup("customer") && <>
+        <h3>{tt("Kunde / Eigentümer")}</h3>
+        <label className="wide">
+          <span>{tt("Kunde / Eigentümer auswählen")}</span>
+          <select value={newObject.ownerCustomerId} onChange={(event) => selectOwner(event.target.value)}>
+            <option value="">{tt("Manuell pflegen")}</option>
+            {customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}</option>)}
+          </select>
+        </label>
+        <label><span>{tt("Kunde / Eigentümer")}</span><input value={newObject.owner} onChange={(event) => update("owner", event.target.value)} /></label>
+        <label><span>{tt("E-Mail")}</span><input type="email" value={newObject.ownerEmail} onChange={(event) => update("ownerEmail", event.target.value)} /></label>
+        <label><span>{tt("Telefon")}</span><input value={newObject.ownerPhone} onChange={(event) => update("ownerPhone", event.target.value)} /></label>
+        <AddressFields label={tt("Kunden-/Eigentümeradresse")} language={language} value={newObject.ownerAddress} onChange={(part, value) => updateObjectAddress("ownerAddress", part, value)} />
+      </>}
+      {hasFieldGroup("address") && <>
+        <h3>{tt("Adresse / Region")}</h3>
+        <label><span>{tt("Ort/Region")}</span><input value={newObject.region} onChange={(event) => update("region", event.target.value)} /></label>
+        <AddressFields label={tt("Projekt-/Objektadresse")} language={language} value={newObject.address} onChange={(part, value) => updateObjectAddress("address", part, value)} />
+      </>}
+      {hasFieldGroup("billing") && <>
+        <h3>{tt("Abrechnung")}</h3>
+        <label>
+          <span>{tt("Rechnungsadresse verwenden")}</span>
+          <select value={newObject.billingAddressMode} onChange={(event) => updateBillingMode(event.target.value as ObjectRecord["billingAddressMode"])}>
+            <option value="Eigentümeradresse">{tt("Kunden-/Eigentümeradresse")}</option>
+            <option value="Objektadresse">{tt("Projekt-/Objektadresse")}</option>
+            <option value="Abweichend">{tt("Abweichend")}</option>
+          </select>
+        </label>
+        <AddressFields disabled={newObject.billingAddressMode !== "Abweichend"} label={tt("Rechnungsadresse")} language={language} value={newObject.billingAddressMode === "Objektadresse" ? newObject.address : newObject.billingAddressMode === "Eigentümeradresse" ? newObject.ownerAddress : newObject.billingAddress} onChange={(part, value) => updateObjectAddress("billingAddress", part, value)} />
+      </>}
+      {hasFieldGroup("property") && <>
+        <h3>{tt("Gebäude / Flächen")}</h3>
+        <label><span>{tt("Größe m²")}</span><input type="number" value={newObject.sizeSqm} onChange={(event) => update("sizeSqm", event.target.value)} /></label>
+        <label><span>{tt("Grundstück m²")}</span><input type="number" value={newObject.plotSqm} onChange={(event) => update("plotSqm", event.target.value)} /></label>
+        <label><span>{tt("Baujahr")}</span><input type="number" value={newObject.buildYear} onChange={(event) => update("buildYear", event.target.value)} /></label>
+        <label><span>{tt("Zimmer")}</span><input type="number" value={newObject.rooms} onChange={(event) => update("rooms", event.target.value)} /></label>
+        <label><span>{tt("Betten")}</span><input type="number" value={newObject.beds} onChange={(event) => update("beds", event.target.value)} /></label>
+        <label><span>{tt("Bäder")}</span><input type="number" value={newObject.bathrooms} onChange={(event) => update("bathrooms", event.target.value)} /></label>
+      </>}
+      {hasFieldGroup("project") && <>
+        <h3>{tt("Projektangaben")}</h3>
+        <label><span>{tt("Projektbeginn")}</span><input type="date" value={newObject.customFields.projectStart ?? ""} onChange={(event) => updateCustomField("projectStart", event.target.value)} /></label>
+        <label><span>{tt("Projektende")}</span><input type="date" value={newObject.customFields.projectEnd ?? ""} onChange={(event) => updateCustomField("projectEnd", event.target.value)} /></label>
+        <label><span>{tt("Projektleitung")}</span><input value={newObject.customFields.projectManager ?? ""} onChange={(event) => updateCustomField("projectManager", event.target.value)} /></label>
+        <label><span>{tt("Budget")}</span><input value={newObject.customFields.budget ?? ""} onChange={(event) => updateCustomField("budget", event.target.value)} /></label>
+      </>}
+      {hasFieldGroup("asset") && <>
+        <h3>{tt("Anlagendaten")}</h3>
+        <label><span>{tt("Hersteller")}</span><input value={newObject.customFields.manufacturer ?? ""} onChange={(event) => updateCustomField("manufacturer", event.target.value)} /></label>
+        <label><span>{tt("Modell")}</span><input value={newObject.customFields.model ?? ""} onChange={(event) => updateCustomField("model", event.target.value)} /></label>
+        <label><span>{tt("Seriennummer")}</span><input value={newObject.customFields.serialNumber ?? ""} onChange={(event) => updateCustomField("serialNumber", event.target.value)} /></label>
+        <label><span>{tt("Wartungsintervall")}</span><input value={newObject.customFields.maintenanceInterval ?? ""} onChange={(event) => updateCustomField("maintenanceInterval", event.target.value)} /></label>
+      </>}
+      {hasFieldGroup("service") && <>
+        <h3>{tt("Betreuung")}</h3>
+        <label><span>{tt("Betreuungspaket")}</span><select value={newObject.carePackage} onChange={(event) => update("carePackage", event.target.value)}>{packageOptions.map((option) => <option key={option} value={option}>{option}</option>)}</select></label>
+      </>}
+      {hasFieldGroup("access") && <>
+        <h3>{tt("Zugang")}</h3>
+        <label><span>{tt("Zugang / Schlüssel")}</span><textarea value={newObject.keySafe} onChange={(event) => update("keySafe", event.target.value)} /></label>
+        <label><span>{tt("Alarmanlage")}</span><textarea value={newObject.alarm} onChange={(event) => update("alarm", event.target.value)} /></label>
+        <label><span>{tt("Parken")}</span><textarea value={newObject.parking} onChange={(event) => update("parking", event.target.value)} /></label>
+        <label><span>{tt("Zugangshinweise")}</span><textarea value={newObject.accessNotes} onChange={(event) => update("accessNotes", event.target.value)} /></label>
+      </>}
+      {hasFieldGroup("utilities") && <>
+        <h3>{tt("Technik / Versorgung")}</h3>
+        <label><span>{tt("Heizung")}</span><input value={newObject.heating} onChange={(event) => update("heating", event.target.value)} /></label>
+        <label><span>{tt("Wasser")}</span><input value={newObject.water} onChange={(event) => update("water", event.target.value)} /></label>
+        <label><span>{tt("Abwasser")}</span><input value={newObject.septic} onChange={(event) => update("septic", event.target.value)} /></label>
+        <label><span>{tt("Internet")}</span><input value={newObject.internet} onChange={(event) => update("internet", event.target.value)} /></label>
+      </>}
+      {hasFieldGroup("documentation") && <h3>{tt("Fotos & Dokumente")}</h3>}
+      {hasFieldGroup("documentation") &&
       <section className="wide object-attachment-section">
         <div className="attachment-section-head">
           <div>
@@ -22832,7 +23028,8 @@ function ObjectForm({
         ) : (
           <p className="empty-attachment">{tt("Noch keine Fotos zum Objekt vorhanden.")}</p>
         )}
-      </section>
+      </section>}
+      {hasFieldGroup("documentation") &&
       <section className="wide object-attachment-section">
         <div className="attachment-section-head">
           <div>
@@ -22880,7 +23077,7 @@ function ObjectForm({
         ) : (
           <p className="empty-attachment">{tt("Noch keine Dokumente zum Objekt vorhanden.")}</p>
         )}
-      </section>
+      </section>}
       {previewDocument && (
         <div className="modal-backdrop nested-backdrop">
           <section aria-labelledby="document-preview-title" aria-modal="true" className="modal document-preview-modal" role="dialog">
@@ -22949,10 +23146,19 @@ function ObjectForm({
           </section>
         </div>
       )}
-      <label><span>{tt("Letzter Besuch")}</span><input value={newObject.lastVisit} onChange={(event) => update("lastVisit", event.target.value)} /></label>
-      <label><span>{tt("Nächster Besuch")}</span><input value={newObject.nextVisit} onChange={(event) => update("nextVisit", event.target.value)} /></label>
-      <label className="wide"><span>{tt("Ausstattung")}</span><textarea value={newObject.equipment} onChange={(event) => update("equipment", event.target.value)} placeholder="Pool, Sauna, Kamin" /></label>
-      <label className="wide"><span>{tt("Hinweise / Risiken")}</span><textarea value={newObject.risks} onChange={(event) => update("risks", event.target.value)} /></label>
+      {hasFieldGroup("planning") && <>
+        <h3>{tt("Planung / Besuche")}</h3>
+        <label><span>{tt("Letzter Besuch")}</span><input value={newObject.lastVisit} onChange={(event) => update("lastVisit", event.target.value)} /></label>
+        <label><span>{tt("Nächster Besuch")}</span><input value={newObject.nextVisit} onChange={(event) => update("nextVisit", event.target.value)} /></label>
+      </>}
+      {hasFieldGroup("equipment") && <>
+        <h3>{tt("Ausstattung")}</h3>
+        <label className="wide"><span>{tt("Ausstattung")}</span><textarea value={newObject.equipment} onChange={(event) => update("equipment", event.target.value)} placeholder="Pool, Sauna, Kamin" /></label>
+      </>}
+      {hasFieldGroup("risks") && <>
+        <h3>{tt("Hinweise / Risiken")}</h3>
+        <label className="wide"><span>{tt("Hinweise / Risiken")}</span><textarea value={newObject.risks} onChange={(event) => update("risks", event.target.value)} /></label>
+      </>}
       <button className="primary-button wide" onClick={onSubmit} type="button">{submitLabel}</button>
     </div>
   );
