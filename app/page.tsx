@@ -2395,6 +2395,7 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Projekte & Objekte", sv: "Projekt & objekt", en: "Projects & objects" },
   { de: "Neues Projekt / Objekt", sv: "Nytt projekt / objekt", en: "New project / object" },
   { de: "Aktive Projekte & Objekte", sv: "Aktiva projekt & objekt", en: "Active projects & objects" },
+  { de: "Inaktive Projekte & Objekte", sv: "Inaktiva projekt & objekt", en: "Inactive projects & objects" },
   { de: "aktive Projekte & Objekte", sv: "aktiva projekt & objekt", en: "active projects & objects" },
   { de: "Archivierte Projekte & Objekte", sv: "Arkiverade projekt & objekt", en: "Archived projects & objects" },
   { de: "Projekte & Objekte pflegen", sv: "Hantera projekt & objekt", en: "Manage projects & objects" },
@@ -9587,7 +9588,6 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   const selectedObject = activeObjects.find((object) => object.id === selectedObjectId) ?? activeObjects[0] ?? objects[0];
   const editingObject = objects.find((object) => object.id === editingObjectId);
   const editingCustomer = customers.find((customer) => customer.id === editingCustomerId);
-  const isInactiveObject = (object: ObjectRecord) => /inaktiv|pausiert|winterruhe|verkauft|gekündigt|gekuendigt/i.test(object.status);
   const filteredObjects = activeObjects.filter((object) =>
     [object.name, object.owner, object.address, object.region, object.carePackage, object.type ?? "Objekt"]
       .join(" ")
@@ -9609,7 +9609,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     ? fieldProgressKey(currentFieldJob, currentFieldWorkDate)
     : currentFieldJobId;
   const dashboardStats: Array<{ label: string; value: number; section: Section }> = [
-    { label: tx("aktive Projekte & Objekte"), value: activeObjects.length, section: "objects" },
+    { label: tx("aktive Projekte & Objekte"), value: activeObjects.filter((object) => !isInactiveObject(object)).length, section: "objects" },
     { label: tx("offene Einsätze"), value: upcomingOperationalJobs.filter((job) => !["offerte", "erledigt", "abgerechnet", "storniert"].includes(job.status)).length, section: "planning" },
     { label: tx("Berichte"), value: reports.length, section: "reports" },
     { label: tx("abrechenbar"), value: billing.filter((item) => item.status === "abrechenbar").length, section: "billing" },
@@ -14582,6 +14582,10 @@ function objectServiceSummary(object: ObjectRecord, definitions: ObjectTypeDefin
   return groups.includes("service") ? object.carePackage || "-" : "-";
 }
 
+function isInactiveObject(object: ObjectRecord) {
+  return /inaktiv|pausiert|winterruhe|verkauft|gekündigt|gekuendigt/i.test(object.status);
+}
+
 function ObjectsView({
   archivedObjects,
   language,
@@ -14603,7 +14607,46 @@ function ObjectsView({
 }) {
   const tt = (value: string) => uiText(value, language);
   const [activeObjectsOpen, setActiveObjectsOpen] = useState(true);
+  const [inactiveObjectsOpen, setInactiveObjectsOpen] = useState(false);
   const [archivedObjectsOpen, setArchivedObjectsOpen] = useState(false);
+  const listedActiveObjects = objects.filter((object) => !isInactiveObject(object));
+  const inactiveObjects = objects.filter(isInactiveObject);
+
+  const renderObjectList = (entries: ObjectRecord[]) => (
+    <div className="object-list">
+      {entries.map((object) => (
+        <article
+          className={selectedObjectId === object.id ? "selected clickable-record-row" : "clickable-record-row"}
+          key={object.id}
+          onClick={() => {
+            onSelect(object.id);
+            onEdit(object);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              onSelect(object.id);
+              onEdit(object);
+            }
+          }}
+          role="button"
+          tabIndex={0}
+        >
+          <div className="object-row-main">
+            <ObjectThumbnail object={object} />
+            <div>
+              <strong>{objectTypeName(objectTypeDefinitions, object.type, language)} · {object.name}</strong>
+              <span>{object.owner}</span>
+            </div>
+            <span>{object.region}</span>
+            <span>{objectTypeSummary(object, objectTypeDefinitions, language)}</span>
+            <span>{objectServiceSummary(object, objectTypeDefinitions)}</span>
+            <Badge value={tt(object.status)} />
+          </div>
+        </article>
+      ))}
+    </div>
+  );
 
   return (
     <section className="panel">
@@ -14621,44 +14664,20 @@ function ObjectsView({
         <button className="job-fold-toggle" onClick={() => setActiveObjectsOpen((open) => !open)} type="button">
           {activeObjectsOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
           <span>{tt("Aktive Projekte & Objekte")}</span>
-          <small>{objects.length}</small>
+          <small>{listedActiveObjects.length}</small>
         </button>
-        {activeObjectsOpen && (
-          <div className="object-list">
-            {objects.map((object) => (
-              <article
-                className={selectedObjectId === object.id ? "selected clickable-record-row" : "clickable-record-row"}
-                key={object.id}
-                onClick={() => {
-                  onSelect(object.id);
-                  onEdit(object);
-                }}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    onSelect(object.id);
-                    onEdit(object);
-                  }
-                }}
-                role="button"
-                tabIndex={0}
-              >
-                <div className="object-row-main">
-                  <ObjectThumbnail object={object} />
-                  <div>
-                    <strong>{objectTypeName(objectTypeDefinitions, object.type, language)} · {object.name}</strong>
-                    <span>{object.owner}</span>
-                  </div>
-                  <span>{object.region}</span>
-                  <span>{objectTypeSummary(object, objectTypeDefinitions, language)}</span>
-                  <span>{objectServiceSummary(object, objectTypeDefinitions)}</span>
-                  <Badge value={tt(object.status)} />
-                </div>
-              </article>
-            ))}
-          </div>
-        )}
+        {activeObjectsOpen && renderObjectList(listedActiveObjects)}
       </div>
+      {inactiveObjects.length > 0 && (
+        <div className="archive-fold-group">
+          <button className="job-fold-toggle" onClick={() => setInactiveObjectsOpen((open) => !open)} type="button">
+            {inactiveObjectsOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+            <span>{tt("Inaktive Projekte & Objekte")}</span>
+            <small>{inactiveObjects.length}</small>
+          </button>
+          {inactiveObjectsOpen && renderObjectList(inactiveObjects)}
+        </div>
+      )}
       {archivedObjects.length > 0 && (
         <div className="archive-section archive-fold-group">
           <button className="job-fold-toggle" onClick={() => setArchivedObjectsOpen((open) => !open)} type="button">

@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.420.0",
+  version: "1.420.1",
   releaseDate: "2026-09-21",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  {
+    version: "1.420.1",
+    date: "2026-09-21",
+    changes: [
+      "Inaktive Projekte und Objekte werden wieder in einer eigenen einklappbaren Gruppe angezeigt",
+      "Zähler für aktive Projekte und Objekte schließen inaktive Datensätze wieder aus",
+    ],
+  },
   {
     version: "1.420.0",
     date: "2026-09-21",
