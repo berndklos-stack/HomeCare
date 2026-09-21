@@ -2,14 +2,22 @@ import { expect, test } from "@playwright/test";
 import { resolveAppBranding } from "../lib/branding";
 import { defaultObjectTypeDefinitions, normalizeObjectTypeDefinitions } from "../lib/objectTypes";
 
-test("Branding wird aus Unternehmensland und Sprache zentral aufgelöst", () => {
+test("Branding wird aus der gewählten Sprache zentral aufgelöst", () => {
   expect(resolveAppBranding({ countryCode: "SE" }, "sv")).toMatchObject({
     brandName: "Koll",
     claim: "Full koll på jobbet",
   });
   expect(resolveAppBranding({ countryCode: "SE" }, "de")).toMatchObject({
-    brandName: "Koll",
+    brandName: "WorkCore",
     claim: "Aufträge. Projekte. Service. Abrechnung.",
+  });
+  expect(resolveAppBranding({ countryCode: "SE" }, "en")).toMatchObject({
+    brandName: "WorkCore",
+    claim: "Jobs. Projects. Service. Billing.",
+  });
+  expect(resolveAppBranding({ countryCode: "DE" }, "sv")).toMatchObject({
+    brandName: "Koll",
+    claim: "Full koll på jobbet",
   });
   expect(resolveAppBranding({ countryCode: "DE" }, "en")).toMatchObject({
     brandName: "WorkCore",
@@ -178,8 +186,13 @@ test("Branding und Objekttyp bleiben nach dem Speichern erhalten", async ({ page
 
   await page.goto("/");
   await expect(page.locator("main")).toHaveAttribute("data-ready", "true", { timeout: 30_000 });
-  await expect(page.getByRole("heading", { name: "Koll" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "WorkCore" })).toBeVisible();
   await expect(page.getByText("Aufträge. Projekte. Service. Abrechnung.", { exact: true })).toBeVisible();
+  await page.getByLabel("Sprache").selectOption("sv");
+  await expect(page.getByRole("heading", { name: "Koll" })).toBeVisible();
+  await expect(page.getByText("Full koll på jobbet", { exact: true })).toBeVisible();
+  await page.getByLabel("Språk").selectOption("de");
+  await expect(page.getByRole("heading", { name: "WorkCore" })).toBeVisible();
 
   await page.getByTestId("nav-jobs").click();
   const consultingRow = page.locator(".job-row").filter({ hasText: "Auswahlabrechnung Test" });
@@ -196,6 +209,7 @@ test("Branding und Objekttyp bleiben nach dem Speichern erhalten", async ({ page
 
   await page.getByTestId("nav-masterData").click();
   await page.getByRole("button", { name: "System / Branding", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Einrichtungsassistent öffnen", exact: true })).toBeVisible();
   await page.getByLabel("Internationaler Markenname").fill("FieldSuite");
   await page.getByLabel("Deutscher Claim").fill("Alles im Blick.");
   await page.getByRole("button", { name: "Branding speichern", exact: true }).click();

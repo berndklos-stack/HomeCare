@@ -29,16 +29,14 @@ export function companyCountryCode(settings: AppBrandingSettings, language: AppB
 
 export function resolveAppBranding(settings: AppBrandingSettings, language: AppBrandLanguage) {
   const swedishCompany = companyCountryCode(settings, language) === "SE";
-  const brandName = swedishCompany
+  const brandName = language === "sv"
     ? settings.brandNameSweden?.trim() || defaultAppBranding.brandNameSweden
     : settings.brandNameInternational?.trim() || defaultAppBranding.brandNameInternational;
   const claim = language === "de"
     ? settings.claimGerman?.trim() || defaultAppBranding.claimGerman
     : language === "en"
       ? settings.claimEnglish?.trim() || defaultAppBranding.claimEnglish
-      : swedishCompany
-        ? settings.claimSweden?.trim() || defaultAppBranding.claimSweden
-        : "Jobb. Projekt. Service. Fakturering.";
+      : settings.claimSweden?.trim() || defaultAppBranding.claimSweden;
 
   return { brandName, claim, countryCode: companyCountryCode(settings, language), swedishCompany };
 }

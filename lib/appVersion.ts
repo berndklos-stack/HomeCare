@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.422.0",
+  version: "1.422.1",
   releaseDate: "2026-09-21",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  {
+    version: "1.422.1",
+    date: "2026-09-21",
+    changes: [
+      "Der Markenname folgt jetzt der gewaehlten Sprache: Koll auf Schwedisch und WorkCore auf Deutsch oder Englisch",
+      "Markenname und Untertitel wechseln immer gemeinsam und erzeugen keine gemischte Sprachdarstellung mehr",
+      "Individuell hinterlegte schwedische und internationale Markennamen bleiben erhalten",
+    ],
+  },
   {
     version: "1.422.0",
     date: "2026-09-21",

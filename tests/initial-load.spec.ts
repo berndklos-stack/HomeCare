@@ -10,5 +10,5 @@ test("Programmstart zeigt einen vorhandenen Cache ohne veralteten Demo-Hinweis",
 
   expect(Date.now() - startedAt).toBeLessThan(2_000);
   await expect(page.getByText(/Demo-Daten mit echten Daten verwechselt/)).toHaveCount(0);
-  await expect(page.getByRole("heading", { name: "Koll" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "WorkCore" })).toBeVisible();
 });

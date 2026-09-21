@@ -12959,6 +12959,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                 language={language}
                 objects={activeObjects}
                 onSendDailyMail={sendDailyMailNow}
+                onStartOnboarding={startOnboarding}
                 materials={materials}
                 packages={servicePackages}
                 personnel={personnel}
@@ -19742,6 +19743,7 @@ function MasterDataView({
   materials,
   objects,
   onSendDailyMail,
+  onStartOnboarding,
   openResourceLogbookRequestId,
   personnel,
   resources,
@@ -19769,6 +19771,7 @@ function MasterDataView({
   materials: MaterialItem[];
   objects: ObjectRecord[];
   onSendDailyMail: () => Promise<void>;
+  onStartOnboarding: () => void;
   openResourceLogbookRequestId: string;
   personnel: PersonnelRecord[];
   resources: ResourceRecord[];
@@ -21563,6 +21566,10 @@ function MasterDataView({
               <h2>{tt("System / Branding")}</h2>
               <span>{tt("Zentraler Entwickler- und Adminbereich für die sichtbare App-Marke.")}</span>
             </div>
+            <button className="ghost-button" onClick={onStartOnboarding} type="button">
+              <PlayCircle size={16} />
+              {language === "sv" ? "Öppna konfigurationsguiden" : language === "en" ? "Open setup wizard" : "Einrichtungsassistent öffnen"}
+            </button>
           </div>
           <div className="form-grid compact-form">
             <label><span>{tt("Markenname Schweden")}</span><input placeholder={defaultAppBranding.brandNameSweden} value={companySettingsForm.brandNameSweden ?? ""} onChange={(event) => setCompanySettingsForm({ ...companySettingsForm, brandNameSweden: event.target.value })} /></label>
