@@ -53,6 +53,15 @@ import { type CSSProperties, type DragEvent, type MouseEvent, type ReactNode, us
 import { appVersion, versionHistory } from "@/lib/appVersion";
 import { defaultAppBranding, resolveAppBranding } from "@/lib/branding";
 import {
+  normalizeOnboardingState,
+  onboardingInstallPlatform,
+  onboardingStepIndex,
+  onboardingSteps,
+  type OnboardingHelpKey,
+  type OnboardingState,
+  type OnboardingStep,
+} from "@/lib/onboarding";
+import {
   defaultObjectTypeDefinitions,
   normalizeObjectTypeDefinitions,
   objectFieldGroups,
@@ -743,14 +752,23 @@ type CompanySettings = {
   claimGerman?: string;
   claimSweden?: string;
   countryCode?: string;
+  currency?: string;
   email: string;
   fSkattApproved: boolean;
   logoStoragePath?: string;
   logoUrl?: string;
   name: string;
+  onboarding?: OnboardingState;
   organizationNumber: string;
   objectTypes?: ObjectTypeDefinition[];
+  phone?: string;
+  vatRate?: string;
   vatNumber: string;
+};
+
+type BeforeInstallPromptEvent = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
 };
 
 type FeatureModule =
@@ -2108,6 +2126,8 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Fakturadatum", sv: "Fakturadatum", en: "Invoice date" },
   { de: "Fakturanr.", sv: "Fakturanr.", en: "Invoice no." },
   { de: "Firmenname", sv: "Företagsnamn", en: "Company name" },
+  { de: "Standardwährung", sv: "Standardvaluta", en: "Default currency" },
+  { de: "Umsatzsteuer / Moms %", sv: "Moms %", en: "VAT %" },
   { de: "Firmenstammdaten speichern", sv: "Spara företagsuppgifter", en: "Save company master data" },
   { de: "Foto erfasst", sv: "Foto registrerat", en: "Photo captured" },
   { de: "Foto-Info", sv: "Fotoinfo", en: "Photo info" },
@@ -7834,6 +7854,7 @@ const seedCompanySettings: CompanySettings = {
   claimGerman: defaultAppBranding.claimGerman,
   claimSweden: defaultAppBranding.claimSweden,
   countryCode: "SE",
+  currency: "SEK",
   email: "info@kolaretorp.se",
   fSkattApproved: true,
   logoStoragePath: "",
@@ -7841,6 +7862,8 @@ const seedCompanySettings: CompanySettings = {
   name: "Kolaretorp Service AB",
   organizationNumber: "",
   objectTypes: defaultObjectTypeDefinitions,
+  phone: "",
+  vatRate: "25",
   vatNumber: "",
 };
 
@@ -8827,6 +8850,10 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   });
   const [quickTripDraftLoaded, setQuickTripDraftLoaded] = useState(false);
   const [recordNotice, setRecordNotice] = useState("");
+  const [onboardingOpen, setOnboardingOpen] = useState(false);
+  const [onboardingDeferredThisSession, setOnboardingDeferredThisSession] = useState(false);
+  const [pwaInstallPrompt, setPwaInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [pwaStandalone, setPwaStandalone] = useState(false);
   const [newObject, setNewObject] = useState<NewObjectFormState>(emptyObjectForm());
   const [newCustomer, setNewCustomer] = useState<CustomerFormState>(emptyCustomerForm());
   const [newJob, setNewJob] = useState<NewJobFormState>(emptyJobForm());
@@ -8946,6 +8973,29 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   }, []);
 
   useEffect(() => {
+    const standalone = window.matchMedia("(display-mode: standalone)").matches
+      || ("standalone" in window.navigator && Boolean((window.navigator as Navigator & { standalone?: boolean }).standalone));
+    window.queueMicrotask(() => setPwaStandalone(standalone));
+
+    function captureInstallPrompt(event: Event) {
+      event.preventDefault();
+      setPwaInstallPrompt(event as BeforeInstallPromptEvent);
+    }
+
+    function markInstalled() {
+      setPwaStandalone(true);
+      setPwaInstallPrompt(null);
+    }
+
+    window.addEventListener("beforeinstallprompt", captureInstallPrompt);
+    window.addEventListener("appinstalled", markInstalled);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", captureInstallPrompt);
+      window.removeEventListener("appinstalled", markInstalled);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!appStorageReady || quickTripDraftLoaded) return;
     try {
       const savedDraft = window.localStorage.getItem(storageKeys.quickTripDraft);
@@ -9010,7 +9060,9 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     setObjects(cleanSnapshot.objects);
     setAccountingAccounts(allAccountingAccounts(cleanSnapshot.accountingAccounts ?? defaultVismaChartOfAccounts));
     setBilling(cleanSnapshot.billing ?? seedBilling);
-    setCompanySettings({ ...seedCompanySettings, ...(cleanSnapshot.companySettings ?? {}) });
+    const nextCompanySettings = { ...seedCompanySettings, ...(cleanSnapshot.companySettings ?? {}) };
+    setCompanySettings(nextCompanySettings);
+    if (nextCompanySettings.onboarding?.language) setLanguage(nextCompanySettings.onboarding.language);
     setCustomers(cleanSnapshot.customers);
     setJobs(normalizedJobs);
     setInventoryLocations(cleanSnapshot.inventoryLocations ?? seedInventoryLocations);
@@ -9575,10 +9627,27 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   const tx = (value: string) => translateForLanguage(value, language);
   const appBranding = resolveAppBranding(companySettings, language);
   const objectTypeDefinitions = normalizeObjectTypeDefinitions(companySettings.objectTypes);
+  const hasProductiveData = customers.length > 0 || objects.length > 0 || jobs.length > 0;
+  const onboardingState = normalizeOnboardingState(companySettings.onboarding, {
+    companyComplete: Boolean(companySettings.name.trim() && companySettings.email.trim()),
+    customerCount: customers.filter((customer) => !customer.archived).length,
+    jobCount: jobs.filter((job) => !job.seriesMasterId).length,
+    objectCount: objects.filter((object) => !object.archived).length,
+    personnelCount: personnel.filter((person) => !person.archived).length,
+  }, language);
 
   useEffect(() => {
     document.title = `${appBranding.brandName} | ${companySettings.name}`;
   }, [appBranding.brandName, companySettings.name]);
+
+  const untouchedExistingInstallation = hasProductiveData && !companySettings.onboarding;
+  const onboardingVisible = onboardingOpen || (
+    appStorageReady
+    && !portalOnly
+    && !onboardingDeferredThisSession
+    && !onboardingState.completed
+    && !untouchedExistingInstallation
+  );
 
   const activeObjects = objects.filter((object) => !object.archived);
   const archivedObjects = objects.filter((object) => object.archived);
@@ -9657,7 +9726,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   }
 
   function saveObject() {
-    const id = editingObjectId ?? `OBJ-${1000 + objects.length + 1}`;
+    const id = editingObjectId ?? createEntityId("OBJ");
     const existingObject = objects.find((object) => object.id === editingObjectId);
     const saved = { ...formToObject(newObject, id), archived: existingObject?.archived };
     const nextObjects = editingObjectId
@@ -9887,6 +9956,169 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     setCustomers(nextCustomers);
     setObjects(nextObjects);
     persistSnapshotNow({ customers: nextCustomers, objects: nextObjects });
+  }
+
+  function saveOnboardingProgress(patch: Partial<OnboardingState>, companyPatch: Partial<CompanySettings> = {}) {
+    const nextOnboarding: OnboardingState = { ...onboardingState, ...patch };
+    const nextSettings: CompanySettings = { ...companySettings, ...companyPatch, onboarding: nextOnboarding };
+    setCompanySettings(nextSettings);
+    persistSnapshotNow({ companySettings: nextSettings }, { forceRemote: true });
+  }
+
+  function startOnboarding() {
+    setOnboardingDeferredThisSession(false);
+    saveOnboardingProgress({ completed: false, currentStep: "language", legacyInstallation: false });
+    setOnboardingOpen(true);
+  }
+
+  function saveOnboardingCustomer(input: { email: string; name: string; phone: string }) {
+    if (!input.name.trim()) return "";
+    const id = createEntityId("CUS");
+    const generatedPersonalNumber = createReadableNumber(customers.map((customer) => customer.personalNumber));
+    const form: CustomerFormState = {
+      ...emptyCustomerForm(),
+      contact: input.name.trim(),
+      email: input.email.trim(),
+      language: language === "sv" ? "SV" : language === "en" ? "EN" : "DE",
+      name: input.name.trim(),
+      phone: input.phone.trim(),
+    };
+    const saved = formToCustomer(form, id, undefined, generatedPersonalNumber);
+    const nextCustomers = [saved, ...customers];
+    const nextSettings = {
+      ...companySettings,
+      onboarding: { ...onboardingState, currentStep: "object" as const, firstCustomerCompleted: true },
+    };
+    setCustomers(nextCustomers);
+    setCompanySettings(nextSettings);
+    persistSnapshotNow({ companySettings: nextSettings, customers: nextCustomers }, { forceRemote: true });
+    return id;
+  }
+
+  function saveOnboardingObject(input: { address: string; customerId: string; name: string; type: string }) {
+    if (!input.name.trim()) return "";
+    const id = createEntityId("OBJ");
+    const customer = customers.find((item) => item.id === input.customerId);
+    const form: NewObjectFormState = {
+      ...emptyObjectForm(),
+      address: input.address.trim(),
+      owner: customer?.name ?? "",
+      ownerAddress: customer?.address ?? "",
+      ownerCustomerId: customer?.id ?? "",
+      ownerEmail: customer?.email ?? "",
+      ownerPhone: customer?.phone ?? "",
+      name: input.name.trim(),
+      type: input.type || "Objekt",
+    };
+    const saved = formToObject(form, id);
+    const nextObjects = [saved, ...objects];
+    const nextCustomers = customers.map((item) => (
+      item.id === customer?.id && !item.objects.includes(id) ? { ...item, objects: [...item.objects, id] } : item
+    ));
+    const nextSettings = {
+      ...companySettings,
+      onboarding: { ...onboardingState, currentStep: "job" as const, firstObjectCompleted: true, workspaceCompleted: true },
+    };
+    setObjects(nextObjects);
+    setCustomers(nextCustomers);
+    setSelectedObjectId(id);
+    setCompanySettings(nextSettings);
+    persistSnapshotNow({ companySettings: nextSettings, customers: nextCustomers, objects: nextObjects }, { forceRemote: true });
+    return id;
+  }
+
+  function saveOnboardingJob(input: { assignedTo: string; consulting: boolean; currency: string; date: string; hourlyRate: string; invoiceText: string; objectId: string; title: string }) {
+    const jobObject = objects.find((object) => object.id === input.objectId);
+    if (!input.title.trim() || !jobObject) return "";
+    const date = input.date || currentLocalDateValue();
+    const id = createEntityId("JOB");
+    const saved: JobRecord = {
+      assignedTo: input.assignedTo.trim() || "nicht zugewiesen",
+      billable: true,
+      checklist: ["Auftrag dokumentieren"],
+      consulting: input.consulting ? {
+        currency: input.currency || companySettings.currency || "SEK",
+        enabled: true,
+        entries: [],
+        hourlyRate: input.hourlyRate.trim() || "0",
+        invoiceText: input.invoiceText.trim(),
+        openEnded: true,
+      } : undefined,
+      customerId: jobObject.ownerCustomerId || customers.find((customer) => customer.name === jobObject.owner)?.id || "",
+      description: "",
+      dueDate: date,
+      endDate: date,
+      id,
+      internalNotes: "",
+      material: "-",
+      objectId: jobObject.id,
+      priority: "normal",
+      schedule: { activeFromMonth: undefined, activeToMonth: undefined, end: "nie", endDate: "", frequency: "wöchentlich", interval: 1, occurrences: 0, type: "einmalig", weekdays: [], yearInterval: 1 },
+      startDate: date,
+      status: input.consulting ? "in Arbeit" : "geplant",
+      statusUpdatedAt: new Date().toISOString(),
+      title: input.title.trim(),
+      type: input.consulting ? "Consulting" : "Auftrag",
+      workMinutes: 0,
+    };
+    const nextJobs = [saved, ...jobs];
+    const nextSettings = {
+      ...companySettings,
+      onboarding: { ...onboardingState, currentStep: "team" as const, firstJobCompleted: true },
+    };
+    setJobs(nextJobs);
+    setCompanySettings(nextSettings);
+    persistSnapshotNow({ companySettings: nextSettings, jobs: nextJobs }, { forceRemote: true });
+    return id;
+  }
+
+  function saveOnboardingPersonnel(input: { email: string; role: string }) {
+    if (!input.email.trim()) return false;
+    const emailName = input.email.split("@")[0]?.replace(/[._-]+/g, " ").trim() || "Mitarbeiter";
+    const saved: PersonnelRecord = {
+      archived: false,
+      createdAt: new Date().toISOString(),
+      email: input.email.trim(),
+      firstName: emailName,
+      id: createEntityId("PER"),
+      language: language.toUpperCase(),
+      lastName: "",
+      notes: "Über die Einrichtung angelegt.",
+      personnelNumber: createReadableNumber(personnel.map((person) => person.personnelNumber)),
+      phone: "",
+      role: input.role.trim() || "Mitarbeit",
+      status: "aktiv",
+    };
+    const nextPersonnel = [saved, ...personnel];
+    const nextSettings = {
+      ...companySettings,
+      onboarding: { ...onboardingState, currentStep: "pwa" as const, teamStepCompleted: true },
+    };
+    setPersonnel(nextPersonnel);
+    setCompanySettings(nextSettings);
+    persistSnapshotNow({ companySettings: nextSettings, personnel: nextPersonnel }, { forceRemote: true });
+    return true;
+  }
+
+  async function requestPwaInstallation() {
+    if (!pwaInstallPrompt) return false;
+    await pwaInstallPrompt.prompt();
+    const choice = await pwaInstallPrompt.userChoice;
+    setPwaInstallPrompt(null);
+    if (choice.outcome !== "accepted") return false;
+    saveOnboardingProgress({ pwaInstalled: true });
+    return true;
+  }
+
+  function finishOnboarding() {
+    saveOnboardingProgress({ completed: true, currentStep: "complete" });
+    setOnboardingOpen(false);
+    setOnboardingDeferredThisSession(false);
+    setSection("dashboard");
+  }
+
+  function dismissContextHelp(key: OnboardingHelpKey) {
+    saveOnboardingProgress({ contextHelpDismissed: { ...onboardingState.contextHelpDismissed, [key]: true } });
   }
 
   function archiveCustomer(customer: CustomerRecord) {
@@ -12335,6 +12567,46 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
 
   return (
     <main className="app" data-ready="true" data-theme={theme}>
+      {onboardingVisible && (
+        <OnboardingWizard
+          appBrandName={appBranding.brandName}
+          companySettings={companySettings}
+          customers={activeCustomers}
+          installPromptAvailable={Boolean(pwaInstallPrompt)}
+          language={language}
+          objectTypeDefinitions={objectTypeDefinitions}
+          objects={activeObjects}
+          onboarding={onboardingState}
+          onFinish={finishOnboarding}
+          onInstall={requestPwaInstallation}
+          onLanguage={(nextLanguage) => {
+            setLanguage(nextLanguage);
+            saveOnboardingProgress({ language: nextLanguage, languageCompleted: true });
+          }}
+          onPause={() => {
+            setOnboardingDeferredThisSession(true);
+            setOnboardingOpen(false);
+          }}
+          onProgress={(patch) => saveOnboardingProgress(patch)}
+          onSaveBusiness={(businessTypes) => saveOnboardingProgress({ businessTypeCompleted: true, businessTypes, currentStep: "workspace" })}
+          onSaveCompany={(companyPatch) => saveOnboardingProgress({ companyCompleted: true, currentStep: "business" }, companyPatch)}
+          onSaveCustomer={saveOnboardingCustomer}
+          onSaveJob={saveOnboardingJob}
+          onSaveObject={saveOnboardingObject}
+          onSavePersonnel={saveOnboardingPersonnel}
+          onSaveWorkspace={(workspaceTypes) => {
+            const nextObjectTypes = objectTypeDefinitions.map((definition) => (
+              workspaceTypes.includes(definition.id) ? { ...definition, active: true } : definition
+            ));
+            saveOnboardingProgress(
+              { currentStep: "customer", workspaceCompleted: true, workspaceTypes },
+              { objectTypes: nextObjectTypes },
+            );
+          }}
+          personnel={personnel.filter((person) => !person.archived)}
+          pwaStandalone={pwaStandalone}
+        />
+      )}
       <aside className="sidebar">
         <div className="brand">
           <Image alt="Kolaretorp Service AB" height={23} priority src="/brand/kolaretorp-logo-white.png" width={220} />
@@ -12408,6 +12680,16 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
           </div>
         </header>
 
+        {section === "billing" && !onboardingState.contextHelpDismissed.billing && (
+          <ContextHelpBanner helpKey="billing" language={language} onDismiss={dismissContextHelp} />
+        )}
+        {section === "jobs" && !onboardingState.contextHelpDismissed.consulting && (
+          <ContextHelpBanner helpKey="consulting" language={language} onDismiss={dismissContextHelp} />
+        )}
+        {quickTripOpen && !onboardingState.contextHelpDismissed.logbook && (
+          <ContextHelpBanner helpKey="logbook" language={language} onDismiss={dismissContextHelp} />
+        )}
+
         {section === "dashboard" && (
           <div className="quickbar">
             {dashboardStats.map((item) => (
@@ -12422,13 +12704,27 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
         <section className="layout full">
           <div className="main-panel">
             {section === "dashboard" && (
-              <Dashboard
-                allJobs={jobs}
-                language={language}
-                objects={activeObjects}
-                reports={reports}
-                setSection={setSection}
-              />
+              <>
+                {(!onboardingState.firstStepsDismissed || !companySettings.onboarding) && (
+                  <FirstStepsCard
+                    companySettings={companySettings}
+                    dailyMailSettings={dailyMailSettings}
+                    language={language}
+                    onboarding={onboardingState}
+                    onDismiss={() => saveOnboardingProgress({ firstStepsDismissed: true })}
+                    onOpen={startOnboarding}
+                    personnelCount={personnel.filter((person) => !person.archived).length}
+                    pwaStandalone={pwaStandalone}
+                  />
+                )}
+                <Dashboard
+                  allJobs={jobs}
+                  language={language}
+                  objects={activeObjects}
+                  reports={reports}
+                  setSection={setSection}
+                />
+              </>
             )}
             {section === "objects" && objectEditorOpen && (
               <ObjectEditorPage
@@ -13520,6 +13816,327 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       )}
     </main>
   );
+}
+
+function onboardingCopy(language: Language, de: string, sv: string, en: string) {
+  return language === "sv" ? sv : language === "en" ? en : de;
+}
+
+function OnboardingWizard({
+  appBrandName,
+  companySettings,
+  customers,
+  installPromptAvailable,
+  language,
+  objectTypeDefinitions,
+  objects,
+  onboarding,
+  onFinish,
+  onInstall,
+  onLanguage,
+  onPause,
+  onProgress,
+  onSaveBusiness,
+  onSaveCompany,
+  onSaveCustomer,
+  onSaveJob,
+  onSaveObject,
+  onSavePersonnel,
+  onSaveWorkspace,
+  personnel,
+  pwaStandalone,
+}: {
+  appBrandName: string;
+  companySettings: CompanySettings;
+  customers: CustomerRecord[];
+  installPromptAvailable: boolean;
+  language: Language;
+  objectTypeDefinitions: ObjectTypeDefinition[];
+  objects: ObjectRecord[];
+  onboarding: OnboardingState;
+  onFinish: () => void;
+  onInstall: () => Promise<boolean>;
+  onLanguage: (language: Language) => void;
+  onPause: () => void;
+  onProgress: (patch: Partial<OnboardingState>) => void;
+  onSaveBusiness: (businessTypes: string[]) => void;
+  onSaveCompany: (settings: Partial<CompanySettings>) => void;
+  onSaveCustomer: (input: { email: string; name: string; phone: string }) => string;
+  onSaveJob: (input: { assignedTo: string; consulting: boolean; currency: string; date: string; hourlyRate: string; invoiceText: string; objectId: string; title: string }) => string;
+  onSaveObject: (input: { address: string; customerId: string; name: string; type: string }) => string;
+  onSavePersonnel: (input: { email: string; role: string }) => boolean;
+  onSaveWorkspace: (workspaceTypes: string[]) => void;
+  personnel: PersonnelRecord[];
+  pwaStandalone: boolean;
+}) {
+  const stepIndex = onboardingStepIndex(onboarding.currentStep);
+  const [companyForm, setCompanyForm] = useState({
+    address: companySettings.address,
+    countryCode: companySettings.countryCode || (language === "sv" ? "SE" : "DE"),
+    currency: companySettings.currency || (companySettings.countryCode === "SE" ? "SEK" : "EUR"),
+    email: companySettings.email,
+    name: companySettings.name,
+    organizationNumber: companySettings.organizationNumber,
+    phone: companySettings.phone || "",
+    vatNumber: companySettings.vatNumber,
+    vatRate: companySettings.vatRate || "25",
+  });
+  const [businessTypes, setBusinessTypes] = useState<string[]>(onboarding.businessTypes);
+  const [workspaceTypes, setWorkspaceTypes] = useState<string[]>(onboarding.workspaceTypes);
+  const [customerForm, setCustomerForm] = useState({ email: "", name: "", phone: "" });
+  const [selectedCustomerId, setSelectedCustomerId] = useState(customers[0]?.id || "");
+  const [objectForm, setObjectForm] = useState({ address: "", customerId: customers[0]?.id || "", name: "", type: objectTypeDefinitions.find((type) => type.active)?.id || "Objekt" });
+  const [jobForm, setJobForm] = useState({
+    assignedTo: "",
+    consulting: false,
+    currency: companySettings.currency || "SEK",
+    date: currentLocalDateValue(),
+    hourlyRate: "",
+    invoiceText: "",
+    objectId: objects[0]?.id || "",
+    title: "",
+  });
+  const [personForm, setPersonForm] = useState({ email: "", role: "" });
+  const [installNotice, setInstallNotice] = useState("");
+  const businessOptions = [
+    ["Haus-/Ferienhausbetreuung", "Hus-/fritidshusservice", "Home/holiday-home care"],
+    ["Hausmeisterservice", "Fastighetsservice", "Caretaking service"],
+    ["Handwerk", "Hantverk", "Trades"],
+    ["Reinigung", "Städning", "Cleaning"],
+    ["Garten-/Außenpflege", "Trädgård/utemiljö", "Garden/outdoor care"],
+    ["Immobilienservice", "Fastighetstjänster", "Property services"],
+    ["Consulting", "Konsulting", "Consulting"],
+    ["Projektarbeit", "Projektarbete", "Project work"],
+    ["Sonstiges", "Övrigt", "Other"],
+  ];
+  const standardWorkspaceTypes = ["Objekt", "Projekt", "Baustelle", "Standort", "Anlage"];
+  const availableWorkspaceTypes = Array.from(new Set([
+    ...standardWorkspaceTypes,
+    ...objectTypeDefinitions.filter((definition) => definition.active).map((definition) => definition.id),
+  ]));
+  const roleOptions = Array.from(new Set(personnel.map((person) => person.role).filter(Boolean)));
+  const installPlatform = onboardingInstallPlatform(typeof navigator === "undefined" ? "" : navigator.userAgent);
+  const isIos = installPlatform === "ios";
+  const isAndroid = installPlatform === "android";
+  const copy = (de: string, sv: string, en: string) => onboardingCopy(language, de, sv, en);
+
+  function toggle(list: string[], value: string, update: (next: string[]) => void) {
+    update(list.includes(value) ? list.filter((item) => item !== value) : [...list, value]);
+  }
+
+  function goTo(step: OnboardingStep) {
+    onProgress({ currentStep: step });
+  }
+
+  function saveCustomerAndContinue() {
+    const id = onSaveCustomer(customerForm);
+    if (!id) return;
+    setSelectedCustomerId(id);
+    setObjectForm((current) => ({ ...current, customerId: id }));
+  }
+
+  const stepTitle: Record<OnboardingStep, string> = {
+    business: copy("Was macht dein Unternehmen?", "Vad arbetar ditt företag med?", "What does your company do?"),
+    company: copy("Unternehmen einrichten", "Konfigurera företaget", "Set up your company"),
+    complete: copy(`${appBrandName} ist bereit.`, `${appBrandName} är redo.`, `${appBrandName} is ready.`),
+    customer: copy("Ersten Kunden anlegen", "Skapa den första kunden", "Create your first customer"),
+    job: copy("Ersten Auftrag anlegen", "Skapa det första uppdraget", "Create your first job"),
+    language: copy(`Willkommen bei ${appBrandName}`, `Välkommen till ${appBrandName}`, `Welcome to ${appBrandName}`),
+    object: copy("Erstes Projekt oder Objekt", "Första projektet eller objektet", "First project or object"),
+    pwa: copy("App installieren", "Installera appen", "Install the app"),
+    team: copy("Mitarbeiter hinzufügen", "Lägg till medarbetare", "Add a team member"),
+    workspace: copy("Arbeitsstruktur", "Arbetsstruktur", "Work structure"),
+  };
+
+  return (
+    <div className="onboarding-backdrop">
+      <section aria-labelledby="onboarding-title" aria-modal="true" className="onboarding-wizard" role="dialog">
+        <header className="onboarding-header">
+          <div>
+            <span className="onboarding-brand brand-wordmark">{appBrandName}</span>
+            <p>{copy(`Schritt ${stepIndex + 1} von ${onboardingSteps.length}`, `Steg ${stepIndex + 1} av ${onboardingSteps.length}`, `Step ${stepIndex + 1} of ${onboardingSteps.length}`)}</p>
+          </div>
+          <button className="ghost-button" onClick={onPause} type="button">{copy("Später fortsetzen", "Fortsätt senare", "Continue later")}</button>
+        </header>
+        <div className="onboarding-progress" aria-hidden="true"><span style={{ width: `${((stepIndex + 1) / onboardingSteps.length) * 100}%` }} /></div>
+        <div className="onboarding-body">
+          <div className="onboarding-title-block">
+            <p>{copy("EINRICHTUNG", "KONFIGURATION", "SETUP")}</p>
+            <h2 id="onboarding-title">{stepTitle[onboarding.currentStep]}</h2>
+          </div>
+
+          {onboarding.currentStep === "language" && (
+            <div className="onboarding-step">
+              <p>{copy("Die Einrichtung dauert etwa 5–10 Minuten. Du kannst alle Angaben später ändern.", "Installationen tar cirka 5–10 minuter. Du kan ändra allt senare.", "Setup takes about 5–10 minutes. You can change everything later.")}</p>
+              <div className="onboarding-choice-grid three">
+                {(["sv", "de", "en"] as Language[]).map((item) => (
+                  <button className={language === item ? "selected" : ""} key={item} onClick={() => onLanguage(item)} type="button">
+                    <strong>{item === "sv" ? "Svenska" : item === "de" ? "Deutsch" : "English"}</strong>
+                    {language === item && <Check size={18} />}
+                  </button>
+                ))}
+              </div>
+              <div className="onboarding-actions end"><button className="primary-button" onClick={() => goTo("company")} type="button">{copy("Weiter", "Fortsätt", "Continue")}<ArrowRight size={16} /></button></div>
+            </div>
+          )}
+
+          {onboarding.currentStep === "company" && (
+            <div className="onboarding-step">
+              <div className="onboarding-form-grid">
+                <label><span>{copy("Firmenname", "Företagsnamn", "Company name")}</span><input value={companyForm.name} onChange={(event) => setCompanyForm({ ...companyForm, name: event.target.value })} /></label>
+                <label><span>{copy("Org.-/Unternehmensnummer", "Organisationsnummer", "Company number")}</span><input value={companyForm.organizationNumber} onChange={(event) => setCompanyForm({ ...companyForm, organizationNumber: event.target.value })} /></label>
+                <label><span>{copy("Land", "Land", "Country")}</span><select value={companyForm.countryCode} onChange={(event) => { const countryCode = event.target.value; setCompanyForm({ ...companyForm, countryCode, currency: countryCode === "SE" ? "SEK" : "EUR" }); }}><option value="SE">Sverige</option><option value="DE">Deutschland</option><option value="GB">United Kingdom</option><option value="US">United States</option></select></label>
+                <label><span>{copy("Währung", "Valuta", "Currency")}</span><select value={companyForm.currency} onChange={(event) => setCompanyForm({ ...companyForm, currency: event.target.value })}><option>SEK</option><option>EUR</option><option>GBP</option><option>USD</option></select></label>
+                <label className="wide"><span>{copy("Adresse", "Adress", "Address")}</span><input value={companyForm.address} onChange={(event) => setCompanyForm({ ...companyForm, address: event.target.value })} /></label>
+                <label><span>{copy("E-Mail", "E-post", "Email")}</span><input type="email" value={companyForm.email} onChange={(event) => setCompanyForm({ ...companyForm, email: event.target.value })} /></label>
+                <label><span>{copy("Telefon", "Telefon", "Phone")}</span><input type="tel" value={companyForm.phone} onChange={(event) => setCompanyForm({ ...companyForm, phone: event.target.value })} /></label>
+                <label><span>{copy("Moms/VAT-Nummer", "Momsregistreringsnummer", "VAT number")}</span><input value={companyForm.vatNumber} onChange={(event) => setCompanyForm({ ...companyForm, vatNumber: event.target.value })} /></label>
+                <label><span>{copy("Umsatzsteuer/Moms %", "Moms %", "VAT %")}</span><input inputMode="decimal" value={companyForm.vatRate} onChange={(event) => setCompanyForm({ ...companyForm, vatRate: event.target.value })} /></label>
+              </div>
+              <div className="onboarding-actions"><button className="ghost-button" onClick={() => goTo("language")} type="button"><ArrowLeft size={16} />{copy("Zurück", "Tillbaka", "Back")}</button><button className="primary-button" disabled={!companyForm.name.trim() || !companyForm.email.trim()} onClick={() => onSaveCompany(companyForm)} type="button">{copy("Speichern & weiter", "Spara och fortsätt", "Save and continue")}<ArrowRight size={16} /></button></div>
+            </div>
+          )}
+
+          {onboarding.currentStep === "business" && (
+            <div className="onboarding-step">
+              <p>{copy("Mehrfachauswahl möglich. Die Auswahl priorisiert nur die Einrichtung und deaktiviert keine Funktionen.", "Du kan välja flera. Valet anpassar bara starten och stänger inte av några funktioner.", "Select all that apply. This only tailors setup and does not disable features.")}</p>
+              <div className="onboarding-choice-grid">
+                {businessOptions.map(([de, sv, en]) => (
+                  <button className={businessTypes.includes(de) ? "selected" : ""} key={de} onClick={() => toggle(businessTypes, de, setBusinessTypes)} type="button"><strong>{copy(de, sv, en)}</strong>{businessTypes.includes(de) && <Check size={18} />}</button>
+                ))}
+              </div>
+              <div className="onboarding-actions"><button className="ghost-button" onClick={() => goTo("company")} type="button"><ArrowLeft size={16} />{copy("Zurück", "Tillbaka", "Back")}</button><button className="primary-button" disabled={businessTypes.length === 0} onClick={() => onSaveBusiness(businessTypes)} type="button">{copy("Weiter", "Fortsätt", "Continue")}<ArrowRight size={16} /></button></div>
+            </div>
+          )}
+
+          {onboarding.currentStep === "workspace" && (
+            <div className="onboarding-step">
+              <p>{copy("Was verwaltest du hauptsächlich? Die Typen bleiben später in den Stammdaten anpassbar.", "Vad hanterar du främst? Typerna kan ändras senare i grunddata.", "What do you mainly manage? Types remain configurable in master data.")}</p>
+              <div className="onboarding-choice-grid">
+                {availableWorkspaceTypes.map((type) => <button className={workspaceTypes.includes(type) ? "selected" : ""} key={type} onClick={() => toggle(workspaceTypes, type, setWorkspaceTypes)} type="button"><strong>{objectTypeName(objectTypeDefinitions, type, language)}</strong>{workspaceTypes.includes(type) && <Check size={18} />}</button>)}
+              </div>
+              <div className="onboarding-actions"><button className="ghost-button" onClick={() => goTo("business")} type="button"><ArrowLeft size={16} />{copy("Zurück", "Tillbaka", "Back")}</button><button className="primary-button" disabled={workspaceTypes.length === 0} onClick={() => onSaveWorkspace(workspaceTypes)} type="button">{copy("Weiter", "Fortsätt", "Continue")}<ArrowRight size={16} /></button></div>
+            </div>
+          )}
+
+          {onboarding.currentStep === "customer" && (
+            <div className="onboarding-step">
+              {customers.length > 0 && <p className="onboarding-existing"><Check size={16} />{copy(`${customers.length} Kunde(n) bereits vorhanden.`, `${customers.length} kund(er) finns redan.`, `${customers.length} customer(s) already exist.`)}</p>}
+              <div className="onboarding-form-grid">
+                <label className="wide"><span>{copy("Name / Firma", "Namn / företag", "Name / company")}</span><input value={customerForm.name} onChange={(event) => setCustomerForm({ ...customerForm, name: event.target.value })} /></label>
+                <label><span>{copy("E-Mail", "E-post", "Email")}</span><input type="email" value={customerForm.email} onChange={(event) => setCustomerForm({ ...customerForm, email: event.target.value })} /></label>
+                <label><span>{copy("Telefon", "Telefon", "Phone")}</span><input type="tel" value={customerForm.phone} onChange={(event) => setCustomerForm({ ...customerForm, phone: event.target.value })} /></label>
+              </div>
+              <div className="onboarding-actions"><button className="ghost-button" onClick={() => goTo("workspace")} type="button"><ArrowLeft size={16} />{copy("Zurück", "Tillbaka", "Back")}</button><div><button className="ghost-button" onClick={() => goTo("object")} type="button">{copy("Überspringen", "Hoppa över", "Skip")}</button><button className="primary-button" disabled={!customerForm.name.trim()} onClick={saveCustomerAndContinue} type="button">{copy("Kunden anlegen", "Skapa kund", "Create customer")}</button></div></div>
+            </div>
+          )}
+
+          {onboarding.currentStep === "object" && (
+            <div className="onboarding-step">
+              <div className="onboarding-form-grid">
+                <label><span>{copy("Typ", "Typ", "Type")}</span><select value={objectForm.type} onChange={(event) => setObjectForm({ ...objectForm, type: event.target.value })}>{objectTypeDefinitions.filter((type) => type.active).map((type) => <option key={type.id} value={type.id}>{objectTypeName(objectTypeDefinitions, type.id, language)}</option>)}</select></label>
+                <label><span>{copy("Kunde", "Kund", "Customer")}</span><select value={objectForm.customerId || selectedCustomerId} onChange={(event) => setObjectForm({ ...objectForm, customerId: event.target.value })}><option value="">{copy("Nicht zugeordnet", "Ej tilldelad", "Unassigned")}</option>{customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}</option>)}</select></label>
+                <label className="wide"><span>{copy("Name", "Namn", "Name")}</span><input value={objectForm.name} onChange={(event) => setObjectForm({ ...objectForm, name: event.target.value })} /></label>
+                <label className="wide"><span>{copy("Adresse (optional)", "Adress (valfritt)", "Address (optional)")}</span><input value={objectForm.address} onChange={(event) => setObjectForm({ ...objectForm, address: event.target.value })} /></label>
+              </div>
+              <div className="onboarding-actions"><button className="ghost-button" onClick={() => goTo("customer")} type="button"><ArrowLeft size={16} />{copy("Zurück", "Tillbaka", "Back")}</button><div><button className="ghost-button" onClick={() => goTo("job")} type="button">{copy("Überspringen", "Hoppa över", "Skip")}</button><button className="primary-button" disabled={!objectForm.name.trim()} onClick={() => { const id = onSaveObject(objectForm); if (id) setJobForm((current) => ({ ...current, objectId: id })); }} type="button">{copy("Anlegen", "Skapa", "Create")}</button></div></div>
+            </div>
+          )}
+
+          {onboarding.currentStep === "job" && (
+            <div className="onboarding-step">
+              {objects.length === 0 ? <p className="onboarding-existing">{copy("Für einen Auftrag wird zuerst ein Projekt oder Objekt benötigt.", "Ett projekt eller objekt behövs innan ett uppdrag kan skapas.", "A project or object is required before creating a job.")}</p> : (
+                <div className="onboarding-form-grid">
+                  <label className="wide"><span>{copy("Auftragstitel", "Uppdragstitel", "Job title")}</span><input value={jobForm.title} onChange={(event) => setJobForm({ ...jobForm, title: event.target.value })} /></label>
+                  <label><span>{copy("Kunde", "Kund", "Customer")}</span><select value={objects.find((object) => object.id === jobForm.objectId)?.ownerCustomerId || ""} onChange={(event) => { const nextObject = objects.find((object) => object.ownerCustomerId === event.target.value); setJobForm({ ...jobForm, objectId: nextObject?.id || "" }); }}><option value="">{copy("Nicht zugeordnet", "Ej tilldelad", "Unassigned")}</option>{customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}</option>)}</select></label>
+                  <label><span>{copy("Projekt / Objekt", "Projekt / objekt", "Project / object")}</span><select value={jobForm.objectId} onChange={(event) => setJobForm({ ...jobForm, objectId: event.target.value })}>{objects.map((object) => <option key={object.id} value={object.id}>{object.name}</option>)}</select></label>
+                  <label><span>{copy("Termin", "Datum", "Date")}</span><input type="date" value={jobForm.date} onChange={(event) => setJobForm({ ...jobForm, date: event.target.value })} /></label>
+                  <label><span>{copy("Verantwortlicher", "Ansvarig", "Assignee")}</span><select value={jobForm.assignedTo} onChange={(event) => setJobForm({ ...jobForm, assignedTo: event.target.value })}><option value="">{copy("Nicht zugewiesen", "Ej tilldelad", "Unassigned")}</option>{personnel.map((person) => { const name = `${person.firstName} ${person.lastName}`.trim(); return <option key={person.id} value={name}>{name}</option>; })}</select></label>
+                  <label className="onboarding-toggle wide"><input checked={jobForm.consulting} onChange={(event) => setJobForm({ ...jobForm, consulting: event.target.checked })} type="checkbox" /><span><strong>{copy("Laufender Auftrag / Consulting", "Löpande uppdrag / konsulting", "Ongoing job / consulting")}</strong><small>{copy("Ohne Enddatum und mit fortlaufender Zeiterfassung", "Utan slutdatum och med löpande tidsregistrering", "No end date with ongoing time entries")}</small></span></label>
+                  {jobForm.consulting && <><label><span>{copy("Stundensatz", "Timpris", "Hourly rate")}</span><input inputMode="decimal" value={jobForm.hourlyRate} onChange={(event) => setJobForm({ ...jobForm, hourlyRate: event.target.value })} /></label><label><span>{copy("Währung", "Valuta", "Currency")}</span><select value={jobForm.currency} onChange={(event) => setJobForm({ ...jobForm, currency: event.target.value })}><option>SEK</option><option>EUR</option></select></label><label className="wide"><span>{copy("Rechnungstext", "Fakturatext", "Invoice text")}</span><input value={jobForm.invoiceText} onChange={(event) => setJobForm({ ...jobForm, invoiceText: event.target.value })} /></label></>}
+                </div>
+              )}
+              <div className="onboarding-actions"><button className="ghost-button" onClick={() => goTo("object")} type="button"><ArrowLeft size={16} />{copy("Zurück", "Tillbaka", "Back")}</button><div><button className="ghost-button" onClick={() => goTo("team")} type="button">{copy("Später", "Senare", "Later")}</button><button className="primary-button" disabled={!jobForm.title.trim() || !jobForm.objectId} onClick={() => onSaveJob(jobForm)} type="button">{copy("Auftrag anlegen", "Skapa uppdrag", "Create job")}</button></div></div>
+            </div>
+          )}
+
+          {onboarding.currentStep === "team" && (
+            <div className="onboarding-step">
+              <p>{copy("Dieser Schritt ist optional. Rollen aus den vorhandenen Stammdaten werden wiederverwendet.", "Detta steg är valfritt. Befintliga roller återanvänds.", "This step is optional. Existing roles are reused.")}</p>
+              <div className="onboarding-form-grid">
+                <label><span>{copy("E-Mail", "E-post", "Email")}</span><input type="email" value={personForm.email} onChange={(event) => setPersonForm({ ...personForm, email: event.target.value })} /></label>
+                <label><span>{copy("Rolle", "Roll", "Role")}</span><input list="onboarding-role-options" value={personForm.role} onChange={(event) => setPersonForm({ ...personForm, role: event.target.value })} /><datalist id="onboarding-role-options">{roleOptions.map((role) => <option key={role} value={role} />)}</datalist></label>
+              </div>
+              <div className="onboarding-actions"><button className="ghost-button" onClick={() => goTo("job")} type="button"><ArrowLeft size={16} />{copy("Zurück", "Tillbaka", "Back")}</button><div><button className="ghost-button" onClick={() => onProgress({ currentStep: "pwa", teamStepCompleted: true })} type="button">{copy("Das mache ich später", "Jag gör det senare", "I'll do this later")}</button><button className="primary-button" disabled={!personForm.email.trim()} onClick={() => onSavePersonnel(personForm)} type="button">{copy("Hinzufügen", "Lägg till", "Add")}</button></div></div>
+            </div>
+          )}
+
+          {onboarding.currentStep === "pwa" && (
+            <div className="onboarding-step">
+              {pwaStandalone ? <p className="onboarding-existing"><Check size={16} />{copy("Die App läuft bereits installiert.", "Appen körs redan installerad.", "The app is already installed.")}</p> : isIos ? <ol className="onboarding-install-list"><li>{copy("Teilen-Symbol in Safari öffnen", "Öppna delningssymbolen i Safari", "Open Share in Safari")}</li><li>{copy("„Zum Home-Bildschirm“ wählen", "Välj ”Lägg till på hemskärmen”", "Choose “Add to Home Screen”")}</li><li>{copy("„Hinzufügen“ bestätigen", "Bekräfta ”Lägg till”", "Confirm “Add”")}</li></ol> : installPromptAvailable ? <p>{copy(`${appBrandName} kann jetzt als App installiert werden.`, `${appBrandName} kan nu installeras som en app.`, `${appBrandName} can now be installed as an app.`)}</p> : <p>{isAndroid ? copy("Öffne das Browsermenü und wähle „App installieren“ oder „Zum Startbildschirm hinzufügen“.", "Öppna webbläsarmenyn och välj ”Installera app” eller ”Lägg till på startskärmen”.", "Open the browser menu and choose “Install app” or “Add to Home screen”.") : copy("Nutze die Installationsfunktion deines Browsers, sobald sie in der Adressleiste angeboten wird.", "Använd webbläsarens installationsfunktion när den visas i adressfältet.", "Use your browser's install action when it appears in the address bar.")}</p>}
+              <p className="onboarding-muted">{copy(`${appBrandName} erscheint danach wie eine normale App auf deinem Gerät.`, `${appBrandName} visas sedan som en vanlig app på din enhet.`, `${appBrandName} will then appear like a regular app on your device.`)}</p>
+              {installNotice && <p className="onboarding-existing">{installNotice}</p>}
+              <div className="onboarding-actions"><button className="ghost-button" onClick={() => goTo("team")} type="button"><ArrowLeft size={16} />{copy("Zurück", "Tillbaka", "Back")}</button><div><button className="ghost-button" onClick={() => onProgress({ currentStep: "complete", pwaInstallDismissed: true })} type="button">{copy("Später", "Senare", "Later")}</button>{installPromptAvailable && !pwaStandalone && <button className="primary-button" onClick={async () => { const installed = await onInstall(); setInstallNotice(installed ? copy("Installation vom Browser bestätigt.", "Installationen bekräftades av webbläsaren.", "Installation confirmed by the browser.") : copy("Installation wurde nicht bestätigt.", "Installationen bekräftades inte.", "Installation was not confirmed.")); if (installed) goTo("complete"); }} type="button">{copy("App installieren", "Installera appen", "Install app")}</button>}{(isIos || pwaStandalone || !installPromptAvailable) && <button className="primary-button" onClick={() => onProgress({ currentStep: "complete", pwaInstalled: pwaStandalone })} type="button">{copy("Weiter", "Fortsätt", "Continue")}<ArrowRight size={16} /></button>}</div></div>
+            </div>
+          )}
+
+          {onboarding.currentStep === "complete" && (
+            <div className="onboarding-step">
+              <div className="onboarding-checklist">
+                {[
+                  [onboarding.companyCompleted, copy("Unternehmen eingerichtet", "Företaget konfigurerat", "Company set up")],
+                  [onboarding.firstCustomerCompleted, copy("Kunde angelegt", "Kund skapad", "Customer created")],
+                  [onboarding.firstObjectCompleted, copy("Projekt / Objekt angelegt", "Projekt / objekt skapat", "Project / object created")],
+                  [onboarding.firstJobCompleted, copy("Erster Auftrag erstellt", "Första uppdraget skapat", "First job created")],
+                  [onboarding.pwaInstalled || pwaStandalone, copy("App installiert", "App installerad", "App installed")],
+                ].map(([done, label]) => <div className={done ? "done" : ""} key={String(label)}>{done ? <Check size={18} /> : <span />}{label}</div>)}
+              </div>
+              <div className="onboarding-actions"><button className="ghost-button" onClick={() => goTo("pwa")} type="button"><ArrowLeft size={16} />{copy("Zurück", "Tillbaka", "Back")}</button><button className="primary-button" onClick={onFinish} type="button">{copy("Zum Dashboard", "Till dashboarden", "Go to dashboard")}<ArrowRight size={16} /></button></div>
+            </div>
+          )}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function FirstStepsCard({ companySettings, dailyMailSettings, language, onboarding, onDismiss, onOpen, personnelCount, pwaStandalone }: {
+  companySettings: CompanySettings;
+  dailyMailSettings: DailyMailSettings;
+  language: Language;
+  onboarding: OnboardingState;
+  onDismiss: () => void;
+  onOpen: () => void;
+  personnelCount: number;
+  pwaStandalone: boolean;
+}) {
+  const copy = (de: string, sv: string, en: string) => onboardingCopy(language, de, sv, en);
+  const items = [
+    { done: Boolean(companySettings.logoUrl || companySettings.logoStoragePath), label: copy("Logo hochladen", "Ladda upp logotyp", "Upload logo") },
+    { done: Boolean(companySettings.organizationNumber && companySettings.vatNumber), label: copy("Rechnungsdaten prüfen", "Kontrollera fakturauppgifter", "Check billing details") },
+    { done: Boolean(dailyMailSettings.toRecipients), label: copy("E-Mail-Versand konfigurieren", "Konfigurera e-postutskick", "Configure email sending") },
+    { done: personnelCount > 0, label: copy("Mitarbeiter hinzufügen", "Lägg till medarbetare", "Add team member") },
+    { done: onboarding.pwaInstalled || pwaStandalone, label: copy("PWA installieren", "Installera PWA", "Install PWA") },
+  ];
+  const completed = items.filter((item) => item.done).length;
+
+  return (
+    <section className="first-steps-card">
+      <div className="first-steps-head"><div><p>{copy("ERSTE SCHRITTE", "FÖRSTA STEGEN", "FIRST STEPS")}</p><h3>{onboarding.legacyInstallation ? copy("Einrichtungshilfe verfügbar", "Konfigurationshjälp finns", "Setup guide available") : copy("Einrichtung vervollständigen", "Slutför konfigurationen", "Complete setup")}</h3><span>{completed} {copy(`von ${items.length} erledigt`, `av ${items.length} klara`, `of ${items.length} complete`)}</span></div><button aria-label={copy("Erste Schritte schließen", "Stäng första stegen", "Close first steps")} className="icon-button" onClick={onDismiss} type="button"><X size={16} /></button></div>
+      <div className="first-steps-items">{items.map((item) => <span className={item.done ? "done" : ""} key={item.label}>{item.done ? <Check size={14} /> : <span />}{item.label}</span>)}</div>
+      <button className="ghost-button" onClick={onOpen} type="button">{copy("Einrichtung öffnen", "Öppna konfigurationen", "Open setup")}<ArrowRight size={16} /></button>
+    </section>
+  );
+}
+
+function ContextHelpBanner({ helpKey, language, onDismiss }: { helpKey: OnboardingHelpKey; language: Language; onDismiss: (key: OnboardingHelpKey) => void }) {
+  const copy = (de: string, sv: string, en: string) => onboardingCopy(language, de, sv, en);
+  const text = helpKey === "logbook"
+    ? copy("Erfasse Start- und Endkilometer sowie Fahrtzweck. Auf dem Smartphone kann Koll zusätzlich Standortdaten verwenden.", "Registrera start- och slutmätarställning samt resans syfte. På mobilen kan Koll även använda platsdata.", "Record start and end mileage plus trip purpose. On mobile, Koll can also use location data.")
+    : helpKey === "consulting"
+      ? copy("Erfasse Leistungen fortlaufend und übernimm offene Leistungen später gesammelt in die Abrechnung.", "Registrera arbete löpande och överför senare öppna poster samlat till fakturering.", "Record work continuously and later transfer open entries to billing in one batch.")
+      : copy("Prüfe die Positionen, bevor du eine Rechnung buchst oder versendest.", "Kontrollera posterna innan du bokför eller skickar en faktura.", "Review line items before posting or sending an invoice.");
+  return <aside className="context-help-banner"><p>{text}</p><button className="ghost-button" onClick={() => onDismiss(helpKey)} type="button">{copy("Verstanden", "Förstått", "Got it")}</button></aside>;
 }
 
 function Dashboard({
@@ -20766,10 +21383,13 @@ function MasterDataView({
           <div className="form-grid compact-form">
             <label><span>{tt("Firmenname")}</span><input value={companySettingsForm.name} onChange={(event) => setCompanySettingsForm({ ...companySettingsForm, name: event.target.value })} /></label>
             <label><span>{tt("E-Mail")}</span><input type="email" value={companySettingsForm.email} onChange={(event) => setCompanySettingsForm({ ...companySettingsForm, email: event.target.value })} /></label>
+            <label><span>{tt("Telefon")}</span><input type="tel" value={companySettingsForm.phone ?? ""} onChange={(event) => setCompanySettingsForm({ ...companySettingsForm, phone: event.target.value })} /></label>
             <label><span>{tt("Unternehmensland (ISO)")}</span><input maxLength={2} placeholder="SE" value={companySettingsForm.countryCode ?? ""} onChange={(event) => setCompanySettingsForm({ ...companySettingsForm, countryCode: event.target.value.toUpperCase() })} /></label>
+            <label><span>{tt("Standardwährung")}</span><select value={companySettingsForm.currency ?? "SEK"} onChange={(event) => setCompanySettingsForm({ ...companySettingsForm, currency: event.target.value })}><option>SEK</option><option>EUR</option><option>GBP</option><option>USD</option></select></label>
             <label className="wide"><span>{tt("Adresse")}</span><AddressFields label={tt("Firmenadresse")} language={language} value={companySettingsForm.address} onChange={(part, value) => setCompanySettingsForm({ ...companySettingsForm, address: updateAddressPart(companySettingsForm.address, part, value) })} /></label>
             <label><span>{tt("Org.-Nummer")}</span><input value={companySettingsForm.organizationNumber} onChange={(event) => setCompanySettingsForm({ ...companySettingsForm, organizationNumber: event.target.value })} /></label>
             <label><span>{tt("Momsreg.nr / VAT")}</span><input value={companySettingsForm.vatNumber} onChange={(event) => setCompanySettingsForm({ ...companySettingsForm, vatNumber: event.target.value })} placeholder="z.B. SE559123456701" /></label>
+            <label><span>{tt("Umsatzsteuer / Moms %")}</span><input inputMode="decimal" value={companySettingsForm.vatRate ?? "25"} onChange={(event) => setCompanySettingsForm({ ...companySettingsForm, vatRate: event.target.value })} /></label>
             <label><span>{tt("Bankverbindung")}</span><input value={companySettingsForm.bank} onChange={(event) => setCompanySettingsForm({ ...companySettingsForm, bank: event.target.value })} placeholder={tt("Bankgiro / IBAN / BIC")} /></label>
             <label className="checkbox-line wide">
               <input checked={companySettingsForm.fSkattApproved} onChange={(event) => setCompanySettingsForm({ ...companySettingsForm, fSkattApproved: event.target.checked })} type="checkbox" />

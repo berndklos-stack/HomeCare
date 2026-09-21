@@ -2216,6 +2216,17 @@ function patchFromBody(body: JsonObject) {
     : {};
 }
 
+function sectionUpdatedAt(section: unknown) {
+  if (!section || typeof section !== "object" || !("updatedAt" in section)) return 0;
+  const timestamp = Date.parse(String((section as { updatedAt?: unknown }).updatedAt ?? ""));
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function relationalSectionIsNewer(fallbackSection: unknown, relationalSection: unknown) {
+  if (!fallbackSection) return true;
+  return sectionUpdatedAt(relationalSection) > sectionUpdatedAt(fallbackSection);
+}
+
 export async function GET(request: Request) {
   const supabase = getSupabaseServerClient();
   if (!supabase) {
@@ -2236,7 +2247,7 @@ export async function GET(request: Request) {
     }
     if (keys.includes("customers")) {
       const customerSection = await loadCustomersSection(supabase);
-      if (customerSection) sections.customers = customerSection;
+      if (customerSection && relationalSectionIsNewer(sections.customers, customerSection)) sections.customers = customerSection;
     }
     if (keys.includes("inventoryLocations")) {
       const inventoryLocationSection = await loadInventoryLocationsSection(supabase);
@@ -2248,7 +2259,7 @@ export async function GET(request: Request) {
     }
     if (keys.includes("objects")) {
       const objectSection = await loadObjectsSection(supabase);
-      if (objectSection) {
+      if (objectSection && relationalSectionIsNewer(sections.objects, objectSection)) {
         const fallbackObjectRows = sections.objects && typeof sections.objects === "object" && "value" in sections.objects
           && Array.isArray((sections.objects as { value?: unknown }).value)
           ? (sections.objects as { value: JsonObject[] }).value
@@ -2298,7 +2309,7 @@ export async function GET(request: Request) {
     }
     if (keys.includes("jobs")) {
       const jobSection = await loadJobsSection(supabase);
-      if (jobSection) sections.jobs = jobSection;
+      if (jobSection && relationalSectionIsNewer(sections.jobs, jobSection)) sections.jobs = jobSection;
     }
     if (keys.includes("fieldProgress")) {
       const fieldProgressSection = await loadFieldProgressSection(supabase);

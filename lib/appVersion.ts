@@ -1,10 +1,30 @@
 export const appVersion = {
-  version: "1.420.1",
+  version: "1.421.1",
   releaseDate: "2026-09-21",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  {
+    version: "1.421.1",
+    date: "2026-09-21",
+    changes: [
+      "Projekt- und Objekt-IDs werden dauerhaft eindeutig erzeugt statt aus der Listenlänge abgeleitet",
+      "Neuere zentrale Sync-Abschnitte werden nicht mehr durch ältere relationale Daten überschrieben",
+      "CDK und Kährs/Börjes wiederhergestellt und ihre Aufträge eindeutig zugeordnet",
+      "Objekttyp- und Branding-Test vollständig von Produktivdaten isoliert",
+    ],
+  },
+  {
+    version: "1.421.0",
+    date: "2026-09-21",
+    changes: [
+      "Professionelles zehnstufiges Onboarding für Sprache, Unternehmen, Arbeitsstruktur und erste Stammdaten ergänzt",
+      "Onboarding-Fortschritt wird zentral in den Unternehmensdaten gespeichert und geräteübergreifend fortgesetzt",
+      "Bestehende produktive Installationen werden automatisch erkannt und nicht durch den Wizard blockiert",
+      "PWA-Installation, optionale erste Schritte und einmalige Kontexthilfen integriert",
+    ],
+  },
   {
     version: "1.420.1",
     date: "2026-09-21",
