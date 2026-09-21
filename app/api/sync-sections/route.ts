@@ -2248,7 +2248,20 @@ export async function GET(request: Request) {
     }
     if (keys.includes("objects")) {
       const objectSection = await loadObjectsSection(supabase);
-      if (objectSection) sections.objects = objectSection;
+      if (objectSection) {
+        const fallbackObjectRows = sections.objects && typeof sections.objects === "object" && "value" in sections.objects
+          && Array.isArray((sections.objects as { value?: unknown }).value)
+          ? (sections.objects as { value: JsonObject[] }).value
+          : [];
+        const fallbackTypes = new Map(fallbackObjectRows.map((object) => [String(object.id), stringOrEmpty(object.type) || "Objekt"]));
+        sections.objects = {
+          ...objectSection,
+          value: objectSection.value.map((object) => ({
+            ...object,
+            type: fallbackTypes.get(String(object.id)) || "Objekt",
+          })),
+        };
+      }
     }
     if (keys.includes("packages")) {
       const packageSection = await loadPackagesSection(supabase);

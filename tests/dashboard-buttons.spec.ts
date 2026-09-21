@@ -34,7 +34,7 @@ test("Reverse Geocoding ergänzt ländliche Ortsnamen ohne normale Straßen zu v
 test("Fahrtenentwurf und Standardfahrt bleiben nutzbar", async ({ page }) => {
   await page.goto("/");
   await expect(page.locator("main")).toHaveAttribute("data-ready", "true", { timeout: 30_000 });
-  await expect(page.getByRole("heading", { name: "Homecare" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Koll" })).toBeVisible();
 
   await page.getByRole("button", { name: "Fahrt", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Fahrt erfassen" });

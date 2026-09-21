@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.417.0",
-  releaseDate: "2026-09-20",
-  label: "Homecare",
+  version: "1.418.0",
+  releaseDate: "2026-09-21",
+  label: "WorkCore",
 };
 
 export const versionHistory = [
+  {
+    version: "1.418.0",
+    date: "2026-09-21",
+    changes: [
+      "Koll und WorkCore werden zentral aus Unternehmensland, Sprache und Branding-Stammdaten gewählt",
+      "System / Branding verwaltet die schwedische und internationale Marke sowie die Claims im bestehenden zentralen Sync",
+      "Objekte können ohne Datenmigration als Objekt, Projekt, Baustelle, Standort, Anlage oder Sonstiges typisiert werden",
+    ],
+  },
   {
     version: "1.417.0",
     date: "2026-09-20",

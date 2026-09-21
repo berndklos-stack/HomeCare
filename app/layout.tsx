@@ -24,9 +24,9 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Kolaretorp Service AB | Homecare",
+  title: "WorkCore",
   description:
-    "Digitale Verwaltung für Ferienhäuser, Aufträge, Einsätze und Eigentümerberichte in Småland.",
+    "Aufträge, Projekte, Service und Abrechnung in einer Arbeitszentrale.",
   icons: {
     icon: "/favicon.svg",
     shortcut: "/favicon.svg",

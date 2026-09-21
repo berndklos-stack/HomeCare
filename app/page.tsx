@@ -51,6 +51,7 @@ import {
 } from "lucide-react";
 import { type CSSProperties, type DragEvent, type MouseEvent, type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { appVersion, versionHistory } from "@/lib/appVersion";
+import { defaultAppBranding, resolveAppBranding } from "@/lib/branding";
 
 type Language = "de" | "sv" | "en";
 type Theme = "light" | "dark";
@@ -70,6 +71,7 @@ type Section =
   | "portal"
   | "masterData";
 type Modal = "customer" | "job" | "version" | null;
+type ObjectRecordType = "Objekt" | "Projekt" | "Baustelle" | "Standort" | "Anlage" | "Sonstiges";
 
 type ObjectRecord = {
   id: string;
@@ -91,6 +93,7 @@ type ObjectRecord = {
   buildYear: number;
   carePackage: string;
   status: string;
+  type?: ObjectRecordType;
   access: {
     keySafe: string;
     alarm: string;
@@ -710,7 +713,13 @@ type DailyMailSettings = {
 type CompanySettings = {
   address: string;
   bank: string;
+  brandNameInternational?: string;
+  brandNameSweden?: string;
   brandColor?: string;
+  claimEnglish?: string;
+  claimGerman?: string;
+  claimSweden?: string;
+  countryCode?: string;
   email: string;
   fSkattApproved: boolean;
   logoStoragePath?: string;
@@ -1012,6 +1021,7 @@ type NewObjectFormState = {
   buildYear: string;
   carePackage: ObjectRecord["carePackage"];
   status: string;
+  type: ObjectRecordType;
   keySafe: string;
   alarm: string;
   parking: string;
@@ -1127,8 +1137,8 @@ type CustomerFormState = {
 
 const labels = {
   de: {
-    appTitle: "Homecare",
-    subtitle: "Objekte, Einsätze, Berichte und Abrechnung in einer Arbeitszentrale.",
+    appTitle: "WorkCore",
+    subtitle: defaultAppBranding.claimGerman,
     search: "Suchen",
     newObject: "Neues Objekt",
     editObject: "Objekt bearbeiten",
@@ -1148,8 +1158,8 @@ const labels = {
     demo: "Demo-Daten",
   },
   sv: {
-    appTitle: "Homecare",
-    subtitle: "Objekt, uppdrag, rapporter och fakturering på en arbetsyta.",
+    appTitle: "Koll",
+    subtitle: defaultAppBranding.claimSweden,
     search: "Sök",
     newObject: "Nytt objekt",
     editObject: "Redigera objekt",
@@ -1169,8 +1179,8 @@ const labels = {
     demo: "Demo-data",
   },
   en: {
-    appTitle: "Holiday Home Operations",
-    subtitle: "Properties, visits, reports and billing in one workspace.",
+    appTitle: "WorkCore",
+    subtitle: defaultAppBranding.claimEnglish,
     search: "Search",
     newObject: "New property",
     editObject: "Edit property",
@@ -1863,9 +1873,11 @@ const englishUiText: Record<string, string> = {
 };
 
 const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
+  { de: "Anlage", sv: "Anläggning", en: "Facility" },
   { de: "Ankunft", sv: "Ankomst", en: "Arrival" },
   { de: "Arbeitsweg", sv: "Arbetsresa", en: "Commute" },
   { de: "Baujahr", sv: "Tillverkningsår", en: "Year of manufacture" },
+  { de: "Baustelle", sv: "Byggplats", en: "Construction site" },
   { de: "Beim Abstellen aufnehmen", sv: "Ta foto när fordonet parkeras", en: "Take when parking" },
   { de: "Beim Losfahren aufnehmen", sv: "Ta foto före avfärd", en: "Take before departure" },
   { de: "Bezeichnung der Standardfahrt", sv: "Standardresans namn", en: "Standard trip name" },
@@ -1876,6 +1888,8 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Deutschland", sv: "Tyskland", en: "Germany" },
   { de: "Download", sv: "Ladda ner", en: "Download" },
   { de: "Eigentümer / Firma", sv: "Ägare / företag", en: "Owner / company" },
+  { de: "Englischer Claim", sv: "Engelsk slogan", en: "English claim" },
+  { de: "Entwickler / Admin", sv: "Utvecklare / administratör", en: "Developer / admin" },
   { de: "Fahrtenbuch aktiv", sv: "Körjournal aktiv", en: "Driving log active" },
   { de: "Fahrtenbuch", sv: "Körjournal", en: "Driving log" },
   { de: "Fahrtenbuchsprache", sv: "Körjournalspråk", en: "Logbook language" },
@@ -2352,7 +2366,7 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Notiz", sv: "Anteckning", en: "Note" },
   { de: "Notizen", sv: "Anteckningar", en: "Notes" },
   { de: "Notizen / interne Info", sv: "Anteckningar / intern info", en: "Notes / internal info" },
-  { de: "Objekt", sv: "Objekt", en: "Property" },
+  { de: "Objekt", sv: "Objekt", en: "Object" },
   { de: "Objekt auswählen", sv: "Välj objekt", en: "Select property" },
   { de: "Objekt zuordnen", sv: "Tilldela objekt", en: "Assign property" },
   { de: "Objektadresse", sv: "Objektadress", en: "Property address" },
@@ -2361,6 +2375,16 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Objekt wiederherstellen", sv: "Återställ objekt", en: "Restore property" },
   { de: "Objektmerkmale", sv: "Objektegenskaper", en: "Property features" },
   { de: "Objektverlauf", sv: "Objekthistorik", en: "Property history" },
+  { de: "Projekt", sv: "Projekt", en: "Project" },
+  { de: "Sonstiges", sv: "Övrigt", en: "Other" },
+  { de: "Markenname Schweden", sv: "Varumärkesnamn Sverige", en: "Swedish brand name" },
+  { de: "Claim Schweden", sv: "Slogan Sverige", en: "Swedish claim" },
+  { de: "Internationaler Markenname", sv: "Internationellt varumärkesnamn", en: "International brand name" },
+  { de: "Deutscher Claim", sv: "Tysk slogan", en: "German claim" },
+  { de: "Unternehmensland (ISO)", sv: "Företagsland (ISO)", en: "Company country (ISO)" },
+  { de: "System / Branding", sv: "System / varumärke", en: "System / branding" },
+  { de: "Branding speichern", sv: "Spara varumärke", en: "Save branding" },
+  { de: "Zentraler Entwickler- und Adminbereich für die sichtbare App-Marke.", sv: "Centralt utvecklar- och administratörsområde för appens synliga varumärke.", en: "Central developer and admin area for the visible app brand." },
   { de: "Org.-Nummer", sv: "Org.nr", en: "Organization no." },
   { de: "Ort", sv: "Ort", en: "City" },
   { de: "Ort/Region", sv: "Ort/region", en: "Place/region" },
@@ -4199,6 +4223,7 @@ function emptyObjectForm(): NewObjectFormState {
     buildYear: "1990",
     carePackage: "Basis",
     status: "Kontrolle offen",
+    type: "Objekt",
     keySafe: "",
     alarm: "",
     parking: "",
@@ -4298,6 +4323,7 @@ function objectToForm(object: ObjectRecord): NewObjectFormState {
     buildYear: String(object.buildYear),
     carePackage: object.carePackage,
     status: object.status,
+    type: object.type ?? "Objekt",
     keySafe: object.access.keySafe,
     alarm: object.access.alarm,
     parking: object.access.parking,
@@ -4902,6 +4928,7 @@ function sieFiscalYear(dateString: string | undefined) {
 }
 
 function createSpirisSieFile(item: BillingRecord, object: ObjectRecord, customer: CustomerRecord | undefined, settings: CompanySettings, accountingAccounts: AccountingAccount[] = defaultVismaChartOfAccounts) {
+  const exportBrandName = resolveAppBranding(settings, settings.countryCode === "SE" ? "sv" : "en").brandName;
   const lines = item.lines?.length
     ? item.lines
     : [{
@@ -4931,7 +4958,7 @@ function createSpirisSieFile(item: BillingRecord, object: ObjectRecord, customer
   const heading = `${item.invoiceNumber || item.id} ${customer?.name || object.owner || object.name}`;
   const rows = [
     "#FLAGGA 0",
-    '#PROGRAM "Homecare" "1.0"',
+    `#PROGRAM "${sieText(exportBrandName)}" "1.0"`,
     "#FORMAT PC8",
     "#SIETYP 4",
     `#GEN ${sieDate(new Date().toISOString().slice(0, 10))}`,
@@ -7048,6 +7075,7 @@ function formToObject(form: NewObjectFormState, id: string): ObjectRecord {
     buildYear: Number(form.buildYear) || 0,
     carePackage: form.carePackage,
     status: form.status,
+    type: form.type || "Objekt",
     access: {
       keySafe: form.keySafe.trim() || "noch zu pflegen",
       alarm: form.alarm.trim() || "noch zu pflegen",
@@ -7728,7 +7756,13 @@ function normalizeDailyMailSettings(settings?: Partial<DailyMailSettings>): Dail
 const seedCompanySettings: CompanySettings = {
   address: "Kolaretorp 106, 382 93 Nybro",
   bank: "",
+  brandNameInternational: defaultAppBranding.brandNameInternational,
+  brandNameSweden: defaultAppBranding.brandNameSweden,
   brandColor: "#007aff",
+  claimEnglish: defaultAppBranding.claimEnglish,
+  claimGerman: defaultAppBranding.claimGerman,
+  claimSweden: defaultAppBranding.claimSweden,
+  countryCode: "SE",
   email: "info@kolaretorp.se",
   fSkattApproved: true,
   logoStoragePath: "",
@@ -9467,6 +9501,12 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     return uiText(value, targetLanguage);
   };
   const tx = (value: string) => translateForLanguage(value, language);
+  const appBranding = resolveAppBranding(companySettings, language);
+
+  useEffect(() => {
+    document.title = `${appBranding.brandName} | ${companySettings.name}`;
+  }, [appBranding.brandName, companySettings.name]);
+
   const activeObjects = objects.filter((object) => !object.archived);
   const archivedObjects = objects.filter((object) => object.archived);
   const activeCustomers = customers.filter((customer) => !customer.archived);
@@ -9477,7 +9517,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   const editingCustomer = customers.find((customer) => customer.id === editingCustomerId);
   const isInactiveObject = (object: ObjectRecord) => /inaktiv|pausiert|winterruhe|verkauft|gekündigt|gekuendigt/i.test(object.status);
   const filteredObjects = activeObjects.filter((object) =>
-    [object.name, object.owner, object.address, object.region, object.carePackage]
+    [object.name, object.owner, object.address, object.region, object.carePackage, object.type ?? "Objekt"]
       .join(" ")
       .toLowerCase()
       .includes(query.toLowerCase()),
@@ -12178,8 +12218,8 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
         <section className="workspace">
           <header className="topbar">
             <div>
-              <h1>Homecare</h1>
-                <p>HomeCare wird vorbereitet ...</p>
+              <h1>{appBranding.brandName}</h1>
+                <p>{appBranding.claim}</p>
             </div>
             <div className="toolbar">
               <button aria-label={theme === "dark" ? t.light : t.dark} className="ghost-button icon-button theme-toggle" data-tooltip={theme === "dark" ? t.light : t.dark} onClick={() => setTheme(theme === "dark" ? "light" : "dark")} type="button">
@@ -12192,7 +12232,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
               <div>
                 <p>Datenbestand</p>
                 <h2>{appLoadError ? "Online-Daten konnten nicht geladen werden" : "Daten werden synchronisiert ..."}</h2>
-                <span>{appLoadError || "HomeCare lädt den aktuellen Datenstand."}</span>
+                <span>{appLoadError || `${appBranding.brandName} lädt den aktuellen Datenstand.`}</span>
               </div>
             </div>
             {appLoadError && (
@@ -12253,8 +12293,8 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       <section className="workspace">
         <header className="topbar">
           <div>
-            <h1>{t.appTitle}</h1>
-            <span>{t.subtitle}</span>
+            <h1>{appBranding.brandName}</h1>
+            <span>{appBranding.claim}</span>
           </div>
           <div className="toolbar app-toolbar">
             <label className="search app-toolbar-search">
@@ -12470,6 +12510,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
             )}
             {section === "billing" && (
               <BillingView
+                brandName={appBranding.brandName}
                 accountingAccounts={accountingAccounts}
                 billing={billing}
                 customers={customers}
@@ -14509,7 +14550,7 @@ function ObjectsView({
                 <div className="object-row-main">
                   <ObjectThumbnail object={object} />
                   <div>
-                    <strong>{object.name}</strong>
+                    <strong>{tt(object.type ?? "Objekt")} · {object.name}</strong>
                     <span>{object.owner}</span>
                   </div>
                   <span>{object.region}</span>
@@ -14546,7 +14587,7 @@ function ObjectsView({
                   tabIndex={0}
                 >
                   <div>
-                    <strong>{object.name}</strong>
+                    <strong>{tt(object.type ?? "Objekt")} · {object.name}</strong>
                     <span>{displayAddress(object.address)}</span>
                   </div>
                   <Badge value={tt("archiviert")} />
@@ -16565,6 +16606,7 @@ function FieldView({
 function BillingView({
   accountingAccounts,
   billing,
+  brandName,
   customers,
   jobs,
   objects,
@@ -16582,6 +16624,7 @@ function BillingView({
 }: {
   accountingAccounts: AccountingAccount[];
   billing: BillingRecord[];
+  brandName: string;
   customers: CustomerRecord[];
   jobs: JobRecord[];
   objects: ObjectRecord[];
@@ -16750,7 +16793,7 @@ function BillingView({
         <div>
           <p>Finanzen</p>
           <h2>Rechnungsprozess</h2>
-          <span>Homecare erstellt Rechnung und Ausgangsbuch; Spiris / Visma erhält die vollständigen Buchhaltungsdaten.</span>
+          <span>{brandName} erstellt Rechnung und Ausgangsbuch; Spiris / Visma erhält die vollständigen Buchhaltungsdaten.</span>
         </div>
         <button className="primary-button" onClick={onCollectBillable} type="button">
           <Euro size={16} />
@@ -18877,7 +18920,7 @@ function MasterDataView({
   translationOverrides: TranslationFileRow[];
 }) {
   const tt = translate;
-  const [masterDataTab, setMasterDataTab] = useState<"company" | "personal" | "resources" | "services" | "materials" | "accounting" | "mail" | "languages" | "backups">("company");
+  const [masterDataTab, setMasterDataTab] = useState<"company" | "branding" | "personal" | "resources" | "services" | "materials" | "accounting" | "mail" | "languages" | "backups">("company");
   const [editingPersonId, setEditingPersonId] = useState<string | null>(null);
   const [editingResourceId, setEditingResourceId] = useState<string | null>(null);
   const [editingLogEntryId, setEditingLogEntryId] = useState<string | null>(null);
@@ -19882,8 +19925,15 @@ function MasterDataView({
 
   function saveCompanySettings() {
     setCompanySettings({
+      ...companySettingsForm,
       address: companySettingsForm.address.trim(),
       bank: companySettingsForm.bank.trim(),
+      brandNameInternational: companySettingsForm.brandNameInternational?.trim(),
+      brandNameSweden: companySettingsForm.brandNameSweden?.trim(),
+      claimEnglish: companySettingsForm.claimEnglish?.trim(),
+      claimGerman: companySettingsForm.claimGerman?.trim(),
+      claimSweden: companySettingsForm.claimSweden?.trim(),
+      countryCode: companySettingsForm.countryCode?.trim().toUpperCase(),
       email: companySettingsForm.email.trim(),
       fSkattApproved: companySettingsForm.fSkattApproved,
       name: companySettingsForm.name.trim() || "Kolaretorp Service AB",
@@ -20349,6 +20399,10 @@ function MasterDataView({
           <Home size={16} />
           {tt("Firma")}
         </button>
+        <button className={masterDataTab === "branding" ? "active" : ""} onClick={() => setMasterDataTab("branding")} type="button">
+          <Wrench size={16} />
+          {tt("System / Branding")}
+        </button>
         <button className={masterDataTab === "personal" ? "active" : ""} onClick={() => { setMasterDataTab("personal"); resetPersonForm(); }} type="button">
           <UserRound size={16} />
           {tt("Personal")}
@@ -20522,6 +20576,7 @@ function MasterDataView({
           <div className="form-grid compact-form">
             <label><span>{tt("Firmenname")}</span><input value={companySettingsForm.name} onChange={(event) => setCompanySettingsForm({ ...companySettingsForm, name: event.target.value })} /></label>
             <label><span>{tt("E-Mail")}</span><input type="email" value={companySettingsForm.email} onChange={(event) => setCompanySettingsForm({ ...companySettingsForm, email: event.target.value })} /></label>
+            <label><span>{tt("Unternehmensland (ISO)")}</span><input maxLength={2} placeholder="SE" value={companySettingsForm.countryCode ?? ""} onChange={(event) => setCompanySettingsForm({ ...companySettingsForm, countryCode: event.target.value.toUpperCase() })} /></label>
             <label className="wide"><span>{tt("Adresse")}</span><AddressFields label={tt("Firmenadresse")} language={language} value={companySettingsForm.address} onChange={(part, value) => setCompanySettingsForm({ ...companySettingsForm, address: updateAddressPart(companySettingsForm.address, part, value) })} /></label>
             <label><span>{tt("Org.-Nummer")}</span><input value={companySettingsForm.organizationNumber} onChange={(event) => setCompanySettingsForm({ ...companySettingsForm, organizationNumber: event.target.value })} /></label>
             <label><span>{tt("Momsreg.nr / VAT")}</span><input value={companySettingsForm.vatNumber} onChange={(event) => setCompanySettingsForm({ ...companySettingsForm, vatNumber: event.target.value })} placeholder="z.B. SE559123456701" /></label>
@@ -20551,6 +20606,26 @@ function MasterDataView({
             </div>
             <small>{tt("Historische Regelwerke bleiben versioniert erhalten und werden nicht überschrieben.")}</small>
           </section>
+        </section>
+      )}
+
+      {masterDataTab === "branding" && (
+        <section className="panel">
+          <div className="panel-title">
+            <div>
+              <p>{tt("Entwickler / Admin")}</p>
+              <h2>{tt("System / Branding")}</h2>
+              <span>{tt("Zentraler Entwickler- und Adminbereich für die sichtbare App-Marke.")}</span>
+            </div>
+          </div>
+          <div className="form-grid compact-form">
+            <label><span>{tt("Markenname Schweden")}</span><input placeholder={defaultAppBranding.brandNameSweden} value={companySettingsForm.brandNameSweden ?? ""} onChange={(event) => setCompanySettingsForm({ ...companySettingsForm, brandNameSweden: event.target.value })} /></label>
+            <label><span>{tt("Claim Schweden")}</span><input placeholder={defaultAppBranding.claimSweden} value={companySettingsForm.claimSweden ?? ""} onChange={(event) => setCompanySettingsForm({ ...companySettingsForm, claimSweden: event.target.value })} /></label>
+            <label><span>{tt("Internationaler Markenname")}</span><input placeholder={defaultAppBranding.brandNameInternational} value={companySettingsForm.brandNameInternational ?? ""} onChange={(event) => setCompanySettingsForm({ ...companySettingsForm, brandNameInternational: event.target.value })} /></label>
+            <label><span>{tt("Deutscher Claim")}</span><input placeholder={defaultAppBranding.claimGerman} value={companySettingsForm.claimGerman ?? ""} onChange={(event) => setCompanySettingsForm({ ...companySettingsForm, claimGerman: event.target.value })} /></label>
+            <label className="wide"><span>{tt("Englischer Claim")}</span><input placeholder={defaultAppBranding.claimEnglish} value={companySettingsForm.claimEnglish ?? ""} onChange={(event) => setCompanySettingsForm({ ...companySettingsForm, claimEnglish: event.target.value })} /></label>
+            <button className="primary-button wide" onClick={saveCompanySettings} type="button">{tt("Branding speichern")}</button>
+          </div>
         </section>
       )}
 
@@ -22638,7 +22713,14 @@ function ObjectForm({
   return (
     <div className="form-grid" onBlurCapture={autosaveField}>
       <h3>{tt("Basisdaten")}</h3>
-      <label><span>{tt("Objekt")}</span><input value={newObject.name} onChange={(event) => update("name", event.target.value)} /></label>
+      <label><span>{tt("Typ")}</span>
+        <select value={newObject.type} onChange={(event) => setNewObject({ ...newObject, type: event.target.value as ObjectRecordType })}>
+          {(["Objekt", "Projekt", "Baustelle", "Standort", "Anlage", "Sonstiges"] as ObjectRecordType[]).map((type) => (
+            <option key={type} value={type}>{tt(type)}</option>
+          ))}
+        </select>
+      </label>
+      <label><span>{tt(newObject.type)}</span><input value={newObject.name} onChange={(event) => update("name", event.target.value)} /></label>
       <label><span>{tt("Status")}</span>
         <input list="object-status-options" value={newObject.status} onChange={(event) => update("status", event.target.value)} />
         <datalist id="object-status-options">
