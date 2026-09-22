@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.423.0",
+  version: "1.423.1",
   releaseDate: "2026-09-22",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  {
+    version: "1.423.1",
+    date: "2026-09-22",
+    changes: [
+      "Kundenauswahlen zeigen Firmenname und Ansprechpartner gemeinsam statt Firmen unter Personennamen zu verstecken",
+      "Projekt-, Objekt-, Auftrags-, Onboarding- und Lagerauswahlen verwenden dieselbe eindeutige Kundenanzeige",
+    ],
+  },
   {
     version: "1.423.0",
     date: "2026-09-22",

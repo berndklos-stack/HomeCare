@@ -49,6 +49,7 @@ test("Branding und Objekttyp bleiben nach dem Speichern erhalten", async ({ page
   const updatedAt = new Date(Date.now() + 60_000).toISOString();
   const testCustomer = {
     id: "CUS-TEST-CONSULTING",
+    company: "Consulting GmbH",
     name: "Consulting Kunde",
     contact: "Test Kontakt",
     email: "consulting@example.com",
@@ -239,6 +240,7 @@ test("Branding und Objekttyp bleiben nach dem Speichern erhalten", async ({ page
 
   await page.getByTestId("nav-objects").click();
   await page.getByRole("button", { name: "Neues Projekt / Objekt", exact: true }).click();
+  await expect(page.getByLabel("Kunde / Eigentümer auswählen").locator("option", { hasText: "Consulting GmbH · Consulting Kunde" })).toHaveCount(1);
   await page.getByLabel("Typ").selectOption("Projekt");
   await expect(page.getByLabel("Projektbeginn")).toBeVisible();
   await expect(page.getByLabel("Größe m²")).toHaveCount(0);

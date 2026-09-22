@@ -4843,6 +4843,12 @@ function customerLocale(customer: CustomerRecord | CustomerFormState | undefined
   return isSwedishCustomerLanguage(customer?.language) ? "sv-SE" : "de-DE";
 }
 
+function customerSelectionLabel(customer: CustomerRecord) {
+  const company = customer.company?.trim();
+  const name = customer.name.trim();
+  return company && company !== name ? `${company} · ${name}` : company || name;
+}
+
 function fillCustomerMailTemplate(template: string, customer: CustomerRecord | undefined) {
   const firstName = firstNameFromName(customer?.contact || customer?.name || "");
   return template.replaceAll("{Vorname}", firstName).replaceAll("{Förnamn}", firstName);
@@ -14053,7 +14059,7 @@ function OnboardingWizard({
             <div className="onboarding-step">
               <div className="onboarding-form-grid">
                 <label><span>{copy("Typ", "Typ", "Type")}</span><select value={objectForm.type} onChange={(event) => setObjectForm({ ...objectForm, type: event.target.value })}>{objectTypeDefinitions.filter((type) => type.active).map((type) => <option key={type.id} value={type.id}>{objectTypeName(objectTypeDefinitions, type.id, language)}</option>)}</select></label>
-                <label><span>{copy("Kunde", "Kund", "Customer")}</span><select value={objectForm.customerId || selectedCustomerId} onChange={(event) => setObjectForm({ ...objectForm, customerId: event.target.value })}><option value="">{copy("Nicht zugeordnet", "Ej tilldelad", "Unassigned")}</option>{customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}</option>)}</select></label>
+                <label><span>{copy("Kunde", "Kund", "Customer")}</span><select value={objectForm.customerId || selectedCustomerId} onChange={(event) => setObjectForm({ ...objectForm, customerId: event.target.value })}><option value="">{copy("Nicht zugeordnet", "Ej tilldelad", "Unassigned")}</option>{customers.map((customer) => <option key={customer.id} value={customer.id}>{customerSelectionLabel(customer)}</option>)}</select></label>
                 <label className="wide"><span>{copy("Name", "Namn", "Name")}</span><input value={objectForm.name} onChange={(event) => setObjectForm({ ...objectForm, name: event.target.value })} /></label>
                 <label className="wide"><span>{copy("Adresse (optional)", "Adress (valfritt)", "Address (optional)")}</span><input value={objectForm.address} onChange={(event) => setObjectForm({ ...objectForm, address: event.target.value })} /></label>
               </div>
@@ -14066,7 +14072,7 @@ function OnboardingWizard({
               {objects.length === 0 ? <p className="onboarding-existing">{copy("Für einen Auftrag wird zuerst ein Projekt oder Objekt benötigt.", "Ett projekt eller objekt behövs innan ett uppdrag kan skapas.", "A project or object is required before creating a job.")}</p> : (
                 <div className="onboarding-form-grid">
                   <label className="wide"><span>{copy("Auftragstitel", "Uppdragstitel", "Job title")}</span><input value={jobForm.title} onChange={(event) => setJobForm({ ...jobForm, title: event.target.value })} /></label>
-                  <label><span>{copy("Kunde", "Kund", "Customer")}</span><select value={objects.find((object) => object.id === jobForm.objectId)?.ownerCustomerId || ""} onChange={(event) => { const nextObject = objects.find((object) => object.ownerCustomerId === event.target.value); setJobForm({ ...jobForm, objectId: nextObject?.id || "" }); }}><option value="">{copy("Nicht zugeordnet", "Ej tilldelad", "Unassigned")}</option>{customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}</option>)}</select></label>
+                  <label><span>{copy("Kunde", "Kund", "Customer")}</span><select value={objects.find((object) => object.id === jobForm.objectId)?.ownerCustomerId || ""} onChange={(event) => { const nextObject = objects.find((object) => object.ownerCustomerId === event.target.value); setJobForm({ ...jobForm, objectId: nextObject?.id || "" }); }}><option value="">{copy("Nicht zugeordnet", "Ej tilldelad", "Unassigned")}</option>{customers.map((customer) => <option key={customer.id} value={customer.id}>{customerSelectionLabel(customer)}</option>)}</select></label>
                   <label><span>{copy("Projekt / Objekt", "Projekt / objekt", "Project / object")}</span><select value={jobForm.objectId} onChange={(event) => setJobForm({ ...jobForm, objectId: event.target.value })}>{objects.map((object) => <option key={object.id} value={object.id}>{object.name}</option>)}</select></label>
                   <label><span>{copy("Termin", "Datum", "Date")}</span><input type="date" value={jobForm.date} onChange={(event) => setJobForm({ ...jobForm, date: event.target.value })} /></label>
                   <label><span>{copy("Verantwortlicher", "Ansvarig", "Assignee")}</span><select value={jobForm.assignedTo} onChange={(event) => setJobForm({ ...jobForm, assignedTo: event.target.value })}><option value="">{copy("Nicht zugewiesen", "Ej tilldelad", "Unassigned")}</option>{personnel.map((person) => { const name = `${person.firstName} ${person.lastName}`.trim(); return <option key={person.id} value={name}>{name}</option>; })}</select></label>
@@ -18775,7 +18781,7 @@ function InventoryView({
                   <label><span>{tt("Kunde")}</span>
                     <select value={form.customerId} onChange={(event) => setForm({ ...form, customerId: event.target.value })}>
                       <option value="">{tt("Nicht zugeordnet")}</option>
-                      {customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}</option>)}
+                      {customers.map((customer) => <option key={customer.id} value={customer.id}>{customerSelectionLabel(customer)}</option>)}
                     </select>
                   </label>
                   <label><span>{tt("Leistung")}</span>
@@ -23947,7 +23953,7 @@ function ObjectForm({
           <span>{fieldLabel("ownerCustomerId", "Kunde / Eigentümer auswählen")}</span>
           <select value={newObject.ownerCustomerId} onChange={(event) => selectOwner(event.target.value)}>
             <option value="">{tt("Manuell pflegen")}</option>
-            {customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}</option>)}
+            {customers.map((customer) => <option key={customer.id} value={customer.id}>{customerSelectionLabel(customer)}</option>)}
           </select>
         </label>}
         {isFieldVisible("owner") && <label><span>{fieldLabel("owner", "Kunde / Eigentümer")}</span><input value={newObject.owner} onChange={(event) => update("owner", event.target.value)} /></label>}
@@ -25015,7 +25021,7 @@ function JobForm({
                 <span>Bestehender Kunde</span>
                 <select value={quickMaster.customerId} onChange={(event) => updateQuickMaster("customerId", event.target.value)}>
                   <option value="">Neuen Kunden erfassen</option>
-                  {customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}</option>)}
+                  {customers.map((customer) => <option key={customer.id} value={customer.id}>{customerSelectionLabel(customer)}</option>)}
                 </select>
               </label>
               {!quickMaster.customerId && (
