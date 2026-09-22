@@ -4865,13 +4865,20 @@ mark.neutral {
 }
 
 .object-type-field-row > input,
-.object-type-field-row > select {
+.object-type-field-row > select,
+.object-type-field-row > textarea {
   background: var(--paper);
   border: 1px solid var(--line);
   border-radius: 8px;
   color: var(--foreground);
   min-height: 38px;
   padding: 7px 9px;
+}
+
+.object-type-field-row > .object-type-select-options {
+  grid-column: 2 / 4;
+  min-height: 64px;
+  resize: vertical;
 }
 
 .object-type-field-row > span {
@@ -4890,6 +4897,10 @@ mark.neutral {
 
   .object-type-field-row > .icon-button {
     justify-self: end;
+  }
+
+  .object-type-field-row > .object-type-select-options {
+    grid-column: auto;
   }
 }
 

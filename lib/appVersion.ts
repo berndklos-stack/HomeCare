@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.423.2",
+  version: "1.424.0",
   releaseDate: "2026-09-22",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  {
+    version: "1.424.0",
+    date: "2026-09-22",
+    changes: [
+      "Status und konfigurierbare Auswahlfelder sind echte Dropdowns und zeigen ihre Optionen direkt an",
+      "Neue Projekte und Objekte erhalten keinen ungefragten Status mehr; die Auswahl erfolgt bewusst",
+      "Eigene Felder koennen in den Stammdaten mit frei definierbaren Auswahlwerten angelegt werden",
+    ],
+  },
   {
     version: "1.423.2",
     date: "2026-09-22",

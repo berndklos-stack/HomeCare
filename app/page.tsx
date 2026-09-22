@@ -2444,6 +2444,11 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Feld löschen", sv: "Radera fält", en: "Delete field" },
   { de: "Feldname", sv: "Fältnamn", en: "Field name" },
   { de: "Feldtyp", sv: "Fälttyp", en: "Field type" },
+  { de: "Auswahl", sv: "Val", en: "Selection" },
+  { de: "Auswahlwerte", sv: "Valalternativ", en: "Selection options" },
+  { de: "Eine Option pro Zeile", sv: "Ett alternativ per rad", en: "One option per line" },
+  { de: "Bitte auswählen", sv: "Välj", en: "Please select" },
+  { de: "Status auswählen", sv: "Välj status", en: "Select status" },
   { de: "Sichtbar", sv: "Synligt", en: "Visible" },
   { de: "Systemfeld", sv: "Systemfält", en: "System field" },
   { de: "Text", sv: "Text", en: "Text" },
@@ -4325,7 +4330,7 @@ function emptyObjectForm(): NewObjectFormState {
     buildYear: "",
     carePackage: "Basis",
     customFields: {},
-    status: "Kontrolle offen",
+    status: "",
     type: "Objekt",
     keySafe: "",
     alarm: "",
@@ -21778,8 +21783,18 @@ function MasterDataView({
                                     <option value="number">{tt("Zahl")}</option>
                                     <option value="date">{tt("Datum")}</option>
                                     <option value="textarea">{tt("Notizfeld")}</option>
+                                    <option value="select">{tt("Auswahl")}</option>
                                   </select>
                                   <IconAction danger label={`${tt("Feld löschen")} ${field.names[language]}`} onClick={() => removeObjectTypeCustomField(definition.id, field.id)}><Trash2 size={15} /></IconAction>
+                                  {field.inputType === "select" && (
+                                    <textarea
+                                      aria-label={`${tt("Auswahlwerte")} ${definition.id} ${field.id}`}
+                                      className="object-type-select-options"
+                                      onChange={(event) => updateObjectTypeCustomField(definition.id, field.id, (current) => ({ ...current, options: event.target.value.split("\n") }))}
+                                      placeholder={tt("Eine Option pro Zeile")}
+                                      value={(field.options ?? []).join("\n")}
+                                    />
+                                  )}
                                 </div>
                               ))}
                             </div>
@@ -23755,6 +23770,7 @@ function ObjectForm({
     packages.filter((servicePackage) => !servicePackage.archived).map((servicePackage) => servicePackage.name),
     [newObject.carePackage, "Basis", "Plus", "Komfort", "Premium"],
   );
+  const resolvedStatusOptions = uniqueSortedValues(statusOptions, [newObject.status]);
 
   useEffect(() => {
     objectFormRef.current = newObject;
@@ -23796,6 +23812,11 @@ function ObjectForm({
             <span>{label}</span>
             {field.inputType === "textarea" ? (
               <textarea value={value} onChange={(event) => updateCustomField(field.id, event.target.value)} />
+            ) : field.inputType === "select" ? (
+              <select value={value} onChange={(event) => updateCustomField(field.id, event.target.value)}>
+                <option value="">{tt("Bitte auswählen")}</option>
+                {uniqueSortedValues(field.options ?? [], [value]).map((option) => <option key={option} value={option}>{option}</option>)}
+              </select>
             ) : (
               <input type={field.inputType} value={value} onChange={(event) => updateCustomField(field.id, event.target.value)} />
             )}
@@ -23946,10 +23967,10 @@ function ObjectForm({
       </label>
       <label><span>{entityName}</span><input placeholder={`${entityName} ${language === "de" ? "benennen" : language === "sv" ? "namn" : "name"}`} value={newObject.name} onChange={(event) => update("name", event.target.value)} /></label>
       <label><span>{tt("Status")}</span>
-        <input list="object-status-options" value={newObject.status} onChange={(event) => update("status", event.target.value)} />
-        <datalist id="object-status-options">
-          {statusOptions.map((status) => <option key={status} value={status} />)}
-        </datalist>
+        <select value={newObject.status} onChange={(event) => update("status", event.target.value)}>
+          <option value="">{tt("Status auswählen")}</option>
+          {resolvedStatusOptions.map((status) => <option key={status} value={status}>{status}</option>)}
+        </select>
       </label>
       {hasFieldGroup("customer") && <>
         <h3>{tt("Kunde / Eigentümer")}</h3>

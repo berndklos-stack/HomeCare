@@ -13,13 +13,14 @@ export type ObjectFieldGroup =
   | "planning"
   | "documentation";
 
-export type ObjectFieldInputType = "text" | "number" | "date" | "textarea";
+export type ObjectFieldInputType = "text" | "number" | "date" | "textarea" | "select";
 
 export type ObjectTypeCustomField = {
   active: boolean;
   group: ObjectFieldGroup;
   id: string;
   inputType: ObjectFieldInputType;
+  options?: string[];
   names: {
     de: string;
     en: string;
@@ -162,7 +163,7 @@ export function normalizeObjectTypeDefinitions(value: unknown): ObjectTypeDefini
             const customField = field as Partial<ObjectTypeCustomField>;
             const fieldId = typeof customField.id === "string" ? customField.id.trim() : "";
             if (!fieldId || !validGroups.has(customField.group as ObjectFieldGroup)) return [];
-            const inputType = ["text", "number", "date", "textarea"].includes(String(customField.inputType))
+            const inputType = ["text", "number", "date", "textarea", "select"].includes(String(customField.inputType))
               ? customField.inputType as ObjectFieldInputType
               : "text";
             return [{
@@ -170,6 +171,9 @@ export function normalizeObjectTypeDefinitions(value: unknown): ObjectTypeDefini
               group: customField.group as ObjectFieldGroup,
               id: fieldId,
               inputType,
+              options: inputType === "select" && Array.isArray(customField.options)
+                ? Array.from(new Set(customField.options.map((option) => String(option).trim()).filter(Boolean)))
+                : undefined,
               names: {
                 de: customField.names?.de || "Neues Feld",
                 en: customField.names?.en || customField.names?.de || "New field",

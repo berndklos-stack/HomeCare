@@ -36,6 +36,25 @@ test("Objekttypen erhalten robuste Standardfelder", () => {
   expect(definitions.find((definition) => definition.id === "Projekt")?.fieldGroups).toContain("project");
   expect(definitions.find((definition) => definition.id === "Projekt")?.fieldGroups).not.toContain("property");
   expect(definitions.find((definition) => definition.id === "Anlage")?.fieldGroups).toContain("asset");
+
+  const customDefinitions = normalizeObjectTypeDefinitions([{
+    active: true,
+    id: "Testtyp",
+    names: { de: "Testtyp", en: "Test type", sv: "Testtyp" },
+    fieldGroups: ["project"],
+    customFields: [{
+      active: true,
+      group: "project",
+      id: "phase",
+      inputType: "select",
+      names: { de: "Phase", en: "Phase", sv: "Fas" },
+      options: ["Planung", " Ausführung ", "Planung", ""],
+    }],
+  }]);
+  expect(customDefinitions[0].customFields?.[0]).toMatchObject({
+    inputType: "select",
+    options: ["Planung", "Ausführung"],
+  });
 });
 
 test("Branding und Objekttyp bleiben nach dem Speichern erhalten", async ({ page }) => {
@@ -236,17 +255,26 @@ test("Branding und Objekttyp bleiben nach dem Speichern erhalten", async ({ page
   const projectFieldsBlock = projectTypeCard.locator(".object-type-block").filter({ hasText: "Projektangaben" });
   await projectFieldsBlock.getByRole("button", { name: "Feld hinzufügen", exact: true }).click();
   await projectFieldsBlock.getByRole("textbox").last().fill("Auftragsnummer");
+  await projectFieldsBlock.getByRole("button", { name: "Feld hinzufügen", exact: true }).click();
+  const phaseNameInput = projectFieldsBlock.getByRole("textbox").last();
+  await phaseNameInput.fill("Projektphase");
+  const phaseFieldRow = phaseNameInput.locator("xpath=ancestor::div[contains(concat(' ', normalize-space(@class), ' '), ' object-type-field-row ')][1]");
+  await phaseFieldRow.getByRole("combobox").selectOption("select");
+  await phaseFieldRow.getByRole("textbox", { name: /Auswahlwerte/ }).fill("Planung\nAusführung\nAbnahme");
   await page.getByRole("button", { name: "Projekt-/Objekttypen speichern", exact: true }).click();
 
   await page.getByTestId("nav-objects").click();
   await page.getByRole("button", { name: "Neues Projekt / Objekt", exact: true }).click();
   await expect(page.getByLabel("Kunde / Eigentümer auswählen").locator("option", { hasText: "Consulting GmbH · Consulting Kunde" })).toHaveCount(1);
+  await expect(page.getByRole("combobox", { name: "Status", exact: true })).toHaveValue("");
+  await page.getByRole("combobox", { name: "Status", exact: true }).selectOption("Kontrolle offen");
   await page.getByLabel("Typ").selectOption("Projekt");
   await expect(page.getByLabel("Projektbeginn")).toBeVisible();
   await expect(page.getByLabel("Größe m²")).toHaveCount(0);
   await page.getByRole("textbox", { name: "Kundenprojekt", exact: true }).fill("Logistik-Hub Süddeutschland");
   await page.getByLabel("Verantwortlich").fill("Bernd Klos");
   await page.getByLabel("Auftragsnummer").fill("AUF-42");
+  await page.getByLabel("Projektphase").selectOption("Ausführung");
   await page.getByRole("button", { name: "Kundenprojekt anlegen", exact: true }).click();
   await expect(page.getByText("Kundenprojekt · Logistik-Hub Süddeutschland", { exact: true })).toBeVisible();
 
@@ -259,6 +287,8 @@ test("Branding und Objekttyp bleiben nach dem Speichern erhalten", async ({ page
   await projectRow.click();
   await expect(page.getByLabel("Verantwortlich")).toHaveValue("Bernd Klos");
   await expect(page.getByLabel("Auftragsnummer")).toHaveValue("AUF-42");
+  await expect(page.getByLabel("Projektphase")).toHaveValue("Ausführung");
+  await expect(page.getByRole("combobox", { name: "Status", exact: true })).toHaveValue("Kontrolle offen");
   await expect(page.getByRole("button", { name: "Kundenprojekt speichern", exact: true })).toBeVisible();
 
   await page.getByTestId("nav-customers").click();
