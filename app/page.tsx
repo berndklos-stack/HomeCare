@@ -1150,6 +1150,7 @@ type JobQuickMasterDataInput = {
   customerPhone: string;
   objectAddress: string;
   objectName: string;
+  objectType: string;
 };
 
 type CustomerFormState = {
@@ -10223,6 +10224,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       ownerEmail: savedCustomer.email,
       ownerPhone: savedCustomer.phone,
       region: splitAddressParts(objectAddress).city || "Nybro",
+      type: input.objectType || "Objekt",
     }, objectId);
     const nextCustomers = existingCustomer
       ? customers.map((customer) => (
@@ -10238,7 +10240,8 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     setSelectedObjectId(objectId);
     setNewJob((current) => ({ ...current, billable: savedCustomer.billable ?? true }));
     persistSnapshotNow({ customers: nextCustomers, objects: nextObjects }, { forceRemote: true });
-    setRecordNotice(`Kunde "${savedCustomer.name}" und Objekt "${savedObject.name}" wurden für den Auftrag angelegt.`);
+    const entityName = objectTypeName(objectTypeDefinitions, savedObject.type, language);
+    setRecordNotice(`Kunde "${savedCustomer.name}" und ${entityName} "${savedObject.name}" wurden für den Auftrag angelegt.`);
   }
 
   function openEditJob(job: JobRecord) {
@@ -13719,6 +13722,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                 materials={materials}
                 personnel={personnel}
                 services={services}
+                objectTypeDefinitions={objectTypeDefinitions}
                 setNewJob={setNewJob}
                 setSelectedObjectId={selectJobObject}
                 onSubmit={saveJob}
@@ -24601,6 +24605,7 @@ function JobForm({
   newJob,
   setNewJob,
   objects,
+  objectTypeDefinitions,
   onCreateMasterData,
   personnel,
   selectedObject,
@@ -24618,6 +24623,7 @@ function JobForm({
   newJob: NewJobFormState;
   setNewJob: (value: NewJobFormState) => void;
   objects: ObjectRecord[];
+  objectTypeDefinitions: ObjectTypeDefinition[];
   onCreateMasterData?: (input: JobQuickMasterDataInput) => void;
   personnel: PersonnelRecord[];
   selectedObject: ObjectRecord;
@@ -24643,7 +24649,12 @@ function JobForm({
     customerPhone: "",
     objectAddress: "",
     objectName: "",
+    objectType: "Objekt",
   });
+  const selectedJobObject = selectedObjectId ? objects.find((object) => object.id === selectedObjectId) : undefined;
+  const neutralEntityName = language === "sv" ? "Projekt / objekt" : language === "en" ? "Project / object" : "Projekt / Objekt";
+  const selectedEntityName = selectedJobObject ? objectTypeName(objectTypeDefinitions, selectedJobObject.type, language) : neutralEntityName;
+  const quickEntityName = objectTypeName(objectTypeDefinitions, quickMaster.objectType, language);
   const selectableJobServices = services.filter((service) => !service.archived && !newJob.serviceIds.includes(service.id));
   const normalizedServiceSearch = serviceSearch.trim().toLowerCase();
   const filteredJobServices = normalizedServiceSearch
@@ -24723,6 +24734,7 @@ function JobForm({
       customerPhone: "",
       objectAddress: "",
       objectName: "",
+      objectType: "Objekt",
     });
     setQuickMasterOpen(false);
   }
@@ -25001,16 +25013,19 @@ function JobForm({
             <input value={newJob.title} onChange={(event) => update("title", event.target.value)} />
           </label>
           <label>
-            <span>Objekt</span>
+            <span>{selectedEntityName}</span>
             <select value={selectedObjectId} onChange={(event) => setSelectedObjectId(event.target.value)}>
-              <option value="">Objekt auswählen...</option>
-              {objects.map((object) => <option key={object.id} value={object.id}>{object.name}</option>)}
+              <option value="">{language === "sv" ? "Välj projekt / objekt..." : language === "en" ? "Select project / object..." : "Projekt / Objekt auswählen..."}</option>
+              {objects.map((object) => <option key={object.id} value={object.id}>{objectTypeName(objectTypeDefinitions, object.type, language)} · {object.name}</option>)}
             </select>
           </label>
           {!customerMode && onCreateMasterData && (
-            <button className="ghost-button job-inline-create-button" onClick={() => setQuickMasterOpen((current) => !current)} type="button">
+            <button className="ghost-button job-inline-create-button" onClick={() => {
+              setQuickMasterOpen((current) => !current);
+              if (!quickMasterOpen && selectedJobObject?.type) setQuickMaster((current) => ({ ...current, objectType: selectedJobObject.type ?? "Objekt" }));
+            }} type="button">
               <Plus size={16} />
-              Kunde / Objekt
+              {language === "sv" ? `Kund / ${selectedEntityName}` : language === "en" ? `Customer / ${selectedEntityName}` : `Kunde / ${selectedEntityName}`}
             </button>
           )}
         </div>
@@ -25024,6 +25039,14 @@ function JobForm({
                   {customers.map((customer) => <option key={customer.id} value={customer.id}>{customerSelectionLabel(customer)}</option>)}
                 </select>
               </label>
+              <label>
+                <span>Typ</span>
+                <select value={quickMaster.objectType} onChange={(event) => updateQuickMaster("objectType", event.target.value)}>
+                  {objectTypeDefinitions.filter((definition) => definition.active).map((definition) => (
+                    <option key={definition.id} value={definition.id}>{definition.names[language]}</option>
+                  ))}
+                </select>
+              </label>
               {!quickMaster.customerId && (
                 <>
                   <label><span>Kundenname</span><input value={quickMaster.customerName} onChange={(event) => updateQuickMaster("customerName", event.target.value)} /></label>
@@ -25033,10 +25056,10 @@ function JobForm({
                   <label><span>Kundenadresse</span><input value={quickMaster.customerAddress} onChange={(event) => updateQuickMaster("customerAddress", event.target.value)} /></label>
                 </>
               )}
-              <label><span>Objektname</span><input value={quickMaster.objectName} onChange={(event) => updateQuickMaster("objectName", event.target.value)} /></label>
-              <label><span>Objektadresse</span><input value={quickMaster.objectAddress} onChange={(event) => updateQuickMaster("objectAddress", event.target.value)} /></label>
+              <label><span>{quickEntityName}</span><input placeholder={`${quickEntityName} Name`} value={quickMaster.objectName} onChange={(event) => updateQuickMaster("objectName", event.target.value)} /></label>
+              <label><span>{quickEntityName} Adresse</span><input value={quickMaster.objectAddress} onChange={(event) => updateQuickMaster("objectAddress", event.target.value)} /></label>
               <button className="primary-button" disabled={!quickMaster.objectName.trim() || (!quickMaster.customerId && !quickMaster.customerName.trim())} onClick={submitQuickMaster} type="button">
-                Kunde / Objekt übernehmen
+                {language === "sv" ? `Spara kund / ${quickEntityName}` : language === "en" ? `Save customer / ${quickEntityName}` : `Kunde / ${quickEntityName} übernehmen`}
               </button>
             </div>
           </section>

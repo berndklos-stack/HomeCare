@@ -270,6 +270,12 @@ test("Branding und Objekttyp bleiben nach dem Speichern erhalten", async ({ page
   await expect(page.getByText("Musterbau AB", { exact: true })).toBeVisible();
   await expect(page.getByText(/Erika Muster/)).toBeVisible();
 
+  await page.getByTestId("nav-jobs").click();
+  const updatedConsultingRow = page.locator(".job-row").filter({ hasText: "Auswahlabrechnung Test" });
+  await updatedConsultingRow.getByRole("button", { name: "Auftrag Auswahlabrechnung Test Bearbeiten", exact: true }).click();
+  await expect(page.getByRole("dialog").getByRole("combobox", { name: "Kundenprojekt", exact: true })).toBeVisible();
+  await expect(page.getByRole("dialog").getByRole("button", { name: "Kunde / Kundenprojekt", exact: true })).toBeVisible();
+
 });
 
 test("Kundenportal zeigt keine Branding-Administration", async ({ page }) => {

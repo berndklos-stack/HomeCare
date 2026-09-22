@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.423.1",
+  version: "1.423.2",
   releaseDate: "2026-09-22",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  {
+    version: "1.423.2",
+    date: "2026-09-22",
+    changes: [
+      "Der Auftragsdialog benennt Projekt- und Objektfelder passend zum Typ des ausgewaehlten Datensatzes",
+      "Auswahloptionen zeigen Typ und Name; Schnellanlagen speichern den gewaehlten Projekt- oder Objekttyp korrekt",
+    ],
+  },
   {
     version: "1.423.1",
     date: "2026-09-22",
