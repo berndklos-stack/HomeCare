@@ -1436,6 +1436,9 @@ const swedishUiText: Record<string, string> = {
   "Kundenübersicht": "Kundöversikt",
   "Kundensichtbar": "Synlig för kund",
   "laufende Einsätze": "pågående uppdrag",
+  "Laufende Daueraufträge": "Löpande uppdrag",
+  "Aufträge ohne festen Einsatztermin bleiben hier sichtbar und werden nicht als überfällig behandelt.": "Uppdrag utan fast insatsdatum visas här och markeras inte som försenade.",
+  "offene Zeit": "öppen tid",
   "Leistung": "Tjänst",
   "Leistung anfragen": "Begär tjänst",
   "Letzte per Mitarbeiter-Mobil erfasste Standorte aus dem Fahrtenbuch.": "Senaste positioner från medarbetarmobilen i körjournalen.",
@@ -1741,6 +1744,9 @@ const englishUiText: Record<string, string> = {
   "Lagerorte": "Storage locations",
   "Lagerorte anzeigen": "Show storage locations",
   "Lagerverwaltung": "Inventory",
+  "Laufende Daueraufträge": "Ongoing jobs",
+  "Aufträge ohne festen Einsatztermin bleiben hier sichtbar und werden nicht als überfällig behandelt.": "Jobs without a fixed service date remain visible here and are not marked as overdue.",
+  "offene Zeit": "open time",
   "Letzte per Mitarbeiter-Mobil erfasste Standorte aus dem Fahrtenbuch.": "Latest positions captured by employee mobile from the logbook.",
   "Mitarbeiter-Mobil": "Employee mobile",
   "mit Standort": "with position",
@@ -16222,8 +16228,10 @@ function PlanningView({
   const activeJobs = visibleOperationalJobs(jobs)
     .filter((job) => !["offerte", "abgerechnet", "storniert"].includes(job.status))
     .sort((first, second) => jobExecutionDate(first).localeCompare(jobExecutionDate(second)) || first.title.localeCompare(second.title, "de"));
-  const undisposedJobs = activeJobs.filter((job) => job.status !== "erledigt" && isUndisposedPlanningJob(job));
-  const scheduledJobs = activeJobs.filter((job) => !isUndisposedPlanningJob(job));
+  const ongoingJobs = activeJobs.filter((job) => job.status !== "erledigt" && job.consulting?.enabled && job.consulting.openEnded);
+  const dispatchableJobs = activeJobs.filter((job) => !ongoingJobs.some((ongoingJob) => ongoingJob.id === job.id));
+  const undisposedJobs = dispatchableJobs.filter((job) => job.status !== "erledigt" && isUndisposedPlanningJob(job));
+  const scheduledJobs = dispatchableJobs.filter((job) => !isUndisposedPlanningJob(job));
   const overdueJobs = scheduledJobs.filter((job) => job.status !== "erledigt" && jobExecutionEndDate(job) < today);
   const normalizedReports = dedupeReports(reports);
   const selectedDispatchReport = normalizedReports.find((report) => report.id === selectedDispatchReportId);
@@ -16391,6 +16399,78 @@ function PlanningView({
     );
   }
 
+  function renderOngoingJob(job: JobRecord) {
+    const object = objects.find((item) => item.id === job.objectId);
+    const customer = customers.find((item) => item.id === job.customerId);
+    const assignedResourceIds = job.resourceIds ?? [];
+    const availableResources = activeResources.filter((resource) => !assignedResourceIds.includes(resource.id));
+    const assignedResources = assignedResourceIds
+      .map((id) => resources.find((resource) => resource.id === id))
+      .filter(Boolean) as ResourceRecord[];
+    const openMinutes = (job.consulting?.entries ?? [])
+      .filter((entry) => entry.billingStatus === "offen")
+      .reduce((sum, entry) => sum + entry.minutes, 0);
+    const hourlyRate = decimalValue(job.consulting?.hourlyRate);
+    const openAmount = Number.isFinite(hourlyRate) ? (openMinutes / 60) * hourlyRate : 0;
+    const locale = language === "sv" ? "sv-SE" : language === "en" ? "en-GB" : "de-DE";
+
+    return (
+      <article className="dispatch-ongoing-card" key={job.id}>
+        <button className="dispatch-ongoing-main" onClick={() => onEdit(job)} type="button">
+          <span>{tt("Dauerauftrag / Consulting")}</span>
+          <strong>{job.title}</strong>
+          <small>{object?.name ?? tt("Objekt unbekannt")} · {customer?.company || customer?.name || tt("Kunde offen")}</small>
+        </button>
+        <div className="dispatch-ongoing-meta">
+          <span>{tt("Laufend seit")} <strong>{job.startDate || job.dueDate}</strong></span>
+          <span>{tt("offene Zeit")} <strong>{(openMinutes / 60).toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} h</strong></span>
+          <span><strong>{openAmount.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {job.consulting?.currency || "SEK"}</strong></span>
+          <Badge value={tt(job.status)} />
+        </div>
+        <div className="dispatch-ongoing-controls">
+          <select
+            aria-label={`${tt("Personal")} ${job.title}`}
+            value={isUnassignedJobAssignee(job.assignedTo) ? "" : job.assignedTo}
+            onChange={(event) => onAssignPersonnel(job, event.target.value || "nicht zugewiesen")}
+          >
+            <option value="">{tt("nicht zugewiesen")}</option>
+            {activePersonnel.map((person) => {
+              const name = `${person.firstName} ${person.lastName}`.trim();
+              return <option key={person.id} value={name}>{name}</option>;
+            })}
+          </select>
+          <select
+            aria-label={`${tt("Ressourcen")} ${job.title}`}
+            value=""
+            onChange={(event) => {
+              if (event.target.value) onAssignResources(job, [...assignedResourceIds, event.target.value]);
+            }}
+          >
+            <option value="">{tt("Ressource")} +</option>
+            {availableResources.map((resource) => <option key={resource.id} value={resource.id}>{resource.name}</option>)}
+          </select>
+          <IconAction label={`${tt("Auftrag")} ${job.title} ${tt("Bearbeiten")}`} onClick={() => onEdit(job)}><Pencil size={15} /></IconAction>
+        </div>
+        {assignedResources.length > 0 && (
+          <div className="dispatch-resource-tags">
+            {assignedResources.map((resource) => (
+              <button
+                aria-label={`${resource.name} entfernen`}
+                key={resource.id}
+                onClick={() => onAssignResources(job, assignedResourceIds.filter((id) => id !== resource.id))}
+                type="button"
+              >
+                <Wrench size={12} />
+                {resource.name}
+                <X size={12} />
+              </button>
+            ))}
+          </div>
+        )}
+      </article>
+    );
+  }
+
   function movePlanningWindow(days: number) {
     const date = new Date(`${planningStartDate}T12:00:00`);
     date.setDate(date.getDate() + days);
@@ -16434,6 +16514,20 @@ function PlanningView({
         </div>
       </div>
       <div className="dispatch-calendar">
+        {ongoingJobs.length > 0 && (
+          <section className="dispatch-ongoing-panel">
+            <header>
+              <div>
+                <strong>{tt("Laufende Daueraufträge")}</strong>
+                <span>{ongoingJobs.length} {tt("laufend")}</span>
+              </div>
+              <p>{tt("Aufträge ohne festen Einsatztermin bleiben hier sichtbar und werden nicht als überfällig behandelt.")}</p>
+            </header>
+            <div className="dispatch-ongoing-list">
+              {ongoingJobs.map(renderOngoingJob)}
+            </div>
+          </section>
+        )}
         <section
           className="dispatch-undisposed-panel"
           onDragOver={(event) => {

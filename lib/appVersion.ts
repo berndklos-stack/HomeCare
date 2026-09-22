@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.422.1",
-  releaseDate: "2026-09-21",
+  version: "1.423.0",
+  releaseDate: "2026-09-22",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  {
+    version: "1.423.0",
+    date: "2026-09-22",
+    changes: [
+      "Laufende Dauer- und Consulting-Auftraege erhalten in der Einsatzplanung einen eigenen kompakten Bereich",
+      "Dauerauftraege ohne festen Einsatztermin werden nicht mehr als ueberfaellig behandelt",
+      "Zustaendigkeit, Ressourcen, offene Zeit und offener Betrag sind direkt in der Planung sichtbar",
+    ],
+  },
   {
     version: "1.422.1",
     date: "2026-09-21",

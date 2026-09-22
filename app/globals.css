@@ -2035,6 +2035,130 @@ mark.neutral {
   padding: 12px;
 }
 
+.dispatch-ongoing-panel {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.dispatch-ongoing-panel > header {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.dispatch-ongoing-panel > header div {
+  display: grid;
+  gap: 2px;
+}
+
+.dispatch-ongoing-panel > header span,
+.dispatch-ongoing-panel > header p {
+  color: var(--muted);
+  font-size: 12px;
+  margin: 0;
+}
+
+.dispatch-ongoing-list {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.dispatch-ongoing-card {
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px;
+}
+
+.dispatch-ongoing-main {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 0;
+  text-align: left;
+}
+
+.dispatch-ongoing-main > span {
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.dispatch-ongoing-main strong,
+.dispatch-ongoing-main small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dispatch-ongoing-main small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.dispatch-ongoing-meta {
+  align-items: center;
+  display: grid;
+  gap: 4px 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.dispatch-ongoing-meta > span {
+  color: var(--muted);
+  display: grid;
+  font-size: 10px;
+  gap: 1px;
+}
+
+.dispatch-ongoing-meta > span strong {
+  color: var(--foreground);
+  font-size: 12px;
+}
+
+.dispatch-ongoing-meta .badge {
+  font-size: 10px;
+  justify-self: end;
+  min-height: 20px;
+  padding: 2px 6px;
+}
+
+.dispatch-ongoing-controls {
+  align-items: center;
+  display: grid;
+  gap: 5px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 34px;
+}
+
+.dispatch-ongoing-controls select {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--foreground);
+  font-size: 11px;
+  min-height: 32px;
+  min-width: 0;
+  padding: 4px 6px;
+  width: 100%;
+}
+
+.dispatch-ongoing-controls .icon-button {
+  min-height: 32px;
+  width: 32px;
+}
+
 .dispatch-undisposed-panel header {
   align-items: center;
   display: flex;
@@ -8157,6 +8281,10 @@ button.media-thumb {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .dispatch-ongoing-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .analytics-summary-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -8420,6 +8548,15 @@ button.media-thumb {
   }
 
   .dispatch-overdue .dispatch-day-jobs {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dispatch-ongoing-panel > header {
+    align-items: flex-start;
+    display: grid;
+  }
+
+  .dispatch-ongoing-list {
     grid-template-columns: minmax(0, 1fr);
   }
 

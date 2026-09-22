@@ -194,6 +194,14 @@ test("Branding und Objekttyp bleiben nach dem Speichern erhalten", async ({ page
   await page.getByLabel("Språk").selectOption("de");
   await expect(page.getByRole("heading", { name: "WorkCore" })).toBeVisible();
 
+  await page.getByTestId("nav-planning").click();
+  const ongoingPanel = page.locator(".dispatch-ongoing-panel");
+  await expect(ongoingPanel.getByText("Laufende Daueraufträge", { exact: true })).toBeVisible();
+  const consultingPlanningCard = ongoingPanel.locator(".dispatch-ongoing-card").filter({ hasText: "Auswahlabrechnung Test" });
+  await expect(consultingPlanningCard).toBeVisible();
+  await expect(consultingPlanningCard).toContainText("3,50 h");
+  await expect(page.locator(".dispatch-overdue").getByText("Auswahlabrechnung Test", { exact: true })).toHaveCount(0);
+
   await page.getByTestId("nav-jobs").click();
   const consultingRow = page.locator(".job-row").filter({ hasText: "Auswahlabrechnung Test" });
   await expect(consultingRow).toBeVisible();
