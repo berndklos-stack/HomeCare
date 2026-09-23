@@ -948,12 +948,17 @@ function latestCompletedLogbookEntry(vehicle?: ResourceRecord) {
 }
 
 function latestKnownVehicleOdometer(vehicle?: ResourceRecord) {
+  // Fuer den Start einer neuen Fahrt ist das zuletzt abgeschlossene Fahrtenbuch-
+  // Ereignis die fuehrende Quelle. odometerHistory kann geraeteuebergreifend
+  // spaeter synchronisieren und darf deshalb keinen neueren Fahrtenstand verdecken.
+  const latestTripOdometer = latestCompletedLogbookEntry(vehicle)?.endOdometer?.trim();
+  if (latestTripOdometer) return latestTripOdometer;
+  const currentOdometer = vehicle?.currentOdometer?.trim();
+  if (currentOdometer) return currentOdometer;
   const history = [...(vehicle?.odometerHistory ?? [])]
     .filter((entry) => String(entry.odometer ?? "").trim())
     .sort((first, second) => String(second.createdAt).localeCompare(String(first.createdAt)));
-  const historyValue = history[0]?.odometer;
-  if (historyValue) return historyValue;
-  return latestCompletedLogbookEntry(vehicle)?.endOdometer ?? vehicle?.currentOdometer ?? vehicle?.odometerYearStart ?? "";
+  return history[0]?.odometer ?? vehicle?.odometerYearStart ?? "";
 }
 
 function odometerDifference(value?: string, reference?: string) {
@@ -11607,10 +11612,13 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
 
   function quickTripDefaultsForVehicle(vehicleId: string, sourceResources = resources) {
     const vehicle = sourceResources.find((resource) => resource.id === vehicleId && resource.type === "Fahrzeug");
-    const latestEntry = latestLogbookEntry(vehicle);
+    // Start-KM und Startort einer neuen Fahrt muessen aus derselben, zuletzt
+    // abgeschlossenen Fahrt stammen. So bleiben beide Werte geraeteuebergreifend
+    // konsistent, auch wenn Hilfstabellen/History etwas spaeter synchronisieren.
+    const latestEntry = latestCompletedLogbookEntry(vehicle);
     return {
-      endAddress: latestEntry?.endAddress ?? "",
-      startOdometer: latestKnownVehicleOdometer(vehicle),
+      endAddress: latestEntry?.endAddress?.trim() || vehicle?.location?.trim() || "",
+      startOdometer: latestEntry?.endOdometer?.trim() || latestKnownVehicleOdometer(vehicle),
     };
   }
 
@@ -11634,7 +11642,6 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   }
 
   async function openQuickTrip() {
-    setQuickTripOpen(true);
     const livePositions = supabaseSyncDisabled
       ? liveVehiclePositions
       : await loadVehiclePositions().catch(() => liveVehiclePositions);
@@ -11647,9 +11654,26 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       const liveTrip = livePositions
         .filter((position) => isCurrentLiveVehiclePosition(position))
         .sort((first, second) => Date.parse(second.updatedAt ?? "") - Date.parse(first.updatedAt ?? ""))[0];
+      const hasMeaningfulDraft = Boolean(
+        current.activeLogbookEntryId
+        || current.endAddress.trim()
+        || current.endOdometer.trim()
+        || current.purpose.trim()
+        || current.visited.trim()
+        || current.waypoints.length
+        || current.fuelOrCharge.trim()
+        || current.fuelReceiptPhoto
+        || current.odometerPhotos.length
+      );
+      const draftVehicleStillExists = Boolean(current.resourceId && freshVehicles.some((item) => item.id === current.resourceId));
       const resourceId = current.activeLogbookEntryId
         ? current.resourceId
-        : current.resourceId || vehicleWithActiveTrip?.id || liveTrip?.resourceId || freshVehicles[0]?.id || activeVehicles[0]?.id || "";
+        : vehicleWithActiveTrip?.id
+          || liveTrip?.resourceId
+          || (hasMeaningfulDraft && draftVehicleStillExists ? current.resourceId : "")
+          || freshVehicles[0]?.id
+          || activeVehicles[0]?.id
+          || "";
       const vehicle = freshResources.find((resource) => resource.id === resourceId && resource.type === "Fahrzeug");
       const activeEntry = activeLogbookEntry(vehicle);
       const activeLiveTrip = activeLiveQuickTrip(resourceId) ?? liveTrip;
@@ -11726,6 +11750,9 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
         odometerPhotos: [],
       };
     });
+    // Modal erst nach dem Ermitteln des aktuellen Fahrzeug-/Fahrtenstands oeffnen.
+    // Dadurch wird nicht kurz ein veraltetes Fahrzeug aus dem lokalen Entwurf angezeigt.
+    setQuickTripOpen(true);
   }
 
   function openLogbookFromQuickTrip() {
