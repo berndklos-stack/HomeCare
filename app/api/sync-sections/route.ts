@@ -2315,61 +2315,63 @@ function mergeResourceSectionValues(
   if (!fallbackResources.length) return relationalSection;
   if (!relationalResources.length) return fallbackSection;
 
-  const relationalNewer = relationalSectionIsNewer(fallbackSection, relationalSection);
-  const primaryResources = relationalNewer ? relationalResources : fallbackResources;
-  const secondaryResources = relationalNewer ? fallbackResources : relationalResources;
-  const secondaryById = new Map(secondaryResources.map((resource) => [String(resource.id ?? ""), resource]));
-  const primaryIds = new Set(primaryResources.map((resource) => String(resource.id ?? "")));
+  // Fuer Ressourcen ist die relationale Struktur die kanonische Quelle fuer
+  // Fahrzeug-Stammdaten und Medien. app_state bleibt nur Sicherheitsnetz fuer
+  // Fahrten, die noch nicht in homecare_vehicle_trips angekommen sind.
+  const fallbackById = new Map(fallbackResources.map((resource) => [String(resource.id ?? ""), resource]));
+  const relationalIds = new Set(relationalResources.map((resource) => String(resource.id ?? "")));
 
-  const mergeLogbook = (primaryLogbook: unknown, secondaryLogbook: unknown, deletedIds: Set<string>) => {
-    const primaryEntries = Array.isArray(primaryLogbook)
-      ? primaryLogbook.filter((entry): entry is JsonObject => Boolean(entry && typeof entry === "object" && !Array.isArray(entry)))
-      : [];
-    const secondaryEntries = Array.isArray(secondaryLogbook)
-      ? secondaryLogbook.filter((entry): entry is JsonObject => Boolean(entry && typeof entry === "object" && !Array.isArray(entry)))
-      : [];
-    const secondaryEntriesById = new Map(secondaryEntries.map((entry) => [String(entry.id ?? ""), entry]));
-    const mergedEntries = primaryEntries.map((entry) => ({
-      ...(secondaryEntriesById.get(String(entry.id ?? "")) ?? {}),
+  const entries = (value: unknown) => Array.isArray(value)
+    ? value.filter((entry): entry is JsonObject => Boolean(entry && typeof entry === "object" && !Array.isArray(entry)))
+    : [];
+
+  const mergeLogbook = (relationalLogbook: unknown, fallbackLogbook: unknown, deletedIds: Set<string>) => {
+    const relationalEntries = entries(relationalLogbook);
+    const fallbackEntries = entries(fallbackLogbook);
+    const fallbackByEntryId = new Map(fallbackEntries.map((entry) => [String(entry.id ?? ""), entry]));
+    const mergedEntries = relationalEntries.map((entry) => ({
+      ...(fallbackByEntryId.get(String(entry.id ?? "")) ?? {}),
       ...entry,
     }));
-    const mergedEntryIds = new Set(mergedEntries.map((entry) => String(entry.id ?? "")));
-    secondaryEntries.forEach((entry) => {
+    const mergedIds = new Set(mergedEntries.map((entry) => String(entry.id ?? "")));
+    fallbackEntries.forEach((entry) => {
       const id = String(entry.id ?? "");
-      if (!mergedEntryIds.has(id)) mergedEntries.push(entry);
+      if (!mergedIds.has(id) && !deletedIds.has(id)) mergedEntries.push(entry);
     });
     return mergedEntries.filter((entry) => !deletedIds.has(String(entry.id ?? "")));
   };
 
-  const mergedResources = primaryResources.map((primaryResource) => {
-    const secondaryResource = secondaryById.get(String(primaryResource.id ?? ""));
-    if (!secondaryResource) return primaryResource;
-    // Der primaere Ressourcenstand ist anhand des Section-Zeitstempels der
-    // neuere Stand. Alte Loeschmarker aus dem sekundaeren Spiegel duerfen daher
-    // keine Fahrt ausblenden, die im primaeren Stand vorhanden ist.
-    const primaryLogbookIds = new Set(
-      Array.isArray(primaryResource.logbook)
-        ? primaryResource.logbook
-            .filter((entry): entry is JsonObject => Boolean(entry && typeof entry === "object" && !Array.isArray(entry)))
-            .map((entry) => String(entry.id ?? ""))
-        : [],
-    );
+  const mergedResources = relationalResources.map((relationalResource) => {
+    const fallbackResource = fallbackById.get(String(relationalResource.id ?? ""));
+    if (!fallbackResource) return relationalResource;
+
+    // Ein alter Loeschmarker aus app_state darf keine Fahrt entfernen, die in
+    // der aktuellen relationalen Tabelle vorhanden ist. Relationale Loeschmarker
+    // bleiben dagegen wirksam.
+    const relationalLogbookIds = new Set(entries(relationalResource.logbook).map((entry) => String(entry.id ?? "")));
     const deletedLogbookEntryIds = Array.from(new Set([
-      ...stringArray(secondaryResource.deletedLogbookEntryIds),
-      ...stringArray(primaryResource.deletedLogbookEntryIds),
-    ])).filter((id) => !primaryLogbookIds.has(id));
+      ...stringArray(relationalResource.deletedLogbookEntryIds),
+      ...stringArray(fallbackResource.deletedLogbookEntryIds),
+    ])).filter((id) => !relationalLogbookIds.has(id));
     const deletedIds = new Set(deletedLogbookEntryIds);
+
     return {
-      ...secondaryResource,
-      ...primaryResource,
+      ...fallbackResource,
+      ...relationalResource,
+      // Medien kommen bewusst ausschliesslich aus homecare_media. Dadurch kann
+      // ein in app_state noch vorhandenes, aber bereits geloeschtes Fahrzeugbild
+      // nicht wieder auftauchen.
+      media: Array.isArray(relationalResource.media) ? relationalResource.media : [],
       deletedLogbookEntryIds,
-      logbook: mergeLogbook(primaryResource.logbook, secondaryResource.logbook, deletedIds),
+      logbook: mergeLogbook(relationalResource.logbook, fallbackResource.logbook, deletedIds),
     };
   });
 
-  secondaryResources.forEach((resource) => {
+  // Ein komplett neues, noch nicht relational gespeichertes Fahrzeug darf nicht
+  // verloren gehen. Bestehende relationale Fahrzeuge bleiben aber kanonisch.
+  fallbackResources.forEach((resource) => {
     const id = String(resource.id ?? "");
-    if (!primaryIds.has(id)) mergedResources.push(resource);
+    if (!relationalIds.has(id)) mergedResources.push(resource);
   });
 
   const fallbackTime = sectionUpdatedAt(fallbackSection);
