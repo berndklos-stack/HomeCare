@@ -2249,6 +2249,83 @@ function relationalSectionIsNewer(fallbackSection: unknown, relationalSection: u
   return sectionUpdatedAt(relationalSection) > sectionUpdatedAt(fallbackSection);
 }
 
+function sectionValueArray(section: unknown) {
+  if (!section || typeof section !== "object" || !("value" in section)) return [] as JsonObject[];
+  const value = (section as { value?: unknown }).value;
+  if (!Array.isArray(value)) return [] as JsonObject[];
+  return value.filter((item): item is JsonObject => Boolean(item && typeof item === "object" && !Array.isArray(item)));
+}
+
+function stringArray(value: unknown) {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
+function mergeResourceSectionValues(fallbackSection: unknown, relationalSection: unknown) {
+  if (!fallbackSection) return relationalSection;
+  if (!relationalSection) return fallbackSection;
+
+  const fallbackResources = sectionValueArray(fallbackSection);
+  const relationalResources = sectionValueArray(relationalSection);
+  if (!fallbackResources.length) return relationalSection;
+  if (!relationalResources.length) return fallbackSection;
+
+  const relationalNewer = relationalSectionIsNewer(fallbackSection, relationalSection);
+  const primaryResources = relationalNewer ? relationalResources : fallbackResources;
+  const secondaryResources = relationalNewer ? fallbackResources : relationalResources;
+  const secondaryById = new Map(secondaryResources.map((resource) => [String(resource.id ?? ""), resource]));
+  const primaryIds = new Set(primaryResources.map((resource) => String(resource.id ?? "")));
+
+  const mergeLogbook = (primaryLogbook: unknown, secondaryLogbook: unknown, deletedIds: Set<string>) => {
+    const primaryEntries = Array.isArray(primaryLogbook)
+      ? primaryLogbook.filter((entry): entry is JsonObject => Boolean(entry && typeof entry === "object" && !Array.isArray(entry)))
+      : [];
+    const secondaryEntries = Array.isArray(secondaryLogbook)
+      ? secondaryLogbook.filter((entry): entry is JsonObject => Boolean(entry && typeof entry === "object" && !Array.isArray(entry)))
+      : [];
+    const secondaryEntriesById = new Map(secondaryEntries.map((entry) => [String(entry.id ?? ""), entry]));
+    const mergedEntries = primaryEntries.map((entry) => ({
+      ...(secondaryEntriesById.get(String(entry.id ?? "")) ?? {}),
+      ...entry,
+    }));
+    const mergedEntryIds = new Set(mergedEntries.map((entry) => String(entry.id ?? "")));
+    secondaryEntries.forEach((entry) => {
+      const id = String(entry.id ?? "");
+      if (!mergedEntryIds.has(id)) mergedEntries.push(entry);
+    });
+    return mergedEntries.filter((entry) => !deletedIds.has(String(entry.id ?? "")));
+  };
+
+  const mergedResources = primaryResources.map((primaryResource) => {
+    const secondaryResource = secondaryById.get(String(primaryResource.id ?? ""));
+    if (!secondaryResource) return primaryResource;
+    const deletedLogbookEntryIds = Array.from(new Set([
+      ...stringArray(secondaryResource.deletedLogbookEntryIds),
+      ...stringArray(primaryResource.deletedLogbookEntryIds),
+    ]));
+    const deletedIds = new Set(deletedLogbookEntryIds);
+    return {
+      ...secondaryResource,
+      ...primaryResource,
+      deletedLogbookEntryIds,
+      logbook: mergeLogbook(primaryResource.logbook, secondaryResource.logbook, deletedIds),
+    };
+  });
+
+  secondaryResources.forEach((resource) => {
+    const id = String(resource.id ?? "");
+    if (!primaryIds.has(id)) mergedResources.push(resource);
+  });
+
+  const fallbackTime = sectionUpdatedAt(fallbackSection);
+  const relationalTime = sectionUpdatedAt(relationalSection);
+  const newestSection = relationalTime > fallbackTime ? relationalSection : fallbackSection;
+  const updatedAt = newestSection && typeof newestSection === "object" && "updatedAt" in newestSection
+    ? String((newestSection as { updatedAt?: unknown }).updatedAt ?? new Date().toISOString())
+    : new Date().toISOString();
+
+  return { updatedAt, value: mergedResources };
+}
+
 export async function GET(request: Request) {
   const supabase = getSupabaseServerClient();
   if (!supabase) {
@@ -2343,7 +2420,13 @@ export async function GET(request: Request) {
     }
     if (keys.includes("resources")) {
       const resourceSection = await loadResourceSection(supabase);
-      if (resourceSection) sections.resources = resourceSection;
+      if (resourceSection) {
+        // Ressourcen/Fahrtenbuch existieren parallel im app_state-Fallback und in
+        // homecare_resources/homecare_vehicle_trips. Nie einen kompletten Stand blind
+        // durch die relationale Kopie ersetzen: der neuere Abschnitt ist führend,
+        // fehlende Fahrten werden per ID aus dem anderen Stand ergänzt.
+        sections.resources = mergeResourceSectionValues(sections.resources, resourceSection);
+      }
     }
 
     return NextResponse.json(
