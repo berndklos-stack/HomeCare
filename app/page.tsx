@@ -3489,10 +3489,14 @@ function mergeResourcesById(primaryResources: ResourceRecord[] = [], secondaryRe
   const merged = primaryResources.map((primaryResource) => {
     const secondaryResource = secondaryById.get(primaryResource.id);
     if (!secondaryResource) return primaryResource;
+    // Der jeweils primaere (neuere/autoritative) Ressourcenstand gewinnt auch bei
+    // Loeschmarkern. Ein alter Loeschmarker vom zweiten Geraet darf eine Fahrt,
+    // die im primaeren Stand wieder/neu vorhanden ist, nicht ausblenden.
+    const primaryLogbookIds = new Set((primaryResource.logbook ?? []).map((entry) => entry.id));
     const deletedLogbookEntryIds = Array.from(new Set([
       ...(secondaryResource.deletedLogbookEntryIds ?? []),
       ...(primaryResource.deletedLogbookEntryIds ?? []),
-    ]));
+    ])).filter((id) => !primaryLogbookIds.has(id));
     return {
       ...secondaryResource,
       ...primaryResource,
@@ -20766,8 +20770,11 @@ function MasterDataView({
       return;
     }
 
+    // Neue Fahrten brauchen geraeteuebergreifend eindeutige IDs. Die fruehere
+    // laufende Nummer konnte nach dem Loeschen einer Fahrt erneut vergeben werden
+    // und mit einem alten Loeschmarker auf einem zweiten Geraet kollidieren.
     const logbookId = editingLogEntryId
-      ?? `LOG-${selectedResource.id}-${logbookForm.date.replace(/\D/g, "")}-${selectedResource.logbook.length + 1}`;
+      ?? `LOG-${selectedResource.id}-${logbookForm.date.replace(/\D/g, "")}-${Date.now()}`;
     const existingEntry = selectedResource.logbook.find((entry) => entry.id === editingLogEntryId);
     const ruleSnapshot = existingEntry?.ruleVersion ? {
       ruleCountry: existingEntry.ruleCountry ?? "",
