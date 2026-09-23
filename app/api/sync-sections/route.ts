@@ -2260,8 +2260,16 @@ function stringArray(value: unknown) {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
 }
 
-function mergeResourceSectionValues(fallbackSection: unknown, relationalSection: unknown) {
-  if (!fallbackSection) return relationalSection;
+type SyncSectionEnvelope = { updatedAt: unknown; value: unknown };
+
+function mergeResourceSectionValues(
+  fallbackSection: SyncSectionEnvelope | undefined,
+  relationalSection: SyncSectionEnvelope | undefined,
+): SyncSectionEnvelope {
+  if (!fallbackSection && !relationalSection) {
+    return { updatedAt: new Date().toISOString(), value: [] };
+  }
+  if (!fallbackSection) return relationalSection as SyncSectionEnvelope;
   if (!relationalSection) return fallbackSection;
 
   const fallbackResources = sectionValueArray(fallbackSection);
