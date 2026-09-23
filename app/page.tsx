@@ -3634,9 +3634,23 @@ function mergePendingLocalSections(
 ) {
   if (pendingKeys.length === 0) return remoteSnapshot;
   const mergedPendingSnapshot = mergeSnapshots(remoteSnapshot, localSnapshot);
+  const pendingPatch = sectionPatch(mergedPendingSnapshot, pendingKeys);
+
+  // Ressourcen/Fahrtenbuch sind ein Sonderfall: Ein altes Gerät kann noch
+  // einen lokalen Pending-Marker besitzen. Dann dürfen veraltete Fahrzeug-
+  // Stammdaten nicht den neueren Serverstand überschreiben. Der Server bleibt
+  // für die Stammdaten führend; lokal noch nicht synchronisierte Fahrten werden
+  // jedoch per ID ergänzt, damit keine Fahrt verloren geht.
+  if (pendingKeys.includes("resources")) {
+    pendingPatch.resources = mergeResourcesById(
+      remoteSnapshot.resources ?? [],
+      localSnapshot.resources ?? [],
+    );
+  }
+
   return {
     ...remoteSnapshot,
-    ...sectionPatch(mergedPendingSnapshot, pendingKeys),
+    ...pendingPatch,
     updatedAt: mergedPendingSnapshot.updatedAt,
   };
 }
