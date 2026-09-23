@@ -1588,6 +1588,7 @@ async function saveResourceSection(supabase: NonNullable<ReturnType<typeof getSu
 
   if (tripError) await saveResourceSectionViaRpc(supabase, value);
 
+  const resourceIds = resources.map((resource) => String(resource.id));
   const mediaRows = resources.flatMap((resource) => (
     Array.isArray(resource.media)
       ? resource.media
@@ -1595,6 +1596,43 @@ async function saveResourceSection(supabase: NonNullable<ReturnType<typeof getSu
           .map((item) => mediaToRow("resource", String(resource.id), item))
       : []
   ));
+
+  // homecare_media ist eine relationale Spiegelung des aktuellen Ressourcenstands.
+  // Ein reines Upsert reicht hier nicht: Wird ein Fahrzeugbild in der App gelöscht,
+  // bleibt die alte Media-Zeile sonst in Supabase bestehen und wird beim nächsten
+  // Laden wieder als zweites Bild eingemischt. Daher veraltete Resource-Media-Zeilen
+  // explizit entfernen und danach die aktuell vorhandenen Bilder/Dokumente upserten.
+  const { data: existingMedia, error: existingMediaError } = resourceIds.length
+    ? await supabase
+        .from("homecare_media")
+        .select("id, owner_id")
+        .eq("owner_type", "resource")
+        .in("owner_id", resourceIds)
+    : { data: [], error: null };
+
+  if (existingMediaError) {
+    await saveResourceSectionViaRpc(supabase, value);
+    return;
+  }
+
+  const currentMediaIds = new Set(mediaRows.map((row) => String(row.id)));
+  const staleMediaIds = ((existingMedia ?? []) as Array<{ id: string; owner_id: string }>)
+    .map((row) => String(row.id))
+    .filter((id) => !currentMediaIds.has(id));
+
+  if (staleMediaIds.length) {
+    const { error: deleteMediaError } = await supabase
+      .from("homecare_media")
+      .delete()
+      .eq("owner_type", "resource")
+      .in("id", staleMediaIds);
+
+    if (deleteMediaError) {
+      await saveResourceSectionViaRpc(supabase, value);
+      return;
+    }
+  }
+
   if (!mediaRows.length) return;
 
   const { error: mediaError } = await supabase
