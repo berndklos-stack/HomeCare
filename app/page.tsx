@@ -3991,12 +3991,13 @@ async function loadSupabaseSnapshot() {
   return payload.data ? { ...payload.data, updatedAt: payload.data.updatedAt ?? payload.updatedAt ?? undefined } : null;
 }
 
-async function loadSyncSections() {
+async function loadSyncSections(keys?: SyncSectionKey[]) {
   if (process.env.NEXT_PUBLIC_DISABLE_SUPABASE_SYNC === "1") {
     return {};
   }
 
-  const response = await withTimeout(fetch("/api/sync-sections", {
+  const query = keys?.length ? `?keys=${encodeURIComponent(keys.join(","))}` : "";
+  const response = await withTimeout(fetch(`/api/sync-sections${query}`, {
     cache: "no-store",
     headers: { Accept: "application/json" },
   }), 10000);
@@ -11625,15 +11626,34 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   async function syncedResourcesForQuickTrip() {
     if (!appStorageReady || supabaseSyncDisabled) return resources;
     try {
-      const remoteSnapshot = await loadSupabaseSnapshot();
-      if (!remoteSnapshot) return resources;
-      const mergedSnapshot = sanitizePersonnelSnapshot(mergeSnapshots(remoteSnapshot, currentSnapshot()));
-      if (JSON.stringify(mergedSnapshot) !== JSON.stringify(currentSnapshot())) {
+      // Fuer eine neue Fahrt ist /api/sync-sections?keys=resources die fuehrende
+      // Quelle. Dort werden homecare_resources, homecare_vehicle_trips und
+      // homecare_media zusammengefuehrt. app_state allein kann bei Fahrzeugen
+      // zeitweise hinterherhinken und darf daher Start-KM/Ort nicht bestimmen.
+      const [remoteSnapshot, resourceSections] = await Promise.all([
+        loadSupabaseSnapshot().catch(() => null),
+        loadSyncSections(["resources"]).catch(() => ({} as SyncSectionMap)),
+      ]);
+      const current = currentSnapshot();
+      let mergedSnapshot = remoteSnapshot
+        ? sanitizePersonnelSnapshot(mergeSnapshots(remoteSnapshot, current))
+        : current;
+      const syncedResources = resourceSections.resources?.value;
+      if (Array.isArray(syncedResources)) {
+        // Relationale Ressourcen sind fuer Fahrzeug-Stammdaten/Medien fuehrend;
+        // lokale/app_state-Fahrten werden nur ergaenzt, falls sie dort noch fehlen.
+        mergedSnapshot = {
+          ...mergedSnapshot,
+          resources: mergeResourcesById(syncedResources as ResourceRecord[], mergedSnapshot.resources ?? []),
+          updatedAt: resourceSections.resources?.updatedAt ?? mergedSnapshot.updatedAt,
+        };
+      }
+      if (JSON.stringify(mergedSnapshot) !== JSON.stringify(current)) {
         skipNextAutoSaveRef.current = true;
         applySnapshot(mergedSnapshot);
         persistLocalSnapshot(mergedSnapshot);
       }
-      lastRemoteSnapshotKeyRef.current = snapshotContentKey(remoteSnapshot);
+      if (remoteSnapshot) lastRemoteSnapshotKeyRef.current = snapshotContentKey(remoteSnapshot);
       return mergedSnapshot.resources ?? resources;
     } catch (error) {
       console.warn("Fahrtenbuch-Stand konnte vor Quick-Fahrt nicht aktualisiert werden.", error);
@@ -11666,11 +11686,19 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
         || current.odometerPhotos.length
       );
       const draftVehicleStillExists = Boolean(current.resourceId && freshVehicles.some((item) => item.id === current.resourceId));
+      const mostRecentlyUsedVehicle = [...freshVehicles]
+        .map((vehicle) => ({ entry: latestCompletedLogbookEntry(vehicle), vehicle }))
+        .sort((first, second) => {
+          const firstKey = first.entry ? `${first.entry.date}-${first.entry.startedAt ?? ""}-${first.entry.id}` : "";
+          const secondKey = second.entry ? `${second.entry.date}-${second.entry.startedAt ?? ""}-${second.entry.id}` : "";
+          return secondKey.localeCompare(firstKey);
+        })[0]?.vehicle;
       const resourceId = current.activeLogbookEntryId
         ? current.resourceId
         : vehicleWithActiveTrip?.id
           || liveTrip?.resourceId
-          || (hasMeaningfulDraft && draftVehicleStillExists ? current.resourceId : "")
+          || (draftVehicleStillExists ? current.resourceId : "")
+          || mostRecentlyUsedVehicle?.id
           || freshVehicles[0]?.id
           || activeVehicles[0]?.id
           || "";
