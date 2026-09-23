@@ -2344,10 +2344,20 @@ function mergeResourceSectionValues(
   const mergedResources = primaryResources.map((primaryResource) => {
     const secondaryResource = secondaryById.get(String(primaryResource.id ?? ""));
     if (!secondaryResource) return primaryResource;
+    // Der primaere Ressourcenstand ist anhand des Section-Zeitstempels der
+    // neuere Stand. Alte Loeschmarker aus dem sekundaeren Spiegel duerfen daher
+    // keine Fahrt ausblenden, die im primaeren Stand vorhanden ist.
+    const primaryLogbookIds = new Set(
+      Array.isArray(primaryResource.logbook)
+        ? primaryResource.logbook
+            .filter((entry): entry is JsonObject => Boolean(entry && typeof entry === "object" && !Array.isArray(entry)))
+            .map((entry) => String(entry.id ?? ""))
+        : [],
+    );
     const deletedLogbookEntryIds = Array.from(new Set([
       ...stringArray(secondaryResource.deletedLogbookEntryIds),
       ...stringArray(primaryResource.deletedLogbookEntryIds),
-    ]));
+    ])).filter((id) => !primaryLogbookIds.has(id));
     const deletedIds = new Set(deletedLogbookEntryIds);
     return {
       ...secondaryResource,
