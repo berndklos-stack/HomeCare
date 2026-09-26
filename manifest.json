@@ -1,0 +1,21 @@
+{
+  "name": "WorkCore Product Foundation v2",
+  "created": "2026-09-26",
+  "language": "English",
+  "document_count": 13,
+  "documents": [
+    "AI-Principles.md",
+    "Administration-and-Tenant-Model.md",
+    "Data-Migration-and-Onboarding.md",
+    "Design-Manifest.md",
+    "Modules-and-Capabilities.md",
+    "Non-Negotiables.md",
+    "Product-Requirements.md",
+    "Product-Strategy.md",
+    "Product-Vision.md",
+    "Quality-and-Release-Principles.md",
+    "README.md",
+    "Security-and-Compliance-Principles.md",
+    "User-Experience-Principles.md"
+  ]
+}
