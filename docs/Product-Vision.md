@@ -1,104 +1,56 @@
-# WorkCore / Koll – Product Vision
+# Product Vision
 
-## Purpose
-WorkCore / Koll exists to make everyday work dramatically simpler for small and medium-sized service businesses.
+WorkCore is a modular business operating platform for small and medium-sized companies that combines customers, jobs, projects, service, resources, communication, billing, automation and AI in one coherent system.
 
-The product should reduce administration, save time, prevent mistakes, and bring important daily workflows into one clear, intuitive system.
+## Product character
+**Easy. Professional. Clear.**
 
-Desired first impression:
-> “Why does this only exist now?”
+The product should feel understandable on first contact, calm rather than overloaded, dependable, modern, and flexible without exposing unnecessary complexity.
 
-Desired long-term reaction:
-> “This moved us forward.”
-> “Our employees love using it.”
+## Core principle
+> The software adapts to the business — not the other way around.
 
-## Core Product Identity
-WorkCore / Koll should be:
-- Easy
-- Professional
-- Clear
+## Target users
+Primary:
+- crafts and service businesses
+- property care / property services
+- small property-management operations
 
-The software should feel intuitive enough for people with little or no IT experience.
+Secondary:
+- consulting and office services
+- agriculture
+- logistics-related service companies
+- other operational SMEs
 
-## Primary Target Groups
-### Priority 3 – Core
-- Trades and field service businesses
-- Property and real-estate-related service businesses
-
-### Priority 2 – Important
-- Consulting and office-based service businesses
-- Agriculture and agricultural service businesses
-
-### Priority 1 – Later / additional
-- Logistics
-- Other small service and operational businesses
-
-## Company Size
-Primary focus:
-- Solo entrepreneurs
+Typical company sizes:
+- solo
 - 2–5 employees
 - 6–20 employees
+- potentially 21–50 employees
 
-Potential expansion:
-- 21–50 employees
+## Markets
+Primary focus:
+- Sweden
+- Germany
 
-## Geographic Focus
-1. Sweden
-2. Germany
-3. Austria
-4. Switzerland
+Later:
+- Austria
+- Switzerland
+- other European markets with proper localization
 
-## Product Philosophy
-### The software adapts to the business
-The business should not have to adapt to the software.
+Localization means more than translation: terminology, tax, invoicing, payment methods, formats and compliance expectations matter.
 
-### One platform, many businesses
-WorkCore should be modular and expandable.
+## Strategic differentiation
+WorkCore should combine:
+- simplicity
+- professional depth
+- mobile usability
+- strong offline behavior
+- trustworthy synchronization
+- modularity
+- AI assistance with human control
+- transparent pricing
+- multi-company readiness
 
-A solo entrepreneur may only need:
-- customers
-- jobs
-- invoicing
-
-A growing company may later add:
-- inventory
-- employees
-- time tracking
-- vehicles
-- projects
-- reporting
-- automation
-- AI assistance
-
-## Customer Promise
-WorkCore should help customers:
-- save time
-- save money
-- reduce office work
-- reduce errors
-- improve quality
-- work more professionally
-- keep everything in one place
-- work consistently across devices
-- use automation and AI effectively
-- scale without changing software
-
-## Strategic Direction
-WorkCore / Koll is not intended to become a heavy ERP suite.
-
-It should remain:
-- simple
-- modular
-- mobile-first
-- server-first
-- offline-ready
-- multi-device
-- customizable
-- highly reliable
-- automation-friendly
-- AI-assisted
-- privacy-aware
-- vendor-independent
-
-## Internal Principle
-> The software should help the user think less about administration and more about the work that creates value.
+## Long-term goal
+Become the everyday operational system a small or medium-sized business can rely on without stitching together disconnected tools.
