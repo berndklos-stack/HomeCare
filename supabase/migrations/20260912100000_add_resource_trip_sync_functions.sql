@@ -198,7 +198,7 @@ begin
 end;
 $$;
 
-revoke all on function public.homecare_resources_snapshot() from public;
-revoke all on function public.homecare_save_resources_snapshot(jsonb) from public;
+revoke all on function public.homecare_resources_snapshot() from public, anon, authenticated;
+revoke all on function public.homecare_save_resources_snapshot(jsonb) from public, anon, authenticated;
 grant execute on function public.homecare_resources_snapshot() to service_role;
 grant execute on function public.homecare_save_resources_snapshot(jsonb) to service_role;

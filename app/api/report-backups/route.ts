@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { isAuthError, requireApiAuth } from "@/lib/server/apiAuth";
 
 export const runtime = "nodejs";
 
@@ -53,11 +54,10 @@ function smallReportBackup(report: JsonObject) {
   };
 }
 
-export async function GET() {
-  const supabase = getSupabaseServerClient();
-  if (!supabase) {
-    return NextResponse.json({ data: [], error: "Supabase-Zugangsdaten fehlen." }, { status: 500 });
-  }
+export async function GET(request: Request) {
+  const auth = await requireApiAuth(request, "backups.manage");
+  if (isAuthError(auth)) return auth;
+  const supabase = auth.client;
 
   const { data, error } = await supabase
     .from("app_state")
@@ -77,10 +77,9 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
-  const supabase = getSupabaseServerClient();
-  if (!supabase) {
-    return NextResponse.json({ error: "Supabase-Zugangsdaten fehlen." }, { status: 500 });
-  }
+  const auth = await requireApiAuth(request, "backups.manage");
+  if (isAuthError(auth)) return auth;
+  const supabase = auth.client;
 
   const body = await request.json();
   const report = body && typeof body === "object" ? body as JsonObject : {};
@@ -96,8 +95,9 @@ export async function PUT(request: Request) {
     .upsert({
       data: backup,
       id: backupId(reportId),
+      tenant_id: auth.tenantId,
       updated_at: updatedAt,
-    }, { onConflict: "id" });
+    }, { onConflict: "tenant_id,id" });
 
   if (error) {
     return NextResponse.json({ error: error.message, retry: true }, { status: 500 });

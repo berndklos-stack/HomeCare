@@ -1,6 +1,7 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { gzipSync, gunzipSync } from "node:zlib";
+import { isAuthError, requireApiAuth } from "@/lib/server/apiAuth";
 
 export const runtime = "nodejs";
 
@@ -72,12 +73,7 @@ async function ensureBackupBucket(supabase: NonNullable<ReturnType<typeof getSup
   }
 }
 
-async function createCurrentBackup(reason: string) {
-  const supabase = getSupabaseServerClient();
-  if (!supabase) {
-    return { response: NextResponse.json({ error: "Supabase-Zugangsdaten fehlen." }, { status: 500 }) };
-  }
-
+async function createCurrentBackup(reason: string, supabase: SupabaseClient, tenantId: string) {
   const { data: current, error: currentError } = await supabase
     .from("app_state")
     .select("data, updated_at")
@@ -107,11 +103,12 @@ async function createCurrentBackup(reason: string) {
       total: chunks.length,
     },
     id: chunkId,
+    tenant_id: tenantId,
     updated_at: createdAt,
   }));
   const { error: chunkError } = await supabase
     .from("app_state")
-    .upsert(chunkRows, { onConflict: "id" });
+    .upsert(chunkRows, { onConflict: "tenant_id,id" });
 
   if (chunkError) {
     return { response: NextResponse.json({ error: chunkError.message }, { status: 500 }) };
@@ -135,8 +132,9 @@ async function createCurrentBackup(reason: string) {
     .upsert({
       data: backup,
       id: backupId,
+      tenant_id: tenantId,
       updated_at: createdAt,
-    }, { onConflict: "id" });
+    }, { onConflict: "tenant_id,id" });
 
   if (indexError) {
     return { response: NextResponse.json({ error: indexError.message }, { status: 500 }) };
@@ -145,11 +143,10 @@ async function createCurrentBackup(reason: string) {
   return { response: NextResponse.json({ ok: true, backup }) };
 }
 
-export async function GET() {
-  const supabase = getSupabaseServerClient();
-  if (!supabase) {
-    return NextResponse.json({ data: [], error: "Supabase-Zugangsdaten fehlen." }, { status: 500 });
-  }
+export async function GET(request: Request) {
+  const auth = await requireApiAuth(request, "backups.manage");
+  if (isAuthError(auth)) return auth;
+  const supabase = auth.client;
 
   const { data, error } = await supabase
     .from("app_state")
@@ -171,9 +168,11 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
+  const auth = await requireApiAuth(request, "backups.manage");
+  if (isAuthError(auth)) return auth;
   try {
     const body = await request.json().catch(() => ({}));
-    const { response } = await createCurrentBackup(String(body?.reason ?? "manual"));
+    const { response } = await createCurrentBackup(String(body?.reason ?? "manual"), auth.client, auth.tenantId);
     return response;
   } catch (error) {
     return NextResponse.json({
@@ -183,10 +182,9 @@ export async function PUT(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const supabase = getSupabaseServerClient();
-  if (!supabase) {
-    return NextResponse.json({ error: "Supabase-Zugangsdaten fehlen." }, { status: 500 });
-  }
+  const auth = await requireApiAuth(request, "backups.manage");
+  if (isAuthError(auth)) return auth;
+  const supabase = auth.client;
 
   const body = await request.json();
   const backupId = String(body?.id ?? "");
@@ -250,8 +248,9 @@ export async function POST(request: Request) {
         updatedAt: restoredAt,
       },
       id: appStateRowId,
+      tenant_id: auth.tenantId,
       updated_at: restoredAt,
-    }, { onConflict: "id" });
+    }, { onConflict: "tenant_id,id" });
 
   if (restoreError) {
     return NextResponse.json({ error: restoreError.message }, { status: 500 });

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isAuthError, requireApiAuth } from "@/lib/server/apiAuth";
 
 export const runtime = "nodejs";
 
@@ -42,6 +43,8 @@ async function sendPortalNotification(payload: Required<Pick<PortalNotifyPayload
 }
 
 export async function POST(request: Request) {
+  const auth = await requireApiAuth(request, "communication.send");
+  if (isAuthError(auth)) return auth;
   try {
     const payload = await request.json() as PortalNotifyPayload;
     const subject = payload.subject?.trim();

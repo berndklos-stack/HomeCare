@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { gunzipSync } from "node:zlib";
+import { isAuthError, requireApiAuth } from "@/lib/server/apiAuth";
 
 export const runtime = "nodejs";
 
@@ -259,10 +260,7 @@ function samePhoto(left: JsonObject, right: JsonObject) {
     && String(left.createdAt ?? "") === String(right.createdAt ?? "");
 }
 
-async function backupPhotoSources(query: string, date: string) {
-  const supabase = getSupabaseServerClient();
-  if (!supabase) throw new Error("Supabase-Zugangsdaten fehlen.");
-
+async function backupPhotoSources(query: string, date: string, supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
   const backups = await recentBackups(supabase);
   const sources = new Map<string, JsonObject>();
   const looseSources = new Map<string, JsonObject>();
@@ -292,11 +290,13 @@ async function backupPhotoSources(query: string, date: string) {
 }
 
 export async function GET(request: Request) {
+  const auth = await requireApiAuth(request, "backups.manage");
+  if (isAuthError(auth)) return auth;
   try {
     const { searchParams } = new URL(request.url);
     const query = searchParams.get("q") ?? "gunnabo";
     const date = searchParams.get("date") ?? "2026-09-08";
-    const { inspected, sources } = await backupPhotoSources(query, date);
+    const { inspected, sources } = await backupPhotoSources(query, date, auth.client);
     return NextResponse.json({
       inspected,
       sourcedPhotos: sources.size,
@@ -307,12 +307,13 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const auth = await requireApiAuth(request, "backups.manage");
+  if (isAuthError(auth)) return auth;
   try {
     const body = await request.json().catch(() => ({}));
     const query = String(body?.q ?? "gunnabo");
     const date = String(body?.date ?? "2026-09-08");
-    const supabase = getSupabaseServerClient();
-    if (!supabase) throw new Error("Supabase-Zugangsdaten fehlen.");
+    const supabase = auth.client;
     const { data: currentRow, error } = await supabase
       .from("app_state")
       .select("data")
@@ -336,7 +337,7 @@ export async function POST(request: Request) {
     let sources = new Map<string, JsonObject>();
     let inspected: Array<{ backupId: string; sourcedPhotos: number }> = [];
     if (currentProgressSourceCount === 0) {
-      const backupResult = await backupPhotoSources(query, date);
+      const backupResult = await backupPhotoSources(query, date, supabase);
       backupReports = backupResult.backupReports;
       indexedSources = backupResult.indexedSources;
       inspected = backupResult.inspected;
@@ -425,7 +426,7 @@ export async function POST(request: Request) {
     };
     const { error: saveError } = await supabase
       .from("app_state")
-      .upsert({ data: updated, id: appStateRowId, updated_at: updated.updatedAt }, { onConflict: "id" });
+      .upsert({ data: updated, id: appStateRowId, tenant_id: auth.tenantId, updated_at: updated.updatedAt }, { onConflict: "tenant_id,id" });
     if (saveError) throw new Error(saveError.message);
 
     const recoveredReports = updatedReports
@@ -434,7 +435,7 @@ export async function POST(request: Request) {
     if (recoveredReports.length > 0) {
       const { error: reportSaveError } = await supabase
         .from("homecare_reports")
-        .upsert(recoveredReports.map(reportToRow), { onConflict: "id" });
+        .upsert(recoveredReports.map((report) => ({ ...reportToRow(report), tenant_id: auth.tenantId })), { onConflict: "id" });
       if (reportSaveError) throw new Error(reportSaveError.message);
     }
 

@@ -3,6 +3,9 @@
 /* eslint-disable @next/next/no-img-element -- Berichtsbilder müssen in Chrome-PDFs als echte img-Elemente erscheinen. */
 
 import Image from "next/image";
+import { AuthGate } from "@/components/AuthGate";
+import { SyncStatus } from "@/components/SyncStatus";
+import { TenantSwitcher } from "@/components/TenantSwitcher";
 import {
   ArrowDown,
   ArrowLeft,
@@ -51,7 +54,10 @@ import {
 } from "lucide-react";
 import { type CSSProperties, type DragEvent, type MouseEvent, type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { appVersion, versionHistory } from "@/lib/appVersion";
+import { apiFetch, apiRequestHeaders, tenantScopedStorageKey } from "@/lib/apiClient";
 import { defaultAppBranding, resolveAppBranding } from "@/lib/branding";
+import { createStableId, type SyncMutation, type SyncMutationOperation, type SyncMutationResult } from "@/lib/syncQueue";
+import { useSyncQueue } from "@/lib/useSyncQueue";
 import {
   normalizeOnboardingState,
   onboardingInstallPlatform,
@@ -153,6 +159,7 @@ type ObjectRecord = {
 
 type MediaItem = {
   id: string;
+  revision?: number;
   type: "Bild" | "Dokument" | "Grundriss";
   name: string;
   description: string;
@@ -602,6 +609,9 @@ type VehicleOdometerHistoryEntry = {
 
 type VehicleLogEntry = {
   id: string;
+  revision?: number;
+  updatedAt?: string;
+  deletedAt?: string;
   date: string;
   driverId: string;
   status?: "laufend" | "abgeschlossen";
@@ -979,7 +989,7 @@ function createOdometerHistoryEntry(params: {
   return {
     changedReason: params.reason,
     createdAt: new Date().toISOString(),
-    id: `ODO-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    id: createStableId("ODO"),
     odometer: params.odometer,
     photoId: params.photo?.id,
     photoName: params.photo?.name,
@@ -2756,7 +2766,7 @@ function translationFileRows(overrides: TranslationFileRow[] = []) {
   return Array.from(rows.values()).sort((first, second) => first.de.localeCompare(second.de, "de"));
 }
 
-const storageKeys = {
+const baseStorageKeys = {
   accountingAccounts: "kolaretorp-accounting-accounts",
   objects: "kolaretorp-objects",
   customers: "kolaretorp-customers",
@@ -2784,13 +2794,20 @@ const storageKeys = {
   updatedAt: "kolaretorp-updated-at",
 };
 
+const storageKeys = new Proxy(baseStorageKeys, {
+  get(target, property: keyof typeof baseStorageKeys) {
+    return tenantScopedStorageKey(target[property]);
+  },
+}) as typeof baseStorageKeys;
 
-const pendingSyncKeysStorageKey = "kolaretorp-pending-sync-keys-v2";
+function pendingSyncKeysStorageKey() {
+  return tenantScopedStorageKey("kolaretorp-pending-sync-keys-v2");
+}
 
 function readPendingSyncKeys(): SyncSectionKey[] {
   if (typeof window === "undefined") return [];
   try {
-    const parsed = JSON.parse(window.localStorage.getItem(pendingSyncKeysStorageKey) || "[]");
+    const parsed = JSON.parse(window.localStorage.getItem(pendingSyncKeysStorageKey()) || "[]");
     if (!Array.isArray(parsed)) return [];
     return parsed.filter((key): key is SyncSectionKey => syncSectionKeys.includes(key as SyncSectionKey));
   } catch {
@@ -2801,7 +2818,7 @@ function readPendingSyncKeys(): SyncSectionKey[] {
 function writePendingSyncKeys(keys: Iterable<SyncSectionKey>) {
   if (typeof window === "undefined") return;
   const unique = Array.from(new Set(keys));
-  window.localStorage.setItem(pendingSyncKeysStorageKey, JSON.stringify(unique));
+  window.localStorage.setItem(pendingSyncKeysStorageKey(), JSON.stringify(unique));
 }
 
 function addPendingSyncKeys(keys: Iterable<SyncSectionKey>) {
@@ -3930,7 +3947,7 @@ async function uploadMediaFile(file: File | Blob, scope: string, fileName?: stri
       const formData = new FormData();
       formData.append("scope", scope);
       formData.append("file", file, fileName);
-      const response = await withTimeout(fetch("/api/media", {
+      const response = await withTimeout(apiFetch("/api/media", {
         body: formData,
         method: "POST",
       }), 20000);
@@ -3978,7 +3995,7 @@ async function loadSupabaseSnapshot() {
     return null;
   }
 
-  const response = await withTimeout(fetch("/api/app-state?compact=1", {
+  const response = await withTimeout(apiFetch("/api/app-state?compact=1", {
     cache: "no-store",
     headers: { Accept: "application/json" },
   }), 30000);
@@ -3997,7 +4014,7 @@ async function loadSyncSections(keys?: SyncSectionKey[]) {
   }
 
   const query = keys?.length ? `?keys=${encodeURIComponent(keys.join(","))}` : "";
-  const response = await withTimeout(fetch(`/api/sync-sections${query}`, {
+  const response = await withTimeout(apiFetch(`/api/sync-sections${query}`, {
     cache: "no-store",
     headers: { Accept: "application/json" },
   }), 10000);
@@ -4033,7 +4050,7 @@ function mergeSnapshotWithSyncSections(snapshot: AppSnapshot, sections: SyncSect
 }
 
 async function loadVehiclePositions() {
-  const response = await withTimeout(fetch("/api/vehicle-positions", {
+  const response = await withTimeout(apiFetch("/api/vehicle-positions", {
     cache: "no-store",
     headers: { Accept: "application/json" },
   }), 10000);
@@ -4043,7 +4060,7 @@ async function loadVehiclePositions() {
 }
 
 async function saveVehiclePosition(position: LiveVehiclePosition) {
-  const response = await withTimeout(fetch("/api/vehicle-positions", {
+  const response = await withTimeout(apiFetch("/api/vehicle-positions", {
     body: JSON.stringify(position),
     cache: "no-store",
     headers: { "Content-Type": "application/json" },
@@ -4055,7 +4072,7 @@ async function saveVehiclePosition(position: LiveVehiclePosition) {
 }
 
 async function saveSupabaseSnapshotWithFetch(endpoint: string, snapshot: AppSnapshot) {
-  const response = await withTimeout(fetch(endpoint, {
+  const response = await withTimeout(apiFetch(endpoint, {
     body: JSON.stringify(snapshot),
     headers: {
       "Content-Type": "application/json",
@@ -4080,7 +4097,7 @@ async function saveSmallSyncPatch(overrides: Partial<AppSnapshot>) {
   const patch = Object.fromEntries(
     Object.entries(overrides).filter(([key]) => key !== "updatedAt"),
   );
-  const response = await withTimeout(fetch("/api/sync-sections", {
+  const response = await withTimeout(apiFetch("/api/sync-sections", {
     body: JSON.stringify({ patch }),
     cache: "no-store",
     headers: { "Content-Type": "application/json" },
@@ -4093,11 +4110,12 @@ async function saveSmallSyncPatch(overrides: Partial<AppSnapshot>) {
   return payload.updatedAt ?? overrides.updatedAt;
 }
 
-function saveSupabaseSnapshotWithXhr(endpoint: string, snapshot: AppSnapshot) {
+async function saveSupabaseSnapshotWithXhr(endpoint: string, snapshot: AppSnapshot) {
+  const authHeaders = await apiRequestHeaders({ "Content-Type": "application/json" });
   return new Promise<string | undefined>((resolve, reject) => {
     const request = new XMLHttpRequest();
     request.open("POST", endpoint, true);
-    request.setRequestHeader("Content-Type", "application/json");
+    authHeaders.forEach((value, key) => request.setRequestHeader(key, value));
     request.timeout = 12000;
     request.onload = () => {
       let payload: { error?: string; retry?: boolean; updatedAt?: string } = {};
@@ -4266,7 +4284,7 @@ function applyReportTextBackups(reports: ReportRecord[], backups: ReportTextBack
 
 async function loadReportTextBackups() {
   try {
-    const response = await withTimeout(fetch("/api/report-backups", {
+    const response = await withTimeout(apiFetch("/api/report-backups", {
       cache: "no-store",
       headers: { Accept: "application/json" },
     }), 6000);
@@ -4281,7 +4299,7 @@ async function loadReportTextBackups() {
 
 async function saveReportTextBackup(report: ReportRecord) {
   try {
-    const response = await withTimeout(fetch("/api/report-backups", {
+    const response = await withTimeout(apiFetch("/api/report-backups", {
       body: JSON.stringify(reportTextBackup(report)),
       headers: { "Content-Type": "application/json" },
       method: "PUT",
@@ -4294,7 +4312,7 @@ async function saveReportTextBackup(report: ReportRecord) {
 }
 
 async function loadAppBackups() {
-  const response = await withTimeout(fetch("/api/app-backups", {
+  const response = await withTimeout(apiFetch("/api/app-backups", {
     cache: "no-store",
     headers: { Accept: "application/json" },
   }), 8000);
@@ -4304,7 +4322,7 @@ async function loadAppBackups() {
 }
 
 async function createAppBackup(reason = "manual") {
-  const response = await withTimeout(fetch("/api/app-backups", {
+  const response = await withTimeout(apiFetch("/api/app-backups", {
     body: JSON.stringify({ reason }),
     headers: { "Content-Type": "application/json" },
     method: "PUT",
@@ -4315,7 +4333,7 @@ async function createAppBackup(reason = "manual") {
 }
 
 async function restoreAppBackup(backupId: string) {
-  const response = await withTimeout(fetch("/api/app-backups", {
+  const response = await withTimeout(apiFetch("/api/app-backups", {
     body: JSON.stringify({ id: backupId }),
     headers: { "Content-Type": "application/json" },
     method: "POST",
@@ -4326,7 +4344,7 @@ async function restoreAppBackup(backupId: string) {
 }
 
 async function loadLiveAppVersion() {
-  const response = await withTimeout(fetch("/api/version", {
+  const response = await withTimeout(apiFetch("/api/version", {
     cache: "no-store",
     headers: { Accept: "application/json" },
   }), 6000);
@@ -4556,13 +4574,6 @@ function updateAddressPart(address: string, key: keyof AddressParts, value: stri
   return joinAddressParts({ ...splitAddressParts(address), [key]: value });
 }
 
-function portalPasswordFromAddress(address: string) {
-  const postalCode = splitAddressParts(address).postalCode;
-  const houseNumber = address.match(/\b\d+[A-Za-z]?\b/g)?.filter((part) => part.replace(/\D/g, "") !== postalCode)?.[0] ?? "";
-
-  return `${postalCode}${houseNumber}` || "";
-}
-
 function customerPortalUrl() {
   return "https://homecare-kolaretorp.vercel.app/portal";
 }
@@ -4604,12 +4615,11 @@ function portalInviteBody(customer: CustomerFormState) {
       "",
       "I portalen kan du se dina objekt, uppdrag, rapporter och meddelanden.",
       "",
-      "Inloggningsuppgifter:",
+      "Inloggning:",
       `Portal: ${customerPortalUrl()}`,
       `Inloggningsmejl: ${customer.portalLoginEmail.trim() || customer.email.trim() || "-"}`,
-      `Lösenord: ${customer.portalPassword.trim() || "-"}`,
       "",
-      "Logga gärna in med dessa uppgifter i kundportalen.",
+      "Använd ditt personliga konto för att logga in i kundportalen.",
       "",
       "Med vänliga hälsningar",
       "Kolaretorp Service AB",
@@ -4623,12 +4633,11 @@ function portalInviteBody(customer: CustomerFormState) {
     "",
     "Im Portal kannst du deine Objekte, Aufträge, Berichte und Nachrichten einsehen.",
     "",
-    "Zugangsdaten:",
+    "Anmeldung:",
     `Portal: ${customerPortalUrl()}`,
     `Login-E-Mail: ${customer.portalLoginEmail.trim() || customer.email.trim() || "-"}`,
-    `Passwort: ${customer.portalPassword.trim() || "-"}`,
     "",
-    "Bitte melde dich mit diesen Daten im Kundenportal an.",
+    "Bitte melde dich mit deinem persönlichen Konto im Kundenportal an.",
     "",
     "Liebe Grüße",
     "Kolaretorp Service AB",
@@ -6326,7 +6335,7 @@ async function sendAnalyticsReportPdf(title: string, periodLabel: string, entrie
   const pdfBlob = await createAnalyticsReportPdfBlob(title, periodLabel, entries);
   const attachmentBase64 = assertBase64Content(await blobToBase64(pdfBlob), "Auswertungs-PDF");
   const fileName = analyticsReportFileName(title, periodLabel);
-  const response = await fetch("/api/reports/send", {
+  const response = await apiFetch("/api/reports/send", {
     body: JSON.stringify({
       attachmentBase64,
       body: body?.trim() || analyticsReportMailBody(periodLabel, recipientName),
@@ -6385,7 +6394,7 @@ async function sendCustomerReportMail(report: ReportRecord, object: ObjectRecord
 
   let response: Response;
   try {
-    response = await fetch("/api/reports/send", {
+    response = await apiFetch("/api/reports/send", {
       body: JSON.stringify({
         attachmentBase64,
         attachments: extraAttachments,
@@ -6469,7 +6478,7 @@ async function sendOfferMail(job: JobRecord, object: ObjectRecord, customer: Cus
   const pdfBlob = await createOfferPdfBlob(job, object, customer, services, companySettings);
   const fileName = `${safeFileName(offerSendSubject(job, object, customer))}.pdf`;
   const attachmentBase64 = assertBase64Content(await blobToBase64(pdfBlob), "Offerten-PDF");
-  const response = await fetch("/api/reports/send", {
+  const response = await apiFetch("/api/reports/send", {
     body: JSON.stringify({
       attachmentBase64,
       body: body?.trim() || offerSendBody(customer),
@@ -6770,7 +6779,7 @@ async function sendOrderConfirmationMail(job: JobRecord, object: ObjectRecord, c
   const pdfBlob = await createOfferPdfBlob(job, object, customer, services, companySettings, "confirmation");
   const fileName = `${safeFileName(orderConfirmationSendSubject(job, object, customer))}.pdf`;
   const attachmentBase64 = assertBase64Content(await blobToBase64(pdfBlob), "Auftragsbestaetigungs-PDF");
-  const response = await fetch("/api/reports/send", {
+  const response = await apiFetch("/api/reports/send", {
     body: JSON.stringify({
       attachmentBase64,
       body: body?.trim() || orderConfirmationSendBody(customer),
@@ -6793,7 +6802,7 @@ async function sendOrderConfirmationMail(job: JobRecord, object: ObjectRecord, c
 }
 
 async function notifyPortalActivity(subject: string, body: string, replyTo?: string, to?: string, bcc?: string) {
-  const response = await fetch("/api/portal/notify", {
+  const response = await apiFetch("/api/portal/notify", {
     body: JSON.stringify({ bcc, body, replyTo, subject, to }),
     headers: {
       "Content-Type": "application/json",
@@ -7028,7 +7037,7 @@ async function reverseGeocode(latitude: number, longitude: number) {
   });
 
   try {
-    const googleResponse = await fetch(`/api/geocode/reverse?${params.toString()}`, {
+    const googleResponse = await apiFetch(`/api/geocode/reverse?${params.toString()}`, {
       headers: { Accept: "application/json" },
     });
     if (googleResponse.ok) {
@@ -7156,7 +7165,7 @@ async function odometerFromImageSource(source: string) {
 }
 
 async function odometerFromImageDataUrl(imageDataUrl: string) {
-  const response = await fetch("/api/odometer", {
+  const response = await apiFetch("/api/odometer", {
     body: JSON.stringify({ imageDataUrl }),
     headers: { "Content-Type": "application/json" },
     method: "POST",
@@ -7286,7 +7295,7 @@ function customerToForm(customer: CustomerRecord): CustomerFormState {
     billingAddressMode: customer.billingAddressMode || "Kundenadresse",
     language: customer.language,
     portalLoginEmail: customer.portalLoginEmail || customer.email,
-    portalPassword: customer.portalPassword || "",
+    portalPassword: "",
     portalLoginHistory: customer.portalLoginHistory ?? [],
     balance: customer.balance,
     portalStatus: customer.portalStatus,
@@ -7325,7 +7334,7 @@ function formToCustomer(form: CustomerFormState, id: string, existingCustomer?: 
     billingAddressMode: form.billingAddressMode,
     language: form.language.trim() || "Deutsch",
     portalLoginEmail: portalLoginEmail || email,
-    portalPassword: form.portalPassword.trim(),
+    portalPassword: "",
     portalLoginHistory: form.portalLoginHistory ?? [],
     objects: form.objects,
     balance: form.balance.trim() || "0 SEK",
@@ -7517,7 +7526,7 @@ const seedCustomers: CustomerRecord[] = [
     address: "Storgatan 12, 392 32 Kalmar",
     language: "SV / DE",
     portalLoginEmail: "eva.andersson@example.com",
-    portalPassword: "demo-portal",
+    portalPassword: "",
     portalLoginHistory: [],
     objects: ["OBJ-1001"],
     balance: "0 SEK",
@@ -7534,7 +7543,7 @@ const seedCustomers: CustomerRecord[] = [
     address: "Musterstraße 9, 50667 Köln, Deutschland",
     language: "DE",
     portalLoginEmail: "markus.schneider@example.com",
-    portalPassword: "demo-portal",
+    portalPassword: "",
     portalLoginHistory: [],
     objects: ["OBJ-1002"],
     balance: "1.840 SEK",
@@ -7551,7 +7560,7 @@ const seedCustomers: CustomerRecord[] = [
     address: "Kolaretorp 106, 382 93 Nybro",
     language: "DE / EN",
     portalLoginEmail: "bernd@example.com",
-    portalPassword: "demo-portal",
+    portalPassword: "",
     portalLoginHistory: [],
     objects: ["OBJ-1003"],
     balance: "0 SEK",
@@ -8813,7 +8822,7 @@ type HomePageProps = {
   portalOnly?: boolean;
 };
 
-export default function HomePage({ initialSection = "dashboard", portalOnly = false }: HomePageProps = {}) {
+function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: HomePageProps = {}) {
   const [section, setSection] = useState<Section>(initialSection);
   const [language, setLanguage] = useState<Language>("de");
   const [theme, setTheme] = useState<Theme>("light");
@@ -8824,6 +8833,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   const [initialSyncComplete, setInitialSyncComplete] = useState(false);
   const [appLoadError, setAppLoadError] = useState("");
   const [appUpdatedAt, setAppUpdatedAt] = useState<string | undefined>(undefined);
+  const [legacySyncStatus, setLegacySyncStatus] = useState<"synced" | "pending" | "syncing" | "failed">("synced");
   const [supabaseSyncDisabled, setSupabaseSyncDisabled] = useState(false);
   const [accountingAccounts, setAccountingAccounts] = useState(defaultVismaChartOfAccounts);
   const [customers, setCustomers] = useState(seedCustomers);
@@ -8929,8 +8939,53 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
   const lastUserInteractionAtRef = useRef(0);
   const pendingReportPhotoUploadsRef = useRef<Set<string>>(new Set());
 
+  const handleMutationApplied = useCallback((mutation: SyncMutation, result: SyncMutationResult) => {
+    const serverRecord = result.record;
+    if (mutation.entityType !== "vehicle_trip" || !serverRecord) return;
+    const revision = Number(serverRecord.revision);
+    const deletedAt = typeof serverRecord.deleted_at === "string" ? serverRecord.deleted_at : undefined;
+    const updatedAt = typeof serverRecord.updated_at === "string" ? serverRecord.updated_at : new Date().toISOString();
+    setResources((current) => current.map((resource) => {
+      if (resource.id !== mutation.resourceId) return resource;
+      const logbook = deletedAt
+        ? resource.logbook.filter((entry) => entry.id !== mutation.entityId)
+        : resource.logbook.map((entry) => entry.id === mutation.entityId
+          ? { ...entry, revision: Number.isFinite(revision) ? revision : entry.revision, updatedAt }
+          : entry);
+      return {
+        ...resource,
+        deletedLogbookEntryIds: deletedAt
+          ? Array.from(new Set([...(resource.deletedLogbookEntryIds ?? []), mutation.entityId]))
+          : (resource.deletedLogbookEntryIds ?? []).filter((id) => id !== mutation.entityId),
+        logbook,
+      };
+    }));
+    setAppUpdatedAt(updatedAt);
+  }, []);
+
+  const tripSync = useSyncQueue({
+    disabled: supabaseSyncDisabled,
+    onApplied: handleMutationApplied,
+  });
+  const enqueueSyncMutation = tripSync.enqueue;
+
+  const enqueueTripMutation = useCallback((
+    operation: SyncMutationOperation,
+    resourceId: string,
+    entry: VehicleLogEntry,
+    expectedRevision?: number,
+  ) => enqueueSyncMutation({
+    entityId: entry.id,
+    entityType: "vehicle_trip",
+    expectedRevision,
+    operation,
+    payload: entry as unknown as Record<string, unknown>,
+    resourceId,
+  }), [enqueueSyncMutation]);
+
   const scheduleRemoteSave = useCallback((snapshot: AppSnapshot, keys: SyncSectionKey[], delayMs = 900) => {
     if (keys.length === 0) return;
+    setLegacySyncStatus("pending");
     pendingRemoteSnapshotRef.current = snapshot;
     keys.forEach((key) => pendingRemoteSectionKeysRef.current.add(key));
     addPendingSyncKeys(keys);
@@ -8949,6 +9004,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       const patchKey = `${queuedKeys.sort().join(",")}:${snapshotContentKey({ ...queuedSnapshot, ...patch })}`;
       if (patchKey === pendingRemoteSnapshotKeyRef.current) return;
       pendingRemoteSnapshotKeyRef.current = patchKey;
+      setLegacySyncStatus("syncing");
 
       void saveSupabasePatch(patch)
         .then((savedAt) => {
@@ -8961,12 +9017,14 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
           lastRemoteSnapshotKeyRef.current = snapshotContentKey(queuedSnapshot);
           if (savedAt) setAppUpdatedAt(savedAt);
           setSupabaseSyncDisabled(false);
+          setLegacySyncStatus(pendingRemoteSectionKeysRef.current.size > 0 ? "pending" : "synced");
         })
         .catch((error) => {
           pendingRemoteSnapshotKeyRef.current = null;
           queuedKeys.forEach((key) => pendingRemoteSectionKeysRef.current.add(key));
           addPendingSyncKeys(queuedKeys);
           console.warn("App-Daten konnten nicht nach Supabase synchronisiert werden.", error);
+          setLegacySyncStatus("failed");
           if (!isRetryableSyncError(error)) setSupabaseSyncDisabled(true);
         });
     }, delayMs);
@@ -9373,6 +9431,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
 
     scheduleLocalPersist(snapshot, changedKeys);
     setAppUpdatedAt(snapshotUpdatedAt);
+    if (changedKeys.length > 0) setLegacySyncStatus("pending");
     scheduleRemoteSave(snapshot, changedKeys, 1000);
   }, [accountingAccounts, activeJobId, appStorageReady, billing, companySettings, customers, dailyMailSettings, deletedEntityIds, deletedReportIds, fieldNotes, fieldProgress, initialSyncComplete, inventoryLocations, jobs, materials, objects, personnel, portalMessages, reports, resources, scheduleLocalPersist, scheduleRemoteSave, servicePackages, services, tenantSettings, translationOverrides]);
 
@@ -9606,6 +9665,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       changedKeys.forEach((key) => pendingRemoteSectionKeysRef.current.delete(key));
       pendingRemoteSnapshotKeyRef.current = null;
       const patch = sectionPatch(snapshot, changedKeys);
+      setLegacySyncStatus("syncing");
       void saveSupabasePatch(patch)
         .then((savedAt) => {
           changedKeys.forEach((key) => {
@@ -9615,6 +9675,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
           lastRemoteSnapshotKeyRef.current = snapshotContentKey(snapshot);
           setAppUpdatedAt(savedAt);
           setSupabaseSyncDisabled(false);
+          setLegacySyncStatus(pendingRemoteSectionKeysRef.current.size > 0 ? "pending" : "synced");
           setRecordNotice("Online gespeichert.");
           const remainingKeys = Array.from(pendingRemoteSectionKeysRef.current) as SyncSectionKey[];
           if (remainingKeys.length > 0) scheduleRemoteSave(snapshot, remainingKeys, 250);
@@ -9622,6 +9683,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
         .catch((error) => {
           addPendingSyncKeys(changedKeys);
           console.warn("App-Daten konnten nicht sofort online gespeichert werden.", error);
+          setLegacySyncStatus("failed");
           setRecordNotice(error instanceof Error ? `Online-Speichern fehlgeschlagen: ${error.message}` : "Online-Speichern fehlgeschlagen.");
         });
       return;
@@ -9634,6 +9696,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     const snapshotUpdatedAt = new Date().toISOString();
     explicitPersistAtRef.current = Date.now();
     setAppUpdatedAt(snapshotUpdatedAt);
+    setLegacySyncStatus("pending");
     pendingResourcePersistRef.current = { resources: nextResources, updatedAt: snapshotUpdatedAt };
     addPendingSyncKeys(["resources"]);
 
@@ -9651,15 +9714,18 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
         console.warn("Fahrtenbuch konnte nicht lokal gespeichert werden.", error);
       }
 
+      setLegacySyncStatus("syncing");
       void saveSupabasePatch({ resources: queued.resources, updatedAt: queued.updatedAt })
         .then((savedAt) => {
           syncedSectionHashesRef.current.resources = sectionHash(queued.resources);
           removePendingSyncKeys(["resources"]);
           if (savedAt) setAppUpdatedAt(savedAt);
           setSupabaseSyncDisabled(false);
+          setLegacySyncStatus("synced");
         })
         .catch((error) => {
           console.warn("Fahrtenbuch konnte nicht sofort online gespeichert werden.", error);
+          setLegacySyncStatus("failed");
           if (!isRetryableSyncError(error)) setSupabaseSyncDisabled(true);
         });
     }, options.delayMs ?? 120);
@@ -11144,7 +11210,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     try {
       setUnlockReportBusy(true);
       setUnlockReportNotice("");
-      const response = await fetch("/api/reports/unlock-authorize", {
+      const response = await apiFetch("/api/reports/unlock-authorize", {
         body: JSON.stringify({ password: trimmedPassword }),
         headers: { "Content-Type": "application/json" },
         method: "POST",
@@ -11819,7 +11885,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       visited: standardTrip.visited,
       waypoints: standardTrip.waypoints.map((waypoint, index) => ({
         address: waypoint.address,
-        id: globalThis.crypto?.randomUUID?.() ?? `${standardTrip.id}-WAY-${index}-${Date.now()}`,
+        id: createStableId("WAY"),
         note: waypoint.note,
         odometer: "",
       })),
@@ -11986,7 +12052,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       const photo: VehicleOdometerPhoto = {
         address: normalizedAddress,
         capturedAt: new Date().toISOString(),
-        id: globalThis.crypto?.randomUUID?.() ?? `TRIP-PHOTO-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        id: createStableId("TRIP-PHOTO"),
         name: file.name,
         odometerReading,
         previewUrl: result.previewUrl,
@@ -12030,7 +12096,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       const photo: VehicleWaypointPhoto = {
         address: normalizedAddress,
         capturedAt: new Date().toISOString(),
-        id: globalThis.crypto?.randomUUID?.() ?? `WAY-PHOTO-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        id: createStableId("WAY-PHOTO"),
         name: file.name,
         previewUrl: result.previewUrl,
       };
@@ -12058,7 +12124,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     try {
       const photo: VehicleFuelReceiptPhoto = {
         capturedAt: new Date().toISOString(),
-        id: globalThis.crypto?.randomUUID?.() ?? `FUEL-RECEIPT-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        id: createStableId("FUEL-RECEIPT"),
         name: file.name,
         previewUrl: await fileToImagePreview(file, 1100, 0.7),
       };
@@ -12108,6 +12174,10 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     if (!form.activeLogbookEntryId) return;
     const vehicle = resources.find((resource) => resource.id === form.resourceId && resource.type === "Fahrzeug");
     if (!vehicle) return;
+    const existingEntry = vehicle.logbook.find((entry) => entry.id === form.activeLogbookEntryId);
+    if (!existingEntry) return;
+    const expectedRevision = existingEntry.revision ?? 1;
+    const mutationTime = new Date().toISOString();
     const nextResources = resources.map((resource) => (
       resource.id === vehicle.id
         ? {
@@ -12116,6 +12186,8 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
               entry.id === form.activeLogbookEntryId
                 ? {
                     ...entry,
+                    revision: expectedRevision + 1,
+                    updatedAt: mutationTime,
                     date: form.date,
                     driverId: form.driverId,
                     endAddress: form.endAddress.trim(),
@@ -12140,6 +12212,8 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
           }
         : resource
     ));
+    const updatedEntry = nextResources.find((resource) => resource.id === vehicle.id)?.logbook.find((entry) => entry.id === form.activeLogbookEntryId);
+    if (updatedEntry) enqueueTripMutation("update", vehicle.id, updatedEntry, expectedRevision);
     setResources(nextResources);
     persistResourcesFast(nextResources);
     const latestWaypoint = [...form.waypoints].reverse().find((waypoint) => waypoint.coordinates);
@@ -12192,7 +12266,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       setRecordNotice("Zum Starten bitte Fahrzeug, Datum, Fahrer, Startadresse und Start-KM erfassen.");
       return;
     }
-    const logbookId = `LOG-${vehicle.id}-${quickTripForm.date.replace(/\D/g, "")}-${Date.now()}`;
+    const logbookId = createStableId("TRIP");
     const ruleSnapshot = vehicleRuleSnapshot(vehicle);
     const suggestedOdometer = latestKnownVehicleOdometer(vehicle);
     const startDifference = odometerDifference(quickTripForm.startOdometer, suggestedOdometer);
@@ -12218,6 +12292,8 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       fuelOrCharge: "",
       fuelReceiptPhoto: undefined,
       id: logbookId,
+      revision: 1,
+      updatedAt: new Date().toISOString(),
       kilometers: "",
       notes: "Laufende Fahrt über Quickbutton gestartet.",
       odometerPhotos: quickTripForm.odometerPhotos,
@@ -12258,6 +12334,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
           }
         : resource
     ));
+    enqueueTripMutation("create", vehicle.id, entry);
     setResources(nextResources);
     persistResourcesFast(nextResources);
     if (startCoordinates || startAddress) {
@@ -12288,6 +12365,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       return;
     }
     const entryId = quickTripForm.activeLogbookEntryId;
+    const existingEntry = resources.find((resource) => resource.id === quickTripForm.resourceId)?.logbook.find((entry) => entry.id === entryId);
     const nextResources = resources.map((resource) => (
       resource.id === quickTripForm.resourceId && resource.type === "Fahrzeug"
         ? {
@@ -12297,6 +12375,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
           }
         : resource
     ));
+    if (existingEntry) enqueueTripMutation("delete", quickTripForm.resourceId, existingEntry, existingEntry.revision ?? 1);
     setResources(nextResources);
     persistResourcesFast(nextResources);
     const canceledPosition: LiveVehiclePosition = {
@@ -12367,6 +12446,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     }
 
     const existingEntry = vehicle.logbook.find((item) => item.id === quickTripForm.activeLogbookEntryId);
+    const expectedRevision = existingEntry?.revision ?? 1;
     const ruleSnapshot = existingEntry?.ruleVersion ? {
       ruleCountry: existingEntry.ruleCountry ?? "",
       ruleTitle: existingEntry.ruleTitle ?? "",
@@ -12384,7 +12464,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       endOdometer: quickTripForm.endOdometer.trim(),
       fuelOrCharge: quickTripForm.fuelOrCharge.trim(),
       fuelReceiptPhoto: quickTripForm.fuelReceiptPhoto,
-      id: quickTripForm.activeLogbookEntryId || `LOG-${vehicle.id}-${quickTripForm.date.replace(/\D/g, "")}-${vehicle.logbook.length + 1}`,
+      id: quickTripForm.activeLogbookEntryId || createStableId("TRIP"),
       kilometers,
       notes: quickTripForm.activeLogbookEntryId ? "Laufende Fahrt abgeschlossen." : "Über Quickbutton erfasst.",
       odometerPhotos: quickTripForm.odometerPhotos,
@@ -12395,6 +12475,8 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
       startedAt: existingEntry?.startedAt,
       startOdometer: quickTripForm.startOdometer.trim(),
       status: "abgeschlossen",
+      revision: existingEntry ? expectedRevision + 1 : 1,
+      updatedAt: new Date().toISOString(),
       ruleCountry: ruleSnapshot.ruleCountry,
       ruleTitle: ruleSnapshot.ruleTitle,
       ruleVersion: ruleSnapshot.ruleVersion,
@@ -12428,6 +12510,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
         : resource
     ));
 
+    enqueueTripMutation(existingEntry ? "update" : "create", vehicle.id, entry, existingEntry ? expectedRevision : undefined);
     setResources(nextResources);
     persistResourcesFast(nextResources);
     const completedPosition: LiveVehiclePosition = {
@@ -12472,7 +12555,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
     setRecordNotice("");
 
     try {
-      const response = await fetch("/api/cron/daily-jobs", { method: "POST" });
+      const response = await apiFetch("/api/cron/daily-jobs", { method: "POST" });
       const payload = await response.json() as { error?: string; openJobCount?: number; sent?: boolean };
 
       if (!response.ok || !payload.sent) {
@@ -12769,6 +12852,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                   <option value="en">EN</option>
                 </select>
               </label>
+              <TenantSwitcher />
               <button className="ghost-button app-toolbar-trip" onClick={openQuickTrip} type="button">
                 <CarFront size={16} />
                 {tx("Fahrt")}
@@ -12781,7 +12865,22 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                 {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
               </button>
             </div>
-            {formatUpdatedTime(appUpdatedAt) && <p className="toolbar-notice app-toolbar-notice" role="status">{tx("Daten aktualisiert")}: {formatUpdatedTime(appUpdatedAt)}</p>}
+            <SyncStatus
+              issues={tripSync.queue.filter((mutation) => mutation.status === "failed" || mutation.status === "conflict").map((mutation) => mutation.error || "")}
+              language={language}
+              lastSyncedAt={appUpdatedAt}
+              online={tripSync.online}
+              onRetry={() => {
+                tripSync.retry();
+                void tripSync.flush();
+              }}
+              summary={{
+                ...tripSync.summary,
+                failed: tripSync.summary.failed + (legacySyncStatus === "failed" ? 1 : 0),
+                pending: tripSync.summary.pending + (legacySyncStatus === "pending" ? 1 : 0),
+                syncing: tripSync.summary.syncing + (legacySyncStatus === "syncing" ? 1 : 0),
+              }}
+            />
           </div>
         </header>
 
@@ -13083,6 +13182,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                   persistSnapshotNow({ personnel: nextPersonnel }, { forceRemote: true });
                 }}
                 onPersistResources={(nextResources) => persistSnapshotNow({ resources: nextResources }, { forceRemote: true })}
+                onTripMutation={enqueueTripMutation}
                 setResources={setResources}
                 setServices={(nextServices) => {
                   setServices(nextServices);
@@ -13281,7 +13381,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
                         ...quickTripForm,
                         waypoints: [
                           ...quickTripForm.waypoints,
-                          { address: "", id: globalThis.crypto?.randomUUID?.() ?? `WAY-${Date.now()}`, note: "", odometer: "" },
+                          { address: "", id: createStableId("WAY"), note: "", odometer: "" },
                         ],
                       })}
                       type="button"
@@ -13810,6 +13910,7 @@ export default function HomePage({ initialSection = "dashboard", portalOnly = fa
             {modal === "customer" && (
               <CustomerForm
                 customer={newCustomer}
+                customerId={editingCustomerId ?? undefined}
                 language={language}
                 languageOptions={customerLanguageOptions}
                 objects={activeObjects}
@@ -19348,11 +19449,8 @@ function CustomerPortalView({
   reports: ReportRecord[];
   setCustomerId: (id: string) => void;
 }) {
-  const portalCustomers = customers.filter((customer) => !customer.archived && customer.portalStatus !== "gesperrt");
   const customer = customers.find((item) => item.id === customerId);
   const portalFirstName = customer ? firstNameFromText(customer.name) : "";
-  const [loginEmail, setLoginEmail] = useState("");
-  const [loginPassword, setLoginPassword] = useState("");
   const [selectedObjectId, setSelectedObjectId] = useState("");
   const [messageSubject, setMessageSubject] = useState("");
   const [messageBody, setMessageBody] = useState("");
@@ -19439,27 +19537,6 @@ function CustomerPortalView({
     setSelectedPortalObjectDetailId(objectId);
   }
 
-  function login() {
-    const normalizedEmail = loginEmail.trim().toLowerCase();
-    const matchedCustomer = portalCustomers.find((item) => (item.portalLoginEmail || item.email).toLowerCase() === normalizedEmail);
-    if (!matchedCustomer) {
-      setPortalNotice("Kein aktiver Portalzugang für diese E-Mail-Adresse gefunden.");
-      return;
-    }
-    if (matchedCustomer.portalPassword && matchedCustomer.portalPassword !== loginPassword) {
-      setPortalNotice("Das Passwort passt nicht zum Portalzugang.");
-      return;
-    }
-
-    setCustomerId(matchedCustomer.id);
-    setSelectedObjectId(matchedCustomer.objects[0] ?? "");
-    setPortalProfileEmail(matchedCustomer.email);
-    setPortalProfilePhone(contactFieldValue(matchedCustomer.phone));
-    setPortalProfilePhone2(contactFieldValue(matchedCustomer.phone2));
-    onRecordLogin(matchedCustomer.id, matchedCustomer.portalLoginEmail || matchedCustomer.email, window.navigator.userAgent);
-    setPortalNotice("");
-  }
-
   async function submitMessage() {
     if (!customer || !currentObjectId || !messageBody.trim()) return;
     const result = await onSendMessage(customer, currentObjectId, messageSubject.trim() || "Leistungsanfrage aus dem Kundenportal", messageBody);
@@ -19491,23 +19568,12 @@ function CustomerPortalView({
           <div className="panel-title">
             <div>
               <p>Kundenportal</p>
-              <h2>Anmelden</h2>
-              <span>Du siehst hier deine Objekte, Berichte, Nachrichten und Rechnungsinformationen.</span>
+              <h2>Sichere Anmeldung erforderlich</h2>
+              <span>Portalzugänge werden ausschließlich über ein persönliches WorkCore-Konto freigeschaltet.</span>
             </div>
           </div>
           {portalNotice && <div className="warning-line">{portalNotice}</div>}
-          <label>
-            <span>E-Mail-Adresse</span>
-            <input placeholder="kunde@example.com" type="email" value={loginEmail} onChange={(event) => setLoginEmail(event.target.value)} />
-          </label>
-          <label>
-            <span>Passwort</span>
-            <input placeholder="Portal-Passwort" type="password" value={loginPassword} onChange={(event) => setLoginPassword(event.target.value)} />
-          </label>
-          <button className="primary-button portal-login-button" onClick={login} type="button">
-            <KeyRound size={16} />
-            Einloggen
-          </button>
+          <a className="primary-button portal-login-button" href="/portal"><KeyRound size={16} />Zum sicheren Kundenportal</a>
         </div>
       </section>
     );
@@ -19523,7 +19589,6 @@ function CustomerPortalView({
           className="ghost-button"
           onClick={() => {
             setCustomerId("");
-            setLoginPassword("");
           }}
           type="button"
         >
@@ -19933,6 +19998,7 @@ function MasterDataView({
   setPersonnel,
   setAccountingAccounts,
   onPersistResources,
+  onTripMutation,
   setResources,
   setServices,
   setMaterials,
@@ -19961,6 +20027,7 @@ function MasterDataView({
   setPersonnel: (personnel: PersonnelRecord[]) => void;
   setAccountingAccounts: (accounts: AccountingAccount[]) => void;
   onPersistResources: (resources: ResourceRecord[]) => void;
+  onTripMutation: (operation: SyncMutationOperation, resourceId: string, entry: VehicleLogEntry, expectedRevision?: number) => SyncMutation;
   setResources: (resources: ResourceRecord[]) => void;
   setServices: (services: ServiceItem[]) => void;
   setMaterials: (materials: MaterialItem[]) => void;
@@ -20432,7 +20499,7 @@ function MasterDataView({
       const uploaded = previewUrl ? await uploadMediaFile(await dataUrlToBlob(previewUrl), "odometer-checks", file.name) : null;
       const photo: VehicleOdometerPhoto = {
         capturedAt: new Date().toISOString(),
-        id: globalThis.crypto?.randomUUID?.() ?? `ODO-CHECK-${Date.now()}`,
+        id: createStableId("ODO-CHECK"),
         name: file.name,
         odometerReading: monthlyOdometerForm.odometer,
         previewUrl: uploaded?.url ?? previewUrl,
@@ -20499,7 +20566,7 @@ function MasterDataView({
 
     const existingResource = resources.find((resource) => resource.id === editingResourceId);
     const saved: ResourceRecord = {
-      id: editingResourceId ?? `RES-${Date.now()}`,
+      id: editingResourceId ?? createStableId("RES"),
       brand: resourceForm.brand.trim(),
       buildYear: resourceForm.buildYear.trim(),
       currentOdometer: resourceForm.currentOdometer.trim(),
@@ -20581,7 +20648,7 @@ function MasterDataView({
       const uploaded = previewUrl ? await uploadMediaFile(await dataUrlToBlob(previewUrl), "resource-photos", file.name) : null;
       return {
         description: "",
-        id: `RES-MED-${resourceForm.identifier.trim() || resourceForm.name.trim() || "neu"}-${file.name}-${currentImages.length + index + 1}`,
+        id: createStableId("RES-MED"),
         isPrimary: currentImages.length === 0 && index === 0,
         name: file.name,
         previewUrl: uploaded?.url ?? previewUrl,
@@ -20611,12 +20678,11 @@ function MasterDataView({
 
   async function addResourceDocuments(files: FileList | null) {
     if (!files || files.length === 0) return;
-    const currentDocuments = resourceForm.mediaItems.filter((item) => item.type === "Dokument");
-    const added = await Promise.all(Array.from(files).map(async (file, index) => {
+    const added = await Promise.all(Array.from(files).map(async (file) => {
       const uploaded = await uploadMediaFile(file, "resource-documents", file.name);
       return {
         description: "",
-        id: `RES-DOC-${resourceForm.identifier.trim() || resourceForm.name.trim() || "neu"}-${file.name}-${currentDocuments.length + index + 1}`,
+        id: createStableId("RES-DOC"),
         name: file.name,
         previewUrl: uploaded?.url,
         source: "Upload" as const,
@@ -20651,7 +20717,7 @@ function MasterDataView({
       return;
     }
     const item: ResourceMaintenanceItem = {
-      id: `RES-MAINT-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      id: createStableId("RES-MAINT"),
       notes: maintenanceForm.notes.trim(),
       status: "offen",
       target: maintenanceForm.target.trim(),
@@ -20754,7 +20820,7 @@ function MasterDataView({
     try {
       const photo: VehicleFuelReceiptPhoto = {
         capturedAt: new Date().toISOString(),
-        id: globalThis.crypto?.randomUUID?.() ?? `FUEL-RECEIPT-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        id: createStableId("FUEL-RECEIPT"),
         name: file.name,
         previewUrl: await fileToImagePreview(file, 1100, 0.7),
       };
@@ -20828,8 +20894,7 @@ function MasterDataView({
     // Neue Fahrten brauchen geraeteuebergreifend eindeutige IDs. Die fruehere
     // laufende Nummer konnte nach dem Loeschen einer Fahrt erneut vergeben werden
     // und mit einem alten Loeschmarker auf einem zweiten Geraet kollidieren.
-    const logbookId = editingLogEntryId
-      ?? `LOG-${selectedResource.id}-${logbookForm.date.replace(/\D/g, "")}-${Date.now()}`;
+    const logbookId = editingLogEntryId ?? createStableId("TRIP");
     const existingEntry = selectedResource.logbook.find((entry) => entry.id === editingLogEntryId);
     const ruleSnapshot = existingEntry?.ruleVersion ? {
       ruleCountry: existingEntry.ruleCountry ?? "",
@@ -20851,13 +20916,15 @@ function MasterDataView({
           changedAt: new Date().toISOString(),
           changedBy: logbookForm.driverId,
           field: "Start-Km",
-          id: `AUD-${logbookId}-start-odometer-${Date.now()}`,
+          id: createStableId("AUD"),
           newValue: logbookForm.startOdometer.trim(),
           oldValue: suggestedOdometer,
           reason: "Start-Kilometerstand weicht vom Vorschlag ab.",
         }] : []),
       ],
       id: logbookId,
+      revision: existingEntry ? (existingEntry.revision ?? 1) + 1 : 1,
+      updatedAt: new Date().toISOString(),
       date: logbookForm.date,
       driverId: logbookForm.driverId,
       endAddress: logbookForm.endAddress.trim(),
@@ -20916,6 +20983,7 @@ function MasterDataView({
         ],
       };
     });
+    onTripMutation(editingLogEntryId ? "update" : "create", selectedResource.id, saved, editingLogEntryId ? existingEntry?.revision ?? 1 : undefined);
     setResources(nextResources);
     onPersistResources(nextResources);
     setArchiveNotice(validationWarnings[0] || `Fahrt vom ${saved.date} wurde gespeichert.`);
@@ -20925,6 +20993,7 @@ function MasterDataView({
 
   function deleteLogbookEntry(entryId: string) {
     if (!selectedResource) return;
+    const existingEntry = selectedResource.logbook.find((entry) => entry.id === entryId);
     const nextResources = resources.map((resource) => (
       resource.id === selectedResource.id
         ? {
@@ -20934,6 +21003,7 @@ function MasterDataView({
           }
         : resource
     ));
+    if (existingEntry) onTripMutation("delete", selectedResource.id, existingEntry, existingEntry.revision ?? 1);
     setResources(nextResources);
     onPersistResources(nextResources);
     if (editingLogEntryId === entryId) resetLogbookForm();
@@ -22515,7 +22585,7 @@ function MasterDataView({
                           ...logbookForm,
                           waypoints: [
                             ...logbookForm.waypoints,
-                            { address: "", id: globalThis.crypto?.randomUUID?.() ?? `WAY-${Date.now()}`, note: "", odometer: "" },
+                            { address: "", id: createStableId("WAY"), note: "", odometer: "" },
                           ],
                         })}
                         type="button"
@@ -22787,7 +22857,7 @@ function MasterDataView({
                         ...logbookForm,
                         waypoints: [
                           ...logbookForm.waypoints,
-                          { address: "", id: globalThis.crypto?.randomUUID?.() ?? `WAY-${Date.now()}`, note: "", odometer: "" },
+                          { address: "", id: createStableId("WAY"), note: "", odometer: "" },
                         ],
                       })}
                       type="button"
@@ -24344,6 +24414,7 @@ function DocumentPreview({ item, language = "de" }: { item: MediaItem; language?
 
 function CustomerForm({
   customer,
+  customerId,
   isArchived = false,
   language,
   languageOptions,
@@ -24357,6 +24428,7 @@ function CustomerForm({
   submitLabel,
 }: {
   customer: CustomerFormState;
+  customerId?: string;
   isArchived?: boolean;
   language: Language;
   languageOptions: string[];
@@ -24403,8 +24475,6 @@ function CustomerForm({
     const invitedCustomer: CustomerFormState = {
       ...customer,
       portalLoginEmail: customer.portalLoginEmail.trim() || customer.email.trim(),
-      portalPassword: portalPasswordFromAddress(customer.address),
-      portalStatus: "aktiv",
     };
 
     setCustomer(invitedCustomer);
@@ -24426,7 +24496,18 @@ function CustomerForm({
     setPortalInviteNotice("");
 
     try {
-      const response = await fetch("/api/portal/notify", {
+      if (!customerId) throw new Error("Bitte den Kunden vor der Einladung speichern.");
+      const accessResponse = await apiFetch("/api/portal/invite", {
+        body: JSON.stringify({ customerId, email: portalInvitePreview.to }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const accessPayload = await accessResponse.json() as { error?: string; ok?: boolean };
+      if (!accessResponse.ok || !accessPayload.ok) {
+        throw new Error(accessPayload.error || "Portalzugang konnte nicht angelegt werden.");
+      }
+
+      const response = await apiFetch("/api/portal/notify", {
         body: JSON.stringify({
           body: portalInvitePreview.body,
           replyTo: "info@kolaretorp.se",
@@ -24442,8 +24523,11 @@ function CustomerForm({
         throw new Error(payload.error || "Einladung konnte nicht gesendet werden.");
       }
 
+      const activatedCustomer: CustomerFormState = { ...customer, portalLoginEmail: portalInvitePreview.to.trim(), portalStatus: "aktiv" };
+      customerFormRef.current = activatedCustomer;
+      setCustomer(activatedCustomer);
       setPortalInvitePreview(null);
-      onSubmit();
+      window.setTimeout(onSubmit, 0);
     } catch (error) {
       setPortalInviteNotice(error instanceof Error ? error.message : "Einladung konnte nicht gesendet werden.");
     } finally {
@@ -24532,7 +24616,6 @@ function CustomerForm({
       </section>
       <h3>{tt("Portalzugang")}</h3>
       <label><span>{tt("Login-E-Mail")}</span><input type="email" value={customer.portalLoginEmail} onChange={(event) => update("portalLoginEmail", event.target.value)} /></label>
-      <label><span>{tt("Portal-Passwort")}</span><input value={customer.portalPassword} onChange={(event) => update("portalPassword", event.target.value)} /></label>
       <button className="ghost-button wide" onClick={inviteToPortal} type="button">
         <KeyRound size={16} />
         {tt("Kunden ins Portal einladen")}
@@ -25683,4 +25766,8 @@ function IconAction({
 
 function Badge({ value }: { value: string }) {
   return <mark className={statusTone(value)}>{value}</mark>;
+}
+
+export default function HomePage(props: HomePageProps = {}) {
+  return <AuthGate><WorkCoreHomePage {...props} /></AuthGate>;
 }

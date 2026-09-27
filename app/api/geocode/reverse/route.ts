@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isAuthError, requireApiAuth } from "@/lib/server/apiAuth";
 
 export const runtime = "nodejs";
 
@@ -54,6 +55,8 @@ export function formatGoogleAddress(result: GoogleGeocodeResult) {
 }
 
 export async function GET(request: Request) {
+  const auth = await requireApiAuth(request, "resources.manage");
+  if (isAuthError(auth)) return auth;
   const apiKey = process.env.GOOGLE_MAPS_API_KEY || process.env.GOOGLE_GEOCODING_API_KEY;
   if (!apiKey) {
     return NextResponse.json({ error: "Google Maps API-Key fehlt.", provider: "google" }, { status: 503 });

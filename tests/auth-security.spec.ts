@@ -1,0 +1,123 @@
+import { expect, test } from "@playwright/test";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import {
+  defaultRolePermissions,
+  resolvePortalAccess,
+  resolveTenantMembership,
+  type TenantMembership,
+} from "../lib/authModel";
+
+function membership(tenantId: string, role: keyof typeof defaultRolePermissions): TenantMembership {
+  return {
+    permissions: defaultRolePermissions[role],
+    roleKey: role,
+    roleName: role,
+    tenantId,
+    tenantName: tenantId,
+    tenantSlug: tenantId,
+  };
+}
+
+test("nicht angemeldete API-Zugriffe werden abgewiesen", async ({ request }) => {
+  const sync = await request.get("/api/sync-sections?keys=customers", { headers: { "X-WorkCore-E2E-Bypass": "0" } });
+  const portal = await request.get("/api/portal/context", { headers: { "X-WorkCore-E2E-Bypass": "0", "X-WorkCore-Tenant": "tenant-a" } });
+  expect(sync.status()).toBe(401);
+  expect(portal.status()).toBe(401);
+});
+
+test("Mandant A kann Mandant B weder lesen noch ändern", () => {
+  const memberships = [membership("tenant-a", "admin")];
+  expect(resolveTenantMembership(memberships, "tenant-b", "data.read")).toEqual({ error: "TENANT_FORBIDDEN" });
+  expect(resolveTenantMembership(memberships, "tenant-b", "data.write")).toEqual({ error: "TENANT_FORBIDDEN" });
+});
+
+test("eingeschränkte Rolle scheitert an Admin-Aktion, Admin darf sie ausführen", () => {
+  expect(resolveTenantMembership([membership("tenant-a", "field_worker")], "tenant-a", "members.manage"))
+    .toEqual({ error: "PERMISSION_DENIED" });
+  expect(resolveTenantMembership([membership("tenant-a", "admin")], "tenant-a", "members.manage"))
+    .toMatchObject({ membership: { tenantId: "tenant-a" } });
+});
+
+test("Mehrfirmenbenutzer erhält nur explizit zugewiesene Firmen", () => {
+  const memberships = [membership("tenant-a", "manager"), membership("tenant-c", "office")];
+  expect(resolveTenantMembership(memberships, "tenant-c", "data.read")).toMatchObject({ membership: { tenantId: "tenant-c" } });
+  expect(resolveTenantMembership(memberships, "tenant-b", "data.read")).toEqual({ error: "TENANT_FORBIDDEN" });
+});
+
+test("Portalbenutzer kann seinen Kunden-/Mandantenbereich nicht verlassen", () => {
+  const accesses = [{ customerId: "customer-a", tenantId: "tenant-a", tenantName: "A" }];
+  expect(resolvePortalAccess(accesses, "tenant-a")).toMatchObject({ access: { customerId: "customer-a" } });
+  expect(resolvePortalAccess(accesses, "tenant-b")).toEqual({ error: "PORTAL_SCOPE_FORBIDDEN" });
+});
+
+test("E2E-Admin passiert die serverseitige Rollenprüfung nur mit explizitem Testheader", async ({ request }) => {
+  const response = await request.post("/api/odometer", {
+    data: {},
+    headers: {
+      "X-WorkCore-E2E-Bypass": "1",
+      "X-WorkCore-Tenant": "00000000-0000-0000-0000-000000000001",
+    },
+  });
+  expect([400, 500]).toContain(response.status());
+});
+
+test("Service-Role-Routen besitzen Autorisierung und explizite Mandantenbindung", () => {
+  const root = process.cwd();
+  for (const file of [
+    "app/api/media/route.ts",
+    "app/api/private-media/route.ts",
+    "app/api/portal/context/route.ts",
+    "app/api/portal/invite/route.ts",
+    "app/api/sync-mutations/route.ts",
+    "app/api/app-state/migrate-media/route.ts",
+    "app/api/cron/daily-jobs/route.ts",
+  ]) {
+    const source = readFileSync(path.join(root, file), "utf8");
+    expect(source).toMatch(/require(Api|Portal)Auth/);
+    expect(source).toMatch(/tenantId|tenant_id/);
+  }
+});
+
+test("Cron-Servicezugriffe sind an einen expliziten Mandanten gebunden", () => {
+  const source = readFileSync(path.join(process.cwd(), "app/api/cron/daily-jobs/route.ts"), "utf8");
+  expect(source).toContain('request.headers.get("x-workcore-tenant")');
+  expect(source).toContain('.eq("tenant_id", tenantId)');
+  expect(source).toContain('{ onConflict: "tenant_id,id" }');
+});
+
+test("private Medien bleiben nach Rechteentzug nicht im langlebigen Browsercache", () => {
+  const source = readFileSync(path.join(process.cwd(), "app/api/private-media/route.ts"), "utf8");
+  expect(source).toContain('"Cache-Control": "private, no-store"');
+  expect(source).toContain("mediaRecord?.deleted_at");
+  expect(source).toContain(".list(folder");
+  expect(source).not.toContain("max-age=31536000, immutable");
+});
+
+test("neue Medienuploads erzeugen keine öffentlichen Storage-URLs", () => {
+  const source = readFileSync(path.join(process.cwd(), "app/api/media/route.ts"), "utf8");
+  expect(source).toContain('const mediaBucket = "homecare-private-media"');
+  expect(source).toContain("public: false");
+  expect(source).toContain("/api/private-media?path=");
+  expect(source).not.toContain("getPublicUrl");
+  expect(source).not.toContain("/storage/v1/object/public/");
+});
+
+test("RLS bindet Datenzugriff an Benutzer, Berechtigung und Request-Mandant", () => {
+  const migration = readFileSync(path.join(process.cwd(), "supabase/migrations/20260927100000_auth_tenant_rls_roles.sql"), "utf8");
+  expect(migration).toContain("auth.uid()");
+  expect(migration).toContain("homecare_request_tenant()");
+  expect(migration).toContain("tenant_id = public.homecare_request_tenant()");
+  expect(migration).toContain("enable row level security");
+  expect(migration).toContain("homecare_objects_customer_tenant_fk");
+  expect(migration).toContain("foreign key (tenant_id, resource_id)");
+  expect(migration).toContain("revoke all on table public.app_state from anon");
+});
+
+test("Portalpasswörter werden aus relationalen und Legacy-Daten entfernt", () => {
+  const migration = readFileSync(path.join(process.cwd(), "supabase/migrations/20260927100000_auth_tenant_rls_roles.sql"), "utf8");
+  const syncRoute = readFileSync(path.join(process.cwd(), "app/api/sync-sections/route.ts"), "utf8");
+  expect(migration).toContain("set portal_password = null");
+  expect(migration).toContain("customer - 'portalPassword'");
+  expect(syncRoute).toContain("portal_password: null");
+});

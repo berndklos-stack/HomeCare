@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { isAuthError, requireApiAuth } from "@/lib/server/apiAuth";
 
 export const runtime = "nodejs";
 
@@ -79,7 +80,7 @@ function positionPayload(body: JsonObject, resourceId: string, updatedAt: string
   };
 }
 
-async function saveFallbackPosition(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>, payload: JsonObject, resourceId: string, updatedAt: string) {
+async function saveFallbackPosition(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>, payload: JsonObject, resourceId: string, updatedAt: string, tenantId: string) {
   const { data: existingRow, error: readError } = await supabase
     .from("app_state")
     .select("data")
@@ -97,16 +98,15 @@ async function saveFallbackPosition(supabase: NonNullable<ReturnType<typeof getS
 
   const { error } = await supabase
     .from("app_state")
-    .upsert({ data: { positions }, id: vehiclePositionsRowId, updated_at: updatedAt }, { onConflict: "id" });
+    .upsert({ data: { positions }, id: vehiclePositionsRowId, tenant_id: tenantId, updated_at: updatedAt }, { onConflict: "tenant_id,id" });
 
   if (error) throw new Error(error.message);
 }
 
-export async function GET() {
-  const supabase = getSupabaseServerClient();
-  if (!supabase) {
-    return NextResponse.json({ data: [], error: "Supabase-Zugangsdaten fehlen." }, { status: 500 });
-  }
+export async function GET(request: Request) {
+  const auth = await requireApiAuth(request, "data.read");
+  if (isAuthError(auth)) return auth;
+  const supabase = auth.client;
 
   const fallbackPositions = await loadFallbackPositions(supabase);
   const { data, error } = await supabase
@@ -127,10 +127,12 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const supabase = getSupabaseServerClient();
-  if (!supabase) {
-    return NextResponse.json({ error: "Supabase-Zugangsdaten fehlen." }, { status: 500 });
+  const auth = await requireApiAuth(request, "resources.manage");
+  if (isAuthError(auth)) return auth;
+  if (process.env.NEXT_PUBLIC_DISABLE_SUPABASE_SYNC === "1" && request.headers.get("x-workcore-e2e-bypass") === "1") {
+    return NextResponse.json({ ok: true, updatedAt: new Date().toISOString() });
   }
+  const supabase = auth.client;
 
   const body = await request.json().catch(() => ({})) as JsonObject;
   const resourceId = String(body.resourceId ?? "").trim();
@@ -154,13 +156,14 @@ export async function POST(request: Request) {
       status: body.status ? String(body.status) : "active",
       trip_date: body.tripDate ? String(body.tripDate) : null,
       trip_type: body.tripType ? String(body.tripType) : null,
+      tenant_id: auth.tenantId,
       updated_at: updatedAt,
       visited: body.visited ? String(body.visited) : null,
-    }, { onConflict: "resource_id" });
+    }, { onConflict: "tenant_id,resource_id" });
 
   if (error) {
     try {
-      await saveFallbackPosition(supabase, payload, resourceId, updatedAt);
+      await saveFallbackPosition(supabase, payload, resourceId, updatedAt, auth.tenantId);
     } catch (fallbackError) {
       return NextResponse.json(
         { error: fallbackError instanceof Error ? fallbackError.message : error.message, retry: true },

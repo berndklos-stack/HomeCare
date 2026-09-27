@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isAuthError, requireApiAuth } from "@/lib/server/apiAuth";
 
 export const runtime = "nodejs";
 
@@ -35,6 +36,8 @@ function normalizeOdometer(value: string) {
 }
 
 export async function POST(request: Request) {
+  const auth = await requireApiAuth(request, "resources.manage");
+  if (isAuthError(auth)) return auth;
   try {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {

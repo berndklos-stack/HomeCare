@@ -1,7 +1,8 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { createHash } from "node:crypto";
 import { gzipSync } from "node:zlib";
+import { isAuthError, requireApiAuth } from "@/lib/server/apiAuth";
 
 export const runtime = "nodejs";
 
@@ -20,7 +21,7 @@ type CachedAppState = {
   cachedAt: number;
 };
 
-let cachedAppState: CachedAppState | null = null;
+const cachedAppStateByTenant = new Map<string, CachedAppState>();
 
 function getSupabaseServerClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -36,16 +37,25 @@ function getSupabaseServerClient() {
 }
 
 function normalizeSnapshot(payload: unknown) {
+  let normalized = payload;
   if (
     payload &&
     typeof payload === "object" &&
     "data" in payload &&
     Object.keys(payload as JsonObject).length === 1
   ) {
-    return (payload as { data: unknown }).data;
+    normalized = (payload as { data: unknown }).data;
   }
-
-  return payload;
+  if (!normalized || typeof normalized !== "object" || Array.isArray(normalized)) return normalized;
+  const snapshot = normalized as JsonObject;
+  if (!Array.isArray(snapshot.customers)) return snapshot;
+  return {
+    ...snapshot,
+    customers: snapshot.customers.map((customer) => {
+      if (!customer || typeof customer !== "object" || Array.isArray(customer)) return customer;
+      return Object.fromEntries(Object.entries(customer as JsonObject).filter(([key]) => key !== "portalPassword"));
+    }),
+  };
 }
 
 function compactLargeEmbeddedMedia(value: unknown): unknown {
@@ -66,7 +76,7 @@ function compactLargeEmbeddedMedia(value: unknown): unknown {
   );
 }
 
-function retryableSupabaseResponse(error: { message: string }) {
+function retryableSupabaseResponse(error: { message: string }, cachedAppState?: CachedAppState) {
   return NextResponse.json(
     { data: cachedAppState?.data ?? null, error: `Supabase aktuell überlastet: ${error.message}`, retry: true, stale: Boolean(cachedAppState), updatedAt: cachedAppState?.updatedAt ?? null },
     { headers: { "Cache-Control": "no-store, max-age=0, must-revalidate" } },
@@ -180,7 +190,7 @@ async function createAppStateBackup(supabase: NonNullable<ReturnType<typeof getS
   }));
   const { error: chunkError } = await supabase
     .from("app_state")
-    .upsert(chunkRows, { onConflict: "id" });
+    .upsert(chunkRows, { onConflict: "tenant_id,id" });
 
   if (chunkError) throw new Error(chunkError.message);
 
@@ -203,7 +213,7 @@ async function createAppStateBackup(supabase: NonNullable<ReturnType<typeof getS
       },
       id: backupId,
       updated_at: createdAt,
-    }, { onConflict: "id" });
+    }, { onConflict: "tenant_id,id" });
 
   if (indexError) throw new Error(indexError.message);
 }
@@ -826,12 +836,7 @@ function patchCanSkipBackup(patch: unknown) {
   return keys.length > 0 && keys.every((key) => ["activeJobId", "fieldNotes", "fieldProgress", "inventoryLocations", "materials", "resources", "updatedAt"].includes(key));
 }
 
-async function saveSnapshotToSupabase(snapshot: unknown, options: { skipBackup?: boolean } = {}) {
-  const supabase = getSupabaseServerClient();
-  if (!supabase) {
-    return NextResponse.json({ error: "Supabase-Zugangsdaten fehlen." }, { status: 500 });
-  }
-
+async function saveSnapshotToSupabase(snapshot: unknown, supabase: SupabaseClient, tenantId: string, options: { skipBackup?: boolean } = {}) {
   const updatedAt = new Date().toISOString();
   let lastError: { message: string } | null = null;
 
@@ -849,15 +854,16 @@ async function saveSnapshotToSupabase(snapshot: unknown, options: { skipBackup?:
       .upsert({
         data: snapshot,
         id: appStateRowId,
+        tenant_id: tenantId,
         updated_at: updatedAt,
-      }, { onConflict: "id" });
+      }, { onConflict: "tenant_id,id" });
 
     if (!error) {
-      cachedAppState = {
+      cachedAppStateByTenant.set(tenantId, {
         cachedAt: Date.now(),
         data: snapshot,
         updatedAt,
-      };
+      });
 
       return NextResponse.json(
         { ok: true, updatedAt },
@@ -876,10 +882,10 @@ async function saveSnapshotToSupabase(snapshot: unknown, options: { skipBackup?:
 }
 
 export async function GET(request: Request) {
-  const supabase = getSupabaseServerClient();
-  if (!supabase) {
-    return NextResponse.json({ data: null, error: "Supabase-Zugangsdaten fehlen." }, { status: 500 });
-  }
+  const auth = await requireApiAuth(request, "data.read");
+  if (isAuthError(auth)) return auth;
+  const supabase = auth.client;
+  const cachedAppState = cachedAppStateByTenant.get(auth.tenantId);
   const compact = new URL(request.url).searchParams.get("compact") === "1";
 
   if (cachedAppState && Date.now() - cachedAppState.cachedAt < cacheTtlMs) {
@@ -896,15 +902,15 @@ export async function GET(request: Request) {
     .maybeSingle();
 
   if (error) {
-    return retryableSupabaseResponse(error);
+    return retryableSupabaseResponse(error, cachedAppState);
   }
 
   const snapshot = data?.data ? stripDeletedLogbookEntries(repairReportPhotosFromFieldProgress(normalizeSnapshot(data.data))) : null;
-  cachedAppState = {
+  cachedAppStateByTenant.set(auth.tenantId, {
     cachedAt: Date.now(),
     data: snapshot,
     updatedAt: data?.updated_at ?? null,
-  };
+  });
 
   return NextResponse.json(
     { data: compact ? compactLargeEmbeddedMedia(snapshot) : snapshot, updatedAt: data?.updated_at ?? null },
@@ -913,10 +919,12 @@ export async function GET(request: Request) {
 }
 
 async function saveAppState(request: Request) {
-  const supabase = getSupabaseServerClient();
-  if (!supabase) {
-    return NextResponse.json({ error: "Supabase-Zugangsdaten fehlen." }, { status: 500 });
+  const auth = await requireApiAuth(request, "data.write");
+  if (isAuthError(auth)) return auth;
+  if (process.env.NEXT_PUBLIC_DISABLE_SUPABASE_SYNC === "1" && request.headers.get("x-workcore-e2e-bypass") === "1") {
+    return NextResponse.json({ ok: true, updatedAt: new Date().toISOString() });
   }
+  const supabase = auth.client;
 
   const body = await request.json();
   const normalizedBody = normalizeSnapshot(body);
@@ -928,13 +936,13 @@ async function saveAppState(request: Request) {
       .maybeSingle();
 
     if (error) {
-      return retryableSupabaseResponse(error);
+      return retryableSupabaseResponse(error, cachedAppStateByTenant.get(auth.tenantId));
     }
 
     const existingSnapshot = normalizeSnapshot(data?.data ?? null);
     const patch = (body as { patch?: unknown }).patch;
     const mergedSnapshot = stripDeletedLogbookEntries(repairReportPhotosFromFieldProgress(mergeSnapshotPatch(existingSnapshot, patch)));
-    return saveSnapshotToSupabase(protectReportPhotoLinks(existingSnapshot, mergedSnapshot), { skipBackup: patchCanSkipBackup(patch) });
+    return saveSnapshotToSupabase(protectReportPhotoLinks(existingSnapshot, mergedSnapshot), supabase, auth.tenantId, { skipBackup: patchCanSkipBackup(patch) });
   }
 
   const { data, error } = await supabase
@@ -944,12 +952,12 @@ async function saveAppState(request: Request) {
     .maybeSingle();
 
   if (error) {
-    return retryableSupabaseResponse(error);
+    return retryableSupabaseResponse(error, cachedAppStateByTenant.get(auth.tenantId));
   }
 
   const existingSnapshot = normalizeSnapshot(data?.data ?? null);
   const mergedSnapshot = stripDeletedLogbookEntries(repairReportPhotosFromFieldProgress(mergeSnapshotPatch(existingSnapshot, normalizedBody)));
-  return saveSnapshotToSupabase(protectReportPhotoLinks(existingSnapshot, mergedSnapshot));
+  return saveSnapshotToSupabase(protectReportPhotoLinks(existingSnapshot, mergedSnapshot), supabase, auth.tenantId);
 }
 
 export async function PUT(request: Request) {

@@ -25,6 +25,8 @@ Invite, activate/deactivate, assign roles/companies/teams, revoke sessions and t
 ## Permissions
 Support view/create/edit/approve/delete/export/admin. Enforce all security-relevant checks server-side.
 
+Current V1 foundation: Supabase Auth provides identity; `homecare_tenant_memberships` assigns users to companies; tenant-owned `homecare_roles` carry extensible permissions. Every protected API request validates both the selected company and the required permission. See `docs/architecture/authentication-and-authorization.md` and `docs/architecture/tenant-rls-and-roles.md`.
+
 ## Delegation
 Vacation, illness, temporary absence, approval limits, dates and auditability.
 

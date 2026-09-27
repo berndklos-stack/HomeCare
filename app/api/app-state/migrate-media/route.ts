@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { isAuthError, requireApiAuth } from "@/lib/server/apiAuth";
 
 export const runtime = "nodejs";
 
@@ -79,7 +80,7 @@ async function migrateValue(
       stats.skipped += 1;
       return value;
     }
-    const storagePath = `migrated-app-state/${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}-${safePathPart(path.join("-"))}.${info.extension}`;
+    const storagePath = `${safePathPart(path[0] || "tenant")}/migrated-app-state/${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}-${safePathPart(path.slice(1).join("-"))}.${info.extension}`;
     const { error } = await supabase.storage
       .from(privateMediaBucket)
       .upload(storagePath, info.buffer, {
@@ -109,11 +110,10 @@ async function migrateValue(
   return Object.fromEntries(entries);
 }
 
-export async function POST() {
-  const supabase = getSupabaseServerClient();
-  if (!supabase) {
-    return NextResponse.json({ error: "Supabase-Zugangsdaten fehlen." }, { status: 500 });
-  }
+export async function POST(request: Request) {
+  const auth = await requireApiAuth(request, "backups.manage");
+  if (isAuthError(auth)) return auth;
+  const supabase = auth.serviceClient;
 
   try {
     await ensurePrivateMediaBucket(supabase);
@@ -121,6 +121,7 @@ export async function POST() {
       .from("app_state")
       .select("data")
       .eq("id", appStateRowId)
+      .eq("tenant_id", auth.tenantId)
       .maybeSingle();
     if (error || !current?.data) {
       return NextResponse.json({ error: error?.message || "Aktueller App-Stand wurde nicht gefunden." }, { status: 404 });
@@ -128,7 +129,7 @@ export async function POST() {
 
     const stats = { migrated: 0, skipped: 0 };
     const snapshot = normalizeSnapshot(current.data);
-    const migrated = await migrateValue(supabase, snapshot, [], stats);
+    const migrated = await migrateValue(supabase, snapshot, [auth.tenantId], stats);
     const updatedAt = new Date().toISOString();
     const { error: saveError } = await supabase
       .from("app_state")
@@ -138,8 +139,9 @@ export async function POST() {
           updatedAt,
         },
         id: appStateRowId,
+        tenant_id: auth.tenantId,
         updated_at: updatedAt,
-      }, { onConflict: "id" });
+      }, { onConflict: "tenant_id,id" });
 
     if (saveError) {
       return NextResponse.json({ error: saveError.message }, { status: 500 });

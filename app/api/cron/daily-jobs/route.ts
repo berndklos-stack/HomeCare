@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { isAuthError, requireApiAuth } from "@/lib/server/apiAuth";
 
 export const runtime = "nodejs";
 
@@ -163,10 +164,14 @@ function nextScheduledSendTime(settings: Required<DailyMailSettings>) {
   return settings.sendTimes[0] ?? settings.sendTime ?? "06:00";
 }
 
-async function loadStoredDailyMailSettings(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
+async function loadStoredDailyMailSettings(
+  supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>,
+  tenantId: string,
+) {
   const { data } = await supabase
     .from("homecare_settings")
     .select("value")
+    .eq("tenant_id", tenantId)
     .eq("key", "dailyMailSettings")
     .maybeSingle();
   return data?.value && typeof data.value === "object" ? data.value as DailyMailSettings : undefined;
@@ -698,7 +703,7 @@ async function sendResendMail({ cc, html, subject, text, to }: { cc: string[]; h
   throw new Error(`Resend konnte die Tagesmail nicht senden: ${lastError}`);
 }
 
-async function sendDailyMail(request: Request, manual = false) {
+async function sendDailyMail(request: Request, tenantId: string, manual = false) {
   const secret = process.env.CRON_SECRET;
   const authorization = request.headers.get("authorization");
   if (!manual && secret && authorization !== `Bearer ${secret}`) {
@@ -718,6 +723,7 @@ async function sendDailyMail(request: Request, manual = false) {
   const { data: mailState, error: mailStateError } = await supabase
     .from("app_state")
     .select("data")
+    .eq("tenant_id", tenantId)
     .eq("id", dailyMailStateRowId)
     .maybeSingle();
   if (mailStateError) {
@@ -727,6 +733,7 @@ async function sendDailyMail(request: Request, manual = false) {
   const { data: appState, error: appStateError } = await supabase
     .from("app_state")
     .select("data")
+    .eq("tenant_id", tenantId)
     .eq("id", appStateRowId)
     .maybeSingle();
   if (appStateError) {
@@ -737,17 +744,19 @@ async function sendDailyMail(request: Request, manual = false) {
     supabase
       .from("homecare_jobs")
       .select("id, series_master_id, series_occurrence_date, title, object_id, status, priority, due_date, assigned_to, description, schedule")
+      .eq("tenant_id", tenantId)
       .order("due_date", { ascending: true }),
     supabase
       .from("homecare_objects")
       .select("id, name, address")
+      .eq("tenant_id", tenantId)
       .order("name", { ascending: true }),
   ]);
   if (jobsError || objectsError) {
     return NextResponse.json({ error: jobsError?.message ?? objectsError?.message ?? "Aktuelle Auftragsdaten konnten nicht geladen werden." }, { status: 500 });
   }
 
-  const storedSettings = await loadStoredDailyMailSettings(supabase);
+  const storedSettings = await loadStoredDailyMailSettings(supabase, tenantId);
   const legacySnapshot = (appState?.data as AppSnapshot | undefined) ?? {};
   const snapshot: AppSnapshot = {
     ...legacySnapshot,
@@ -822,8 +831,9 @@ async function sendDailyMail(request: Request, manual = false) {
         sentKeys: force ? sentKeys : Array.from(new Set([...sentKeys.filter((key) => key.startsWith(`${today}-`)), sendKey])),
       },
       id: dailyMailStateRowId,
+      tenant_id: tenantId,
       updated_at: new Date().toISOString(),
-    });
+    }, { onConflict: "tenant_id,id" });
   if (saveError) {
     return NextResponse.json({ error: saveError.message }, { status: 500 });
   }
@@ -842,9 +852,20 @@ async function sendDailyMail(request: Request, manual = false) {
 }
 
 export async function GET(request: Request) {
-  return sendDailyMail(request);
+  const cronSecret = process.env.CRON_SECRET;
+  const authorization = request.headers.get("authorization");
+  if (!cronSecret || authorization !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ error: "Cron-Autorisierung erforderlich." }, { status: 401 });
+  }
+  const tenantId = request.headers.get("x-workcore-tenant")?.trim() ?? "";
+  if (!tenantId) {
+    return NextResponse.json({ error: "Mandant für Cron-Lauf fehlt." }, { status: 400 });
+  }
+  return sendDailyMail(request, tenantId);
 }
 
 export async function POST(request: Request) {
-  return sendDailyMail(request, true);
+  const auth = await requireApiAuth(request, "communication.send");
+  if (isAuthError(auth)) return auth;
+  return sendDailyMail(request, auth.tenantId, true);
 }

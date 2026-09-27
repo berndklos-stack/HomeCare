@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isAuthError, requireApiAuth } from "@/lib/server/apiAuth";
 
 export const runtime = "nodejs";
 
@@ -86,6 +87,8 @@ async function sendResendReportMail(payload: Required<Pick<SendReportPayload, "a
 }
 
 export async function POST(request: Request) {
+  const auth = await requireApiAuth(request, "communication.send");
+  if (isAuthError(auth)) return auth;
   let idempotencyKey = "";
   try {
     const payload = await request.json() as SendReportPayload;

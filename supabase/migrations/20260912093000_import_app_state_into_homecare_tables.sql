@@ -20,7 +20,7 @@ $$;
 create or replace function public.homecare_text_to_date(value text)
 returns date
 language plpgsql
-immutable
+stable
 as $$
 begin
   if value is null or btrim(value) = '' then
@@ -42,7 +42,7 @@ $$;
 create or replace function public.homecare_text_to_timestamptz(value text)
 returns timestamptz
 language plpgsql
-immutable
+stable
 as $$
 begin
   if value is null or btrim(value) = '' then

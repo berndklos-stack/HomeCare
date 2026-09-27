@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { isAuthError, requireApiAuth } from "@/lib/server/apiAuth";
 
 export const runtime = "nodejs";
 
@@ -79,11 +80,13 @@ type VehicleTripRow = {
   fuel_or_charge: string | null;
   fuel_receipt_photo: unknown;
   id: string;
+  deleted_at: string | null;
   kilometers: number | null;
   notes: string | null;
   odometer_photos: unknown;
   purpose: string | null;
   resource_id: string;
+  revision: number;
   rule_country: string | null;
   rule_title: string | null;
   rule_version: string | null;
@@ -199,6 +202,7 @@ type ObjectRow = {
 };
 
 type MediaRow = {
+  deleted_at: string | null;
   description: string | null;
   id: string;
   is_primary: boolean | null;
@@ -206,6 +210,7 @@ type MediaRow = {
   name: string;
   owner_id: string;
   preview_url: string | null;
+  revision: number;
   source: string | null;
   storage_path: string | null;
 };
@@ -727,42 +732,6 @@ function resourceToRow(resource: JsonObject) {
   };
 }
 
-function tripToRow(resourceId: string, trip: JsonObject) {
-  return {
-    audit_log: Array.isArray(trip.auditLog) ? trip.auditLog : [],
-    driver_id: trip.driverId ? String(trip.driverId) : null,
-    end_address: stringOrEmpty(trip.endAddress),
-    end_address_resolved: stringOrEmpty(trip.endAddressResolved),
-    end_coordinates: trip.endCoordinates && typeof trip.endCoordinates === "object" ? trip.endCoordinates : null,
-    end_odometer: numberOrNull(trip.endOdometer),
-    ended_at: trip.endedAt ? String(trip.endedAt) : null,
-    fuel_or_charge: stringOrEmpty(trip.fuelOrCharge),
-    fuel_receipt_photo: trip.fuelReceiptPhoto && typeof trip.fuelReceiptPhoto === "object" ? trip.fuelReceiptPhoto : null,
-    id: String(trip.id),
-    kilometers: numberOrNull(trip.kilometers),
-    notes: stringOrEmpty(trip.notes),
-    odometer_photos: Array.isArray(trip.odometerPhotos) ? trip.odometerPhotos : [],
-    purpose: stringOrEmpty(trip.purpose),
-    resource_id: resourceId,
-    rule_country: stringOrEmpty(trip.ruleCountry),
-    rule_title: stringOrEmpty(trip.ruleTitle),
-    rule_version: stringOrEmpty(trip.ruleVersion),
-    start_address: stringOrEmpty(trip.startAddress),
-    start_address_resolved: stringOrEmpty(trip.startAddressResolved),
-    start_coordinates: trip.startCoordinates && typeof trip.startCoordinates === "object" ? trip.startCoordinates : null,
-    start_odometer: numberOrNull(trip.startOdometer),
-    started_at: trip.startedAt ? String(trip.startedAt) : null,
-    status: stringOrEmpty(trip.status) || "abgeschlossen",
-    trip_category: stringOrEmpty(trip.tripCategory),
-    trip_date: stringOrEmpty(trip.date) || new Date().toISOString().slice(0, 10),
-    trip_type: stringOrEmpty(trip.tripType) || "Dienstfahrt",
-    updated_at: new Date().toISOString(),
-    validation_warnings: Array.isArray(trip.validationWarnings) ? trip.validationWarnings : [],
-    visited: stringOrEmpty(trip.visited),
-    waypoints: Array.isArray(trip.waypoints) ? trip.waypoints : [],
-  };
-}
-
 function rowToTrip(row: VehicleTripRow) {
   return {
     auditLog: Array.isArray(row.audit_log) ? row.audit_log : [],
@@ -776,10 +745,12 @@ function rowToTrip(row: VehicleTripRow) {
     fuelOrCharge: row.fuel_or_charge ?? "",
     fuelReceiptPhoto: row.fuel_receipt_photo ?? undefined,
     id: row.id,
+    deletedAt: row.deleted_at ?? undefined,
     kilometers: row.kilometers === null ? "" : String(row.kilometers),
     notes: row.notes ?? "",
     odometerPhotos: Array.isArray(row.odometer_photos) ? row.odometer_photos : [],
     purpose: row.purpose ?? "",
+    revision: row.revision,
     ruleCountry: row.rule_country ?? "",
     ruleTitle: row.rule_title ?? "",
     ruleVersion: row.rule_version ?? "",
@@ -791,6 +762,7 @@ function rowToTrip(row: VehicleTripRow) {
     status: row.status ?? "abgeschlossen",
     tripCategory: row.trip_category ?? undefined,
     tripType: row.trip_type ?? "Dienstfahrt",
+    updatedAt: row.updated_at ?? undefined,
     validationWarnings: Array.isArray(row.validation_warnings) ? row.validation_warnings : [],
     visited: row.visited ?? "",
     waypoints: Array.isArray(row.waypoints) ? row.waypoints : [],
@@ -897,7 +869,7 @@ function customerToRow(customer: JsonObject) {
     phone2: stringOrEmpty(customer.phone2),
     portal_login_email: stringOrEmpty(customer.portalLoginEmail),
     portal_login_history: Array.isArray(customer.portalLoginHistory) ? customer.portalLoginHistory : [],
-    portal_password: stringOrEmpty(customer.portalPassword),
+    portal_password: null,
     portal_status: stringOrEmpty(customer.portalStatus) || "einladen",
     report_mail_body: stringOrEmpty(customer.reportMailBody),
     weekly_report_mail_body: stringOrEmpty(customer.weeklyReportMailBody),
@@ -929,7 +901,7 @@ function rowToCustomer(row: CustomerRow, objectRows: ObjectRow[]) {
     phone2: row.phone2 ?? "",
     portalLoginEmail: row.portal_login_email ?? "",
     portalLoginHistory: Array.isArray(row.portal_login_history) ? row.portal_login_history : [],
-    portalPassword: row.portal_password ?? "",
+    portalPassword: "",
     portalStatus: row.portal_status ?? "einladen",
     reportMailBody: row.report_mail_body ?? "",
     weeklyReportMailBody: row.weekly_report_mail_body ?? "",
@@ -956,6 +928,7 @@ function rowToMedia(row: MediaRow) {
   return {
     description: row.description ?? "",
     id: row.id,
+    revision: row.revision,
     isPrimary: Boolean(row.is_primary),
     name: row.name,
     previewUrl: row.preview_url ?? undefined,
@@ -1537,7 +1510,8 @@ async function loadResourceSection(supabase: NonNullable<ReturnType<typeof getSu
 
   const { data: tripRows, error: tripError } = await supabase
     .from("homecare_vehicle_trips")
-    .select("id, resource_id, trip_date, driver_id, status, started_at, ended_at, trip_type, trip_category, rule_country, rule_version, rule_title, start_address, start_address_resolved, end_address, end_address_resolved, start_coordinates, end_coordinates, waypoints, start_odometer, end_odometer, kilometers, purpose, visited, fuel_or_charge, fuel_receipt_photo, odometer_photos, validation_warnings, audit_log, notes, updated_at")
+    .select("id, resource_id, trip_date, driver_id, status, started_at, ended_at, trip_type, trip_category, rule_country, rule_version, rule_title, start_address, start_address_resolved, end_address, end_address_resolved, start_coordinates, end_coordinates, waypoints, start_odometer, end_odometer, kilometers, purpose, visited, fuel_or_charge, fuel_receipt_photo, odometer_photos, validation_warnings, audit_log, notes, revision, deleted_at, updated_at")
+    .is("deleted_at", null)
     .order("trip_date", { ascending: true });
 
   if (tripError) return loadResourceSectionViaRpc(supabase);
@@ -1572,21 +1546,8 @@ async function saveResourceSection(supabase: NonNullable<ReturnType<typeof getSu
     return;
   }
 
-  const trips = resources.flatMap((resource) => (
-    Array.isArray(resource.logbook)
-      ? resource.logbook
-          .filter((trip): trip is JsonObject => Boolean(trip && typeof trip === "object" && "id" in trip))
-          .map((trip) => tripToRow(String(resource.id), trip))
-      : []
-  ));
-
-  const { error: tripError } = trips.length
-    ? await supabase
-        .from("homecare_vehicle_trips")
-        .upsert(trips, { onConflict: "id" })
-    : { error: null };
-
-  if (tripError) await saveResourceSectionViaRpc(supabase, value);
+  // Fahrzeugstammdaten bleiben vorerst im Legacy-Bereichssync. Fahrten werden
+  // ausschliesslich ueber /api/sync-mutations datensatzweise geschrieben.
 
   const resourceIds = resources.map((resource) => String(resource.id));
   const mediaRows = resources.flatMap((resource) => (
@@ -1605,8 +1566,9 @@ async function saveResourceSection(supabase: NonNullable<ReturnType<typeof getSu
   const { data: existingMedia, error: existingMediaError } = resourceIds.length
     ? await supabase
         .from("homecare_media")
-        .select("id, owner_id")
+        .select("id, owner_id, revision")
         .eq("owner_type", "resource")
+        .is("deleted_at", null)
         .in("owner_id", resourceIds)
     : { data: [], error: null };
 
@@ -1616,14 +1578,14 @@ async function saveResourceSection(supabase: NonNullable<ReturnType<typeof getSu
   }
 
   const currentMediaIds = new Set(mediaRows.map((row) => String(row.id)));
-  const staleMediaIds = ((existingMedia ?? []) as Array<{ id: string; owner_id: string }>)
+  const staleMediaIds = ((existingMedia ?? []) as Array<{ id: string; owner_id: string; revision: number }>)
     .map((row) => String(row.id))
     .filter((id) => !currentMediaIds.has(id));
 
   if (staleMediaIds.length) {
     const { error: deleteMediaError } = await supabase
       .from("homecare_media")
-      .delete()
+      .update({ deleted_at: new Date().toISOString() })
       .eq("owner_type", "resource")
       .in("id", staleMediaIds);
 
@@ -1758,8 +1720,9 @@ async function loadObjectsRows(supabase: NonNullable<ReturnType<typeof getSupaba
 async function loadObjectMediaRows(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
   const { data, error } = await supabase
     .from("homecare_media")
-    .select("id, owner_id, kind, name, description, source, storage_path, preview_url, is_primary")
+    .select("id, owner_id, kind, name, description, source, storage_path, preview_url, is_primary, revision, deleted_at")
     .eq("owner_type", "object")
+    .is("deleted_at", null)
     .order("name", { ascending: true });
   if (error) throw new Error(error.message);
   return (data ?? []) as MediaRow[];
@@ -1768,8 +1731,9 @@ async function loadObjectMediaRows(supabase: NonNullable<ReturnType<typeof getSu
 async function loadResourceMediaRows(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
   const { data, error } = await supabase
     .from("homecare_media")
-    .select("id, owner_id, kind, name, description, source, storage_path, preview_url, is_primary")
+    .select("id, owner_id, kind, name, description, source, storage_path, preview_url, is_primary, revision, deleted_at")
     .eq("owner_type", "resource")
+    .is("deleted_at", null)
     .order("name", { ascending: true });
   if (error) throw new Error(error.message);
   return (data ?? []) as MediaRow[];
@@ -1900,7 +1864,7 @@ async function saveAccountingAccountsSection(supabase: NonNullable<ReturnType<ty
   if (!accounts.length) return;
   const { error } = await supabase
     .from("homecare_accounting_accounts")
-    .upsert(accounts.map(accountingAccountToRow), { onConflict: "account" });
+    .upsert(accounts.map(accountingAccountToRow), { onConflict: "tenant_id,account" });
   if (error) throw new Error(error.message);
 }
 
@@ -2079,7 +2043,7 @@ async function saveTranslationOverridesSection(supabase: NonNullable<ReturnType<
   if (!rows.length) return;
   const { error } = await supabase
     .from("homecare_translations")
-    .upsert(rows.map(translationToRow), { onConflict: "key" });
+    .upsert(rows.map(translationToRow), { onConflict: "tenant_id,key" });
   if (error) throw new Error(error.message);
 }
 
@@ -2121,7 +2085,7 @@ async function saveSettingsSections(supabase: NonNullable<ReturnType<typeof getS
 
   const { error } = await supabase
     .from("homecare_settings")
-    .upsert(rows, { onConflict: "key" });
+    .upsert(rows, { onConflict: "tenant_id,key" });
   if (error) throw new Error(error.message);
 }
 
@@ -2234,9 +2198,16 @@ async function loadFallbackSections(supabase: NonNullable<ReturnType<typeof getS
   return Object.fromEntries((data ?? []).map((row) => {
     const rowData = row.data && typeof row.data === "object" ? row.data as JsonObject : {};
     const key = String(rowData.key ?? row.id.replace(/^sync-section:/, ""));
+    const value = key === "customers" && Array.isArray(rowData.value)
+      ? rowData.value.map((customer) => (
+          customer && typeof customer === "object" && !Array.isArray(customer)
+            ? Object.fromEntries(Object.entries(customer as JsonObject).filter(([field]) => field !== "portalPassword"))
+            : customer
+        ))
+      : rowData.value;
     return [key, {
       updatedAt: row.updated_at,
-      value: rowData.value,
+      value,
     }];
   }));
 }
@@ -2246,8 +2217,20 @@ async function saveFallbackSections(supabase: NonNullable<ReturnType<typeof getS
     .filter(([key]) => isSyncSectionKey(key))
     .map(([key, value]) => {
       const updatedAt = new Date().toISOString();
+      const fallbackValue = key === "customers" && Array.isArray(value)
+        ? value.map((customer) => {
+            if (!customer || typeof customer !== "object" || Array.isArray(customer)) return customer;
+            return Object.fromEntries(Object.entries(customer as JsonObject).filter(([field]) => field !== "portalPassword"));
+          })
+        : key === "resources" && Array.isArray(value)
+        ? value.map((resource) => (
+            resource && typeof resource === "object" && !Array.isArray(resource)
+              ? { ...(resource as JsonObject), logbook: [] }
+              : resource
+          ))
+        : value;
       return {
-        data: { key, updatedAt, value },
+        data: { key, updatedAt, value: fallbackValue },
         id: rowId(key as SyncSectionKey),
         updated_at: updatedAt,
       };
@@ -2257,7 +2240,7 @@ async function saveFallbackSections(supabase: NonNullable<ReturnType<typeof getS
 
   const { error } = await supabase
     .from("app_state")
-    .upsert(rows, { onConflict: "id" });
+    .upsert(rows, { onConflict: "tenant_id,id" });
 
   if (error) throw new Error(error.message);
   return rows[0].updated_at;
@@ -2325,22 +2308,6 @@ function mergeResourceSectionValues(
     ? value.filter((entry): entry is JsonObject => Boolean(entry && typeof entry === "object" && !Array.isArray(entry)))
     : [];
 
-  const mergeLogbook = (relationalLogbook: unknown, fallbackLogbook: unknown, deletedIds: Set<string>) => {
-    const relationalEntries = entries(relationalLogbook);
-    const fallbackEntries = entries(fallbackLogbook);
-    const fallbackByEntryId = new Map(fallbackEntries.map((entry) => [String(entry.id ?? ""), entry]));
-    const mergedEntries = relationalEntries.map((entry) => ({
-      ...(fallbackByEntryId.get(String(entry.id ?? "")) ?? {}),
-      ...entry,
-    }));
-    const mergedIds = new Set(mergedEntries.map((entry) => String(entry.id ?? "")));
-    fallbackEntries.forEach((entry) => {
-      const id = String(entry.id ?? "");
-      if (!mergedIds.has(id) && !deletedIds.has(id)) mergedEntries.push(entry);
-    });
-    return mergedEntries.filter((entry) => !deletedIds.has(String(entry.id ?? "")));
-  };
-
   const mergedResources = relationalResources.map((relationalResource) => {
     const fallbackResource = fallbackById.get(String(relationalResource.id ?? ""));
     if (!fallbackResource) return relationalResource;
@@ -2353,8 +2320,6 @@ function mergeResourceSectionValues(
       ...stringArray(relationalResource.deletedLogbookEntryIds),
       ...stringArray(fallbackResource.deletedLogbookEntryIds),
     ])).filter((id) => !relationalLogbookIds.has(id));
-    const deletedIds = new Set(deletedLogbookEntryIds);
-
     return {
       ...fallbackResource,
       ...relationalResource,
@@ -2363,7 +2328,10 @@ function mergeResourceSectionValues(
       // nicht wieder auftauchen.
       media: Array.isArray(relationalResource.media) ? relationalResource.media : [],
       deletedLogbookEntryIds,
-      logbook: mergeLogbook(relationalResource.logbook, fallbackResource.logbook, deletedIds),
+      // Seit der Sync-Foundation sind homecare_vehicle_trips autoritativ. Noch
+      // nicht synchronisierte Offline-Fahrten werden ausschliesslich im Client
+      // aus dessen Mutationsqueue eingeblendet und nie aus app_state restauriert.
+      logbook: entries(relationalResource.logbook),
     };
   });
 
@@ -2385,10 +2353,9 @@ function mergeResourceSectionValues(
 }
 
 export async function GET(request: Request) {
-  const supabase = getSupabaseServerClient();
-  if (!supabase) {
-    return NextResponse.json({ data: {}, error: "Supabase-Zugangsdaten fehlen." }, { status: 500 });
-  }
+  const auth = await requireApiAuth(request, "data.read");
+  if (isAuthError(auth)) return auth;
+  const supabase = auth.client;
 
   const keys = requestedSyncKeys(request);
   try {
@@ -2500,10 +2467,12 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const supabase = getSupabaseServerClient();
-  if (!supabase) {
-    return NextResponse.json({ error: "Supabase-Zugangsdaten fehlen." }, { status: 500 });
+  const auth = await requireApiAuth(request, "data.write");
+  if (isAuthError(auth)) return auth;
+  if (process.env.NEXT_PUBLIC_DISABLE_SUPABASE_SYNC === "1" && request.headers.get("x-workcore-e2e-bypass") === "1") {
+    return NextResponse.json({ ok: true, updatedAt: new Date().toISOString() });
   }
+  const supabase = auth.client;
 
   const body = await request.json().catch(() => ({})) as JsonObject;
   const patch = patchFromBody(body);
