@@ -1,21 +1,13 @@
 {
-  "name": "WorkCore Product Foundation v2",
-  "created": "2026-09-26",
-  "language": "English",
-  "document_count": 13,
+  "name": "WorkCore Roadmap v1",
+  "created": "2026-09-27",
   "documents": [
-    "AI-Principles.md",
-    "Administration-and-Tenant-Model.md",
-    "Data-Migration-and-Onboarding.md",
-    "Design-Manifest.md",
-    "Modules-and-Capabilities.md",
-    "Non-Negotiables.md",
-    "Product-Requirements.md",
-    "Product-Strategy.md",
-    "Product-Vision.md",
-    "Quality-and-Release-Principles.md",
-    "README.md",
-    "Security-and-Compliance-Principles.md",
-    "User-Experience-Principles.md"
-  ]
+    "Advanced-Platform.md",
+    "Implementation-Order.md",
+    "Launch-Criteria.md",
+    "Roadmap-Summary.md",
+    "V1-Scope.md",
+    "V2-Scope.md"
+  ],
+  "source": "Founder roadmap workshop + V1 readiness audit"
 }
