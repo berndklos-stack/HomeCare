@@ -65,6 +65,7 @@ function withoutRelationalResourceWrites(payload: unknown) {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) return payload;
   const remaining = { ...(payload as JsonObject) };
   delete remaining.resources;
+  delete remaining.customers;
   relationalSettingKeys.forEach((key) => delete remaining[key]);
   return remaining;
 }
@@ -81,6 +82,7 @@ function snapshotForClient(payload: unknown, tenantId: string) {
   }
   const result = { ...(payload as JsonObject) };
   if (!resourceLegacyFallbackEnabled) result.resources = [];
+  result.customers = [];
   if (!settingsLegacyFallbackEnabled) {
     delete result.companySettings;
     delete result.dailyMailSettings;

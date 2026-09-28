@@ -20,10 +20,10 @@ values
 
 insert into public.homecare_roles (id, tenant_id, key, name, permissions, system_role)
 values
-  ('30000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000001', 'owner', 'Owner', array['data.read','data.write','members.manage','roles.manage'], false),
-  ('30000000-0000-0000-0000-000000000002', '20000000-0000-0000-0000-000000000001', 'admin', 'Admin', array['data.read','data.write','members.manage','roles.manage'], false),
-  ('30000000-0000-0000-0000-000000000003', '20000000-0000-0000-0000-000000000001', 'manager', 'Manager', array['data.read','data.write'], false),
-  ('30000000-0000-0000-0000-000000000004', '20000000-0000-0000-0000-000000000001', 'office', 'Office', array['data.read','data.write'], false),
+  ('30000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000001', 'owner', 'Owner', array['data.read','data.write','customers.manage','members.manage','roles.manage'], false),
+  ('30000000-0000-0000-0000-000000000002', '20000000-0000-0000-0000-000000000001', 'admin', 'Admin', array['data.read','data.write','customers.manage','members.manage','roles.manage'], false),
+  ('30000000-0000-0000-0000-000000000003', '20000000-0000-0000-0000-000000000001', 'manager', 'Manager', array['data.read','data.write','customers.manage'], false),
+  ('30000000-0000-0000-0000-000000000004', '20000000-0000-0000-0000-000000000001', 'office', 'Office', array['data.read','data.write','customers.manage'], false),
   ('30000000-0000-0000-0000-000000000005', '20000000-0000-0000-0000-000000000001', 'field_worker', 'Field worker', array['data.read','jobs.manage'], false),
   ('30000000-0000-0000-0000-000000000006', '20000000-0000-0000-0000-000000000002', 'owner', 'Owner', array['data.read','data.write','members.manage','roles.manage'], false);
 
@@ -94,6 +94,8 @@ where tenant_id = '20000000-0000-0000-0000-000000000001' and key = 'admin';
 select set_config('request.jwt.claim.sub', '10000000-0000-0000-0000-000000000003', true);
 insert into public.homecare_customers (id, tenant_id, name)
 values ('RLS-MANAGER-WRITE', '20000000-0000-0000-0000-000000000001', 'Manager write');
+insert into public.homecare_customer_contacts (id, tenant_id, customer_id, name, is_primary)
+values ('RLS-MANAGER-CONTACT', '20000000-0000-0000-0000-000000000001', 'RLS-MANAGER-WRITE', 'Manager contact', true);
 do $$
 begin
   if public.homecare_has_permission('20000000-0000-0000-0000-000000000001', 'roles.manage') then
@@ -146,6 +148,9 @@ begin
     or not exists (select 1 from public.homecare_customers where id = 'RLS-CUSTOMER-B') then
     raise exception 'RLS_MULTI_COMPANY_ASSIGNED_ACCESS_FAILED';
   end if;
+  if exists (select 1 from public.homecare_customer_contacts where id = 'RLS-MANAGER-CONTACT') then
+    raise exception 'RLS_CUSTOMER_CONTACT_CROSS_TENANT_READ_ALLOWED';
+  end if;
 end;
 $$;
 select set_config('request.headers', '{"x-workcore-tenant":"20000000-0000-0000-0000-000000000003"}', true);
@@ -167,6 +172,9 @@ begin
   end if;
   if exists (select 1 from public.homecare_customers) then
     raise exception 'RLS_PORTAL_ESCAPED_TO_BUSINESS_DATA';
+  end if;
+  if exists (select 1 from public.homecare_customer_contacts) then
+    raise exception 'RLS_PORTAL_ESCAPED_TO_CUSTOMER_CONTACTS';
   end if;
 end;
 $$;

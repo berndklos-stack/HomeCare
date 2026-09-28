@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import type { SyncMutation, SyncMutationResult } from "@/lib/syncQueue";
+import { membershipAllows } from "@/lib/authModel";
 import { isAuthError, requireApiAuth } from "@/lib/server/apiAuth";
 
 export const runtime = "nodejs";
@@ -19,7 +20,7 @@ function validMutation(value: unknown): value is SyncMutation {
     mutation.id
     && mutation.entityId
     && mutation.resourceId
-    && ["resource", "setting", "tenant_settings", "translation", "vehicle_media", "vehicle_position", "vehicle_trip"].includes(String(mutation.entityType))
+    && ["customer", "customer_contact", "resource", "setting", "tenant_settings", "translation", "vehicle_media", "vehicle_position", "vehicle_trip"].includes(String(mutation.entityType))
     && ["create", "update", "delete", "restore"].includes(String(mutation.operation)),
   );
 }
@@ -33,8 +34,13 @@ export async function POST(request: Request) {
   if (!validMutation(mutation)) {
     return NextResponse.json({ error: "Ungültige Synchronisierungsanfrage." }, { status: 400 });
   }
+  if (["customer", "customer_contact"].includes(mutation.entityType) && !membershipAllows(auth.membership, "customers.manage")) {
+    return NextResponse.json({ error: "PERMISSION_DENIED" }, { status: 403 });
+  }
 
-  const rpcName = ["setting", "tenant_settings", "translation"].includes(mutation.entityType)
+  const rpcName = ["customer", "customer_contact"].includes(mutation.entityType)
+    ? "homecare_apply_customer_mutation"
+    : ["setting", "tenant_settings", "translation"].includes(mutation.entityType)
     ? "homecare_apply_settings_mutation"
     : ["resource", "vehicle_position"].includes(mutation.entityType)
       ? "homecare_apply_resource_mutation"

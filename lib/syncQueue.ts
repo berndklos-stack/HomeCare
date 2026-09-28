@@ -5,7 +5,7 @@ export type SyncMutationOperation = "create" | "update" | "delete" | "restore";
 export type SyncMutation = {
   id: string;
   entityId: string;
-  entityType: "resource" | "setting" | "tenant_settings" | "translation" | "vehicle_media" | "vehicle_position" | "vehicle_trip";
+  entityType: "customer" | "customer_contact" | "resource" | "setting" | "tenant_settings" | "translation" | "vehicle_media" | "vehicle_position" | "vehicle_trip";
   operation: SyncMutationOperation;
   resourceId: string;
   payload: Record<string, unknown>;
@@ -86,7 +86,7 @@ export function normalizeSyncQueue(value: unknown): SyncMutation[] {
       mutation.id
       && mutation.entityId
       && mutation.resourceId
-      && ["resource", "setting", "tenant_settings", "translation", "vehicle_media", "vehicle_position", "vehicle_trip"].includes(String(mutation.entityType))
+      && ["customer", "customer_contact", "resource", "setting", "tenant_settings", "translation", "vehicle_media", "vehicle_position", "vehicle_trip"].includes(String(mutation.entityType))
       && ["create", "update", "delete", "restore"].includes(String(mutation.operation))
       && ["pending", "syncing", "synced", "failed", "conflict"].includes(String(mutation.status)),
     );

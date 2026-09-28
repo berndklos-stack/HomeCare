@@ -6,6 +6,7 @@ export const runtime = "nodejs";
 
 const resourceLegacyFallbackEnabled = process.env.WORKCORE_RESOURCE_LEGACY_READ_FALLBACK === "1";
 const settingsLegacyFallbackEnabled = process.env.WORKCORE_SETTINGS_LEGACY_READ_FALLBACK === "1";
+const customerLegacyFallbackEnabled = process.env.WORKCORE_CUSTOMER_LEGACY_READ_FALLBACK === "1";
 const relationalSettingSections = ["companySettings", "dailyMailSettings", "tenantSettings", "translationOverrides"] as const;
 
 const allowedSyncSections = [
@@ -149,9 +150,8 @@ type CustomerRow = {
   billing_address: string | null;
   billing_address_mode: string | null;
   company_name: string | null;
-  contact: string | null;
   created_at: string | null;
-  email: string | null;
+  deleted_at: string | null;
   id: string;
   language: string | null;
   name: string;
@@ -159,16 +159,30 @@ type CustomerRow = {
   offer_mail_body: string | null;
   order_confirmation_mail_body: string | null;
   personal_number: string | null;
-  phone: string | null;
-  phone2: string | null;
   portal_login_email: string | null;
   portal_login_history: unknown;
-  portal_password: string | null;
   portal_status: string | null;
   report_mail_body: string | null;
+  revision: number;
   updated_at: string | null;
   weekly_report_mail_body: string | null;
   work_time_visibility: string | null;
+};
+
+type CustomerContactRow = {
+  created_at: string | null;
+  customer_id: string;
+  deleted_at: string | null;
+  email: string | null;
+  id: string;
+  is_primary: boolean;
+  name: string;
+  notes: string | null;
+  phone: string | null;
+  phone2: string | null;
+  revision: number;
+  role: string | null;
+  updated_at: string | null;
 };
 
 type ObjectRow = {
@@ -811,38 +825,24 @@ function fieldProgressToRows(value: unknown) {
   });
 }
 
-function customerToRow(customer: JsonObject) {
-  return {
-    address: stringOrEmpty(customer.address),
-    archived: Boolean(customer.archived),
-    balance: numberOrNull(customer.balance) ?? 0,
-    billable: customer.billable !== false,
-    billing_address: stringOrEmpty(customer.billingAddress),
-    billing_address_mode: stringOrEmpty(customer.billingAddressMode) || "Kundenadresse",
-    company_name: stringOrEmpty(customer.company),
-    contact: stringOrEmpty(customer.contact),
-    created_at: nullableString(customer.createdAt),
-    email: stringOrEmpty(customer.email),
-    id: String(customer.id),
-    language: stringOrEmpty(customer.language) || "Deutsch",
-    name: stringOrEmpty(customer.name) || "Unbenannter Kunde",
-    notes: stringOrEmpty(customer.notes),
-    offer_mail_body: stringOrEmpty(customer.offerMailBody),
-    order_confirmation_mail_body: stringOrEmpty(customer.orderConfirmationMailBody),
-    personal_number: stringOrEmpty(customer.personalNumber),
-    phone: stringOrEmpty(customer.phone),
-    phone2: stringOrEmpty(customer.phone2),
-    portal_login_email: stringOrEmpty(customer.portalLoginEmail),
-    portal_login_history: Array.isArray(customer.portalLoginHistory) ? customer.portalLoginHistory : [],
-    portal_password: null,
-    portal_status: stringOrEmpty(customer.portalStatus) || "einladen",
-    report_mail_body: stringOrEmpty(customer.reportMailBody),
-    weekly_report_mail_body: stringOrEmpty(customer.weeklyReportMailBody),
-    work_time_visibility: stringOrEmpty(customer.workTimeVisibility) || "service",
-  };
-}
-
-function rowToCustomer(row: CustomerRow, objectRows: ObjectRow[]) {
+function rowToCustomer(row: CustomerRow, objectRows: ObjectRow[], contactRows: CustomerContactRow[]) {
+  const contacts = contactRows
+    .filter((contact) => contact.customer_id === row.id && !contact.deleted_at)
+    .map((contact) => ({
+      createdAt: contact.created_at ?? undefined,
+      customerId: row.id,
+      email: contact.email ?? "",
+      id: contact.id,
+      isPrimary: contact.is_primary,
+      name: contact.name,
+      notes: contact.notes ?? "",
+      phone: contact.phone ?? "",
+      phone2: contact.phone2 ?? "",
+      revision: contact.revision,
+      role: contact.role ?? "",
+      updatedAt: contact.updated_at ?? undefined,
+    }));
+  const primaryContact = contacts.find((contact) => contact.isPrimary) ?? contacts[0];
   return {
     address: row.address ?? "",
     archived: Boolean(row.archived),
@@ -851,9 +851,11 @@ function rowToCustomer(row: CustomerRow, objectRows: ObjectRow[]) {
     billingAddress: row.billing_address ?? "",
     billingAddressMode: row.billing_address_mode ?? "Kundenadresse",
     company: row.company_name ?? "",
-    contact: row.contact ?? "",
+    contact: primaryContact?.name ?? "",
+    contacts,
     createdAt: row.created_at ?? undefined,
-    email: row.email ?? "",
+    deletedAt: row.deleted_at ?? undefined,
+    email: primaryContact?.email ?? "",
     id: row.id,
     language: row.language ?? "Deutsch",
     name: row.name,
@@ -862,13 +864,14 @@ function rowToCustomer(row: CustomerRow, objectRows: ObjectRow[]) {
     offerMailBody: row.offer_mail_body ?? "",
     orderConfirmationMailBody: row.order_confirmation_mail_body ?? "",
     personalNumber: row.personal_number ?? "",
-    phone: row.phone ?? "",
-    phone2: row.phone2 ?? "",
+    phone: primaryContact?.phone ?? "",
+    phone2: primaryContact?.phone2 ?? "",
     portalLoginEmail: row.portal_login_email ?? "",
     portalLoginHistory: Array.isArray(row.portal_login_history) ? row.portal_login_history : [],
     portalPassword: "",
     portalStatus: row.portal_status ?? "einladen",
     reportMailBody: row.report_mail_body ?? "",
+    revision: row.revision,
     weeklyReportMailBody: row.weekly_report_mail_body ?? "",
     workTimeVisibility: row.work_time_visibility ?? "service",
   };
@@ -1616,28 +1619,50 @@ async function loadResourceMediaRows(supabase: NonNullable<ReturnType<typeof get
 }
 
 async function loadCustomersSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
-  const { data, error } = await supabase
-    .from("homecare_customers")
-    .select("id, personal_number, company_name, name, contact, email, phone, phone2, address, billing_address, billing_address_mode, language, portal_login_email, portal_password, portal_status, balance, notes, report_mail_body, weekly_report_mail_body, offer_mail_body, order_confirmation_mail_body, work_time_visibility, billable, archived, portal_login_history, created_at, updated_at")
-    .order("name", { ascending: true });
-  if (error || !data?.length) return null;
-
-  const objectRows = await loadObjectsRows(supabase).catch(() => []);
+  const [{ data, error }, { data: contactData, error: contactError }, objectRows] = await Promise.all([
+    supabase
+      .from("homecare_customers")
+      .select("id, personal_number, company_name, name, address, billing_address, billing_address_mode, language, portal_login_email, portal_status, balance, notes, report_mail_body, weekly_report_mail_body, offer_mail_body, order_confirmation_mail_body, work_time_visibility, billable, archived, portal_login_history, revision, deleted_at, created_at, updated_at")
+      .order("name", { ascending: true }),
+    supabase
+      .from("homecare_customer_contacts")
+      .select("id, customer_id, name, role, email, phone, phone2, notes, is_primary, revision, deleted_at, created_at, updated_at")
+      .order("created_at", { ascending: true }),
+    loadObjectsRows(supabase).catch(() => []),
+  ]);
+  if (error) throw new Error(error.message);
+  if (contactError) throw new Error(contactError.message);
+  const customerRows = (data ?? []) as CustomerRow[];
+  const contactRows = (contactData ?? []) as CustomerContactRow[];
   return {
-    updatedAt: maxUpdatedAt((data as CustomerRow[]).map((row) => row.updated_at)),
-    value: (data as CustomerRow[]).map((row) => rowToCustomer(row, objectRows)),
+    deletedCustomerIds: customerRows.filter((row) => row.deleted_at).map((row) => row.id),
+    updatedAt: maxUpdatedAt([
+      ...customerRows.map((row) => row.updated_at),
+      ...contactRows.map((row) => row.updated_at),
+    ]),
+    value: customerRows.filter((row) => !row.deleted_at).map((row) => rowToCustomer(row, objectRows, contactRows)),
   };
 }
 
-async function saveCustomersSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>, value: unknown) {
-  if (!Array.isArray(value)) return;
-  const customers = value.filter((item): item is JsonObject => Boolean(item && typeof item === "object" && "id" in item));
-  if (!customers.length) return;
-
-  const { error } = await supabase
-    .from("homecare_customers")
-    .upsert(customers.map(customerToRow), { onConflict: "id" });
-  if (error) throw new Error(error.message);
+function mergeLegacyCustomersWithoutResurrection(
+  legacySection: SyncSectionEnvelope,
+  relationalSection: Awaited<ReturnType<typeof loadCustomersSection>>,
+) {
+  const relationalCustomers = Array.isArray(relationalSection.value) ? relationalSection.value : [];
+  const legacyCustomers = Array.isArray(legacySection.value) ? legacySection.value : [];
+  const knownIds = new Set([
+    ...relationalCustomers.map((customer) => String((customer as JsonObject).id ?? "")),
+    ...relationalSection.deletedCustomerIds,
+  ]);
+  return {
+    updatedAt: relationalSection.updatedAt,
+    value: [
+      ...relationalCustomers,
+      ...legacyCustomers.filter((customer) => (
+        customer && typeof customer === "object" && !knownIds.has(String((customer as JsonObject).id ?? ""))
+      )),
+    ],
+  };
 }
 
 async function loadObjectsSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
@@ -2198,15 +2223,19 @@ export async function GET(request: Request) {
   try {
     const fallbackKeys = keys.filter((key) => (
       (key !== "resources" || resourceLegacyFallbackEnabled)
+      && (key !== "customers" || customerLegacyFallbackEnabled)
       && (!relationalSettingSections.includes(key as typeof relationalSettingSections[number]) || settingsLegacyFallbackEnabled)
     ));
     const sections = await loadFallbackSections(supabase, fallbackKeys);
     const legacyResourceSection = sections.resources as SyncSectionEnvelope | undefined;
+    const legacyCustomerSection = sections.customers as SyncSectionEnvelope | undefined;
     const legacySettingSections = Object.fromEntries(relationalSettingSections.map((key) => [key, sections[key]]));
     if (keys.includes("resources") && !resourceLegacyFallbackEnabled) delete sections.resources;
+    delete sections.customers;
     relationalSettingSections.forEach((key) => delete sections[key]);
     let usedResourceFallback = false;
     let usedSettingsFallback = false;
+    let usedCustomerFallback = false;
     Object.assign(sections, await loadSettingsSections(supabase, keys));
     const authoritativeSettings = await loadAuthoritativeSettingsSections(supabase, keys);
     for (const key of ["companySettings", "dailyMailSettings"] as const) {
@@ -2231,7 +2260,12 @@ export async function GET(request: Request) {
     }
     if (keys.includes("customers")) {
       const customerSection = await loadCustomersSection(supabase);
-      if (customerSection && relationalSectionIsNewer(sections.customers, customerSection)) sections.customers = customerSection;
+      if (customerLegacyFallbackEnabled && legacyCustomerSection) {
+        sections.customers = mergeLegacyCustomersWithoutResurrection(legacyCustomerSection, customerSection);
+        usedCustomerFallback = true;
+      } else {
+        sections.customers = customerSection;
+      }
     }
     if (keys.includes("inventoryLocations")) {
       const inventoryLocationSection = await loadInventoryLocationsSection(supabase);
@@ -2333,7 +2367,14 @@ export async function GET(request: Request) {
     if (usedSettingsFallback) {
       console.warn("LEGACY_SETTINGS_READ_FALLBACK", { tenantId: auth.tenantId });
     }
-    const legacyFallback = [usedResourceFallback ? "resources" : "", usedSettingsFallback ? "settings" : ""].filter(Boolean);
+    if (usedCustomerFallback) {
+      console.warn("LEGACY_CUSTOMER_READ_FALLBACK", { tenantId: auth.tenantId });
+    }
+    const legacyFallback = [
+      usedResourceFallback ? "resources" : "",
+      usedSettingsFallback ? "settings" : "",
+      usedCustomerFallback ? "customers" : "",
+    ].filter(Boolean);
     return NextResponse.json(
       { data: sections, legacyFallback: legacyFallback.length > 0 },
       { headers: {
@@ -2363,6 +2404,12 @@ export async function POST(request: Request) {
   if ("resources" in filteredPatch) {
     return NextResponse.json(
       { error: "Ressourcen werden nur noch als datensatzweise Sync-Mutation gespeichert." },
+      { status: 409 },
+    );
+  }
+  if ("customers" in filteredPatch) {
+    return NextResponse.json(
+      { error: "Kunden und Ansprechpartner werden nur noch als datensatzweise Sync-Mutation gespeichert." },
       { status: 409 },
     );
   }
@@ -2396,13 +2443,6 @@ export async function POST(request: Request) {
         await saveBillingSection(supabase, filteredPatch.billing);
       } catch (error) {
         console.warn("Relationaler Abrechnungs-Sync wurde auf Fallback reduziert.", error);
-      }
-    }
-    if ("customers" in filteredPatch) {
-      try {
-        await saveCustomersSection(supabase, filteredPatch.customers);
-      } catch (error) {
-        console.warn("Relationaler Kunden-Sync wurde auf Fallback reduziert.", error);
       }
     }
     if ("inventoryLocations" in filteredPatch) {

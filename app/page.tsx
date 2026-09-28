@@ -68,6 +68,11 @@ import {
   prepareSettingMutation,
   prepareTranslationMutations,
 } from "@/lib/settingsSync";
+import {
+  overlayPendingCustomerMutations,
+  prepareCustomerMutations,
+  type RevisionedCustomerContact,
+} from "@/lib/customerSync";
 import { useSyncQueue } from "@/lib/useSyncQueue";
 import {
   normalizeOnboardingState,
@@ -180,6 +185,8 @@ type MediaItem = {
   isPrimary?: boolean;
 };
 
+type CustomerContactRecord = RevisionedCustomerContact;
+
 type CustomerRecord = {
   id: string;
   personalNumber?: string;
@@ -208,6 +215,10 @@ type CustomerRecord = {
   workTimeVisibility?: "service" | "show" | "hide";
   billable?: boolean;
   archived?: boolean;
+  contacts?: CustomerContactRecord[];
+  deletedAt?: string;
+  revision?: number;
+  updatedAt?: string;
 };
 
 type PortalLoginEntry = {
@@ -881,6 +892,7 @@ const relationalSettingsSyncKeys = new Set<SyncSectionKey>([
   "tenantSettings",
   "translationOverrides",
 ]);
+const relationalCustomerSyncKeys = new Set<SyncSectionKey>(["customers"]);
 
 function numericValue(value?: string) {
   const parsed = Number(String(value ?? "").replace(",", ".").replace(/[^\d.-]/g, ""));
@@ -2843,6 +2855,7 @@ function readPendingSyncKeys(): SyncSectionKey[] {
     return parsed.filter((key): key is SyncSectionKey => (
       key !== "resources"
       && !relationalSettingsSyncKeys.has(key as SyncSectionKey)
+      && !relationalCustomerSyncKeys.has(key as SyncSectionKey)
       && syncSectionKeys.includes(key as SyncSectionKey)
     ));
   } catch {
@@ -2890,6 +2903,7 @@ function changedSyncSections(snapshot: AppSnapshot, syncedHashes: SectionHashMap
   return syncSectionKeys.filter((key) => (
     key !== "resources"
     && !relationalSettingsSyncKeys.has(key)
+    && !relationalCustomerSyncKeys.has(key)
     && sectionHash(snapshotSectionValue(snapshot, key)) !== syncedHashes[key]
   ));
 }
@@ -4113,6 +4127,17 @@ function overlayPendingSettingsSnapshot(snapshot: AppSnapshot, queue: SyncMutati
   };
 }
 
+function overlayPendingCustomerSnapshot(snapshot: AppSnapshot, queue: SyncMutation[]): AppSnapshot {
+  return {
+    ...snapshot,
+    customers: overlayPendingCustomerMutations(snapshot.customers ?? [], queue) as CustomerRecord[],
+  };
+}
+
+function overlayPendingRecordMutations(snapshot: AppSnapshot, queue: SyncMutation[]) {
+  return overlayPendingCustomerSnapshot(overlayPendingSettingsSnapshot(snapshot, queue), queue);
+}
+
 async function loadVehiclePositions() {
   const response = await withTimeout(apiFetch("/api/vehicle-positions", {
     cache: "no-store",
@@ -4148,7 +4173,10 @@ function patchUsesSmallSyncOnly(overrides: Partial<AppSnapshot>) {
 async function saveSmallSyncPatch(overrides: Partial<AppSnapshot>) {
   const patch = Object.fromEntries(
     Object.entries(overrides).filter(([key]) => (
-      key !== "updatedAt" && key !== "resources" && !relationalSettingsSyncKeys.has(key as SyncSectionKey)
+      key !== "updatedAt"
+      && key !== "resources"
+      && !relationalSettingsSyncKeys.has(key as SyncSectionKey)
+      && !relationalCustomerSyncKeys.has(key as SyncSectionKey)
     )),
   );
   const response = await withTimeout(apiFetch("/api/sync-sections", {
@@ -4193,6 +4221,7 @@ async function saveSupabaseSnapshotWithXhr(endpoint: string, snapshot: AppSnapsh
 function compactPatchForRemote(overrides: Partial<AppSnapshot>) {
   const remoteOverrides = { ...overrides };
   delete remoteOverrides.resources;
+  delete remoteOverrides.customers;
   relationalSettingsSyncKeys.forEach((key) => delete remoteOverrides[key]);
   return {
     ...remoteOverrides,
@@ -9002,6 +9031,40 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     const revision = Number(serverRecord.revision ?? serverRecord.settings_revision);
     const deletedAt = typeof serverRecord.deleted_at === "string" ? serverRecord.deleted_at : undefined;
     const updatedAt = typeof serverRecord.updated_at === "string" ? serverRecord.updated_at : new Date().toISOString();
+    if (mutation.entityType === "customer") {
+      setCustomers((current) => deletedAt
+        ? current.filter((customer) => customer.id !== mutation.entityId)
+        : current.map((customer) => customer.id === mutation.entityId
+          ? {
+              ...customer,
+              revision: Number.isFinite(revision) ? Math.max(customer.revision ?? 1, revision) : customer.revision,
+              updatedAt,
+            }
+          : customer));
+      setAppUpdatedAt(updatedAt);
+      return;
+    }
+    if (mutation.entityType === "customer_contact") {
+      setCustomers((current) => current.map((customer) => {
+        if (customer.id !== mutation.resourceId) return customer;
+        const contacts = deletedAt
+          ? (customer.contacts ?? []).filter((contact) => contact.id !== mutation.entityId)
+          : (customer.contacts ?? []).map((contact) => contact.id === mutation.entityId
+            ? { ...contact, revision: Number.isFinite(revision) ? revision : contact.revision, updatedAt }
+            : contact);
+        const primary = contacts.find((contact) => contact.isPrimary) ?? contacts[0];
+        return {
+          ...customer,
+          contact: primary?.name ?? "",
+          contacts,
+          email: primary?.email ?? "",
+          phone: primary?.phone ?? "",
+          phone2: primary?.phone2 ?? "",
+        };
+      }));
+      setAppUpdatedAt(updatedAt);
+      return;
+    }
     if (mutation.entityType === "resource") {
       setResources((current) => deletedAt
         ? current.filter((resource) => resource.id !== mutation.entityId)
@@ -9125,7 +9188,9 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
   }, [enqueueSyncMutation, liveVehiclePositions]);
 
   const scheduleRemoteSave = useCallback((snapshot: AppSnapshot, keys: SyncSectionKey[], delayMs = 900) => {
-    keys = keys.filter((key) => key !== "resources" && !relationalSettingsSyncKeys.has(key));
+    keys = keys.filter((key) => (
+      key !== "resources" && !relationalSettingsSyncKeys.has(key) && !relationalCustomerSyncKeys.has(key)
+    ));
     if (keys.length === 0) return;
     setLegacySyncStatus("pending");
     pendingRemoteSnapshotRef.current = snapshot;
@@ -9408,7 +9473,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
         || isSeedOnlySnapshot(localSnapshot);
 
       if (!cancelled && (!localSnapshotIsSuspiciouslyEmpty || hasPendingLocalMutations)) {
-        const localSnapshotWithPendingSettings = overlayPendingSettingsSnapshot(localSnapshot, localQueue);
+        const localSnapshotWithPendingSettings = overlayPendingRecordMutations(localSnapshot, localQueue);
         applySnapshot({
           ...localSnapshotWithPendingSettings,
           resources: overlayPendingResourceMutations(localSnapshotWithPendingSettings.resources, localQueue),
@@ -9449,7 +9514,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
           ]);
           if (cancelled) return;
 
-          const remoteSnapshotWithSectionsBase = overlayPendingSettingsSnapshot(
+          const remoteSnapshotWithSectionsBase = overlayPendingRecordMutations(
             mergeSnapshotWithSyncSections(remoteSnapshot, remoteSections),
             readSyncQueue(window.localStorage),
           );
@@ -9635,7 +9700,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
       if (!remoteSnapshot) return;
 
       const remoteSections = await loadSyncSections().catch(() => ({}));
-      const remoteSnapshotWithSectionsBase = overlayPendingSettingsSnapshot(
+      const remoteSnapshotWithSectionsBase = overlayPendingRecordMutations(
         mergeSnapshotWithSyncSections(remoteSnapshot, remoteSections),
         readSyncQueue(window.localStorage),
       );
@@ -9804,6 +9869,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
         key !== "updatedAt"
         && key !== "resources"
         && !relationalSettingsSyncKeys.has(key as SyncSectionKey)
+        && !relationalCustomerSyncKeys.has(key as SyncSectionKey)
         && syncSectionKeys.includes(key as SyncSectionKey)
       ));
     const changedKeys = explicitKeys.length > 0
@@ -9909,6 +9975,15 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     adjustedMutations.forEach((mutation) => enqueueSyncMutation(mutation));
     setResources(adjustedResources);
     persistResourcesFast(adjustedResources);
+  }
+
+  function persistCustomersRelational(nextCustomers: CustomerRecord[]) {
+    const prepared = prepareCustomerMutations(customers, nextCustomers);
+    prepared.mutations.forEach((mutation) => enqueueSyncMutation(mutation));
+    setCustomers(prepared.customers);
+    const updatedAt = new Date().toISOString();
+    persistLocalSections(currentSnapshot({ customers: prepared.customers, updatedAt }), ["customers"]);
+    setAppUpdatedAt(updatedAt);
   }
 
   function persistCompanySettingsRelational(nextSettings: CompanySettings) {
@@ -10067,8 +10142,8 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     });
 
     setObjects(nextObjects);
-    setCustomers(nextCustomers);
-    persistSnapshotNow({ customers: nextCustomers, objects: nextObjects }, { forceRemote: true });
+    persistCustomersRelational(nextCustomers);
+    persistSnapshotNow({ objects: nextObjects }, { forceRemote: true });
     setSelectedObjectId(id);
     setSection("objects");
     setEditingObjectId(null);
@@ -10091,8 +10166,8 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     });
 
     setObjects(nextObjects);
-    setCustomers(nextCustomers);
-    persistSnapshotNow({ customers: nextCustomers, objects: nextObjects });
+    persistCustomersRelational(nextCustomers);
+    persistSnapshotNow({ objects: nextObjects });
     setSelectedObjectId(editingObjectId);
   }
 
@@ -10106,8 +10181,8 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     const nextObjects = objects.map((item) => (item.id === object.id ? { ...item, archived: true } : item));
     const nextCustomers = customers.map((customer) => ({ ...customer, objects: customer.objects.filter((id) => id !== object.id) }));
     setObjects(nextObjects);
-    setCustomers(nextCustomers);
-    persistSnapshotNow({ customers: nextCustomers, objects: nextObjects }, { forceRemote: true });
+    persistCustomersRelational(nextCustomers);
+    persistSnapshotNow({ objects: nextObjects }, { forceRemote: true });
     setSelectedObjectId(activeObjects.find((item) => item.id !== object.id)?.id ?? "");
     setRecordNotice(`Objekt "${object.name}" wurde archiviert.`);
     return true;
@@ -10118,8 +10193,8 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     const nextObjects = objects.filter((item) => item.id !== object.id);
     const nextCustomers = customers.map((customer) => ({ ...customer, objects: customer.objects.filter((id) => id !== object.id) }));
     setObjects(nextObjects);
-    setCustomers(nextCustomers);
-    persistSnapshotNow({ customers: nextCustomers, objects: nextObjects }, { forceRemote: true });
+    persistCustomersRelational(nextCustomers);
+    persistSnapshotNow({ objects: nextObjects }, { forceRemote: true });
     setRecordNotice(`Archiviertes Objekt "${object.name}" wurde endgültig gelöscht.`);
     return true;
   }
@@ -10132,8 +10207,8 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
           : customer,
     );
     setObjects(nextObjects);
-    setCustomers(nextCustomers);
-    persistSnapshotNow({ customers: nextCustomers, objects: nextObjects }, { forceRemote: true });
+    persistCustomersRelational(nextCustomers);
+    persistSnapshotNow({ objects: nextObjects }, { forceRemote: true });
     setSelectedObjectId(object.id);
     setRecordNotice(`Objekt "${object.name}" wurde wieder aktiviert.`);
     return true;
@@ -10244,9 +10319,9 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
       return object.ownerCustomerId === saved.id ? { ...object, ownerCustomerId: "" } : object;
     });
 
-    setCustomers(nextCustomers);
+    persistCustomersRelational(nextCustomers);
     setObjects(nextObjects);
-    persistSnapshotNow({ customers: nextCustomers, objects: nextObjects }, { forceRemote: true });
+    persistSnapshotNow({ objects: nextObjects }, { forceRemote: true });
     setEditingCustomerId(null);
     setSection("customers");
     setModal(null);
@@ -10280,9 +10355,9 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
       return object.ownerCustomerId === saved.id ? { ...object, ownerCustomerId: "" } : object;
     });
 
-    setCustomers(nextCustomers);
+    persistCustomersRelational(nextCustomers);
     setObjects(nextObjects);
-    persistSnapshotNow({ customers: nextCustomers, objects: nextObjects });
+    persistSnapshotNow({ objects: nextObjects });
   }
 
   function saveOnboardingProgress(patch: Partial<OnboardingState>, companyPatch: Partial<CompanySettings> = {}) {
@@ -10315,9 +10390,8 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
       ...companySettings,
       onboarding: { ...onboardingState, currentStep: "object" as const, firstCustomerCompleted: true },
     };
-    setCustomers(nextCustomers);
+    persistCustomersRelational(nextCustomers);
     persistCompanySettingsRelational(nextSettings);
-    persistSnapshotNow({ customers: nextCustomers }, { forceRemote: true });
     return id;
   }
 
@@ -10346,10 +10420,10 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
       onboarding: { ...onboardingState, currentStep: "job" as const, firstObjectCompleted: true, workspaceCompleted: true },
     };
     setObjects(nextObjects);
-    setCustomers(nextCustomers);
+    persistCustomersRelational(nextCustomers);
     setSelectedObjectId(id);
     persistCompanySettingsRelational(nextSettings);
-    persistSnapshotNow({ customers: nextCustomers, objects: nextObjects }, { forceRemote: true });
+    persistSnapshotNow({ objects: nextObjects }, { forceRemote: true });
     return id;
   }
 
@@ -10455,8 +10529,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     }
 
     const nextCustomers = customers.map((item) => (item === customer ? { ...item, archived: true } : item));
-    setCustomers(nextCustomers);
-    persistSnapshotNow({ customers: nextCustomers }, { forceRemote: true });
+    persistCustomersRelational(nextCustomers);
     setRecordNotice(`Kunde "${customer.name}" wurde archiviert.`);
     return true;
   }
@@ -10464,18 +10537,14 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
   function deleteCustomer(customer: CustomerRecord) {
     if (!customer.archived) return false;
     const nextCustomers = customers.filter((item) => item !== customer);
-    const nextObjects = objects.map((object) => (object.ownerCustomerId === customer.id ? { ...object, ownerCustomerId: "" } : object));
-    setCustomers(nextCustomers);
-    setObjects(nextObjects);
-    persistSnapshotNow({ customers: nextCustomers, objects: nextObjects }, { forceRemote: true });
+    persistCustomersRelational(nextCustomers);
     setRecordNotice(`Archivierter Kunde "${customer.name}" wurde endgültig gelöscht.`);
     return true;
   }
 
   function restoreCustomer(customer: CustomerRecord) {
     const nextCustomers = customers.map((item) => (item === customer ? { ...item, archived: false } : item));
-    setCustomers(nextCustomers);
-    persistSnapshotNow({ customers: nextCustomers }, { forceRemote: true });
+    persistCustomersRelational(nextCustomers);
     setRecordNotice(`Kunde "${customer.name}" wurde wieder aktiviert.`);
     return true;
   }
@@ -10538,11 +10607,11 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
       : [{ ...savedCustomer, objects: [objectId] }, ...customers];
     const nextObjects = [savedObject, ...objects];
 
-    setCustomers(nextCustomers);
+    persistCustomersRelational(nextCustomers);
     setObjects(nextObjects);
     setSelectedObjectId(objectId);
     setNewJob((current) => ({ ...current, billable: savedCustomer.billable ?? true }));
-    persistSnapshotNow({ customers: nextCustomers, objects: nextObjects }, { forceRemote: true });
+    persistSnapshotNow({ objects: nextObjects }, { forceRemote: true });
     const entityName = objectTypeName(objectTypeDefinitions, savedObject.type, language);
     setRecordNotice(`Kunde "${savedCustomer.name}" und ${entityName} "${savedObject.name}" wurden für den Auftrag angelegt.`);
   }
@@ -11808,8 +11877,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
         ? { ...customer, email: updates.email.trim(), phone: updates.phone.trim() || customer.phone, phone2: (updates.phone2 ?? "").trim() }
         : customer
     ));
-    setCustomers(nextCustomers);
-    persistSnapshotNow({ customers: nextCustomers }, { forceRemote: true });
+    persistCustomersRelational(nextCustomers);
     setRecordNotice("Kundenstammdaten aus dem Portal wurden aktualisiert.");
   }
 
@@ -11832,8 +11900,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
         : customer
     ));
 
-    setCustomers(nextCustomers);
-    persistSnapshotNow({ customers: nextCustomers });
+    persistCustomersRelational(nextCustomers);
   }
 
   function latestLogbookEntry(vehicle?: ResourceRecord) {

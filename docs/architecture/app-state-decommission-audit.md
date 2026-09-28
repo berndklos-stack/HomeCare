@@ -25,7 +25,7 @@ be read as the current Phase 3A runtime behavior.
 
 ## Phase 3B implementation update (28 September 2026)
 
-The local, uncommitted Phase 3B implementation makes these domains
+The committed Phase 3B implementation makes these domains
 relationally authoritative:
 
 - company and daily-mail configuration in `homecare_settings`;
@@ -43,8 +43,28 @@ requires an explicit tenant, filters all reads by it and no longer reads or
 writes its legacy `app_state` state row.
 
 The baseline tables and findings below remain the pre-cutover audit record.
-Dedicated WorkCore Staging verification is still required before Phase 3B can
-be committed or deployed.
+
+## Phase 3C local implementation update (28 September 2026)
+
+Customer master records and customer contacts are relationally authoritative.
+`homecare_customers` owns customer revisions, archive state and tombstones;
+`homecare_customer_contacts` owns independently revisioned contact persons.
+Existing single-contact fields are migrated to a stable primary-contact row.
+
+Customer/contact writes use the durable tenant-scoped mutation queue and
+journal. `/api/sync-sections` rejects customer writes and `/api/app-state`
+strips them. Relational empty/deleted results are authoritative. A read-only
+rollback fallback requires `WORKCORE_CUSTOMER_LEGACY_READ_FALLBACK=1`, emits
+`LEGACY_CUSTOMER_READ_FALLBACK`, and cannot restore JSON writes.
+
+Customer deletion is a tombstone and preserves every foreign-key reference.
+It requires prior archive and is blocked by active objects/jobs, open billing
+or active portal access. Portal context and invitation ignore tombstoned
+customers while retaining their tenant/customer scope.
+
+The local PostgreSQL and application regression gates pass. Dedicated WorkCore
+Supabase Staging verification also passed before commit, including PostgREST,
+RLS, portal, dependency guards, offline conflicts and the read-only fallback.
 
 ## Executive finding
 
@@ -159,7 +179,7 @@ secondary read behavior where relevant.
 | Domain/module | Classification | Current stores and important gaps |
 | --- | --- | --- |
 | Full application snapshot | **legacy JSON authoritative** | `/api/app-state`, browser bootstrap and JSON-only restore still treat the complete `AppSnapshot` as a valid server truth |
-| Customers and contacts | **dual-write** | `sync-section:customers` plus `homecare_customers`; relation is read only when newer; whole-list delete is not reflected in relational rows |
+| Customers and contacts | **relational authoritative** | `homecare_customers`, `homecare_customer_contacts`, record-level mutation journal, revisions and tombstones; legacy customer JSON is explicit read-only fallback only |
 | Projects/objects/sites | **dual-write** | `sync-section:objects`, `homecare_objects`, `homecare_media`; `type` and `customFields` remain JSON authoritative; object-media removal is not tombstoned by `saveObjectsSection` |
 | Personnel | **dual-write** | Section plus `homecare_personnel`; empty list and deletions cannot clear relation |
 | Services | **dual-write** | Section plus `homecare_services`; checklist remains row JSON but the containing service list is whole-section synced |

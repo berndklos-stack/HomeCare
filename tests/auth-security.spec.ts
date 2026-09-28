@@ -119,8 +119,10 @@ test("RLS bindet Datenzugriff an Benutzer, Berechtigung und Request-Mandant", ()
 
 test("Portalpasswörter werden aus relationalen und Legacy-Daten entfernt", () => {
   const migration = readFileSync(path.join(process.cwd(), "supabase/migrations/20260927100000_auth_tenant_rls_roles.sql"), "utf8");
+  const customerMigration = readFileSync(path.join(process.cwd(), "supabase/migrations/20260928160000_customer_contact_relational_cutover.sql"), "utf8");
   const syncRoute = readFileSync(path.join(process.cwd(), "app/api/sync-sections/route.ts"), "utf8");
   expect(migration).toContain("set portal_password = null");
   expect(migration).toContain("customer - 'portalPassword'");
-  expect(syncRoute).toContain("portal_password: null");
+  expect(customerMigration).not.toContain("p_payload->>'portalPassword'");
+  expect(syncRoute).toContain('portalPassword: ""');
 });

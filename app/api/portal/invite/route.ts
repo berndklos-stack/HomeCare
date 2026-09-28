@@ -24,6 +24,7 @@ export async function POST(request: Request) {
     .select("id")
     .eq("tenant_id", auth.tenantId)
     .eq("id", customerId)
+    .is("deleted_at", null)
     .maybeSingle();
   if (customerError || !customer) {
     return NextResponse.json({ error: "Kunde wurde in dieser Firma nicht gefunden." }, { status: 404 });

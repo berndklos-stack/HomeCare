@@ -198,7 +198,7 @@ PostgreSQL 17.11, including an idempotent legacy-data rehearsal and concurrent
 daily-mail claims. The read-only fallback is controlled by
 `WORKCORE_SETTINGS_LEGACY_READ_FALLBACK=1`; rollback keeps relational writes,
 revisions, tombstones and mutation-journal entries active. Dedicated Supabase
-Staging verification remains the release gate.
+Staging verification passed before commit.
 
 ### 3. Customers and contacts
 
@@ -208,6 +208,14 @@ Portal access remains Supabase-Auth based and must not return to customer JSON.
 
 Special rollback: relational customer IDs and portal assignments remain
 authoritative; legacy projection must omit all password fields.
+
+Implementation status (28 September 2026): customer and contact writes use
+tenant-scoped record mutations, expected revisions and tombstones. Customer
+deletion preserves references and is blocked while active dependencies exist.
+The read-only rollback fallback is controlled by
+`WORKCORE_CUSTOMER_LEGACY_READ_FALLBACK=1`; it does not restore JSON writes.
+Local PostgreSQL, application and dedicated WorkCore Supabase Staging
+verification passed before commit.
 
 ### 4. Objects/projects and object media
 
