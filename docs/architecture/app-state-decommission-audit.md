@@ -23,6 +23,29 @@ default setting, stale JSON resources and positions cannot reappear. The
 historical details below remain useful as the pre-cutover evidence and must not
 be read as the current Phase 3A runtime behavior.
 
+## Phase 3B implementation update (28 September 2026)
+
+The local, uncommitted Phase 3B implementation makes these domains
+relationally authoritative:
+
+- company and daily-mail configuration in `homecare_settings`;
+- tenant plan, subscription and module settings in the tenant aggregate;
+- custom translations in `homecare_translations` per translation key;
+- daily-mail send state in `homecare_daily_mail_state`, separate from
+  configuration and protected by an atomic tenant/send-key claim.
+
+Writes use the shared durable mutation queue and tenant-scoped mutation journal
+with expected revisions. `/api/sync-sections` rejects these domain writes and
+`/api/app-state` strips them. Legacy reads require
+`WORKCORE_SETTINGS_LEGACY_READ_FALLBACK=1`, emit
+`LEGACY_SETTINGS_READ_FALLBACK`, and never enable legacy writes. The cron route
+requires an explicit tenant, filters all reads by it and no longer reads or
+writes its legacy `app_state` state row.
+
+The baseline tables and findings below remain the pre-cutover audit record.
+Dedicated WorkCore Staging verification is still required before Phase 3B can
+be committed or deployed.
+
 ## Executive finding
 
 `app_state`, `/api/sync-sections`, tenant-scoped browser `localStorage`, and the

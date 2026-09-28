@@ -5,7 +5,7 @@ export type SyncMutationOperation = "create" | "update" | "delete" | "restore";
 export type SyncMutation = {
   id: string;
   entityId: string;
-  entityType: "resource" | "vehicle_media" | "vehicle_position" | "vehicle_trip";
+  entityType: "resource" | "setting" | "tenant_settings" | "translation" | "vehicle_media" | "vehicle_position" | "vehicle_trip";
   operation: SyncMutationOperation;
   resourceId: string;
   payload: Record<string, unknown>;
@@ -86,7 +86,7 @@ export function normalizeSyncQueue(value: unknown): SyncMutation[] {
       mutation.id
       && mutation.entityId
       && mutation.resourceId
-      && ["resource", "vehicle_media", "vehicle_position", "vehicle_trip"].includes(String(mutation.entityType))
+      && ["resource", "setting", "tenant_settings", "translation", "vehicle_media", "vehicle_position", "vehicle_trip"].includes(String(mutation.entityType))
       && ["create", "update", "delete", "restore"].includes(String(mutation.operation))
       && ["pending", "syncing", "synced", "failed", "conflict"].includes(String(mutation.status)),
     );
@@ -97,7 +97,16 @@ export function normalizeSyncQueue(value: unknown): SyncMutation[] {
 
 export function readSyncQueue(storage: StorageLike): SyncMutation[] {
   try {
-    return normalizeSyncQueue(JSON.parse(storage.getItem(currentSyncQueueStorageKey()) || "[]"));
+    const storageKey = currentSyncQueueStorageKey();
+    let serialized = storage.getItem(storageKey);
+    if (!serialized && storageKey !== syncQueueStorageKey) {
+      serialized = storage.getItem(syncQueueStorageKey);
+      if (serialized) {
+        storage.setItem(storageKey, serialized);
+        storage.setItem(syncQueueStorageKey, "[]");
+      }
+    }
+    return normalizeSyncQueue(JSON.parse(serialized || "[]"));
   } catch {
     return [];
   }

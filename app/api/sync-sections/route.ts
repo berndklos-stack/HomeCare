@@ -5,6 +5,8 @@ import { isAuthError, requireApiAuth } from "@/lib/server/apiAuth";
 export const runtime = "nodejs";
 
 const resourceLegacyFallbackEnabled = process.env.WORKCORE_RESOURCE_LEGACY_READ_FALLBACK === "1";
+const settingsLegacyFallbackEnabled = process.env.WORKCORE_SETTINGS_LEGACY_READ_FALLBACK === "1";
+const relationalSettingSections = ["companySettings", "dailyMailSettings", "tenantSettings", "translationOverrides"] as const;
 
 const allowedSyncSections = [
   "accountingAccounts",
@@ -404,14 +406,18 @@ type PortalMessageRow = {
 
 type TranslationRow = {
   de: string;
+  deleted_at: string | null;
   en: string;
   key: string;
+  revision: number;
   sv: string;
   updated_at: string | null;
 };
 
 type SettingRow = {
+  deleted_at: string | null;
   key: string;
+  revision: number;
   updated_at: string | null;
   value: unknown;
 };
@@ -419,6 +425,7 @@ type SettingRow = {
 type TenantRow = {
   id: string;
   name: string;
+  settings_revision: number;
   subscription_interval: string | null;
   subscription_status: string | null;
   updated_at: string | null;
@@ -437,8 +444,6 @@ type TenantModuleRow = {
   module: string;
   updated_at: string | null;
 };
-
-const defaultTenantId = "00000000-0000-0000-0000-000000000001";
 
 function getSupabaseServerClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -1386,21 +1391,15 @@ function rowToPortalMessage(row: PortalMessageRow) {
   };
 }
 
-function translationToRow(row: JsonObject) {
-  return {
-    de: stringOrEmpty(row.de) || stringOrEmpty(row.key),
-    en: stringOrEmpty(row.en) || stringOrEmpty(row.de) || stringOrEmpty(row.key),
-    key: stringOrEmpty(row.key),
-    sv: stringOrEmpty(row.sv) || stringOrEmpty(row.de) || stringOrEmpty(row.key),
-  };
-}
-
 function rowToTranslation(row: TranslationRow) {
   return {
     de: row.de,
+    deletedAt: row.deleted_at ?? undefined,
     en: row.en,
     key: row.key,
+    revision: row.revision,
     sv: row.sv,
+    updatedAt: row.updated_at ?? undefined,
   };
 }
 
@@ -1905,30 +1904,20 @@ async function savePortalMessagesSection(supabase: NonNullable<ReturnType<typeof
 async function loadTranslationOverridesSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
   const { data, error } = await supabase
     .from("homecare_translations")
-    .select("key, de, sv, en, updated_at")
+    .select("key, de, sv, en, revision, deleted_at, updated_at")
     .order("key", { ascending: true });
-  if (error || !data?.length) return null;
-  return {
-    updatedAt: maxUpdatedAt((data as TranslationRow[]).map((row) => row.updated_at)),
-    value: (data as TranslationRow[]).map(rowToTranslation),
-  };
-}
-
-async function saveTranslationOverridesSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>, value: unknown) {
-  if (!Array.isArray(value)) return;
-  const rows = value.filter((item): item is JsonObject => Boolean(item && typeof item === "object" && "key" in item && stringOrEmpty((item as JsonObject).key)));
-  if (!rows.length) return;
-  const { error } = await supabase
-    .from("homecare_translations")
-    .upsert(rows.map(translationToRow), { onConflict: "tenant_id,key" });
   if (error) throw new Error(error.message);
+  const rows = (data ?? []) as TranslationRow[];
+  return {
+    hasRecords: rows.length > 0,
+    updatedAt: maxUpdatedAt(rows.map((row) => row.updated_at)),
+    value: rows.filter((row) => !row.deleted_at).map(rowToTranslation),
+  };
 }
 
 async function loadSettingsSections(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>, keys: SyncSectionKey[]) {
   const settingKeys = keys.filter((key) => [
     "activeJobId",
-    "companySettings",
-    "dailyMailSettings",
     "deletedEntityIds",
     "deletedReportIds",
     "fieldNotes",
@@ -1946,11 +1935,29 @@ async function loadSettingsSections(supabase: NonNullable<ReturnType<typeof getS
     .map((row) => [row.key, { updatedAt: row.updated_at, value: row.value }]));
 }
 
+async function loadAuthoritativeSettingsSections(
+  supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>,
+  keys: SyncSectionKey[],
+) {
+  const settingKeys = keys.filter((key) => key === "companySettings" || key === "dailyMailSettings");
+  if (!settingKeys.length) return {};
+  const { data, error } = await supabase
+    .from("homecare_settings")
+    .select("key, value, revision, deleted_at, updated_at")
+    .in("key", settingKeys);
+  if (error) throw new Error(error.message);
+  return Object.fromEntries(((data ?? []) as SettingRow[]).map((row) => [row.key, {
+    hasRecord: true,
+    updatedAt: row.updated_at,
+    value: row.deleted_at
+      ? null
+      : { ...(row.value && typeof row.value === "object" && !Array.isArray(row.value) ? row.value as JsonObject : {}), revision: row.revision, updatedAt: row.updated_at },
+  }]));
+}
+
 async function saveSettingsSections(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>, patch: JsonObject) {
   const settingKeys = [
     "activeJobId",
-    "companySettings",
-    "dailyMailSettings",
     "deletedEntityIds",
     "deletedReportIds",
     "fieldNotes",
@@ -1973,25 +1980,25 @@ function planFromPlanId(planId: string | null | undefined) {
   return "business";
 }
 
-async function loadTenantSettingsSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
+async function loadTenantSettingsSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>, tenantId: string) {
   const { data: tenantRows, error: tenantError } = await supabase
     .from("homecare_tenants")
-    .select("id, name, subscription_status, subscription_interval, updated_at")
-    .eq("id", defaultTenantId)
+    .select("id, name, subscription_status, subscription_interval, settings_revision, updated_at")
+    .eq("id", tenantId)
     .limit(1);
   if (tenantError || !tenantRows?.length) return null;
 
   const { data: subscriptionRows } = await supabase
     .from("homecare_subscriptions")
     .select("plan_id, status, interval, current_period_end, updated_at")
-    .eq("tenant_id", defaultTenantId)
+    .eq("tenant_id", tenantId)
     .order("created_at", { ascending: false })
     .limit(1);
 
   const { data: moduleRows } = await supabase
     .from("homecare_tenant_modules")
     .select("module, enabled, updated_at")
-    .eq("tenant_id", defaultTenantId)
+    .eq("tenant_id", tenantId)
     .order("module", { ascending: true });
 
   const tenant = (tenantRows as TenantRow[])[0];
@@ -2009,60 +2016,12 @@ async function loadTenantSettingsSection(supabase: NonNullable<ReturnType<typeof
       modules,
       name: tenant.name,
       plan: planFromPlanId(subscription?.plan_id),
+      revision: tenant.settings_revision,
       subscriptionInterval: subscription?.interval ?? tenant.subscription_interval ?? "monthly",
       subscriptionStatus: subscription?.status ?? tenant.subscription_status ?? "active",
+      updatedAt: tenant.updated_at,
     },
   };
-}
-
-async function saveTenantSettingsSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>, value: unknown) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return;
-  const settings = value as JsonObject;
-  const tenantId = typeof settings.id === "string" && settings.id ? settings.id : defaultTenantId;
-  const modules = settings.modules && typeof settings.modules === "object" && !Array.isArray(settings.modules)
-    ? settings.modules as JsonObject
-    : {};
-  const plan = ["start", "pro", "business"].includes(String(settings.plan)) ? String(settings.plan) : "business";
-  const interval = ["monthly", "quarterly", "yearly"].includes(String(settings.subscriptionInterval)) ? String(settings.subscriptionInterval) : "monthly";
-  const subscriptionStatus = ["trialing", "active", "past_due", "paused", "cancelled"].includes(String(settings.subscriptionStatus))
-    ? String(settings.subscriptionStatus)
-    : "active";
-  const planId = `${plan}_${interval === "yearly" ? "yearly" : interval === "quarterly" ? "quarterly" : "monthly"}`;
-
-  const { error: tenantError } = await supabase
-    .from("homecare_tenants")
-    .upsert({
-      id: tenantId,
-      name: stringOrEmpty(settings.name) || "Kolaretorp Service AB",
-      slug: tenantId === defaultTenantId ? "kolaretorp" : `tenant-${tenantId}`,
-      subscription_interval: interval,
-      subscription_status: subscriptionStatus,
-    }, { onConflict: "id" });
-  if (tenantError) throw new Error(tenantError.message);
-
-  await supabase
-    .from("homecare_subscriptions")
-    .upsert({
-      tenant_id: tenantId,
-      plan_id: planId,
-      status: subscriptionStatus,
-      interval,
-    }, { onConflict: "tenant_id" });
-
-  const moduleRows = Object.entries(modules)
-    .filter(([module]) => stringOrEmpty(module))
-    .map(([module, enabled]) => ({
-      enabled: enabled !== false,
-      module,
-      source: "manual",
-      tenant_id: tenantId,
-    }));
-  if (!moduleRows.length) return;
-
-  const { error: moduleError } = await supabase
-    .from("homecare_tenant_modules")
-    .upsert(moduleRows, { onConflict: "tenant_id,module" });
-  if (moduleError) throw new Error(moduleError.message);
 }
 
 async function loadFallbackSections(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>, keys: SyncSectionKey[]) {
@@ -2237,12 +2196,31 @@ export async function GET(request: Request) {
 
   const keys = requestedSyncKeys(request);
   try {
-    const fallbackKeys = resourceLegacyFallbackEnabled ? keys : keys.filter((key) => key !== "resources");
+    const fallbackKeys = keys.filter((key) => (
+      (key !== "resources" || resourceLegacyFallbackEnabled)
+      && (!relationalSettingSections.includes(key as typeof relationalSettingSections[number]) || settingsLegacyFallbackEnabled)
+    ));
     const sections = await loadFallbackSections(supabase, fallbackKeys);
     const legacyResourceSection = sections.resources as SyncSectionEnvelope | undefined;
+    const legacySettingSections = Object.fromEntries(relationalSettingSections.map((key) => [key, sections[key]]));
     if (keys.includes("resources") && !resourceLegacyFallbackEnabled) delete sections.resources;
+    relationalSettingSections.forEach((key) => delete sections[key]);
     let usedResourceFallback = false;
+    let usedSettingsFallback = false;
     Object.assign(sections, await loadSettingsSections(supabase, keys));
+    const authoritativeSettings = await loadAuthoritativeSettingsSections(supabase, keys);
+    for (const key of ["companySettings", "dailyMailSettings"] as const) {
+      if (!keys.includes(key)) continue;
+      const relational = authoritativeSettings[key];
+      if (relational) {
+        sections[key] = { updatedAt: relational.updatedAt, value: relational.value };
+      } else if (settingsLegacyFallbackEnabled && legacySettingSections[key]) {
+        sections[key] = legacySettingSections[key];
+        usedSettingsFallback = true;
+      } else {
+        sections[key] = { updatedAt: null, value: null };
+      }
+    }
     if (keys.includes("accountingAccounts")) {
       const accountingSection = await loadAccountingAccountsSection(supabase);
       if (accountingSection) sections.accountingAccounts = accountingSection;
@@ -2307,11 +2285,20 @@ export async function GET(request: Request) {
     }
     if (keys.includes("translationOverrides")) {
       const translationSection = await loadTranslationOverridesSection(supabase);
-      if (translationSection) sections.translationOverrides = translationSection;
+      if (translationSection.hasRecords || !settingsLegacyFallbackEnabled || !legacySettingSections.translationOverrides) {
+        sections.translationOverrides = { updatedAt: translationSection.updatedAt, value: translationSection.value };
+      } else {
+        sections.translationOverrides = legacySettingSections.translationOverrides;
+        usedSettingsFallback = true;
+      }
     }
     if (keys.includes("tenantSettings")) {
-      const tenantSection = await loadTenantSettingsSection(supabase);
+      const tenantSection = await loadTenantSettingsSection(supabase, auth.tenantId);
       if (tenantSection) sections.tenantSettings = tenantSection;
+      else if (settingsLegacyFallbackEnabled && legacySettingSections.tenantSettings) {
+        sections.tenantSettings = legacySettingSections.tenantSettings;
+        usedSettingsFallback = true;
+      }
     }
     if (keys.includes("jobs")) {
       const jobSection = await loadJobsSection(supabase);
@@ -2343,11 +2330,15 @@ export async function GET(request: Request) {
       }
     }
 
+    if (usedSettingsFallback) {
+      console.warn("LEGACY_SETTINGS_READ_FALLBACK", { tenantId: auth.tenantId });
+    }
+    const legacyFallback = [usedResourceFallback ? "resources" : "", usedSettingsFallback ? "settings" : ""].filter(Boolean);
     return NextResponse.json(
-      { data: sections, legacyFallback: usedResourceFallback },
+      { data: sections, legacyFallback: legacyFallback.length > 0 },
       { headers: {
         "Cache-Control": "no-store, max-age=0, must-revalidate",
-        "X-WorkCore-Legacy-Fallback": usedResourceFallback ? "resources" : "none",
+        "X-WorkCore-Legacy-Fallback": legacyFallback.join(",") || "none",
       } },
     );
   } catch (error) {
@@ -2361,9 +2352,6 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const auth = await requireApiAuth(request, "data.write");
   if (isAuthError(auth)) return auth;
-  if (process.env.NEXT_PUBLIC_DISABLE_SUPABASE_SYNC === "1" && request.headers.get("x-workcore-e2e-bypass") === "1") {
-    return NextResponse.json({ ok: true, updatedAt: new Date().toISOString() });
-  }
   const supabase = auth.client;
 
   const body = await request.json().catch(() => ({})) as JsonObject;
@@ -2377,6 +2365,16 @@ export async function POST(request: Request) {
       { error: "Ressourcen werden nur noch als datensatzweise Sync-Mutation gespeichert." },
       { status: 409 },
     );
+  }
+  const blockedSettingKeys = relationalSettingSections.filter((key) => key in filteredPatch);
+  if (blockedSettingKeys.length > 0) {
+    return NextResponse.json(
+      { error: "Einstellungen und Übersetzungen werden nur noch als datensatzweise Sync-Mutation gespeichert." },
+      { status: 409 },
+    );
+  }
+  if (process.env.NEXT_PUBLIC_DISABLE_SUPABASE_SYNC === "1" && request.headers.get("x-workcore-e2e-bypass") === "1") {
+    return NextResponse.json({ ok: true, updatedAt: new Date().toISOString() });
   }
 
   try {
@@ -2454,20 +2452,6 @@ export async function POST(request: Request) {
         await saveServicesSection(supabase, filteredPatch.services);
       } catch (error) {
         console.warn("Relationaler Leistungs-Sync wurde auf Fallback reduziert.", error);
-      }
-    }
-    if ("translationOverrides" in filteredPatch) {
-      try {
-        await saveTranslationOverridesSection(supabase, filteredPatch.translationOverrides);
-      } catch (error) {
-        console.warn("Relationaler Sprach-Sync wurde auf Fallback reduziert.", error);
-      }
-    }
-    if ("tenantSettings" in filteredPatch) {
-      try {
-        await saveTenantSettingsSection(supabase, filteredPatch.tenantSettings);
-      } catch (error) {
-        console.warn("Relationaler Mandanten-Sync wurde auf Fallback reduziert.", error);
       }
     }
     if ("jobs" in filteredPatch) {

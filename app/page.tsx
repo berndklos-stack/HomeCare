@@ -62,6 +62,12 @@ import {
   overlayPendingVehiclePositionMutations,
   prepareResourceMutations,
 } from "@/lib/resourceSync";
+import {
+  overlayPendingSetting,
+  overlayPendingTranslations,
+  prepareSettingMutation,
+  prepareTranslationMutations,
+} from "@/lib/settingsSync";
 import { useSyncQueue } from "@/lib/useSyncQueue";
 import {
   normalizeOnboardingState,
@@ -761,6 +767,8 @@ type DailyMailSettings = {
   sendTimes: string[];
   toRecipients: string;
   weekdays: string[];
+  revision?: number;
+  updatedAt?: string;
 };
 
 type CompanySettings = {
@@ -785,6 +793,8 @@ type CompanySettings = {
   phone?: string;
   vatRate?: string;
   vatNumber: string;
+  revision?: number;
+  updatedAt?: string;
 };
 
 type BeforeInstallPromptEvent = Event & {
@@ -814,6 +824,8 @@ type TenantSettings = {
   subscriptionStatus: "trialing" | "active" | "past_due" | "paused" | "cancelled";
   subscriptionInterval: "monthly" | "quarterly" | "yearly";
   modules: Record<FeatureModule, boolean>;
+  revision?: number;
+  updatedAt?: string;
 };
 
 type AppSnapshot = {
@@ -859,7 +871,16 @@ type TranslationFileRow = {
   en: string;
   key: string;
   sv: string;
+  revision?: number;
+  updatedAt?: string;
 };
+
+const relationalSettingsSyncKeys = new Set<SyncSectionKey>([
+  "companySettings",
+  "dailyMailSettings",
+  "tenantSettings",
+  "translationOverrides",
+]);
 
 function numericValue(value?: string) {
   const parsed = Number(String(value ?? "").replace(",", ".").replace(/[^\d.-]/g, ""));
@@ -2820,7 +2841,9 @@ function readPendingSyncKeys(): SyncSectionKey[] {
     const parsed = JSON.parse(window.localStorage.getItem(pendingSyncKeysStorageKey()) || "[]");
     if (!Array.isArray(parsed)) return [];
     return parsed.filter((key): key is SyncSectionKey => (
-      key !== "resources" && syncSectionKeys.includes(key as SyncSectionKey)
+      key !== "resources"
+      && !relationalSettingsSyncKeys.has(key as SyncSectionKey)
+      && syncSectionKeys.includes(key as SyncSectionKey)
     ));
   } catch {
     return [];
@@ -2865,7 +2888,9 @@ function sectionPatch(snapshot: AppSnapshot, keys: Iterable<SyncSectionKey>): Pa
 
 function changedSyncSections(snapshot: AppSnapshot, syncedHashes: SectionHashMap): SyncSectionKey[] {
   return syncSectionKeys.filter((key) => (
-    key !== "resources" && sectionHash(snapshotSectionValue(snapshot, key)) !== syncedHashes[key]
+    key !== "resources"
+    && !relationalSettingsSyncKeys.has(key)
+    && sectionHash(snapshotSectionValue(snapshot, key)) !== syncedHashes[key]
   ));
 }
 
@@ -4063,6 +4088,31 @@ function mergeSnapshotWithSyncSections(snapshot: AppSnapshot, sections: SyncSect
   };
 }
 
+function overlayPendingSettingsSnapshot(snapshot: AppSnapshot, queue: SyncMutation[]): AppSnapshot {
+  return {
+    ...snapshot,
+    companySettings: overlayPendingSetting(
+      { ...seedCompanySettings, ...(snapshot.companySettings ?? {}) },
+      "setting",
+      "companySettings",
+      queue,
+    ) as CompanySettings,
+    dailyMailSettings: overlayPendingSetting(
+      normalizeDailyMailSettings(snapshot.dailyMailSettings),
+      "setting",
+      "dailyMailSettings",
+      queue,
+    ) as DailyMailSettings,
+    tenantSettings: overlayPendingSetting(
+      { ...seedTenantSettings, ...(snapshot.tenantSettings ?? {}) },
+      "tenant_settings",
+      snapshot.tenantSettings?.id ?? seedTenantSettings.id,
+      queue,
+    ) as TenantSettings,
+    translationOverrides: overlayPendingTranslations(snapshot.translationOverrides ?? [], queue) as TranslationFileRow[],
+  };
+}
+
 async function loadVehiclePositions() {
   const response = await withTimeout(apiFetch("/api/vehicle-positions", {
     cache: "no-store",
@@ -4097,7 +4147,9 @@ function patchUsesSmallSyncOnly(overrides: Partial<AppSnapshot>) {
 
 async function saveSmallSyncPatch(overrides: Partial<AppSnapshot>) {
   const patch = Object.fromEntries(
-    Object.entries(overrides).filter(([key]) => key !== "updatedAt" && key !== "resources"),
+    Object.entries(overrides).filter(([key]) => (
+      key !== "updatedAt" && key !== "resources" && !relationalSettingsSyncKeys.has(key as SyncSectionKey)
+    )),
   );
   const response = await withTimeout(apiFetch("/api/sync-sections", {
     body: JSON.stringify({ patch }),
@@ -4141,6 +4193,7 @@ async function saveSupabaseSnapshotWithXhr(endpoint: string, snapshot: AppSnapsh
 function compactPatchForRemote(overrides: Partial<AppSnapshot>) {
   const remoteOverrides = { ...overrides };
   delete remoteOverrides.resources;
+  relationalSettingsSyncKeys.forEach((key) => delete remoteOverrides[key]);
   return {
     ...remoteOverrides,
     objects: overrides.objects?.map((object) => ({
@@ -8946,7 +8999,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
   const handleMutationApplied = useCallback((mutation: SyncMutation, result: SyncMutationResult) => {
     const serverRecord = result.record;
     if (!serverRecord) return;
-    const revision = Number(serverRecord.revision);
+    const revision = Number(serverRecord.revision ?? serverRecord.settings_revision);
     const deletedAt = typeof serverRecord.deleted_at === "string" ? serverRecord.deleted_at : undefined;
     const updatedAt = typeof serverRecord.updated_at === "string" ? serverRecord.updated_at : new Date().toISOString();
     if (mutation.entityType === "resource") {
@@ -8959,6 +9012,35 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
               updatedAt,
             }
           : resource));
+      setAppUpdatedAt(updatedAt);
+      return;
+    }
+    if (mutation.entityType === "setting") {
+      const applyRevision = <T extends { revision?: number; updatedAt?: string }>(current: T) => ({
+        ...current,
+        revision: Number.isFinite(revision) ? revision : current.revision,
+        updatedAt,
+      });
+      if (mutation.entityId === "companySettings") setCompanySettings((current) => applyRevision(current));
+      if (mutation.entityId === "dailyMailSettings") setDailyMailSettings((current) => applyRevision(current));
+      setAppUpdatedAt(updatedAt);
+      return;
+    }
+    if (mutation.entityType === "tenant_settings") {
+      setTenantSettings((current) => ({
+        ...current,
+        revision: Number.isFinite(revision) ? revision : current.revision,
+        updatedAt,
+      }));
+      setAppUpdatedAt(updatedAt);
+      return;
+    }
+    if (mutation.entityType === "translation") {
+      setTranslationOverrides((current) => deletedAt
+        ? current.filter((row) => row.key !== mutation.entityId)
+        : current.map((row) => row.key === mutation.entityId
+          ? { ...row, revision: Number.isFinite(revision) ? revision : row.revision, updatedAt }
+          : row));
       setAppUpdatedAt(updatedAt);
       return;
     }
@@ -9043,7 +9125,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
   }, [enqueueSyncMutation, liveVehiclePositions]);
 
   const scheduleRemoteSave = useCallback((snapshot: AppSnapshot, keys: SyncSectionKey[], delayMs = 900) => {
-    keys = keys.filter((key) => key !== "resources");
+    keys = keys.filter((key) => key !== "resources" && !relationalSettingsSyncKeys.has(key));
     if (keys.length === 0) return;
     setLegacySyncStatus("pending");
     pendingRemoteSnapshotRef.current = snapshot;
@@ -9319,12 +9401,18 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
       setAppLoadError("");
       const hasLocalData = hasSavedLocalSnapshot();
       const localSnapshot = readLocalSnapshot();
+      const localQueue = readSyncQueue(window.localStorage);
+      const hasPendingLocalMutations = localQueue.some((mutation) => !["synced", "conflict"].includes(mutation.status));
       const localSnapshotIsSuspiciouslyEmpty = !hasLocalData
         || isSuspiciouslyEmptyLocalSnapshot(localSnapshot)
         || isSeedOnlySnapshot(localSnapshot);
 
-      if (!cancelled && !localSnapshotIsSuspiciouslyEmpty) {
-        applySnapshot(localSnapshot);
+      if (!cancelled && (!localSnapshotIsSuspiciouslyEmpty || hasPendingLocalMutations)) {
+        const localSnapshotWithPendingSettings = overlayPendingSettingsSnapshot(localSnapshot, localQueue);
+        applySnapshot({
+          ...localSnapshotWithPendingSettings,
+          resources: overlayPendingResourceMutations(localSnapshotWithPendingSettings.resources, localQueue),
+        });
         setAppStorageReady(true);
       }
 
@@ -9361,7 +9449,10 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
           ]);
           if (cancelled) return;
 
-          const remoteSnapshotWithSectionsBase = mergeSnapshotWithSyncSections(remoteSnapshot, remoteSections);
+          const remoteSnapshotWithSectionsBase = overlayPendingSettingsSnapshot(
+            mergeSnapshotWithSyncSections(remoteSnapshot, remoteSections),
+            readSyncQueue(window.localStorage),
+          );
           const remoteSnapshotWithSections = {
             ...remoteSnapshotWithSectionsBase,
             resources: overlayPendingResourceMutations(
@@ -9544,7 +9635,10 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
       if (!remoteSnapshot) return;
 
       const remoteSections = await loadSyncSections().catch(() => ({}));
-      const remoteSnapshotWithSectionsBase = mergeSnapshotWithSyncSections(remoteSnapshot, remoteSections);
+      const remoteSnapshotWithSectionsBase = overlayPendingSettingsSnapshot(
+        mergeSnapshotWithSyncSections(remoteSnapshot, remoteSections),
+        readSyncQueue(window.localStorage),
+      );
       const remoteSnapshotWithSections = {
         ...remoteSnapshotWithSectionsBase,
         resources: overlayPendingResourceMutations(
@@ -9707,7 +9801,10 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     const snapshot = currentSnapshot({ ...overrides, updatedAt: snapshotUpdatedAt });
     const explicitKeys = Object.keys(overrides)
       .filter((key): key is SyncSectionKey => (
-        key !== "updatedAt" && key !== "resources" && syncSectionKeys.includes(key as SyncSectionKey)
+        key !== "updatedAt"
+        && key !== "resources"
+        && !relationalSettingsSyncKeys.has(key as SyncSectionKey)
+        && syncSectionKeys.includes(key as SyncSectionKey)
       ));
     const changedKeys = explicitKeys.length > 0
       ? Array.from(new Set(explicitKeys))
@@ -9812,6 +9909,35 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     adjustedMutations.forEach((mutation) => enqueueSyncMutation(mutation));
     setResources(adjustedResources);
     persistResourcesFast(adjustedResources);
+  }
+
+  function persistCompanySettingsRelational(nextSettings: CompanySettings) {
+    const prepared = prepareSettingMutation("setting", "companySettings", companySettings, nextSettings);
+    enqueueSyncMutation(prepared.mutation);
+    const optimistic = prepared.value as CompanySettings;
+    setCompanySettings(optimistic);
+    const updatedAt = optimistic.updatedAt ?? new Date().toISOString();
+    persistLocalSections(currentSnapshot({ companySettings: optimistic, updatedAt }), ["companySettings"]);
+    setAppUpdatedAt(updatedAt);
+  }
+
+  function persistDailyMailSettingsRelational(nextSettings: DailyMailSettings) {
+    const prepared = prepareSettingMutation("setting", "dailyMailSettings", dailyMailSettings, nextSettings);
+    enqueueSyncMutation(prepared.mutation);
+    const optimistic = prepared.value as DailyMailSettings;
+    setDailyMailSettings(optimistic);
+    const updatedAt = optimistic.updatedAt ?? new Date().toISOString();
+    persistLocalSections(currentSnapshot({ dailyMailSettings: optimistic, updatedAt }), ["dailyMailSettings"]);
+    setAppUpdatedAt(updatedAt);
+  }
+
+  function persistTranslationsRelational(nextRows: TranslationFileRow[]) {
+    const prepared = prepareTranslationMutations(translationOverrides, nextRows);
+    prepared.mutations.forEach((mutation) => enqueueSyncMutation(mutation));
+    setTranslationOverrides(prepared.rows);
+    const updatedAt = new Date().toISOString();
+    persistLocalSections(currentSnapshot({ translationOverrides: prepared.rows, updatedAt }), ["translationOverrides"]);
+    setAppUpdatedAt(updatedAt);
   }
 
   const t = labels[language];
@@ -10162,8 +10288,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
   function saveOnboardingProgress(patch: Partial<OnboardingState>, companyPatch: Partial<CompanySettings> = {}) {
     const nextOnboarding: OnboardingState = { ...onboardingState, ...patch };
     const nextSettings: CompanySettings = { ...companySettings, ...companyPatch, onboarding: nextOnboarding };
-    setCompanySettings(nextSettings);
-    persistSnapshotNow({ companySettings: nextSettings }, { forceRemote: true });
+    persistCompanySettingsRelational(nextSettings);
   }
 
   function startOnboarding() {
@@ -10191,8 +10316,8 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
       onboarding: { ...onboardingState, currentStep: "object" as const, firstCustomerCompleted: true },
     };
     setCustomers(nextCustomers);
-    setCompanySettings(nextSettings);
-    persistSnapshotNow({ companySettings: nextSettings, customers: nextCustomers }, { forceRemote: true });
+    persistCompanySettingsRelational(nextSettings);
+    persistSnapshotNow({ customers: nextCustomers }, { forceRemote: true });
     return id;
   }
 
@@ -10223,8 +10348,8 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     setObjects(nextObjects);
     setCustomers(nextCustomers);
     setSelectedObjectId(id);
-    setCompanySettings(nextSettings);
-    persistSnapshotNow({ companySettings: nextSettings, customers: nextCustomers, objects: nextObjects }, { forceRemote: true });
+    persistCompanySettingsRelational(nextSettings);
+    persistSnapshotNow({ customers: nextCustomers, objects: nextObjects }, { forceRemote: true });
     return id;
   }
 
@@ -10268,8 +10393,8 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
       onboarding: { ...onboardingState, currentStep: "team" as const, firstJobCompleted: true },
     };
     setJobs(nextJobs);
-    setCompanySettings(nextSettings);
-    persistSnapshotNow({ companySettings: nextSettings, jobs: nextJobs }, { forceRemote: true });
+    persistCompanySettingsRelational(nextSettings);
+    persistSnapshotNow({ jobs: nextJobs }, { forceRemote: true });
     return id;
   }
 
@@ -10296,8 +10421,8 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
       onboarding: { ...onboardingState, currentStep: "pwa" as const, teamStepCompleted: true },
     };
     setPersonnel(nextPersonnel);
-    setCompanySettings(nextSettings);
-    persistSnapshotNow({ companySettings: nextSettings, personnel: nextPersonnel }, { forceRemote: true });
+    persistCompanySettingsRelational(nextSettings);
+    persistSnapshotNow({ personnel: nextPersonnel }, { forceRemote: true });
     return true;
   }
 
@@ -13250,10 +13375,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
                 openResourceLogbookRequestId={resourceLogbookOpenRequestId}
                 translate={tx}
                 translationOverrides={translationOverrides}
-                setCompanySettings={(nextSettings) => {
-                  setCompanySettings(nextSettings);
-                  persistSnapshotNow({ companySettings: nextSettings }, { forceRemote: true });
-                }}
+                setCompanySettings={persistCompanySettingsRelational}
                 setAccountingAccounts={(nextAccounts) => {
                   setAccountingAccounts(nextAccounts);
                   persistSnapshotNow({ accountingAccounts: nextAccounts }, { forceRemote: true });
@@ -13283,14 +13405,8 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
                   setServices(nextServices);
                   persistSnapshotNow({ services: nextServices }, { forceRemote: true });
                 }}
-                setDailyMailSettings={(nextSettings) => {
-                  setDailyMailSettings(nextSettings);
-                  persistSnapshotNow({ dailyMailSettings: nextSettings }, { forceRemote: true });
-                }}
-                setTranslationOverrides={(nextOverrides) => {
-                  setTranslationOverrides(nextOverrides);
-                  persistSnapshotNow({ translationOverrides: nextOverrides }, { forceRemote: true });
-                }}
+                setDailyMailSettings={persistDailyMailSettingsRelational}
+                setTranslationOverrides={persistTranslationsRelational}
               />
             )}
           </div>

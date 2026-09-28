@@ -19,7 +19,7 @@ function validMutation(value: unknown): value is SyncMutation {
     mutation.id
     && mutation.entityId
     && mutation.resourceId
-    && ["resource", "vehicle_media", "vehicle_position", "vehicle_trip"].includes(String(mutation.entityType))
+    && ["resource", "setting", "tenant_settings", "translation", "vehicle_media", "vehicle_position", "vehicle_trip"].includes(String(mutation.entityType))
     && ["create", "update", "delete", "restore"].includes(String(mutation.operation)),
   );
 }
@@ -34,9 +34,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Ungültige Synchronisierungsanfrage." }, { status: 400 });
   }
 
-  const rpcName = ["resource", "vehicle_position"].includes(mutation.entityType)
-    ? "homecare_apply_resource_mutation"
-    : "homecare_apply_sync_mutation";
+  const rpcName = ["setting", "tenant_settings", "translation"].includes(mutation.entityType)
+    ? "homecare_apply_settings_mutation"
+    : ["resource", "vehicle_position"].includes(mutation.entityType)
+      ? "homecare_apply_resource_mutation"
+      : "homecare_apply_sync_mutation";
   const { data, error } = await supabase.rpc(rpcName, {
     p_entity_id: mutation.entityId,
     p_entity_type: mutation.entityType,

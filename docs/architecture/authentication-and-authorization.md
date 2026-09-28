@@ -34,7 +34,7 @@ An insert trigger assigns the request tenant for authenticated writes. The trigg
 
 ## Service role
 
-The service role remains limited to operations that cannot use ordinary RLS directly: loading the caller's membership context, storage administration/download with an explicit ownership check, portal reads constrained by tenant and customer, and the idempotent mutation RPC. The daily cron remains a legacy service-role path protected by `CRON_SECRET`; it is not yet multi-company aware.
+The service role remains limited to operations that cannot use ordinary RLS directly: loading the caller's membership context, storage administration/download with an explicit ownership check, portal reads constrained by tenant and customer, and idempotent mutation RPCs. The daily cron is protected by `CRON_SECRET`, requires `X-WorkCore-Tenant`, filters every database read by that tenant and stores its operational state in the tenant-owned `homecare_daily_mail_state` table. Manual daily-mail execution derives the tenant from the authenticated request instead of accepting a caller-supplied tenant.
 
 ## Test bypass
 

@@ -83,7 +83,10 @@ test("Cron-Servicezugriffe sind an einen expliziten Mandanten gebunden", () => {
   const source = readFileSync(path.join(process.cwd(), "app/api/cron/daily-jobs/route.ts"), "utf8");
   expect(source).toContain('request.headers.get("x-workcore-tenant")');
   expect(source).toContain('.eq("tenant_id", tenantId)');
-  expect(source).toContain('{ onConflict: "tenant_id,id" }');
+  expect(source).toContain('.from("homecare_daily_mail_state")');
+  expect(source).toContain('supabase.rpc("homecare_claim_daily_mail_send"');
+  expect(source).toContain('supabase.rpc("homecare_complete_daily_mail_send"');
+  expect(source).not.toContain('kolaretorp-daily-job-mail');
 });
 
 test("private Medien bleiben nach Rechteentzug nicht im langlebigen Browsercache", () => {

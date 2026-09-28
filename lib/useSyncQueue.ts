@@ -39,6 +39,7 @@ async function sendMutation(mutation: SyncMutation): Promise<SyncMutationResult>
 
 export function useSyncQueue({ disabled = false, onApplied }: UseSyncQueueOptions = {}) {
   const [queue, setQueue] = useState<SyncMutation[]>([]);
+  const [hydrated, setHydrated] = useState(false);
   const [online, setOnline] = useState(true);
   const processingRef = useRef(false);
   const onAppliedRef = useRef(onApplied);
@@ -51,6 +52,7 @@ export function useSyncQueue({ disabled = false, onApplied }: UseSyncQueueOption
     const hydrateId = window.setTimeout(() => {
       setQueue(readSyncQueue(window.localStorage));
       setOnline(navigator.onLine);
+      setHydrated(true);
     }, 0);
     const handleOnline = () => setOnline(true);
     const handleOffline = () => setOnline(false);
@@ -64,8 +66,9 @@ export function useSyncQueue({ disabled = false, onApplied }: UseSyncQueueOption
   }, []);
 
   useEffect(() => {
+    if (!hydrated) return;
     writeSyncQueue(window.localStorage, queue);
-  }, [queue]);
+  }, [hydrated, queue]);
 
   const flush = useCallback(async () => {
     if (disabled || !online || processingRef.current) return;
@@ -103,7 +106,13 @@ export function useSyncQueue({ disabled = false, onApplied }: UseSyncQueueOption
 
   const enqueue = useCallback((input: Parameters<typeof createSyncMutation>[0]) => {
     const mutation = createSyncMutation(input);
-    setQueue((current) => enqueueSyncMutation(current, mutation));
+    setQueue((current) => {
+      const next = enqueueSyncMutation(current, mutation);
+      // Persist before returning control to the UI so an immediate reload cannot
+      // lose a mutation while React is still scheduling effects.
+      writeSyncQueue(window.localStorage, next);
+      return next;
+    });
     return mutation;
   }, []);
 

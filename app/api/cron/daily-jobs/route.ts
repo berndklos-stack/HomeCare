@@ -70,21 +70,19 @@ type ReminderItem = {
   title: string;
 };
 
-type DailyMailState = {
-  lastSentDate?: string;
-  lastSentKey?: string;
-  sentKeys?: string[];
+type DailyMailStateRow = {
+  last_sent_date: string | null;
+  last_sent_key: string | null;
+  sent_keys: unknown;
 };
 
-const appStateRowId = "kolaretorp-service-app";
-const dailyMailStateRowId = "kolaretorp-daily-job-mail";
 const stockholmTimeZone = "Europe/Stockholm";
 const weekdayFormatter = new Intl.DateTimeFormat("sv-SE", { timeZone: stockholmTimeZone, weekday: "short" });
 const closedJobStatuses = new Set(["erledigt", "abgeschlossen", "abgerechnet", "storniert"]);
 
 function getSupabaseServerClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!supabaseUrl || !supabaseKey) {
     return null;
@@ -173,6 +171,7 @@ async function loadStoredDailyMailSettings(
     .select("value")
     .eq("tenant_id", tenantId)
     .eq("key", "dailyMailSettings")
+    .is("deleted_at", null)
     .maybeSingle();
   return data?.value && typeof data.value === "object" ? data.value as DailyMailSettings : undefined;
 }
@@ -721,23 +720,12 @@ async function sendDailyMail(request: Request, tenantId: string, manual = false)
   }
 
   const { data: mailState, error: mailStateError } = await supabase
-    .from("app_state")
-    .select("data")
+    .from("homecare_daily_mail_state")
+    .select("last_sent_date, last_sent_key, sent_keys")
     .eq("tenant_id", tenantId)
-    .eq("id", dailyMailStateRowId)
     .maybeSingle();
   if (mailStateError) {
     return NextResponse.json({ error: mailStateError.message }, { status: 500 });
-  }
-
-  const { data: appState, error: appStateError } = await supabase
-    .from("app_state")
-    .select("data")
-    .eq("tenant_id", tenantId)
-    .eq("id", appStateRowId)
-    .maybeSingle();
-  if (appStateError) {
-    return NextResponse.json({ error: appStateError.message }, { status: 500 });
   }
 
   const [{ data: jobRows, error: jobsError }, { data: objectRows, error: objectsError }] = await Promise.all([
@@ -757,9 +745,7 @@ async function sendDailyMail(request: Request, tenantId: string, manual = false)
   }
 
   const storedSettings = await loadStoredDailyMailSettings(supabase, tenantId);
-  const legacySnapshot = (appState?.data as AppSnapshot | undefined) ?? {};
   const snapshot: AppSnapshot = {
-    ...legacySnapshot,
     jobs: (jobRows ?? []).map((row) => ({
       assignedTo: row.assigned_to ?? "",
       description: row.description ?? "",
@@ -779,10 +765,10 @@ async function sendDailyMail(request: Request, tenantId: string, manual = false)
       name: row.name,
     })),
   };
-  const settings = normalizeDailyMailSettings(storedSettings ?? snapshot.dailyMailSettings);
-  const mailStateData = (mailState?.data as DailyMailState | undefined) ?? {};
-  const lastSentKey = mailStateData.lastSentKey;
-  const sentKeys = Array.isArray(mailStateData.sentKeys) ? mailStateData.sentKeys : [];
+  const settings = normalizeDailyMailSettings(storedSettings);
+  const mailStateData = mailState as DailyMailStateRow | null;
+  const lastSentKey = mailStateData?.last_sent_key ?? undefined;
+  const sentKeys = Array.isArray(mailStateData?.sent_keys) ? mailStateData.sent_keys.filter((key): key is string => typeof key === "string") : [];
   const dueSendKeys = scheduledSendKeys(settings, today, currentMinutes);
   const sendKey = dueSendKeys.find((key) => key !== lastSentKey && !sentKeys.includes(key)) ?? "";
 
@@ -798,7 +784,7 @@ async function sendDailyMail(request: Request, tenantId: string, manual = false)
   if (!force && !sendKey) {
     return NextResponse.json({ skipped: true, reason: "Tagesmail wurde für diesen Termin bereits gesendet.", today });
   }
-  if (!force && settings.sendTimes.length <= 1 && !lastSentKey && mailStateData.lastSentDate === today) {
+  if (!force && settings.sendTimes.length <= 1 && !lastSentKey && mailStateData?.last_sent_date === today) {
     return NextResponse.json({ skipped: true, reason: "Tagesmail wurde heute bereits gesendet.", today });
   }
 
@@ -809,34 +795,38 @@ async function sendDailyMail(request: Request, tenantId: string, manual = false)
   }
 
   const mail = await buildDailyJobMail({ ...snapshot, dailyMailSettings: settings }, today);
-  const delivery = await sendResendMail({
-    cc: ccRecipients,
-    html: mail.html,
-    subject: `Tägliche Auftragsliste - Kolaretorp Service AB - ${displayDate(today)}`,
-    text: mail.text,
-    to: toRecipients,
+  const executionKey = force ? `${today}-manual-${crypto.randomUUID()}` : sendKey;
+  const { data: claimed, error: claimError } = await supabase.rpc("homecare_claim_daily_mail_send", {
+    p_send_key: executionKey,
+    p_tenant_id: tenantId,
   });
+  if (claimError) return NextResponse.json({ error: claimError.message }, { status: 500 });
+  if (!claimed) return NextResponse.json({ skipped: true, reason: "Tagesmail wird bereits verarbeitet oder wurde bereits gesendet.", today });
 
-  const { error: saveError } = await supabase
-    .from("app_state")
-    .upsert({
-      data: {
-        lastOpenJobCount: mail.openJobCount,
-        lastBirthdayCount: mail.birthdayCount,
-        lastCalendarEventCount: mail.calendarCount,
-        lastReminderCount: mail.reminderCount,
-        lastSentAt: new Date().toISOString(),
-        lastSentDate: today,
-        lastSentKey: force ? `${today}-manual-${Date.now()}` : sendKey,
-        sentKeys: force ? sentKeys : Array.from(new Set([...sentKeys.filter((key) => key.startsWith(`${today}-`)), sendKey])),
-      },
-      id: dailyMailStateRowId,
-      tenant_id: tenantId,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: "tenant_id,id" });
-  if (saveError) {
-    return NextResponse.json({ error: saveError.message }, { status: 500 });
+  let delivery: Awaited<ReturnType<typeof sendResendMail>>;
+  try {
+    delivery = await sendResendMail({
+      cc: ccRecipients,
+      html: mail.html,
+      subject: `Tägliche Auftragsliste - Kolaretorp Service AB - ${displayDate(today)}`,
+      text: mail.text,
+      to: toRecipients,
+    });
+  } catch (error) {
+    await supabase.rpc("homecare_release_daily_mail_send", { p_send_key: executionKey, p_tenant_id: tenantId });
+    throw error;
   }
+
+  const { error: saveError } = await supabase.rpc("homecare_complete_daily_mail_send", {
+    p_birthday_count: mail.birthdayCount,
+    p_calendar_count: mail.calendarCount,
+    p_open_job_count: mail.openJobCount,
+    p_reminder_count: mail.reminderCount,
+    p_send_key: executionKey,
+    p_sent_date: today,
+    p_tenant_id: tenantId,
+  });
+  if (saveError) return NextResponse.json({ error: saveError.message }, { status: 500 });
 
   return NextResponse.json({
     birthdayCount: mail.birthdayCount,

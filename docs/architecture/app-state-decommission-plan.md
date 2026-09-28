@@ -193,6 +193,13 @@ rather than tenant business data.
 Special rollback: retain versioned setting rows; do not restore a whole setting
 map over newer keys.
 
+Implementation status (28 September 2026): locally implemented and verified on
+PostgreSQL 17.11, including an idempotent legacy-data rehearsal and concurrent
+daily-mail claims. The read-only fallback is controlled by
+`WORKCORE_SETTINGS_LEGACY_READ_FALLBACK=1`; rollback keeps relational writes,
+revisions, tombstones and mutation-journal entries active. Dedicated Supabase
+Staging verification remains the release gate.
+
 ### 3. Customers and contacts
 
 Why third: customers are upstream of objects, jobs, billing, portal access and

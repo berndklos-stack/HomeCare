@@ -14,6 +14,8 @@ const cacheTtlMs = 30000;
 const backupIntervalMs = 30 * 60 * 1000;
 const backupChunkSizeChars = 384 * 1024;
 const resourceLegacyFallbackEnabled = process.env.WORKCORE_RESOURCE_LEGACY_READ_FALLBACK === "1";
+const settingsLegacyFallbackEnabled = process.env.WORKCORE_SETTINGS_LEGACY_READ_FALLBACK === "1";
+const relationalSettingKeys = ["companySettings", "dailyMailSettings", "tenantSettings", "translationOverrides"];
 
 type JsonObject = Record<string, unknown>;
 type CachedAppState = {
@@ -63,18 +65,29 @@ function withoutRelationalResourceWrites(payload: unknown) {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) return payload;
   const remaining = { ...(payload as JsonObject) };
   delete remaining.resources;
+  relationalSettingKeys.forEach((key) => delete remaining[key]);
   return remaining;
 }
 
 function snapshotForClient(payload: unknown, tenantId: string) {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) return payload;
-  if (resourceLegacyFallbackEnabled) {
+  if (resourceLegacyFallbackEnabled || settingsLegacyFallbackEnabled) {
     if (Array.isArray((payload as JsonObject).resources) && ((payload as JsonObject).resources as unknown[]).length > 0) {
       console.warn("LEGACY_RESOURCE_READ_FALLBACK", { domain: "app_state", tenantId });
     }
-    return payload;
+    if (settingsLegacyFallbackEnabled && relationalSettingKeys.some((key) => key in (payload as JsonObject))) {
+      console.warn("LEGACY_SETTINGS_READ_FALLBACK", { domain: "app_state", tenantId });
+    }
   }
-  return { ...(payload as JsonObject), resources: [] };
+  const result = { ...(payload as JsonObject) };
+  if (!resourceLegacyFallbackEnabled) result.resources = [];
+  if (!settingsLegacyFallbackEnabled) {
+    delete result.companySettings;
+    delete result.dailyMailSettings;
+    delete result.tenantSettings;
+    result.translationOverrides = [];
+  }
+  return result;
 }
 
 function compactLargeEmbeddedMedia(value: unknown): unknown {
@@ -913,7 +926,10 @@ export async function GET(request: Request) {
       { data: compact ? compactLargeEmbeddedMedia(clientSnapshot) : clientSnapshot, cached: true, updatedAt: cachedAppState.updatedAt },
       { headers: {
         "Cache-Control": "private, max-age=3, stale-while-revalidate=20",
-        "X-WorkCore-Legacy-Fallback": resourceLegacyFallbackEnabled ? "app-state-resources" : "none",
+        "X-WorkCore-Legacy-Fallback": [
+          resourceLegacyFallbackEnabled ? "app-state-resources" : "",
+          settingsLegacyFallbackEnabled ? "app-state-settings" : "",
+        ].filter(Boolean).join(",") || "none",
       } },
     );
   }
@@ -940,7 +956,10 @@ export async function GET(request: Request) {
     { data: compact ? compactLargeEmbeddedMedia(clientSnapshot) : clientSnapshot, updatedAt: data?.updated_at ?? null },
     { headers: {
       "Cache-Control": "no-store, max-age=0, must-revalidate",
-      "X-WorkCore-Legacy-Fallback": resourceLegacyFallbackEnabled ? "app-state-resources" : "none",
+      "X-WorkCore-Legacy-Fallback": [
+        resourceLegacyFallbackEnabled ? "app-state-resources" : "",
+        settingsLegacyFallbackEnabled ? "app-state-settings" : "",
+      ].filter(Boolean).join(",") || "none",
     } },
   );
 }
@@ -985,7 +1004,7 @@ async function saveAppState(request: Request) {
   const existingSnapshot = normalizeSnapshot(data?.data ?? null);
   const mergedSnapshot = stripDeletedLogbookEntries(repairReportPhotosFromFieldProgress(mergeSnapshotPatch(
     existingSnapshot,
-    withoutRelationalResourceWrites(normalizedBody),
+      withoutRelationalResourceWrites(normalizedBody),
   )));
   return saveSnapshotToSupabase(protectReportPhotoLinks(existingSnapshot, mergedSnapshot), supabase, auth.tenantId);
 }
