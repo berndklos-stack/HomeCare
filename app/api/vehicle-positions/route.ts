@@ -1,24 +1,22 @@
-import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { isAuthError, requireApiAuth } from "@/lib/server/apiAuth";
 
 export const runtime = "nodejs";
 
 const vehiclePositionsRowId = "vehicle-positions";
+const legacyFallbackEnabled = process.env.WORKCORE_RESOURCE_LEGACY_READ_FALLBACK === "1";
 
 type JsonObject = Record<string, unknown>;
-
-type VehiclePositionsState = {
-  positions?: JsonObject[];
-};
 
 type VehiclePositionRow = {
   address: string | null;
   coordinates: JsonObject | null;
+  deleted_at: string | null;
   driver_id: string | null;
   entry_id: string | null;
   purpose: string | null;
   resource_id: string;
+  revision: number;
   source: string | null;
   start_odometer: number | null;
   status: string;
@@ -28,39 +26,16 @@ type VehiclePositionRow = {
   visited: string | null;
 };
 
-function getSupabaseServerClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !supabaseKey) return null;
-  return createClient(supabaseUrl, supabaseKey, {
-    auth: { persistSession: false },
-  });
-}
-
-async function loadFallbackPositions(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>): Promise<JsonObject[]> {
-  const { data } = await supabase
-    .from("app_state")
-    .select("data, updated_at")
-    .eq("id", vehiclePositionsRowId)
-    .maybeSingle();
-
-  const state = data?.data && typeof data.data === "object" ? data.data as VehiclePositionsState : {};
-  const positions = Array.isArray(state.positions) ? state.positions : [];
-  return positions.map((position) => ({
-    ...position,
-    syncedAt: data?.updated_at,
-  }));
-}
-
 function rowToPosition(row: VehiclePositionRow) {
   return {
     address: row.address ?? "",
     coordinates: row.coordinates ?? undefined,
+    deletedAt: row.deleted_at ?? undefined,
     driverId: row.driver_id ?? undefined,
     entryId: row.entry_id ?? "",
     purpose: row.purpose ?? undefined,
     resourceId: row.resource_id,
+    revision: row.revision,
     source: row.source ?? "Start",
     startOdometer: row.start_odometer === null ? undefined : String(row.start_odometer),
     status: row.status,
@@ -72,108 +47,64 @@ function rowToPosition(row: VehiclePositionRow) {
   };
 }
 
-function positionPayload(body: JsonObject, resourceId: string, updatedAt: string) {
-  return {
-    ...body,
-    resourceId,
-    updatedAt,
-  };
-}
-
-async function saveFallbackPosition(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>, payload: JsonObject, resourceId: string, updatedAt: string, tenantId: string) {
-  const { data: existingRow, error: readError } = await supabase
-    .from("app_state")
-    .select("data")
-    .eq("id", vehiclePositionsRowId)
-    .maybeSingle();
-
-  if (readError) throw new Error(readError.message);
-
-  const existingState = existingRow?.data && typeof existingRow.data === "object" ? existingRow.data as VehiclePositionsState : {};
-  const existingPositions = Array.isArray(existingState.positions) ? existingState.positions : [];
-  const positions = [
-    payload,
-    ...existingPositions.filter((position) => String(position.resourceId ?? "") !== resourceId),
-  ];
-
-  const { error } = await supabase
-    .from("app_state")
-    .upsert({ data: { positions }, id: vehiclePositionsRowId, tenant_id: tenantId, updated_at: updatedAt }, { onConflict: "tenant_id,id" });
-
-  if (error) throw new Error(error.message);
-}
-
 export async function GET(request: Request) {
   const auth = await requireApiAuth(request, "data.read");
   if (isAuthError(auth)) return auth;
-  const supabase = auth.client;
 
-  const fallbackPositions = await loadFallbackPositions(supabase);
-  const { data, error } = await supabase
+  const { data, error } = await auth.client
     .from("homecare_vehicle_positions")
-    .select("resource_id, entry_id, status, source, trip_date, driver_id, address, coordinates, purpose, trip_type, visited, start_odometer, updated_at");
+    .select("resource_id, entry_id, status, source, trip_date, driver_id, address, coordinates, purpose, trip_type, visited, start_odometer, revision, deleted_at, updated_at")
+    .is("deleted_at", null)
+    .order("updated_at", { ascending: false });
 
-  const relationalPositions = error ? [] : ((data ?? []) as VehiclePositionRow[]).map(rowToPosition);
-  const relationalResourceIds = new Set(relationalPositions.map((position) => String(position.resourceId)));
-  const positions = [
-    ...relationalPositions,
-    ...fallbackPositions.filter((position) => !relationalResourceIds.has(String(position.resourceId ?? ""))),
-  ];
+  if (error) {
+    return NextResponse.json(
+      { error: "Fahrzeugpositionen konnten nicht relational geladen werden.", retry: true },
+      { status: 503 },
+    );
+  }
+
+  const relationalPositions = ((data ?? []) as VehiclePositionRow[]).map(rowToPosition);
+  let positions: JsonObject[] = relationalPositions;
+  let usedLegacyFallback = false;
+
+  if (legacyFallbackEnabled) {
+    const { data: fallbackRow } = await auth.client
+      .from("app_state")
+      .select("data, updated_at")
+      .eq("id", vehiclePositionsRowId)
+      .maybeSingle();
+    const state = fallbackRow?.data && typeof fallbackRow.data === "object" ? fallbackRow.data as { positions?: JsonObject[] } : {};
+    const fallbackPositions = Array.isArray(state.positions) ? state.positions : [];
+    const relationalResourceIds = new Set(relationalPositions.map((position) => position.resourceId));
+    const legacyOnly = fallbackPositions.filter((position) => !relationalResourceIds.has(String(position.resourceId ?? "")));
+    if (legacyOnly.length > 0) {
+      usedLegacyFallback = true;
+      console.warn("LEGACY_RESOURCE_READ_FALLBACK", {
+        count: legacyOnly.length,
+        domain: "vehicle_positions",
+        tenantId: auth.tenantId,
+      });
+      positions = [...relationalPositions, ...legacyOnly];
+    }
+  }
 
   return NextResponse.json(
-    { data: positions },
-    { headers: { "Cache-Control": "no-store, max-age=0, must-revalidate" } },
+    { data: positions, legacyFallback: usedLegacyFallback },
+    {
+      headers: {
+        "Cache-Control": "no-store, max-age=0, must-revalidate",
+        "X-WorkCore-Legacy-Fallback": usedLegacyFallback ? "vehicle-positions" : "none",
+      },
+    },
   );
 }
 
 export async function POST(request: Request) {
   const auth = await requireApiAuth(request, "resources.manage");
   if (isAuthError(auth)) return auth;
-  if (process.env.NEXT_PUBLIC_DISABLE_SUPABASE_SYNC === "1" && request.headers.get("x-workcore-e2e-bypass") === "1") {
-    return NextResponse.json({ ok: true, updatedAt: new Date().toISOString() });
-  }
-  const supabase = auth.client;
-
-  const body = await request.json().catch(() => ({})) as JsonObject;
-  const resourceId = String(body.resourceId ?? "").trim();
-  if (!resourceId) {
-    return NextResponse.json({ error: "Fahrzeug fehlt." }, { status: 400 });
-  }
-
-  const updatedAt = new Date().toISOString();
-  const payload = positionPayload(body, resourceId, updatedAt);
-  const { error } = await supabase
-    .from("homecare_vehicle_positions")
-    .upsert({
-      address: String(body.address ?? ""),
-      coordinates: body.coordinates && typeof body.coordinates === "object" ? body.coordinates : null,
-      driver_id: body.driverId ? String(body.driverId) : null,
-      entry_id: body.entryId ? String(body.entryId) : null,
-      purpose: body.purpose ? String(body.purpose) : null,
-      resource_id: resourceId,
-      source: body.source ? String(body.source) : null,
-      start_odometer: Number.isFinite(Number(body.startOdometer)) ? Number(body.startOdometer) : null,
-      status: body.status ? String(body.status) : "active",
-      trip_date: body.tripDate ? String(body.tripDate) : null,
-      trip_type: body.tripType ? String(body.tripType) : null,
-      tenant_id: auth.tenantId,
-      updated_at: updatedAt,
-      visited: body.visited ? String(body.visited) : null,
-    }, { onConflict: "tenant_id,resource_id" });
-
-  if (error) {
-    try {
-      await saveFallbackPosition(supabase, payload, resourceId, updatedAt, auth.tenantId);
-    } catch (fallbackError) {
-      return NextResponse.json(
-        { error: fallbackError instanceof Error ? fallbackError.message : error.message, retry: true },
-        { status: 500 },
-      );
-    }
-  }
-
   return NextResponse.json(
-    { ok: true, data: payload, updatedAt },
-    { headers: { "Cache-Control": "no-store, max-age=0, must-revalidate" } },
+    { error: "Fahrzeugpositionen werden nur noch als datensatzweise Sync-Mutation gespeichert." },
+    { status: 410 },
   );
 }

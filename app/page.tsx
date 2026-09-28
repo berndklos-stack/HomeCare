@@ -56,7 +56,12 @@ import { type CSSProperties, type DragEvent, type MouseEvent, type ReactNode, us
 import { appVersion, versionHistory } from "@/lib/appVersion";
 import { apiFetch, apiRequestHeaders, tenantScopedStorageKey } from "@/lib/apiClient";
 import { defaultAppBranding, resolveAppBranding } from "@/lib/branding";
-import { createStableId, type SyncMutation, type SyncMutationOperation, type SyncMutationResult } from "@/lib/syncQueue";
+import { createStableId, readSyncQueue, type SyncMutation, type SyncMutationOperation, type SyncMutationResult } from "@/lib/syncQueue";
+import {
+  overlayPendingResourceMutations,
+  overlayPendingVehiclePositionMutations,
+  prepareResourceMutations,
+} from "@/lib/resourceSync";
 import { useSyncQueue } from "@/lib/useSyncQueue";
 import {
   normalizeOnboardingState,
@@ -567,10 +572,12 @@ type GeoCoordinates = {
 type LiveVehiclePosition = {
   address: string;
   coordinates?: GeoCoordinates;
+  deletedAt?: string;
   driverId?: string;
   entryId: string;
   purpose?: string;
   resourceId: string;
+  revision?: number;
   source: "Start" | "Zwischenziel" | "Ziel";
   startOdometer?: string;
   status: "active" | "completed" | "canceled";
@@ -698,6 +705,9 @@ type ResourceMaintenanceItem = {
 
 type ResourceRecord = {
   id: string;
+  deletedAt?: string;
+  revision?: number;
+  updatedAt?: string;
   type: "Fahrzeug" | "Maschine" | "Gerät";
   buildYear?: string;
   name: string;
@@ -2809,7 +2819,9 @@ function readPendingSyncKeys(): SyncSectionKey[] {
   try {
     const parsed = JSON.parse(window.localStorage.getItem(pendingSyncKeysStorageKey()) || "[]");
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter((key): key is SyncSectionKey => syncSectionKeys.includes(key as SyncSectionKey));
+    return parsed.filter((key): key is SyncSectionKey => (
+      key !== "resources" && syncSectionKeys.includes(key as SyncSectionKey)
+    ));
   } catch {
     return [];
   }
@@ -2852,7 +2864,9 @@ function sectionPatch(snapshot: AppSnapshot, keys: Iterable<SyncSectionKey>): Pa
 }
 
 function changedSyncSections(snapshot: AppSnapshot, syncedHashes: SectionHashMap): SyncSectionKey[] {
-  return syncSectionKeys.filter((key) => sectionHash(snapshotSectionValue(snapshot, key)) !== syncedHashes[key]);
+  return syncSectionKeys.filter((key) => (
+    key !== "resources" && sectionHash(snapshotSectionValue(snapshot, key)) !== syncedHashes[key]
+  ));
 }
 
 function persistLocalSections(snapshot: AppSnapshot, keys: Iterable<SyncSectionKey>) {
@@ -4059,18 +4073,6 @@ async function loadVehiclePositions() {
   return payload.data ?? [];
 }
 
-async function saveVehiclePosition(position: LiveVehiclePosition) {
-  const response = await withTimeout(apiFetch("/api/vehicle-positions", {
-    body: JSON.stringify(position),
-    cache: "no-store",
-    headers: { "Content-Type": "application/json" },
-    method: "POST",
-  }), 10000);
-  const payload = await response.json() as { data?: LiveVehiclePosition; error?: string; retry?: boolean };
-  if (!response.ok || payload.retry) throw new Error(payload.error || "Fahrzeugposition konnte nicht gespeichert werden.");
-  return payload.data;
-}
-
 async function saveSupabaseSnapshotWithFetch(endpoint: string, snapshot: AppSnapshot) {
   const response = await withTimeout(apiFetch(endpoint, {
     body: JSON.stringify(snapshot),
@@ -4095,7 +4097,7 @@ function patchUsesSmallSyncOnly(overrides: Partial<AppSnapshot>) {
 
 async function saveSmallSyncPatch(overrides: Partial<AppSnapshot>) {
   const patch = Object.fromEntries(
-    Object.entries(overrides).filter(([key]) => key !== "updatedAt"),
+    Object.entries(overrides).filter(([key]) => key !== "updatedAt" && key !== "resources"),
   );
   const response = await withTimeout(apiFetch("/api/sync-sections", {
     body: JSON.stringify({ patch }),
@@ -4137,8 +4139,10 @@ async function saveSupabaseSnapshotWithXhr(endpoint: string, snapshot: AppSnapsh
 }
 
 function compactPatchForRemote(overrides: Partial<AppSnapshot>) {
+  const remoteOverrides = { ...overrides };
+  delete remoteOverrides.resources;
   return {
-    ...overrides,
+    ...remoteOverrides,
     objects: overrides.objects?.map((object) => ({
       ...object,
       media: undefined,
@@ -8941,10 +8945,37 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
 
   const handleMutationApplied = useCallback((mutation: SyncMutation, result: SyncMutationResult) => {
     const serverRecord = result.record;
-    if (mutation.entityType !== "vehicle_trip" || !serverRecord) return;
+    if (!serverRecord) return;
     const revision = Number(serverRecord.revision);
     const deletedAt = typeof serverRecord.deleted_at === "string" ? serverRecord.deleted_at : undefined;
     const updatedAt = typeof serverRecord.updated_at === "string" ? serverRecord.updated_at : new Date().toISOString();
+    if (mutation.entityType === "resource") {
+      setResources((current) => deletedAt
+        ? current.filter((resource) => resource.id !== mutation.entityId)
+        : current.map((resource) => resource.id === mutation.entityId
+          ? {
+              ...resource,
+              revision: Number.isFinite(revision) ? Math.max(resource.revision ?? 1, revision) : resource.revision,
+              updatedAt,
+            }
+          : resource));
+      setAppUpdatedAt(updatedAt);
+      return;
+    }
+    if (mutation.entityType === "vehicle_position") {
+      setLiveVehiclePositions((current) => deletedAt
+        ? current.filter((position) => position.resourceId !== mutation.resourceId)
+        : current.map((position) => position.resourceId === mutation.resourceId
+          ? {
+              ...position,
+              revision: Number.isFinite(revision) ? Math.max(position.revision ?? 1, revision) : position.revision,
+              updatedAt,
+            }
+          : position));
+      setAppUpdatedAt(updatedAt);
+      return;
+    }
+    if (mutation.entityType !== "vehicle_trip") return;
     setResources((current) => current.map((resource) => {
       if (resource.id !== mutation.resourceId) return resource;
       const logbook = deletedAt
@@ -8954,6 +8985,12 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
           : entry);
       return {
         ...resource,
+        currentOdometer: serverRecord.status === "abgeschlossen" && serverRecord.end_odometer !== null
+          ? String(serverRecord.end_odometer)
+          : resource.currentOdometer,
+        currentOdometerDate: serverRecord.status === "abgeschlossen" && typeof serverRecord.trip_date === "string"
+          ? serverRecord.trip_date
+          : resource.currentOdometerDate,
         deletedLogbookEntryIds: deletedAt
           ? Array.from(new Set([...(resource.deletedLogbookEntryIds ?? []), mutation.entityId]))
           : (resource.deletedLogbookEntryIds ?? []).filter((id) => id !== mutation.entityId),
@@ -8983,7 +9020,30 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     resourceId,
   }), [enqueueSyncMutation]);
 
+  const enqueueVehiclePositionMutation = useCallback((position: LiveVehiclePosition) => {
+    const existing = liveVehiclePositions.find((item) => item.resourceId === position.resourceId);
+    const expectedRevision = existing?.revision;
+    const optimisticPosition = {
+      ...position,
+      revision: expectedRevision === undefined ? 1 : expectedRevision + 1,
+      updatedAt: new Date().toISOString(),
+    };
+    enqueueSyncMutation({
+      entityId: position.resourceId,
+      entityType: "vehicle_position",
+      expectedRevision,
+      operation: existing ? "update" : "create",
+      payload: optimisticPosition as unknown as Record<string, unknown>,
+      resourceId: position.resourceId,
+    });
+    setLiveVehiclePositions((current) => [
+      optimisticPosition,
+      ...current.filter((item) => item.resourceId !== position.resourceId),
+    ]);
+  }, [enqueueSyncMutation, liveVehiclePositions]);
+
   const scheduleRemoteSave = useCallback((snapshot: AppSnapshot, keys: SyncSectionKey[], delayMs = 900) => {
+    keys = keys.filter((key) => key !== "resources");
     if (keys.length === 0) return;
     setLegacySyncStatus("pending");
     pendingRemoteSnapshotRef.current = snapshot;
@@ -9301,7 +9361,14 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
           ]);
           if (cancelled) return;
 
-          const remoteSnapshotWithSections = mergeSnapshotWithSyncSections(remoteSnapshot, remoteSections);
+          const remoteSnapshotWithSectionsBase = mergeSnapshotWithSyncSections(remoteSnapshot, remoteSections);
+          const remoteSnapshotWithSections = {
+            ...remoteSnapshotWithSectionsBase,
+            resources: overlayPendingResourceMutations(
+              remoteSnapshotWithSectionsBase.resources,
+              readSyncQueue(window.localStorage),
+            ),
+          };
           const pendingKeys = readPendingSyncKeys();
           const latestLocalSnapshot = pendingKeys.length > 0 ? readLocalSnapshot() : localSnapshot;
           const latestLocalSnapshotWithBackups = {
@@ -9477,7 +9544,14 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
       if (!remoteSnapshot) return;
 
       const remoteSections = await loadSyncSections().catch(() => ({}));
-      const remoteSnapshotWithSections = mergeSnapshotWithSyncSections(remoteSnapshot, remoteSections);
+      const remoteSnapshotWithSectionsBase = mergeSnapshotWithSyncSections(remoteSnapshot, remoteSections);
+      const remoteSnapshotWithSections = {
+        ...remoteSnapshotWithSectionsBase,
+        resources: overlayPendingResourceMutations(
+          remoteSnapshotWithSectionsBase.resources,
+          readSyncQueue(window.localStorage),
+        ),
+      };
 
       const localSnapshot = currentSnapshot();
       const pendingKeys = readPendingSyncKeys();
@@ -9521,7 +9595,10 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
   const syncVehiclePositions = useCallback(async () => {
     if (!appStorageReady) return;
     try {
-      setLiveVehiclePositions(await loadVehiclePositions());
+      setLiveVehiclePositions(overlayPendingVehiclePositionMutations(
+        await loadVehiclePositions(),
+        readSyncQueue(window.localStorage),
+      ));
     } catch (error) {
       console.warn("Fahrzeugpositionen konnten nicht aktualisiert werden.", error);
     }
@@ -9629,7 +9706,9 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     const snapshotUpdatedAt = new Date().toISOString();
     const snapshot = currentSnapshot({ ...overrides, updatedAt: snapshotUpdatedAt });
     const explicitKeys = Object.keys(overrides)
-      .filter((key): key is SyncSectionKey => key !== "updatedAt" && syncSectionKeys.includes(key as SyncSectionKey));
+      .filter((key): key is SyncSectionKey => (
+        key !== "updatedAt" && key !== "resources" && syncSectionKeys.includes(key as SyncSectionKey)
+      ));
     const changedKeys = explicitKeys.length > 0
       ? Array.from(new Set(explicitKeys))
       : changedSyncSections(snapshot, syncedSectionHashesRef.current);
@@ -9696,9 +9775,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     const snapshotUpdatedAt = new Date().toISOString();
     explicitPersistAtRef.current = Date.now();
     setAppUpdatedAt(snapshotUpdatedAt);
-    setLegacySyncStatus("pending");
     pendingResourcePersistRef.current = { resources: nextResources, updatedAt: snapshotUpdatedAt };
-    addPendingSyncKeys(["resources"]);
 
     if (resourcePersistTimerRef.current) window.clearTimeout(resourcePersistTimerRef.current);
     resourcePersistTimerRef.current = window.setTimeout(() => {
@@ -9713,22 +9790,28 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
       } catch (error) {
         console.warn("Fahrtenbuch konnte nicht lokal gespeichert werden.", error);
       }
-
-      setLegacySyncStatus("syncing");
-      void saveSupabasePatch({ resources: queued.resources, updatedAt: queued.updatedAt })
-        .then((savedAt) => {
-          syncedSectionHashesRef.current.resources = sectionHash(queued.resources);
-          removePendingSyncKeys(["resources"]);
-          if (savedAt) setAppUpdatedAt(savedAt);
-          setSupabaseSyncDisabled(false);
-          setLegacySyncStatus("synced");
-        })
-        .catch((error) => {
-          console.warn("Fahrtenbuch konnte nicht sofort online gespeichert werden.", error);
-          setLegacySyncStatus("failed");
-          if (!isRetryableSyncError(error)) setSupabaseSyncDisabled(true);
-        });
     }, options.delayMs ?? 120);
+  }
+
+  function persistResourcesRelational(
+    nextResources: ResourceRecord[],
+    options: { serverRevisionBumpResourceId?: string } = {},
+  ) {
+    const prepared = prepareResourceMutations(resources, nextResources);
+    const adjustedMutations = prepared.mutations.map((mutation) => (
+      mutation.entityId === options.serverRevisionBumpResourceId && mutation.expectedRevision !== undefined
+        ? { ...mutation, expectedRevision: mutation.expectedRevision + 1 }
+        : mutation
+    ));
+    const adjustedResources = prepared.resources.map((resource) => (
+      resource.id === options.serverRevisionBumpResourceId
+        && adjustedMutations.some((mutation) => mutation.entityId === resource.id)
+        ? { ...resource, revision: (resource.revision ?? 1) + 1 }
+        : resource
+    ));
+    adjustedMutations.forEach((mutation) => enqueueSyncMutation(mutation));
+    setResources(adjustedResources);
+    persistResourcesFast(adjustedResources);
   }
 
   const t = labels[language];
@@ -11706,11 +11789,14 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
         : current;
       const syncedResources = resourceSections.resources?.value;
       if (Array.isArray(syncedResources)) {
-        // Relationale Ressourcen sind fuer Fahrzeug-Stammdaten/Medien fuehrend;
-        // lokale/app_state-Fahrten werden nur ergaenzt, falls sie dort noch fehlen.
+        // Der relationale Stand ist vollständig autoritativ. Nur noch nicht
+        // synchronisierte Datensatzmutationen werden lokal darübergelegt.
         mergedSnapshot = {
           ...mergedSnapshot,
-          resources: mergeResourcesById(syncedResources as ResourceRecord[], mergedSnapshot.resources ?? []),
+          resources: overlayPendingResourceMutations(
+            syncedResources as ResourceRecord[],
+            readSyncQueue(window.localStorage),
+          ),
           updatedAt: resourceSections.resources?.updatedAt ?? mergedSnapshot.updatedAt,
         };
       }
@@ -11730,7 +11816,10 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
   async function openQuickTrip() {
     const livePositions = supabaseSyncDisabled
       ? liveVehiclePositions
-      : await loadVehiclePositions().catch(() => liveVehiclePositions);
+      : overlayPendingVehiclePositionMutations(
+          await loadVehiclePositions().catch(() => liveVehiclePositions),
+          readSyncQueue(window.localStorage),
+        );
     if (livePositions.length) setLiveVehiclePositions(livePositions);
     const freshResources = supabaseSyncDisabled ? resources : await syncedResourcesForQuickTrip();
     const freshVehicles = freshResources.filter((resource) => resource.type === "Fahrzeug" && !resource.archived);
@@ -11934,7 +12023,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
         }
       : resource);
     setResources(nextResources);
-    persistResourcesFast(nextResources);
+    persistResourcesRelational(nextResources);
     setQuickTripStandardId(id);
     setRecordNotice(quickTripStandardId ? "Standardfahrt wurde aktualisiert." : "Standardfahrt wurde gespeichert.");
   }
@@ -11945,7 +12034,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
       ? { ...resource, standardTrips: (resource.standardTrips ?? []).filter((item) => item.id !== quickTripStandardId) }
       : resource);
     setResources(nextResources);
-    persistResourcesFast(nextResources);
+    persistResourcesRelational(nextResources);
     setQuickTripStandardId("");
     setQuickTripStandardLabel("");
     setRecordNotice("Standardfahrt wurde gelöscht.");
@@ -12220,7 +12309,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     const coordinates = form.endCoordinates ?? latestWaypoint?.coordinates ?? form.startCoordinates;
     const address = form.endAddress.trim() || latestWaypoint?.address.trim() || form.startAddress.trim();
     if (coordinates || address) {
-      void saveVehiclePosition({
+      enqueueVehiclePositionMutation({
         address,
         coordinates,
         driverId: form.driverId,
@@ -12233,9 +12322,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
         tripDate: form.date,
         tripType: form.tripType,
         visited: form.visited.trim(),
-      }).then((position) => {
-        if (position) setLiveVehiclePositions((current) => [position, ...current.filter((item) => item.resourceId !== position.resourceId)]);
-      }).catch((error) => console.warn("Live-Fahrzeugposition konnte nicht gespeichert werden.", error));
+      });
     }
   }
 
@@ -12336,7 +12423,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     ));
     enqueueTripMutation("create", vehicle.id, entry);
     setResources(nextResources);
-    persistResourcesFast(nextResources);
+    persistResourcesRelational(nextResources);
     if (startCoordinates || startAddress) {
       const position: LiveVehiclePosition = {
         address: startAddress,
@@ -12345,6 +12432,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
         entryId: logbookId,
         purpose: quickTripForm.purpose.trim(),
         resourceId: vehicle.id,
+        revision: (liveVehiclePositions.find((item) => item.resourceId === vehicle.id)?.revision ?? 0) + 1,
         source: "Start",
         startOdometer: quickTripForm.startOdometer.trim(),
         status: "active",
@@ -12353,7 +12441,6 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
         visited: quickTripForm.visited.trim(),
       };
       setLiveVehiclePositions((current) => [position, ...current.filter((item) => item.resourceId !== vehicle.id)]);
-      void saveVehiclePosition(position).catch((error) => console.warn("Live-Fahrzeugposition konnte nicht gespeichert werden.", error));
     }
     setQuickTripForm((current) => ({ ...current, activeLogbookEntryId: logbookId, startAddress, startCoordinates }));
     setRecordNotice(validationWarnings[0] || "Fahrt wurde gestartet und ist in Positionen sichtbar.");
@@ -12385,12 +12472,12 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
       entryId,
       purpose: quickTripForm.purpose.trim(),
       resourceId: quickTripForm.resourceId,
+      revision: (liveVehiclePositions.find((item) => item.resourceId === quickTripForm.resourceId)?.revision ?? 0) + 1,
       source: "Start",
       status: "canceled",
       tripDate: quickTripForm.date,
     };
     setLiveVehiclePositions((current) => [canceledPosition, ...current.filter((item) => item.resourceId !== quickTripForm.resourceId)]);
-    void saveVehiclePosition(canceledPosition).catch((error) => console.warn("Live-Fahrzeugposition konnte nicht verworfen werden.", error));
     setQuickTripOpen(false);
     setQuickTripForm((current) => ({
       ...current,
@@ -12512,7 +12599,9 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
 
     enqueueTripMutation(existingEntry ? "update" : "create", vehicle.id, entry, existingEntry ? expectedRevision : undefined);
     setResources(nextResources);
-    persistResourcesFast(nextResources);
+    persistResourcesRelational(nextResources, {
+      serverRevisionBumpResourceId: existingEntry ? vehicle.id : undefined,
+    });
     const completedPosition: LiveVehiclePosition = {
       address: endAddress,
       coordinates: endCoordinates,
@@ -12520,12 +12609,12 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
       entryId: entry.id,
       purpose: entry.purpose,
       resourceId: vehicle.id,
+      revision: (liveVehiclePositions.find((item) => item.resourceId === vehicle.id)?.revision ?? 0) + 1,
       source: "Ziel",
       status: "completed",
       tripDate: entry.date,
     };
     setLiveVehiclePositions((current) => [completedPosition, ...current.filter((item) => item.resourceId !== vehicle.id)]);
-    void saveVehiclePosition(completedPosition).catch((error) => console.warn("Live-Fahrzeugposition konnte nicht abgeschlossen werden.", error));
     setQuickTripOpen(false);
     setRecordNotice(`Fahrt vom ${entry.date} wurde im Fahrtenbuch gespeichert.`);
     setQuickTripForm({
@@ -13181,7 +13270,13 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
                   setPersonnel(nextPersonnel);
                   persistSnapshotNow({ personnel: nextPersonnel }, { forceRemote: true });
                 }}
-                onPersistResources={(nextResources) => persistSnapshotNow({ resources: nextResources }, { forceRemote: true })}
+                onPersistResources={(nextResources, options) => (
+                  options?.localOnly
+                    ? persistResourcesFast(nextResources)
+                    : persistResourcesRelational(nextResources, {
+                        serverRevisionBumpResourceId: options?.serverRevisionBumpResourceId,
+                      })
+                )}
                 onTripMutation={enqueueTripMutation}
                 setResources={setResources}
                 setServices={(nextServices) => {
@@ -20026,7 +20121,10 @@ function MasterDataView({
   services: ServiceItem[];
   setPersonnel: (personnel: PersonnelRecord[]) => void;
   setAccountingAccounts: (accounts: AccountingAccount[]) => void;
-  onPersistResources: (resources: ResourceRecord[]) => void;
+  onPersistResources: (resources: ResourceRecord[], options?: {
+    localOnly?: boolean;
+    serverRevisionBumpResourceId?: string;
+  }) => void;
   onTripMutation: (operation: SyncMutationOperation, resourceId: string, entry: VehicleLogEntry, expectedRevision?: number) => SyncMutation;
   setResources: (resources: ResourceRecord[]) => void;
   setServices: (services: ServiceItem[]) => void;
@@ -20392,7 +20490,9 @@ function MasterDataView({
   function deleteArchivedPerson(person: PersonnelRecord) {
     if (!person.archived) return;
     setPersonnel(personnel.filter((item) => item.id !== person.id));
-    setResources(resources.map((resource) => resource.responsiblePersonId === person.id ? { ...resource, responsiblePersonId: "" } : resource));
+    const nextResources = resources.map((resource) => resource.responsiblePersonId === person.id ? { ...resource, responsiblePersonId: "" } : resource);
+    setResources(nextResources);
+    onPersistResources(nextResources);
     setArchiveNotice(`Archiviertes Personal "${person.firstName} ${person.lastName}" wurde endgültig gelöscht.`);
   }
 
@@ -20567,6 +20667,8 @@ function MasterDataView({
     const existingResource = resources.find((resource) => resource.id === editingResourceId);
     const saved: ResourceRecord = {
       id: editingResourceId ?? createStableId("RES"),
+      revision: existingResource?.revision,
+      updatedAt: existingResource?.updatedAt,
       brand: resourceForm.brand.trim(),
       buildYear: resourceForm.buildYear.trim(),
       currentOdometer: resourceForm.currentOdometer.trim(),
@@ -20985,7 +21087,9 @@ function MasterDataView({
     });
     onTripMutation(editingLogEntryId ? "update" : "create", selectedResource.id, saved, editingLogEntryId ? existingEntry?.revision ?? 1 : undefined);
     setResources(nextResources);
-    onPersistResources(nextResources);
+    onPersistResources(nextResources, {
+      serverRevisionBumpResourceId: editingLogEntryId ? selectedResource.id : undefined,
+    });
     setArchiveNotice(validationWarnings[0] || `Fahrt vom ${saved.date} wurde gespeichert.`);
     setLogbookEntryEditorOpen(false);
     resetLogbookForm();
@@ -21005,7 +21109,7 @@ function MasterDataView({
     ));
     if (existingEntry) onTripMutation("delete", selectedResource.id, existingEntry, existingEntry.revision ?? 1);
     setResources(nextResources);
-    onPersistResources(nextResources);
+    onPersistResources(nextResources, { localOnly: true });
     if (editingLogEntryId === entryId) resetLogbookForm();
     setArchiveNotice("Fahrtenbucheintrag wurde gelöscht.");
   }

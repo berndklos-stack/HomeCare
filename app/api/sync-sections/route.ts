@@ -4,6 +4,8 @@ import { isAuthError, requireApiAuth } from "@/lib/server/apiAuth";
 
 export const runtime = "nodejs";
 
+const resourceLegacyFallbackEnabled = process.env.WORKCORE_RESOURCE_LEGACY_READ_FALLBACK === "1";
+
 const allowedSyncSections = [
   "accountingAccounts",
   "activeJobId",
@@ -39,6 +41,7 @@ type ResourceRow = {
   current_odometer: number | null;
   current_odometer_date: string | null;
   default_driver_id: string | null;
+  deleted_at: string | null;
   deleted_logbook_entry_ids: unknown;
   identifier: string | null;
   license_plate: string | null;
@@ -59,6 +62,7 @@ type ResourceRow = {
   owner_company: string | null;
   private_use_allowed: boolean | null;
   registration_country: string | null;
+  revision: number;
   responsible_person_id: string | null;
   status: string | null;
   standard_trips: unknown;
@@ -686,50 +690,6 @@ function mergeReports(existingReports: unknown, patchReports: unknown) {
   });
 
   return Array.from(reportsByKey.values());
-}
-
-function resourceToRow(resource: JsonObject) {
-  const tracking = resource.tracking && typeof resource.tracking === "object" && !Array.isArray(resource.tracking)
-    ? resource.tracking as JsonObject
-    : {};
-  return {
-    archived: Boolean(resource.archived),
-    brand: stringOrEmpty(resource.brand),
-    build_year: resource.buildYear ? String(resource.buildYear) : null,
-    current_odometer: numberOrNull(resource.currentOdometer),
-    current_odometer_date: stringOrEmpty(resource.currentOdometerDate) || null,
-    default_driver_id: resource.defaultDriverId ? String(resource.defaultDriverId) : null,
-    deleted_logbook_entry_ids: Array.isArray(resource.deletedLogbookEntryIds) ? resource.deletedLogbookEntryIds : [],
-    identifier: stringOrEmpty(resource.identifier),
-    license_plate: stringOrEmpty(resource.licensePlate),
-    location: stringOrEmpty(resource.location),
-    logbook_active: resource.logbookActive !== false,
-    logbook_year: stringOrEmpty(resource.logbookYear),
-    maintenance_items: Array.isArray(resource.maintenanceItems) ? resource.maintenanceItems : [],
-    model: stringOrEmpty(resource.model),
-    name: stringOrEmpty(resource.name) || "Ressource",
-    notes: stringOrEmpty(resource.notes),
-    odometer_history: Array.isArray(resource.odometerHistory) ? resource.odometerHistory : [],
-    odometer_last_confirmed: numberOrNull(resource.odometerLastConfirmed),
-    odometer_last_confirmed_at: stringOrEmpty(resource.odometerLastConfirmedAt) || null,
-    odometer_last_confirmed_by: resource.odometerLastConfirmedBy ? String(resource.odometerLastConfirmedBy) : null,
-    odometer_last_confirmed_photo: resource.odometerLastConfirmedPhoto && typeof resource.odometerLastConfirmedPhoto === "object" ? resource.odometerLastConfirmedPhoto : null,
-    odometer_year_end: numberOrNull(resource.odometerYearEnd),
-    odometer_year_start: numberOrNull(resource.odometerYearStart),
-    owner_company: stringOrEmpty(resource.ownerCompany),
-    private_use_allowed: resource.privateUseAllowed !== false,
-    registration_country: stringOrEmpty(resource.registrationCountry),
-    responsible_person_id: resource.responsiblePersonId ? String(resource.responsiblePersonId) : null,
-    status: stringOrEmpty(resource.status),
-    standard_trips: Array.isArray(resource.standardTrips) ? resource.standardTrips : [],
-    tax_country: stringOrEmpty(resource.taxCountry),
-    tracking: {
-      ...tracking,
-      logbookLanguage: stringOrEmpty(resource.logbookLanguage),
-    },
-    type: stringOrEmpty(resource.type) || "Fahrzeug",
-    id: String(resource.id),
-  };
 }
 
 function rowToTrip(row: VehicleTripRow) {
@@ -1454,6 +1414,7 @@ function rowToResource(row: ResourceRow, trips: VehicleTripRow[], mediaRows: Med
     currentOdometer: row.current_odometer === null ? "" : String(row.current_odometer),
     currentOdometerDate: row.current_odometer_date ?? "",
     defaultDriverId: row.default_driver_id ?? "",
+    deletedAt: row.deleted_at ?? undefined,
     deletedLogbookEntryIds: Array.isArray(row.deleted_logbook_entry_ids) ? row.deleted_logbook_entry_ids : [],
     identifier: row.identifier ?? "",
     licensePlate: row.license_plate ?? "",
@@ -1480,6 +1441,7 @@ function rowToResource(row: ResourceRow, trips: VehicleTripRow[], mediaRows: Med
     ownerCompany: row.owner_company ?? "",
     privateUseAllowed: row.private_use_allowed !== false,
     registrationCountry: row.registration_country ?? "",
+    revision: row.revision,
     responsiblePersonId: row.responsible_person_id ?? "",
     status: row.status ?? "",
     standardTrips: Array.isArray(row.standard_trips) ? row.standard_trips : [],
@@ -1487,26 +1449,18 @@ function rowToResource(row: ResourceRow, trips: VehicleTripRow[], mediaRows: Med
     tracking: Object.keys(tracking).length > 0 ? tracking : undefined,
     type: row.type,
     id: row.id,
-  };
-}
-
-async function loadResourceSectionViaRpc(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
-  const { data, error } = await supabase.rpc("homecare_resources_snapshot");
-  if (error || !Array.isArray(data)) return null;
-  return {
-    updatedAt: new Date().toISOString(),
-    value: data,
+    updatedAt: row.updated_at ?? undefined,
   };
 }
 
 async function loadResourceSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
   const { data: resourceRows, error: resourceError } = await supabase
     .from("homecare_resources")
-    .select("id, type, brand, build_year, current_odometer, current_odometer_date, default_driver_id, name, identifier, license_plate, status, responsible_person_id, location, logbook_active, notes, logbook_year, model, odometer_year_start, odometer_year_end, odometer_history, odometer_last_confirmed, odometer_last_confirmed_at, odometer_last_confirmed_by, odometer_last_confirmed_photo, owner_company, private_use_allowed, registration_country, tax_country, tracking, maintenance_items, standard_trips, deleted_logbook_entry_ids, archived, updated_at")
+    .select("id, type, brand, build_year, current_odometer, current_odometer_date, default_driver_id, name, identifier, license_plate, status, responsible_person_id, location, logbook_active, notes, logbook_year, model, odometer_year_start, odometer_year_end, odometer_history, odometer_last_confirmed, odometer_last_confirmed_at, odometer_last_confirmed_by, odometer_last_confirmed_photo, owner_company, private_use_allowed, registration_country, tax_country, tracking, maintenance_items, standard_trips, deleted_logbook_entry_ids, archived, revision, deleted_at, updated_at")
+    .is("deleted_at", null)
     .order("name", { ascending: true });
 
-  if (resourceError) return loadResourceSectionViaRpc(supabase);
-  if (!resourceRows?.length) return null;
+  if (resourceError) throw new Error(resourceError.message);
 
   const { data: tripRows, error: tripError } = await supabase
     .from("homecare_vehicle_trips")
@@ -1514,7 +1468,7 @@ async function loadResourceSection(supabase: NonNullable<ReturnType<typeof getSu
     .is("deleted_at", null)
     .order("trip_date", { ascending: true });
 
-  if (tripError) return loadResourceSectionViaRpc(supabase);
+  if (tripError) throw new Error(tripError.message);
 
   const mediaRows = await loadResourceMediaRows(supabase).catch(() => []);
   const resources = (resourceRows as ResourceRow[]).map((row) => rowToResource(row, (tripRows ?? []) as VehicleTripRow[], mediaRows));
@@ -1525,83 +1479,6 @@ async function loadResourceSection(supabase: NonNullable<ReturnType<typeof getSu
     ]),
     value: resources,
   };
-}
-
-async function saveResourceSectionViaRpc(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>, value: unknown) {
-  const { error } = await supabase.rpc("homecare_save_resources_snapshot", { payload: value });
-  if (error) throw new Error(error.message);
-}
-
-async function saveResourceSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>, value: unknown) {
-  if (!Array.isArray(value)) return;
-  const resources = value.filter((item): item is JsonObject => Boolean(item && typeof item === "object" && "id" in item));
-  if (!resources.length) return;
-
-  const { error: resourceError } = await supabase
-    .from("homecare_resources")
-    .upsert(resources.map(resourceToRow), { onConflict: "id" });
-
-  if (resourceError) {
-    await saveResourceSectionViaRpc(supabase, value);
-    return;
-  }
-
-  // Fahrzeugstammdaten bleiben vorerst im Legacy-Bereichssync. Fahrten werden
-  // ausschliesslich ueber /api/sync-mutations datensatzweise geschrieben.
-
-  const resourceIds = resources.map((resource) => String(resource.id));
-  const mediaRows = resources.flatMap((resource) => (
-    Array.isArray(resource.media)
-      ? resource.media
-          .filter((item): item is JsonObject => Boolean(item && typeof item === "object" && "id" in item))
-          .map((item) => mediaToRow("resource", String(resource.id), item))
-      : []
-  ));
-
-  // homecare_media ist eine relationale Spiegelung des aktuellen Ressourcenstands.
-  // Ein reines Upsert reicht hier nicht: Wird ein Fahrzeugbild in der App gelöscht,
-  // bleibt die alte Media-Zeile sonst in Supabase bestehen und wird beim nächsten
-  // Laden wieder als zweites Bild eingemischt. Daher veraltete Resource-Media-Zeilen
-  // explizit entfernen und danach die aktuell vorhandenen Bilder/Dokumente upserten.
-  const { data: existingMedia, error: existingMediaError } = resourceIds.length
-    ? await supabase
-        .from("homecare_media")
-        .select("id, owner_id, revision")
-        .eq("owner_type", "resource")
-        .is("deleted_at", null)
-        .in("owner_id", resourceIds)
-    : { data: [], error: null };
-
-  if (existingMediaError) {
-    await saveResourceSectionViaRpc(supabase, value);
-    return;
-  }
-
-  const currentMediaIds = new Set(mediaRows.map((row) => String(row.id)));
-  const staleMediaIds = ((existingMedia ?? []) as Array<{ id: string; owner_id: string; revision: number }>)
-    .map((row) => String(row.id))
-    .filter((id) => !currentMediaIds.has(id));
-
-  if (staleMediaIds.length) {
-    const { error: deleteMediaError } = await supabase
-      .from("homecare_media")
-      .update({ deleted_at: new Date().toISOString() })
-      .eq("owner_type", "resource")
-      .in("id", staleMediaIds);
-
-    if (deleteMediaError) {
-      await saveResourceSectionViaRpc(supabase, value);
-      return;
-    }
-  }
-
-  if (!mediaRows.length) return;
-
-  const { error: mediaError } = await supabase
-    .from("homecare_media")
-    .upsert(mediaRows, { onConflict: "id" });
-
-  if (mediaError) await saveResourceSectionViaRpc(supabase, value);
 }
 
 async function loadReportsSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
@@ -2189,6 +2066,7 @@ async function saveTenantSettingsSection(supabase: NonNullable<ReturnType<typeof
 }
 
 async function loadFallbackSections(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>, keys: SyncSectionKey[]) {
+  if (keys.length === 0) return {};
   const { data, error } = await supabase
     .from("app_state")
     .select("id, data, updated_at")
@@ -2359,7 +2237,11 @@ export async function GET(request: Request) {
 
   const keys = requestedSyncKeys(request);
   try {
-    const sections = await loadFallbackSections(supabase, keys);
+    const fallbackKeys = resourceLegacyFallbackEnabled ? keys : keys.filter((key) => key !== "resources");
+    const sections = await loadFallbackSections(supabase, fallbackKeys);
+    const legacyResourceSection = sections.resources as SyncSectionEnvelope | undefined;
+    if (keys.includes("resources") && !resourceLegacyFallbackEnabled) delete sections.resources;
+    let usedResourceFallback = false;
     Object.assign(sections, await loadSettingsSections(supabase, keys));
     if (keys.includes("accountingAccounts")) {
       const accountingSection = await loadAccountingAccountsSection(supabase);
@@ -2445,18 +2327,28 @@ export async function GET(request: Request) {
     }
     if (keys.includes("resources")) {
       const resourceSection = await loadResourceSection(supabase);
-      if (resourceSection) {
-        // Ressourcen/Fahrtenbuch existieren parallel im app_state-Fallback und in
-        // homecare_resources/homecare_vehicle_trips. Nie einen kompletten Stand blind
-        // durch die relationale Kopie ersetzen: der neuere Abschnitt ist führend,
-        // fehlende Fahrten werden per ID aus dem anderen Stand ergänzt.
-        sections.resources = mergeResourceSectionValues(sections.resources, resourceSection);
+      if (resourceLegacyFallbackEnabled && legacyResourceSection) {
+        sections.resources = mergeResourceSectionValues(legacyResourceSection, resourceSection);
+        usedResourceFallback = sectionValueArray(legacyResourceSection).some((legacyResource) => (
+          !sectionValueArray(resourceSection).some((resource) => String(resource.id) === String(legacyResource.id))
+        ));
+        if (usedResourceFallback) {
+          console.warn("LEGACY_RESOURCE_READ_FALLBACK", {
+            domain: "resources",
+            tenantId: auth.tenantId,
+          });
+        }
+      } else {
+        sections.resources = resourceSection;
       }
     }
 
     return NextResponse.json(
-      { data: sections },
-      { headers: { "Cache-Control": "no-store, max-age=0, must-revalidate" } },
+      { data: sections, legacyFallback: usedResourceFallback },
+      { headers: {
+        "Cache-Control": "no-store, max-age=0, must-revalidate",
+        "X-WorkCore-Legacy-Fallback": usedResourceFallback ? "resources" : "none",
+      } },
     );
   } catch (error) {
     return NextResponse.json(
@@ -2479,6 +2371,12 @@ export async function POST(request: Request) {
   const filteredPatch = Object.fromEntries(Object.entries(patch).filter(([key]) => isSyncSectionKey(key)));
   if (Object.keys(filteredPatch).length === 0) {
     return NextResponse.json({ ok: true, updatedAt: new Date().toISOString() });
+  }
+  if ("resources" in filteredPatch) {
+    return NextResponse.json(
+      { error: "Ressourcen werden nur noch als datensatzweise Sync-Mutation gespeichert." },
+      { status: 409 },
+    );
   }
 
   try {
@@ -2593,14 +2491,6 @@ export async function POST(request: Request) {
         console.warn("Relationaler Bericht-Sync wurde auf Fallback reduziert.", error);
       }
     }
-    if ("resources" in filteredPatch) {
-      try {
-        await saveResourceSection(supabase, filteredPatch.resources);
-      } catch (error) {
-        console.warn("Relationaler Ressourcen-Sync wurde auf Fallback reduziert.", error);
-      }
-    }
-
     return NextResponse.json(
       { ok: true, updatedAt },
       { headers: { "Cache-Control": "no-store, max-age=0, must-revalidate" } },

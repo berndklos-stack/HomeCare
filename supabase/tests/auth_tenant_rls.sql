@@ -238,8 +238,8 @@ declare
 begin
   foreach function_signature in array array[
     'public.homecare_resources_snapshot()'::regprocedure,
-    'public.homecare_save_resources_snapshot(jsonb)'::regprocedure,
     'public.homecare_apply_sync_mutation(uuid,text,text,text,text,uuid,jsonb,bigint)'::regprocedure,
+    'public.homecare_apply_resource_mutation(uuid,text,text,text,text,uuid,jsonb,bigint)'::regprocedure,
     'public.homecare_grant_portal_access(uuid,text,text)'::regprocedure
   ] loop
     if has_function_privilege('anon', function_signature, 'EXECUTE')
@@ -250,6 +250,13 @@ begin
       raise exception 'RLS_SERVICE_FUNCTION_UNAVAILABLE: %', function_signature;
     end if;
   end loop;
+
+  function_signature := 'public.homecare_save_resources_snapshot(jsonb)'::regprocedure;
+  if has_function_privilege('anon', function_signature, 'EXECUTE')
+    or has_function_privilege('authenticated', function_signature, 'EXECUTE')
+    or has_function_privilege('service_role', function_signature, 'EXECUTE') then
+    raise exception 'RLS_LEGACY_RESOURCE_WRITER_EXPOSED: %', function_signature;
+  end if;
 end;
 $$;
 

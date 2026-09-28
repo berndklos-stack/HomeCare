@@ -19,7 +19,7 @@ function validMutation(value: unknown): value is SyncMutation {
     mutation.id
     && mutation.entityId
     && mutation.resourceId
-    && ["vehicle_trip", "vehicle_media"].includes(String(mutation.entityType))
+    && ["resource", "vehicle_media", "vehicle_position", "vehicle_trip"].includes(String(mutation.entityType))
     && ["create", "update", "delete", "restore"].includes(String(mutation.operation)),
   );
 }
@@ -34,7 +34,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Ungültige Synchronisierungsanfrage." }, { status: 400 });
   }
 
-  const { data, error } = await supabase.rpc("homecare_apply_sync_mutation", {
+  const rpcName = ["resource", "vehicle_position"].includes(mutation.entityType)
+    ? "homecare_apply_resource_mutation"
+    : "homecare_apply_sync_mutation";
+  const { data, error } = await supabase.rpc(rpcName, {
     p_entity_id: mutation.entityId,
     p_entity_type: mutation.entityType,
     p_expected_revision: mutation.expectedRevision ?? null,
@@ -46,7 +49,7 @@ export async function POST(request: Request) {
   });
 
   if (error) {
-    const migrationMissing = error.message.includes("homecare_apply_sync_mutation");
+    const migrationMissing = error.message.includes(rpcName);
     return NextResponse.json(
       { error: migrationMissing ? "Die Sync-Datenbankmigration wurde noch nicht angewendet." : "Die Änderung konnte nicht synchronisiert werden." },
       { status: migrationMissing ? 503 : 500 },

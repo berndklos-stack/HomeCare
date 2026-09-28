@@ -13,6 +13,7 @@ const appBackupBucket = "homecare-backups";
 const cacheTtlMs = 30000;
 const backupIntervalMs = 30 * 60 * 1000;
 const backupChunkSizeChars = 384 * 1024;
+const resourceLegacyFallbackEnabled = process.env.WORKCORE_RESOURCE_LEGACY_READ_FALLBACK === "1";
 
 type JsonObject = Record<string, unknown>;
 type CachedAppState = {
@@ -56,6 +57,24 @@ function normalizeSnapshot(payload: unknown) {
       return Object.fromEntries(Object.entries(customer as JsonObject).filter(([key]) => key !== "portalPassword"));
     }),
   };
+}
+
+function withoutRelationalResourceWrites(payload: unknown) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return payload;
+  const remaining = { ...(payload as JsonObject) };
+  delete remaining.resources;
+  return remaining;
+}
+
+function snapshotForClient(payload: unknown, tenantId: string) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return payload;
+  if (resourceLegacyFallbackEnabled) {
+    if (Array.isArray((payload as JsonObject).resources) && ((payload as JsonObject).resources as unknown[]).length > 0) {
+      console.warn("LEGACY_RESOURCE_READ_FALLBACK", { domain: "app_state", tenantId });
+    }
+    return payload;
+  }
+  return { ...(payload as JsonObject), resources: [] };
 }
 
 function compactLargeEmbeddedMedia(value: unknown): unknown {
@@ -889,9 +908,13 @@ export async function GET(request: Request) {
   const compact = new URL(request.url).searchParams.get("compact") === "1";
 
   if (cachedAppState && Date.now() - cachedAppState.cachedAt < cacheTtlMs) {
+    const clientSnapshot = snapshotForClient(cachedAppState.data, auth.tenantId);
     return NextResponse.json(
-      { data: compact ? compactLargeEmbeddedMedia(cachedAppState.data) : cachedAppState.data, cached: true, updatedAt: cachedAppState.updatedAt },
-      { headers: { "Cache-Control": "private, max-age=3, stale-while-revalidate=20" } },
+      { data: compact ? compactLargeEmbeddedMedia(clientSnapshot) : clientSnapshot, cached: true, updatedAt: cachedAppState.updatedAt },
+      { headers: {
+        "Cache-Control": "private, max-age=3, stale-while-revalidate=20",
+        "X-WorkCore-Legacy-Fallback": resourceLegacyFallbackEnabled ? "app-state-resources" : "none",
+      } },
     );
   }
 
@@ -912,9 +935,13 @@ export async function GET(request: Request) {
     updatedAt: data?.updated_at ?? null,
   });
 
+  const clientSnapshot = snapshotForClient(snapshot, auth.tenantId);
   return NextResponse.json(
-    { data: compact ? compactLargeEmbeddedMedia(snapshot) : snapshot, updatedAt: data?.updated_at ?? null },
-    { headers: { "Cache-Control": "no-store, max-age=0, must-revalidate" } },
+    { data: compact ? compactLargeEmbeddedMedia(clientSnapshot) : clientSnapshot, updatedAt: data?.updated_at ?? null },
+    { headers: {
+      "Cache-Control": "no-store, max-age=0, must-revalidate",
+      "X-WorkCore-Legacy-Fallback": resourceLegacyFallbackEnabled ? "app-state-resources" : "none",
+    } },
   );
 }
 
@@ -940,7 +967,7 @@ async function saveAppState(request: Request) {
     }
 
     const existingSnapshot = normalizeSnapshot(data?.data ?? null);
-    const patch = (body as { patch?: unknown }).patch;
+    const patch = withoutRelationalResourceWrites((body as { patch?: unknown }).patch);
     const mergedSnapshot = stripDeletedLogbookEntries(repairReportPhotosFromFieldProgress(mergeSnapshotPatch(existingSnapshot, patch)));
     return saveSnapshotToSupabase(protectReportPhotoLinks(existingSnapshot, mergedSnapshot), supabase, auth.tenantId, { skipBackup: patchCanSkipBackup(patch) });
   }
@@ -956,7 +983,10 @@ async function saveAppState(request: Request) {
   }
 
   const existingSnapshot = normalizeSnapshot(data?.data ?? null);
-  const mergedSnapshot = stripDeletedLogbookEntries(repairReportPhotosFromFieldProgress(mergeSnapshotPatch(existingSnapshot, normalizedBody)));
+  const mergedSnapshot = stripDeletedLogbookEntries(repairReportPhotosFromFieldProgress(mergeSnapshotPatch(
+    existingSnapshot,
+    withoutRelationalResourceWrites(normalizedBody),
+  )));
   return saveSnapshotToSupabase(protectReportPhotoLinks(existingSnapshot, mergedSnapshot), supabase, auth.tenantId);
 }
 
