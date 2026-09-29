@@ -114,12 +114,12 @@ test("Legacy-Endpunkte können Kunden nicht mehr überschreiben", () => {
   const sectionRoute = readFileSync(path.join(root, "app/api/sync-sections/route.ts"), "utf8");
   const appStateRoute = readFileSync(path.join(root, "app/api/app-state/route.ts"), "utf8");
   const syncRoute = readFileSync(path.join(root, "app/api/sync-mutations/route.ts"), "utf8");
-  expect(sectionRoute).toContain('if ("customers" in filteredPatch)');
-  expect(sectionRoute).toContain("LEGACY_CUSTOMER_READ_FALLBACK");
+  expect(sectionRoute).toContain("SYNC_SECTION_WRITES_RETIRED");
+  expect(sectionRoute).toContain('if (keys.includes("customers")) sections.customers = await loadCustomersSection');
+  expect(sectionRoute).not.toContain("LEGACY_CUSTOMER_READ_FALLBACK");
   expect(sectionRoute).not.toContain("saveCustomersSection");
-  expect(appStateRoute).toContain("delete remaining.customers");
-  expect(appStateRoute).toContain("result.customers = []");
-  expect(sectionRoute).toContain("mergeLegacyCustomersWithoutResurrection");
+  expect(appStateRoute).toContain("APP_STATE_RETIRED");
+  expect(sectionRoute).not.toContain("mergeLegacyCustomersWithoutResurrection");
   expect(syncRoute).toContain('membershipAllows(auth.membership, "customers.manage")');
   expect(syncRoute).toContain('"homecare_apply_customer_mutation"');
 });

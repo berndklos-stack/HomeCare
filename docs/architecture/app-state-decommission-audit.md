@@ -1,5 +1,9 @@
 # App State Decommission Audit
 
+> Abschluss 29. September 2026: Dieses Dokument bleibt als historischer
+> Ausgangsaudit erhalten. Der aktuelle Endzustand und die Klassifikation aller
+> Domänen stehen in `docs/architecture/app-state-final-retirement.md`.
+
 Status: 27 September 2026
 Scope: audit only. No production data or cutover behavior was changed.
 
@@ -65,6 +69,22 @@ customers while retaining their tenant/customer scope.
 The local PostgreSQL and application regression gates pass. Dedicated WorkCore
 Supabase Staging verification also passed before commit, including PostgREST,
 RLS, portal, dependency guards, offline conflicts and the read-only fallback.
+
+## Accelerated Decommission Wave 1 local update (28 September 2026)
+
+Objects (including properties, projects and sites) and object media are now
+implemented as relationally authoritative. `homecare_objects` owns the complete
+object payload, including type and custom fields; `homecare_media` owns images,
+documents and floor plans with independent revisions and tombstones.
+
+Writes use the durable record-mutation queue. Whole-section and `app_state`
+writes are blocked or stripped, and an empty relational result remains
+authoritative. The optional read-only rollback path is disabled by default,
+requires `WORKCORE_OBJECT_LEGACY_READ_FALLBACK=1`, emits observable telemetry
+and cannot override relational rows or tombstones.
+
+The implementation is locally gated and still requires dedicated WorkCore
+Staging verification before release.
 
 ## Executive finding
 
@@ -191,20 +211,20 @@ secondary read behavior where relevant.
 | Active job selection | **dual-write** | `homecare_settings`, section fallback and local storage; likely user/device state but currently tenant-global |
 | Field progress/time entries | **dual-write** | Section plus `homecare_field_progress`; merge rules preserve completion/photos but stale/missing rows cannot be removed deterministically |
 | Field notes | **dual-write** | Generic JSON object in `homecare_settings`, section fallback and local storage; no record identity or revision |
-| Service reports | **dual-write** | Section, `homecare_reports`, full snapshot and `report-backup:*`; list save merges but does not propagate authoritative deletes |
+| Service reports | **relational authoritative (Wave 3)** | Revisioned `homecare_reports` mutations; section/full snapshot/report-backup writes are rejected or stripped |
 | Billing/invoices/payment/export | **dual-write** | Section plus `homecare_billing_items`; invoice lines remain row JSON; no record-level conflict or delete protocol |
-| Portal messages | **dual-write** | Section plus `homecare_portal_messages`; replies are nested JSON and complete message lists are rewritten |
+| Portal messages | **relational authoritative (Wave 3)** | Revisioned messages and independent `homecare_portal_message_replies`; no complete-list writes |
 | Translation overrides | **dual-write** | Section plus `homecare_translations`; relational empty state cannot clear fallback |
 | Company settings | **dual-write** | Generic `homecare_settings` JSON plus fallback and local storage |
 | Daily-mail settings | **dual-write** | Generic setting plus fallback/local storage; cron also reads the full snapshot as legacy context |
 | Tenant/subscription/module settings | **dual-write** | Section plus tenant/subscription/module tables; route still uses `defaultTenantId` for reads and may write the ID supplied by JSON |
-| Deleted entity/report markers | **dual-write** | Generic settings plus fallback/local storage; parallel tombstone mechanism can disagree with relational rows |
+| Deleted entity/report markers | **partial legacy** | Report deletion is an authoritative row tombstone after Wave 3; generic markers remain for uncut domains |
 | Resource/vehicle master data | **dual-read** | Relational resource/media rows are merged with JSON-only resources; complete resource lists are still dual-written |
 | Vehicle trips | **relational authoritative** | `homecare_vehicle_trips` plus mutation journal/revision/tombstone; old JSON logbooks are deliberately ignored, while offline mutations are overlaid client-side |
 | Vehicle positions | **dual-read** | Relational rows win per resource, but JSON-only positions are appended and become the write fallback on relational error |
 | Resource/object media metadata | **dual-write** | Media rows and references embedded in section/full JSON coexist; resource deletion handling is stronger than object-media handling |
 | Full app backups | **legacy JSON authoritative** | Backup payload and restore target are full JSON snapshots in `app_state`; relational state is outside the restore transaction |
-| Report text backups | **fallback-only** | `report-backup:*` rows repair report content after normal reads; they are another retained copy but are not the primary UI store |
+| Report text backups | **retired for writes (Wave 3)** | Compatibility reads come from relational reports; `app_state` backup writes are rejected |
 | Legacy media migration | **fallback-only** | Recursively transforms media in the full snapshot; required until references are cut over and verified |
 
 ## Authoritative nested JSON
@@ -241,14 +261,19 @@ auditing or conflict resolution demand it.
    server result and later resent.
 4. Initial load and background refresh combine `/api/app-state` with
    `/api/sync-sections` rather than requesting domain records directly.
-5. Jobs are merged by ID with JSON/local state to preserve consulting entries.
+5. Jobs and consulting entries are relational authoritative after Wave 2;
+   pending record mutations are overlaid from the durable local queue.
 6. Objects recover `type` and `customFields` from fallback JSON.
 7. Resources retain JSON-only vehicles, while relational trips/media replace
    their nested equivalents.
-8. Report text backups are applied after snapshot/section merge.
-9. Offline trip mutations use the new durable mutation queue; all other domains
-   still use pending whole-section keys.
-10. Failed non-retryable legacy sync can disable Supabase sync and leave the
+8. Reports, report media, portal messages and replies are relational authoritative
+   after Wave 3; pending record mutations are overlaid from the durable queue.
+9. Invoices, invoice lines, payments and accounting exports are relational authoritative
+   after Wave 4; issued records are protected and financial events are audited.
+10. Trips, settings, customers, objects, jobs, progress, time entries, field
+   notes, reports, communication and financial records use the durable mutation queue; remaining legacy domains still use
+   pending whole-section keys.
+11. Failed non-retryable legacy sync can disable Supabase sync and leave the
     browser cache as the only current value until manual recovery.
 
 ## Migration and import dependencies
@@ -283,16 +308,16 @@ They should become one-way import history, not runtime dependencies.
    unrelated changes from another device.
 6. Full snapshot cache, section timestamps and individual relational timestamps
    are not one causal clock.
-7. Job conversion omits consulting-specific nested data; frontend merge keeps
-   JSON authoritative for those fields.
+7. Resolved by Wave 2: consulting configuration remains on the job aggregate
+   and time entries are independent relational records.
 8. Object conversion omits `type` and `customFields`; JSON is explicitly merged
    back into relational objects.
 9. Resource merge retains JSON-only resources; position merge retains JSON-only
    positions.
 10. Object-media writes only upsert current items. Removed relational media can
     return because no stale-row tombstone is written.
-11. Report-photo repair writes JSON and relational reports sequentially without
-    a transaction.
+11. Resolved by Wave 3: report media references are independent revisioned rows;
+    JSON-first report and report-backup writes are blocked.
 12. JSON backup restore does not restore relational tables, revisions,
     tombstones or mutation journal entries.
 13. Daily mail combines relational jobs/objects with legacy snapshot context and
@@ -302,6 +327,8 @@ They should become one-way import history, not runtime dependencies.
 15. Generic deletion-marker settings can disagree with relational soft deletes.
 16. Legacy imports are one-time snapshots; continued JSON writes after import
     are not automatically reconciled by migrations.
+17. Resolved by Wave 4: billing list writes, nested invoice-line authority and
+    mutable payment/export markers are removed from runtime JSON sync.
 
 ## Immediate audit conclusion
 

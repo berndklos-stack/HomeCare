@@ -71,10 +71,10 @@ test("Legacy-Endpunkte können Phase-3B-Domänen nicht mehr überschreiben", () 
   const sectionRoute = readFileSync(path.join(root, "app/api/sync-sections/route.ts"), "utf8");
   const appStateRoute = readFileSync(path.join(root, "app/api/app-state/route.ts"), "utf8");
   const cronRoute = readFileSync(path.join(root, "app/api/cron/daily-jobs/route.ts"), "utf8");
-  expect(sectionRoute).toContain("const blockedSettingKeys = relationalSettingSections.filter");
-  expect(sectionRoute).toContain("Einstellungen und Übersetzungen werden nur noch als datensatzweise Sync-Mutation gespeichert");
-  expect(sectionRoute).toContain("LEGACY_SETTINGS_READ_FALLBACK");
-  expect(appStateRoute).toContain("withoutRelationalResourceWrites");
+  expect(sectionRoute).toContain("SYNC_SECTION_WRITES_RETIRED");
+  expect(sectionRoute).toContain("loadAuthoritativeSettingsSections");
+  expect(sectionRoute).not.toContain("LEGACY_SETTINGS_READ_FALLBACK");
+  expect(appStateRoute).toContain("APP_STATE_RETIRED");
   expect(cronRoute).toContain('.from("homecare_daily_mail_state")');
   expect(cronRoute).not.toContain('SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY');
   expect(cronRoute).not.toContain('kolaretorp-daily-job-mail');

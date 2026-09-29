@@ -57,6 +57,7 @@ import { appVersion, versionHistory } from "@/lib/appVersion";
 import { apiFetch, apiRequestHeaders, tenantScopedStorageKey } from "@/lib/apiClient";
 import { defaultAppBranding, resolveAppBranding } from "@/lib/branding";
 import { createStableId, readSyncQueue, type SyncMutation, type SyncMutationOperation, type SyncMutationResult } from "@/lib/syncQueue";
+import { overlayPendingMasterData, prepareMasterDataMutations, type RevisionedMasterRecord } from "@/lib/masterDataSync";
 import {
   overlayPendingResourceMutations,
   overlayPendingVehiclePositionMutations,
@@ -73,6 +74,10 @@ import {
   prepareCustomerMutations,
   type RevisionedCustomerContact,
 } from "@/lib/customerSync";
+import { overlayPendingObjectMutations, prepareObjectMutations } from "@/lib/objectSync";
+import { overlayPendingJobOperations, prepareJobMutations, prepareNoteMutations, prepareProgressMutations, type RevisionMeta } from "@/lib/jobOperationsSync";
+import { overlayPendingReportCommunication, preparePortalMessageMutations, prepareReportMutations } from "@/lib/reportCommunicationSync";
+import { overlayPendingFinancialMutations, prepareFinancialMutations } from "@/lib/financialSync";
 import { useSyncQueue } from "@/lib/useSyncQueue";
 import {
   normalizeOnboardingState,
@@ -171,6 +176,8 @@ type ObjectRecord = {
   nextVisit: string;
   lastVisit: string;
   archived?: boolean;
+  revision?: number;
+  updatedAt?: string;
 };
 
 type MediaItem = {
@@ -183,6 +190,7 @@ type MediaItem = {
   previewUrl?: string;
   storagePath?: string;
   isPrimary?: boolean;
+  updatedAt?: string;
 };
 
 type CustomerContactRecord = RevisionedCustomerContact;
@@ -238,6 +246,8 @@ type ConsultingTimeEntry = {
   billingStatus: "offen" | "abgerechnet";
   billedAt?: string;
   billingRecordId?: string;
+  revision?: number;
+  updatedAt?: string;
 };
 
 type JobConsulting = {
@@ -289,6 +299,8 @@ type JobRecord = {
   workMinutes: number;
   schedule: JobSchedule;
   consulting?: JobConsulting;
+  revision?: number;
+  updatedAt?: string;
 };
 
 type JobExecutionLogEntry = {
@@ -328,6 +340,8 @@ type ReportRecord = {
   customerComment: string;
   sentAt?: string;
   updatedAt?: string;
+  revision?: number;
+  deletedAt?: string;
 };
 
 type CompleteJobOptions = {
@@ -343,6 +357,7 @@ type ReportAttachment = {
   storagePath?: string;
   storageUrl?: string;
   type: string;
+  revision?: number;
 };
 
 type SeriesWeekReport = {
@@ -399,6 +414,7 @@ type FieldTaskProgress = {
   note: string;
   photos: FieldPhoto[];
   updatedAt?: string;
+  revision?: number;
 };
 
 type BillingRecord = {
@@ -436,6 +452,10 @@ type BillingRecord = {
   serviceDate?: string;
   sentAt?: string;
   status: "abrechenbar" | "abgerechnet" | "intern";
+  revision?: number;
+  paymentRevision?: number;
+  exportRevision?: number;
+  updatedAt?: string;
 };
 
 type BillingLineItem = {
@@ -450,6 +470,7 @@ type BillingLineItem = {
   taxRate: string;
   discountType?: LineDiscount["type"];
   discountValue?: string;
+  revision?: number;
 };
 
 type AccountingAccount = {
@@ -552,6 +573,9 @@ type PortalMessageRecord = {
   replies?: PortalMessageReplyRecord[];
   sentAt?: string;
   status: "neu" | "gelesen" | "erledigt";
+  revision?: number;
+  deletedAt?: string;
+  updatedAt?: string;
 };
 
 type PortalMessageReplyRecord = {
@@ -562,6 +586,7 @@ type PortalMessageReplyRecord = {
   sentAt: string;
   subject: string;
   to: string;
+  revision?: number;
 };
 
 type PersonnelRecord = {
@@ -851,6 +876,7 @@ type AppSnapshot = {
   fieldNotes: Record<string, string>;
   fieldProgress: Record<string, Record<string, FieldTaskProgress>>;
   jobs: JobRecord[];
+  jobNoteMeta?: Record<string, RevisionMeta>;
   inventoryLocations?: InventoryLocation[];
   materials?: MaterialItem[];
   objects: ObjectRecord[];
@@ -865,13 +891,13 @@ type AppSnapshot = {
   updatedAt?: string;
 };
 
-type SyncSectionKey = "accountingAccounts" | "activeJobId" | "billing" | "companySettings" | "customers" | "dailyMailSettings" | "deletedEntityIds" | "deletedReportIds" | "fieldNotes" | "fieldProgress" | "inventoryLocations" | "jobs" | "materials" | "objects" | "packages" | "personnel" | "portalMessages" | "reports" | "resources" | "services" | "tenantSettings" | "translationOverrides";
+type SyncSectionKey = "accountingAccounts" | "activeJobId" | "billing" | "companySettings" | "customers" | "dailyMailSettings" | "deletedEntityIds" | "deletedReportIds" | "fieldNotes" | "fieldProgress" | "inventoryLocations" | "jobs" | "jobNoteMeta" | "materials" | "objects" | "packages" | "personnel" | "portalMessages" | "reports" | "resources" | "services" | "tenantSettings" | "translationOverrides";
 type SyncSectionMap = Partial<Record<SyncSectionKey, { updatedAt?: string; value: unknown }>>;
 
 const syncSectionKeys: SyncSectionKey[] = [
   "accountingAccounts", "activeJobId", "billing", "companySettings", "customers", "dailyMailSettings",
   "deletedEntityIds", "deletedReportIds", "fieldNotes", "fieldProgress", "inventoryLocations", "jobs",
-  "materials", "objects", "packages", "personnel", "portalMessages", "reports", "resources", "services",
+  "jobNoteMeta", "materials", "objects", "packages", "personnel", "portalMessages", "reports", "resources", "services",
   "tenantSettings", "translationOverrides",
 ];
 
@@ -893,6 +919,11 @@ const relationalSettingsSyncKeys = new Set<SyncSectionKey>([
   "translationOverrides",
 ]);
 const relationalCustomerSyncKeys = new Set<SyncSectionKey>(["customers"]);
+const relationalObjectSyncKeys = new Set<SyncSectionKey>(["objects"]);
+const relationalJobOperationSyncKeys = new Set<SyncSectionKey>(["jobs", "fieldProgress", "fieldNotes", "jobNoteMeta"]);
+const relationalReportCommunicationSyncKeys = new Set<SyncSectionKey>(["reports", "portalMessages", "deletedReportIds"]);
+const relationalFinancialSyncKeys = new Set<SyncSectionKey>(["billing"]);
+const relationalMasterDataSyncKeys = new Set<SyncSectionKey>(["accountingAccounts", "inventoryLocations", "materials", "packages", "personnel", "services"]);
 
 function numericValue(value?: string) {
   const parsed = Number(String(value ?? "").replace(",", ".").replace(/[^\d.-]/g, ""));
@@ -2829,6 +2860,7 @@ const baseStorageKeys = {
   portalMessages: "kolaretorp-portal-messages",
   fieldNotes: "kolaretorp-field-notes",
   fieldProgress: "kolaretorp-field-progress",
+  jobNoteMeta: "kolaretorp-job-note-meta",
   activeJobId: "kolaretorp-active-job-id",
   quickTripDraft: "kolaretorp-quick-trip-draft",
   odometerOcrUsage: "kolaretorp-odometer-ocr-usage",
@@ -2856,6 +2888,11 @@ function readPendingSyncKeys(): SyncSectionKey[] {
       key !== "resources"
       && !relationalSettingsSyncKeys.has(key as SyncSectionKey)
       && !relationalCustomerSyncKeys.has(key as SyncSectionKey)
+      && !relationalObjectSyncKeys.has(key as SyncSectionKey)
+      && !relationalJobOperationSyncKeys.has(key as SyncSectionKey)
+      && !relationalReportCommunicationSyncKeys.has(key as SyncSectionKey)
+      && !relationalFinancialSyncKeys.has(key as SyncSectionKey)
+      && !relationalMasterDataSyncKeys.has(key as SyncSectionKey)
       && syncSectionKeys.includes(key as SyncSectionKey)
     ));
   } catch {
@@ -2904,6 +2941,11 @@ function changedSyncSections(snapshot: AppSnapshot, syncedHashes: SectionHashMap
     key !== "resources"
     && !relationalSettingsSyncKeys.has(key)
     && !relationalCustomerSyncKeys.has(key)
+    && !relationalObjectSyncKeys.has(key)
+    && !relationalJobOperationSyncKeys.has(key)
+    && !relationalReportCommunicationSyncKeys.has(key)
+    && !relationalFinancialSyncKeys.has(key)
+    && !relationalMasterDataSyncKeys.has(key)
     && sectionHash(snapshotSectionValue(snapshot, key)) !== syncedHashes[key]
   ));
 }
@@ -2972,6 +3014,7 @@ function readLocalSnapshot(): AppSnapshot {
     deletedReportIds: readStoredValue<string[]>(storageKeys.deletedReportIds, []),
     fieldNotes: readStoredValue<Record<string, string>>(storageKeys.fieldNotes, {}),
     fieldProgress: readStoredValue<Record<string, Record<string, FieldTaskProgress>>>(storageKeys.fieldProgress, {}),
+    jobNoteMeta: readStoredValue<Record<string, RevisionMeta>>(storageKeys.jobNoteMeta, {}),
     jobs: readStoredValue<JobRecord[]>(storageKeys.jobs, seedJobs),
     inventoryLocations: readStoredValue<InventoryLocation[]>(storageKeys.inventoryLocations, seedInventoryLocations),
     materials: readStoredValue<MaterialItem[]>(storageKeys.materials, seedMaterials),
@@ -3021,6 +3064,7 @@ function persistLocalSnapshot(snapshot: AppSnapshot) {
   window.localStorage.setItem(storageKeys.portalMessages, JSON.stringify(snapshot.portalMessages));
   window.localStorage.setItem(storageKeys.fieldNotes, JSON.stringify(snapshot.fieldNotes));
   window.localStorage.setItem(storageKeys.fieldProgress, JSON.stringify(snapshot.fieldProgress));
+  window.localStorage.setItem(storageKeys.jobNoteMeta, JSON.stringify(snapshot.jobNoteMeta ?? {}));
   window.localStorage.setItem(storageKeys.activeJobId, JSON.stringify(snapshot.activeJobId));
   window.localStorage.setItem(storageKeys.updatedAt, JSON.stringify(updatedAt));
 }
@@ -3067,10 +3111,14 @@ function isSuspiciouslyEmptyLocalSnapshot(snapshot: AppSnapshot) {
 }
 
 function isSeedOnlySnapshot(snapshot: AppSnapshot) {
-  return snapshot.customers.length <= seedCustomers.length
-    && snapshot.objects.length <= seedObjects.length
-    && snapshot.jobs.length <= seedJobs.length
-    && snapshot.reports.length <= seedReports.length
+  const containsOnlySeedIds = <T extends { id: string }>(records: T[], seeds: T[]) => {
+    const seedIds = new Set(seeds.map((record) => record.id));
+    return records.every((record) => seedIds.has(record.id));
+  };
+  return containsOnlySeedIds(snapshot.customers, seedCustomers)
+    && containsOnlySeedIds(snapshot.objects, seedObjects)
+    && containsOnlySeedIds(snapshot.jobs, seedJobs)
+    && containsOnlySeedIds(snapshot.reports, seedReports)
     && Object.keys(snapshot.fieldProgress ?? {}).length === 0;
 }
 
@@ -3100,6 +3148,7 @@ function snapshotPatch(snapshot: AppSnapshot): Partial<AppSnapshot> {
     fieldNotes: snapshot.fieldNotes,
     fieldProgress: snapshot.fieldProgress,
     jobs: snapshot.jobs,
+    jobNoteMeta: snapshot.jobNoteMeta,
     inventoryLocations: snapshot.inventoryLocations,
     materials: snapshot.materials,
     objects: snapshot.objects,
@@ -3688,6 +3737,7 @@ function mergeSnapshots(remoteSnapshot: AppSnapshot, localSnapshot: AppSnapshot)
     fieldNotes: mergeFieldNotes(primarySnapshot.fieldNotes, secondarySnapshot.fieldNotes),
     fieldProgress: mergeFieldProgress(primarySnapshot.fieldProgress, secondarySnapshot.fieldProgress),
     jobs,
+    jobNoteMeta: { ...(secondarySnapshot.jobNoteMeta ?? {}), ...(primarySnapshot.jobNoteMeta ?? {}) },
     inventoryLocations: mergeRecordsById(primarySnapshot.inventoryLocations ?? seedInventoryLocations, secondarySnapshot.inventoryLocations ?? seedInventoryLocations),
     materials: mergeRecordsById(primarySnapshot.materials ?? seedMaterials, secondarySnapshot.materials ?? seedMaterials),
     objects: filterDeletedRecords(mergeObjectsById(primarySnapshot.objects, secondarySnapshot.objects), deletedEntityIds, "objects"),
@@ -3947,7 +3997,7 @@ async function fileToReportAttachment(file: File): Promise<ReportAttachment> {
   if (uploaded) {
     return {
       createdAt: new Date().toISOString(),
-      id: globalThis.crypto?.randomUUID?.() ?? `REPORT-FILE-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      id: uploaded.id,
       name: uploadFileName,
       size: uploaded.size,
       storagePath: uploaded.path,
@@ -3988,6 +4038,7 @@ function reportAttachmentCanBeMailed(attachment: ReportAttachment) {
 
 type UploadedMedia = {
   contentType: string;
+  id: string;
   name: string;
   path: string;
   size: number;
@@ -4047,18 +4098,8 @@ async function loadSupabaseSnapshot() {
   if (process.env.NEXT_PUBLIC_DISABLE_SUPABASE_SYNC === "1") {
     return null;
   }
-
-  const response = await withTimeout(apiFetch("/api/app-state?compact=1", {
-    cache: "no-store",
-    headers: { Accept: "application/json" },
-  }), 30000);
-  const payload = await response.json() as { data?: AppSnapshot | null; error?: string; updatedAt?: string | null };
-
-  if (!response.ok) {
-    throw new Error(payload.error || "App-Daten konnten nicht geladen werden.");
-  }
-
-  return payload.data ? { ...payload.data, updatedAt: payload.data.updatedAt ?? payload.updatedAt ?? undefined } : null;
+  const sections = await loadSyncSections();
+  return mergeSnapshotWithSyncSections(readLocalSnapshot(), sections);
 }
 
 async function loadSyncSections(keys?: SyncSectionKey[]) {
@@ -4088,9 +4129,8 @@ function mergeSnapshotWithSyncSections(snapshot: AppSnapshot, sections: SyncSect
   return {
     ...snapshot,
     ...safePatch,
-    // The normalized homecare_jobs sync table does not currently contain the
-    // nested consulting payload. Merge jobs instead of replacing them so that
-    // consulting time entries stored in app_state/local state survive reloads.
+    // Die relationale Auftragsprojektion wird mit lokalen Offline-Mutationen
+    // zusammengefuehrt, damit noch nicht gesendete Consulting-Zeiten erhalten bleiben.
     jobs: sectionJobs ? mergeJobsById(snapshot.jobs, sectionJobs) : snapshot.jobs,
     updatedAt: Object.values(sections).reduce((latest, section) => {
       const sectionTime = Date.parse(section?.updatedAt ?? "");
@@ -4135,7 +4175,36 @@ function overlayPendingCustomerSnapshot(snapshot: AppSnapshot, queue: SyncMutati
 }
 
 function overlayPendingRecordMutations(snapshot: AppSnapshot, queue: SyncMutation[]) {
-  return overlayPendingCustomerSnapshot(overlayPendingSettingsSnapshot(snapshot, queue), queue);
+  const withCustomers = overlayPendingCustomerSnapshot(overlayPendingSettingsSnapshot(snapshot, queue), queue);
+  const withObjects = { ...withCustomers, objects: overlayPendingObjectMutations(withCustomers.objects ?? [], queue) as ObjectRecord[] };
+  const pendingOperations = overlayPendingJobOperations(
+    withObjects.jobs,
+    withObjects.fieldProgress,
+    withObjects.fieldNotes,
+    withObjects.jobNoteMeta ?? {},
+    queue,
+  );
+  const pendingReportCommunication = overlayPendingReportCommunication(
+    withObjects.reports,
+    withObjects.portalMessages,
+    queue,
+  );
+  return {
+    ...withObjects,
+    accountingAccounts: overlayPendingMasterData(withObjects.accountingAccounts ?? [], "accounting_account", queue) as AccountingAccount[],
+    billing: overlayPendingFinancialMutations(withObjects.billing ?? [], queue) as BillingRecord[],
+    fieldNotes: pendingOperations.notes,
+    fieldProgress: pendingOperations.progress as AppSnapshot["fieldProgress"],
+    jobs: pendingOperations.jobs as JobRecord[],
+    jobNoteMeta: pendingOperations.noteMeta,
+    inventoryLocations: overlayPendingMasterData(withObjects.inventoryLocations ?? [], "inventory_location", queue) as InventoryLocation[],
+    materials: overlayPendingMasterData(withObjects.materials ?? [], "material", queue) as MaterialItem[],
+    packages: overlayPendingMasterData(withObjects.packages ?? [], "service_package", queue) as ServicePackage[],
+    personnel: overlayPendingMasterData(withObjects.personnel ?? [], "personnel", queue) as PersonnelRecord[],
+    portalMessages: pendingReportCommunication.messages as PortalMessageRecord[],
+    reports: pendingReportCommunication.reports as ReportRecord[],
+    services: overlayPendingMasterData(withObjects.services ?? [], "service", queue) as ServiceItem[],
+  };
 }
 
 async function loadVehiclePositions() {
@@ -4148,137 +4217,11 @@ async function loadVehiclePositions() {
   return payload.data ?? [];
 }
 
-async function saveSupabaseSnapshotWithFetch(endpoint: string, snapshot: AppSnapshot) {
-  const response = await withTimeout(apiFetch(endpoint, {
-    body: JSON.stringify(snapshot),
-    headers: {
-      "Content-Type": "application/json",
-    },
-    method: "POST",
-  }));
-  const payload = await response.json() as { error?: string; retry?: boolean; updatedAt?: string };
-
-  if (!response.ok || payload.retry) {
-    throw new Error(payload.error || "App-Daten konnten nicht gespeichert werden.");
-  }
-
-  return payload.updatedAt ?? snapshot.updatedAt;
-}
-
-function patchUsesSmallSyncOnly(overrides: Partial<AppSnapshot>) {
-  const keys = Object.keys(overrides);
-  return keys.length > 0 && keys.every((key) => key === "updatedAt" || ["accountingAccounts", "activeJobId", "billing", "companySettings", "customers", "dailyMailSettings", "deletedEntityIds", "deletedReportIds", "fieldNotes", "fieldProgress", "inventoryLocations", "jobs", "materials", "objects", "packages", "personnel", "portalMessages", "reports", "resources", "services", "tenantSettings", "translationOverrides"].includes(key));
-}
-
-async function saveSmallSyncPatch(overrides: Partial<AppSnapshot>) {
-  const patch = Object.fromEntries(
-    Object.entries(overrides).filter(([key]) => (
-      key !== "updatedAt"
-      && key !== "resources"
-      && !relationalSettingsSyncKeys.has(key as SyncSectionKey)
-      && !relationalCustomerSyncKeys.has(key as SyncSectionKey)
-    )),
-  );
-  const response = await withTimeout(apiFetch("/api/sync-sections", {
-    body: JSON.stringify({ patch }),
-    cache: "no-store",
-    headers: { "Content-Type": "application/json" },
-    method: "POST",
-  }), 10000);
-  const payload = await response.json() as { error?: string; retry?: boolean; updatedAt?: string };
-  if (!response.ok || payload.retry) {
-    throw new Error(payload.error || "Sync-Bereich konnte nicht gespeichert werden.");
-  }
-  return payload.updatedAt ?? overrides.updatedAt;
-}
-
-async function saveSupabaseSnapshotWithXhr(endpoint: string, snapshot: AppSnapshot) {
-  const authHeaders = await apiRequestHeaders({ "Content-Type": "application/json" });
-  return new Promise<string | undefined>((resolve, reject) => {
-    const request = new XMLHttpRequest();
-    request.open("POST", endpoint, true);
-    authHeaders.forEach((value, key) => request.setRequestHeader(key, value));
-    request.timeout = 12000;
-    request.onload = () => {
-      let payload: { error?: string; retry?: boolean; updatedAt?: string } = {};
-      try {
-        payload = request.responseText ? JSON.parse(request.responseText) : {};
-      } catch {
-        payload = {};
-      }
-      if (request.status < 200 || request.status >= 300 || payload.retry) {
-        reject(new Error(payload.error || `App-Daten konnten nicht gespeichert werden (${request.status}).`));
-        return;
-      }
-      resolve(payload.updatedAt ?? snapshot.updatedAt);
-    };
-    request.onerror = () => reject(new Error("Online-Speichern fehlgeschlagen: Netzwerkfehler."));
-    request.ontimeout = () => reject(new Error("Online-Speichern fehlgeschlagen: Zeitlimit erreicht."));
-    request.send(JSON.stringify(snapshot));
-  });
-}
-
-function compactPatchForRemote(overrides: Partial<AppSnapshot>) {
-  const remoteOverrides = { ...overrides };
-  delete remoteOverrides.resources;
-  delete remoteOverrides.customers;
-  relationalSettingsSyncKeys.forEach((key) => delete remoteOverrides[key]);
-  return {
-    ...remoteOverrides,
-    objects: overrides.objects?.map((object) => ({
-      ...object,
-      media: undefined,
-    })),
-  };
-}
-
-async function saveSupabaseSnapshot(snapshot: AppSnapshot) {
-  if (process.env.NEXT_PUBLIC_DISABLE_SUPABASE_SYNC === "1") {
-    return snapshot.updatedAt;
-  }
-
-  const endpoints = ["/api/app-state"];
-  if (typeof window !== "undefined" && window.location.origin.startsWith("http")) {
-    endpoints.push(`${window.location.origin}/api/app-state`);
-  }
-  let lastError: unknown;
-
-  for (const endpoint of endpoints) {
-    try {
-      return await saveSupabaseSnapshotWithFetch(endpoint, snapshot);
-    } catch (error) {
-      lastError = error;
-    }
-
-    if (typeof window !== "undefined") {
-      try {
-        return await saveSupabaseSnapshotWithXhr(endpoint, snapshot);
-      } catch (error) {
-        lastError = error;
-      }
-    }
-  }
-
-  throw lastError instanceof Error ? lastError : new Error("App-Daten konnten nicht gespeichert werden.");
-}
-
 async function saveSupabasePatch(overrides: Partial<AppSnapshot>) {
-  if (patchUsesSmallSyncOnly(overrides)) {
-    const smallSyncSavedAt = await saveSmallSyncPatch(overrides);
-
-    // Jobs are also stored in app_state because the normalized homecare_jobs
-    // table intentionally contains only the common job fields and would drop
-    // nested consulting entries. Dual-write job patches so consulting data is
-    // durable across refreshes/restarts while the structured job sync remains current.
-    if (overrides.jobs) {
-      const snapshot = { __patch: true, patch: compactPatchForRemote(overrides) };
-      return (await saveSupabaseSnapshot(snapshot as unknown as AppSnapshot)) ?? smallSyncSavedAt;
-    }
-
-    return smallSyncSavedAt;
-  }
-  const snapshot = { __patch: true, patch: compactPatchForRemote(overrides) };
-  return saveSupabaseSnapshot(snapshot as unknown as AppSnapshot);
+  // Alle betrieblichen Daten werden datensatzweise ueber die Mutationsqueue
+  // gespeichert. Der Snapshot-Persist-Hook bleibt nur fuer den lokalen
+  // Lebenszyklus bestehen und fuehrt keinen Netzwerk-Write mehr aus.
+  return overrides.updatedAt ?? new Date().toISOString();
 }
 
 type ReportTextBackup = Pick<ReportRecord, "checklistResults" | "customerComment" | "date" | "id" | "jobId" | "objectId" | "summary" | "title" | "updatedAt" | "visibleToCustomer">;
@@ -6520,7 +6463,7 @@ async function createReportCommunicationMessage(report: ReportRecord, object: Ob
   const pdfAttachment: ReportAttachment = {
     createdAt: now,
     dataUrl: uploadedPdf ? undefined : pdfBlob.size <= 8_000_000 ? await readFileAsDataUrl(pdfBlob) : undefined,
-    id: globalThis.crypto?.randomUUID?.() ?? `REPORT-PDF-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    id: uploadedPdf?.id ?? globalThis.crypto?.randomUUID?.() ?? `REPORT-PDF-${Date.now()}-${Math.random().toString(36).slice(2)}`,
     name: pdfFileName,
     size: uploadedPdf?.size ?? pdfBlob.size,
     storagePath: uploadedPdf?.path,
@@ -7269,11 +7212,11 @@ function calculatedTripKilometers(startOdometer: string, endOdometer: string) {
 }
 
 async function fileToDocumentPreview(file: File) {
-  if (file.type.startsWith("image/")) return fileToImagePreview(file, 1100, 0.7);
+  if (file.type.startsWith("image/")) return { previewUrl: await fileToImagePreview(file, 1100, 0.7) };
   const uploaded = await uploadMediaFile(file, "object-documents");
-  if (uploaded) return uploaded.url;
-  if (file.size > 2_000_000) return undefined;
-  return readFileAsDataUrl(file);
+  if (uploaded) return { previewUrl: uploaded.url, storagePath: uploaded.path };
+  if (file.size > 2_000_000) return {};
+  return { previewUrl: await readFileAsDataUrl(file) };
 }
 
 function formToObject(form: NewObjectFormState, id: string): ObjectRecord {
@@ -8944,6 +8887,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
   const [portalCustomerId, setPortalCustomerId] = useState("");
   const [fieldNotes, setFieldNotes] = useState<Record<string, string>>({});
   const [fieldProgress, setFieldProgress] = useState<Record<string, Record<string, FieldTaskProgress>>>({});
+  const [jobNoteMeta, setJobNoteMeta] = useState<Record<string, RevisionMeta>>({});
   const [fieldWorkDates, setFieldWorkDates] = useState<Record<string, string>>({});
   const [modal, setModal] = useState<Modal>(null);
   const [editingObjectId, setEditingObjectId] = useState<string | null>(null);
@@ -9065,6 +9009,85 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
       setAppUpdatedAt(updatedAt);
       return;
     }
+    if (mutation.entityType === "object") {
+      setObjects((current) => deletedAt
+        ? current.filter((object) => object.id !== mutation.entityId)
+        : current.map((object) => object.id === mutation.entityId
+          ? { ...object, revision: Number.isFinite(revision) ? Math.max(object.revision ?? 1, revision) : object.revision, updatedAt }
+          : object));
+      setAppUpdatedAt(updatedAt);
+      return;
+    }
+    if (mutation.entityType === "object_media") {
+      setObjects((current) => current.map((object) => {
+        if (object.id !== mutation.resourceId) return object;
+        const items = deletedAt
+          ? object.media.items.filter((item) => item.id !== mutation.entityId)
+          : object.media.items.map((item) => item.id === mutation.entityId
+            ? { ...item, revision: Number.isFinite(revision) ? revision : item.revision, updatedAt }
+            : item);
+        return {
+          ...object,
+          media: {
+            documents: items.filter((item) => item.type === "Dokument").length,
+            floorPlans: items.filter((item) => item.type === "Grundriss").length,
+            images: items.filter((item) => item.type === "Bild").length,
+            items,
+          },
+        };
+      }));
+      setAppUpdatedAt(updatedAt);
+      return;
+    }
+    if (mutation.entityType === "job") {
+      setJobs((current) => deletedAt
+        ? current.filter((job) => job.id !== mutation.entityId)
+        : current.map((job) => job.id === mutation.entityId
+          ? { ...job, revision: Number.isFinite(revision) ? revision : job.revision, updatedAt }
+          : job));
+      setAppUpdatedAt(updatedAt);
+      return;
+    }
+    if (mutation.entityType === "job_time_entry") {
+      setJobs((current) => current.map((job) => {
+        if (job.id !== mutation.resourceId || !job.consulting) return job;
+        const entries = deletedAt
+          ? job.consulting.entries.filter((entry) => entry.id !== mutation.entityId)
+          : job.consulting.entries.map((entry) => entry.id === mutation.entityId
+            ? { ...entry, revision: Number.isFinite(revision) ? revision : entry.revision, updatedAt }
+            : entry);
+        return { ...job, consulting: { ...job.consulting, entries } };
+      }));
+      setAppUpdatedAt(updatedAt);
+      return;
+    }
+    if (mutation.entityType === "field_progress") {
+      setFieldProgress((current) => {
+        const workDate = typeof mutation.payload.workDate === "string" ? mutation.payload.workDate : "";
+        const key = workDate ? `${mutation.resourceId}::${workDate}` : mutation.resourceId;
+        const taskId = String(mutation.payload.taskId ?? mutation.entityId.slice(mutation.entityId.lastIndexOf(":") + 1));
+        const tasks = { ...(current[key] ?? {}) };
+        if (deletedAt) delete tasks[taskId];
+        else if (tasks[taskId]) tasks[taskId] = { ...tasks[taskId], revision: Number.isFinite(revision) ? revision : tasks[taskId].revision, updatedAt };
+        return { ...current, [key]: tasks };
+      });
+      setAppUpdatedAt(updatedAt);
+      return;
+    }
+    if (mutation.entityType === "job_note") {
+      const workDate = typeof mutation.payload.workDate === "string" ? mutation.payload.workDate : "";
+      const key = workDate ? `${mutation.resourceId}::${workDate}` : mutation.resourceId;
+      setJobNoteMeta((current) => {
+        if (deletedAt) {
+          const next = { ...current };
+          delete next[key];
+          return next;
+        }
+        return { ...current, [key]: { revision: Number.isFinite(revision) ? revision : current[key]?.revision, updatedAt } };
+      });
+      setAppUpdatedAt(updatedAt);
+      return;
+    }
     if (mutation.entityType === "resource") {
       setResources((current) => deletedAt
         ? current.filter((resource) => resource.id !== mutation.entityId)
@@ -9107,6 +9130,64 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
       setAppUpdatedAt(updatedAt);
       return;
     }
+    if (mutation.entityType === "invoice") {
+      setBilling((current) => deletedAt
+        ? current.filter((invoice) => invoice.id !== mutation.entityId)
+        : current.map((invoice) => invoice.id === mutation.entityId
+          ? {
+              ...invoice,
+              invoiceNumber: typeof serverRecord.invoice_number === "string" ? serverRecord.invoice_number : invoice.invoiceNumber,
+              outgoingBookNumber: typeof serverRecord.outgoing_book_number === "string" ? serverRecord.outgoing_book_number : invoice.outgoingBookNumber,
+              revision: Number.isFinite(revision) ? revision : invoice.revision,
+              updatedAt,
+            }
+          : invoice));
+      setAppUpdatedAt(updatedAt);
+      return;
+    }
+    if (mutation.entityType === "invoice_line") {
+      setBilling((current) => current.map((invoice) => invoice.id !== mutation.resourceId ? invoice : {
+        ...invoice,
+        lines: deletedAt
+          ? (invoice.lines ?? []).filter((line) => line.id !== mutation.entityId)
+          : (invoice.lines ?? []).map((line) => line.id === mutation.entityId
+            ? { ...line, revision: Number.isFinite(revision) ? revision : line.revision }
+            : line),
+      }));
+      setAppUpdatedAt(updatedAt);
+      return;
+    }
+    if (mutation.entityType === "payment") {
+      setBilling((current) => current.map((invoice) => invoice.id === mutation.resourceId ? {
+        ...invoice,
+        paidAt: typeof serverRecord.paid_at === "string" ? serverRecord.paid_at : invoice.paidAt,
+        paymentRevision: Number.isFinite(revision) ? revision : invoice.paymentRevision,
+      } : invoice));
+      setAppUpdatedAt(updatedAt);
+      return;
+    }
+    if (mutation.entityType === "accounting_export") {
+      setBilling((current) => current.map((invoice) => invoice.id === mutation.resourceId ? {
+        ...invoice,
+        externalExportStatus: typeof serverRecord.status === "string" ? serverRecord.status as BillingRecord["externalExportStatus"] : invoice.externalExportStatus,
+        externalExportSystem: typeof serverRecord.system === "string" ? serverRecord.system : invoice.externalExportSystem,
+        externalExportedAt: typeof serverRecord.exported_at === "string" ? serverRecord.exported_at : invoice.externalExportedAt,
+        exportRevision: Number.isFinite(revision) ? revision : invoice.exportRevision,
+      } : invoice));
+      setAppUpdatedAt(updatedAt);
+      return;
+    }
+    const applyMasterRevision = <T extends { id?: string; account?: string; revision?: number; updatedAt?: string }>(current: T[]) => deletedAt
+      ? current.filter((record) => String(record.id ?? record.account) !== mutation.entityId)
+      : current.map((record) => String(record.id ?? record.account) === mutation.entityId
+        ? { ...record, revision: Number.isFinite(revision) ? revision : record.revision, updatedAt }
+        : record);
+    if (mutation.entityType === "accounting_account") { setAccountingAccounts((current) => applyMasterRevision(current)); setAppUpdatedAt(updatedAt); return; }
+    if (mutation.entityType === "inventory_location") { setInventoryLocations((current) => applyMasterRevision(current)); setAppUpdatedAt(updatedAt); return; }
+    if (mutation.entityType === "material") { setMaterials((current) => applyMasterRevision(current)); setAppUpdatedAt(updatedAt); return; }
+    if (mutation.entityType === "personnel") { setPersonnel((current) => applyMasterRevision(current)); setAppUpdatedAt(updatedAt); return; }
+    if (mutation.entityType === "service") { setServices((current) => applyMasterRevision(current)); setAppUpdatedAt(updatedAt); return; }
+    if (mutation.entityType === "service_package") { setServicePackages((current) => applyMasterRevision(current)); setAppUpdatedAt(updatedAt); return; }
     if (mutation.entityType === "vehicle_position") {
       setLiveVehiclePositions((current) => deletedAt
         ? current.filter((position) => position.resourceId !== mutation.resourceId)
@@ -9189,7 +9270,14 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
 
   const scheduleRemoteSave = useCallback((snapshot: AppSnapshot, keys: SyncSectionKey[], delayMs = 900) => {
     keys = keys.filter((key) => (
-      key !== "resources" && !relationalSettingsSyncKeys.has(key) && !relationalCustomerSyncKeys.has(key)
+      key !== "resources"
+      && !relationalSettingsSyncKeys.has(key)
+      && !relationalCustomerSyncKeys.has(key)
+      && !relationalObjectSyncKeys.has(key)
+      && !relationalJobOperationSyncKeys.has(key)
+      && !relationalReportCommunicationSyncKeys.has(key)
+      && !relationalFinancialSyncKeys.has(key)
+      && !relationalMasterDataSyncKeys.has(key)
     ));
     if (keys.length === 0) return;
     setLegacySyncStatus("pending");
@@ -9398,6 +9486,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     setDeletedReportIds(cleanSnapshot.deletedReportIds ?? []);
     setFieldNotes(cleanSnapshot.fieldNotes ?? {});
     setFieldProgress(cleanSnapshot.fieldProgress);
+    setJobNoteMeta(cleanSnapshot.jobNoteMeta ?? {});
     setActiveJobId(restoredActiveJob?.id ?? null);
     setAppUpdatedAt(cleanSnapshot.updatedAt);
   }
@@ -9439,7 +9528,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
                   photos: (item.photos ?? []).map((itemPhoto) => {
                     const samePhoto = itemPhoto.id ? itemPhoto.id === photo.id : itemPhoto.name === photo.name && itemPhoto.previewUrl === photo.previewUrl;
                     return samePhoto
-                      ? { ...itemPhoto, previewUrl: uploaded.url, storagePath: uploaded.path, uploadError: undefined, uploadStatus: "uploaded" as const }
+                      ? { ...itemPhoto, id: uploaded.id, previewUrl: uploaded.url, storagePath: uploaded.path, uploadError: undefined, uploadStatus: "uploaded" as const }
                       : itemPhoto;
                   }),
                 };
@@ -9448,9 +9537,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
             };
           });
           if (uploaded) {
-            reportsRef.current = nextReports;
-            setReports(nextReports);
-            persistSnapshotNow({ reports: nextReports }, { forceRemote: true });
+            persistReportsRelational(nextReports);
           }
         } finally {
           pendingReportPhotoUploadsRef.current.delete(uploadKey);
@@ -9576,11 +9663,8 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
             ...localSnapshot,
             reports: applyReportTextBackups(localSnapshot.reports, reportBackups),
           };
-          const savedAt = await saveSupabaseSnapshot(localSnapshotWithBackups);
-          lastRemoteSnapshotKeyRef.current = snapshotContentKey(localSnapshotWithBackups);
-          syncedSectionHashesRef.current = snapshotSectionHashes(localSnapshotWithBackups);
-          removePendingSyncKeys(syncSectionKeys);
-          if (!cancelled) setAppUpdatedAt(savedAt);
+          applySnapshot(localSnapshotWithBackups);
+          if (!cancelled) setAppStorageReady(true);
         }
       } catch (error) {
         console.warn("Supabase-Synchronisation ist nicht verfügbar. Lokaler Speicher bleibt aktiv.", error);
@@ -9609,11 +9693,14 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
   useEffect(() => {
     if (!appStorageReady || !initialSyncComplete) return;
     const timeoutId = window.setTimeout(() => {
-      setJobs((current) => ensureSeriesOccurrences(current, reports));
+      const nextJobs = ensureSeriesOccurrences(jobs, reports);
+      if (nextJobs !== jobs && JSON.stringify(nextJobs) !== JSON.stringify(jobs)) {
+        persistJobsRelational(nextJobs);
+      }
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
-  }, [appStorageReady, initialSyncComplete, reports]);
+  }, [appStorageReady, initialSyncComplete, jobs, reports]);
 
   useEffect(() => {
     if (!appStorageReady || !initialSyncComplete) return;
@@ -9634,6 +9721,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
       deletedReportIds,
       fieldNotes,
       fieldProgress,
+      jobNoteMeta,
       jobs,
       inventoryLocations,
       materials,
@@ -9656,7 +9744,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     setAppUpdatedAt(snapshotUpdatedAt);
     if (changedKeys.length > 0) setLegacySyncStatus("pending");
     scheduleRemoteSave(snapshot, changedKeys, 1000);
-  }, [accountingAccounts, activeJobId, appStorageReady, billing, companySettings, customers, dailyMailSettings, deletedEntityIds, deletedReportIds, fieldNotes, fieldProgress, initialSyncComplete, inventoryLocations, jobs, materials, objects, personnel, portalMessages, reports, resources, scheduleLocalPersist, scheduleRemoteSave, servicePackages, services, tenantSettings, translationOverrides]);
+  }, [accountingAccounts, activeJobId, appStorageReady, billing, companySettings, customers, dailyMailSettings, deletedEntityIds, deletedReportIds, fieldNotes, fieldProgress, initialSyncComplete, inventoryLocations, jobNoteMeta, jobs, materials, objects, personnel, portalMessages, reports, resources, scheduleLocalPersist, scheduleRemoteSave, servicePackages, services, tenantSettings, translationOverrides]);
 
   const currentSnapshot = useCallback((overrides: Partial<AppSnapshot> = {}): AppSnapshot => ({
     activeJobId,
@@ -9669,6 +9757,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     deletedReportIds,
     fieldNotes,
     fieldProgress,
+    jobNoteMeta,
     jobs,
     inventoryLocations,
     materials,
@@ -9683,7 +9772,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     translationOverrides,
     updatedAt: appUpdatedAt,
     ...overrides,
-  }), [accountingAccounts, activeJobId, appUpdatedAt, billing, companySettings, customers, dailyMailSettings, deletedEntityIds, deletedReportIds, fieldNotes, fieldProgress, inventoryLocations, jobs, materials, objects, personnel, portalMessages, reports, resources, servicePackages, services, tenantSettings, translationOverrides]);
+  }), [accountingAccounts, activeJobId, appUpdatedAt, billing, companySettings, customers, dailyMailSettings, deletedEntityIds, deletedReportIds, fieldNotes, fieldProgress, inventoryLocations, jobNoteMeta, jobs, materials, objects, personnel, portalMessages, reports, resources, servicePackages, services, tenantSettings, translationOverrides]);
 
   const syncRemoteSnapshot = useCallback(async (force = false) => {
     if (!appStorageReady || !initialSyncComplete || remoteSyncRunningRef.current) return;
@@ -9870,6 +9959,11 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
         && key !== "resources"
         && !relationalSettingsSyncKeys.has(key as SyncSectionKey)
         && !relationalCustomerSyncKeys.has(key as SyncSectionKey)
+        && !relationalObjectSyncKeys.has(key as SyncSectionKey)
+        && !relationalJobOperationSyncKeys.has(key as SyncSectionKey)
+        && !relationalReportCommunicationSyncKeys.has(key as SyncSectionKey)
+        && !relationalFinancialSyncKeys.has(key as SyncSectionKey)
+        && !relationalMasterDataSyncKeys.has(key as SyncSectionKey)
         && syncSectionKeys.includes(key as SyncSectionKey)
       ));
     const changedKeys = explicitKeys.length > 0
@@ -9984,6 +10078,106 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     const updatedAt = new Date().toISOString();
     persistLocalSections(currentSnapshot({ customers: prepared.customers, updatedAt }), ["customers"]);
     setAppUpdatedAt(updatedAt);
+  }
+
+  function persistObjectsRelational(nextObjects: ObjectRecord[]) {
+    const prepared = prepareObjectMutations(objects, nextObjects);
+    prepared.mutations.forEach((mutation) => enqueueSyncMutation(mutation));
+    setObjects(prepared.objects);
+    const updatedAt = new Date().toISOString();
+    persistLocalSections(currentSnapshot({ objects: prepared.objects, updatedAt }), ["objects"]);
+    setAppUpdatedAt(updatedAt);
+  }
+
+  function persistJobsRelational(nextJobs: JobRecord[]) {
+    const prepared = prepareJobMutations(jobs, nextJobs);
+    prepared.mutations.forEach((mutation) => enqueueSyncMutation(mutation));
+    setJobs(prepared.jobs);
+    const updatedAt = new Date().toISOString();
+    persistLocalSections(currentSnapshot({ jobs: prepared.jobs, updatedAt }), ["jobs"]);
+    setAppUpdatedAt(updatedAt);
+  }
+
+  function persistFieldProgressRelational(nextProgress: Record<string, Record<string, FieldTaskProgress>>) {
+    const prepared = prepareProgressMutations(fieldProgress, nextProgress);
+    prepared.mutations.forEach((mutation) => enqueueSyncMutation(mutation));
+    const optimistic = prepared.progress as Record<string, Record<string, FieldTaskProgress>>;
+    setFieldProgress(optimistic);
+    const updatedAt = new Date().toISOString();
+    persistLocalSections(currentSnapshot({ fieldProgress: optimistic, updatedAt }), ["fieldProgress"]);
+    setAppUpdatedAt(updatedAt);
+  }
+
+  function persistFieldNotesRelational(nextNotes: Record<string, string>) {
+    const prepared = prepareNoteMutations(fieldNotes, nextNotes, jobNoteMeta);
+    prepared.mutations.forEach((mutation) => enqueueSyncMutation(mutation));
+    setFieldNotes(prepared.notes);
+    setJobNoteMeta(prepared.meta);
+    const updatedAt = new Date().toISOString();
+    persistLocalSections(currentSnapshot({ fieldNotes: prepared.notes, jobNoteMeta: prepared.meta, updatedAt }), ["fieldNotes", "jobNoteMeta"]);
+    setAppUpdatedAt(updatedAt);
+  }
+
+  function persistReportsRelational(nextReports: ReportRecord[]) {
+    const prepared = prepareReportMutations(reportsRef.current, nextReports);
+    prepared.mutations.forEach((mutation) => enqueueSyncMutation(mutation));
+    const optimistic = dedupeReports(prepared.reports as ReportRecord[]);
+    reportsRef.current = optimistic;
+    setReports(optimistic);
+    const updatedAt = new Date().toISOString();
+    persistLocalSections(currentSnapshot({ reports: optimistic, updatedAt }), ["reports"]);
+    setAppUpdatedAt(updatedAt);
+  }
+
+  function persistPortalMessagesRelational(nextMessages: PortalMessageRecord[]) {
+    const prepared = preparePortalMessageMutations(portalMessages, nextMessages);
+    prepared.mutations.forEach((mutation) => enqueueSyncMutation(mutation));
+    const optimistic = prepared.messages as PortalMessageRecord[];
+    setPortalMessages(optimistic);
+    const updatedAt = new Date().toISOString();
+    persistLocalSections(currentSnapshot({ portalMessages: optimistic, updatedAt }), ["portalMessages"]);
+    setAppUpdatedAt(updatedAt);
+  }
+
+  function persistBillingRelational(nextBilling: BillingRecord[]) {
+    const prepared = prepareFinancialMutations(billing, nextBilling);
+    prepared.mutations.forEach((mutation) => enqueueSyncMutation(mutation));
+    const optimistic = prepared.invoices as BillingRecord[];
+    setBilling(optimistic);
+    const updatedAt = new Date().toISOString();
+    persistLocalSections(currentSnapshot({ billing: optimistic, updatedAt }), ["billing"]);
+    setAppUpdatedAt(updatedAt);
+  }
+
+  function prepareAndQueueMasterData(entityType: SyncMutation["entityType"], previous: unknown[], next: unknown[]) {
+    const prepared = prepareMasterDataMutations(entityType, previous as RevisionedMasterRecord[], next as RevisionedMasterRecord[]);
+    prepared.mutations.forEach((mutation) => enqueueSyncMutation(mutation));
+    return prepared.records;
+  }
+
+  function persistAccountingAccountsRelational(next: AccountingAccount[]) {
+    const optimistic = prepareAndQueueMasterData("accounting_account", accountingAccounts, next) as unknown as AccountingAccount[];
+    setAccountingAccounts(optimistic); persistLocalSections(currentSnapshot({ accountingAccounts: optimistic }), ["accountingAccounts"]);
+  }
+  function persistInventoryLocationsRelational(next: InventoryLocation[]) {
+    const optimistic = prepareAndQueueMasterData("inventory_location", inventoryLocations, next) as unknown as InventoryLocation[];
+    setInventoryLocations(optimistic); persistLocalSections(currentSnapshot({ inventoryLocations: optimistic }), ["inventoryLocations"]);
+  }
+  function persistMaterialsRelational(next: MaterialItem[]) {
+    const optimistic = prepareAndQueueMasterData("material", materials, next) as unknown as MaterialItem[];
+    setMaterials(optimistic); persistLocalSections(currentSnapshot({ materials: optimistic }), ["materials"]);
+  }
+  function persistPackagesRelational(next: ServicePackage[]) {
+    const optimistic = prepareAndQueueMasterData("service_package", servicePackages, next) as unknown as ServicePackage[];
+    setServicePackages(optimistic); persistLocalSections(currentSnapshot({ packages: optimistic }), ["packages"]);
+  }
+  function persistPersonnelRelational(next: PersonnelRecord[]) {
+    const optimistic = prepareAndQueueMasterData("personnel", personnel, next) as unknown as PersonnelRecord[];
+    setPersonnel(optimistic); persistLocalSections(currentSnapshot({ personnel: optimistic }), ["personnel"]);
+  }
+  function persistServicesRelational(next: ServiceItem[]) {
+    const optimistic = prepareAndQueueMasterData("service", services, next) as unknown as ServiceItem[];
+    setServices(optimistic); persistLocalSections(currentSnapshot({ services: optimistic }), ["services"]);
   }
 
   function persistCompanySettingsRelational(nextSettings: CompanySettings) {
@@ -10141,9 +10335,8 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
         : { ...customer, objects: withoutObject };
     });
 
-    setObjects(nextObjects);
+    persistObjectsRelational(nextObjects);
     persistCustomersRelational(nextCustomers);
-    persistSnapshotNow({ objects: nextObjects }, { forceRemote: true });
     setSelectedObjectId(id);
     setSection("objects");
     setEditingObjectId(null);
@@ -10165,9 +10358,8 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
         : { ...customer, objects: withoutObject };
     });
 
-    setObjects(nextObjects);
+    persistObjectsRelational(nextObjects);
     persistCustomersRelational(nextCustomers);
-    persistSnapshotNow({ objects: nextObjects });
     setSelectedObjectId(editingObjectId);
   }
 
@@ -10180,9 +10372,8 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
 
     const nextObjects = objects.map((item) => (item.id === object.id ? { ...item, archived: true } : item));
     const nextCustomers = customers.map((customer) => ({ ...customer, objects: customer.objects.filter((id) => id !== object.id) }));
-    setObjects(nextObjects);
+    persistObjectsRelational(nextObjects);
     persistCustomersRelational(nextCustomers);
-    persistSnapshotNow({ objects: nextObjects }, { forceRemote: true });
     setSelectedObjectId(activeObjects.find((item) => item.id !== object.id)?.id ?? "");
     setRecordNotice(`Objekt "${object.name}" wurde archiviert.`);
     return true;
@@ -10192,9 +10383,8 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     if (!object.archived) return false;
     const nextObjects = objects.filter((item) => item.id !== object.id);
     const nextCustomers = customers.map((customer) => ({ ...customer, objects: customer.objects.filter((id) => id !== object.id) }));
-    setObjects(nextObjects);
+    persistObjectsRelational(nextObjects);
     persistCustomersRelational(nextCustomers);
-    persistSnapshotNow({ objects: nextObjects }, { forceRemote: true });
     setRecordNotice(`Archiviertes Objekt "${object.name}" wurde endgültig gelöscht.`);
     return true;
   }
@@ -10206,9 +10396,8 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
           ? { ...customer, objects: [...customer.objects, object.id] }
           : customer,
     );
-    setObjects(nextObjects);
+    persistObjectsRelational(nextObjects);
     persistCustomersRelational(nextCustomers);
-    persistSnapshotNow({ objects: nextObjects }, { forceRemote: true });
     setSelectedObjectId(object.id);
     setRecordNotice(`Objekt "${object.name}" wurde wieder aktiviert.`);
     return true;
@@ -10270,8 +10459,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
       };
       const nextMessages = [savedMessage, ...portalMessages];
 
-      setPortalMessages(nextMessages);
-      persistSnapshotNow({ portalMessages: nextMessages }, { forceRemote: true });
+      persistPortalMessagesRelational(nextMessages);
       setRecordNotice(`Nachricht an ${customer.name} wurde gesendet und im Kundenportal dokumentiert.`);
       setCustomerMessageTargetId(null);
       setCustomerMessageForm({ message: "", subject: "" });
@@ -10284,8 +10472,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
       };
       const nextMessages = [failedMessage, ...portalMessages];
 
-      setPortalMessages(nextMessages);
-      persistSnapshotNow({ portalMessages: nextMessages }, { forceRemote: true });
+      persistPortalMessagesRelational(nextMessages);
       setRecordNotice(`Nachricht dokumentiert, aber Mailversand fehlgeschlagen: ${messageText}`);
     } finally {
       setCustomerMessageSending(false);
@@ -10320,8 +10507,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     });
 
     persistCustomersRelational(nextCustomers);
-    setObjects(nextObjects);
-    persistSnapshotNow({ objects: nextObjects }, { forceRemote: true });
+    persistObjectsRelational(nextObjects);
     setEditingCustomerId(null);
     setSection("customers");
     setModal(null);
@@ -10356,8 +10542,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     });
 
     persistCustomersRelational(nextCustomers);
-    setObjects(nextObjects);
-    persistSnapshotNow({ objects: nextObjects });
+    persistObjectsRelational(nextObjects);
   }
 
   function saveOnboardingProgress(patch: Partial<OnboardingState>, companyPatch: Partial<CompanySettings> = {}) {
@@ -10419,11 +10604,10 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
       ...companySettings,
       onboarding: { ...onboardingState, currentStep: "job" as const, firstObjectCompleted: true, workspaceCompleted: true },
     };
-    setObjects(nextObjects);
+    persistObjectsRelational(nextObjects);
     persistCustomersRelational(nextCustomers);
     setSelectedObjectId(id);
     persistCompanySettingsRelational(nextSettings);
-    persistSnapshotNow({ objects: nextObjects }, { forceRemote: true });
     return id;
   }
 
@@ -10466,9 +10650,8 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
       ...companySettings,
       onboarding: { ...onboardingState, currentStep: "team" as const, firstJobCompleted: true },
     };
-    setJobs(nextJobs);
+    persistJobsRelational(nextJobs);
     persistCompanySettingsRelational(nextSettings);
-    persistSnapshotNow({ jobs: nextJobs }, { forceRemote: true });
     return id;
   }
 
@@ -10494,9 +10677,8 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
       ...companySettings,
       onboarding: { ...onboardingState, currentStep: "pwa" as const, teamStepCompleted: true },
     };
-    setPersonnel(nextPersonnel);
+    persistPersonnelRelational(nextPersonnel);
     persistCompanySettingsRelational(nextSettings);
-    persistSnapshotNow({ personnel: nextPersonnel }, { forceRemote: true });
     return true;
   }
 
@@ -10608,10 +10790,9 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     const nextObjects = [savedObject, ...objects];
 
     persistCustomersRelational(nextCustomers);
-    setObjects(nextObjects);
+    persistObjectsRelational(nextObjects);
     setSelectedObjectId(objectId);
     setNewJob((current) => ({ ...current, billable: savedCustomer.billable ?? true }));
-    persistSnapshotNow({ objects: nextObjects }, { forceRemote: true });
     const entityName = objectTypeName(objectTypeDefinitions, savedObject.type, language);
     setRecordNotice(`Kunde "${savedCustomer.name}" und ${entityName} "${savedObject.name}" wurden für den Auftrag angelegt.`);
   }
@@ -10630,8 +10811,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
         ? { ...item, status: "storniert" as const, statusUpdatedAt }
         : item
     ));
-    setJobs(nextJobs);
-    persistSnapshotNow({ jobs: nextJobs }, { forceRemote: true });
+    persistJobsRelational(nextJobs);
   }
 
   function restoreJob(job: JobRecord) {
@@ -10639,8 +10819,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     const nextJobs = jobs.map((item) => (
       item.id === job.id ? { ...item, status: "geplant" as const, statusUpdatedAt } : item
     ));
-    setJobs(nextJobs);
-    persistSnapshotNow({ jobs: nextJobs }, { forceRemote: true });
+    persistJobsRelational(nextJobs);
   }
 
   function confirmOffer(job: JobRecord) {
@@ -10695,9 +10874,8 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     }
     const nextJobs = jobs.map((item) => (item.id === job.id ? normalizedJob : item));
     const nextBilling = ensureBillingForJobs(nextJobs, billing, reports);
-    setJobs(nextJobs);
-    setBilling(nextBilling);
-    persistSnapshotNow({ billing: nextBilling, jobs: nextJobs }, { forceRemote: true });
+    persistJobsRelational(nextJobs);
+    persistBillingRelational(nextBilling);
     setRecordNotice(`Auftrag "${job.title}" steht jetzt in der Abrechnung.`);
   }
 
@@ -10714,8 +10892,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
         ? { ...item, consulting: { ...consulting, entries: [...consulting.entries, savedEntry] } }
         : item
     ));
-    setJobs(nextJobs);
-    persistSnapshotNow({ jobs: nextJobs }, { forceRemote: true });
+    persistJobsRelational(nextJobs);
     setRecordNotice(`Leistung zu "${job.title}" wurde erfasst.`);
   }
 
@@ -10737,8 +10914,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
           }
         : item
     ));
-    setJobs(nextJobs);
-    persistSnapshotNow({ jobs: nextJobs }, { forceRemote: true });
+    persistJobsRelational(nextJobs);
     setRecordNotice(`Leistung zu "${job.title}" wurde aktualisiert.`);
   }
 
@@ -10825,17 +11001,15 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
         : item
     ));
     const nextBilling = [billingRecord, ...billing];
-    setJobs(nextJobs);
-    setBilling(nextBilling);
-    persistSnapshotNow({ billing: nextBilling, jobs: nextJobs }, { forceRemote: true });
+    persistJobsRelational(nextJobs);
+    persistBillingRelational(nextBilling);
     const remainingOpenEntries = consulting.entries.filter((entry) => entry.billingStatus === "offen" && !selectedIds.has(entry.id)).length;
     setRecordNotice(`${openEntries.length} Consulting-Leistung(en) wurden als Rechnungsentwurf übernommen. ${remainingOpenEntries} Position(en) bleiben offen.`);
   }
 
   function collectBillableJobs() {
     const nextBilling = ensureBillingForJobs(jobs, billing, reports);
-    setBilling(nextBilling);
-    persistSnapshotNow({ billing: nextBilling }, { forceRemote: true });
+    persistBillingRelational(nextBilling);
     setRecordNotice(nextBilling.length === billing.length ? "Keine neuen erledigten Aufträge für die Abrechnung gefunden." : "Erledigte Aufträge wurden in die Abrechnung übernommen.");
   }
 
@@ -10862,9 +11036,8 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
             : job
         ))
       : jobs;
-    setBilling(nextBilling);
-    setJobs(nextJobs);
-    persistSnapshotNow({ billing: nextBilling, jobs: nextJobs }, { forceRemote: true });
+    persistBillingRelational(nextBilling);
+    persistJobsRelational(nextJobs);
     setRecordNotice(`Rechnung "${item.invoiceNumber || item.label}" wurde gebucht und ins Ausgangsbuch übernommen.`);
   }
 
@@ -10893,8 +11066,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
           }
         : entry
     ));
-    setBilling(nextBilling);
-    persistSnapshotNow({ billing: nextBilling }, { forceRemote: true });
+    persistBillingRelational(nextBilling);
     setRecordNotice(`Spiris-SIE-Datei für Rechnung "${item.invoiceNumber || item.label}" wurde erstellt und die Übergabe markiert.`);
   }
 
@@ -10908,8 +11080,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
           }
         : entry
     ));
-    setBilling(nextBilling);
-    persistSnapshotNow({ billing: nextBilling }, { forceRemote: true });
+    persistBillingRelational(nextBilling);
     setRecordNotice(`Spiris-Übergabe für Rechnung "${item.invoiceNumber || item.label}" wurde zurückgesetzt.`);
   }
 
@@ -10919,8 +11090,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
         ? { ...entry, invoiceStatus: "gesendet" as const, sentAt: entry.sentAt || new Date().toISOString() }
         : entry
     ));
-    setBilling(nextBilling);
-    persistSnapshotNow({ billing: nextBilling }, { forceRemote: true });
+    persistBillingRelational(nextBilling);
     setRecordNotice(`Rechnung "${item.invoiceNumber || item.label}" wurde als versendet markiert.`);
   }
 
@@ -10930,8 +11100,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
         ? { ...entry, invoiceStatus: "bezahlt" as const, paidAt: entry.paidAt || new Date().toISOString() }
         : entry
     ));
-    setBilling(nextBilling);
-    persistSnapshotNow({ billing: nextBilling }, { forceRemote: true });
+    persistBillingRelational(nextBilling);
     setRecordNotice(`Zahlung für Rechnung "${item.invoiceNumber || item.label}" wurde erfasst.`);
   }
 
@@ -10959,9 +11128,8 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
           };
         })
       : jobs;
-    setBilling(nextBilling);
-    setJobs(nextJobs);
-    persistSnapshotNow({ billing: nextBilling, jobs: nextJobs }, { forceRemote: true });
+    persistBillingRelational(nextBilling);
+    persistJobsRelational(nextJobs);
     setRecordNotice(`Rechnung "${item.invoiceNumber || item.label}" wurde storniert.`);
   }
 
@@ -10990,9 +11158,8 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
           };
         })
       : jobs;
-    setBilling(nextBilling);
-    setJobs(nextJobs);
-    persistSnapshotNow({ billing: nextBilling, jobs: nextJobs }, { forceRemote: true });
+    persistBillingRelational(nextBilling);
+    persistJobsRelational(nextJobs);
     const relatedJob = relatedJobId ? jobs.find((job) => job.id === relatedJobId) : undefined;
     setRecordNotice(relatedJob?.consulting?.enabled
       ? `"${item.invoiceNumber || item.label}" wurde entfernt. Die enthaltenen Consulting-Leistungen sind wieder offen.`
@@ -11157,10 +11324,9 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
       ? billing.filter((item) => !removableBillingDraftForJobIds(item, nonBillableJobIds))
       : billing;
 
-    if (newMasterMaterials.length > 0) setMaterials(nextMaterials);
-    setJobs(nextJobs);
-    if (nextBilling !== billing) setBilling(nextBilling);
-    persistSnapshotNow({ billing: nextBilling, jobs: nextJobs, materials: nextMaterials }, { forceRemote: true });
+    if (newMasterMaterials.length > 0) persistMaterialsRelational(nextMaterials);
+    persistJobsRelational(nextJobs);
+    if (nextBilling !== billing) persistBillingRelational(nextBilling);
     setEditingJobId(null);
     setSection("jobs");
     setModal(null);
@@ -11169,25 +11335,23 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
   function startJob(job: JobRecord) {
     const statusUpdatedAt = new Date().toISOString();
     const nextJobs = jobs.map((item) => (item.id === job.id ? { ...item, status: "in Arbeit" as const, statusUpdatedAt } : item));
-    setJobs(nextJobs);
+    persistJobsRelational(nextJobs);
     setActiveJobId(job.id);
     setFieldWorkDates((current) => ({ ...current, [job.id]: current[job.id] ?? defaultFieldWorkDate(job) }));
     setEditingFieldReportId(null);
-    persistSnapshotNow({ activeJobId: job.id, jobs: nextJobs }, { forceRemote: true });
+    persistSnapshotNow({ activeJobId: job.id }, { forceRemote: true });
     setSelectedObjectId(job.objectId);
     setSection("field");
   }
 
   function assignJobResources(job: JobRecord, resourceIds: string[]) {
     const nextJobs = jobs.map((item) => (item.id === job.id ? { ...item, resourceIds } : item));
-    setJobs(nextJobs);
-    persistSnapshotNow({ jobs: nextJobs }, { forceRemote: true });
+    persistJobsRelational(nextJobs);
   }
 
   function assignJobPersonnel(job: JobRecord, assignedTo: string) {
     const nextJobs = jobs.map((item) => (item.id === job.id ? { ...item, assignedTo } : item));
-    setJobs(nextJobs);
-    persistSnapshotNow({ jobs: nextJobs }, { forceRemote: true });
+    persistJobsRelational(nextJobs);
   }
 
   function moveJobExecution(job: JobRecord, toDate: string, assignedTo: string) {
@@ -11216,8 +11380,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
         ],
       };
     });
-    setJobs(nextJobs);
-    persistSnapshotNow({ jobs: nextJobs }, { forceRemote: true });
+    persistJobsRelational(nextJobs);
   }
 
   function editReportInField(report: ReportRecord) {
@@ -11242,12 +11405,12 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     const nextFieldProgress = { ...fieldProgress, [progressKey]: reportProgress };
     const nextFieldNotes = { ...fieldNotes, [progressKey]: reportSummaryNote(report.summary) };
 
-    setFieldProgress(nextFieldProgress);
-    setFieldNotes(nextFieldNotes);
+    persistFieldProgressRelational(nextFieldProgress);
+    persistFieldNotesRelational(nextFieldNotes);
     setActiveJobId(job.id);
     setFieldWorkDates((current) => ({ ...current, [job.id]: reportDate }));
     setEditingFieldReportId(report.id);
-    persistSnapshotNow({ activeJobId: job.id, fieldNotes: nextFieldNotes, fieldProgress: nextFieldProgress }, { forceRemote: true });
+    persistSnapshotNow({ activeJobId: job.id }, { forceRemote: true });
     setSelectedObjectId(job.objectId);
     setSection("field");
   }
@@ -11279,23 +11442,21 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     const nextDeletedReportIds = reopenReportAsWork
       ? Array.from(new Set([...deletedReportIds, activeReport.id]))
       : deletedReportIds;
-    setJobs(nextJobs);
+    persistJobsRelational(nextJobs);
     if (nextReports !== reports) {
-      reportsRef.current = nextReports;
-      setReports(nextReports);
+      persistReportsRelational(nextReports);
     }
-    if (nextBilling !== billing) setBilling(nextBilling);
+    if (nextBilling !== billing) persistBillingRelational(nextBilling);
     if (nextDeletedReportIds !== deletedReportIds) setDeletedReportIds(nextDeletedReportIds);
     setActiveJobId(null);
     setEditingFieldReportId(null);
-    persistSnapshotNow({ activeJobId: null, billing: nextBilling, deletedReportIds: nextDeletedReportIds, jobs: nextJobs, reports: nextReports }, { forceRemote: true });
+    persistSnapshotNow({ activeJobId: null }, { forceRemote: true });
   }
 
   function updateJobMaterial(job: JobRecord, material: string) {
     const savedMaterial = material.trim() || "-";
     const nextJobs = jobs.map((item) => (item.id === job.id ? { ...item, material: savedMaterial } : item));
-    setJobs(nextJobs);
-    persistSnapshotNow({ jobs: nextJobs }, { forceRemote: true });
+    persistJobsRelational(nextJobs);
   }
 
   function completeJob(job: JobRecord, checklistResults: FieldTaskResult[], fieldNote: string, workDate?: string, reportAttachments: ReportAttachment[] = [], fieldMaterial?: string, options: CompleteJobOptions = {}) {
@@ -11389,7 +11550,6 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
       savedReport,
       ...reports.filter((report) => report.id !== reportId && (job.schedule.type === "serie" || isMultiDayJob || report.jobId !== job.id)),
     ]);
-    void saveReportTextBackup(savedReport);
     const nextObjects = objects.map((object) => (object.id === job.objectId ? { ...object, lastVisit: executionDate } : object));
     const nextBilling = ensureBillingForJobs(nextJobs, billing, nextReports);
     const reportProgressSnapshot = Object.fromEntries(normalizedResults.map((item) => [
@@ -11413,13 +11573,12 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     }
     delete nextFieldNotes[progressKey];
 
-    setJobs(nextJobs);
-    setBilling(nextBilling);
-    reportsRef.current = nextReports;
-    setReports(nextReports);
-    setObjects(nextObjects);
-    setFieldNotes(nextFieldNotes);
-    setFieldProgress(nextFieldProgress);
+    persistJobsRelational(nextJobs);
+    persistBillingRelational(nextBilling);
+    persistReportsRelational(nextReports);
+    persistObjectsRelational(nextObjects);
+    persistFieldNotesRelational(nextFieldNotes);
+    persistFieldProgressRelational(nextFieldProgress);
     setActiveJobId(nextJobStatus === "in Arbeit" ? job.id : null);
     if (nextJobStatus === "in Arbeit") {
       setFieldWorkDates((current) => ({ ...current, [job.id]: nextOpenWorkDate }));
@@ -11427,12 +11586,6 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     setEditingFieldReportId(null);
     persistSnapshotNow({
       activeJobId: nextJobStatus === "in Arbeit" ? job.id : null,
-      billing: nextBilling,
-      fieldNotes: nextFieldNotes,
-      fieldProgress: nextFieldProgress,
-      jobs: nextJobs,
-      objects: nextObjects,
-      reports: nextReports,
     }, { forceRemote: true });
     setSelectedObjectId(job.objectId);
     if (nextJobStatus === "in Arbeit") {
@@ -11447,7 +11600,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     }
   }
 
-  function updateReportRecord(report: ReportRecord, options: { forceRemote?: boolean } = {}) {
+  function updateReportRecord(report: ReportRecord, _options: { forceRemote?: boolean } = {}) {
     const baseReports = reportsRef.current.length ? reportsRef.current : reports;
     const existingReport = baseReports.find((item) => item.id === report.id || reportDedupeKey(item) === reportDedupeKey(report));
     const protectedReport = existingReport ? mergeReportPair(existingReport, report) : report;
@@ -11456,10 +11609,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     const nextReports = dedupeReports(replaced
       ? baseReports.map((item) => (item.id === stampedReport.id ? stampedReport : item))
       : [stampedReport, ...baseReports]);
-    reportsRef.current = nextReports;
-    setReports(nextReports);
-    void saveReportTextBackup(stampedReport);
-    persistSnapshotNow({ reports: nextReports }, { forceRemote: options.forceRemote });
+    persistReportsRelational(nextReports);
   }
 
   function openUnlockReportDialog(report: ReportRecord) {
@@ -11623,8 +11773,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
       const nextJobs = jobs.map((item) => (
         item.id === job.id ? { ...item, offerNumber: offerNumber(job), offerSentAt: sentAt } : item
       ));
-      setJobs(nextJobs);
-      persistSnapshotNow({ jobs: nextJobs }, { forceRemote: true });
+      persistJobsRelational(nextJobs);
       setSendPreviewOfferId(null);
       setRecordNotice(`Offerte "${job.title}" wurde gesendet.`);
     } catch (error) {
@@ -11648,8 +11797,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
       const nextJobs = jobs.map((item) => (
         item.id === job.id ? { ...item, orderConfirmationNumber: orderConfirmationNumber(job), orderConfirmationSentAt: sentAt } : item
       ));
-      setJobs(nextJobs);
-      persistSnapshotNow({ jobs: nextJobs }, { forceRemote: true });
+      persistJobsRelational(nextJobs);
       setSendPreviewConfirmationId(null);
       setRecordNotice(`Auftragsbestätigung "${job.title}" wurde gesendet.`);
     } catch (error) {
@@ -11733,10 +11881,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
       nextReport,
       ...reports.filter((report) => report.id !== reportId),
     ]);
-    void saveReportTextBackup(nextReport);
-
-    setReports(nextReports);
-    persistSnapshotNow({ reports: nextReports });
+    persistReportsRelational(nextReports);
     setSection("reports");
     setSendPreviewReportBody(customerReportSendBody(customers.find((customer) => customer.id === object.ownerCustomerId || customer.name === object.owner), nextReport));
     setSendPreviewReportId(reportId);
@@ -11758,8 +11903,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     };
     const nextMessages = [savedMessage, ...portalMessages];
 
-    setPortalMessages(nextMessages);
-    persistSnapshotNow({ portalMessages: nextMessages });
+    persistPortalMessagesRelational(nextMessages);
 
     try {
       await notifyPortalActivity(
@@ -11782,8 +11926,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
       };
       const sentMessages = nextMessages.map((item) => (item.id === sentMessage.id ? sentMessage : item));
 
-      setPortalMessages(sentMessages);
-      persistSnapshotNow({ portalMessages: sentMessages }, { forceRemote: true });
+      persistPortalMessagesRelational(sentMessages);
       setRecordNotice("Nachricht aus dem Kundenportal wurde gespeichert und per E-Mail gemeldet.");
       return { mailSent: true };
     } catch (error) {
@@ -11795,8 +11938,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
       };
       const failedMessages = nextMessages.map((item) => (item.id === failedMessage.id ? failedMessage : item));
 
-      setPortalMessages(failedMessages);
-      persistSnapshotNow({ portalMessages: failedMessages }, { forceRemote: true });
+      persistPortalMessagesRelational(failedMessages);
       setRecordNotice(`Nachricht gespeichert, aber Mailversand fehlgeschlagen: ${messageText}`);
       return { error: messageText, mailSent: false };
     }
@@ -11843,8 +11985,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
           : item
       ));
 
-      setPortalMessages(nextMessages);
-      persistSnapshotNow({ portalMessages: nextMessages }, { forceRemote: true });
+      persistPortalMessagesRelational(nextMessages);
       setRecordNotice(`Antwort an ${customer?.name ?? to} wurde gesendet und dokumentiert.`);
       return { mailSent: true };
     } catch (error) {
@@ -11864,8 +12005,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
           : item
       ));
 
-      setPortalMessages(nextMessages);
-      persistSnapshotNow({ portalMessages: nextMessages }, { forceRemote: true });
+      persistPortalMessagesRelational(nextMessages);
       setRecordNotice(`Antwort wurde dokumentiert, aber Mailversand fehlgeschlagen: ${messageText}`);
       return { error: messageText, mailSent: false };
     }
@@ -11967,10 +12107,8 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
   async function syncedResourcesForQuickTrip() {
     if (!appStorageReady || supabaseSyncDisabled) return resources;
     try {
-      // Fuer eine neue Fahrt ist /api/sync-sections?keys=resources die fuehrende
-      // Quelle. Dort werden homecare_resources, homecare_vehicle_trips und
-      // homecare_media zusammengefuehrt. app_state allein kann bei Fahrzeugen
-      // zeitweise hinterherhinken und darf daher Start-KM/Ort nicht bestimmen.
+      // Fuer eine neue Fahrt ist die relationale Ressourcenprojektion die
+      // fuehrende Quelle. Sie fuehrt Ressourcen, Fahrten und Medien zusammen.
       const [remoteSnapshot, resourceSections] = await Promise.all([
         loadSupabaseSnapshot().catch(() => null),
         loadSyncSections(["resources"]).catch(() => ({} as SyncSectionMap)),
@@ -12910,8 +13048,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
         ...portalMessages.filter((message) => message.reportId !== nextReport.id),
       ];
       updateReportRecord(nextReport);
-      setPortalMessages(nextMessages);
-      persistSnapshotNow({ portalMessages: nextMessages }, { forceRemote: true });
+      persistPortalMessagesRelational(nextMessages);
       setSendPreviewReportId(null);
       setSendPreviewReportBody("");
       setSendPreviewReportNotice("");
@@ -13350,16 +13487,8 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
                 onUpdateReport={updateReportRecord}
                 onClearActiveJob={clearActiveJob}
                 onSelectWorkDate={(jobId, date) => setFieldWorkDates((current) => ({ ...current, [jobId]: date }))}
-                onProgressChange={(jobId, progress) => setFieldProgress((current) => {
-                  const nextProgress = { ...current, [jobId]: progress };
-                  persistSnapshotNow({ fieldProgress: nextProgress }, { forceRemote: true });
-                  return nextProgress;
-                })}
-                onFieldNoteChange={(jobId, note) => setFieldNotes((current) => {
-                  const nextNotes = { ...current, [jobId]: note };
-                  persistSnapshotNow({ fieldNotes: nextNotes }, { forceRemote: true });
-                  return nextNotes;
-                })}
+                onProgressChange={(jobId, progress) => persistFieldProgressRelational({ ...fieldProgress, [jobId]: progress })}
+                onFieldNoteChange={(jobId, note) => persistFieldNotesRelational({ ...fieldNotes, [jobId]: note })}
                 onComplete={completeJob}
               />
             )}
@@ -13402,9 +13531,9 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
                 language={language}
                 materials={materials}
                 objects={objects}
-                onPersistInventoryLocations={(nextLocations) => persistSnapshotNow({ inventoryLocations: nextLocations }, { forceRemote: true })}
-                onPersistJobs={(nextJobs) => persistSnapshotNow({ jobs: nextJobs }, { forceRemote: true })}
-                onPersistMaterials={(nextMaterials) => persistSnapshotNow({ materials: nextMaterials }, { forceRemote: true })}
+                onPersistInventoryLocations={persistInventoryLocationsRelational}
+                onPersistJobs={persistJobsRelational}
+                onPersistMaterials={persistMaterialsRelational}
                 services={services}
                 setJobs={setJobs}
                 setInventoryLocations={setInventoryLocations}
@@ -13443,22 +13572,10 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
                 translate={tx}
                 translationOverrides={translationOverrides}
                 setCompanySettings={persistCompanySettingsRelational}
-                setAccountingAccounts={(nextAccounts) => {
-                  setAccountingAccounts(nextAccounts);
-                  persistSnapshotNow({ accountingAccounts: nextAccounts }, { forceRemote: true });
-                }}
-                setMaterials={(nextMaterials) => {
-                  setMaterials(nextMaterials);
-                  persistSnapshotNow({ materials: nextMaterials }, { forceRemote: true });
-                }}
-                setPackages={(nextPackages) => {
-                  setServicePackages(nextPackages);
-                  persistSnapshotNow({ packages: nextPackages }, { forceRemote: true });
-                }}
-                setPersonnel={(nextPersonnel) => {
-                  setPersonnel(nextPersonnel);
-                  persistSnapshotNow({ personnel: nextPersonnel }, { forceRemote: true });
-                }}
+                setAccountingAccounts={persistAccountingAccountsRelational}
+                setMaterials={persistMaterialsRelational}
+                setPackages={persistPackagesRelational}
+                setPersonnel={persistPersonnelRelational}
                 onPersistResources={(nextResources, options) => (
                   options?.localOnly
                     ? persistResourcesFast(nextResources)
@@ -13468,10 +13585,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
                 )}
                 onTripMutation={enqueueTripMutation}
                 setResources={setResources}
-                setServices={(nextServices) => {
-                  setServices(nextServices);
-                  persistSnapshotNow({ services: nextServices }, { forceRemote: true });
-                }}
+                setServices={persistServicesRelational}
                 setDailyMailSettings={persistDailyMailSettingsRelational}
                 setTranslationOverrides={persistTranslationsRelational}
               />
@@ -24322,14 +24436,15 @@ function ObjectForm({
           isPrimary: !hasPrimaryImage && index === 0,
         };
       }
-      const previewUrl = await fileToDocumentPreview(file);
+      const preview = await fileToDocumentPreview(file);
       return {
         id: `MED-${Date.now()}-${index}-${file.name}`,
         type,
         name: file.name,
         description: type === "Dokument" ? newObject.documentDescription.trim() : "",
         source,
-        previewUrl,
+        previewUrl: preview.previewUrl,
+        storagePath: preview.storagePath,
         isPrimary: false,
       };
     }));

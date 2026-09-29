@@ -20,9 +20,9 @@ values
 
 insert into public.homecare_roles (id, tenant_id, key, name, permissions, system_role)
 values
-  ('30000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000001', 'owner', 'Owner', array['data.read','data.write','customers.manage','members.manage','roles.manage'], false),
-  ('30000000-0000-0000-0000-000000000002', '20000000-0000-0000-0000-000000000001', 'admin', 'Admin', array['data.read','data.write','customers.manage','members.manage','roles.manage'], false),
-  ('30000000-0000-0000-0000-000000000003', '20000000-0000-0000-0000-000000000001', 'manager', 'Manager', array['data.read','data.write','customers.manage'], false),
+  ('30000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000001', 'owner', 'Owner', array['data.read','data.write','customers.manage','objects.manage','media.manage','members.manage','roles.manage'], false),
+  ('30000000-0000-0000-0000-000000000002', '20000000-0000-0000-0000-000000000001', 'admin', 'Admin', array['data.read','data.write','customers.manage','objects.manage','media.manage','members.manage','roles.manage'], false),
+  ('30000000-0000-0000-0000-000000000003', '20000000-0000-0000-0000-000000000001', 'manager', 'Manager', array['data.read','data.write','customers.manage','objects.manage','media.manage'], false),
   ('30000000-0000-0000-0000-000000000004', '20000000-0000-0000-0000-000000000001', 'office', 'Office', array['data.read','data.write','customers.manage'], false),
   ('30000000-0000-0000-0000-000000000005', '20000000-0000-0000-0000-000000000001', 'field_worker', 'Field worker', array['data.read','jobs.manage'], false),
   ('30000000-0000-0000-0000-000000000006', '20000000-0000-0000-0000-000000000002', 'owner', 'Owner', array['data.read','data.write','members.manage','roles.manage'], false);
@@ -96,6 +96,10 @@ insert into public.homecare_customers (id, tenant_id, name)
 values ('RLS-MANAGER-WRITE', '20000000-0000-0000-0000-000000000001', 'Manager write');
 insert into public.homecare_customer_contacts (id, tenant_id, customer_id, name, is_primary)
 values ('RLS-MANAGER-CONTACT', '20000000-0000-0000-0000-000000000001', 'RLS-MANAGER-WRITE', 'Manager contact', true);
+insert into public.homecare_objects(id,tenant_id,owner_customer_id,name)
+values('RLS-MANAGER-OBJECT','20000000-0000-0000-0000-000000000001','RLS-MANAGER-WRITE','Manager object');
+insert into public.homecare_media(id,tenant_id,owner_type,owner_id,kind,name)
+values('RLS-MANAGER-MEDIA','20000000-0000-0000-0000-000000000001','object','RLS-MANAGER-OBJECT','Bild','manager.jpg');
 do $$
 begin
   if public.homecare_has_permission('20000000-0000-0000-0000-000000000001', 'roles.manage') then
@@ -126,6 +130,13 @@ begin
     insert into public.homecare_customers (id, tenant_id, name)
     values ('RLS-FIELD-WRITE', '20000000-0000-0000-0000-000000000001', 'Forbidden');
     raise exception 'RLS_FIELD_GENERIC_WRITE_WAS_ALLOWED';
+  exception when insufficient_privilege then
+    null;
+  end;
+  begin
+    insert into public.homecare_objects(id,tenant_id,name)
+    values('RLS-FIELD-OBJECT','20000000-0000-0000-0000-000000000001','Forbidden object');
+    raise exception 'RLS_FIELD_OBJECT_WRITE_WAS_ALLOWED';
   exception when insufficient_privilege then
     null;
   end;

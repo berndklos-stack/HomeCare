@@ -97,11 +97,11 @@ test("Legacy-Endpunkte können Ressourcen und Positionen nicht mehr überschreib
   const sectionRoute = readFileSync(path.join(root, "app/api/sync-sections/route.ts"), "utf8");
   const positionRoute = readFileSync(path.join(root, "app/api/vehicle-positions/route.ts"), "utf8");
   const appStateRoute = readFileSync(path.join(root, "app/api/app-state/route.ts"), "utf8");
-  expect(sectionRoute).toContain('if ("resources" in filteredPatch)');
-  expect(sectionRoute).toContain("datensatzweise Sync-Mutation");
+  expect(sectionRoute).toContain("SYNC_SECTION_WRITES_RETIRED");
+  expect(sectionRoute).toContain('if (keys.includes("resources")) sections.resources = await loadResourceSection');
   expect(positionRoute).not.toContain('.upsert({');
   expect(positionRoute).toContain("status: 410");
-  expect(appStateRoute).toContain("withoutRelationalResourceWrites");
+  expect(appStateRoute).toContain("APP_STATE_RETIRED");
 });
 
 test("Migration enthält Revisionen, Tombstones, Tenant-Scope und aktive-Fahrt-Schutz", () => {

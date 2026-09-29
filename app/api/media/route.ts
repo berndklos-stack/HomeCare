@@ -46,7 +46,10 @@ export async function POST(request: Request) {
   if (isAuthError(auth)) return auth;
   const supabase = auth.serviceClient;
 
-  const formData = await request.formData();
+  const formData = await request.formData().catch(() => null);
+  if (!formData) {
+    return NextResponse.json({ error: "Ungültige Upload-Anfrage." }, { status: 400 });
+  }
   const file = formData.get("file");
   if (!(file instanceof File)) {
     return NextResponse.json({ error: "Keine Datei empfangen." }, { status: 400 });
@@ -56,12 +59,14 @@ export async function POST(request: Request) {
   }
 
   if (process.env.NEXT_PUBLIC_DISABLE_SUPABASE_SYNC === "1" && request.headers.get("x-workcore-e2e-bypass") === "1") {
+    const id = `MEDIA-${crypto.randomUUID()}`;
     return NextResponse.json({
       contentType: file.type || "application/octet-stream",
       name: file.name,
       path: `e2e/${crypto.randomUUID()}-${safePathPart(file.name)}`,
       size: file.size,
       url: "",
+      id,
     });
   }
 
@@ -74,6 +79,7 @@ export async function POST(request: Request) {
   const scope = safePathPart(String(formData.get("scope") || "uploads"));
   const name = safePathPart(file.name);
   const randomPart = crypto.randomUUID();
+  const mediaId = `MEDIA-${randomPart}`;
   const path = `${auth.tenantId}/${scope}/${new Date().toISOString().slice(0, 10)}/${randomPart}-${name}`;
   const buffer = Buffer.from(await file.arrayBuffer());
   const { error } = await supabase.storage
@@ -88,12 +94,29 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  const { error: metadataError } = await supabase.from("homecare_media").insert({
+    id: mediaId,
+    tenant_id: auth.tenantId,
+    owner_type: "pending",
+    owner_id: mediaId,
+    kind: file.type.startsWith("image/") ? "image" : "attachment",
+    name: file.name,
+    storage_path: path,
+    metadata: { contentType: file.type || "application/octet-stream", size: file.size },
+    revision: 0,
+  });
+  if (metadataError) {
+    await supabase.storage.from(mediaBucket).remove([path]);
+    return NextResponse.json({ error: "Medienreferenz konnte nicht sicher gespeichert werden." }, { status: 500 });
+  }
+
   return NextResponse.json({
     contentType: file.type || "application/octet-stream",
     name: file.name,
     path,
     size: file.size,
     url: `/api/private-media?path=${encodeURIComponent(path)}`,
+    id: mediaId,
   });
 }
 
@@ -112,10 +135,10 @@ export async function GET(request: Request) {
     .eq("tenant_id", auth.tenantId)
     .eq("storage_path", path)
     .maybeSingle();
-  if (mediaRecord?.deleted_at) {
+  if (!mediaRecord || mediaRecord.deleted_at) {
     return NextResponse.json({ error: "Mediendatei wurde gelöscht." }, { status: 404 });
   }
-  if (!path.startsWith(`${auth.tenantId}/`) && !mediaRecord) {
+  if (!path.startsWith(`${auth.tenantId}/`)) {
     return NextResponse.json({ error: "Zugriff auf Mediendatei verweigert." }, { status: 403 });
   }
 

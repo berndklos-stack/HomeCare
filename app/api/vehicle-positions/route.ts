@@ -3,9 +3,6 @@ import { isAuthError, requireApiAuth } from "@/lib/server/apiAuth";
 
 export const runtime = "nodejs";
 
-const vehiclePositionsRowId = "vehicle-positions";
-const legacyFallbackEnabled = process.env.WORKCORE_RESOURCE_LEGACY_READ_FALLBACK === "1";
-
 type JsonObject = Record<string, unknown>;
 
 type VehiclePositionRow = {
@@ -64,37 +61,14 @@ export async function GET(request: Request) {
     );
   }
 
-  const relationalPositions = ((data ?? []) as VehiclePositionRow[]).map(rowToPosition);
-  let positions: JsonObject[] = relationalPositions;
-  let usedLegacyFallback = false;
-
-  if (legacyFallbackEnabled) {
-    const { data: fallbackRow } = await auth.client
-      .from("app_state")
-      .select("data, updated_at")
-      .eq("id", vehiclePositionsRowId)
-      .maybeSingle();
-    const state = fallbackRow?.data && typeof fallbackRow.data === "object" ? fallbackRow.data as { positions?: JsonObject[] } : {};
-    const fallbackPositions = Array.isArray(state.positions) ? state.positions : [];
-    const relationalResourceIds = new Set(relationalPositions.map((position) => position.resourceId));
-    const legacyOnly = fallbackPositions.filter((position) => !relationalResourceIds.has(String(position.resourceId ?? "")));
-    if (legacyOnly.length > 0) {
-      usedLegacyFallback = true;
-      console.warn("LEGACY_RESOURCE_READ_FALLBACK", {
-        count: legacyOnly.length,
-        domain: "vehicle_positions",
-        tenantId: auth.tenantId,
-      });
-      positions = [...relationalPositions, ...legacyOnly];
-    }
-  }
+  const positions: JsonObject[] = ((data ?? []) as VehiclePositionRow[]).map(rowToPosition);
 
   return NextResponse.json(
-    { data: positions, legacyFallback: usedLegacyFallback },
+    { data: positions, legacyFallback: false },
     {
       headers: {
         "Cache-Control": "no-store, max-age=0, must-revalidate",
-        "X-WorkCore-Legacy-Fallback": usedLegacyFallback ? "vehicle-positions" : "none",
+        "X-WorkCore-Legacy-Fallback": "none",
       },
     },
   );

@@ -75,7 +75,7 @@ test("Service-Role-Routen besitzen Autorisierung und explizite Mandantenbindung"
   ]) {
     const source = readFileSync(path.join(root, file), "utf8");
     expect(source).toMatch(/require(Api|Portal)Auth/);
-    expect(source).toMatch(/tenantId|tenant_id/);
+    expect(source).toMatch(/tenantId|tenant_id|LEGACY_MEDIA_MIGRATION_RETIRED/);
   }
 });
 
@@ -92,7 +92,7 @@ test("Cron-Servicezugriffe sind an einen expliziten Mandanten gebunden", () => {
 test("private Medien bleiben nach Rechteentzug nicht im langlebigen Browsercache", () => {
   const source = readFileSync(path.join(process.cwd(), "app/api/private-media/route.ts"), "utf8");
   expect(source).toContain('"Cache-Control": "private, no-store"');
-  expect(source).toContain("mediaRecord?.deleted_at");
+  expect(source).toContain("!mediaRecord || mediaRecord.deleted_at");
   expect(source).toContain(".list(folder");
   expect(source).not.toContain("max-age=31536000, immutable");
 });

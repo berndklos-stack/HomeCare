@@ -33,7 +33,6 @@ const defaultTables = [
   "homecare_driving_log_regulations",
   "homecare_trip_audit_log",
   "homecare_odometer_history",
-  "app_state",
 ];
 
 function environment() {
@@ -51,7 +50,7 @@ function environment() {
 }
 
 async function exportTable(client, table, output) {
-  const pageSize = table === "app_state" ? 25 : 500;
+  const pageSize = 500;
   let count = 0;
   for (let offset = 0; ; offset += pageSize) {
     const { data, error } = await client.from(table).select("*").range(offset, offset + pageSize - 1);

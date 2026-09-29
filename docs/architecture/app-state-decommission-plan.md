@@ -1,5 +1,10 @@
 # App State Decommission Plan
 
+> Abschluss 29. September 2026: Waves 1 bis 5 sind lokal implementiert. Der
+> aktuelle Endzustand steht in
+> `docs/architecture/app-state-final-retirement.md`; dieses Dokument bleibt als
+> historischer Migrationsplan erhalten.
+
 Status: proposed plan, 27 September 2026
 No cutover or production data change is authorized by this document.
 
@@ -40,6 +45,15 @@ same gated state machine.
    writes or make a stale JSON copy authoritative.
 10. Backup/restore must cover the authoritative relational model before the
     final `app_state` shutdown.
+
+## Accelerated Decommission Wave 1 status (28 September 2026)
+
+The object/property/project/site aggregate and its object media have completed
+the local read/write cutover implementation in one consolidated wave. Stable
+IDs, revisions, tombstones, tenant-scoped queued mutations, dependency guards
+and secure media ownership are implemented. Legacy object JSON is read-only,
+disabled by default and cannot become authoritative over relational rows or
+tombstones. WorkCore Staging verification remains the release gate.
 
 ## Per-domain cutover state machine
 
@@ -242,6 +256,11 @@ checklist, recurrence, resources, services, materials and execution log. Use
 record revisions and server-side recurrence/concurrency rules; do not rewrite
 the complete job list.
 
+Wave 2 implements this cutover locally through
+`20260928220000_jobs_operations_relational_cutover.sql`; dedicated WorkCore
+Staging verification remains pending. See
+`docs/architecture/wave-2-jobs-operations-cutover.md`.
+
 Special rollback: retain all post-cutover job revisions and recurrence
 occurrences; a legacy reader may only project them.
 
@@ -255,29 +274,36 @@ evidence intact.
 Special rollback: completed work, minutes and photos are append/merge evidence
 and may not be removed by a stale client.
 
+These domains are included in the same Wave 2 mutation and staging checklist so
+that job status, dated progress, notes and time records cannot diverge across
+separate sync mechanisms.
+
 ### 8. Reports and report media/backups
 
-Make report rows and media references authoritative, then replace
-`report-backup:*` repair with relational backup/restore. Photo recovery must be
-transactional or journaled and must not write JSON first.
+Wave 3 implements this cutover locally through
+`20260928233000_reports_media_communication_relational_cutover.sql`. Report
+rows and media references are authoritative, `report-backup:*` writes are
+retired, and uploads are journaled through tenant-owned pending media rows.
 
 Special rollback: preserve report versions and media tombstones; never re-enable
 JSON photo resurrection.
 
 ### 9. Portal messages and communication history
 
-Cut over messages/replies after customer/object ownership is stable. Decide
-whether replies remain a versioned message aggregate or become child rows for
-delivery retries and auditability.
+Wave 3 makes messages authoritative and decomposes replies into revisioned
+child rows for delivery retries and auditability. Whole-message-list writes and
+nested reply authority are removed.
 
 Special rollback: delivered/failed mail status is append-only evidence and must
 not be overwritten by an older thread projection.
 
 ### 10. Billing, invoices, payments and accounting export
 
-Cut over only after customers, jobs, reports, services, materials and accounting
-accounts are authoritative. Add revision/audit rules for invoice lines and
-irreversible fiscal states. Payment/export retries need idempotency keys.
+Wave 4 implements this cutover locally through
+`20260929090000_financial_relational_cutover.sql`. Invoice headers, lines,
+payments and export events use the existing durable mutation journal. Issued
+records are immutable where fiscally required, and migration reconciliation is
+fatal for count, total, numbering or relationship mismatches.
 
 Special rollback: issued invoice numbers, postings, payments and export markers
 remain immutable/append-only according to accounting rules.

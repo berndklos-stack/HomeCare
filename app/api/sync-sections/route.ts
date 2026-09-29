@@ -4,11 +4,6 @@ import { isAuthError, requireApiAuth } from "@/lib/server/apiAuth";
 
 export const runtime = "nodejs";
 
-const resourceLegacyFallbackEnabled = process.env.WORKCORE_RESOURCE_LEGACY_READ_FALLBACK === "1";
-const settingsLegacyFallbackEnabled = process.env.WORKCORE_SETTINGS_LEGACY_READ_FALLBACK === "1";
-const customerLegacyFallbackEnabled = process.env.WORKCORE_CUSTOMER_LEGACY_READ_FALLBACK === "1";
-const relationalSettingSections = ["companySettings", "dailyMailSettings", "tenantSettings", "translationOverrides"] as const;
-
 const allowedSyncSections = [
   "accountingAccounts",
   "activeJobId",
@@ -22,6 +17,7 @@ const allowedSyncSections = [
   "fieldProgress",
   "inventoryLocations",
   "jobs",
+  "jobNoteMeta",
   "materials",
   "objects",
   "packages",
@@ -127,15 +123,21 @@ type ReportRow = {
   title: string;
   updated_at: string | null;
   visible_to_customer: boolean | null;
+  revision: number;
+  deleted_at: string | null;
+  record_data: unknown;
+  customer_id: string | null;
 };
 
 type FieldProgressRow = {
   completed: boolean | null;
+  deleted_at: string | null;
   id: string;
   job_id: string;
   minutes: number | null;
   note: string | null;
   photos: unknown;
+  revision: number;
   show_work_time_in_report: boolean | null;
   task_id: string;
   updated_at: string | null;
@@ -196,6 +198,8 @@ type ObjectRow = {
   billing_address_mode: string | null;
   build_year: number | null;
   care_package: string | null;
+  custom_fields: unknown;
+  deleted_at: string | null;
   equipment: unknown;
   heating: string | null;
   id: string;
@@ -217,6 +221,8 @@ type ObjectRow = {
   septic: string | null;
   size_sqm: number | null;
   status: string | null;
+  object_type: string;
+  revision: number;
   updated_at: string | null;
   water: string | null;
 };
@@ -233,9 +239,11 @@ type MediaRow = {
   revision: number;
   source: string | null;
   storage_path: string | null;
+  updated_at: string | null;
 };
 
 type PersonnelRow = {
+  deleted_at: string | null;
   archived: boolean | null;
   created_at: string | null;
   email: string | null;
@@ -246,6 +254,8 @@ type PersonnelRow = {
   notes: string | null;
   personnel_number: string | null;
   phone: string | null;
+  record_data: unknown;
+  revision: number;
   role: string | null;
   status: string | null;
   updated_at: string | null;
@@ -255,9 +265,11 @@ type JobRow = {
   assigned_to: string | null;
   billable: boolean | null;
   checklist: unknown;
+  consulting: unknown;
   custom_service: unknown;
   customer_id: string | null;
   description: string | null;
+  deleted_at: string | null;
   discount: unknown;
   due_date: string | null;
   end_date: string | null;
@@ -273,6 +285,8 @@ type JobRow = {
   order_confirmation_number: string | null;
   order_confirmation_sent_at: string | null;
   priority: string | null;
+  record_data: unknown;
+  revision: number;
   resource_ids: unknown;
   schedule: unknown;
   series_excluded_dates: unknown;
@@ -290,11 +304,40 @@ type JobRow = {
   work_minutes: number | null;
 };
 
+type JobTimeEntryRow = {
+  billed_at: string | null;
+  billing_record_id: string | null;
+  billing_status: string;
+  deleted_at: string | null;
+  description: string | null;
+  end_time: string | null;
+  entry_date: string;
+  id: string;
+  job_id: string;
+  minutes: number;
+  revision: number;
+  start_time: string | null;
+  updated_at: string | null;
+};
+
+type JobNoteRow = {
+  deleted_at: string | null;
+  id: string;
+  job_id: string;
+  note: string;
+  revision: number;
+  updated_at: string | null;
+  work_date: string | null;
+};
+
 type AccountingAccountRow = {
   account: string;
   archived: boolean | null;
   category: string;
   label: string;
+  deleted_at: string | null;
+  record_data: unknown;
+  revision: number;
   updated_at: string | null;
 };
 
@@ -304,6 +347,9 @@ type InventoryLocationRow = {
   name: string;
   note: string | null;
   site: string | null;
+  deleted_at: string | null;
+  record_data: unknown;
+  revision: number;
   updated_at: string | null;
 };
 
@@ -324,6 +370,9 @@ type MaterialRow = {
   supplier: string | null;
   tax_rate: number | null;
   unit: string | null;
+  deleted_at: string | null;
+  record_data: unknown;
+  revision: number;
   updated_at: string | null;
 };
 
@@ -362,6 +411,9 @@ type ServiceRow = {
   show_work_time_in_reports: boolean | null;
   tax_rate: number | null;
   unit: string | null;
+  deleted_at: string | null;
+  record_data: unknown;
+  revision: number;
   updated_at: string | null;
 };
 
@@ -372,6 +424,9 @@ type ServicePackageRow = {
   name: string;
   price: number | null;
   service_ids: unknown;
+  deleted_at: string | null;
+  record_data: unknown;
+  revision: number;
   updated_at: string | null;
 };
 
@@ -388,12 +443,17 @@ type BillingRow = {
   invoice_date: string | null;
   invoice_number: string | null;
   invoice_status: string | null;
+  invoiced_at: string | null;
   job_id: string | null;
   label: string;
   lines: unknown;
   notes: string | null;
   object_id: string | null;
   paid_at: string | null;
+  outgoing_book_number: string | null;
+  record_data: unknown;
+  revision: number | null;
+  deleted_at: string | null;
   report_id: string | null;
   sent_at: string | null;
   service_date: string | null;
@@ -416,6 +476,10 @@ type PortalMessageRow = {
   status: string | null;
   subject: string;
   updated_at: string | null;
+  report_id: string | null;
+  revision: number;
+  deleted_at: string | null;
+  record_data: unknown;
 };
 
 type TranslationRow = {
@@ -467,10 +531,6 @@ function getSupabaseServerClient() {
   return createClient(supabaseUrl, supabaseKey, {
     auth: { persistSession: false },
   });
-}
-
-function rowId(key: SyncSectionKey) {
-  return `sync-section:${key}`;
 }
 
 function isSyncSectionKey(value: string): value is SyncSectionKey {
@@ -769,6 +829,7 @@ function reportToRow(report: JsonObject) {
 
 function rowToReport(row: ReportRow) {
   return {
+    ...(row.record_data && typeof row.record_data === "object" ? row.record_data as JsonObject : {}),
     attachments: Array.isArray(row.attachments) ? row.attachments : [],
     checklistResults: Array.isArray(row.checklist_results) ? row.checklist_results : [],
     customerComment: row.customer_comment ?? "",
@@ -783,46 +844,13 @@ function rowToReport(row: ReportRow) {
     title: row.title,
     updatedAt: row.updated_at ?? undefined,
     visibleToCustomer: row.visible_to_customer !== false,
+    revision: row.revision,
+    deletedAt: row.deleted_at ?? undefined,
   };
 }
 
 function progressKeyFromRow(row: FieldProgressRow) {
   return row.work_date ? `${row.job_id}::${row.work_date}` : row.job_id;
-}
-
-function progressDateFromKey(key: string) {
-  const [, date] = key.split("::", 2);
-  return date || null;
-}
-
-function progressJobIdFromKey(key: string) {
-  return key.split("::", 1)[0] || key;
-}
-
-function fieldProgressToRows(value: unknown) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return [];
-  return Object.entries(value as JsonObject).flatMap(([progressKey, tasks]) => {
-    if (!tasks || typeof tasks !== "object" || Array.isArray(tasks)) return [];
-    const jobId = progressJobIdFromKey(progressKey);
-    const workDate = progressDateFromKey(progressKey);
-    return Object.entries(tasks as JsonObject)
-      .filter(([, task]) => Boolean(task && typeof task === "object" && !Array.isArray(task)))
-      .map(([taskId, task]) => {
-        const taskRecord = task as JsonObject;
-        return {
-          completed: Boolean(taskRecord.completed),
-          id: `${progressKey}:${taskId}`,
-          job_id: jobId,
-          minutes: numberOrNull(taskRecord.minutes),
-          note: stringOrEmpty(taskRecord.note),
-          photos: Array.isArray(taskRecord.photos) ? taskRecord.photos : [],
-          show_work_time_in_report: taskRecord.showWorkTimeInReport !== false,
-          task_id: taskId,
-          updated_at: nullableString(taskRecord.updatedAt) ?? new Date().toISOString(),
-          work_date: workDate,
-        };
-      });
-  });
 }
 
 function rowToCustomer(row: CustomerRow, objectRows: ObjectRow[], contactRows: CustomerContactRow[]) {
@@ -860,7 +888,7 @@ function rowToCustomer(row: CustomerRow, objectRows: ObjectRow[], contactRows: C
     language: row.language ?? "Deutsch",
     name: row.name,
     notes: row.notes ?? "",
-    objects: objectRows.filter((object) => object.owner_customer_id === row.id).map((object) => object.id),
+    objects: objectRows.filter((object) => object.owner_customer_id === row.id && !object.deleted_at).map((object) => object.id),
     offerMailBody: row.offer_mail_body ?? "",
     orderConfirmationMailBody: row.order_confirmation_mail_body ?? "",
     personalNumber: row.personal_number ?? "",
@@ -906,47 +934,8 @@ function rowToMedia(row: MediaRow) {
   };
 }
 
-function objectToRow(object: JsonObject) {
-  const access = object.access && typeof object.access === "object" && !Array.isArray(object.access) ? object.access as JsonObject : {};
-  const utilities = object.utilities && typeof object.utilities === "object" && !Array.isArray(object.utilities) ? object.utilities as JsonObject : {};
-  return {
-    access_notes: stringOrEmpty(access.notes),
-    address: stringOrEmpty(object.address),
-    alarm: stringOrEmpty(access.alarm),
-    archived: Boolean(object.archived),
-    bathrooms: numberOrNull(object.bathrooms),
-    beds: numberOrNull(object.beds),
-    billing_address: stringOrEmpty(object.billingAddress),
-    billing_address_mode: stringOrEmpty(object.billingAddressMode) || "Objektadresse",
-    build_year: numberOrNull(object.buildYear),
-    care_package: stringOrEmpty(object.carePackage),
-    equipment: Array.isArray(object.equipment) ? object.equipment : [],
-    heating: stringOrEmpty(utilities.heating),
-    id: String(object.id),
-    internet: stringOrEmpty(utilities.internet),
-    key_safe: stringOrEmpty(access.keySafe),
-    last_visit: dateOrNull(object.lastVisit),
-    name: stringOrEmpty(object.name) || "Unbenanntes Objekt",
-    next_visit: dateOrNull(object.nextVisit),
-    owner_address: stringOrEmpty(object.ownerAddress),
-    owner_customer_id: nullableString(object.ownerCustomerId),
-    owner_email: stringOrEmpty(object.ownerEmail),
-    owner_name: stringOrEmpty(object.owner),
-    owner_phone: stringOrEmpty(object.ownerPhone),
-    parking: stringOrEmpty(access.parking),
-    plot_sqm: numberOrNull(object.plotSqm),
-    region: stringOrEmpty(object.region),
-    risks: Array.isArray(object.risks) ? object.risks : [],
-    rooms: numberOrNull(object.rooms),
-    septic: stringOrEmpty(utilities.septic),
-    size_sqm: numberOrNull(object.sizeSqm),
-    status: stringOrEmpty(object.status),
-    water: stringOrEmpty(utilities.water),
-  };
-}
-
 function rowToObject(row: ObjectRow, mediaRows: MediaRow[]) {
-  const items = mediaRows.filter((item) => item.owner_id === row.id).map(rowToMedia);
+  const items = mediaRows.filter((item) => item.owner_id === row.id && !item.deleted_at).map(rowToMedia);
   return {
     access: {
       alarm: row.alarm ?? "",
@@ -962,6 +951,7 @@ function rowToObject(row: ObjectRow, mediaRows: MediaRow[]) {
     billingAddressMode: row.billing_address_mode ?? "Objektadresse",
     buildYear: row.build_year ?? 0,
     carePackage: row.care_package ?? "",
+    customFields: row.custom_fields && typeof row.custom_fields === "object" && !Array.isArray(row.custom_fields) ? row.custom_fields : {},
     equipment: Array.isArray(row.equipment) ? row.equipment : [],
     id: row.id,
     lastVisit: row.last_visit ?? "",
@@ -984,6 +974,9 @@ function rowToObject(row: ObjectRow, mediaRows: MediaRow[]) {
     rooms: row.rooms ?? 0,
     sizeSqm: row.size_sqm ?? 0,
     status: row.status ?? "",
+    type: row.object_type || "Objekt",
+    revision: row.revision,
+    updatedAt: row.updated_at ?? undefined,
     utilities: {
       heating: row.heating ?? "",
       internet: row.internet ?? "",
@@ -1024,62 +1017,18 @@ function rowToPersonnel(row: PersonnelRow) {
     phone: row.phone ?? "",
     role: row.role ?? "",
     status: row.status ?? "aktiv",
+    ...(row.record_data && typeof row.record_data === "object" ? row.record_data as JsonObject : {}),
+    revision: row.revision,
+    updatedAt: row.updated_at ?? undefined,
   };
 }
 
-function jobDiscount(job: JsonObject) {
-  return job.discount && typeof job.discount === "object" && !Array.isArray(job.discount)
-    ? job.discount
-    : {
-        reason: stringOrEmpty(job.discountReason),
-        type: stringOrEmpty(job.discountType),
-        value: stringOrEmpty(job.discountValue),
-      };
-}
-
-function jobToRow(job: JsonObject) {
-  return {
-    assigned_to: stringOrEmpty(job.assignedTo),
-    billable: job.billable !== false,
-    checklist: Array.isArray(job.checklist) ? job.checklist : [],
-    custom_service: job.customService && typeof job.customService === "object" ? job.customService : null,
-    customer_id: nullableString(job.customerId),
-    description: stringOrEmpty(job.description),
-    discount: jobDiscount(job),
-    due_date: nullableString(job.dueDate),
-    end_date: nullableString(job.endDate),
-    execution_date: nullableString(job.executionDate),
-    execution_log: Array.isArray(job.executionLog) ? job.executionLog : [],
-    id: String(job.id),
-    internal_notes: stringOrEmpty(job.internalNotes),
-    material: stringOrEmpty(job.material),
-    material_items: Array.isArray(job.materialItems) ? job.materialItems : [],
-    object_id: nullableString(job.objectId),
-    offer_number: stringOrEmpty(job.offerNumber),
-    offer_sent_at: nullableString(job.offerSentAt),
-    order_confirmation_number: stringOrEmpty(job.orderConfirmationNumber),
-    order_confirmation_sent_at: nullableString(job.orderConfirmationSentAt),
-    priority: stringOrEmpty(job.priority) || "normal",
-    resource_ids: Array.isArray(job.resourceIds) ? job.resourceIds : [],
-    schedule: job.schedule && typeof job.schedule === "object" ? job.schedule : {},
-    series_excluded_dates: Array.isArray(job.seriesExcludedDates) ? job.seriesExcludedDates : [],
-    series_master_id: nullableString(job.seriesMasterId),
-    series_occurrence_date: nullableString(job.seriesOccurrenceDate),
-    service_discounts: job.serviceDiscounts && typeof job.serviceDiscounts === "object" ? job.serviceDiscounts : {},
-    service_ids: Array.isArray(job.serviceIds) ? job.serviceIds : [],
-    service_quantities: job.serviceQuantities && typeof job.serviceQuantities === "object" ? job.serviceQuantities : {},
-    start_date: nullableString(job.startDate),
-    status: stringOrEmpty(job.status) || "geplant",
-    status_updated_at: nullableString(job.statusUpdatedAt),
-    title: stringOrEmpty(job.title) || "Auftrag",
-    type: stringOrEmpty(job.type),
-    work_minutes: numberOrNull(job.workMinutes) ?? 0,
-  };
-}
-
-function rowToJob(row: JobRow) {
+function rowToJob(row: JobRow, timeRows: JobTimeEntryRow[] = []) {
   const discount = row.discount && typeof row.discount === "object" && !Array.isArray(row.discount) ? row.discount as JsonObject : {};
+  const recordData = row.record_data && typeof row.record_data === "object" && !Array.isArray(row.record_data) ? row.record_data as JsonObject : {};
+  const consulting = row.consulting && typeof row.consulting === "object" && !Array.isArray(row.consulting) ? row.consulting as JsonObject : {};
   return {
+    ...recordData,
     assignedTo: row.assigned_to ?? "",
     billable: row.billable !== false,
     checklist: Array.isArray(row.checklist) ? row.checklist : [],
@@ -1103,6 +1052,22 @@ function rowToJob(row: JobRow) {
     orderConfirmationNumber: row.order_confirmation_number ?? undefined,
     orderConfirmationSentAt: row.order_confirmation_sent_at ?? undefined,
     priority: row.priority ?? "normal",
+    consulting: Object.keys(consulting).length > 0 ? {
+      ...consulting,
+      entries: timeRows.filter((entry) => entry.job_id === row.id && !entry.deleted_at).map((entry) => ({
+        billedAt: entry.billed_at ?? undefined,
+        billingRecordId: entry.billing_record_id ?? undefined,
+        billingStatus: entry.billing_status,
+        date: entry.entry_date,
+        description: entry.description ?? "",
+        endTime: entry.end_time ?? "",
+        id: entry.id,
+        minutes: entry.minutes,
+        revision: entry.revision,
+        startTime: entry.start_time ?? "",
+        updatedAt: entry.updated_at ?? undefined,
+      })),
+    } : undefined,
     resourceIds: Array.isArray(row.resource_ids) ? row.resource_ids : [],
     schedule: row.schedule && typeof row.schedule === "object" ? row.schedule : {},
     seriesExcludedDates: Array.isArray(row.series_excluded_dates) ? row.series_excluded_dates : [],
@@ -1116,6 +1081,8 @@ function rowToJob(row: JobRow) {
     statusUpdatedAt: row.status_updated_at ?? undefined,
     title: row.title,
     type: row.type ?? "",
+    revision: row.revision,
+    updatedAt: row.updated_at ?? undefined,
     workMinutes: row.work_minutes ?? 0,
   };
 }
@@ -1135,6 +1102,9 @@ function rowToAccountingAccount(row: AccountingAccountRow) {
     archived: Boolean(row.archived),
     category: row.category,
     label: row.label,
+    ...(row.record_data && typeof row.record_data === "object" ? row.record_data as JsonObject : {}),
+    revision: row.revision,
+    updatedAt: row.updated_at ?? undefined,
   };
 }
 
@@ -1155,6 +1125,9 @@ function rowToInventoryLocation(row: InventoryLocationRow) {
     name: row.name,
     note: row.note ?? "",
     site: row.site ?? "",
+    ...(row.record_data && typeof row.record_data === "object" ? row.record_data as JsonObject : {}),
+    revision: row.revision,
+    updatedAt: row.updated_at ?? undefined,
   };
 }
 
@@ -1245,6 +1218,9 @@ function rowToMaterial(row: MaterialRow, movements: InventoryMovementRow[]) {
     supplier: row.supplier ?? "",
     taxRate: row.tax_rate === null ? "" : String(row.tax_rate),
     unit: row.unit ?? "",
+    ...(row.record_data && typeof row.record_data === "object" ? row.record_data as JsonObject : {}),
+    revision: row.revision,
+    updatedAt: row.updated_at ?? undefined,
   };
 }
 
@@ -1279,6 +1255,9 @@ function rowToService(row: ServiceRow) {
     showWorkTimeInReports: Boolean(row.show_work_time_in_reports),
     taxRate: row.tax_rate === null ? "" : String(row.tax_rate),
     unit: row.unit ?? "",
+    ...(row.record_data && typeof row.record_data === "object" ? row.record_data as JsonObject : {}),
+    revision: row.revision,
+    updatedAt: row.updated_at ?? undefined,
   };
 }
 
@@ -1301,39 +1280,15 @@ function rowToPackage(row: ServicePackageRow) {
     name: row.name,
     price: row.price === null ? "" : String(row.price),
     serviceIds: Array.isArray(row.service_ids) ? row.service_ids : [],
-  };
-}
-
-function billingToRow(item: JsonObject) {
-  return {
-    amount: numberOrNull(item.amount),
-    cancelled_at: nullableString(item.cancelledAt),
-    created_at: nullableString(item.createdAt) ?? new Date().toISOString(),
-    customer_id: nullableString(item.customerId),
-    due_date: nullableString(item.dueDate),
-    external_export_status: stringOrEmpty(item.externalExportStatus),
-    external_export_system: stringOrEmpty(item.externalExportSystem),
-    external_exported_at: nullableString(item.externalExportedAt),
-    id: String(item.id),
-    invoice_date: nullableString(item.invoiceDate),
-    invoice_number: stringOrEmpty(item.invoiceNumber),
-    invoice_status: stringOrEmpty(item.invoiceStatus),
-    job_id: nullableString(item.jobId),
-    label: stringOrEmpty(item.label) || "Abrechnung",
-    lines: Array.isArray(item.lines) ? item.lines : [],
-    notes: stringOrEmpty(item.notes),
-    object_id: nullableString(item.objectId),
-    paid_at: nullableString(item.paidAt),
-    report_id: nullableString(item.reportId),
-    sent_at: nullableString(item.sentAt ?? item.invoicedAt),
-    service_date: nullableString(item.serviceDate),
-    source: stringOrEmpty(item.source),
-    status: stringOrEmpty(item.status) || "abrechenbar",
+    ...(row.record_data && typeof row.record_data === "object" ? row.record_data as JsonObject : {}),
+    revision: row.revision,
+    updatedAt: row.updated_at ?? undefined,
   };
 }
 
 function rowToBilling(row: BillingRow) {
   return {
+    ...(row.record_data && typeof row.record_data === "object" ? row.record_data as JsonObject : {}),
     amount: row.amount === null ? "" : String(row.amount),
     cancelledAt: row.cancelled_at ?? undefined,
     createdAt: row.created_at ?? undefined,
@@ -1346,17 +1301,21 @@ function rowToBilling(row: BillingRow) {
     invoiceDate: row.invoice_date ?? undefined,
     invoiceNumber: row.invoice_number ?? undefined,
     invoiceStatus: row.invoice_status ?? undefined,
+    invoicedAt: row.invoiced_at ?? undefined,
     jobId: row.job_id ?? undefined,
     label: row.label,
     lines: Array.isArray(row.lines) ? row.lines : [],
     notes: row.notes ?? "",
     objectId: row.object_id ?? "",
+    outgoingBookNumber: row.outgoing_book_number ?? undefined,
     paidAt: row.paid_at ?? undefined,
     reportId: row.report_id ?? undefined,
     sentAt: row.sent_at ?? undefined,
     serviceDate: row.service_date ?? undefined,
     source: row.source ?? "",
     status: row.status ?? "abrechenbar",
+    revision: row.revision ?? 1,
+    updatedAt: row.updated_at ?? undefined,
   };
 }
 
@@ -1379,6 +1338,7 @@ function portalMessageToRow(message: JsonObject) {
 
 function rowToPortalMessage(row: PortalMessageRow) {
   return {
+    ...(row.record_data && typeof row.record_data === "object" ? row.record_data as JsonObject : {}),
     createdAt: row.created_at ?? "",
     customerId: row.customer_id ?? "",
     deliveryError: row.delivery_error ?? undefined,
@@ -1391,6 +1351,9 @@ function rowToPortalMessage(row: PortalMessageRow) {
     sentAt: row.sent_at ?? undefined,
     status: row.status ?? "neu",
     subject: row.subject,
+    reportId: row.report_id ?? undefined,
+    revision: row.revision,
+    deletedAt: row.deleted_at ?? undefined,
   };
 }
 
@@ -1484,50 +1447,51 @@ async function loadResourceSection(supabase: NonNullable<ReturnType<typeof getSu
 }
 
 async function loadReportsSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
-  const { data, error } = await supabase
+  const [{ data, error }, { data: mediaData, error: mediaError }] = await Promise.all([
+    supabase
     .from("homecare_reports")
-    .select("id, job_id, object_id, title, report_date, visible_to_customer, summary, internal_notes, customer_comment, checklist_results, media_ids, attachments, sent_at, updated_at")
-    .order("report_date", { ascending: true });
-
-  if (error || !data?.length) return null;
-  return {
-    updatedAt: maxUpdatedAt((data as ReportRow[]).map((row) => row.updated_at)),
-    value: (data as ReportRow[]).map(rowToReport),
-  };
-}
-
-async function saveReportsSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>, value: unknown) {
-  if (!Array.isArray(value)) return;
-  const reports = value.filter((item): item is JsonObject => Boolean(item && typeof item === "object" && "id" in item));
-  if (!reports.length) return;
-
-  const { data: existingData, error: existingError } = await supabase
-    .from("homecare_reports")
-    .select("id, job_id, object_id, title, report_date, visible_to_customer, summary, internal_notes, customer_comment, checklist_results, media_ids, attachments, sent_at, updated_at");
-
-  if (existingError) throw new Error(existingError.message);
-
-  const mergedReports = mergeReports(
-    (existingData as ReportRow[] | null | undefined)?.map(rowToReport) ?? [],
-    reports,
-  );
-
-  const { error } = await supabase
-    .from("homecare_reports")
-    .upsert(mergedReports.map(reportToRow), { onConflict: "id" });
+    .select("id, job_id, object_id, customer_id, title, report_date, visible_to_customer, summary, internal_notes, customer_comment, checklist_results, media_ids, attachments, sent_at, record_data, revision, deleted_at, updated_at")
+    .order("report_date", { ascending: true }),
+    supabase.from("homecare_media").select("id, owner_id, kind, name, storage_path, preview_url, metadata, revision, deleted_at, created_at").eq("owner_type", "report"),
+  ]);
 
   if (error) throw new Error(error.message);
+  if (mediaError) throw new Error(mediaError.message);
+  const media = (mediaData ?? []) as Array<{ id: string; owner_id: string; kind: string; name: string; storage_path: string | null; preview_url: string | null; metadata: unknown; revision: number; deleted_at: string | null; created_at: string }>;
+  const value = ((data ?? []) as ReportRow[]).filter((row) => !row.deleted_at).map((row) => {
+    const report = rowToReport(row) as JsonObject;
+    const reportMedia = media.filter((item) => item.owner_id === row.id && !item.deleted_at);
+    const attachments = reportMedia.filter((item) => item.kind === "attachment").map((item) => ({
+      ...(item.metadata && typeof item.metadata === "object" ? item.metadata as JsonObject : {}), id: item.id, name: item.name,
+      storagePath: item.storage_path ?? undefined, storageUrl: item.preview_url ?? undefined, createdAt: item.created_at, revision: item.revision,
+    }));
+    const checklistResults = (Array.isArray(report.checklistResults) ? report.checklistResults : []).map((task) => {
+      if (!task || typeof task !== "object") return task;
+      const taskId = String((task as JsonObject).id ?? "");
+      const photos = reportMedia.filter((item) => item.kind === "checklist_photo" && (item.metadata as JsonObject | null)?.taskId === taskId).map((item) => ({
+        ...(item.metadata && typeof item.metadata === "object" ? item.metadata as JsonObject : {}), id: item.id, name: item.name,
+        storagePath: item.storage_path ?? undefined, previewUrl: item.preview_url ?? undefined, revision: item.revision,
+      }));
+      return { ...(task as JsonObject), photos };
+    });
+    return { ...report, attachments, checklistResults };
+  });
+  return {
+    deletedReportIds: ((data ?? []) as ReportRow[]).filter((row) => row.deleted_at).map((row) => row.id),
+    updatedAt: maxUpdatedAt([...(data as ReportRow[]).map((row) => row.updated_at), ...media.map((row) => row.created_at)]),
+    value,
+  };
 }
 
 async function loadFieldProgressSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
   const { data, error } = await supabase
     .from("homecare_field_progress")
-    .select("id, job_id, work_date, task_id, completed, minutes, show_work_time_in_report, note, photos, updated_at")
+    .select("id, job_id, work_date, task_id, completed, minutes, show_work_time_in_report, note, photos, revision, deleted_at, updated_at")
     .order("updated_at", { ascending: true });
 
-  if (error || !data?.length) return null;
+  if (error) throw new Error(error.message);
 
-  const value = (data as FieldProgressRow[]).reduce<Record<string, Record<string, JsonObject>>>((progress, row) => {
+  const value = (data as FieldProgressRow[]).filter((row) => !row.deleted_at).reduce<Record<string, Record<string, JsonObject>>>((progress, row) => {
     const progressKey = progressKeyFromRow(row);
     progress[progressKey] = progress[progressKey] ?? {};
     progress[progressKey][row.task_id] = {
@@ -1536,61 +1500,39 @@ async function loadFieldProgressSection(supabase: NonNullable<ReturnType<typeof 
       note: row.note ?? "",
       photos: Array.isArray(row.photos) ? row.photos : [],
       showWorkTimeInReport: row.show_work_time_in_report !== false,
+      revision: row.revision,
       updatedAt: row.updated_at ?? undefined,
     };
     return progress;
   }, {});
 
   return {
+    deletedProgressIds: (data as FieldProgressRow[]).filter((row) => row.deleted_at).map((row) => row.id),
     updatedAt: maxUpdatedAt((data as FieldProgressRow[]).map((row) => row.updated_at)),
     value,
   };
 }
 
-async function saveFieldProgressSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>, value: unknown) {
-  const rows = fieldProgressToRows(value);
-  if (!rows.length) return;
-  const rowIds = rows.map((row) => row.id);
-  const { data: existingData, error: existingError } = await supabase
-    .from("homecare_field_progress")
-    .select("id, job_id, work_date, task_id, completed, minutes, show_work_time_in_report, note, photos, updated_at")
-    .in("id", rowIds);
-
-  if (existingError) throw new Error(existingError.message);
-
-  const existingById = new Map(((existingData as FieldProgressRow[] | null | undefined) ?? []).map((row) => [row.id, row]));
-  const mergedRows = rows.map((row) => {
-    const existing = existingById.get(row.id);
-    if (!existing) return row;
-    const existingTime = Date.parse(existing.updated_at ?? "");
-    const rowTime = Date.parse(row.updated_at ?? "");
-    const rowIsNewer = Number.isFinite(rowTime)
-      ? !Number.isFinite(existingTime) || rowTime >= existingTime
-      : true;
-
-    return {
-      ...existing,
-      ...row,
-      completed: Boolean(existing.completed) || Boolean(row.completed),
-      minutes: rowIsNewer ? row.minutes : existing.minutes,
-      note: rowIsNewer ? row.note : existing.note,
-      photos: mergeFieldPhotos(existing.photos, row.photos),
-      show_work_time_in_report: row.show_work_time_in_report !== false && existing.show_work_time_in_report !== false,
-      updated_at: rowIsNewer ? row.updated_at : existing.updated_at,
-    };
-  });
-
-  const { error } = await supabase
-    .from("homecare_field_progress")
-    .upsert(mergedRows, { onConflict: "id" });
-
+async function loadJobNotesSections(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
+  const { data, error } = await supabase
+    .from("homecare_job_notes")
+    .select("id,job_id,work_date,note,revision,deleted_at,updated_at")
+    .order("updated_at", { ascending: true });
   if (error) throw new Error(error.message);
+  const rows = (data ?? []) as JobNoteRow[];
+  const liveRows = rows.filter((row) => !row.deleted_at);
+  const key = (row: JobNoteRow) => row.work_date ? `${row.job_id}::${row.work_date}` : row.job_id;
+  return {
+    deletedNoteKeys: rows.filter((row) => row.deleted_at).map(key),
+    fieldNotes: { updatedAt: maxUpdatedAt(rows.map((row) => row.updated_at)), value: Object.fromEntries(liveRows.map((row) => [key(row), row.note])) },
+    jobNoteMeta: { updatedAt: maxUpdatedAt(rows.map((row) => row.updated_at)), value: Object.fromEntries(liveRows.map((row) => [key(row), { revision: row.revision, updatedAt: row.updated_at ?? undefined }])) },
+  };
 }
 
 async function loadObjectsRows(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
   const { data, error } = await supabase
     .from("homecare_objects")
-    .select("id, owner_customer_id, name, owner_name, owner_email, owner_phone, owner_address, address, billing_address_mode, billing_address, region, size_sqm, plot_sqm, rooms, beds, bathrooms, build_year, care_package, status, key_safe, alarm, parking, access_notes, heating, water, septic, internet, equipment, risks, next_visit, last_visit, archived, updated_at")
+    .select("id, owner_customer_id, name, owner_name, owner_email, owner_phone, owner_address, address, billing_address_mode, billing_address, region, size_sqm, plot_sqm, rooms, beds, bathrooms, build_year, care_package, status, key_safe, alarm, parking, access_notes, heating, water, septic, internet, equipment, risks, next_visit, last_visit, archived, object_type, custom_fields, revision, deleted_at, updated_at")
     .order("name", { ascending: true });
   if (error) throw new Error(error.message);
   return (data ?? []) as ObjectRow[];
@@ -1599,9 +1541,8 @@ async function loadObjectsRows(supabase: NonNullable<ReturnType<typeof getSupaba
 async function loadObjectMediaRows(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
   const { data, error } = await supabase
     .from("homecare_media")
-    .select("id, owner_id, kind, name, description, source, storage_path, preview_url, is_primary, revision, deleted_at")
+    .select("id, owner_id, kind, name, description, source, storage_path, preview_url, is_primary, revision, deleted_at, updated_at")
     .eq("owner_type", "object")
-    .is("deleted_at", null)
     .order("name", { ascending: true });
   if (error) throw new Error(error.message);
   return (data ?? []) as MediaRow[];
@@ -1610,7 +1551,7 @@ async function loadObjectMediaRows(supabase: NonNullable<ReturnType<typeof getSu
 async function loadResourceMediaRows(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
   const { data, error } = await supabase
     .from("homecare_media")
-    .select("id, owner_id, kind, name, description, source, storage_path, preview_url, is_primary, revision, deleted_at")
+    .select("id, owner_id, kind, name, description, source, storage_path, preview_url, is_primary, revision, deleted_at, updated_at")
     .eq("owner_type", "resource")
     .is("deleted_at", null)
     .order("name", { ascending: true });
@@ -1644,159 +1585,78 @@ async function loadCustomersSection(supabase: NonNullable<ReturnType<typeof getS
   };
 }
 
-function mergeLegacyCustomersWithoutResurrection(
-  legacySection: SyncSectionEnvelope,
-  relationalSection: Awaited<ReturnType<typeof loadCustomersSection>>,
-) {
-  const relationalCustomers = Array.isArray(relationalSection.value) ? relationalSection.value : [];
-  const legacyCustomers = Array.isArray(legacySection.value) ? legacySection.value : [];
-  const knownIds = new Set([
-    ...relationalCustomers.map((customer) => String((customer as JsonObject).id ?? "")),
-    ...relationalSection.deletedCustomerIds,
-  ]);
-  return {
-    updatedAt: relationalSection.updatedAt,
-    value: [
-      ...relationalCustomers,
-      ...legacyCustomers.filter((customer) => (
-        customer && typeof customer === "object" && !knownIds.has(String((customer as JsonObject).id ?? ""))
-      )),
-    ],
-  };
-}
-
 async function loadObjectsSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
-  const objectRows = await loadObjectsRows(supabase).catch(() => null);
-  if (!objectRows?.length) return null;
+  const objectRows = await loadObjectsRows(supabase);
   const mediaRows = await loadObjectMediaRows(supabase).catch(() => []);
   return {
-    updatedAt: maxUpdatedAt(objectRows.map((row) => row.updated_at)),
-    value: objectRows.map((row) => rowToObject(row, mediaRows)),
+    deletedObjectIds: objectRows.filter((row) => row.deleted_at).map((row) => row.id),
+    updatedAt: maxUpdatedAt([...objectRows.map((row) => row.updated_at), ...mediaRows.map((row) => row.updated_at)]),
+    value: objectRows.filter((row) => !row.deleted_at).map((row) => rowToObject(row, mediaRows)),
   };
-}
-
-async function saveObjectsSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>, value: unknown) {
-  if (!Array.isArray(value)) return;
-  const objects = value.filter((item): item is JsonObject => Boolean(item && typeof item === "object" && "id" in item));
-  if (!objects.length) return;
-
-  const { error } = await supabase
-    .from("homecare_objects")
-    .upsert(objects.map(objectToRow), { onConflict: "id" });
-  if (error) throw new Error(error.message);
-
-  const mediaRows = objects.flatMap((object) => {
-    const media = object.media && typeof object.media === "object" && !Array.isArray(object.media) ? object.media as JsonObject : {};
-    return Array.isArray(media.items)
-      ? media.items
-          .filter((item): item is JsonObject => Boolean(item && typeof item === "object" && "id" in item))
-          .map((item) => mediaToRow("object", String(object.id), item))
-      : [];
-  });
-  if (!mediaRows.length) return;
-
-  const { error: mediaError } = await supabase
-    .from("homecare_media")
-    .upsert(mediaRows, { onConflict: "id" });
-  if (mediaError) throw new Error(mediaError.message);
 }
 
 async function loadPersonnelSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
   const { data, error } = await supabase
     .from("homecare_personnel")
-    .select("id, personnel_number, first_name, last_name, role, email, phone, language, status, notes, archived, created_at, updated_at")
+    .select("id, personnel_number, first_name, last_name, role, email, phone, language, status, notes, archived, record_data, revision, deleted_at, created_at, updated_at")
     .order("last_name", { ascending: true });
-  if (error || !data?.length) return null;
+  if (error) throw new Error(error.message);
   return {
     updatedAt: maxUpdatedAt((data as PersonnelRow[]).map((row) => row.updated_at)),
-    value: (data as PersonnelRow[]).map(rowToPersonnel),
+    value: ((data ?? []) as PersonnelRow[]).filter((row) => !row.deleted_at).map(rowToPersonnel),
   };
-}
-
-async function savePersonnelSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>, value: unknown) {
-  if (!Array.isArray(value)) return;
-  const personnel = value.filter((item): item is JsonObject => Boolean(item && typeof item === "object" && "id" in item));
-  if (!personnel.length) return;
-
-  const { error } = await supabase
-    .from("homecare_personnel")
-    .upsert(personnel.map(personnelToRow), { onConflict: "id" });
-  if (error) throw new Error(error.message);
 }
 
 async function loadJobsSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
-  const { data, error } = await supabase
-    .from("homecare_jobs")
-    .select("id, series_master_id, series_occurrence_date, title, object_id, customer_id, type, status, status_updated_at, priority, due_date, start_date, end_date, execution_date, assigned_to, description, internal_notes, billable, material, work_minutes, resource_ids, material_items, checklist, service_ids, service_quantities, service_discounts, custom_service, discount, schedule, execution_log, offer_number, offer_sent_at, order_confirmation_number, order_confirmation_sent_at, series_excluded_dates, updated_at")
-    .order("due_date", { ascending: true });
-  if (error || !data?.length) return null;
-  return {
-    updatedAt: maxUpdatedAt((data as JobRow[]).map((row) => row.updated_at)),
-    value: (data as JobRow[]).map(rowToJob),
-  };
-}
-
-async function saveJobsSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>, value: unknown) {
-  if (!Array.isArray(value)) return;
-  const jobs = value.filter((item): item is JsonObject => Boolean(item && typeof item === "object" && "id" in item));
-  if (!jobs.length) return;
-
-  const { error } = await supabase
-    .from("homecare_jobs")
-    .upsert(jobs.map(jobToRow), { onConflict: "id" });
+  const [{ data, error }, { data: timeData, error: timeError }] = await Promise.all([
+    supabase.from("homecare_jobs")
+      .select("id, series_master_id, series_occurrence_date, title, object_id, customer_id, type, status, status_updated_at, priority, due_date, start_date, end_date, execution_date, assigned_to, description, internal_notes, billable, material, work_minutes, resource_ids, material_items, checklist, service_ids, service_quantities, service_discounts, custom_service, discount, schedule, execution_log, offer_number, offer_sent_at, order_confirmation_number, order_confirmation_sent_at, series_excluded_dates, record_data, consulting, revision, deleted_at, updated_at")
+      .order("due_date", { ascending: true }),
+    supabase.from("homecare_job_time_entries")
+      .select("id,job_id,entry_date,start_time,end_time,minutes,description,billing_status,billed_at,billing_record_id,revision,deleted_at,updated_at")
+      .order("entry_date", { ascending: true }),
+  ]);
   if (error) throw new Error(error.message);
+  if (timeError) throw new Error(timeError.message);
+  const rows = (data ?? []) as JobRow[];
+  const timeRows = (timeData ?? []) as JobTimeEntryRow[];
+  return {
+    deletedJobIds: rows.filter((row) => row.deleted_at).map((row) => row.id),
+    updatedAt: maxUpdatedAt([...rows.map((row) => row.updated_at), ...timeRows.map((row) => row.updated_at)]),
+    value: rows.filter((row) => !row.deleted_at).map((row) => rowToJob(row, timeRows)),
+  };
 }
 
 async function loadAccountingAccountsSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
   const { data, error } = await supabase
     .from("homecare_accounting_accounts")
-    .select("account, category, label, archived, updated_at")
+    .select("account, category, label, archived, record_data, revision, deleted_at, updated_at")
     .order("account", { ascending: true });
-  if (error || !data?.length) return null;
+  if (error) throw new Error(error.message);
   return {
     updatedAt: maxUpdatedAt((data as AccountingAccountRow[]).map((row) => row.updated_at)),
-    value: (data as AccountingAccountRow[]).map(rowToAccountingAccount),
+    value: ((data ?? []) as AccountingAccountRow[]).filter((row) => !row.deleted_at).map(rowToAccountingAccount),
   };
-}
-
-async function saveAccountingAccountsSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>, value: unknown) {
-  if (!Array.isArray(value)) return;
-  const accounts = value.filter((item): item is JsonObject => Boolean(item && typeof item === "object" && "account" in item));
-  if (!accounts.length) return;
-  const { error } = await supabase
-    .from("homecare_accounting_accounts")
-    .upsert(accounts.map(accountingAccountToRow), { onConflict: "tenant_id,account" });
-  if (error) throw new Error(error.message);
 }
 
 async function loadInventoryLocationsSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
   const { data, error } = await supabase
     .from("homecare_inventory_locations")
-    .select("id, name, site, note, archived, updated_at")
+    .select("id, name, site, note, archived, record_data, revision, deleted_at, updated_at")
     .order("name", { ascending: true });
-  if (error || !data?.length) return null;
+  if (error) throw new Error(error.message);
   return {
     updatedAt: maxUpdatedAt((data as InventoryLocationRow[]).map((row) => row.updated_at)),
-    value: (data as InventoryLocationRow[]).map(rowToInventoryLocation),
+    value: ((data ?? []) as InventoryLocationRow[]).filter((row) => !row.deleted_at).map(rowToInventoryLocation),
   };
-}
-
-async function saveInventoryLocationsSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>, value: unknown) {
-  if (!Array.isArray(value)) return;
-  const locations = value.filter((item): item is JsonObject => Boolean(item && typeof item === "object" && "id" in item));
-  if (!locations.length) return;
-  const { error } = await supabase
-    .from("homecare_inventory_locations")
-    .upsert(locations.map(inventoryLocationToRow), { onConflict: "id" });
-  if (error) throw new Error(error.message);
 }
 
 async function loadMaterialsSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
   const { data: materialRows, error } = await supabase
     .from("homecare_materials")
-    .select("id, accounting_account, sku, name, category, unit, sales_price, purchase_price, currency, tax_rate, supplier, primary_location_id, min_stock, max_stock, description, archived, updated_at")
+    .select("id, accounting_account, sku, name, category, unit, sales_price, purchase_price, currency, tax_rate, supplier, primary_location_id, min_stock, max_stock, description, archived, record_data, revision, deleted_at, updated_at")
     .order("name", { ascending: true });
-  if (error || !materialRows?.length) return null;
+  if (error) throw new Error(error.message);
 
   const { data: movementRows, error: movementError } = await supabase
     .from("homecare_inventory_movements")
@@ -1809,121 +1669,105 @@ async function loadMaterialsSection(supabase: NonNullable<ReturnType<typeof getS
       ...(materialRows as MaterialRow[]).map((row) => row.updated_at),
       ...((movementRows ?? []) as InventoryMovementRow[]).map((row) => row.updated_at),
     ]),
-    value: (materialRows as MaterialRow[]).map((row) => rowToMaterial(row, (movementRows ?? []) as InventoryMovementRow[])),
+    value: ((materialRows ?? []) as MaterialRow[]).filter((row) => !row.deleted_at).map((row) => rowToMaterial(row, (movementRows ?? []) as InventoryMovementRow[])),
   };
-}
-
-async function saveMaterialsSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>, value: unknown) {
-  if (!Array.isArray(value)) return;
-  const materials = value.filter((item): item is JsonObject => Boolean(item && typeof item === "object" && "id" in item));
-  if (!materials.length) return;
-
-  const { error } = await supabase
-    .from("homecare_materials")
-    .upsert(materials.map(materialToRow), { onConflict: "id" });
-  if (error) throw new Error(error.message);
-
-  const movements = materials.flatMap((material) => (
-    Array.isArray(material.inventoryEntries)
-      ? material.inventoryEntries
-          .filter((entry): entry is JsonObject => Boolean(entry && typeof entry === "object" && "id" in entry))
-          .map((entry) => movementToRow(String(material.id), entry))
-      : []
-  ));
-  if (!movements.length) return;
-
-  const { error: movementError } = await supabase
-    .from("homecare_inventory_movements")
-    .upsert(movements, { onConflict: "id" });
-  if (movementError) throw new Error(movementError.message);
 }
 
 async function loadServicesSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
   const { data, error } = await supabase
     .from("homecare_services")
-    .select("id, accounting_account, name, category, unit, price, currency, tax_rate, show_work_time_in_reports, description, checklist, archived, updated_at")
+    .select("id, accounting_account, name, category, unit, price, currency, tax_rate, show_work_time_in_reports, description, checklist, archived, record_data, revision, deleted_at, updated_at")
     .order("name", { ascending: true });
-  if (error || !data?.length) return null;
+  if (error) throw new Error(error.message);
   return {
     updatedAt: maxUpdatedAt((data as ServiceRow[]).map((row) => row.updated_at)),
-    value: (data as ServiceRow[]).map(rowToService),
+    value: ((data ?? []) as ServiceRow[]).filter((row) => !row.deleted_at).map(rowToService),
   };
-}
-
-async function saveServicesSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>, value: unknown) {
-  if (!Array.isArray(value)) return;
-  const services = value.filter((item): item is JsonObject => Boolean(item && typeof item === "object" && "id" in item));
-  if (!services.length) return;
-  const { error } = await supabase
-    .from("homecare_services")
-    .upsert(services.map(serviceToRow), { onConflict: "id" });
-  if (error) throw new Error(error.message);
 }
 
 async function loadPackagesSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
   const { data, error } = await supabase
     .from("homecare_service_packages")
-    .select("id, name, price, description, service_ids, archived, updated_at")
+    .select("id, name, price, description, service_ids, archived, record_data, revision, deleted_at, updated_at")
     .order("name", { ascending: true });
-  if (error || !data?.length) return null;
+  if (error) throw new Error(error.message);
   return {
     updatedAt: maxUpdatedAt((data as ServicePackageRow[]).map((row) => row.updated_at)),
-    value: (data as ServicePackageRow[]).map(rowToPackage),
+    value: ((data ?? []) as ServicePackageRow[]).filter((row) => !row.deleted_at).map(rowToPackage),
   };
-}
-
-async function savePackagesSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>, value: unknown) {
-  if (!Array.isArray(value)) return;
-  const packages = value.filter((item): item is JsonObject => Boolean(item && typeof item === "object" && "id" in item));
-  if (!packages.length) return;
-  const { error } = await supabase
-    .from("homecare_service_packages")
-    .upsert(packages.map(packageToRow), { onConflict: "id" });
-  if (error) throw new Error(error.message);
 }
 
 async function loadBillingSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
-  const { data, error } = await supabase
-    .from("homecare_billing_items")
-    .select("id, object_id, customer_id, job_id, report_id, source, label, amount, status, invoice_status, invoice_number, invoice_date, due_date, service_date, lines, notes, external_export_status, external_export_system, external_exported_at, sent_at, paid_at, cancelled_at, created_at, updated_at")
-    .order("created_at", { ascending: true });
-  if (error || !data?.length) return null;
-  return {
-    updatedAt: maxUpdatedAt((data as BillingRow[]).map((row) => row.updated_at)),
-    value: (data as BillingRow[]).map(rowToBilling),
-  };
-}
-
-async function saveBillingSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>, value: unknown) {
-  if (!Array.isArray(value)) return;
-  const items = value.filter((item): item is JsonObject => Boolean(item && typeof item === "object" && "id" in item));
-  if (!items.length) return;
-  const { error } = await supabase
-    .from("homecare_billing_items")
-    .upsert(items.map(billingToRow), { onConflict: "id" });
+  const [{ data, error }, { data: lineData, error: lineError }, { data: paymentData, error: paymentError }, { data: exportData, error: exportError }] = await Promise.all([
+    supabase.from("homecare_billing_items").select("id, object_id, customer_id, job_id, report_id, source, label, amount, status, invoice_status, invoice_number, invoice_date, due_date, service_date, lines, notes, external_export_status, external_export_system, external_exported_at, sent_at, paid_at, cancelled_at, outgoing_book_number, invoiced_at, record_data, revision, deleted_at, created_at, updated_at").order("created_at", { ascending: true }),
+    supabase.from("homecare_invoice_lines").select("id,invoice_id,accounting_account,kind,name,quantity,unit,unit_price,currency,tax_rate,discount_type,discount_value,position,record_data,revision,deleted_at,updated_at").order("position", { ascending: true }),
+    supabase.from("homecare_payments").select("id,invoice_id,amount,currency,paid_at,revision,deleted_at,updated_at").order("paid_at", { ascending: false }),
+    supabase.from("homecare_accounting_exports").select("id,invoice_id,system,status,exported_at,revision,deleted_at,updated_at").order("exported_at", { ascending: false }),
+  ]);
   if (error) throw new Error(error.message);
+  if (lineError) throw new Error(lineError.message);
+  if (paymentError) throw new Error(paymentError.message);
+  if (exportError) throw new Error(exportError.message);
+  const lines = (lineData ?? []) as Array<Record<string, unknown>>;
+  const payments = (paymentData ?? []) as Array<Record<string, unknown>>;
+  const exports = (exportData ?? []) as Array<Record<string, unknown>>;
+  const value = ((data ?? []) as BillingRow[]).filter((row) => !row.deleted_at).map((row) => {
+    const payment = payments.find((item) => item.invoice_id === row.id && !item.deleted_at);
+    const accountingExport = exports.find((item) => item.invoice_id === row.id && !item.deleted_at);
+    return {
+      ...rowToBilling(row),
+      lines: lines.filter((item) => item.invoice_id === row.id && !item.deleted_at).map((item) => ({
+        ...(item.record_data && typeof item.record_data === "object" ? item.record_data as JsonObject : {}),
+        id: item.id, accountingAccount: item.accounting_account, kind: item.kind, name: item.name,
+        quantity: String(item.quantity ?? ""), unit: item.unit, unitPrice: String(item.unit_price ?? ""), currency: item.currency,
+        taxRate: String(item.tax_rate ?? ""), discountType: item.discount_type, discountValue: String(item.discount_value ?? ""),
+        revision: item.revision, updatedAt: item.updated_at,
+      })),
+      paidAt: payment?.paid_at ?? row.paid_at ?? undefined,
+      paymentRevision: payment?.revision,
+      externalExportStatus: accountingExport?.status ?? row.external_export_status ?? undefined,
+      externalExportSystem: accountingExport?.system ?? row.external_export_system ?? undefined,
+      externalExportedAt: accountingExport?.exported_at ?? row.external_exported_at ?? undefined,
+      exportRevision: accountingExport?.revision,
+    };
+  });
+  return {
+    updatedAt: maxUpdatedAt([...(data ?? []).map((row) => row.updated_at), ...lines.map((row) => row.updated_at as string | null), ...payments.map((row) => row.updated_at as string | null), ...exports.map((row) => row.updated_at as string | null)]),
+    value,
+  };
 }
 
 async function loadPortalMessagesSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
-  const { data, error } = await supabase
+  const [{ data, error }, { data: replyData, error: replyError }, { data: mediaData, error: mediaError }] = await Promise.all([
+    supabase
     .from("homecare_portal_messages")
-    .select("id, customer_id, object_id, subject, message, status, delivery_status, delivery_error, origin, replies, sent_at, created_at, updated_at")
-    .order("created_at", { ascending: true });
-  if (error || !data?.length) return null;
-  return {
-    updatedAt: maxUpdatedAt((data as PortalMessageRow[]).map((row) => row.updated_at)),
-    value: (data as PortalMessageRow[]).map(rowToPortalMessage),
-  };
-}
-
-async function savePortalMessagesSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>, value: unknown) {
-  if (!Array.isArray(value)) return;
-  const messages = value.filter((item): item is JsonObject => Boolean(item && typeof item === "object" && "id" in item));
-  if (!messages.length) return;
-  const { error } = await supabase
-    .from("homecare_portal_messages")
-    .upsert(messages.map(portalMessageToRow), { onConflict: "id" });
+    .select("id, customer_id, object_id, report_id, subject, message, status, delivery_status, delivery_error, origin, replies, sent_at, record_data, revision, deleted_at, created_at, updated_at")
+    .order("created_at", { ascending: true }),
+    supabase.from("homecare_portal_message_replies").select("id,message_id,body,subject,recipient,delivery_status,delivery_error,sent_at,record_data,revision,deleted_at,updated_at").order("sent_at", { ascending: false }),
+    supabase.from("homecare_media").select("id,owner_id,kind,name,storage_path,preview_url,metadata,revision,deleted_at,created_at").eq("owner_type", "portal_message"),
+  ]);
   if (error) throw new Error(error.message);
+  if (replyError) throw new Error(replyError.message);
+  if (mediaError) throw new Error(mediaError.message);
+  const replies = (replyData ?? []) as Array<Record<string, unknown>>;
+  const media = (mediaData ?? []) as Array<Record<string, unknown>>;
+  const value = ((data ?? []) as PortalMessageRow[]).filter((row) => !row.deleted_at).map((row) => ({
+    ...rowToPortalMessage(row),
+    attachments: media.filter((item) => item.owner_id === row.id && !item.deleted_at).map((item) => ({
+      ...(item.metadata && typeof item.metadata === "object" ? item.metadata as JsonObject : {}), id: item.id, name: item.name,
+      storagePath: item.storage_path ?? undefined, storageUrl: item.preview_url ?? undefined, createdAt: item.created_at, revision: item.revision,
+    })),
+    replies: replies.filter((item) => item.message_id === row.id && !item.deleted_at).map((item) => ({
+      ...(item.record_data && typeof item.record_data === "object" ? item.record_data as JsonObject : {}), id: item.id, body: item.body,
+      subject: item.subject, to: item.recipient, deliveryStatus: item.delivery_status, deliveryError: item.delivery_error,
+      sentAt: item.sent_at, revision: item.revision,
+    })),
+  }));
+  return {
+    deletedMessageIds: ((data ?? []) as PortalMessageRow[]).filter((row) => row.deleted_at).map((row) => row.id),
+    updatedAt: maxUpdatedAt([...(data as PortalMessageRow[]).map((row) => row.updated_at), ...replies.map((row) => row.updated_at as string | null)]),
+    value,
+  };
 }
 
 async function loadTranslationOverridesSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
@@ -1938,26 +1782,6 @@ async function loadTranslationOverridesSection(supabase: NonNullable<ReturnType<
     updatedAt: maxUpdatedAt(rows.map((row) => row.updated_at)),
     value: rows.filter((row) => !row.deleted_at).map(rowToTranslation),
   };
-}
-
-async function loadSettingsSections(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>, keys: SyncSectionKey[]) {
-  const settingKeys = keys.filter((key) => [
-    "activeJobId",
-    "deletedEntityIds",
-    "deletedReportIds",
-    "fieldNotes",
-  ].includes(key));
-  if (!settingKeys.length) return {};
-
-  const { data, error } = await supabase
-    .from("homecare_settings")
-    .select("key, value, updated_at")
-    .in("key", settingKeys);
-  if (error) return {};
-
-  return Object.fromEntries(((data ?? []) as SettingRow[])
-    .filter((row) => isSyncSectionKey(row.key))
-    .map((row) => [row.key, { updatedAt: row.updated_at, value: row.value }]));
 }
 
 async function loadAuthoritativeSettingsSections(
@@ -1978,24 +1802,6 @@ async function loadAuthoritativeSettingsSections(
       ? null
       : { ...(row.value && typeof row.value === "object" && !Array.isArray(row.value) ? row.value as JsonObject : {}), revision: row.revision, updatedAt: row.updated_at },
   }]));
-}
-
-async function saveSettingsSections(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>, patch: JsonObject) {
-  const settingKeys = [
-    "activeJobId",
-    "deletedEntityIds",
-    "deletedReportIds",
-    "fieldNotes",
-  ];
-  const rows = Object.entries(patch)
-    .filter(([key]) => settingKeys.includes(key))
-    .map(([key, value]) => ({ key, value: value === undefined ? null : value }));
-  if (!rows.length) return;
-
-  const { error } = await supabase
-    .from("homecare_settings")
-    .upsert(rows, { onConflict: "tenant_id,key" });
-  if (error) throw new Error(error.message);
 }
 
 function planFromPlanId(planId: string | null | undefined) {
@@ -2049,65 +1855,6 @@ async function loadTenantSettingsSection(supabase: NonNullable<ReturnType<typeof
   };
 }
 
-async function loadFallbackSections(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>, keys: SyncSectionKey[]) {
-  if (keys.length === 0) return {};
-  const { data, error } = await supabase
-    .from("app_state")
-    .select("id, data, updated_at")
-    .in("id", keys.map(rowId));
-
-  if (error) throw new Error(error.message);
-  return Object.fromEntries((data ?? []).map((row) => {
-    const rowData = row.data && typeof row.data === "object" ? row.data as JsonObject : {};
-    const key = String(rowData.key ?? row.id.replace(/^sync-section:/, ""));
-    const value = key === "customers" && Array.isArray(rowData.value)
-      ? rowData.value.map((customer) => (
-          customer && typeof customer === "object" && !Array.isArray(customer)
-            ? Object.fromEntries(Object.entries(customer as JsonObject).filter(([field]) => field !== "portalPassword"))
-            : customer
-        ))
-      : rowData.value;
-    return [key, {
-      updatedAt: row.updated_at,
-      value,
-    }];
-  }));
-}
-
-async function saveFallbackSections(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>, patch: JsonObject) {
-  const rows = Object.entries(patch)
-    .filter(([key]) => isSyncSectionKey(key))
-    .map(([key, value]) => {
-      const updatedAt = new Date().toISOString();
-      const fallbackValue = key === "customers" && Array.isArray(value)
-        ? value.map((customer) => {
-            if (!customer || typeof customer !== "object" || Array.isArray(customer)) return customer;
-            return Object.fromEntries(Object.entries(customer as JsonObject).filter(([field]) => field !== "portalPassword"));
-          })
-        : key === "resources" && Array.isArray(value)
-        ? value.map((resource) => (
-            resource && typeof resource === "object" && !Array.isArray(resource)
-              ? { ...(resource as JsonObject), logbook: [] }
-              : resource
-          ))
-        : value;
-      return {
-        data: { key, updatedAt, value: fallbackValue },
-        id: rowId(key as SyncSectionKey),
-        updated_at: updatedAt,
-      };
-    });
-
-  if (rows.length === 0) return new Date().toISOString();
-
-  const { error } = await supabase
-    .from("app_state")
-    .upsert(rows, { onConflict: "tenant_id,id" });
-
-  if (error) throw new Error(error.message);
-  return rows[0].updated_at;
-}
-
 function requestedSyncKeys(request: Request) {
   const requestedKeys = new URL(request.url).searchParams.get("keys")?.split(",")
     .map((key) => key.trim())
@@ -2115,271 +1862,56 @@ function requestedSyncKeys(request: Request) {
   return requestedKeys?.length ? requestedKeys : [...allowedSyncSections];
 }
 
-function patchFromBody(body: JsonObject) {
-  return body.patch && typeof body.patch === "object" && !Array.isArray(body.patch)
-    ? body.patch as JsonObject
-    : {};
-}
-
-function sectionUpdatedAt(section: unknown) {
-  if (!section || typeof section !== "object" || !("updatedAt" in section)) return 0;
-  const timestamp = Date.parse(String((section as { updatedAt?: unknown }).updatedAt ?? ""));
-  return Number.isFinite(timestamp) ? timestamp : 0;
-}
-
-function relationalSectionIsNewer(fallbackSection: unknown, relationalSection: unknown) {
-  if (!fallbackSection) return true;
-  return sectionUpdatedAt(relationalSection) > sectionUpdatedAt(fallbackSection);
-}
-
-function sectionValueArray(section: unknown) {
-  if (!section || typeof section !== "object" || !("value" in section)) return [] as JsonObject[];
-  const value = (section as { value?: unknown }).value;
-  if (!Array.isArray(value)) return [] as JsonObject[];
-  return value.filter((item): item is JsonObject => Boolean(item && typeof item === "object" && !Array.isArray(item)));
-}
-
-function stringArray(value: unknown) {
-  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
-}
-
-type SyncSectionEnvelope = { updatedAt: unknown; value: unknown };
-
-function mergeResourceSectionValues(
-  fallbackSection: SyncSectionEnvelope | undefined,
-  relationalSection: SyncSectionEnvelope | undefined,
-): SyncSectionEnvelope {
-  if (!fallbackSection && !relationalSection) {
-    return { updatedAt: new Date().toISOString(), value: [] };
-  }
-  if (!fallbackSection) return relationalSection as SyncSectionEnvelope;
-  if (!relationalSection) return fallbackSection;
-
-  const fallbackResources = sectionValueArray(fallbackSection);
-  const relationalResources = sectionValueArray(relationalSection);
-  if (!fallbackResources.length) return relationalSection;
-  if (!relationalResources.length) return fallbackSection;
-
-  // Fuer Ressourcen ist die relationale Struktur die kanonische Quelle fuer
-  // Fahrzeug-Stammdaten und Medien. app_state bleibt nur Sicherheitsnetz fuer
-  // Fahrten, die noch nicht in homecare_vehicle_trips angekommen sind.
-  const fallbackById = new Map(fallbackResources.map((resource) => [String(resource.id ?? ""), resource]));
-  const relationalIds = new Set(relationalResources.map((resource) => String(resource.id ?? "")));
-
-  const entries = (value: unknown) => Array.isArray(value)
-    ? value.filter((entry): entry is JsonObject => Boolean(entry && typeof entry === "object" && !Array.isArray(entry)))
-    : [];
-
-  const mergedResources = relationalResources.map((relationalResource) => {
-    const fallbackResource = fallbackById.get(String(relationalResource.id ?? ""));
-    if (!fallbackResource) return relationalResource;
-
-    // Ein alter Loeschmarker aus app_state darf keine Fahrt entfernen, die in
-    // der aktuellen relationalen Tabelle vorhanden ist. Relationale Loeschmarker
-    // bleiben dagegen wirksam.
-    const relationalLogbookIds = new Set(entries(relationalResource.logbook).map((entry) => String(entry.id ?? "")));
-    const deletedLogbookEntryIds = Array.from(new Set([
-      ...stringArray(relationalResource.deletedLogbookEntryIds),
-      ...stringArray(fallbackResource.deletedLogbookEntryIds),
-    ])).filter((id) => !relationalLogbookIds.has(id));
-    return {
-      ...fallbackResource,
-      ...relationalResource,
-      // Medien kommen bewusst ausschliesslich aus homecare_media. Dadurch kann
-      // ein in app_state noch vorhandenes, aber bereits geloeschtes Fahrzeugbild
-      // nicht wieder auftauchen.
-      media: Array.isArray(relationalResource.media) ? relationalResource.media : [],
-      deletedLogbookEntryIds,
-      // Seit der Sync-Foundation sind homecare_vehicle_trips autoritativ. Noch
-      // nicht synchronisierte Offline-Fahrten werden ausschliesslich im Client
-      // aus dessen Mutationsqueue eingeblendet und nie aus app_state restauriert.
-      logbook: entries(relationalResource.logbook),
-    };
-  });
-
-  // Ein komplett neues, noch nicht relational gespeichertes Fahrzeug darf nicht
-  // verloren gehen. Bestehende relationale Fahrzeuge bleiben aber kanonisch.
-  fallbackResources.forEach((resource) => {
-    const id = String(resource.id ?? "");
-    if (!relationalIds.has(id)) mergedResources.push(resource);
-  });
-
-  const fallbackTime = sectionUpdatedAt(fallbackSection);
-  const relationalTime = sectionUpdatedAt(relationalSection);
-  const newestSection = relationalTime > fallbackTime ? relationalSection : fallbackSection;
-  const updatedAt = newestSection && typeof newestSection === "object" && "updatedAt" in newestSection
-    ? String((newestSection as { updatedAt?: unknown }).updatedAt ?? new Date().toISOString())
-    : new Date().toISOString();
-
-  return { updatedAt, value: mergedResources };
-}
-
 export async function GET(request: Request) {
   const auth = await requireApiAuth(request, "data.read");
   if (isAuthError(auth)) return auth;
   const supabase = auth.client;
-
   const keys = requestedSyncKeys(request);
+  const sections: Record<string, unknown> = {};
+
   try {
-    const fallbackKeys = keys.filter((key) => (
-      (key !== "resources" || resourceLegacyFallbackEnabled)
-      && (key !== "customers" || customerLegacyFallbackEnabled)
-      && (!relationalSettingSections.includes(key as typeof relationalSettingSections[number]) || settingsLegacyFallbackEnabled)
-    ));
-    const sections = await loadFallbackSections(supabase, fallbackKeys);
-    const legacyResourceSection = sections.resources as SyncSectionEnvelope | undefined;
-    const legacyCustomerSection = sections.customers as SyncSectionEnvelope | undefined;
-    const legacySettingSections = Object.fromEntries(relationalSettingSections.map((key) => [key, sections[key]]));
-    if (keys.includes("resources") && !resourceLegacyFallbackEnabled) delete sections.resources;
-    delete sections.customers;
-    relationalSettingSections.forEach((key) => delete sections[key]);
-    let usedResourceFallback = false;
-    let usedSettingsFallback = false;
-    let usedCustomerFallback = false;
-    Object.assign(sections, await loadSettingsSections(supabase, keys));
     const authoritativeSettings = await loadAuthoritativeSettingsSections(supabase, keys);
     for (const key of ["companySettings", "dailyMailSettings"] as const) {
       if (!keys.includes(key)) continue;
       const relational = authoritativeSettings[key];
-      if (relational) {
-        sections[key] = { updatedAt: relational.updatedAt, value: relational.value };
-      } else if (settingsLegacyFallbackEnabled && legacySettingSections[key]) {
-        sections[key] = legacySettingSections[key];
-        usedSettingsFallback = true;
-      } else {
-        sections[key] = { updatedAt: null, value: null };
-      }
-    }
-    if (keys.includes("accountingAccounts")) {
-      const accountingSection = await loadAccountingAccountsSection(supabase);
-      if (accountingSection) sections.accountingAccounts = accountingSection;
-    }
-    if (keys.includes("billing")) {
-      const billingSection = await loadBillingSection(supabase);
-      if (billingSection) sections.billing = billingSection;
-    }
-    if (keys.includes("customers")) {
-      const customerSection = await loadCustomersSection(supabase);
-      if (customerLegacyFallbackEnabled && legacyCustomerSection) {
-        sections.customers = mergeLegacyCustomersWithoutResurrection(legacyCustomerSection, customerSection);
-        usedCustomerFallback = true;
-      } else {
-        sections.customers = customerSection;
-      }
-    }
-    if (keys.includes("inventoryLocations")) {
-      const inventoryLocationSection = await loadInventoryLocationsSection(supabase);
-      if (inventoryLocationSection) sections.inventoryLocations = inventoryLocationSection;
-    }
-    if (keys.includes("materials")) {
-      const materialSection = await loadMaterialsSection(supabase);
-      if (materialSection) sections.materials = materialSection;
-    }
-    if (keys.includes("objects")) {
-      const objectSection = await loadObjectsSection(supabase);
-      if (objectSection && relationalSectionIsNewer(sections.objects, objectSection)) {
-        const fallbackObjectRows = sections.objects && typeof sections.objects === "object" && "value" in sections.objects
-          && Array.isArray((sections.objects as { value?: unknown }).value)
-          ? (sections.objects as { value: JsonObject[] }).value
-          : [];
-        const fallbackObjectExtensions = new Map(fallbackObjectRows.map((object) => [String(object.id), {
-          customFields: object.customFields && typeof object.customFields === "object" && !Array.isArray(object.customFields)
-            ? object.customFields
-            : {},
-          type: stringOrEmpty(object.type) || "Objekt",
-        }]));
-        sections.objects = {
-          ...objectSection,
-          value: objectSection.value.map((object) => {
-            const extension = fallbackObjectExtensions.get(String(object.id));
-            return {
-              ...object,
-              customFields: extension?.customFields ?? {},
-              type: extension?.type ?? "Objekt",
-            };
-          }),
-        };
-      }
-    }
-    if (keys.includes("packages")) {
-      const packageSection = await loadPackagesSection(supabase);
-      if (packageSection) sections.packages = packageSection;
-    }
-    if (keys.includes("personnel")) {
-      const personnelSection = await loadPersonnelSection(supabase);
-      if (personnelSection) sections.personnel = personnelSection;
-    }
-    if (keys.includes("portalMessages")) {
-      const portalMessageSection = await loadPortalMessagesSection(supabase);
-      if (portalMessageSection) sections.portalMessages = portalMessageSection;
-    }
-    if (keys.includes("services")) {
-      const serviceSection = await loadServicesSection(supabase);
-      if (serviceSection) sections.services = serviceSection;
-    }
-    if (keys.includes("translationOverrides")) {
-      const translationSection = await loadTranslationOverridesSection(supabase);
-      if (translationSection.hasRecords || !settingsLegacyFallbackEnabled || !legacySettingSections.translationOverrides) {
-        sections.translationOverrides = { updatedAt: translationSection.updatedAt, value: translationSection.value };
-      } else {
-        sections.translationOverrides = legacySettingSections.translationOverrides;
-        usedSettingsFallback = true;
-      }
-    }
-    if (keys.includes("tenantSettings")) {
-      const tenantSection = await loadTenantSettingsSection(supabase, auth.tenantId);
-      if (tenantSection) sections.tenantSettings = tenantSection;
-      else if (settingsLegacyFallbackEnabled && legacySettingSections.tenantSettings) {
-        sections.tenantSettings = legacySettingSections.tenantSettings;
-        usedSettingsFallback = true;
-      }
-    }
-    if (keys.includes("jobs")) {
-      const jobSection = await loadJobsSection(supabase);
-      if (jobSection && relationalSectionIsNewer(sections.jobs, jobSection)) sections.jobs = jobSection;
-    }
-    if (keys.includes("fieldProgress")) {
-      const fieldProgressSection = await loadFieldProgressSection(supabase);
-      if (fieldProgressSection) sections.fieldProgress = fieldProgressSection;
-    }
-    if (keys.includes("reports")) {
-      const reportSection = await loadReportsSection(supabase);
-      if (reportSection) sections.reports = reportSection;
-    }
-    if (keys.includes("resources")) {
-      const resourceSection = await loadResourceSection(supabase);
-      if (resourceLegacyFallbackEnabled && legacyResourceSection) {
-        sections.resources = mergeResourceSectionValues(legacyResourceSection, resourceSection);
-        usedResourceFallback = sectionValueArray(legacyResourceSection).some((legacyResource) => (
-          !sectionValueArray(resourceSection).some((resource) => String(resource.id) === String(legacyResource.id))
-        ));
-        if (usedResourceFallback) {
-          console.warn("LEGACY_RESOURCE_READ_FALLBACK", {
-            domain: "resources",
-            tenantId: auth.tenantId,
-          });
-        }
-      } else {
-        sections.resources = resourceSection;
-      }
+      sections[key] = relational
+        ? { updatedAt: relational.updatedAt, value: relational.value }
+        : { updatedAt: null, value: null };
     }
 
-    if (usedSettingsFallback) {
-      console.warn("LEGACY_SETTINGS_READ_FALLBACK", { tenantId: auth.tenantId });
+    if (keys.includes("accountingAccounts")) sections.accountingAccounts = await loadAccountingAccountsSection(supabase);
+    if (keys.includes("billing")) sections.billing = await loadBillingSection(supabase);
+    if (keys.includes("customers")) sections.customers = await loadCustomersSection(supabase);
+    if (keys.includes("inventoryLocations")) sections.inventoryLocations = await loadInventoryLocationsSection(supabase);
+    if (keys.includes("materials")) sections.materials = await loadMaterialsSection(supabase);
+    if (keys.includes("objects")) sections.objects = await loadObjectsSection(supabase);
+    if (keys.includes("packages")) sections.packages = await loadPackagesSection(supabase);
+    if (keys.includes("personnel")) sections.personnel = await loadPersonnelSection(supabase);
+    if (keys.includes("portalMessages")) sections.portalMessages = await loadPortalMessagesSection(supabase);
+    if (keys.includes("services")) sections.services = await loadServicesSection(supabase);
+    if (keys.includes("translationOverrides")) {
+      const translationSection = await loadTranslationOverridesSection(supabase);
+      sections.translationOverrides = { updatedAt: translationSection.updatedAt, value: translationSection.value };
     }
-    if (usedCustomerFallback) {
-      console.warn("LEGACY_CUSTOMER_READ_FALLBACK", { tenantId: auth.tenantId });
+    if (keys.includes("tenantSettings")) {
+      sections.tenantSettings = await loadTenantSettingsSection(supabase, auth.tenantId)
+        ?? { updatedAt: null, value: null };
     }
-    const legacyFallback = [
-      usedResourceFallback ? "resources" : "",
-      usedSettingsFallback ? "settings" : "",
-      usedCustomerFallback ? "customers" : "",
-    ].filter(Boolean);
+    if (keys.includes("jobs")) sections.jobs = await loadJobsSection(supabase);
+    if (keys.includes("fieldProgress")) sections.fieldProgress = await loadFieldProgressSection(supabase);
+    if (keys.includes("fieldNotes") || keys.includes("jobNoteMeta")) {
+      const notes = await loadJobNotesSections(supabase);
+      if (keys.includes("fieldNotes")) sections.fieldNotes = notes.fieldNotes;
+      if (keys.includes("jobNoteMeta")) sections.jobNoteMeta = notes.jobNoteMeta;
+    }
+    if (keys.includes("reports")) sections.reports = await loadReportsSection(supabase);
+    if (keys.includes("resources")) sections.resources = await loadResourceSection(supabase);
+
     return NextResponse.json(
-      { data: sections, legacyFallback: legacyFallback.length > 0 },
+      { data: sections, legacyFallback: false },
       { headers: {
         "Cache-Control": "no-store, max-age=0, must-revalidate",
-        "X-WorkCore-Legacy-Fallback": legacyFallback.join(",") || "none",
+        "X-WorkCore-Legacy-Fallback": "none",
       } },
     );
   } catch (error) {
@@ -2393,136 +1925,5 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const auth = await requireApiAuth(request, "data.write");
   if (isAuthError(auth)) return auth;
-  const supabase = auth.client;
-
-  const body = await request.json().catch(() => ({})) as JsonObject;
-  const patch = patchFromBody(body);
-  const filteredPatch = Object.fromEntries(Object.entries(patch).filter(([key]) => isSyncSectionKey(key)));
-  if (Object.keys(filteredPatch).length === 0) {
-    return NextResponse.json({ ok: true, updatedAt: new Date().toISOString() });
-  }
-  if ("resources" in filteredPatch) {
-    return NextResponse.json(
-      { error: "Ressourcen werden nur noch als datensatzweise Sync-Mutation gespeichert." },
-      { status: 409 },
-    );
-  }
-  if ("customers" in filteredPatch) {
-    return NextResponse.json(
-      { error: "Kunden und Ansprechpartner werden nur noch als datensatzweise Sync-Mutation gespeichert." },
-      { status: 409 },
-    );
-  }
-  const blockedSettingKeys = relationalSettingSections.filter((key) => key in filteredPatch);
-  if (blockedSettingKeys.length > 0) {
-    return NextResponse.json(
-      { error: "Einstellungen und Übersetzungen werden nur noch als datensatzweise Sync-Mutation gespeichert." },
-      { status: 409 },
-    );
-  }
-  if (process.env.NEXT_PUBLIC_DISABLE_SUPABASE_SYNC === "1" && request.headers.get("x-workcore-e2e-bypass") === "1") {
-    return NextResponse.json({ ok: true, updatedAt: new Date().toISOString() });
-  }
-
-  try {
-    const updatedAt = await saveFallbackSections(supabase, filteredPatch);
-    try {
-      await saveSettingsSections(supabase, filteredPatch);
-    } catch (error) {
-      console.warn("Relationaler Einstellungen-Sync wurde auf Fallback reduziert.", error);
-    }
-    if ("accountingAccounts" in filteredPatch) {
-      try {
-        await saveAccountingAccountsSection(supabase, filteredPatch.accountingAccounts);
-      } catch (error) {
-        console.warn("Relationaler Kontenplan-Sync wurde auf Fallback reduziert.", error);
-      }
-    }
-    if ("billing" in filteredPatch) {
-      try {
-        await saveBillingSection(supabase, filteredPatch.billing);
-      } catch (error) {
-        console.warn("Relationaler Abrechnungs-Sync wurde auf Fallback reduziert.", error);
-      }
-    }
-    if ("inventoryLocations" in filteredPatch) {
-      try {
-        await saveInventoryLocationsSection(supabase, filteredPatch.inventoryLocations);
-      } catch (error) {
-        console.warn("Relationaler Lagerort-Sync wurde auf Fallback reduziert.", error);
-      }
-    }
-    if ("materials" in filteredPatch) {
-      try {
-        await saveMaterialsSection(supabase, filteredPatch.materials);
-      } catch (error) {
-        console.warn("Relationaler Material-Sync wurde auf Fallback reduziert.", error);
-      }
-    }
-    if ("objects" in filteredPatch) {
-      try {
-        await saveObjectsSection(supabase, filteredPatch.objects);
-      } catch (error) {
-        console.warn("Relationaler Objekt-Sync wurde auf Fallback reduziert.", error);
-      }
-    }
-    if ("packages" in filteredPatch) {
-      try {
-        await savePackagesSection(supabase, filteredPatch.packages);
-      } catch (error) {
-        console.warn("Relationaler Paket-Sync wurde auf Fallback reduziert.", error);
-      }
-    }
-    if ("personnel" in filteredPatch) {
-      try {
-        await savePersonnelSection(supabase, filteredPatch.personnel);
-      } catch (error) {
-        console.warn("Relationaler Personal-Sync wurde auf Fallback reduziert.", error);
-      }
-    }
-    if ("portalMessages" in filteredPatch) {
-      try {
-        await savePortalMessagesSection(supabase, filteredPatch.portalMessages);
-      } catch (error) {
-        console.warn("Relationaler Kommunikations-Sync wurde auf Fallback reduziert.", error);
-      }
-    }
-    if ("services" in filteredPatch) {
-      try {
-        await saveServicesSection(supabase, filteredPatch.services);
-      } catch (error) {
-        console.warn("Relationaler Leistungs-Sync wurde auf Fallback reduziert.", error);
-      }
-    }
-    if ("jobs" in filteredPatch) {
-      try {
-        await saveJobsSection(supabase, filteredPatch.jobs);
-      } catch (error) {
-        console.warn("Relationaler Auftrags-Sync wurde auf Fallback reduziert.", error);
-      }
-    }
-    if ("fieldProgress" in filteredPatch) {
-      try {
-        await saveFieldProgressSection(supabase, filteredPatch.fieldProgress);
-      } catch (error) {
-        console.warn("Relationaler Feldfortschritt-Sync wurde auf Fallback reduziert.", error);
-      }
-    }
-    if ("reports" in filteredPatch) {
-      try {
-        await saveReportsSection(supabase, filteredPatch.reports);
-      } catch (error) {
-        console.warn("Relationaler Bericht-Sync wurde auf Fallback reduziert.", error);
-      }
-    }
-    return NextResponse.json(
-      { ok: true, updatedAt },
-      { headers: { "Cache-Control": "no-store, max-age=0, must-revalidate" } },
-    );
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Sync-Bereich konnte nicht gespeichert werden.", retry: true },
-      { status: 500 },
-    );
-  }
+  return NextResponse.json({ error: "SYNC_SECTION_WRITES_RETIRED" }, { status: 410 });
 }

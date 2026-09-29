@@ -49,7 +49,7 @@ nicht in Browser-Code.
 
 Vercel ruft `/api/cron/daily-jobs` einmal taeglich um `06:00 UTC` auf. Das ist
 in der schwedischen Sommerzeit 08:00 Uhr. Der Endpunkt merkt sich den
-Versandtag in `public.app_state`, damit keine doppelte Tagesmail entsteht.
+Versandtag in `public.homecare_daily_mail_state`, damit keine doppelte Tagesmail entsteht.
 
 Benötigt werden:
 
@@ -69,7 +69,7 @@ Das Startschema liegt in `supabase/schema.sql`. Es enthaelt Tabellen fuer:
 - Auftraege
 - Checklisten
 - Berichte mit Freigabe- und Mailstatus
-- `app_state` als zentraler Snapshot der aktuellen Demo-/Arbeitsdaten inklusive
+- relationale, mandantengetrennte Tabellen als verbindliche Quelle fuer
   Objekte, Dokumente, Fotos, Auftraege, Berichte und Mobil-vor-Ort-Fortschritt
 
 Die Row-Level-Security-Regeln sind als Anfangspunkt enthalten und muessen vor
@@ -77,5 +77,5 @@ dem Produktivbetrieb mit echten Rollen und Admin-Policies erweitert werden.
 
 Damit Dokumente und Bilder nach Deploys/Versionswechseln erhalten bleiben, muss
 `supabase/schema.sql` einmal in der Supabase-Datenbank ausgefuehrt werden. Die
-App synchronisiert danach automatisch in die Tabelle `public.app_state` und
-nutzt `localStorage` nur noch als Fallback/offline Zwischenspeicher.
+App synchronisiert danach datensatzweise in relationale Tabellen und nutzt
+`localStorage` nur noch als dauerhafte Offline-Mutationsqueue.

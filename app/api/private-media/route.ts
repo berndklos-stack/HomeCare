@@ -31,10 +31,10 @@ export async function GET(request: Request) {
     .eq("tenant_id", auth.tenantId)
     .eq("storage_path", path)
     .maybeSingle();
-  if (mediaRecord?.deleted_at) {
+  if (!mediaRecord || mediaRecord.deleted_at) {
     return NextResponse.json({ error: "Mediendatei wurde gelöscht." }, { status: 404 });
   }
-  if (!path.startsWith(`${auth.tenantId}/`) && !mediaRecord) {
+  if (!path.startsWith(`${auth.tenantId}/`)) {
     return NextResponse.json({ error: "Zugriff auf Mediendatei verweigert." }, { status: 403 });
   }
 
