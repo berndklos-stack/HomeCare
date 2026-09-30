@@ -160,5 +160,8 @@ test("erneute Anmeldung stellt den gültigen Mandantenkontext wieder her", () =>
   const appPage = readFileSync(path.join(process.cwd(), "app/page.tsx"), "utf8");
   expect(authGate).toContain("client.auth.signOut()");
   expect(authGate).toContain("setReady(false)");
+  expect(authGate).toContain("onAuthStateChange((_event, session)");
+  expect(authGate).toContain("establishContext(session)");
+  expect(authGate).toContain("establishContext(data.session)");
   expect(appPage).toContain("<EmployeeLogoutButton");
 });

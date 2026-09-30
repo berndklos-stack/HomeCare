@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import type { Session } from "@supabase/supabase-js";
 import { Building2, LogIn, LogOut } from "lucide-react";
 import type { AuthContextPayload } from "@/lib/authModel";
 import { activeTenantStorageKey, apiFetch } from "@/lib/apiClient";
@@ -50,7 +51,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
   const [error, setError] = useState("");
   const [ready, setReady] = useState(false);
 
-  async function establishContext() {
+  async function establishContext(providedSession?: Session | null) {
     if (process.env.NEXT_PUBLIC_E2E_AUTH_BYPASS === "1") {
       window.localStorage.setItem(activeTenantStorageKey, "00000000-0000-0000-0000-000000000001");
       setReady(true);
@@ -58,7 +59,9 @@ export function AuthGate({ children }: { children: ReactNode }) {
       return;
     }
     const client = getSupabaseBrowserClient();
-    const session = client ? (await client.auth.getSession()).data.session : null;
+    const session = providedSession === undefined
+      ? client ? (await client.auth.getSession()).data.session : null
+      : providedSession;
     if (!session) {
       setReady(false);
       setBusy(false);
@@ -70,6 +73,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
     if (context.memberships.length === 0) throw new Error("Für dieses Konto ist keine aktive Firma zugeordnet.");
     const tenantId = resolveEmployeeTenantId(context.memberships, window.localStorage.getItem(activeTenantStorageKey));
     window.localStorage.setItem(activeTenantStorageKey, tenantId);
+    setError("");
     setReady(true);
     setBusy(false);
   }
@@ -82,16 +86,21 @@ export function AuthGate({ children }: { children: ReactNode }) {
       });
     }, 0);
     const client = getSupabaseBrowserClient();
-    const subscription = client?.auth.onAuthStateChange(() => {
-      setBusy(true);
-      void establishContext().catch((cause) => {
-        setError(cause instanceof Error ? cause.message : "Anmeldung konnte nicht geprüft werden.");
-        setReady(false);
-        setBusy(false);
-      });
+    let authChangeId: number | undefined;
+    const subscription = client?.auth.onAuthStateChange((_event, session) => {
+      if (authChangeId) window.clearTimeout(authChangeId);
+      authChangeId = window.setTimeout(() => {
+        setBusy(true);
+        void establishContext(session).catch((cause) => {
+          setError(cause instanceof Error ? cause.message : "Anmeldung konnte nicht geprüft werden.");
+          setReady(false);
+          setBusy(false);
+        });
+      }, 0);
     }).data.subscription;
     return () => {
       window.clearTimeout(initialCheck);
+      if (authChangeId) window.clearTimeout(authChangeId);
       subscription?.unsubscribe();
     };
   }, []);
@@ -105,13 +114,13 @@ export function AuthGate({ children }: { children: ReactNode }) {
       setBusy(false);
       return;
     }
-    const { error: signInError } = await client.auth.signInWithPassword({ email: email.trim(), password });
+    const { data, error: signInError } = await client.auth.signInWithPassword({ email: email.trim(), password });
     if (signInError) {
       setError("E-Mail oder Passwort ist nicht korrekt.");
       setBusy(false);
       return;
     }
-    await establishContext().catch((cause) => {
+    await establishContext(data.session).catch((cause) => {
       setError(cause instanceof Error ? cause.message : "Firmenzugriff konnte nicht geladen werden.");
       setReady(false);
       setBusy(false);
