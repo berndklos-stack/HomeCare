@@ -7,6 +7,9 @@ import {
   resolveTenantMembership,
   type TenantMembership,
 } from "../lib/authModel";
+import { activeTenantStorageKey } from "../lib/apiClient";
+import { clearEmployeeSessionContext, resolveEmployeeTenantId } from "../components/AuthGate";
+import { syncQueueStorageKey } from "../lib/syncQueue";
 
 function membership(tenantId: string, role: keyof typeof defaultRolePermissions): TenantMembership {
   return {
@@ -125,4 +128,37 @@ test("Portalpasswörter werden aus relationalen und Legacy-Daten entfernt", () =
   expect(migration).toContain("customer - 'portalPassword'");
   expect(customerMigration).not.toContain("p_payload->>'portalPassword'");
   expect(syncRoute).toContain('portalPassword: ""');
+});
+
+test("Abmeldung entfernt nur den Sitzungskontext und schützt anschließend die Mitarbeiter-App", () => {
+  const values = new Map<string, string>([
+    [activeTenantStorageKey, "tenant-a"],
+    [`${syncQueueStorageKey}:tenant-a`, '[{"status":"conflict"}]'],
+    ["kolaretorp-customers:tenant-a", "[]"],
+  ]);
+  const storage = {
+    getItem: (key: string) => values.get(key) ?? null,
+    removeItem: (key: string) => { values.delete(key); },
+    setItem: (key: string, value: string) => { values.set(key, value); },
+  };
+
+  clearEmployeeSessionContext(storage);
+
+  expect(storage.getItem(activeTenantStorageKey)).toBeNull();
+  expect(storage.getItem(`${syncQueueStorageKey}:tenant-a`)).not.toBeNull();
+  expect(storage.getItem("kolaretorp-customers:tenant-a")).toBe("[]");
+  expect(resolveEmployeeTenantId([], storage.getItem(activeTenantStorageKey))).toBe("");
+});
+
+test("erneute Anmeldung stellt den gültigen Mandantenkontext wieder her", () => {
+  const memberships = [{ tenantId: "tenant-a" }, { tenantId: "tenant-b" }];
+  expect(resolveEmployeeTenantId(memberships, null)).toBe("tenant-a");
+  expect(resolveEmployeeTenantId(memberships, "tenant-b")).toBe("tenant-b");
+  expect(resolveEmployeeTenantId(memberships, "tenant-x")).toBe("tenant-a");
+
+  const authGate = readFileSync(path.join(process.cwd(), "components/AuthGate.tsx"), "utf8");
+  const appPage = readFileSync(path.join(process.cwd(), "app/page.tsx"), "utf8");
+  expect(authGate).toContain("client.auth.signOut()");
+  expect(authGate).toContain("setReady(false)");
+  expect(appPage).toContain("<EmployeeLogoutButton");
 });

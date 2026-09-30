@@ -3,7 +3,7 @@
 /* eslint-disable @next/next/no-img-element -- Berichtsbilder müssen in Chrome-PDFs als echte img-Elemente erscheinen. */
 
 import Image from "next/image";
-import { AuthGate } from "@/components/AuthGate";
+import { AuthGate, EmployeeLogoutButton } from "@/components/AuthGate";
 import { SyncStatus } from "@/components/SyncStatus";
 import { TenantSwitcher } from "@/components/TenantSwitcher";
 import {
@@ -13282,12 +13282,17 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
               <button aria-label={theme === "dark" ? t.light : t.dark} className="ghost-button icon-button theme-toggle app-toolbar-theme" data-tooltip={theme === "dark" ? t.light : t.dark} onClick={() => setTheme(theme === "dark" ? "light" : "dark")} type="button">
                 {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
               </button>
+              <EmployeeLogoutButton />
             </div>
             <SyncStatus
               issues={tripSync.queue.filter((mutation) => mutation.status === "failed" || mutation.status === "conflict").map((mutation) => mutation.error || "")}
               language={language}
               lastSyncedAt={appUpdatedAt}
               online={tripSync.online}
+              onDiscardConflicts={async () => {
+                tripSync.discardConflicts();
+                await refreshAppDataNow();
+              }}
               onRetry={() => {
                 tripSync.retry();
                 void tripSync.flush();

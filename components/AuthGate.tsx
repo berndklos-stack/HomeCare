@@ -1,10 +1,47 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
-import { Building2, LogIn } from "lucide-react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { Building2, LogIn, LogOut } from "lucide-react";
 import type { AuthContextPayload } from "@/lib/authModel";
 import { activeTenantStorageKey, apiFetch } from "@/lib/apiClient";
 import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
+
+type AuthActions = {
+  busy: boolean;
+  signOut: () => Promise<void>;
+};
+
+type SessionStorage = Pick<Storage, "getItem" | "removeItem" | "setItem">;
+
+const AuthActionsContext = createContext<AuthActions | null>(null);
+
+export function clearEmployeeSessionContext(storage: SessionStorage) {
+  storage.removeItem(activeTenantStorageKey);
+}
+
+export function resolveEmployeeTenantId(memberships: TenantMembershipLike[], currentTenantId: string | null) {
+  if (currentTenantId && memberships.some((membership) => membership.tenantId === currentTenantId)) return currentTenantId;
+  return memberships[0]?.tenantId ?? "";
+}
+
+type TenantMembershipLike = Pick<AuthContextPayload["memberships"][number], "tenantId">;
+
+export function EmployeeLogoutButton() {
+  const auth = useContext(AuthActionsContext);
+  if (!auth) return null;
+  return (
+    <button
+      aria-label="Abmelden"
+      className="ghost-button app-toolbar-logout"
+      disabled={auth.busy}
+      onClick={() => void auth.signOut()}
+      type="button"
+    >
+      <LogOut size={16} />
+      Abmelden
+    </button>
+  );
+}
 
 export function AuthGate({ children }: { children: ReactNode }) {
   const [email, setEmail] = useState("");
@@ -31,10 +68,8 @@ export function AuthGate({ children }: { children: ReactNode }) {
     if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || "Mandantenzugriff konnte nicht geladen werden.");
     const context = await response.json() as AuthContextPayload;
     if (context.memberships.length === 0) throw new Error("Für dieses Konto ist keine aktive Firma zugeordnet.");
-    const current = window.localStorage.getItem(activeTenantStorageKey);
-    if (!current || !context.memberships.some((item) => item.tenantId === current)) {
-      window.localStorage.setItem(activeTenantStorageKey, context.memberships[0].tenantId);
-    }
+    const tenantId = resolveEmployeeTenantId(context.memberships, window.localStorage.getItem(activeTenantStorageKey));
+    window.localStorage.setItem(activeTenantStorageKey, tenantId);
     setReady(true);
     setBusy(false);
   }
@@ -83,7 +118,27 @@ export function AuthGate({ children }: { children: ReactNode }) {
     });
   }
 
-  if (ready) return children;
+  async function signOut() {
+    setBusy(true);
+    setError("");
+    const client = getSupabaseBrowserClient();
+    if (!client) {
+      setError("Supabase Auth ist nicht konfiguriert.");
+      setBusy(false);
+      return;
+    }
+    const { error: signOutError } = await client.auth.signOut();
+    if (signOutError) {
+      setError("Abmeldung ist fehlgeschlagen. Bitte erneut versuchen.");
+      setBusy(false);
+      return;
+    }
+    clearEmployeeSessionContext(window.localStorage);
+    setReady(false);
+    setBusy(false);
+  }
+
+  if (ready) return <AuthActionsContext.Provider value={{ busy, signOut }}>{children}</AuthActionsContext.Provider>;
   return (
     <main className="app auth-app" data-ready="false">
       <section className="auth-shell">

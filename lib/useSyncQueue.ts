@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { apiFetch } from "@/lib/apiClient";
 import {
   createSyncMutation,
+  discardConflictingMutations,
   enqueueSyncMutation,
   failSyncMutation,
   markMutationSyncing,
@@ -120,7 +121,18 @@ export function useSyncQueue({ disabled = false, onApplied }: UseSyncQueueOption
     setQueue((current) => retrySyncMutation(current, mutationId));
   }, []);
 
+  const discardConflicts = useCallback((mutationId?: string) => {
+    setQueue((current) => {
+      const next = discardConflictingMutations(current, mutationId);
+      // Persist immediately so a reload cannot restore a conflict the user
+      // explicitly resolved in favor of the authoritative server record.
+      writeSyncQueue(window.localStorage, next);
+      return next;
+    });
+  }, []);
+
   return {
+    discardConflicts,
     enqueue,
     flush,
     online,

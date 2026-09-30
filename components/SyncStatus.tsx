@@ -10,6 +10,7 @@ type SyncStatusProps = {
   issues?: string[];
   lastSyncedAt?: string;
   online: boolean;
+  onDiscardConflicts: () => Promise<void> | void;
   onRetry: () => void;
   summary: SyncQueueSummary;
 };
@@ -24,8 +25,9 @@ function syncedTime(value?: string) {
   return Number.isNaN(date.getTime()) ? "" : date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-export function SyncStatus({ issues = [], language, lastSyncedAt, online, onRetry, summary }: SyncStatusProps) {
+export function SyncStatus({ issues = [], language, lastSyncedAt, online, onDiscardConflicts, onRetry, summary }: SyncStatusProps) {
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [resolving, setResolving] = useState(false);
   const hasConflict = summary.conflict > 0;
   const hasFailed = summary.failed > 0;
   const isSyncing = summary.syncing > 0;
@@ -86,6 +88,32 @@ export function SyncStatus({ issues = [], language, lastSyncedAt, online, onRetr
           <span>{issues[0] || (hasConflict
             ? copy(language, "Der Serverstand wurde nicht überschrieben. Bitte Daten aktualisieren und die Änderung prüfen.", "Serverdata skrevs inte över. Uppdatera och kontrollera ändringen.", "The server version was not overwritten. Refresh and review the change.")
             : copy(language, "Die lokale Änderung bleibt erhalten.", "Den lokala ändringen finns kvar.", "The local change is retained."))}</span>
+          {hasConflict && (
+            <button
+              className="ghost-button compact"
+              disabled={resolving}
+              onClick={() => {
+                const confirmed = window.confirm(copy(
+                  language,
+                  "Lokale konfliktbehaftete Änderung verwerfen und den aktuellen Serverstand übernehmen?",
+                  "Kasta den lokala ändringen med konflikt och använd den aktuella serverversionen?",
+                  "Discard the conflicting local change and accept the current server version?",
+                ));
+                if (!confirmed) return;
+                setResolving(true);
+                void Promise.resolve(onDiscardConflicts()).finally(() => {
+                  setResolving(false);
+                  setDetailsOpen(false);
+                });
+              }}
+              type="button"
+            >
+              <RefreshCw size={14} />
+              {resolving
+                ? copy(language, "Serverstand wird geladen", "Serverversionen laddas", "Loading server version")
+                : copy(language, "Serverstand übernehmen", "Använd serverversion", "Accept server version")}
+            </button>
+          )}
           {hasFailed && (
             <button className="ghost-button compact" onClick={onRetry} type="button">
               <RefreshCw size={14} />

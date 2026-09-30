@@ -9781,7 +9781,8 @@ button.media-thumb {
   .topbar .app-toolbar-language,
   .topbar .app-toolbar-trip,
   .topbar .app-toolbar-refresh,
-  .topbar .app-toolbar-theme {
+  .topbar .app-toolbar-theme,
+  .topbar .app-toolbar-logout {
     height: 44px !important;
     min-height: 44px !important;
   }
@@ -9802,6 +9803,11 @@ button.media-thumb {
   .topbar .app-toolbar-theme {
     padding: 0 !important;
     width: 44px !important;
+  }
+
+  .topbar .app-toolbar-logout {
+    grid-column: 1 / -1 !important;
+    justify-content: center;
   }
 
   .topbar .app-toolbar-notice {

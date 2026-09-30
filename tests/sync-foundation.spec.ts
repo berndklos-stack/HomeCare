@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import {
   createSyncMutation,
+  discardConflictingMutations,
   enqueueSyncMutation,
   failSyncMutation,
   readSyncQueue,
@@ -173,4 +174,35 @@ test("10. fehlgeschlagene Mutation bleibt sichtbar und erneut ausführbar", () =
   writeSyncQueue(storage, failed);
   expect(JSON.parse(storage.value[syncQueueStorageKey])[0]).toMatchObject({ error: "Netzwerk nicht erreichbar", status: "failed" });
   expect(retrySyncMutation(readSyncQueue(storage), mutation.id)[0]).toMatchObject({ error: undefined, status: "pending" });
+});
+
+test("11. Konflikt bleibt nach Reload sichtbar, bis der Serverstand bewusst übernommen wird", () => {
+  const storage = memoryStorage();
+  const mutation = {
+    ...createSyncMutation({
+      entityId: "trip-conflict",
+      entityType: "vehicle_trip" as const,
+      expectedRevision: 1,
+      operation: "update" as const,
+      payload: { endOdometer: "130" },
+      resourceId: "vehicle-1",
+    }),
+    error: "Der Fortschritt wurde auf einem anderen Gerät geändert.",
+    serverRecord: { id: "trip-conflict", revision: 2 },
+    status: "conflict" as const,
+  };
+  const pending = createSyncMutation({
+    entityId: "trip-pending",
+    entityType: "vehicle_trip",
+    operation: "create",
+    payload: { startOdometer: "140" },
+    resourceId: "vehicle-1",
+  });
+  writeSyncQueue(storage, [mutation, pending]);
+  expect(readSyncQueue(storage)[0]).toMatchObject({ id: mutation.id, status: "conflict" });
+
+  const resolved = discardConflictingMutations(readSyncQueue(storage));
+  writeSyncQueue(storage, resolved);
+
+  expect(readSyncQueue(storage)).toEqual([pending]);
 });

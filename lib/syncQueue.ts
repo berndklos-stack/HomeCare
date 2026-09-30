@@ -132,6 +132,12 @@ export function retrySyncMutation(queue: SyncMutation[], mutationId?: string, no
   });
 }
 
+export function discardConflictingMutations(queue: SyncMutation[], mutationId?: string) {
+  return queue.filter((mutation) => (
+    mutation.status !== "conflict" || (mutationId !== undefined && mutation.id !== mutationId)
+  ));
+}
+
 export function summarizeSyncQueue(queue: SyncMutation[]): SyncQueueSummary {
   return queue.reduce<SyncQueueSummary>((summary, mutation) => {
     summary[mutation.status] += 1;
