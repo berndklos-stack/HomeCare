@@ -891,11 +891,11 @@ type AppSnapshot = {
   updatedAt?: string;
 };
 
-type SyncSectionKey = "accountingAccounts" | "activeJobId" | "billing" | "companySettings" | "customers" | "dailyMailSettings" | "deletedEntityIds" | "deletedReportIds" | "fieldNotes" | "fieldProgress" | "inventoryLocations" | "jobs" | "jobNoteMeta" | "materials" | "objects" | "packages" | "personnel" | "portalMessages" | "reports" | "resources" | "services" | "tenantSettings" | "translationOverrides";
+type SyncSectionKey = "accountingAccounts" | "billing" | "companySettings" | "customers" | "dailyMailSettings" | "deletedEntityIds" | "deletedReportIds" | "fieldNotes" | "fieldProgress" | "inventoryLocations" | "jobs" | "jobNoteMeta" | "materials" | "objects" | "packages" | "personnel" | "portalMessages" | "reports" | "resources" | "services" | "tenantSettings" | "translationOverrides";
 type SyncSectionMap = Partial<Record<SyncSectionKey, { updatedAt?: string; value: unknown }>>;
 
 const syncSectionKeys: SyncSectionKey[] = [
-  "accountingAccounts", "activeJobId", "billing", "companySettings", "customers", "dailyMailSettings",
+  "accountingAccounts", "billing", "companySettings", "customers", "dailyMailSettings",
   "deletedEntityIds", "deletedReportIds", "fieldNotes", "fieldProgress", "inventoryLocations", "jobs",
   "jobNoteMeta", "materials", "objects", "packages", "personnel", "portalMessages", "reports", "resources", "services",
   "tenantSettings", "translationOverrides",
@@ -8707,8 +8707,7 @@ function defaultFieldWorkDate(job: JobRecord) {
 }
 
 function canRestoreActiveFieldJob(job: JobRecord) {
-  const today = new Date().toISOString().slice(0, 10);
-  return job.status === "in Arbeit" && jobExecutionEndDate(job) >= today;
+  return job.status === "in Arbeit";
 }
 
 function fieldProgressKey(job: JobRecord, date: string) {
@@ -10106,6 +10105,15 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     setAppUpdatedAt(updatedAt);
   }
 
+  function persistActiveJobSelection(jobId: string | null) {
+    setActiveJobId(jobId);
+    try {
+      window.localStorage.setItem(storageKeys.activeJobId, JSON.stringify(jobId));
+    } catch (error) {
+      console.warn("Die lokale Auftragsauswahl konnte nicht gespeichert werden.", error);
+    }
+  }
+
   function persistFieldProgressRelational(nextProgress: Record<string, Record<string, FieldTaskProgress>>) {
     const prepared = prepareProgressMutations(fieldProgress, nextProgress);
     prepared.mutations.forEach((mutation) => enqueueSyncMutation(mutation));
@@ -11343,13 +11351,12 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
   function startJob(job: JobRecord) {
     const statusUpdatedAt = new Date().toISOString();
     const nextJobs = jobs.map((item) => (item.id === job.id ? { ...item, status: "in Arbeit" as const, statusUpdatedAt } : item));
-    persistJobsRelational(nextJobs);
-    setActiveJobId(job.id);
+    persistActiveJobSelection(job.id);
     setFieldWorkDates((current) => ({ ...current, [job.id]: current[job.id] ?? defaultFieldWorkDate(job) }));
     setEditingFieldReportId(null);
-    persistSnapshotNow({ activeJobId: job.id }, { forceRemote: true });
     setSelectedObjectId(job.objectId);
     setSection("field");
+    persistJobsRelational(nextJobs);
   }
 
   function assignJobResources(job: JobRecord, resourceIds: string[]) {
@@ -11415,10 +11422,9 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
 
     persistFieldProgressRelational(nextFieldProgress);
     persistFieldNotesRelational(nextFieldNotes);
-    setActiveJobId(job.id);
+    persistActiveJobSelection(job.id);
     setFieldWorkDates((current) => ({ ...current, [job.id]: reportDate }));
     setEditingFieldReportId(report.id);
-    persistSnapshotNow({ activeJobId: job.id }, { forceRemote: true });
     setSelectedObjectId(job.objectId);
     setSection("field");
   }
@@ -11456,9 +11462,8 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     }
     if (nextBilling !== billing) persistBillingRelational(nextBilling);
     if (nextDeletedReportIds !== deletedReportIds) setDeletedReportIds(nextDeletedReportIds);
-    setActiveJobId(null);
+    persistActiveJobSelection(null);
     setEditingFieldReportId(null);
-    persistSnapshotNow({ activeJobId: null }, { forceRemote: true });
   }
 
   function updateJobMaterial(job: JobRecord, material: string) {
@@ -11587,14 +11592,11 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     persistObjectsRelational(nextObjects);
     persistFieldNotesRelational(nextFieldNotes);
     persistFieldProgressRelational(nextFieldProgress);
-    setActiveJobId(nextJobStatus === "in Arbeit" ? job.id : null);
+    persistActiveJobSelection(nextJobStatus === "in Arbeit" ? job.id : null);
     if (nextJobStatus === "in Arbeit") {
       setFieldWorkDates((current) => ({ ...current, [job.id]: nextOpenWorkDate }));
     }
     setEditingFieldReportId(null);
-    persistSnapshotNow({
-      activeJobId: nextJobStatus === "in Arbeit" ? job.id : null,
-    }, { forceRemote: true });
     setSelectedObjectId(job.objectId);
     if (nextJobStatus === "in Arbeit") {
       setSection("field");

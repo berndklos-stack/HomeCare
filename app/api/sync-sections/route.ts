@@ -1,12 +1,16 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { isAuthError, requireApiAuth } from "@/lib/server/apiAuth";
+import {
+  applyObjectMediaSignedUrls,
+  objectMediaPathsToSign,
+  objectMediaSignedUrlTtlSeconds,
+} from "@/lib/server/objectMediaProjection";
 
 export const runtime = "nodejs";
 
 const allowedSyncSections = [
   "accountingAccounts",
-  "activeJobId",
   "billing",
   "companySettings",
   "customers",
@@ -1585,13 +1589,30 @@ async function loadCustomersSection(supabase: NonNullable<ReturnType<typeof getS
   };
 }
 
-async function loadObjectsSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
+async function loadObjectsSection(
+  supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>,
+  storageClient: NonNullable<ReturnType<typeof getSupabaseServerClient>>,
+  tenantId: string,
+) {
   const objectRows = await loadObjectsRows(supabase);
   const mediaRows = await loadObjectMediaRows(supabase).catch(() => []);
+  const liveObjectIds = new Set(objectRows.filter((row) => !row.deleted_at).map((row) => row.id));
+  const ownedMediaRows = mediaRows.filter((row) => liveObjectIds.has(row.owner_id));
+  const storagePaths = objectMediaPathsToSign(ownedMediaRows, tenantId);
+  let signedUrls = new Map<string, string>();
+  if (storagePaths.length > 0) {
+    const { data } = await storageClient.storage
+      .from("homecare-private-media")
+      .createSignedUrls(storagePaths, objectMediaSignedUrlTtlSeconds);
+    signedUrls = new Map((data ?? []).flatMap((item) => (
+      item.path && item.signedUrl ? [[item.path, item.signedUrl] as const] : []
+    )));
+  }
+  const projectedMediaRows = applyObjectMediaSignedUrls(ownedMediaRows, tenantId, signedUrls);
   return {
     deletedObjectIds: objectRows.filter((row) => row.deleted_at).map((row) => row.id),
     updatedAt: maxUpdatedAt([...objectRows.map((row) => row.updated_at), ...mediaRows.map((row) => row.updated_at)]),
-    value: objectRows.filter((row) => !row.deleted_at).map((row) => rowToObject(row, mediaRows)),
+    value: objectRows.filter((row) => !row.deleted_at).map((row) => rowToObject(row, projectedMediaRows)),
   };
 }
 
@@ -1884,7 +1905,7 @@ export async function GET(request: Request) {
     if (keys.includes("customers")) sections.customers = await loadCustomersSection(supabase);
     if (keys.includes("inventoryLocations")) sections.inventoryLocations = await loadInventoryLocationsSection(supabase);
     if (keys.includes("materials")) sections.materials = await loadMaterialsSection(supabase);
-    if (keys.includes("objects")) sections.objects = await loadObjectsSection(supabase);
+    if (keys.includes("objects")) sections.objects = await loadObjectsSection(supabase, auth.serviceClient, auth.tenantId);
     if (keys.includes("packages")) sections.packages = await loadPackagesSection(supabase);
     if (keys.includes("personnel")) sections.personnel = await loadPersonnelSection(supabase);
     if (keys.includes("portalMessages")) sections.portalMessages = await loadPortalMessagesSection(supabase);
