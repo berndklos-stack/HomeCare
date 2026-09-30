@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import type { Session } from "@supabase/supabase-js";
+import type { AuthChangeEvent, Session, SupabaseClient } from "@supabase/supabase-js";
 import { Building2, LogIn, LogOut } from "lucide-react";
 import type { AuthContextPayload } from "@/lib/authModel";
 import { activeTenantStorageKey, apiFetch } from "@/lib/apiClient";
@@ -26,6 +26,29 @@ export function resolveEmployeeTenantId(memberships: TenantMembershipLike[], cur
 }
 
 type TenantMembershipLike = Pick<AuthContextPayload["memberships"][number], "tenantId">;
+
+type EmployeeAuthClient = Pick<SupabaseClient, "auth">;
+
+function employeeAuthBypassEnabled() {
+  return process.env.NEXT_PUBLIC_E2E_AUTH_BYPASS === "1"
+    && (typeof window === "undefined" || !new URLSearchParams(window.location.search).has("workcore-auth-test"));
+}
+
+export async function subscribeAfterInitialSession(
+  client: EmployeeAuthClient,
+  onInitialSession: (session: Session | null) => Promise<void>,
+  onAuthChange: (event: AuthChangeEvent, session: Session | null) => void,
+) {
+  const { data, error } = await client.auth.getSession();
+  if (error) throw error;
+
+  const subscription = client.auth.onAuthStateChange((event, session) => {
+    if (event !== "INITIAL_SESSION") onAuthChange(event, session);
+  }).data.subscription;
+
+  await onInitialSession(data.session);
+  return subscription;
+}
 
 export function EmployeeLogoutButton() {
   const auth = useContext(AuthActionsContext);
@@ -52,7 +75,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
 
   async function establishContext(providedSession?: Session | null) {
-    if (process.env.NEXT_PUBLIC_E2E_AUTH_BYPASS === "1") {
+    if (employeeAuthBypassEnabled()) {
       window.localStorage.setItem(activeTenantStorageKey, "00000000-0000-0000-0000-000000000001");
       setReady(true);
       setBusy(false);
@@ -79,17 +102,16 @@ export function AuthGate({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
-    const initialCheck = window.setTimeout(() => {
-      void establishContext().catch((cause) => {
-        setError(cause instanceof Error ? cause.message : "Anmeldung konnte nicht geprüft werden.");
-        setBusy(false);
-      });
-    }, 0);
     const client = getSupabaseBrowserClient();
+    let cancelled = false;
     let authChangeId: number | undefined;
-    const subscription = client?.auth.onAuthStateChange((_event, session) => {
+    let subscription: { unsubscribe: () => void } | undefined;
+
+    function handleAuthChange(_event: AuthChangeEvent, session: Session | null) {
+      if (cancelled) return;
       if (authChangeId) window.clearTimeout(authChangeId);
       authChangeId = window.setTimeout(() => {
+        if (cancelled) return;
         setBusy(true);
         void establishContext(session).catch((cause) => {
           setError(cause instanceof Error ? cause.message : "Anmeldung konnte nicht geprüft werden.");
@@ -97,9 +119,29 @@ export function AuthGate({ children }: { children: ReactNode }) {
           setBusy(false);
         });
       }, 0);
-    }).data.subscription;
+    }
+
+    if (employeeAuthBypassEnabled() || !client) {
+      void establishContext().catch((cause) => {
+        if (cancelled) return;
+        setError(cause instanceof Error ? cause.message : "Anmeldung konnte nicht geprüft werden.");
+        setBusy(false);
+      });
+    } else {
+      void subscribeAfterInitialSession(client, establishContext, handleAuthChange)
+        .then((nextSubscription) => {
+          if (cancelled) nextSubscription.unsubscribe();
+          else subscription = nextSubscription;
+        })
+        .catch((cause) => {
+          if (cancelled) return;
+          setError(cause instanceof Error ? cause.message : "Anmeldung konnte nicht geprüft werden.");
+          setBusy(false);
+        });
+    }
+
     return () => {
-      window.clearTimeout(initialCheck);
+      cancelled = true;
       if (authChangeId) window.clearTimeout(authChangeId);
       subscription?.unsubscribe();
     };

@@ -8,7 +8,7 @@ import {
   type TenantMembership,
 } from "../lib/authModel";
 import { activeTenantStorageKey } from "../lib/apiClient";
-import { clearEmployeeSessionContext, resolveEmployeeTenantId } from "../components/AuthGate";
+import { clearEmployeeSessionContext, resolveEmployeeTenantId, subscribeAfterInitialSession } from "../components/AuthGate";
 import { syncQueueStorageKey } from "../lib/syncQueue";
 
 function membership(tenantId: string, role: keyof typeof defaultRolePermissions): TenantMembership {
@@ -160,8 +160,47 @@ test("erneute Anmeldung stellt den gültigen Mandantenkontext wieder her", () =>
   const appPage = readFileSync(path.join(process.cwd(), "app/page.tsx"), "utf8");
   expect(authGate).toContain("client.auth.signOut()");
   expect(authGate).toContain("setReady(false)");
-  expect(authGate).toContain("onAuthStateChange((_event, session)");
-  expect(authGate).toContain("establishContext(session)");
+  expect(authGate).toContain("subscribeAfterInitialSession(client, establishContext, handleAuthChange)");
+  expect(authGate).toContain('event !== "INITIAL_SESSION"');
   expect(authGate).toContain("establishContext(data.session)");
   expect(appPage).toContain("<EmployeeLogoutButton");
+});
+
+test("Session-Wiederherstellung ist abgeschlossen, bevor der Auth-Listener startet", async () => {
+  const calls: string[] = [];
+  const session = { access_token: "test-token" } as never;
+  let listener: ((event: "INITIAL_SESSION" | "TOKEN_REFRESHED", session: never) => void) | undefined;
+  const subscription = { unsubscribe: () => calls.push("unsubscribe") };
+  const client = {
+    auth: {
+      getSession: async () => {
+        calls.push("getSession:start");
+        await Promise.resolve();
+        calls.push("getSession:end");
+        return { data: { session }, error: null };
+      },
+      onAuthStateChange: (callback: typeof listener) => {
+        calls.push("subscribe");
+        listener = callback;
+        callback?.("INITIAL_SESSION", session);
+        return { data: { subscription } };
+      },
+    },
+  } as never;
+
+  const authChanges: string[] = [];
+  const result = await subscribeAfterInitialSession(
+    client,
+    async (initialSession) => {
+      calls.push(`initial:${initialSession?.access_token}`);
+    },
+    (event) => authChanges.push(event),
+  );
+
+  expect(calls).toEqual(["getSession:start", "getSession:end", "subscribe", "initial:test-token"]);
+  expect(authChanges).toEqual([]);
+  listener?.("TOKEN_REFRESHED", session);
+  expect(authChanges).toEqual(["TOKEN_REFRESHED"]);
+  result.unsubscribe();
+  expect(calls.at(-1)).toBe("unsubscribe");
 });
