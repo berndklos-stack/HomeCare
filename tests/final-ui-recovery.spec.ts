@@ -5,6 +5,7 @@ import {
   applyObjectMediaSignedUrls,
   objectMediaPathsToSign,
   objectMediaSignedUrlTtlSeconds,
+  objectMediaStoragePath,
 } from "../lib/server/objectMediaProjection";
 
 test("mobile Vor-Ort-Auswahl öffnet den richtigen Auftrag lokal und übersteht Reload", async ({ page }) => {
@@ -45,16 +46,23 @@ test("private Objektbilder erhalten nur mandanteneigene kurzlebige URLs", () => 
   const tenantId = "00000000-0000-0000-0000-000000000001";
   const ownPath = `${tenantId}/object-photos/photo.jpg`;
   const foreignPath = "00000000-0000-0000-0000-000000000002/object-photos/foreign.jpg";
+  const legacyPath = "migrated-app-state/2026-08-30/legacy-photo.jpg";
   const rows = [
     { deleted_at: null, preview_url: "/api/private-media?path=old", storage_path: ownPath },
     { deleted_at: null, preview_url: "https://storage.example/foreign", storage_path: foreignPath },
+    { deleted_at: null, preview_url: `/api/private-media?path=${encodeURIComponent(legacyPath)}`, storage_path: null },
   ];
 
   expect(objectMediaSignedUrlTtlSeconds).toBeLessThanOrEqual(15 * 60);
-  expect(objectMediaPathsToSign(rows, tenantId)).toEqual([ownPath]);
-  expect(applyObjectMediaSignedUrls(rows, tenantId, new Map([[ownPath, "https://storage.example/signed-own"]]))).toEqual([
+  expect(objectMediaStoragePath(rows[2], tenantId)).toBe(legacyPath);
+  expect(objectMediaPathsToSign(rows, tenantId)).toEqual([ownPath, legacyPath]);
+  expect(applyObjectMediaSignedUrls(rows, tenantId, new Map([
+    [ownPath, "https://storage.example/signed-own"],
+    [legacyPath, "https://storage.example/signed-legacy"],
+  ]))).toEqual([
     { deleted_at: null, preview_url: "https://storage.example/signed-own", storage_path: ownPath },
     { deleted_at: null, preview_url: null, storage_path: null },
+    { deleted_at: null, preview_url: "https://storage.example/signed-legacy", storage_path: null },
   ]);
 });
 

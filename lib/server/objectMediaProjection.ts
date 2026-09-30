@@ -15,10 +15,27 @@ function safeInlinePreview(previewUrl: string | null) {
   return previewUrl?.startsWith("data:image/") ? previewUrl : null;
 }
 
+function legacyPrivateMediaPath(previewUrl: string | null) {
+  if (!previewUrl?.startsWith("/api/private-media?")) return null;
+  try {
+    const path = new URL(previewUrl, "https://workcore.local").searchParams.get("path");
+    return path?.startsWith("migrated-app-state/") && !path.includes("..") ? path : null;
+  } catch {
+    return null;
+  }
+}
+
+export function objectMediaStoragePath(row: ObjectMediaProjectionRow, tenantId: string) {
+  if (row.storage_path?.startsWith(`${tenantId}/`) && !row.storage_path.includes("..")) {
+    return row.storage_path;
+  }
+  return row.storage_path ? null : legacyPrivateMediaPath(row.preview_url);
+}
+
 export function objectMediaPathsToSign<T extends ObjectMediaProjectionRow>(rows: T[], tenantId: string) {
   return Array.from(new Set(rows.flatMap((row) => (
-    !row.deleted_at && row.storage_path?.startsWith(`${tenantId}/`)
-      ? [row.storage_path]
+    !row.deleted_at && objectMediaStoragePath(row, tenantId)
+      ? [objectMediaStoragePath(row, tenantId) as string]
       : []
   ))));
 }
@@ -31,11 +48,11 @@ export function applyObjectMediaSignedUrls<T extends ObjectMediaProjectionRow>(
   return rows
     .filter((row) => !row.deleted_at)
     .map((row) => {
-      const storagePath = row.storage_path;
-      if (!storagePath) {
+      const storagePath = objectMediaStoragePath(row, tenantId);
+      if (!row.storage_path && !storagePath) {
         return { ...row, preview_url: safeFallbackPreview(row.preview_url) };
       }
-      if (!storagePath.startsWith(`${tenantId}/`)) {
+      if (!storagePath) {
         return { ...row, preview_url: safeInlinePreview(row.preview_url), storage_path: null };
       }
       return {
