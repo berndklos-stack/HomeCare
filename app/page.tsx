@@ -8968,6 +8968,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
   const lastForegroundSyncAtRef = useRef(0);
   const lastUserInteractionAtRef = useRef(0);
   const pendingReportPhotoUploadsRef = useRef<Set<string>>(new Set());
+  const pendingReportPhotoMigrationTimerRef = useRef<number | null>(null);
 
   const handleMutationApplied = useCallback((mutation: SyncMutation, result: SyncMutationResult) => {
     const serverRecord = result.record;
@@ -9351,6 +9352,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     if (localSaveTimerRef.current) window.clearTimeout(localSaveTimerRef.current);
     if (resourcePersistTimerRef.current) window.clearTimeout(resourcePersistTimerRef.current);
     if (quickTripDraftSaveTimerRef.current) window.clearTimeout(quickTripDraftSaveTimerRef.current);
+    if (pendingReportPhotoMigrationTimerRef.current) window.clearTimeout(pendingReportPhotoMigrationTimerRef.current);
   }, []);
 
   function shouldDeferBackgroundUiWork() {
@@ -9504,14 +9506,20 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
           .filter(({ photo }) => Boolean(photo.previewUrl?.startsWith("data:image/") && !photo.storagePath))
       ))
     ));
-    if (!pendingPhotos.length) return;
+    if (!pendingPhotos.length || pendingReportPhotoMigrationTimerRef.current !== null || pendingReportPhotoUploadsRef.current.size > 0) return;
 
-    pendingPhotos.slice(0, 4).forEach(({ itemId, photo, reportId }) => {
+    const candidate = pendingPhotos.find(({ itemId, photo, reportId }) => {
       const photoId = photo.id ?? `${reportId}-${itemId}-${photo.name}`;
-      const uploadKey = `${reportId}:${itemId}:${photoId}`;
-      if (pendingReportPhotoUploadsRef.current.has(uploadKey) || !photo.previewUrl) return;
-      pendingReportPhotoUploadsRef.current.add(uploadKey);
+      return Boolean(photo.previewUrl && !pendingReportPhotoUploadsRef.current.has(`${reportId}:${itemId}:${photoId}`));
+    });
+    if (!candidate) return;
+    const { itemId, photo, reportId } = candidate;
+    const photoId = photo.id ?? `${reportId}-${itemId}-${photo.name}`;
+    const uploadKey = `${reportId}:${itemId}:${photoId}`;
+    pendingReportPhotoUploadsRef.current.add(uploadKey);
 
+    pendingReportPhotoMigrationTimerRef.current = window.setTimeout(() => {
+      pendingReportPhotoMigrationTimerRef.current = null;
       void (async () => {
         try {
           const previewUrl = photo.previewUrl;
@@ -9543,7 +9551,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
           pendingReportPhotoUploadsRef.current.delete(uploadKey);
         }
       })();
-    });
+    }, 2500);
   }, [appStorageReady, initialSyncComplete, reports]);
 
   useEffect(() => {

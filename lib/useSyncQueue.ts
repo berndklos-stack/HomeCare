@@ -23,6 +23,9 @@ type UseSyncQueueOptions = {
   onApplied?: (mutation: SyncMutation, result: SyncMutationResult) => void;
 };
 
+const automaticFlushBatchSize = 8;
+const automaticFlushDelayMs = 750;
+
 async function sendMutation(mutation: SyncMutation): Promise<SyncMutationResult> {
   const response = await apiFetch("/api/sync-mutations", {
     body: JSON.stringify(mutation),
@@ -77,7 +80,9 @@ export function useSyncQueue({ disabled = false, onApplied }: UseSyncQueueOption
     try {
       let pending = nextPendingMutation(queue);
       let workingQueue = queue;
-      while (pending && navigator.onLine) {
+      let processed = 0;
+      while (pending && navigator.onLine && processed < automaticFlushBatchSize) {
+        processed += 1;
         workingQueue = markMutationSyncing(workingQueue, pending.id);
         setQueue(workingQueue);
         try {
@@ -101,7 +106,7 @@ export function useSyncQueue({ disabled = false, onApplied }: UseSyncQueueOption
 
   useEffect(() => {
     if (!online || disabled || !nextPendingMutation(queue)) return;
-    const timeoutId = window.setTimeout(() => void flush(), 150);
+    const timeoutId = window.setTimeout(() => void flush(), automaticFlushDelayMs);
     return () => window.clearTimeout(timeoutId);
   }, [disabled, flush, online, queue]);
 

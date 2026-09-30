@@ -1,5 +1,17 @@
 import { expect, test } from "@playwright/test";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { syncQueueStorageKey } from "../lib/syncQueue";
+
+test("große Sync-Rückstände und alte Berichtsfotos werden gedrosselt", () => {
+  const syncHook = readFileSync(path.join(process.cwd(), "lib/useSyncQueue.ts"), "utf8");
+  const appPage = readFileSync(path.join(process.cwd(), "app/page.tsx"), "utf8");
+  expect(syncHook).toContain("processed < automaticFlushBatchSize");
+  expect(syncHook).toContain("automaticFlushDelayMs");
+  expect(appPage).toContain("pendingReportPhotoUploadsRef.current.size > 0");
+  expect(appPage).toContain("pendingReportPhotoMigrationTimerRef.current = window.setTimeout");
+  expect(appPage).not.toContain("pendingPhotos.slice(0, 4)");
+});
 
 test("Konflikt kann zugunsten des Serverstands dauerhaft verworfen werden", async ({ page }) => {
   await page.route("**/api/sync-mutations", async (route) => {
