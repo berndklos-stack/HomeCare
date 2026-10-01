@@ -5,6 +5,7 @@
 import Image from "next/image";
 import { AuthGate, EmployeeLogoutButton } from "@/components/AuthGate";
 import { SyncStatus } from "@/components/SyncStatus";
+import { DevicePhotoSave, type DevicePhotoPolicy } from "@/components/DevicePhotoSave";
 import { TenantSwitcher } from "@/components/TenantSwitcher";
 import {
   ArrowDown,
@@ -809,6 +810,7 @@ type DailyMailSettings = {
 };
 
 type CompanySettings = {
+  jobPhotoDeviceSave?: DevicePhotoPolicy;
   address: string;
   bank: string;
   brandNameInternational?: string;
@@ -13236,17 +13238,17 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
               <EmployeeLogoutButton />
             </div>
             <SyncStatus
+              conflicts={tripSync.queue.filter((mutation) => mutation.status === "conflict")}
               issues={tripSync.queue.filter((mutation) => mutation.status === "failed" || mutation.status === "conflict").map((mutation) => mutation.error || "")}
               language={language}
               lastSyncedAt={appUpdatedAt}
               online={tripSync.online}
-              onDiscardConflicts={async () => {
-                tripSync.discardConflicts();
+              onDiscardConflicts={async (mutationId) => {
+                tripSync.discardConflicts(mutationId);
                 await refreshAppDataNow();
               }}
-              onRetry={() => {
-                tripSync.retry();
-                void tripSync.flush();
+              onRetry={(mutationId) => {
+                tripSync.retry(mutationId);
               }}
               summary={{
                 ...tripSync.summary,
@@ -13423,6 +13425,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
             )}
             {section === "field" && (
               <FieldView
+                photoDevicePolicy={companySettings.jobPhotoDeviceSave ?? "never"}
                 activeJobId={activeJobId}
                 allJobs={jobs}
                 customers={customers}
@@ -17185,6 +17188,7 @@ function PlanningView({
 }
 
 function FieldView({
+  photoDevicePolicy,
   activeJobId,
   allJobs,
   customers,
@@ -17209,6 +17213,7 @@ function FieldView({
   onUpdateReport,
   onComplete,
 }: {
+  photoDevicePolicy: DevicePhotoPolicy;
   activeJobId: string | null;
   allJobs: JobRecord[];
   customers: CustomerRecord[];
@@ -17244,6 +17249,8 @@ function FieldView({
   const [photoNoteEditor, setPhotoNoteEditor] = useState<{ photoId: string; taskId: string } | null>(null);
   const [localPhotoPreviewUrls, setLocalPhotoPreviewUrls] = useState<Record<string, string>>({});
   const [preparingFieldPhotos, setPreparingFieldPhotos] = useState(0);
+  const [devicePhotoFiles, setDevicePhotoFiles] = useState<File[]>([]);
+  useEffect(() => { setDevicePhotoFiles([]); }, [activeJobId, selectedWorkDate]);
   const progressRef = useRef(progress);
   const localPhotoPreviewUrlsRef = useRef(localPhotoPreviewUrls);
 
@@ -17540,7 +17547,7 @@ function FieldView({
     setPhotoNoteDraft("");
   }
 
-  async function addFieldPhotoFiles(taskId: string, currentTask: FieldTaskProgress, files: FileList | null) {
+  async function addFieldPhotoFiles(taskId: string, currentTask: FieldTaskProgress, files: FileList | null, source: "camera" | "library") {
     const selectedFiles = Array.from(files ?? []);
     if (!selectedFiles.length) return;
 
@@ -17562,15 +17569,17 @@ function FieldView({
       if (!nextPhotos.length) return;
 
       updateTaskPhotos(taskId, currentTask, (photos) => [...photos, ...nextPhotos]);
+      if (source === "camera" && photoDevicePolicy !== "never") {
+        setDevicePhotoFiles((current) => [...current, ...selectedFiles]);
+      }
       const localPreviewEntries = nextPhotos
         .filter((photo) => photo.id && photo.previewUrl)
         .map((photo) => [photo.id as string, photo.previewUrl as string]);
       if (localPreviewEntries.length) {
         setLocalPhotoPreviewUrls((current) => ({ ...current, ...Object.fromEntries(localPreviewEntries) }));
       }
-      nextPhotos.forEach((photo, index) => {
-        const file = selectedFiles[index];
-        if (photo.id && file) void uploadFieldPhotoInBackground(taskId, photo.id, file.name, photo.previewUrl);
+      nextPhotos.forEach((photo) => {
+        if (photo.id) void uploadFieldPhotoInBackground(taskId, photo.id, photo.name, photo.previewUrl);
       });
     } finally {
       setPreparingFieldPhotos((current) => Math.max(0, current - selectedFiles.length));
@@ -17761,6 +17770,7 @@ function FieldView({
           </div>
         </div>
         {reportLocked && <div className="warning-line">{tt("Dieser Bericht wurde gesendet und ist für Änderungen gesperrt.")} {activeReport?.sentAt}</div>}
+        <DevicePhotoSave files={devicePhotoFiles} policy={photoDevicePolicy} onDismiss={() => setDevicePhotoFiles([])} />
         {!reportLocked && retryableFieldPhotoCount > 0 && (
           <div className="warning-line field-upload-retry-line">
             <span>{retryableFieldPhotoCount} {retryableFieldPhotoCount === 1 ? tt("Foto-Upload wartet") : tt("Foto-Uploads warten")}</span>
@@ -17831,7 +17841,7 @@ function FieldView({
                       type="file"
                       onChange={(event) => {
                         event.stopPropagation();
-                        void addFieldPhotoFiles(task.id, currentTask, event.target.files);
+                        void addFieldPhotoFiles(task.id, currentTask, event.target.files, "camera");
                         event.currentTarget.value = "";
                       }}
                     />
@@ -17846,7 +17856,7 @@ function FieldView({
                       type="file"
                       onChange={(event) => {
                         event.stopPropagation();
-                        void addFieldPhotoFiles(task.id, currentTask, event.target.files);
+                        void addFieldPhotoFiles(task.id, currentTask, event.target.files, "library");
                         event.currentTarget.value = "";
                       }}
                     />
@@ -22152,6 +22162,12 @@ function MasterDataView({
             <label className="checkbox-line wide">
               <input checked={companySettingsForm.fSkattApproved} onChange={(event) => setCompanySettingsForm({ ...companySettingsForm, fSkattApproved: event.target.checked })} type="checkbox" />
               <span>{tt("Godkänd för F-skatt auf Offerten und Rechnungen anzeigen")}</span>
+            </label>
+            <label className="wide"><span>Auftragsfotos auf dem Gerät speichern</span>
+              <select aria-label="Auftragsfotos auf dem Gerät speichern" value={companySettingsForm.jobPhotoDeviceSave ?? "never"} onChange={(event) => setCompanySettingsForm({ ...companySettingsForm, jobPhotoDeviceSave: event.target.value as DevicePhotoPolicy })}>
+                <option value="never">Nie</option><option value="ask">Jedes Mal fragen</option><option value="always">Immer</option>
+              </select>
+              <small>Gilt für neue Kameraaufnahmen in Mobil vor Ort. Auch bei „Immer“ erfordert Safari/PWA einen ausdrücklichen Speichern-/Teilen-Schritt. Bibliotheksbilder werden nicht erneut gespeichert.</small>
             </label>
             <button className="primary-button wide" onClick={saveCompanySettings} type="button">{tt("Firmenstammdaten speichern")}</button>
           </div>

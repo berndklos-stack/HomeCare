@@ -10622,3 +10622,58 @@ button.media-thumb {
 .tenant-switcher select {
   min-width: 180px;
 }
+
+/* Keep navigation outside the scrolling workspace; the toolbar sticks inside it. */
+.app {
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+.workspace {
+  min-height: 0;
+  overflow-y: auto;
+  scroll-padding-top: 240px;
+}
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  align-self: start;
+  background: var(--background);
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+.sync-status-details {
+  width: min(540px, calc(100vw - 32px));
+  max-width: min(540px, calc(100vw - 300px));
+  left: 0;
+  right: auto;
+  max-height: 45dvh;
+  overflow: auto;
+  z-index: 60;
+  overflow-wrap: anywhere;
+}
+.sync-conflict-entry { border-top: 1px solid var(--line); padding: 10px 0; display: grid; gap: 8px; }
+.modal-backdrop { z-index: 100; }
+.field-status-backdrop { z-index: 110; }
+.sync-conflict-entry label, .sync-conflict-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.sync-conflict-entry input { width: 20px; height: 20px; }
+.sync-conflict-entry dd { margin: 0; overflow-wrap: anywhere; }
+.device-photo-save { margin: 12px 0; padding: 12px 0; border-block: 1px solid var(--line); }
+.device-photo-save p { font-size: 13px; text-transform: none; }
+.device-photo-save-row { display: grid; grid-template-columns: minmax(0, 1fr) 44px 44px; align-items: center; gap: 8px; margin: 8px 0; }
+.device-photo-save-row span { overflow-wrap: anywhere; }
+@media (max-width: 780px) {
+  .app { display: flex; flex-direction: column; }
+  .sidebar { flex: 0 0 auto; position: relative; }
+  .workspace { flex: 1 1 auto; }
+  .topbar { padding-top: 0; gap: 6px; }
+  .topbar h1.brand-wordmark { font-size: 28px; }
+  .sync-status-details { max-width: calc(100vw - 32px); }
+}
+@media print {
+  .app { height: auto; overflow: visible; }
+  .workspace { overflow: visible; }
+  .topbar { position: static; }
+}

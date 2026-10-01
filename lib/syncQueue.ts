@@ -132,9 +132,10 @@ export function retrySyncMutation(queue: SyncMutation[], mutationId?: string, no
   });
 }
 
-export function discardConflictingMutations(queue: SyncMutation[], mutationId?: string) {
+export function discardConflictingMutations(queue: SyncMutation[], mutationId?: string | string[]) {
+  const selected = mutationId === undefined ? null : new Set(Array.isArray(mutationId) ? mutationId : [mutationId]);
   return queue.filter((mutation) => (
-    mutation.status !== "conflict" || (mutationId !== undefined && mutation.id !== mutationId)
+    mutation.status !== "conflict" || (selected !== null && !selected.has(mutation.id))
   ));
 }
 

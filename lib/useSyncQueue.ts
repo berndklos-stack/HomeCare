@@ -124,10 +124,14 @@ export function useSyncQueue({ disabled = false, onApplied }: UseSyncQueueOption
   }, []);
 
   const retry = useCallback((mutationId?: string) => {
-    setQueue((current) => retrySyncMutation(current, mutationId));
+    setQueue((current) => {
+      const next = retrySyncMutation(current, mutationId);
+      writeSyncQueue(window.localStorage, next);
+      return next;
+    });
   }, []);
 
-  const discardConflicts = useCallback((mutationId?: string) => {
+  const discardConflicts = useCallback((mutationId?: string | string[]) => {
     setQueue((current) => {
       const next = discardConflictingMutations(current, mutationId);
       // Persist immediately so a reload cannot restore a conflict the user
