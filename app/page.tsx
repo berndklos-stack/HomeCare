@@ -55,6 +55,7 @@ import {
 import { type CSSProperties, type DragEvent, type MouseEvent, type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { appVersion, versionHistory } from "@/lib/appVersion";
 import { apiFetch, apiRequestHeaders, tenantScopedStorageKey } from "@/lib/apiClient";
+import { useAuthenticatedMedia } from "@/lib/useAuthenticatedMedia";
 import { defaultAppBranding, resolveAppBranding } from "@/lib/branding";
 import { createStableId, readSyncQueue, type SyncMutation, type SyncMutationOperation, type SyncMutationResult } from "@/lib/syncQueue";
 import { overlayPendingMasterData, prepareMasterDataMutations, type RevisionedMasterRecord } from "@/lib/masterDataSync";
@@ -15538,12 +15539,19 @@ function ReportPhotoFigure({
   const [sourceIndex, setSourceIndex] = useState(0);
   const sources = fieldPhotoSources(photo);
   const source = sources[sourceIndex] ?? "";
+  const image = useAuthenticatedMedia(source);
   const downloadName = `${safeFileName(photo.name || caption || "Berichtsfoto") || "Berichtsfoto"}.jpg`;
 
   useEffect(() => {
     setImageFailed(false);
     setSourceIndex(0);
   }, [photo.id, photo.previewUrl, photo.storagePath]);
+
+  useEffect(() => {
+    if (!image.failed) return;
+    if (sourceIndex < sources.length - 1) setSourceIndex((current) => current + 1);
+    else setImageFailed(true);
+  }, [image.failed, sourceIndex, sources.length]);
 
   function handleImageError() {
     if (sourceIndex < sources.length - 1) {
@@ -15555,13 +15563,15 @@ function ReportPhotoFigure({
 
   return (
     <figure>
-      {source && !imageFailed ? (
+      {image.loading ? (
+        <div className="report-gallery-placeholder" role="status">Bild wird geladen</div>
+      ) : image.url && !imageFailed ? (
         downloadable ? (
-          <a className="report-photo-link" href={source} target="_blank" rel="noreferrer" download={downloadName}>
-            <img alt={alt} src={source} onError={handleImageError} />
+          <a className="report-photo-link" href={image.url} target="_blank" rel="noreferrer" download={downloadName}>
+            <img alt={alt} src={image.url} onError={handleImageError} />
           </a>
         ) : (
-          <img alt={alt} src={source} onError={handleImageError} />
+          <img alt={alt} src={image.url} onError={handleImageError} />
         )
       ) : (
         <div className="report-gallery-placeholder error-placeholder">
@@ -15571,8 +15581,8 @@ function ReportPhotoFigure({
       )}
       <figcaption>
         <span>{caption}</span>
-        {downloadable && source && !imageFailed && (
-          <a href={source} target="_blank" rel="noreferrer" download={downloadName}>
+        {downloadable && image.url && !imageFailed && (
+          <a href={image.url} target="_blank" rel="noreferrer" download={downloadName}>
             Download
           </a>
         )}

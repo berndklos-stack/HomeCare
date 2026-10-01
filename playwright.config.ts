@@ -30,7 +30,7 @@ export default defineConfig({
     },
     {
       name: "webkit",
-      testMatch: /safari-runtime\.spec\.ts/,
+      testMatch: /(?:safari-runtime|report-private-media)\.spec\.ts/,
       use: { ...devices["Desktop Safari"] },
     },
   ],
