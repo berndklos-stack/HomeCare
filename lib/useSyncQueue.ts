@@ -84,17 +84,18 @@ export function useSyncQueue({ disabled = false, onApplied }: UseSyncQueueOption
       while (pending && navigator.onLine && processed < automaticFlushBatchSize) {
         processed += 1;
         workingQueue = markMutationSyncing(workingQueue, pending.id);
-        setQueue(workingQueue);
+        const pendingId = pending.id;
+        setQueue((current) => markMutationSyncing(current, pendingId));
         try {
           const result = await sendMutation(pending);
           workingQueue = settleSyncMutation(workingQueue, pending.id, result);
-          setQueue(workingQueue);
+          setQueue((current) => settleSyncMutation(current, pendingId, result));
           if (result.status === "synced") onAppliedRef.current?.(pending, result);
           if (result.status === "conflict") break;
         } catch (error) {
           const message = error instanceof Error ? error.message : "Synchronisierung fehlgeschlagen.";
           workingQueue = failSyncMutation(workingQueue, pending.id, message);
-          setQueue(workingQueue);
+          setQueue((current) => failSyncMutation(current, pendingId, message));
           break;
         }
         pending = nextPendingMutation(workingQueue);

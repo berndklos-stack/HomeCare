@@ -3,13 +3,14 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { syncQueueStorageKey } from "../lib/syncQueue";
 
-test("große Sync-Rückstände und alte Berichtsfotos werden gedrosselt", () => {
+test("Sync-Rückstände sind begrenzt und Berichtsansicht startet keine Altfoto-Migration", () => {
   const syncHook = readFileSync(path.join(process.cwd(), "lib/useSyncQueue.ts"), "utf8");
   const appPage = readFileSync(path.join(process.cwd(), "app/page.tsx"), "utf8");
   expect(syncHook).toContain("processed < automaticFlushBatchSize");
   expect(syncHook).toContain("automaticFlushDelayMs");
-  expect(appPage).toContain("pendingReportPhotoUploadsRef.current.size > 0");
-  expect(appPage).toContain("pendingReportPhotoMigrationTimerRef.current = window.setTimeout");
+  expect(appPage).not.toContain("pendingReportPhotoUploadsRef");
+  expect(appPage).not.toContain("pendingReportPhotoMigrationTimerRef");
+  expect(syncHook).not.toContain("setQueue(workingQueue)");
   expect(appPage).not.toContain("pendingPhotos.slice(0, 4)");
 });
 

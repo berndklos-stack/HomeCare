@@ -4,6 +4,10 @@ const pixel = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AA
 
 test("Private Berichtsfotos werden authentifiziert geladen, Fehler bleiben begrenzt", async ({ page }) => {
   const requests: string[] = [];
+  const uploads: string[] = [];
+  page.on("request", (request) => {
+    if (request.method() === "POST" && /\/api\/media(?:\?|$)/.test(request.url())) uploads.push(request.url());
+  });
   await page.route(/\/api\/(private-media|media)\?/, async (route) => {
     const request = route.request();
     requests.push(request.url());
@@ -24,7 +28,7 @@ test("Private Berichtsfotos werden authentifiziert geladen, Fehler bleiben begre
         completed: true, minutes: 15, note: "", photos: [
           { id: "PRIVATE-1", name: "private.png", accepted: true, storagePath: "test/photos/private.png" },
           { id: "PRIVATE-2", name: "missing.jpg", accepted: true, storagePath: "test/photos/missing.jpg" },
-          { id: "INLINE-3", name: "inline.png", accepted: true, storagePath: `data:image/png;base64,${image}`, previewUrl: `data:image/png;base64,${image}` },
+          { id: "INLINE-3", name: "inline.png", accepted: true, previewUrl: `data:image/png;base64,${image}` },
         ] }],
     }]));
   }, pixel);
@@ -40,4 +44,15 @@ test("Private Berichtsfotos werden authentifiziert geladen, Fehler bleiben begre
   const settled = requests.length;
   await page.waitForTimeout(3000);
   expect(requests.length).toBe(settled);
+  const reportMutations = () => page.evaluate(() => JSON.parse(localStorage.getItem("workcore-sync-mutations-v1") || "[]")
+    .filter((item: { entityType: string }) => ["report", "report_media"].includes(item.entityType)));
+  expect(await reportMutations()).toEqual([]);
+  await page.getByRole("textbox", { name: "Berichtstext", exact: true }).focus();
+  await page.getByRole("button", { name: "Bericht Private Fotopruefung Schließen", exact: true }).click();
+  expect(await reportMutations()).toEqual([]);
+  await page.reload();
+  await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true");
+  await page.waitForTimeout(3000);
+  expect(uploads).toEqual([]);
+  expect(await reportMutations()).toEqual([]);
 });

@@ -8967,8 +8967,6 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
   const quickTripEndOdometerRef = useRef<HTMLInputElement | null>(null);
   const lastForegroundSyncAtRef = useRef(0);
   const lastUserInteractionAtRef = useRef(0);
-  const pendingReportPhotoUploadsRef = useRef<Set<string>>(new Set());
-  const pendingReportPhotoMigrationTimerRef = useRef<number | null>(null);
 
   const handleMutationApplied = useCallback((mutation: SyncMutation, result: SyncMutationResult) => {
     const serverRecord = result.record;
@@ -9352,7 +9350,6 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     if (localSaveTimerRef.current) window.clearTimeout(localSaveTimerRef.current);
     if (resourcePersistTimerRef.current) window.clearTimeout(resourcePersistTimerRef.current);
     if (quickTripDraftSaveTimerRef.current) window.clearTimeout(quickTripDraftSaveTimerRef.current);
-    if (pendingReportPhotoMigrationTimerRef.current) window.clearTimeout(pendingReportPhotoMigrationTimerRef.current);
   }, []);
 
   function shouldDeferBackgroundUiWork() {
@@ -9496,63 +9493,6 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
   useEffect(() => {
     reportsRef.current = reports;
   }, [reports]);
-
-  useEffect(() => {
-    if (!appStorageReady || !initialSyncComplete) return;
-    const pendingPhotos = reports.flatMap((report) => (
-      report.checklistResults.flatMap((item) => (
-        (item.photos ?? [])
-          .map((photo) => ({ itemId: item.id, photo: normalizeFieldPhotoUploadState(photo), reportId: report.id }))
-          .filter(({ photo }) => Boolean(photo.previewUrl?.startsWith("data:image/") && !photo.storagePath))
-      ))
-    ));
-    if (!pendingPhotos.length || pendingReportPhotoMigrationTimerRef.current !== null || pendingReportPhotoUploadsRef.current.size > 0) return;
-
-    const candidate = pendingPhotos.find(({ itemId, photo, reportId }) => {
-      const photoId = photo.id ?? `${reportId}-${itemId}-${photo.name}`;
-      return Boolean(photo.previewUrl && !pendingReportPhotoUploadsRef.current.has(`${reportId}:${itemId}:${photoId}`));
-    });
-    if (!candidate) return;
-    const { itemId, photo, reportId } = candidate;
-    const photoId = photo.id ?? `${reportId}-${itemId}-${photo.name}`;
-    const uploadKey = `${reportId}:${itemId}:${photoId}`;
-    pendingReportPhotoUploadsRef.current.add(uploadKey);
-
-    pendingReportPhotoMigrationTimerRef.current = window.setTimeout(() => {
-      pendingReportPhotoMigrationTimerRef.current = null;
-      void (async () => {
-        try {
-          const previewUrl = photo.previewUrl;
-          if (!previewUrl) return;
-          const uploaded = await uploadMediaFile(await dataUrlToBlob(previewUrl), "field-photos", fieldPhotoUploadName(photo.name || "einsatzfoto.jpg"));
-          const nextReports = reportsRef.current.map((report) => {
-            if (report.id !== reportId || !uploaded) return report;
-            return {
-              ...report,
-              checklistResults: report.checklistResults.map((item) => {
-                if (item.id !== itemId) return item;
-                return {
-                  ...item,
-                  photos: (item.photos ?? []).map((itemPhoto) => {
-                    const samePhoto = itemPhoto.id ? itemPhoto.id === photo.id : itemPhoto.name === photo.name && itemPhoto.previewUrl === photo.previewUrl;
-                    return samePhoto
-                      ? { ...itemPhoto, id: uploaded.id, previewUrl: uploaded.url, storagePath: uploaded.path, uploadError: undefined, uploadStatus: "uploaded" as const }
-                      : itemPhoto;
-                  }),
-                };
-              }),
-              updatedAt: new Date().toISOString(),
-            };
-          });
-          if (uploaded) {
-            persistReportsRelational(nextReports);
-          }
-        } finally {
-          pendingReportPhotoUploadsRef.current.delete(uploadKey);
-        }
-      })();
-    }, 2500);
-  }, [appStorageReady, initialSyncComplete, reports]);
 
   useEffect(() => {
     let cancelled = false;
@@ -15417,7 +15357,7 @@ function ReportsView({
                 )}
                 <IconAction label={`PDF für ${selectedReport.title} herunterladen`} onClick={() => void downloadCustomerReportPdf(selectedReport, selectedObject, selectedJob, selectedCustomer)}><FileDown size={16} /></IconAction>
                 <IconAction label={`${tt("Bericht")} ${selectedReport.title} ${tt("An Kunden senden")}`} onClick={() => { onSendReport(selectedReport); setSelectedReportId(""); }}><Send size={16} /></IconAction>
-                <button aria-label={`${tt("Bericht")} ${selectedReport.title} ${tt("Schließen")}`} onClick={() => { onUpdateReport(currentSelectedReport() ?? selectedReport, { forceRemote: true }); setSelectedReportId(""); }} type="button">
+                <button aria-label={`${tt("Bericht")} ${selectedReport.title} ${tt("Schließen")}`} onClick={() => setSelectedReportId("")} type="button">
                   <X size={18} />
                 </button>
               </div>
@@ -15431,7 +15371,6 @@ function ReportsView({
                 disabled={Boolean(selectedReport.sentAt)}
                 value={selectedReport.summary}
                 onChange={(event) => onUpdateReport({ ...(currentSelectedReport() ?? selectedReport), summary: event.target.value })}
-                onBlur={(event) => onUpdateReport({ ...(currentSelectedReport() ?? selectedReport), summary: event.currentTarget.value }, { forceRemote: true })}
                 placeholder={selectedReport.sentAt ? tt("Bericht wurde bereits gesendet und ist gesperrt.") : tt("Berichtstext für den Kundenbericht anpassen.")}
               />
             </label>
@@ -15441,7 +15380,6 @@ function ReportsView({
                 disabled={Boolean(selectedReport.sentAt)}
                 value={visibleReportCustomerComment(selectedReport)}
                 onChange={(event) => onUpdateReport({ ...(currentSelectedReport() ?? selectedReport), customerComment: event.target.value })}
-                onBlur={(event) => onUpdateReport({ ...(currentSelectedReport() ?? selectedReport), customerComment: event.currentTarget.value }, { forceRemote: true })}
                 placeholder={selectedReport.sentAt ? tt("Bericht wurde bereits gesendet und ist gesperrt.") : tt("Kommentar ergänzen, der im Kundenbericht erscheinen soll.")}
               />
             </label>
