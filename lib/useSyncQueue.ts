@@ -42,7 +42,13 @@ async function sendMutation(mutation: SyncMutation): Promise<SyncMutationResult>
 }
 
 export function useSyncQueue({ disabled = false, onApplied }: UseSyncQueueOptions = {}) {
-  const [queue, setQueue] = useState<SyncMutation[]>([]);
+  const [queue, setQueueState] = useState<SyncMutation[]>([]);
+  const queueRef = useRef<SyncMutation[]>([]);
+  const setQueue = useCallback((update: SyncMutation[] | ((current: SyncMutation[]) => SyncMutation[])) => {
+    const next = typeof update === "function" ? update(queueRef.current) : update;
+    queueRef.current = next;
+    setQueueState(next);
+  }, []);
   const [hydrated, setHydrated] = useState(false);
   const [online, setOnline] = useState(true);
   const processingRef = useRef(false);
@@ -78,27 +84,23 @@ export function useSyncQueue({ disabled = false, onApplied }: UseSyncQueueOption
     if (disabled || !online || processingRef.current) return;
     processingRef.current = true;
     try {
-      let pending = nextPendingMutation(queue);
-      let workingQueue = queue;
+      let pending = nextPendingMutation(queueRef.current);
       let processed = 0;
       while (pending && navigator.onLine && processed < automaticFlushBatchSize) {
         processed += 1;
-        workingQueue = markMutationSyncing(workingQueue, pending.id);
         const pendingId = pending.id;
         setQueue((current) => markMutationSyncing(current, pendingId));
         try {
           const result = await sendMutation(pending);
-          workingQueue = settleSyncMutation(workingQueue, pending.id, result);
           setQueue((current) => settleSyncMutation(current, pendingId, result));
           if (result.status === "synced") onAppliedRef.current?.(pending, result);
           if (result.status === "conflict") break;
         } catch (error) {
           const message = error instanceof Error ? error.message : "Synchronisierung fehlgeschlagen.";
-          workingQueue = failSyncMutation(workingQueue, pending.id, message);
           setQueue((current) => failSyncMutation(current, pendingId, message));
           break;
         }
-        pending = nextPendingMutation(workingQueue);
+        pending = nextPendingMutation(queueRef.current);
       }
     } finally {
       processingRef.current = false;

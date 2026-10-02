@@ -120,6 +120,21 @@ export function writeSyncQueue(storage: StorageLike, queue: SyncMutation[]) {
 
 export function enqueueSyncMutation(queue: SyncMutation[], mutation: SyncMutation) {
   if (queue.some((item) => item.id === mutation.id)) return queue;
+  if (["report", "field_progress", "job_note"].includes(mutation.entityType) && mutation.operation === "update" && mutation.attempts === 0) {
+    let index = queue.length - 1;
+    while (index >= 0 && (queue[index].entityType !== mutation.entityType || queue[index].entityId !== mutation.entityId)) index--;
+    const previous = queue[index];
+    // Only unsent, consecutive edits may collapse. Keep the server precondition
+    // and idempotency identity; never rewrite attempted or conflicting requests.
+    if (previous?.status === "pending" && previous.attempts === 0
+      && (previous.operation === "update" || (mutation.entityType !== "report" && previous.operation === "create"))
+      && previous.resourceId === mutation.resourceId
+      && mutation.expectedRevision === (previous.expectedRevision ?? 0) + 1) {
+      return queue.map((item, i) => i === index ? {
+        ...previous, payload: mutation.payload, updatedAt: mutation.updatedAt,
+      } : item);
+    }
+  }
   return [...queue, mutation];
 }
 

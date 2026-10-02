@@ -10060,7 +10060,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
   function persistFieldProgressRelational(nextProgress: Record<string, Record<string, FieldTaskProgress>>) {
     const prepared = prepareProgressMutations(fieldProgress, nextProgress);
     prepared.mutations.forEach((mutation) => enqueueSyncMutation(mutation));
-    const optimistic = prepared.progress as Record<string, Record<string, FieldTaskProgress>>;
+    const optimistic = overlayPendingJobOperations([], prepared.progress, {}, {}, readSyncQueue(window.localStorage)).progress as Record<string, Record<string, FieldTaskProgress>>;
     setFieldProgress(optimistic);
     const updatedAt = new Date().toISOString();
     persistLocalSections(currentSnapshot({ fieldProgress: optimistic, updatedAt }), ["fieldProgress"]);
@@ -10070,17 +10070,21 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
   function persistFieldNotesRelational(nextNotes: Record<string, string>) {
     const prepared = prepareNoteMutations(fieldNotes, nextNotes, jobNoteMeta);
     prepared.mutations.forEach((mutation) => enqueueSyncMutation(mutation));
-    setFieldNotes(prepared.notes);
-    setJobNoteMeta(prepared.meta);
+    const optimistic = overlayPendingJobOperations([], {}, prepared.notes, prepared.meta, readSyncQueue(window.localStorage));
+    setFieldNotes(optimistic.notes);
+    setJobNoteMeta(optimistic.noteMeta);
     const updatedAt = new Date().toISOString();
-    persistLocalSections(currentSnapshot({ fieldNotes: prepared.notes, jobNoteMeta: prepared.meta, updatedAt }), ["fieldNotes", "jobNoteMeta"]);
+    persistLocalSections(currentSnapshot({ fieldNotes: optimistic.notes, jobNoteMeta: optimistic.noteMeta, updatedAt }), ["fieldNotes", "jobNoteMeta"]);
     setAppUpdatedAt(updatedAt);
   }
 
   function persistReportsRelational(nextReports: ReportRecord[]) {
     const prepared = prepareReportMutations(reportsRef.current, nextReports);
     prepared.mutations.forEach((mutation) => enqueueSyncMutation(mutation));
-    const optimistic = dedupeReports(prepared.reports as ReportRecord[]);
+    // A compacted unsent edit advances the server revision only once.
+    const optimistic = dedupeReports(overlayPendingReportCommunication(
+      prepared.reports as ReportRecord[], [], readSyncQueue(window.localStorage),
+    ).reports);
     reportsRef.current = optimistic;
     setReports(optimistic);
     const updatedAt = new Date().toISOString();
@@ -11360,8 +11364,8 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     ) as Record<string, FieldTaskProgress>;
     const reportDate = normalizeReportDate(report.date);
     const progressKey = fieldProgressKey(job, reportDate);
-    const nextFieldProgress = { ...fieldProgress, [progressKey]: reportProgress };
-    const nextFieldNotes = { ...fieldNotes, [progressKey]: reportSummaryNote(report.summary) };
+    const nextFieldProgress = { ...fieldProgress, [progressKey]: fieldProgress[progressKey] ?? reportProgress };
+    const nextFieldNotes = { ...fieldNotes, [progressKey]: fieldNotes[progressKey] ?? reportSummaryNote(report.summary) };
 
     persistFieldProgressRelational(nextFieldProgress);
     persistFieldNotesRelational(nextFieldNotes);
