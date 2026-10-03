@@ -1356,14 +1356,14 @@ button {
   margin: 0;
 }
 
-.dashboard-work-list article {
+.dashboard-work-list > button {
   gap: 8px;
   grid-template-columns: minmax(0, 1fr) auto auto;
   min-height: 44px;
   padding: 7px 10px;
 }
 
-.dashboard-work-list article > div {
+.dashboard-work-list > button > div {
   display: grid;
   gap: 2px;
   min-width: 0;
@@ -1376,7 +1376,7 @@ button {
   white-space: nowrap;
 }
 
-.dashboard-work-list > article > span {
+.dashboard-work-list > button > span {
   color: var(--muted);
   font-size: 13px;
 }
@@ -1387,6 +1387,7 @@ button {
 }
 
 .table-list article.job-group-tint,
+.dashboard-work-list > button.job-group-tint,
 .job-row.job-group-tint {
   background: var(--job-group-bg, var(--paper));
   border-left: 5px solid var(--job-group-color, var(--line));

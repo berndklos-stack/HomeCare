@@ -13303,6 +13303,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
                 )}
                 <Dashboard
                   allJobs={jobs}
+                  onOpenJob={openEditJob}
                   language={language}
                   objects={activeObjects}
                   reports={reports}
@@ -14703,12 +14704,14 @@ function ContextHelpBanner({ helpKey, language, onDismiss }: { helpKey: Onboardi
 
 function Dashboard({
   allJobs,
+  onOpenJob,
   language,
   objects,
   reports,
   setSection,
 }: {
   allJobs: JobRecord[];
+  onOpenJob: (job: JobRecord) => void;
   language: Language;
   objects: ObjectRecord[];
   reports: ReportRecord[];
@@ -14742,14 +14745,14 @@ function Dashboard({
         </div>
         <div className="table-list dashboard-work-list">
           {openDashboardJobs.map((job) => (
-            <article className="job-group-tint" key={job.id} style={jobGroupStyle(job)}>
+            <button className="job-group-tint" key={job.id} style={jobGroupStyle(job)} type="button" onClick={() => onOpenJob(job)}>
               <div>
                 <strong>{job.title}</strong>
                 <span>{recurringJobHint(job, allJobs, language) || `${job.type} · ${isUnassignedJobAssignee(job.assignedTo) ? tt("nicht zugewiesen") : job.assignedTo}`}</span>
               </div>
               <span>{jobDateRangeLabel(job)}</span>
               <Badge value={tt(job.status)} />
-            </article>
+            </button>
           ))}
           {openDashboardJobs.length === 0 && <span className="muted-line">{tt("Keine offenen Einsätze.")}</span>}
         </div>
