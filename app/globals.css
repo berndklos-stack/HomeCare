@@ -10631,6 +10631,9 @@ button.media-thumb {
   overflow: hidden;
 }
 .workspace {
+  --header-gutter-start: 14px;
+  --header-gutter-end: 14px;
+  --header-gutter-top: 14px;
   min-height: 0;
   overflow-y: auto;
   scroll-padding-top: 240px;
@@ -10644,6 +10647,23 @@ button.media-thumb {
   padding-top: env(safe-area-inset-top, 0px);
   padding-bottom: 10px;
   border-bottom: 1px solid var(--line);
+}
+.workspace:not(.portal-workspace) > .topbar {
+  isolation: isolate;
+  z-index: 80;
+  opacity: 1;
+  background: var(--background);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+/* Cover the scrollport gutters without moving header controls or page content. */
+.workspace:not(.portal-workspace) > .topbar::before {
+  content: "";
+  position: absolute;
+  inset: calc(-1 * var(--header-gutter-top)) calc(-1 * var(--header-gutter-end)) 0 calc(-1 * var(--header-gutter-start));
+  z-index: -1;
+  background: inherit;
+  pointer-events: none;
 }
 .sync-status-details {
   width: min(540px, calc(100vw - 32px));
@@ -10668,10 +10688,18 @@ button.media-thumb {
 @media (max-width: 780px) {
   .app { display: flex; flex-direction: column; }
   .sidebar { flex: 0 0 auto; position: relative; }
-  .workspace { flex: 1 1 auto; }
+  .workspace {
+    --header-gutter-start: max(10px, env(safe-area-inset-left));
+    --header-gutter-end: max(10px, env(safe-area-inset-right));
+    --header-gutter-top: 10px;
+    flex: 1 1 auto;
+  }
   .topbar { padding-top: 0; gap: 6px; }
   .topbar h1.brand-wordmark { font-size: 28px; }
   .sync-status-details { max-width: calc(100vw - 32px); }
+}
+@media (max-width: 380px) {
+  .workspace { --header-gutter-start: 8px; --header-gutter-end: 8px; }
 }
 @media print {
   .app { height: auto; overflow: visible; }
