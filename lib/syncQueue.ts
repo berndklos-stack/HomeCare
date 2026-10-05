@@ -37,6 +37,13 @@ export type StorageLike = Pick<Storage, "getItem" | "setItem">;
 
 export const syncQueueStorageKey = "workcore-sync-mutations-v1";
 
+function compactSyncedHistory(queue: SyncMutation[]) {
+  const retained = new Set(queue.filter((mutation) => mutation.status === "synced").slice(-30).map((mutation) => mutation.id));
+  return queue.filter((mutation) => mutation.status !== "synced" || retained.has(mutation.id)).map((mutation) => mutation.status === "synced"
+    ? { ...mutation, payload: {}, serverRecord: undefined }
+    : mutation);
+}
+
 function currentSyncQueueStorageKey() {
   if (typeof window === "undefined" || process.env.NEXT_PUBLIC_E2E_AUTH_BYPASS === "1") return syncQueueStorageKey;
   const tenantId = window.localStorage.getItem("workcore-active-tenant-id");
@@ -79,7 +86,7 @@ export function createSyncMutation(input: {
 
 export function normalizeSyncQueue(value: unknown): SyncMutation[] {
   if (!Array.isArray(value)) return [];
-  return value.filter((item): item is SyncMutation => {
+  const normalized = value.filter((item): item is SyncMutation => {
     if (!item || typeof item !== "object") return false;
     const mutation = item as Partial<SyncMutation>;
     return Boolean(
@@ -93,6 +100,7 @@ export function normalizeSyncQueue(value: unknown): SyncMutation[] {
   }).map((mutation) => (
     mutation.status === "syncing" ? { ...mutation, status: "pending" as const } : mutation
   ));
+  return compactSyncedHistory(normalized);
 }
 
 export function readSyncQueue(storage: StorageLike): SyncMutation[] {
@@ -113,7 +121,7 @@ export function readSyncQueue(storage: StorageLike): SyncMutation[] {
 }
 
 export function writeSyncQueue(storage: StorageLike, queue: SyncMutation[]) {
-  const completed = queue.filter((mutation) => mutation.status === "synced").slice(-30);
+  const completed = compactSyncedHistory(queue).filter((mutation) => mutation.status === "synced");
   const actionable = queue.filter((mutation) => mutation.status !== "synced");
   storage.setItem(currentSyncQueueStorageKey(), JSON.stringify([...completed, ...actionable]));
 }
@@ -168,9 +176,9 @@ export function nextPendingMutation(queue: SyncMutation[]) {
 }
 
 export function markMutationSyncing(queue: SyncMutation[], mutationId: string, now = new Date().toISOString()) {
-  return queue.map((mutation) => mutation.id === mutationId
+  return compactSyncedHistory(queue.map((mutation) => mutation.id === mutationId
     ? { ...mutation, attempts: mutation.attempts + 1, error: undefined, status: "syncing" as const, updatedAt: now }
-    : mutation);
+    : mutation));
 }
 
 export function settleSyncMutation(
@@ -179,7 +187,7 @@ export function settleSyncMutation(
   result: SyncMutationResult,
   now = new Date().toISOString(),
 ) {
-  return queue.map((mutation) => mutation.id === mutationId
+  return compactSyncedHistory(queue.map((mutation) => mutation.id === mutationId
     ? {
         ...mutation,
         error: result.error,
@@ -187,7 +195,7 @@ export function settleSyncMutation(
         status: result.status,
         updatedAt: now,
       }
-    : mutation);
+    : mutation));
 }
 
 export function failSyncMutation(queue: SyncMutation[], mutationId: string, error: string, now = new Date().toISOString()) {

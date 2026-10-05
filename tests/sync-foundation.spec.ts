@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { writeLocalCache } from "../lib/localCache";
 import {
   createSyncMutation,
   discardConflictingMutations,
@@ -8,6 +9,7 @@ import {
   failSyncMutation,
   readSyncQueue,
   retrySyncMutation,
+  settleSyncMutation,
   syncQueueStorageKey,
   writeSyncQueue,
   type StorageLike,
@@ -20,6 +22,35 @@ import {
   type VehicleMutationState,
   type VersionedVehicleTrip,
 } from "../lib/vehicleSync";
+
+test("Bestätigter Foto-Verlauf bleibt klein, Offline-Änderungen und Konflikte bleiben vollständig", () => {
+  const storage = memoryStorage();
+  const image = `data:image/jpeg;base64,${"A".repeat(200_000)}`;
+  const pending = createSyncMutation({ entityId: "PHOTO-PENDING", entityType: "field_progress", operation: "update", payload: { photos: [{ previewUrl: image }], note: "Offline-Entwurf" }, resourceId: "JOB-1" });
+  const conflict = { ...pending, id: "CONFLICT", status: "conflict" as const, serverRecord: { photos: [{ previewUrl: image }], revision: 2 } };
+  let queue = [pending, conflict];
+  for (let index = 0; index < 40; index++) {
+    const mutation = { ...pending, id: `SYNCED-${index}` };
+    queue = settleSyncMutation([...queue, mutation], mutation.id, { mutationId: mutation.id, status: "synced", record: { photos: [{ previewUrl: image }], revision: index + 1 } });
+  }
+  expect(queue.filter((item) => item.status === "synced")).toHaveLength(30);
+  expect(JSON.stringify(queue.filter((item) => item.status === "synced")).length).toBeLessThan(25_000);
+  expect(queue.find((item) => item.id === pending.id)).toEqual(pending);
+  expect(queue.find((item) => item.id === conflict.id)).toEqual(conflict);
+  writeSyncQueue(storage, queue);
+  const reloaded = readSyncQueue(storage);
+  expect(reloaded.find((item) => item.id === pending.id)).toEqual(pending);
+  expect(reloaded.find((item) => item.id === conflict.id)).toEqual(conflict);
+});
+
+test("Voller Lesecache überschreibt keine Daten und wird nicht als Serverfehler geworfen", () => {
+  const storage = memoryStorage();
+  storage.setItem("reports", "bestehender Entwurf");
+  const full = { getItem: storage.getItem, setItem: () => { throw new DOMException("full", "QuotaExceededError"); } };
+  expect(writeLocalCache(full, "reports", [{ id: "REPORT-1" }])).toBe(false);
+  expect(storage.getItem("reports")).toBe("bestehender Entwurf");
+  expect(() => writeLocalCache({ getItem: storage.getItem, setItem: () => { throw new Error("unexpected"); } }, "reports", [])).toThrow("unexpected");
+});
 
 function memoryStorage(): StorageLike & { value: Record<string, string> } {
   const value: Record<string, string> = {};

@@ -85,6 +85,7 @@ import { overlayPendingJobOperations, prepareJobMutations, prepareNoteMutations,
 import { overlayPendingReportCommunication, preparePortalMessageMutations, prepareReportMutations } from "@/lib/reportCommunicationSync";
 import { overlayPendingFinancialMutations, prepareFinancialMutations } from "@/lib/financialSync";
 import { useSyncQueue } from "@/lib/useSyncQueue";
+import { localCacheQuotaEvent, writeLocalCache } from "@/lib/localCache";
 import {
   normalizeOnboardingState,
   onboardingInstallPlatform,
@@ -2965,9 +2966,9 @@ function persistLocalSections(snapshot: AppSnapshot, keys: Iterable<SyncSectionK
   Array.from(new Set(keys)).forEach((key) => {
     const storageKey = storageKeys[key];
     if (!storageKey) return;
-    window.localStorage.setItem(storageKey, JSON.stringify(snapshotSectionValue(snapshot, key)));
+    writeLocalCache(window.localStorage, storageKey, snapshotSectionValue(snapshot, key));
   });
-  window.localStorage.setItem(storageKeys.updatedAt, JSON.stringify(snapshot.updatedAt ?? new Date().toISOString()));
+  writeLocalCache(window.localStorage, storageKeys.updatedAt, snapshot.updatedAt ?? new Date().toISOString());
 }
 
 const retryableSyncErrorMessages = [
@@ -3053,31 +3054,21 @@ function hasSavedLocalSnapshot() {
 }
 
 function persistLocalSnapshot(snapshot: AppSnapshot) {
-  const updatedAt = snapshot.updatedAt ?? new Date().toISOString();
-  window.localStorage.setItem(storageKeys.accountingAccounts, JSON.stringify(snapshot.accountingAccounts ?? defaultVismaChartOfAccounts));
-  window.localStorage.setItem(storageKeys.objects, JSON.stringify(snapshot.objects));
-  window.localStorage.setItem(storageKeys.billing, JSON.stringify(snapshot.billing ?? seedBilling));
-  window.localStorage.setItem(storageKeys.companySettings, JSON.stringify(snapshot.companySettings ?? seedCompanySettings));
-  window.localStorage.setItem(storageKeys.customers, JSON.stringify(snapshot.customers));
-  window.localStorage.setItem(storageKeys.jobs, JSON.stringify(snapshot.jobs));
-  window.localStorage.setItem(storageKeys.inventoryLocations, JSON.stringify(snapshot.inventoryLocations ?? seedInventoryLocations));
-  window.localStorage.setItem(storageKeys.materials, JSON.stringify(snapshot.materials ?? seedMaterials));
-  window.localStorage.setItem(storageKeys.reports, JSON.stringify(snapshot.reports));
-  window.localStorage.setItem(storageKeys.services, JSON.stringify(snapshot.services));
-  window.localStorage.setItem(storageKeys.tenantSettings, JSON.stringify(snapshot.tenantSettings ?? seedTenantSettings));
-  window.localStorage.setItem(storageKeys.translationOverrides, JSON.stringify(snapshot.translationOverrides ?? []));
-  window.localStorage.setItem(storageKeys.packages, JSON.stringify(snapshot.packages));
-  window.localStorage.setItem(storageKeys.personnel, JSON.stringify(snapshot.personnel));
-  window.localStorage.setItem(storageKeys.resources, JSON.stringify(snapshot.resources));
-  window.localStorage.setItem(storageKeys.dailyMailSettings, JSON.stringify(normalizeDailyMailSettings(snapshot.dailyMailSettings)));
-  window.localStorage.setItem(storageKeys.deletedEntityIds, JSON.stringify(snapshot.deletedEntityIds ?? {}));
-  window.localStorage.setItem(storageKeys.deletedReportIds, JSON.stringify(snapshot.deletedReportIds ?? []));
-  window.localStorage.setItem(storageKeys.portalMessages, JSON.stringify(snapshot.portalMessages));
-  window.localStorage.setItem(storageKeys.fieldNotes, JSON.stringify(snapshot.fieldNotes));
-  window.localStorage.setItem(storageKeys.fieldProgress, JSON.stringify(snapshot.fieldProgress));
-  window.localStorage.setItem(storageKeys.jobNoteMeta, JSON.stringify(snapshot.jobNoteMeta ?? {}));
-  window.localStorage.setItem(storageKeys.activeJobId, JSON.stringify(snapshot.activeJobId));
-  window.localStorage.setItem(storageKeys.updatedAt, JSON.stringify(updatedAt));
+  persistLocalSections({
+    ...snapshot,
+    accountingAccounts: snapshot.accountingAccounts ?? defaultVismaChartOfAccounts,
+    billing: snapshot.billing ?? seedBilling,
+    companySettings: snapshot.companySettings ?? seedCompanySettings,
+    inventoryLocations: snapshot.inventoryLocations ?? seedInventoryLocations,
+    materials: snapshot.materials ?? seedMaterials,
+    tenantSettings: snapshot.tenantSettings ?? seedTenantSettings,
+    translationOverrides: snapshot.translationOverrides ?? [],
+    dailyMailSettings: normalizeDailyMailSettings(snapshot.dailyMailSettings),
+    deletedEntityIds: snapshot.deletedEntityIds ?? {},
+    deletedReportIds: snapshot.deletedReportIds ?? [],
+    jobNoteMeta: snapshot.jobNoteMeta ?? {},
+  }, syncSectionKeys);
+  writeLocalCache(window.localStorage, storageKeys.activeJobId, snapshot.activeJobId);
 }
 
 function snapshotWeight(snapshot: AppSnapshot) {
@@ -8971,6 +8962,12 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
   });
   const [quickTripDraftLoaded, setQuickTripDraftLoaded] = useState(false);
   const [recordNotice, setRecordNotice] = useState("");
+  const [localCacheFull, setLocalCacheFull] = useState(false);
+  useEffect(() => {
+    const handleQuota = () => setLocalCacheFull(true);
+    window.addEventListener(localCacheQuotaEvent, handleQuota);
+    return () => window.removeEventListener(localCacheQuotaEvent, handleQuota);
+  }, []);
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const [onboardingDeferredThisSession, setOnboardingDeferredThisSession] = useState(false);
   const [pwaInstallPrompt, setPwaInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
@@ -13309,6 +13306,12 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
             />
           </div>
         </header>
+
+        {localCacheFull && <p role="alert">{language === "sv"
+          ? "Enhetens lagring är full. Onlinesynkroniseringen fortsätter, men offlinekopian kunde inte uppdateras. Lägg inte till fler foton just nu och radera inte osynkroniserade ändringar."
+          : language === "en"
+            ? "Device storage is full. Online sync continues, but the offline cache could not be updated. Do not add more photos yet or delete unsynced changes."
+            : "Lokaler Browserspeicher ist voll. Online-Synchronisierung bleibt aktiv, aber der Offline-Lesecache konnte nicht aktualisiert werden. Bitte vorerst keine weiteren Fotos erfassen und keine ungesendeten Änderungen löschen."}</p>}
 
         {section === "billing" && !onboardingState.contextHelpDismissed.billing && (
           <ContextHelpBanner helpKey="billing" language={language} onDismiss={dismissContextHelp} />

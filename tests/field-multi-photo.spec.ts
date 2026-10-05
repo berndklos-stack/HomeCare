@@ -70,6 +70,24 @@ async function storedPhotos(page: Page) {
   });
 }
 
+test("Voller Berichtscache zeigt Warnung ohne Reload und erhält den Bericht in der Offline-Queue", async ({ page }) => {
+  await page.addInitScript(() => {
+    const original = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (key, value) {
+      if (key.startsWith("kolaretorp-reports")) throw new DOMException("Test quota", "QuotaExceededError");
+      return original.call(this, key, value);
+    };
+  });
+  await openJob(page);
+  const url = page.url();
+  await page.getByRole("button", { name: "Einsatz abschließen", exact: true }).click();
+  await expect(page.getByRole("alert").filter({ hasText: "Lokaler Browserspeicher ist voll" })).toBeVisible();
+  expect(page.url()).toBe(url);
+  await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true");
+  const queue = await page.evaluate(() => JSON.parse(localStorage.getItem("workcore-sync-mutations-v1") || "[]"));
+  expect(queue.some((item: { entityType: string; status: string }) => item.entityType === "report" && item.status === "pending")).toBe(true);
+});
+
 for (const count of [1, 5]) test(`${count} Bibliotheksfotos erscheinen sofort und bleiben nach Berichtsspeicherung erhalten`, async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   let release!: () => void;
