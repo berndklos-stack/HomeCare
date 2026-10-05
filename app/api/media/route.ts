@@ -57,13 +57,32 @@ export async function POST(request: Request) {
   if (file.size > 25 * 1024 * 1024) {
     return NextResponse.json({ error: "Datei ist größer als 25 MB." }, { status: 413 });
   }
+  const requestedId = String(formData.get("mediaId") || "");
+  if (requestedId && !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,89}$/.test(requestedId)) {
+    return NextResponse.json({ error: "Ungültige Medien-ID." }, { status: 400 });
+  }
+  const scope = safePathPart(String(formData.get("scope") || "uploads"));
+  const name = safePathPart(file.name);
+  if (requestedId && !(process.env.NEXT_PUBLIC_DISABLE_SUPABASE_SYNC === "1" && request.headers.get("x-workcore-e2e-bypass") === "1")) {
+    const { data: existing, error: lookupError } = await supabase.from("homecare_media")
+      .select("id,name,storage_path,metadata,deleted_at").eq("tenant_id", auth.tenantId).eq("id", requestedId).maybeSingle();
+    if (lookupError) return NextResponse.json({ error: "Medienreferenz konnte nicht geprüft werden." }, { status: 500 });
+    if (existing) {
+      if (existing.deleted_at || !existing.storage_path?.startsWith(`${auth.tenantId}/${scope}/`)) {
+        return NextResponse.json({ error: "Medienreferenz ist gelöscht oder gehört zu einem anderen Upload." }, { status: 409 });
+      }
+      return NextResponse.json({ id: existing.id, name: existing.name, path: existing.storage_path,
+        contentType: existing.metadata?.contentType, size: existing.metadata?.size,
+        url: `/api/private-media?path=${encodeURIComponent(existing.storage_path)}` });
+    }
+  }
 
   if (process.env.NEXT_PUBLIC_DISABLE_SUPABASE_SYNC === "1" && request.headers.get("x-workcore-e2e-bypass") === "1") {
-    const id = `MEDIA-${crypto.randomUUID()}`;
+    const id = requestedId || `MEDIA-${crypto.randomUUID()}`;
     return NextResponse.json({
       contentType: file.type || "application/octet-stream",
       name: file.name,
-      path: `e2e/${crypto.randomUUID()}-${safePathPart(file.name)}`,
+      path: `e2e/${id}-${name}`,
       size: file.size,
       url: "",
       id,
@@ -76,11 +95,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Storage-Bucket fehlt." }, { status: 500 });
   }
 
-  const scope = safePathPart(String(formData.get("scope") || "uploads"));
-  const name = safePathPart(file.name);
   const randomPart = crypto.randomUUID();
-  const mediaId = `MEDIA-${randomPart}`;
-  const path = `${auth.tenantId}/${scope}/${new Date().toISOString().slice(0, 10)}/${randomPart}-${name}`;
+  const mediaId = requestedId || `MEDIA-${randomPart}`;
+  const path = requestedId
+    ? `${auth.tenantId}/${scope}/by-id/${requestedId}-${name}`
+    : `${auth.tenantId}/${scope}/${new Date().toISOString().slice(0, 10)}/${randomPart}-${name}`;
   const buffer = Buffer.from(await file.arrayBuffer());
   const { error } = await supabase.storage
     .from(mediaBucket)

@@ -150,12 +150,38 @@ export function overlayPendingReportCommunication<T extends RevisionedReport, M 
   queue.filter((item) => !["synced", "conflict"].includes(item.status)).forEach((mutation) => {
     if (mutation.entityType === "report") {
       if (mutation.operation === "delete") reportMap.delete(mutation.entityId);
-      else reportMap.set(mutation.entityId, { ...(reportMap.get(mutation.entityId) ?? { id: mutation.entityId }), ...mutation.payload, revision: (mutation.expectedRevision ?? 0) + 1, updatedAt: mutation.updatedAt } as T);
+      else {
+        const previous = reportMap.get(mutation.entityId);
+        const tasks = mutation.payload.checklistResults as RevisionedReport["checklistResults"];
+        reportMap.set(mutation.entityId, {
+          ...(previous ?? { id: mutation.entityId }), ...mutation.payload,
+          ...(Array.isArray(tasks) ? { checklistResults: tasks.map((task) => ({
+            ...task, photos: previous?.checklistResults?.find((item) => item.id === task.id)?.photos ?? [],
+          })) } : {}),
+          revision: (mutation.expectedRevision ?? 0) + 1, updatedAt: mutation.updatedAt,
+        } as T);
+      }
     }
     if (mutation.entityType === "portal_message") {
       if (mutation.operation === "delete") messageMap.delete(mutation.entityId);
       else messageMap.set(mutation.entityId, { ...(messageMap.get(mutation.entityId) ?? { id: mutation.entityId }), ...mutation.payload, revision: (mutation.expectedRevision ?? 0) + 1, updatedAt: mutation.updatedAt } as M);
     }
+  });
+  // Report payloads intentionally contain no photos; replay their child records
+  // after parent mutations, without recreating deleted reports or tasks.
+  queue.filter((item) => item.entityType === "report_media" && !["synced", "conflict"].includes(item.status)).forEach((mutation) => {
+    const report = reportMap.get(mutation.resourceId);
+    if (!report || report.deletedAt) return;
+    const { ownerId, mediaRole, taskId, ...payload } = mutation.payload;
+    const media = { ...payload, id: mutation.entityId, revision: (mutation.expectedRevision ?? 0) + 1 };
+    const attachments = (report.attachments ?? []).filter((item) => item.id !== mutation.entityId);
+    const tasks = (report.checklistResults ?? []).map((task) => {
+      const photos = (task.photos ?? []).filter((photo) => photo.id !== mutation.entityId);
+      if (mutation.operation !== "delete" && mediaRole === "checklist_photo" && task.id === taskId) photos.push(media);
+      return { ...task, photos };
+    });
+    if (mutation.operation !== "delete" && mediaRole === "attachment") attachments.push(media as RevisionedAttachment);
+    reportMap.set(report.id, { ...report, attachments, checklistResults: tasks });
   });
   return { messages: Array.from(messageMap.values()), reports: Array.from(reportMap.values()) };
 }

@@ -6677,6 +6677,30 @@ dialog.trip-dialog {
 }
 
 dialog.trip-dialog:not([open]) { display: none; }
+dialog.service-list-dialog { width: min(1180px, calc(100vw - 24px)); max-width: calc(100vw - 24px); max-height: calc(100dvh - 32px); padding: 20px; overflow: auto; }
+.service-list-heading, .service-list-footer, .service-list-selection { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.service-list-heading h2 { font-size: 22px; margin: 0; }
+.service-list-heading p { margin: 6px 0 16px; overflow-wrap: anywhere; }
+.service-list-filters { display: grid; grid-template-columns: 1fr 1fr 2fr 1fr 1.4fr; gap: 12px; margin: 12px 0 16px; }
+.service-list-filters label { display: grid; gap: 5px; font-size: 13px; min-width: 0; }
+.service-list-filters input, .service-list-filters select { width: 100%; min-width: 0; min-height: 40px; padding: 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); color: var(--foreground); font: inherit; }
+.service-list-selection { margin-bottom: 12px; }
+.service-list-selection label { display: flex; align-items: center; gap: 8px; }
+.service-list-table-wrap { overflow-x: auto; }
+.service-list-table { border-collapse: collapse; width: 100%; min-width: 820px; font-size: 13px; }
+.service-list-table th, .service-list-table td { padding: 10px 8px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+.service-list-table th { background: var(--paper-soft); }
+.service-list-table td:nth-child(4) { width: 45%; overflow-wrap: anywhere; }
+.service-list-table td:nth-child(2), .service-list-table td:nth-child(3) { white-space: nowrap; }
+.service-list-table td:nth-child(5), .service-list-table td:nth-child(6) { text-align: right; white-space: nowrap; }
+.service-list-footer { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); }
+@media (max-width: 700px) {
+  dialog.service-list-dialog { padding: 14px; }
+  .service-list-filters { grid-template-columns: 1fr 1fr; }
+  .service-list-filters label:nth-child(3) { grid-column: 1 / -1; }
+  .service-list-filters input, .service-list-filters select { font-size: 16px; }
+  .service-list-footer strong { font-size: 14px; }
+}
 dialog.trip-dialog::backdrop { background: rgb(0 0 0 / 45%); }
 .trip-fields { border: 0; margin: 0; padding: 0; min-width: 0; }
 .trip-standard-toggle { display: flex; align-items: center; gap: 10px; }

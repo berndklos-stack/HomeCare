@@ -18,6 +18,8 @@ test("Berichte und ihre Medien werden als getrennte revisionierte Mutationen gep
   const reportPayload = created.mutations.find((item) => item.entityType === "report")?.payload;
   expect(reportPayload?.attachments).toBeUndefined();
   expect((reportPayload?.checklistResults as Array<{ photos: unknown[] }>)[0].photos).toEqual([]);
+  expect(overlayPendingReportCommunication(created.reports, [], created.mutations).reports[0].checklistResults?.[0].photos)
+    .toEqual([expect.objectContaining({ id: "MEDIA-P", storagePath: "tenant/photos/p.jpg" })]);
 
   const removed = prepareReportMutations(created.reports, []);
   expect(removed.mutations).toContainEqual(expect.objectContaining({ entityType: "report", operation: "delete", expectedRevision: 1 }));
@@ -43,6 +45,20 @@ test("Offline-Überlagerung verhindert Wiederauferstehung und erhält lokale Än
   expect(overlayPendingReportCommunication([report], [], [update]).reports[0]).toMatchObject({ title: "Mobil", revision: 4 });
   const deletion = createSyncMutation({ entityId: report.id, entityType: "report", expectedRevision: 3, operation: "delete", resourceId: report.id });
   expect(overlayPendingReportCommunication([report], [], [deletion]).reports).toEqual([]);
+});
+
+test("Medien-Replay erhält Serverfotos, bleibt idempotent und respektiert gelöschte Berichte", () => {
+  const report = { id: "REPORT-1", revision: 3, checklistResults: [{ id: "TASK-1", photos: [{ id: "SERVER", name: "server.jpg" }] }] };
+  const update = createSyncMutation({ entityId: report.id, entityType: "report", expectedRevision: 3, operation: "update", payload: { checklistResults: [{ id: "TASK-1", photos: [] }] }, resourceId: report.id });
+  const media = createSyncMutation({ entityId: "LOCAL", entityType: "report_media", operation: "create", payload: { ownerId: report.id, mediaRole: "checklist_photo", taskId: "TASK-1", name: "local.jpg" }, resourceId: report.id });
+  const first = overlayPendingReportCommunication([report], [], [update, media]).reports;
+  expect(first[0].checklistResults[0].photos.map((photo) => photo.id)).toEqual(["SERVER", "LOCAL"]);
+  expect(overlayPendingReportCommunication(first, [], [update, media]).reports).toEqual(first);
+  const removeMedia = createSyncMutation({ entityId: "LOCAL", entityType: "report_media", operation: "delete", resourceId: report.id });
+  expect(overlayPendingReportCommunication(first, [], [removeMedia]).reports[0].checklistResults[0].photos.map((photo) => photo.id)).toEqual(["SERVER"]);
+  const removeReport = createSyncMutation({ entityId: report.id, entityType: "report", operation: "delete", resourceId: report.id });
+  expect(overlayPendingReportCommunication([report], [], [media, removeReport]).reports).toEqual([]);
+  expect(overlayPendingReportCommunication([{ ...report, deletedAt: "2026-10-05" }], [], [media]).reports[0].checklistResults[0].photos).toEqual(report.checklistResults[0].photos);
 });
 
 test("Legacy-Schreibwege und unregistrierte private Medien sind gesperrt", () => {

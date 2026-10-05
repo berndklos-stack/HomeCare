@@ -6,6 +6,8 @@ import Image from "next/image";
 import { AuthGate, EmployeeLogoutButton } from "@/components/AuthGate";
 import { SyncStatus } from "@/components/SyncStatus";
 import { TripDialog } from "@/components/TripDialog";
+import { ConsultingServiceList } from "@/components/ConsultingServiceList";
+import { serviceListLabels } from "@/lib/consultingServiceList";
 import { DevicePhotoSave, type DevicePhotoPolicy } from "@/components/DevicePhotoSave";
 import { TenantSwitcher } from "@/components/TenantSwitcher";
 import {
@@ -4053,15 +4055,18 @@ type UploadedMedia = {
   url: string;
 };
 
-async function uploadMediaFile(file: File | Blob, scope: string, fileName?: string): Promise<UploadedMedia | null> {
+async function uploadMediaFile(file: File | Blob, scope: string, fileName?: string, options: { mediaId?: string; signal?: AbortSignal } = {}): Promise<UploadedMedia | null> {
   for (let attempt = 1; attempt <= 2; attempt += 1) {
+    if (options.signal?.aborted) return null;
     try {
       const formData = new FormData();
       formData.append("scope", scope);
       formData.append("file", file, fileName);
+      if (options.mediaId) formData.append("mediaId", options.mediaId);
       const response = await withTimeout(apiFetch("/api/media", {
         body: formData,
         method: "POST",
+        signal: options.signal,
       }), 20000);
       if (response.ok) return await response.json() as UploadedMedia;
       const payload = await response.json().catch(() => ({})) as { error?: string };
@@ -8894,7 +8899,13 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
   const [deletedReportIds, setDeletedReportIds] = useState<string[]>([]);
   const [portalCustomerId, setPortalCustomerId] = useState("");
   const [fieldNotes, setFieldNotes] = useState<Record<string, string>>({});
-  const [fieldProgress, setFieldProgress] = useState<Record<string, Record<string, FieldTaskProgress>>>({});
+  const [fieldProgress, setFieldProgressState] = useState<Record<string, Record<string, FieldTaskProgress>>>({});
+  const fieldProgressRef = useRef(fieldProgress);
+  const setFieldProgress = useCallback((update: typeof fieldProgress | ((current: typeof fieldProgress) => typeof fieldProgress)) => {
+    const next = typeof update === "function" ? update(fieldProgressRef.current) : update;
+    fieldProgressRef.current = next;
+    setFieldProgressState(next);
+  }, []);
   const [jobNoteMeta, setJobNoteMeta] = useState<Record<string, RevisionMeta>>({});
   const [fieldWorkDates, setFieldWorkDates] = useState<Record<string, string>>({});
   const [modal, setModal] = useState<Modal>(null);
@@ -10067,7 +10078,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
   }
 
   function persistFieldProgressRelational(nextProgress: Record<string, Record<string, FieldTaskProgress>>) {
-    const prepared = prepareProgressMutations(fieldProgress, nextProgress);
+    const prepared = prepareProgressMutations(fieldProgressRef.current, nextProgress);
     prepared.mutations.forEach((mutation) => enqueueSyncMutation(mutation));
     const optimistic = overlayPendingJobOperations([], prepared.progress, {}, {}, readSyncQueue(window.localStorage)).progress as Record<string, Record<string, FieldTaskProgress>>;
     setFieldProgress(optimistic);
@@ -13394,6 +13405,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
             )}
             {section === "jobs" && (
               <JobsView
+                companyName={companySettings.name}
                 jobs={jobs}
                 language={language}
                 objects={activeObjects}
@@ -13479,7 +13491,11 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
                 onUpdateReport={updateReportRecord}
                 onClearActiveJob={clearActiveJob}
                 onSelectWorkDate={(jobId, date) => setFieldWorkDates((current) => ({ ...current, [jobId]: date }))}
-                onProgressChange={(jobId, progress) => persistFieldProgressRelational({ ...fieldProgress, [jobId]: progress })}
+                onProgressChange={(jobId, update) => {
+                  const latest = fieldProgressRef.current;
+                  const progress = typeof update === "function" ? update(latest[jobId] ?? {}) : update;
+                  persistFieldProgressRelational({ ...latest, [jobId]: progress });
+                }}
                 onFieldNoteChange={(jobId, note) => persistFieldNotesRelational({ ...fieldNotes, [jobId]: note })}
                 onComplete={completeJob}
               />
@@ -16231,6 +16247,7 @@ function CustomersView({
 }
 
 function JobsView({
+  companyName,
   jobs,
   language,
   objects,
@@ -16251,6 +16268,7 @@ function JobsView({
   onStart,
   reports,
 }: {
+  companyName: string;
   jobs: JobRecord[];
   language: Language;
   objects: ObjectRecord[];
@@ -16284,6 +16302,7 @@ function JobsView({
   const [consultingEntryEnd, setConsultingEntryEnd] = useState("");
   const [consultingEntryDescription, setConsultingEntryDescription] = useState("");
   const [expandedConsultingIds, setExpandedConsultingIds] = useState<string[]>([]);
+  const [serviceListJobId, setServiceListJobId] = useState("");
   const [consultingBillingJobId, setConsultingBillingJobId] = useState("");
   const [consultingBillingThroughDate, setConsultingBillingThroughDate] = useState(currentLocalDateValue());
   const [consultingBillingEntryIds, setConsultingBillingEntryIds] = useState<string[]>([]);
@@ -16311,6 +16330,7 @@ function JobsView({
   const cancelledRootJobs = rootJobs.filter((job) => jobSortGroup(job, occurrenceGroups[job.id] ?? []) >= 4);
 
   const activeConsultingJob = consultingEntryJobId ? jobs.find((item) => item.id === consultingEntryJobId) : undefined;
+  const serviceListJob = jobs.find((item) => item.id === serviceListJobId);
   const activeConsultingObject = activeConsultingJob ? objects.find((object) => object.id === activeConsultingJob.objectId) : undefined;
   const activeConsultingBillingJob = consultingBillingJobId ? jobs.find((item) => item.id === consultingBillingJobId) : undefined;
   const activeConsultingBillingObject = activeConsultingBillingJob ? objects.find((object) => object.id === activeConsultingBillingJob.objectId) : undefined;
@@ -16457,6 +16477,9 @@ function JobsView({
               <button className="consulting-history-toggle compact" onClick={() => toggleConsultingHistory(job.id)} type="button">
                 {expandedConsultingIds.includes(job.id) ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                 <span>{tt("Leistungsnachweise")} ({job.consulting.entries.length})</span>
+              </button>
+              <button className="ghost-button compact" type="button" onClick={() => setServiceListJobId(job.id)}>
+                <ClipboardList size={15} />{serviceListLabels[language].title}
               </button>
               {!isRecurring && !["storniert", "abgerechnet"].includes(job.status) && (
                 <div className="consulting-primary-actions">
@@ -16654,6 +16677,10 @@ function JobsView({
       {activeRootJobs.length === 0 && completedRootJobs.length === 0 && cancelledRootJobs.length === 0 && <span className="muted-line">{tt("Keine Aufträge für diesen Status.")}</span>}
       {renderJobGroup(tt("Erledigte Aufträge"), completedRootJobs.length, completedGroupOpen, () => setCompletedGroupOpen((open) => !open), completedRootJobs)}
       {renderJobGroup(tt("Stornierte Aufträge"), cancelledRootJobs.length, cancelledGroupOpen, () => setCancelledGroupOpen((open) => !open), cancelledRootJobs, "job-list-cancelled")}
+      {serviceListJob?.consulting && <ConsultingServiceList title={serviceListJob.title} company={companyName}
+        entries={serviceListJob.consulting.entries} currency={serviceListJob.consulting.currency}
+        rate={Number.isFinite(decimalValue(serviceListJob.consulting.hourlyRate)) ? decimalValue(serviceListJob.consulting.hourlyRate) : 0}
+        language={language} onClose={() => setServiceListJobId("")} />}
       {consultingEntryJobId && (
         <div className="modal-backdrop">
           <section className="modal consulting-entry-modal" role="dialog" aria-modal="true" aria-labelledby="consulting-entry-title">
@@ -17250,7 +17277,7 @@ function FieldView({
   onSelectWorkDate: (jobId: string, date: string) => void;
   onClearActiveJob: (job: JobRecord, nextStatus?: JobRecord["status"], material?: string) => void;
   onFieldNoteChange: (jobId: string, note: string) => void;
-  onProgressChange: (jobId: string, progress: Record<string, FieldTaskProgress>) => void;
+  onProgressChange: (jobId: string, progress: Record<string, FieldTaskProgress> | ((current: Record<string, FieldTaskProgress>) => Record<string, FieldTaskProgress>)) => void;
   onSendReport: (report: ReportRecord) => void;
   onUnlockReport: (report: ReportRecord) => void;
   onUpdateJobMaterial: (job: JobRecord, material: string) => void;
@@ -17269,6 +17296,14 @@ function FieldView({
   const [localPhotoPreviewUrls, setLocalPhotoPreviewUrls] = useState<Record<string, string>>({});
   const [preparingFieldPhotos, setPreparingFieldPhotos] = useState(0);
   const [devicePhotoFiles, setDevicePhotoFiles] = useState<File[]>([]);
+  const photoContext = `${activeJobId}:${selectedWorkDate}:${editingReportId}`;
+  const photoContextRef = useRef(photoContext);
+  const photoMountedRef = useRef(true);
+  photoContextRef.current = photoContext;
+  const photoUploadsRef = useRef(new Set<string>());
+  const photoControllersRef = useRef(new Set<AbortController>());
+  const retryPhotosRef = useRef<(() => void) | null>(null);
+  retryPhotosRef.current = null;
   useEffect(() => { setDevicePhotoFiles([]); }, [activeJobId, selectedWorkDate]);
   const progressRef = useRef(progress);
   const localPhotoPreviewUrlsRef = useRef(localPhotoPreviewUrls);
@@ -17284,6 +17319,23 @@ function FieldView({
   useEffect(() => () => {
     Object.values(localPhotoPreviewUrlsRef.current).forEach((url) => URL.revokeObjectURL(url));
   }, []);
+
+  useEffect(() => {
+    photoMountedRef.current = true;
+    setLocalPhotoPreviewUrls({});
+    const retry = () => retryPhotosRef.current?.();
+    const timer = window.setTimeout(retry, 0);
+    window.addEventListener("online", retry);
+    return () => {
+      photoMountedRef.current = false;
+      window.clearTimeout(timer);
+      window.removeEventListener("online", retry);
+      Object.values(localPhotoPreviewUrlsRef.current).forEach((url) => URL.revokeObjectURL(url));
+      for (const controller of photoControllersRef.current) controller.abort();
+      photoControllersRef.current.clear();
+      photoUploadsRef.current.clear();
+    };
+  }, [photoContext]);
 
   useEffect(() => {
     const active = activeJobId ? allJobs.find((job) => job.id === activeJobId) : undefined;
@@ -17450,11 +17502,12 @@ function FieldView({
     patch: Partial<FieldTaskProgress>,
     currentTask: FieldTaskProgress,
   ) {
-    const latestProgress = progressRef.current;
-    const latestTask = latestProgress[id] ?? currentTask;
-    const nextProgress = { ...latestProgress, [id]: { ...latestTask, ...patch, updatedAt: new Date().toISOString() } };
-    progressRef.current = nextProgress;
-    onProgressChange(fieldProgressKey(activeJob, activeWorkDate), nextProgress);
+    onProgressChange(fieldProgressKey(activeJob, activeWorkDate), (latestProgress) => {
+      const latestTask = latestProgress[id] ?? currentTask;
+      const next = { ...latestProgress, [id]: { ...latestTask, ...patch, updatedAt: new Date().toISOString() } };
+      progressRef.current = next;
+      return next;
+    });
   }
 
   function updateTaskPhotos(
@@ -17462,8 +17515,12 @@ function FieldView({
     currentTask: FieldTaskProgress,
     updater: (photos: FieldPhoto[]) => FieldPhoto[],
   ) {
-    const latestTask = progressRef.current[id] ?? currentTask;
-    updateTask(id, { photos: updater(latestTask.photos ?? []) }, latestTask);
+    onProgressChange(fieldProgressKey(activeJob, activeWorkDate), (latestProgress) => {
+      const latestTask = latestProgress[id] ?? currentTask;
+      const next = { ...latestProgress, [id]: { ...latestTask, photos: updater(latestTask.photos ?? []), updatedAt: new Date().toISOString() } };
+      progressRef.current = next;
+      return next;
+    });
   }
 
   function createFieldPhoto(file: File, previewUrl?: string): FieldPhoto {
@@ -17473,13 +17530,22 @@ function FieldView({
       createdAt: new Date().toISOString(),
       id: photoId,
       name: file.name,
-      uploadStatus: "uploading",
+      uploadStatus: "queued",
       ...(previewUrl ? { previewUrl } : {}),
     };
   }
 
   async function uploadFieldPhotoInBackground(taskId: string, photoId: string, fileName: string, previewUrl?: string) {
+    if (photoUploadsRef.current.has(photoId) || !navigator.onLine) return;
+    const context = photoContext;
+    const controller = new AbortController();
+    photoUploadsRef.current.add(photoId);
+    photoControllersRef.current.add(controller);
+    const current = () => photoMountedRef.current && !controller.signal.aborted && photoContextRef.current === context;
+    updateTaskPhotos(taskId, progressRef.current[taskId] ?? { completed: false, minutes: "", note: "", photos: [] }, (photos) =>
+      photos.map((photo) => photo.id === photoId ? { ...photo, uploadStatus: "uploading", uploadError: undefined } : photo));
     const staleUploadTimer = window.setTimeout(() => {
+      if (!current()) return;
       updateTaskPhotos(taskId, progressRef.current[taskId] ?? { completed: false, minutes: "", note: "", photos: [] }, (photos) => (
         photos.map((photo) => (
           photo.id === photoId && photo.uploadStatus === "uploading" && photo.previewUrl && !photo.storagePath
@@ -17494,12 +17560,14 @@ function FieldView({
         throw new Error("Bild konnte nicht als JPEG-Vorschau vorbereitet werden.");
       }
       const uploadSource = await dataUrlToBlob(previewUrl);
-      const uploaded = await uploadMediaFile(uploadSource, "field-photos", fieldPhotoUploadName(fileName));
+      if (!current()) return;
+      const uploaded = await uploadMediaFile(uploadSource, "field-photos", fieldPhotoUploadName(fileName), { mediaId: photoId, signal: controller.signal });
+      if (!current()) return;
       if (!uploaded) {
         updateTaskPhotos(taskId, progressRef.current[taskId] ?? { completed: false, minutes: "", note: "", photos: [] }, (photos) => (
           photos.map((photo) => (
             photo.id === photoId
-              ? { ...photo, uploadStatus: photo.previewUrl ? "queued" : "failed" }
+              ? { ...photo, uploadStatus: navigator.onLine ? "failed" : "queued", uploadError: "Foto-Upload fehlgeschlagen" }
               : photo
           ))
         ));
@@ -17513,21 +17581,24 @@ function FieldView({
         ))
       ));
     } catch (error) {
+      if (!current()) return;
       console.warn("Einsatzfoto konnte nicht im Hintergrund hochgeladen werden.", error);
       updateTaskPhotos(taskId, progressRef.current[taskId] ?? { completed: false, minutes: "", note: "", photos: [] }, (photos) => (
         photos.map((photo) => (
           photo.id === photoId
-            ? { ...photo, uploadError: error instanceof Error ? error.message : "Upload fehlgeschlagen", uploadStatus: photo.previewUrl ? "queued" : "failed" }
+            ? { ...photo, uploadError: error instanceof Error ? error.message : "Upload fehlgeschlagen", uploadStatus: navigator.onLine ? "failed" : "queued" }
             : photo
         ))
       ));
     } finally {
       window.clearTimeout(staleUploadTimer);
+      photoUploadsRef.current.delete(photoId);
+      photoControllersRef.current.delete(controller);
     }
   }
 
   function retryFieldPhotoUpload(taskId: string, photo: FieldPhoto) {
-    if (!photo.id || photo.storagePath || !photo.previewUrl?.startsWith("data:image/")) return;
+    if (!navigator.onLine || !photo.id || photoUploadsRef.current.has(photo.id) || photo.storagePath || !photo.previewUrl?.startsWith("data:image/")) return;
     updateTaskPhotos(taskId, progressRef.current[taskId] ?? { completed: false, minutes: "", note: "", photos: [] }, (photos) => (
       photos.map((item) => (
         item.id === photo.id ? { ...item, uploadError: undefined, uploadStatus: "uploading" } : item
@@ -17540,12 +17611,13 @@ function FieldView({
     Object.entries(progressRef.current).forEach(([taskId, taskProgress]) => {
       taskProgress.photos.forEach((photo) => {
         const normalizedPhoto = normalizeFieldPhotoUploadState(photo);
-        if (!normalizedPhoto.storagePath && normalizedPhoto.previewUrl?.startsWith("data:image/") && ["queued", "failed"].includes(normalizedPhoto.uploadStatus ?? "")) {
+        if (!normalizedPhoto.storagePath && normalizedPhoto.previewUrl?.startsWith("data:image/") && !photoUploadsRef.current.has(photo.id ?? "") && ["queued", "failed", "uploading"].includes(normalizedPhoto.uploadStatus ?? "")) {
           retryFieldPhotoUpload(taskId, normalizedPhoto);
         }
       });
     });
   }
+  retryPhotosRef.current = retryQueuedFieldPhotoUploads;
 
   function openPhotoNoteEditor(taskId: string, photo: FieldPhoto) {
     if (!photo.id) return;
@@ -17569,38 +17641,41 @@ function FieldView({
   async function addFieldPhotoFiles(taskId: string, currentTask: FieldTaskProgress, files: FileList | null, source: "camera" | "library") {
     const selectedFiles = Array.from(files ?? []);
     if (!selectedFiles.length) return;
-
+    const context = photoContext;
+    const photos = selectedFiles.map((file) => createFieldPhoto(file));
+    const previews = Object.fromEntries(photos.map((photo, index) => [photo.id!, URL.createObjectURL(selectedFiles[index])]));
+    setLocalPhotoPreviewUrls((current) => ({ ...current, ...previews }));
+    updateTaskPhotos(taskId, currentTask, (current) => [...current, ...photos]);
     setPreparingFieldPhotos((current) => current + selectedFiles.length);
     try {
-      const preparedPhotos = await Promise.all(selectedFiles.map(async (file) => {
+      for (const [index, file] of selectedFiles.entries()) {
+        if (!photoMountedRef.current || photoContextRef.current !== context) break;
+        const photo = photos[index];
         try {
           const previewUrl = await fileToFieldPhotoPreview(file);
-          return previewUrl ? createFieldPhoto(file, previewUrl) : null;
+          if (!photoMountedRef.current || photoContextRef.current !== context) break;
+          if (!previewUrl) throw new Error("Bild konnte nicht als JPEG-Vorschau vorbereitet werden.");
+          updateTaskPhotos(taskId, currentTask, (current) => current.map((item) => item.id === photo.id ? { ...item, previewUrl, uploadStatus: "queued" } : item));
+          setLocalPhotoPreviewUrls((current) => ({ ...current, [photo.id!]: previewUrl }));
+          URL.revokeObjectURL(previews[photo.id!]);
+          if (photo.id) void uploadFieldPhotoInBackground(taskId, photo.id, photo.name, previewUrl);
         } catch (error) {
+          if (!photoMountedRef.current || photoContextRef.current !== context) break;
           console.warn("Einsatzfoto-Vorschau konnte nicht erstellt werden.", error);
-          return null;
+          updateTaskPhotos(taskId, currentTask, (current) => current.map((item) => item.id === photo.id ? { ...item, uploadStatus: "failed", uploadError: "Bild konnte nicht vorbereitet werden." } : item));
+          setLocalPhotoPreviewUrls((current) => {
+            const next = { ...current };
+            delete next[photo.id!];
+            return next;
+          });
+          setPendingAttachmentNotice(tt("Ein Foto konnte nicht vorbereitet werden. Bitte als JPEG, PNG oder WebP aufnehmen."));
         }
-      }));
-      const nextPhotos = preparedPhotos.filter((photo): photo is FieldPhoto => Boolean(photo));
-      if (nextPhotos.length < selectedFiles.length) {
-        setPendingAttachmentNotice(tt("Ein Foto konnte nicht vorbereitet werden. Bitte als JPEG, PNG oder WebP aufnehmen."));
       }
-      if (!nextPhotos.length) return;
-
-      updateTaskPhotos(taskId, currentTask, (photos) => [...photos, ...nextPhotos]);
-      if (source === "camera" && photoDevicePolicy !== "never") {
+      if (photoMountedRef.current && photoContextRef.current === context && source === "camera" && photoDevicePolicy !== "never") {
         setDevicePhotoFiles((current) => [...current, ...selectedFiles]);
       }
-      const localPreviewEntries = nextPhotos
-        .filter((photo) => photo.id && photo.previewUrl)
-        .map((photo) => [photo.id as string, photo.previewUrl as string]);
-      if (localPreviewEntries.length) {
-        setLocalPhotoPreviewUrls((current) => ({ ...current, ...Object.fromEntries(localPreviewEntries) }));
-      }
-      nextPhotos.forEach((photo) => {
-        if (photo.id) void uploadFieldPhotoInBackground(taskId, photo.id, photo.name, photo.previewUrl);
-      });
     } finally {
+      Object.values(previews).forEach((url) => URL.revokeObjectURL(url));
       setPreparingFieldPhotos((current) => Math.max(0, current - selectedFiles.length));
     }
   }
@@ -17935,7 +18010,8 @@ function FieldView({
               {currentTask.photos.map((photo, photoIndex) => (
                 <div className="captured-photo-card" key={`${task.id}-${photo.id ?? photo.name}-${photoIndex}`}>
                   {(photo.id ? localPhotoPreviewUrls[photo.id] : "") || fieldPhotoSource(photo) ? (
-                    <img alt={`Vorschau ${photo.name}`} src={(photo.id ? localPhotoPreviewUrls[photo.id] : "") || fieldPhotoSource(photo)} />
+                    <ReportPhotoFigure alt={`Vorschau ${photo.name}`} caption="" downloadable={false}
+                      photo={photo.id && localPhotoPreviewUrls[photo.id] ? { ...photo, storagePath: undefined, previewUrl: localPhotoPreviewUrls[photo.id] } : photo} />
                   ) : (
                     <div className="captured-photo-placeholder">
                       <Camera size={18} />
