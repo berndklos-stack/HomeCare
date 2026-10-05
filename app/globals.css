@@ -297,13 +297,7 @@ button {
   box-shadow: 0 10px 28px rgb(0 0 0 / 14%);
   display: grid;
   gap: 8px;
-  max-width: min(340px, calc(100vw - 32px));
   padding: 10px;
-  position: absolute;
-  right: 0;
-  top: calc(100% + 6px);
-  width: max-content;
-  z-index: 40;
 }
 
 .sync-status-details span {
@@ -10689,15 +10683,15 @@ button.media-thumb {
   pointer-events: none;
 }
 .sync-status-details {
-  width: min(540px, calc(100vw - 32px));
-  max-width: min(540px, calc(100vw - 300px));
-  left: 0;
-  right: auto;
-  max-height: 45dvh;
-  overflow: auto;
-  z-index: 60;
+  min-width: 0;
   overflow-wrap: anywhere;
 }
+dialog.sync-conflict-dialog { width: min(720px, calc(100vw - 24px)); max-width: calc(100vw - 24px); }
+.sync-conflict-dialog header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.sync-conflict-dialog header h2 { font-size: 20px; overflow-wrap: anywhere; }
+.sync-conflict-actions label { display: inline-flex; align-items: center; gap: 8px; }
+.sync-conflict-actions input { width: 20px; height: 20px; }
+.sync-conflict-dialog button { white-space: normal; overflow-wrap: anywhere; max-width: 100%; }
 .sync-conflict-entry { border-top: 1px solid var(--line); padding: 10px 0; display: grid; gap: 8px; }
 .modal-backdrop { z-index: 100; }
 .field-status-backdrop { z-index: 110; }
@@ -10719,7 +10713,6 @@ button.media-thumb {
   }
   .topbar { padding-top: 0; gap: 6px; }
   .topbar h1.brand-wordmark { font-size: 28px; }
-  .sync-status-details { max-width: calc(100vw - 32px); }
 }
 @media (max-width: 380px) {
   .workspace { --header-gutter-start: 8px; --header-gutter-end: 8px; }

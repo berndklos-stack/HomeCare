@@ -1,7 +1,8 @@
 "use client";
 
-import { AlertCircle, Check, ChevronLeft, ChevronRight, CloudOff, LoaderCircle, RefreshCw, TriangleAlert } from "lucide-react";
+import { AlertCircle, Check, ChevronLeft, ChevronRight, CloudOff, LoaderCircle, RefreshCw, TriangleAlert, X } from "lucide-react";
 import { useState } from "react";
+import { TripDialog } from "./TripDialog";
 import type { Language } from "@/lib/uiTypes";
 import type { SyncMutation, SyncQueueSummary } from "@/lib/syncQueue";
 import type { ConflictReview } from "@/lib/conflictReview";
@@ -47,6 +48,8 @@ export function SyncStatus({ conflicts = [], issues = [], language, lastSyncedAt
   const lastPage = Math.max(0, Math.ceil(conflicts.length / 25) - 1);
   const currentPage = Math.min(page, lastPage);
   const visible = conflicts.slice(currentPage * 25, (currentPage + 1) * 25);
+  const selectedIds = conflicts.filter((mutation) => selected.includes(mutation.id)).map((mutation) => mutation.id);
+  const allSelected = conflicts.length > 0 && selectedIds.length === conflicts.length;
   const redundantIds = reviews.filter((r) => r.redundant && conflicts.some((m) => m.id === r.id)).map((r) => r.id);
   async function review(resolve = false) {
     if (!onReviewConflicts || (resolve && !window.confirm(`${redundantIds.length} nachweislich erledigte Konflikte erneut prüfen und Serverstand übernehmen? Abweichende Änderungen bleiben erhalten.`))) return;
@@ -107,11 +110,15 @@ export function SyncStatus({ conflicts = [], issues = [], language, lastSyncedAt
   return (
     <div className="sync-status-wrap">
       <button
+        aria-haspopup={hasDetails ? "dialog" : undefined}
         aria-expanded={hasDetails ? detailsOpen : undefined}
         aria-label={label}
         className={`sync-status sync-status-${tone}`}
         disabled={!hasDetails}
-        onClick={hasDetails ? () => setDetailsOpen((open) => !open) : undefined}
+        onClick={hasDetails ? (event) => {
+          event.currentTarget.focus({ preventScroll: true });
+          setDetailsOpen(true);
+        } : undefined}
         title={hasDetails ? copy(language, "Details anzeigen", "Visa detaljer", "Show details") : label}
         type="button"
       >
@@ -120,15 +127,27 @@ export function SyncStatus({ conflicts = [], issues = [], language, lastSyncedAt
         {(hasConflict || hasFailed || isPending) && <strong>{summary.conflict + summary.failed + summary.pending}</strong>}
       </button>
       {detailsOpen && hasDetails && (
-        <div className="sync-status-details" role="status">
-          <strong>{hasConflict
+        <TripDialog className="sync-conflict-dialog" labelledBy="sync-conflict-title" onClose={() => { if (!resolving) setDetailsOpen(false); }}>
+          <header>
+            <h2 id="sync-conflict-title">{hasConflict
             ? copy(language, "Änderungskonflikt", "Ändringskonflikt", "Change conflict")
-            : copy(language, "Synchronisierungsfehler", "Synkroniseringsfel", "Sync error")}</strong>
+            : copy(language, "Synchronisierungsfehler", "Synkroniseringsfel", "Sync error")}</h2>
+            <button className="icon-button" type="button" disabled={resolving}
+              aria-label={copy(language, "Konflikte schließen", "Stäng konflikter", "Close conflicts")}
+              title={copy(language, "Schließen", "Stäng", "Close")} onClick={() => setDetailsOpen(false)}><X size={20} /></button>
+          </header>
+          <div className="sync-status-details">
           <span>{issues[0] || (hasConflict
             ? copy(language, "Der Serverstand wurde nicht überschrieben. Bitte Daten aktualisieren und die Änderung prüfen.", "Serverdata skrevs inte över. Uppdatera och kontrollera ändringen.", "The server version was not overwritten. Refresh and review the change.")
             : copy(language, "Die lokale Änderung bleibt erhalten.", "Den lokala ändringen finns kvar.", "The local change is retained."))}</span>
-          {conflicts.length > 1 && <button type="button" className="ghost-button compact" disabled={resolving || !selected.some((id) => conflicts.some((item) => item.id === id))}
-            onClick={() => void accept(selected.filter((id) => conflicts.some((item) => item.id === id)))}>Ausgewählte: Serverstand übernehmen</button>}
+          {conflicts.length > 0 && <div className="sync-conflict-actions">
+            <label><input type="checkbox" disabled={resolving} checked={allSelected}
+              onChange={(event) => setSelected(event.target.checked ? conflicts.map((mutation) => mutation.id) : [])} />
+              {copy(language, "Alle auswählen", "Välj alla", "Select all")}</label>
+            <span>{copy(language, `${selectedIds.length} von ${conflicts.length} ausgewählt`, `${selectedIds.length} av ${conflicts.length} valda`, `${selectedIds.length} of ${conflicts.length} selected`)}</span>
+            <button type="button" className="ghost-button compact" disabled={resolving || !selectedIds.length}
+              onClick={() => void accept(selectedIds)}>{copy(language, "Ausgewählte: Serverstand übernehmen", "Valda: använd serverversionen", "Selected: accept server version")}</button>
+          </div>}
           {onReviewConflicts && <div className="sync-conflict-actions">
             <button type="button" className="ghost-button compact" disabled={resolving || !online} onClick={() => void review()}>{resolving ? "Prüfung läuft" : "Konflikte mit Server vergleichen"}</button>
             {reviews.length > 0 && <span>{redundantIds.length} nachweislich erledigt; übrige Änderungen bleiben geschützt.</span>}
@@ -140,7 +159,7 @@ export function SyncStatus({ conflicts = [], issues = [], language, lastSyncedAt
             <button className="icon-button" type="button" aria-label="Nächste Konfliktseite" title="Nächste Seite" disabled={currentPage === lastPage || resolving} onClick={() => { setPage(currentPage + 1); setExpanded(null); }}><ChevronRight size={18} /></button>
           </nav>}
           {visible.map((mutation) => <section className="sync-conflict-entry" key={mutation.id} aria-label={`Konflikt ${mutation.entityId}`}>
-            <label><input type="checkbox" aria-label={`Konflikt ${mutation.entityId} auswählen`} checked={selected.includes(mutation.id)} onChange={(event) => setSelected((current) => event.target.checked ? [...current, mutation.id] : current.filter((id) => id !== mutation.id))} />{mutation.entityType} · {mutation.entityId}</label>
+            <label><input type="checkbox" disabled={resolving} aria-label={`Konflikt ${mutation.entityId} auswählen`} checked={selected.includes(mutation.id)} onChange={(event) => setSelected((current) => event.target.checked ? [...current, mutation.id] : current.filter((id) => id !== mutation.id))} />{mutation.entityType} · {mutation.entityId}</label>
             <small>{mutation.operation} · lokal Revision {mutation.expectedRevision ?? "neu"} · Server Revision {String(mutation.serverRecord?.revision ?? "unbekannt")}</small>
             <span>{mutation.error}</span>
             {reviews.find((r) => r.id === mutation.id)?.reason && <small>{reviews.find((r) => r.id === mutation.id)?.reason}</small>}
@@ -160,7 +179,8 @@ export function SyncStatus({ conflicts = [], issues = [], language, lastSyncedAt
               {copy(language, "Erneut versuchen", "Försök igen", "Retry")}
             </button>
           )}
-        </div>
+          </div>
+        </TripDialog>
       )}
     </div>
   );
