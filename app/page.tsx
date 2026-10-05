@@ -85,7 +85,7 @@ import { overlayPendingJobOperations, prepareJobMutations, prepareNoteMutations,
 import { overlayPendingReportCommunication, preparePortalMessageMutations, prepareReportMutations } from "@/lib/reportCommunicationSync";
 import { overlayPendingFinancialMutations, prepareFinancialMutations } from "@/lib/financialSync";
 import { useSyncQueue } from "@/lib/useSyncQueue";
-import { localCacheQuotaEvent, writeLocalCache } from "@/lib/localCache";
+import { isStorageQuotaError, localCacheQuotaEvent, writeLocalCache } from "@/lib/localCache";
 import {
   normalizeOnboardingState,
   onboardingInstallPlatform,
@@ -17604,20 +17604,21 @@ function FieldView({
   }
 
   function retryFieldPhotoUpload(taskId: string, photo: FieldPhoto) {
-    if (!navigator.onLine || !photo.id || photoUploadsRef.current.has(photo.id) || photo.storagePath || !photo.previewUrl?.startsWith("data:image/")) return;
+    const previewUrl = photo.previewUrl?.startsWith("data:image/") ? photo.previewUrl : photo.id ? localPhotoPreviewUrls[photo.id] : undefined;
+    if (!navigator.onLine || !photo.id || photoUploadsRef.current.has(photo.id) || photo.storagePath || !previewUrl?.startsWith("data:image/")) return;
     updateTaskPhotos(taskId, progressRef.current[taskId] ?? { completed: false, minutes: "", note: "", photos: [] }, (photos) => (
       photos.map((item) => (
         item.id === photo.id ? { ...item, uploadError: undefined, uploadStatus: "uploading" } : item
       ))
     ));
-    void uploadFieldPhotoInBackground(taskId, photo.id, photo.name, photo.previewUrl);
+    void uploadFieldPhotoInBackground(taskId, photo.id, photo.name, previewUrl);
   }
 
   function retryQueuedFieldPhotoUploads() {
     Object.entries(progressRef.current).forEach(([taskId, taskProgress]) => {
       taskProgress.photos.forEach((photo) => {
         const normalizedPhoto = normalizeFieldPhotoUploadState(photo);
-        if (!normalizedPhoto.storagePath && normalizedPhoto.previewUrl?.startsWith("data:image/") && !photoUploadsRef.current.has(photo.id ?? "") && ["queued", "failed", "uploading"].includes(normalizedPhoto.uploadStatus ?? "")) {
+        if (!normalizedPhoto.storagePath && (normalizedPhoto.previewUrl?.startsWith("data:image/") || (photo.id && localPhotoPreviewUrls[photo.id])) && !photoUploadsRef.current.has(photo.id ?? "") && ["queued", "failed", "uploading"].includes(normalizedPhoto.uploadStatus ?? "")) {
           retryFieldPhotoUpload(taskId, normalizedPhoto);
         }
       });
@@ -17663,8 +17664,15 @@ function FieldView({
           const previewUrl = await fileToFieldPhotoPreview(file);
           if (!photoMountedRef.current || photoContextRef.current !== context) break;
           if (!previewUrl) throw new Error("Bild konnte nicht als JPEG-Vorschau vorbereitet werden.");
-          updateTaskPhotos(taskId, currentTask, (current) => current.map((item) => item.id === photo.id ? { ...item, previewUrl, uploadStatus: "queued" } : item));
           setLocalPhotoPreviewUrls((current) => ({ ...current, [photo.id!]: previewUrl }));
+          try {
+            updateTaskPhotos(taskId, currentTask, (current) => current.map((item) => item.id === photo.id ? { ...item, previewUrl, uploadStatus: "queued" } : item));
+          } catch (error) {
+            if (!isStorageQuotaError(error)) throw error;
+            // Keep the preview in this view while the private upload replaces
+            // the oversized inline payload with a durable media reference.
+            updateTaskPhotos(taskId, currentTask, (current) => current.map((item) => item.id === photo.id ? { ...item, uploadStatus: "failed", uploadError: "Foto ist noch nicht offline gesichert: Browserspeicher voll." } : item));
+          }
           if (photo.id) void uploadFieldPhotoInBackground(taskId, photo.id, photo.name, previewUrl);
         } catch (error) {
           if (!photoMountedRef.current || photoContextRef.current !== context) break;
@@ -17740,10 +17748,13 @@ function FieldView({
     sum + task.photos.filter((photo) => {
       const normalizedPhoto = normalizeFieldPhotoUploadState(photo);
       return !normalizedPhoto.storagePath
-        && normalizedPhoto.previewUrl?.startsWith("data:image/")
+        && (normalizedPhoto.previewUrl?.startsWith("data:image/") || (photo.id && localPhotoPreviewUrls[photo.id]))
         && ["queued", "failed"].includes(normalizedPhoto.uploadStatus ?? "");
     }).length
   ), 0);
+  const hasVolatileFieldPhotos = Object.values(progress).some((task) => task.photos.some((photo) => (
+    !photo.storagePath && !photo.previewUrl && photo.id && localPhotoPreviewUrls[photo.id]
+  )));
 
   return (
     <section className="field-shell">
@@ -17905,6 +17916,11 @@ function FieldView({
             })}
           </div>
         )}
+        {hasVolatileFieldPhotos && <p role="alert">{language === "sv"
+          ? "Enhetens lagring är full. Nya foton är inte offlinesparade ännu. Håll vyn öppen tills uppladdningen är klar."
+          : language === "en"
+            ? "Device storage is full. New photos are not saved offline yet. Keep this view open until uploads finish."
+            : "Browserspeicher voll. Neue Fotos sind noch nicht offline gesichert. Bitte diese Ansicht bis zum abgeschlossenen Upload offen lassen."}</p>}
         <div className="service-task-list">
           {fieldTasks.map((task, index) => {
             const currentTask = valueForTask(task);
@@ -18028,9 +18044,10 @@ function FieldView({
                       </small>
                     )}
                     {photo.note?.trim() && <small>{photo.note.trim()}</small>}
+                    {photo.uploadStatus === "failed" && photo.uploadError && <small>{photo.uploadError}</small>}
                   </div>
                   <div className="row-actions">
-                    {normalizeFieldPhotoUploadState(photo).previewUrl?.startsWith("data:image/") && !normalizeFieldPhotoUploadState(photo).storagePath && normalizeFieldPhotoUploadState(photo).uploadStatus !== "uploading" && (
+                    {(normalizeFieldPhotoUploadState(photo).previewUrl?.startsWith("data:image/") || (photo.id && localPhotoPreviewUrls[photo.id])) && !normalizeFieldPhotoUploadState(photo).storagePath && normalizeFieldPhotoUploadState(photo).uploadStatus !== "uploading" && (
                       <button
                         aria-label={tt("Upload erneut versuchen")}
                         className="icon-button"

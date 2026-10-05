@@ -70,6 +70,63 @@ async function storedPhotos(page: Page) {
   });
 }
 
+test("Volle Offline-Queue blockiert online keine weiteren Fotos und speichert private Referenzen", async ({ page }) => {
+  await page.addInitScript(() => {
+    const original = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (key, value) {
+      if (key.startsWith("workcore-sync-mutations") && value.includes("data:image/")) {
+        throw new DOMException("Photo queue full", "QuotaExceededError");
+      }
+      return original.call(this, key, value);
+    };
+  });
+  const ids = new Set<string>();
+  await page.route("**/api/media", async (route) => {
+    const id = route.request().postDataBuffer()!.toString().match(/name="mediaId"\r\n\r\n([^\r]+)/)![1];
+    ids.add(id);
+    await route.fulfill({ json: { id, path: `tenant/field-photos/${id}.jpg`, url: "" } });
+  });
+  await openJob(page);
+  await page.locator('input[aria-label^="Bilder zu"]').first().setInputFiles(photos(4));
+  await expect(page.locator(".captured-photo-card img")).toHaveCount(4);
+  await expect.poll(async () => (await storedPhotos(page)).filter((photo) => photo.uploadStatus === "uploaded").length).toBe(4);
+  expect(ids.size).toBe(4);
+  await page.reload();
+  await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true");
+  await page.getByTestId("nav-field").click();
+  await expect(page.locator(".captured-photo-card")).toHaveCount(4);
+});
+
+test("Speicherfehler bleibt offline sichtbar und lokale Vorschauen sind nach Reconnect erneut hochladbar", async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "onLine", { configurable: true, get: () => false });
+    const original = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (key, value) {
+      if (key.startsWith("workcore-sync-mutations") && value.includes("data:image/")) throw new DOMException("Photo queue full", "QuotaExceededError");
+      return original.call(this, key, value);
+    };
+  });
+  const ids = new Set<string>();
+  await page.route("**/api/media", async (route) => {
+    const id = route.request().postDataBuffer()!.toString().match(/name="mediaId"\r\n\r\n([^\r]+)/)![1];
+    ids.add(id);
+    await route.fulfill({ json: { id, path: `tenant/field-photos/${id}.jpg`, url: "" } });
+  });
+  await openJob(page);
+  await page.locator('input[aria-label^="Bilder zu"]').first().setInputFiles(photos(4));
+  await expect(page.locator(".captured-photo-card img")).toHaveCount(4);
+  await expect(page.getByRole("alert").filter({ hasText: "noch nicht offline gesichert" })).toBeVisible();
+  expect(ids.size).toBe(0);
+  expect((await storedPhotos(page)).filter((photo) => photo.uploadStatus === "uploaded")).toHaveLength(0);
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, "onLine", { configurable: true, get: () => true });
+    window.dispatchEvent(new Event("online"));
+  });
+  await expect.poll(async () => (await storedPhotos(page)).filter((photo) => photo.uploadStatus === "uploaded").length).toBe(4);
+  await expect(page.getByRole("alert").filter({ hasText: "noch nicht offline gesichert" })).toHaveCount(0);
+  expect(ids.size).toBe(4);
+});
+
 test("Voller Berichtscache zeigt Warnung ohne Reload und erhält den Bericht in der Offline-Queue", async ({ page }) => {
   await page.addInitScript(() => {
     const original = Storage.prototype.setItem;
