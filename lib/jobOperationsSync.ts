@@ -150,7 +150,15 @@ export function overlayPendingJobOperations<T extends RevisionedJob>(
   const jobsById = new Map(jobs.map((job) => [job.id, job]));
   active(queue, "job").forEach((mutation) => {
     if (mutation.operation === "delete") jobsById.delete(mutation.entityId);
-    else jobsById.set(mutation.entityId, { ...(jobsById.get(mutation.entityId) ?? { id: mutation.entityId }), ...mutation.payload, id: mutation.entityId, revision: mutation.expectedRevision === undefined ? 1 : mutation.expectedRevision + 1, updatedAt: mutation.updatedAt } as T);
+    else {
+      const previous = jobsById.get(mutation.entityId);
+      const consulting = mutation.payload.consulting;
+      const next = { ...(previous ?? { id: mutation.entityId }), ...mutation.payload, id: mutation.entityId, revision: mutation.expectedRevision === undefined ? 1 : mutation.expectedRevision + 1, updatedAt: mutation.updatedAt } as T;
+      if (consulting && typeof consulting === "object" && !Array.isArray(consulting)) {
+        next.consulting = { ...previous?.consulting, ...consulting, entries: previous?.consulting?.entries ?? [] };
+      }
+      jobsById.set(mutation.entityId, next);
+    }
   });
   active(queue, "job_time_entry").forEach((mutation) => {
     const job = jobsById.get(mutation.resourceId); if (!job) return;

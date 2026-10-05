@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import ts from "typescript";
 import {
   overlayPendingJobOperations,
   prepareJobMutations,
@@ -27,6 +28,50 @@ function job(overrides: Partial<RevisionedJob> = {}): RevisionedJob {
     ...overrides,
   };
 }
+
+function pageHelper(name: string, nextName: string, dependencies: Record<string, unknown> = {}) {
+  const source = readFileSync(path.join(process.cwd(), "app/page.tsx"), "utf8");
+  const start = source.indexOf(`function ${name}(`);
+  const end = source.indexOf(`function ${nextName}(`, start);
+  expect(start).toBeGreaterThan(-1);
+  expect(end).toBeGreaterThan(start);
+  const compiled = ts.transpile(source.slice(start, end), { target: ts.ScriptTarget.ES2022 });
+  return new Function(...Object.keys(dependencies), `${compiled}\nreturn ${name};`)(...Object.values(dependencies));
+}
+
+test("Relationale Leistungen ersetzen alte fakturierte Cachewerte auch nach erneutem Laden", () => {
+  const merge = pageHelper("mergeSnapshotWithSyncSections", "overlayPendingSettingsSnapshot");
+  const entries = Array.from({ length: 4 }, (_, index) => ({ id: `TIME-${index}`, billingStatus: "offen", revision: 2, minutes: 45 }));
+  const server = job({ consulting: { enabled: true, hourlyRate: "685", entries } });
+  const local = { jobs: [job({ consulting: { enabled: true, hourlyRate: "800", entries: entries.map((entry) => ({ ...entry, billingStatus: "abgerechnet", revision: 1 })) } })] };
+  const sections = { jobs: { value: [server], updatedAt: "2026-10-05T18:00:00Z" } };
+  const first = merge(local, sections);
+  expect(first.jobs).toEqual([server]);
+  expect(merge(JSON.parse(JSON.stringify(first)), sections).jobs).toEqual([server]);
+  expect(merge(local, { jobs: { value: [] } }).jobs).toEqual([]);
+});
+
+test("Alter Pending-Abschnitt darf bereits überlagerte relationale Aufträge nicht ersetzen", () => {
+  const merge = pageHelper("mergePendingLocalSections", "reportSummaryNote", {
+    mergeSnapshots: (_remote: unknown, local: unknown) => local,
+    sectionPatch: (snapshot: unknown) => ({ ...(snapshot as object) }),
+  });
+  const remote = { jobs: [job({ title: "Server plus echter Queue-Entwurf" })] };
+  const local = { jobs: [job({ title: "Veralteter Cache" })] };
+  expect(merge(remote, local, ["jobs"]).jobs).toEqual(remote.jobs);
+});
+
+test("Auftragsmutation erhält Server-Leistungen, echte Offline-Zeiten bleiben separat erhalten", () => {
+  const server = job({ revision: 2, consulting: { enabled: true, hourlyRate: "685", entries: [{ id: "TIME-SERVER", billingStatus: "offen", revision: 2, minutes: 45 }] } });
+  const update = createSyncMutation({ entityId: server.id, entityType: "job", expectedRevision: 2, operation: "update", payload: { title: "Lokaler Entwurf", consulting: { enabled: true, hourlyRate: "685", entries: [{ id: "TIME-SERVER", billingStatus: "abgerechnet" }] } }, resourceId: server.id });
+  const time = createSyncMutation({ entityId: "TIME-OFFLINE", entityType: "job_time_entry", operation: "create", payload: { minutes: 30, billingStatus: "offen" }, resourceId: server.id });
+  const result = overlayPendingJobOperations([server], {}, {}, {}, [update, time]);
+  expect(result.jobs[0].title).toBe("Lokaler Entwurf");
+  expect(result.jobs[0].consulting?.entries).toEqual([
+    expect.objectContaining({ id: "TIME-SERVER", billingStatus: "offen", revision: 2 }),
+    expect.objectContaining({ id: "TIME-OFFLINE", minutes: 30 }),
+  ]);
+});
 
 test("Auftrag und Zeiteinträge werden als unabhängige revisionierte Mutationen geplant", () => {
   const created = prepareJobMutations([], [job({

@@ -3788,6 +3788,10 @@ function mergePendingLocalSections(
     );
   }
 
+  // Job edits are already overlaid from the durable record-level queue.
+  // A legacy section marker must not restore stale cached time entries.
+  if (pendingKeys.includes("jobs")) pendingPatch.jobs = remoteSnapshot.jobs;
+
   return {
     ...remoteSnapshot,
     ...pendingPatch,
@@ -4143,9 +4147,8 @@ function mergeSnapshotWithSyncSections(snapshot: AppSnapshot, sections: SyncSect
   return {
     ...snapshot,
     ...safePatch,
-    // Die relationale Auftragsprojektion wird mit lokalen Offline-Mutationen
-    // zusammengefuehrt, damit noch nicht gesendete Consulting-Zeiten erhalten bleiben.
-    jobs: sectionJobs ? mergeJobsById(snapshot.jobs, sectionJobs) : snapshot.jobs,
+    // Pending record mutations are applied separately after this projection.
+    jobs: sectionJobs ?? snapshot.jobs,
     updatedAt: Object.values(sections).reduce((latest, section) => {
       const sectionTime = Date.parse(section?.updatedAt ?? "");
       const latestTime = Date.parse(latest ?? "");
@@ -6944,6 +6947,7 @@ async function fileToImagePreview(file: File, maxSize = 1280, quality = 0.72) {
 
   const image = bitmap ?? await loadImageFromFile(file);
   if (!image) return "";
+  const canvas = document.createElement("canvas");
 
   try {
     const sourceWidth = "naturalWidth" in image ? image.naturalWidth : image.width;
@@ -6951,7 +6955,6 @@ async function fileToImagePreview(file: File, maxSize = 1280, quality = 0.72) {
     const scale = Math.min(1, maxSize / Math.max(sourceWidth, sourceHeight));
     const width = Math.max(1, Math.round(sourceWidth * scale));
     const height = Math.max(1, Math.round(sourceHeight * scale));
-    const canvas = document.createElement("canvas");
     canvas.width = width;
     canvas.height = height;
     const context = canvas.getContext("2d");
@@ -6965,6 +6968,9 @@ async function fileToImagePreview(file: File, maxSize = 1280, quality = 0.72) {
     return "";
   } finally {
     bitmap?.close();
+    if (image instanceof HTMLImageElement) image.src = "";
+    canvas.width = 0;
+    canvas.height = 0;
   }
 }
 
@@ -17307,24 +17313,16 @@ function FieldView({
   const photoMountedRef = useRef(true);
   photoContextRef.current = photoContext;
   const photoUploadsRef = useRef(new Set<string>());
+  const photoPreparationRef = useRef(Promise.resolve());
   const photoControllersRef = useRef(new Set<AbortController>());
   const retryPhotosRef = useRef<(() => void) | null>(null);
   retryPhotosRef.current = null;
   useEffect(() => { setDevicePhotoFiles([]); }, [activeJobId, selectedWorkDate]);
   const progressRef = useRef(progress);
-  const localPhotoPreviewUrlsRef = useRef(localPhotoPreviewUrls);
 
   useEffect(() => {
     progressRef.current = progress;
   }, [progress]);
-
-  useEffect(() => {
-    localPhotoPreviewUrlsRef.current = localPhotoPreviewUrls;
-  }, [localPhotoPreviewUrls]);
-
-  useEffect(() => () => {
-    Object.values(localPhotoPreviewUrlsRef.current).forEach((url) => URL.revokeObjectURL(url));
-  }, []);
 
   useEffect(() => {
     photoMountedRef.current = true;
@@ -17336,7 +17334,6 @@ function FieldView({
       photoMountedRef.current = false;
       window.clearTimeout(timer);
       window.removeEventListener("online", retry);
-      Object.values(localPhotoPreviewUrlsRef.current).forEach((url) => URL.revokeObjectURL(url));
       for (const controller of photoControllersRef.current) controller.abort();
       photoControllersRef.current.clear();
       photoUploadsRef.current.clear();
@@ -17649,10 +17646,12 @@ function FieldView({
     if (!selectedFiles.length) return;
     const context = photoContext;
     const photos = selectedFiles.map((file) => createFieldPhoto(file));
-    const previews = Object.fromEntries(photos.map((photo, index) => [photo.id!, URL.createObjectURL(selectedFiles[index])]));
-    setLocalPhotoPreviewUrls((current) => ({ ...current, ...previews }));
     updateTaskPhotos(taskId, currentTask, (current) => [...current, ...photos]);
     setPreparingFieldPhotos((current) => current + selectedFiles.length);
+    const previousPreparation = photoPreparationRef.current;
+    let releasePreparation!: () => void;
+    photoPreparationRef.current = new Promise<void>((resolve) => { releasePreparation = resolve; });
+    await previousPreparation;
     try {
       for (const [index, file] of selectedFiles.entries()) {
         if (!photoMountedRef.current || photoContextRef.current !== context) break;
@@ -17663,17 +17662,11 @@ function FieldView({
           if (!previewUrl) throw new Error("Bild konnte nicht als JPEG-Vorschau vorbereitet werden.");
           updateTaskPhotos(taskId, currentTask, (current) => current.map((item) => item.id === photo.id ? { ...item, previewUrl, uploadStatus: "queued" } : item));
           setLocalPhotoPreviewUrls((current) => ({ ...current, [photo.id!]: previewUrl }));
-          URL.revokeObjectURL(previews[photo.id!]);
           if (photo.id) void uploadFieldPhotoInBackground(taskId, photo.id, photo.name, previewUrl);
         } catch (error) {
           if (!photoMountedRef.current || photoContextRef.current !== context) break;
           console.warn("Einsatzfoto-Vorschau konnte nicht erstellt werden.", error);
           updateTaskPhotos(taskId, currentTask, (current) => current.map((item) => item.id === photo.id ? { ...item, uploadStatus: "failed", uploadError: "Bild konnte nicht vorbereitet werden." } : item));
-          setLocalPhotoPreviewUrls((current) => {
-            const next = { ...current };
-            delete next[photo.id!];
-            return next;
-          });
           setPendingAttachmentNotice(tt("Ein Foto konnte nicht vorbereitet werden. Bitte als JPEG, PNG oder WebP aufnehmen."));
         }
       }
@@ -17681,7 +17674,7 @@ function FieldView({
         setDevicePhotoFiles((current) => [...current, ...selectedFiles]);
       }
     } finally {
-      Object.values(previews).forEach((url) => URL.revokeObjectURL(url));
+      releasePreparation();
       setPreparingFieldPhotos((current) => Math.max(0, current - selectedFiles.length));
     }
   }

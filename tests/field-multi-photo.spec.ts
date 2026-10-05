@@ -3,6 +3,58 @@ import { expect, test, type Page } from "@playwright/test";
 const pixel = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=", "base64");
 const photos = (count: number) => Array.from({ length: count }, (_, i) => ({ name: `auswahl-${i + 1}.png`, mimeType: "image/png", buffer: pixel }));
 
+test("Mehrfachauswahl rendert keine unskalierten Originale parallel zur Bildverarbeitung", async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "onLine", { configurable: true, get: () => false });
+    const original = window.createImageBitmap.bind(window);
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    Object.assign(window, { releasePhotoDecode: release });
+    window.createImageBitmap = (async (...args: Parameters<typeof createImageBitmap>) => {
+      await gate;
+      return original(...args);
+    }) as typeof createImageBitmap;
+  });
+  await openJob(page);
+  await page.locator('input[aria-label^="Bilder zu"]').first().setInputFiles(photos(5));
+  await expect(page.locator(".captured-photo-card")).toHaveCount(5);
+  await expect(page.locator('.captured-photo-card img[src^="blob:"]')).toHaveCount(0);
+  await page.evaluate(() => (window as unknown as { releasePhotoDecode: () => void }).releasePhotoDecode());
+  await expect(page.locator(".captured-photo-card img")).toHaveCount(5);
+});
+
+test("Vier hochauflösende Fotos werden auch bei überlappender Auswahl einzeln verkleinert", async ({ page }) => {
+  const { default: sharp } = await import("sharp");
+  const buffer = await sharp({ create: { width: 4032, height: 3024, channels: 3, background: "#729eb4" } }).jpeg().toBuffer();
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "onLine", { configurable: true, get: () => false });
+    const original = window.createImageBitmap.bind(window);
+    const counters = { active: 0, maximum: 0, closed: 0 };
+    Object.assign(window, { photoDecodeCounters: counters });
+    window.createImageBitmap = (async (...args: Parameters<typeof createImageBitmap>) => {
+      counters.active++;
+      counters.maximum = Math.max(counters.maximum, counters.active);
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      const bitmap = await original(...args);
+      const close = bitmap.close.bind(bitmap);
+      bitmap.close = () => { counters.active--; counters.closed++; close(); };
+      return bitmap;
+    }) as typeof createImageBitmap;
+  });
+  await openJob(page);
+  const input = page.locator('input[aria-label^="Bilder zu"]').first();
+  const files = Array.from({ length: 4 }, (_, index) => ({ name: `large-${index}.jpg`, mimeType: "image/jpeg", buffer }));
+  await input.setInputFiles(files.slice(0, 2));
+  await input.setInputFiles(files.slice(2));
+  await expect(page.locator(".captured-photo-card")).toHaveCount(4);
+  await expect(page.locator(".captured-photo-card img")).toHaveCount(4, { timeout: 30_000 });
+  await expect.poll(() => page.locator(".captured-photo-card img").evaluateAll((images) => images.every((image) => {
+    const img = image as HTMLImageElement;
+    return img.naturalWidth > 0 && img.naturalWidth <= 1920 && img.naturalHeight <= 1920;
+  }))).toBe(true);
+  expect(await page.evaluate(() => (window as unknown as { photoDecodeCounters: object }).photoDecodeCounters)).toEqual({ active: 0, maximum: 1, closed: 4 });
+});
+
 async function openJob(page: Page) {
   await page.goto("/");
   await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true", { timeout: 30_000 });
