@@ -4819,6 +4819,11 @@ mark.neutral {
   justify-content: center;
 }
 
+.master-data-tabs button:not(.active) {
+  background: var(--paper-soft);
+  color: var(--foreground);
+}
+
 .master-data-editor {
   margin-bottom: 18px;
 }

@@ -6,6 +6,28 @@ import { reviewMediaConflict } from "../lib/conflictReview";
 
 const pixel = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=", "base64");
 
+for (const width of [1440, 390]) test(`Stammdaten-Reiter bleiben im Dunkelmodus lesbar: ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 900 });
+  await page.goto("/");
+  await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true");
+  await page.getByRole("button", { name: "Dunkelmodus", exact: true }).click();
+  await page.getByTestId("nav-masterData").click();
+  const tabs = page.locator(".master-data-tabs");
+  await expect(tabs).toBeVisible();
+  const colors = await tabs.locator("button:not(.active)").evaluateAll((buttons) => buttons.map((button) => {
+    const style = getComputedStyle(button);
+    return { background: style.backgroundColor, color: style.color };
+  }));
+  expect(colors.length).toBeGreaterThan(0);
+  for (const colorset of colors) {
+    expect(colorset).toEqual({ background: "rgb(50, 53, 58)", color: "rgb(241, 243, 244)" });
+  }
+  await tabs.getByRole("button", { name: "Ressourcen", exact: true }).click();
+  await expect(tabs.getByRole("button", { name: "Ressourcen", exact: true })).toHaveClass("active");
+  await expect(tabs.getByRole("button", { name: "Firma", exact: true })).toHaveCSS("background-color", "rgb(50, 53, 58)");
+  await page.screenshot({ path: `test-results/master-tabs-dark-${width}-${test.info().project.name}.png` });
+});
+
 test("Datenstand zeigt Datum und Uhrzeit statt vermeintlicher Synchronisierungszeit", () => {
   for (const [language, expected] of [["de", "04.10.2026, 19:28"], ["sv", "2026-10-04 19:28"], ["en", "04/10/2026, 19:28"]] as const) {
     expect(formatSyncDataTime("2026-10-04T19:28:00", language)).toBe(expected);
