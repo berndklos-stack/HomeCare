@@ -2,32 +2,42 @@ import { expect, test } from "@playwright/test";
 import { resolveAppBranding } from "../lib/branding";
 import { defaultObjectTypeDefinitions, normalizeObjectTypeDefinitions } from "../lib/objectTypes";
 
-test("Branding wird aus der gewählten Sprache zentral aufgelöst", () => {
+test("Markenname folgt dem Firmenland und nicht der Oberflächensprache", () => {
   expect(resolveAppBranding({ countryCode: "SE" }, "sv")).toMatchObject({
     brandName: "Koll",
-    claim: "Full koll på jobbet",
+    claim: "Full koll på jobbet.",
   });
   expect(resolveAppBranding({ countryCode: "SE" }, "de")).toMatchObject({
+    brandName: "Koll",
+    claim: "Full koll på jobbet.",
+  });
+  expect(resolveAppBranding({ countryCode: "SE" }, "en")).toMatchObject({
+    brandName: "Koll",
+    claim: "Full koll på jobbet.",
+  });
+  expect(resolveAppBranding({ countryCode: "DE" }, "sv")).toMatchObject({
     brandName: "WorkCore",
     claim: "Aufträge. Projekte. Service. Abrechnung.",
   });
-  expect(resolveAppBranding({ countryCode: "SE" }, "en")).toMatchObject({
-    brandName: "WorkCore",
-    claim: "Jobs. Projects. Service. Billing.",
-  });
-  expect(resolveAppBranding({ countryCode: "DE" }, "sv")).toMatchObject({
-    brandName: "Koll",
-    claim: "Full koll på jobbet",
-  });
   expect(resolveAppBranding({ countryCode: "DE" }, "en")).toMatchObject({
     brandName: "WorkCore",
-    claim: "Jobs. Projects. Service. Billing.",
+    claim: "Aufträge. Projekte. Service. Abrechnung.",
   });
   expect(resolveAppBranding({
     brandNameInternational: "FieldSuite",
     claimGerman: "Alles im Blick.",
     countryCode: "DE",
   }, "de")).toMatchObject({ brandName: "FieldSuite", claim: "Alles im Blick." });
+  expect(resolveAppBranding({ countryCode: "Sverige" }, "de")).toMatchObject({ brandName: "Koll" });
+  expect(resolveAppBranding({ countryCode: "SE", claimSweden: "Full koll på jobbet" }, "de")).toMatchObject({
+    brandName: "Koll",
+    claim: "Full koll på jobbet.",
+  });
+  expect(resolveAppBranding({}, "sv")).toMatchObject({
+    brandName: "WorkCore",
+    claim: "Jobs. Projects. Service. Billing.",
+    countryCode: "",
+  });
 });
 
 test("Objekttypen erhalten robuste Standardfelder", () => {
@@ -58,6 +68,7 @@ test("Objekttypen erhalten robuste Standardfelder", () => {
 });
 
 test("Branding und Objekttyp bleiben nach dem Speichern erhalten", async ({ page }) => {
+  const futureConsultingDate = new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10);
   const [originalSectionsResponse, originalStateResponse] = await Promise.all([
     page.request.get("/api/sync-sections?keys=companySettings,objects,customers,jobs"),
     page.request.get("/api/app-state"),
@@ -147,7 +158,7 @@ test("Branding und Objekttyp bleiben nach dem Speichern erhalten", async ({ page
       entries: [
         { id: "CT-1", date: "2026-09-10", startTime: "08:00", endTime: "09:00", minutes: 60, description: "Analyse", billingStatus: "offen" },
         { id: "CT-2", date: "2026-09-15", startTime: "10:00", endTime: "11:30", minutes: 90, description: "Besprechung", billingStatus: "offen" },
-        { id: "CT-3", date: "2026-10-01", startTime: "12:00", endTime: "13:00", minutes: 60, description: "Zukünftige Position", billingStatus: "offen" },
+        { id: "CT-3", date: futureConsultingDate, startTime: "12:00", endTime: "13:00", minutes: 60, description: "Zukünftige Position", billingStatus: "offen" },
       ],
     },
   };
@@ -206,13 +217,14 @@ test("Branding und Objekttyp bleiben nach dem Speichern erhalten", async ({ page
 
   await page.goto("/");
   await expect(page.locator("main")).toHaveAttribute("data-ready", "true", { timeout: 30_000 });
-  await expect(page.getByRole("heading", { name: "WorkCore" })).toBeVisible();
-  await expect(page.getByText("Aufträge. Projekte. Service. Abrechnung.", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Koll" })).toBeVisible();
+  await expect(page.getByText("Full koll på jobbet.", { exact: true })).toBeVisible();
   await page.getByLabel("Sprache").selectOption("sv");
   await expect(page.getByRole("heading", { name: "Koll" })).toBeVisible();
-  await expect(page.getByText("Full koll på jobbet", { exact: true })).toBeVisible();
+  await expect(page.getByText("Full koll på jobbet.", { exact: true })).toBeVisible();
   await page.getByLabel("Språk").selectOption("de");
-  await expect(page.getByRole("heading", { name: "WorkCore" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Koll" })).toBeVisible();
+  await expect(page.getByText("Full koll på jobbet.", { exact: true })).toBeVisible();
 
   await page.getByTestId("nav-planning").click();
   const ongoingPanel = page.locator(".dispatch-ongoing-panel");

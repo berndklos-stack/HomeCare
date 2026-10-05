@@ -1,10 +1,27 @@
 export const appVersion = {
-  version: "1.424.0",
-  releaseDate: "2026-09-22",
+  version: "1.425.0",
+  releaseDate: "2026-10-05",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  {
+    version: "1.425.0",
+    date: "2026-10-05",
+    changes: [
+      "WorkCore und Koll richten sich nach dem Firmenland; der schwedische Claim ist vereinheitlicht",
+      "Fahrtenbuch: Bearbeitung im Dialog, Live-Kilometer und dauerhafte Zwischenstaende",
+      "Konfliktpruefung vergleicht ausstehende Aenderungen vor dem bewussten Uebernehmen des Serverstands",
+    ],
+  },
+  {
+    version: "1.424.1",
+    date: "2026-09-22",
+    changes: [
+      "Markenname und Untertitel richten sich ausschliesslich nach dem Firmenland und bleiben beim Sprachwechsel unveraendert",
+      "Schwedische Firmen verwenden Koll mit schwedischem Claim, deutsche Firmen WorkCore mit deutschem Claim",
+    ],
+  },
   {
     version: "1.424.0",
     date: "2026-09-22",

@@ -9,16 +9,19 @@ for (const mode of ["overview", "field"] as const) test(`fünf Berichte ohne Fot
   page.on("request", (request) => { if (request.url().includes("/api/")) requests.push(request.url()); });
   await page.addInitScript(() => {
     const timers = new Set<number>();
+    const timerDetails = new Map<number, { delay: number | undefined; origin: string }>();
     const intervals = new Set<number>();
     const timeout = window.setTimeout.bind(window);
     const clearTimeout = window.clearTimeout.bind(window);
     const interval = window.setInterval.bind(window);
     const clearInterval = window.clearInterval.bind(window);
     window.setTimeout = ((fn: TimerHandler, delay?: number, ...args: unknown[]) => {
-      const id = timeout(() => { timers.delete(id); if (typeof fn === "function") fn(...args); }, delay);
+      const id = timeout(() => { timers.delete(id); timerDetails.delete(id); if (typeof fn === "function") fn(...args); }, delay);
+      const origin = new Error().stack?.split("\n").find((line) => line.includes("http")) ?? "unknown";
+      timerDetails.set(id, { delay, origin });
       timers.add(id); return id;
     }) as typeof window.setTimeout;
-    window.clearTimeout = (id) => { if (typeof id === "number") timers.delete(id); clearTimeout(id); };
+    window.clearTimeout = (id) => { if (typeof id === "number") { timers.delete(id); timerDetails.delete(id); } clearTimeout(id); };
     window.setInterval = ((...args: Parameters<typeof window.setInterval>) => { const id = interval(...args); intervals.add(id); return id; }) as typeof window.setInterval;
     window.clearInterval = (id) => { if (typeof id === "number") intervals.delete(id); clearInterval(id); };
     const listeners = new Set<string>();
@@ -40,7 +43,13 @@ for (const mode of ["overview", "field"] as const) test(`fünf Berichte ohne Fot
         remove(type, listener, options);
       }) as typeof target.removeEventListener;
     }
-    Object.assign(window, { reportMetrics: () => ({ timers: timers.size, intervals: intervals.size, listeners: listeners.size,
+    Object.assign(window, { reportTimerDetails: () => Array.from(timerDetails.values()), reportMetrics: () => ({
+      timers: timers.size,
+      // Next's dev indicator schedules 200/500ms animation timers when other
+      // parallel tests compile routes. Keep them observable but not attributed
+      // to the report lifecycle. Only exclude the immediate known devtools caller.
+      appTimers: Array.from(timerDetails.values()).filter((timer) => !timer.origin.includes("node_modules_next_dist_compiled_next-devtools")).length,
+      intervals: intervals.size, listeners: listeners.size,
       queue: JSON.parse(localStorage.getItem("workcore-sync-mutations-v1") || "[]").filter((m: { entityType: string }) => ["report", "field_progress", "job_note"].includes(m.entityType)).length,
       queueBytes: (localStorage.getItem("workcore-sync-mutations-v1") || "").length }) });
     if (!localStorage.getItem("transition-fixture")) {
@@ -69,9 +78,11 @@ for (const mode of ["overview", "field"] as const) test(`fünf Berichte ohne Fot
     await page.getByTestId("nav-field").click();
   } else await page.getByRole("button", { name: /^5 Berichte$/ }).click();
   const snapshots: Array<Record<string, number>> = [];
+  const timerSnapshots: unknown[] = [];
   const sample = async () => {
     await page.waitForTimeout(1000);
     snapshots.push({ ...await page.evaluate(() => (window as unknown as { reportMetrics: () => Record<string, number> }).reportMetrics()), requests: requests.length });
+    timerSnapshots.push(await page.evaluate(() => (window as unknown as { reportTimerDetails: () => unknown }).reportTimerDetails()));
   };
   await sample();
   for (let index = 0; index < 5; index++) {
@@ -91,7 +102,9 @@ for (const mode of ["overview", "field"] as const) test(`fünf Berichte ohne Fot
     await sample();
   }
   console.log("REPORT_METRICS", JSON.stringify(snapshots));
+  console.log("REPORT_TIMER_ORIGINS", JSON.stringify(timerSnapshots));
   await test.info().attach("report-metrics", { body: JSON.stringify(snapshots, null, 2), contentType: "application/json" });
+  await test.info().attach("report-timer-origins", { body: JSON.stringify(timerSnapshots, null, 2), contentType: "application/json" });
   const settledRequests = requests.length;
   await page.waitForTimeout(10_000);
   const idleRequests = requests.slice(settledRequests);
@@ -111,7 +124,7 @@ for (const mode of ["overview", "field"] as const) test(`fünf Berichte ohne Fot
   expect(snapshots.at(-1)!.queue).toBeLessThanOrEqual(mode === "field" ? 25 : 5);
   expect(snapshots.at(-1)!.intervals).toBe(snapshots[1].intervals);
   expect(snapshots.at(-1)!.listeners).toBeLessThanOrEqual(snapshots[1].listeners);
-  expect(snapshots.at(-1)!.timers).toBeLessThanOrEqual(snapshots[1].timers + 1);
+  expect(snapshots.at(-1)!.appTimers).toBeLessThanOrEqual(snapshots[1].appTimers + 1);
   if (mode === "field") {
     await page.getByTestId("nav-field").click();
     await page.getByRole("button", { name: /^Abgeschlossene Berichte/ }).click();

@@ -20,7 +20,7 @@ test("Fahrtenbuch verwendet die am Fahrzeug gespeicherte Sprache", async ({ page
   await page.getByLabel("Språk").selectOption("de");
   await page.getByRole("button", { name: "Fahrt", exact: true }).click();
 
-  const tripDialog = page.locator("section.quick-trip-modal");
+  const tripDialog = page.locator(".quick-trip-modal");
   await expect(tripDialog.getByRole("heading", { name: "Registrera körning" })).toBeVisible();
   await expect(tripDialog.getByText("Start i bilen", { exact: true })).toBeVisible();
   await expect(tripDialog.getByText("Måladress", { exact: true })).toBeVisible();

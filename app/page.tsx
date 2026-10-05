@@ -5,6 +5,7 @@
 import Image from "next/image";
 import { AuthGate, EmployeeLogoutButton } from "@/components/AuthGate";
 import { SyncStatus } from "@/components/SyncStatus";
+import { TripDialog } from "@/components/TripDialog";
 import { DevicePhotoSave, type DevicePhotoPolicy } from "@/components/DevicePhotoSave";
 import { TenantSwitcher } from "@/components/TenantSwitcher";
 import {
@@ -7208,10 +7209,11 @@ async function odometerFromImageDataUrl(imageDataUrl: string) {
 }
 
 function calculatedTripKilometers(startOdometer: string, endOdometer: string) {
+  if (!startOdometer.trim() || !endOdometer.trim()) return "";
   const start = Number(startOdometer);
   const end = Number(endOdometer);
-  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return "";
-  return String(Math.round(end - start));
+  if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end < start) return "";
+  return String(Math.round((end - start) * 1000) / 1000);
 }
 
 async function fileToDocumentPreview(file: File) {
@@ -8922,6 +8924,9 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
   const [quickTripAddressLoading, setQuickTripAddressLoading] = useState("");
   const [quickTripStandardId, setQuickTripStandardId] = useState("");
   const [quickTripStandardLabel, setQuickTripStandardLabel] = useState("");
+  const [quickTripSaveStandard, setQuickTripSaveStandard] = useState(false);
+  const [quickTripSaving, setQuickTripSaving] = useState(false);
+  const quickTripSavingRef = useRef(false);
   const [quickTripForm, setQuickTripForm] = useState({
     date: currentLocalDateValue(),
     driverId: "",
@@ -12237,6 +12242,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
   }
 
   function closeQuickTripDialog() {
+    if (quickTripSavingRef.current) return;
     setQuickTripOpen(false);
   }
 
@@ -12270,19 +12276,14 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     setRecordNotice(`Standardfahrt „${standardTrip.label}“ wurde übernommen.`);
   }
 
-  function saveQuickTripStandard() {
-    const vehicle = resources.find((resource) => resource.id === quickTripForm.resourceId && resource.type === "Fahrzeug");
+  function withQuickTripStandard(vehicle: ResourceRecord): ResourceRecord {
+    if (!quickTripSaveStandard) return vehicle;
     const label = quickTripStandardLabel.trim();
-    if (!vehicle) {
-      setRecordNotice("Bitte zuerst ein Fahrzeug auswählen.");
-      return;
-    }
     if (!label || !quickTripForm.startAddress.trim() || !quickTripForm.endAddress.trim()) {
-      setRecordNotice("Für eine Standardfahrt bitte Bezeichnung, Startadresse und Zieladresse erfassen.");
-      return;
+      throw new Error("Für eine Standardfahrt bitte Namen, Startadresse und Zieladresse erfassen.");
     }
-
-    const id = quickTripStandardId || globalThis.crypto?.randomUUID?.() || `STANDARD-${Date.now()}`;
+    const existing = vehicle.standardTrips?.find((item) => item.label.trim().toLocaleLowerCase() === label.toLocaleLowerCase());
+    const id = existing?.id ?? createStableId("STANDARD");
     const standardTrip: StandardTrip = {
       endAddress: quickTripForm.endAddress.trim(),
       id,
@@ -12300,60 +12301,43 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
         }))
         .filter((waypoint) => waypoint.address),
     };
-    const nextResources = resources.map((resource) => resource.id === vehicle.id
-      ? {
-          ...resource,
-          standardTrips: [
-            ...(resource.standardTrips ?? []).filter((item) => item.id !== id),
-            standardTrip,
-          ].sort((first, second) => first.label.localeCompare(second.label, "de")),
-        }
-      : resource);
-    setResources(nextResources);
-    persistResourcesRelational(nextResources);
-    setQuickTripStandardId(id);
-    setRecordNotice(quickTripStandardId ? "Standardfahrt wurde aktualisiert." : "Standardfahrt wurde gespeichert.");
-  }
-
-  function deleteQuickTripStandard() {
-    if (!quickTripStandardId || !quickTripVehicle) return;
-    const nextResources = resources.map((resource) => resource.id === quickTripVehicle.id
-      ? { ...resource, standardTrips: (resource.standardTrips ?? []).filter((item) => item.id !== quickTripStandardId) }
-      : resource);
-    setResources(nextResources);
-    persistResourcesRelational(nextResources);
-    setQuickTripStandardId("");
-    setQuickTripStandardLabel("");
-    setRecordNotice("Standardfahrt wurde gelöscht.");
-  }
-
-  function saveQuickTripDraft() {
-    if (quickTripForm.activeLogbookEntryId) {
-      updateActiveQuickTripEntry();
-      setRecordNotice("Zwischenstand wurde gespeichert.");
-      return;
+    if (existing) {
+      const definition = (trip: StandardTrip) => JSON.stringify([
+        trip.startAddress.trim(), trip.endAddress.trim(), trip.purpose.trim(), trip.tripType, trip.visited.trim(),
+        trip.waypoints.map((waypoint) => [waypoint.address.trim(), waypoint.note.trim()]),
+      ]);
+      if (definition(existing) !== definition(standardTrip)) {
+        throw new Error("Dieser Name wird bereits für eine andere Standardfahrt verwendet. Bitte einen neuen Namen wählen.");
+      }
+      return vehicle;
     }
+    return { ...vehicle, standardTrips: [...(vehicle.standardTrips ?? []), standardTrip] };
+  }
+
+  async function persistQuickTrip(complete: boolean) {
+    if (quickTripSavingRef.current) return;
+    quickTripSavingRef.current = true;
+    setQuickTripSaving(true);
     try {
-      window.localStorage.setItem(storageKeys.quickTripDraft, JSON.stringify({
-        ...quickTripForm,
-        fuelReceiptPhoto: quickTripForm.fuelReceiptPhoto
-          ? { ...quickTripForm.fuelReceiptPhoto, previewUrl: quickTripForm.fuelReceiptPhoto.previewUrl?.startsWith("data:") ? undefined : quickTripForm.fuelReceiptPhoto.previewUrl }
-          : undefined,
-        odometerPhotos: quickTripForm.odometerPhotos.map((photo) => ({
-          ...photo,
-          previewUrl: photo.previewUrl?.startsWith("data:") ? undefined : photo.previewUrl,
-        })),
-        waypoints: quickTripForm.waypoints.map((waypoint) => ({
-          ...waypoint,
-          photo: waypoint.photo
-            ? { ...waypoint.photo, previewUrl: waypoint.photo.previewUrl?.startsWith("data:") ? undefined : waypoint.photo.previewUrl }
-            : undefined,
-        })),
-      }));
-      setRecordNotice("Fahrt wurde als Entwurf zwischengespeichert.");
+      const vehicle = resources.find((resource) => resource.id === quickTripForm.resourceId);
+      if (!vehicle) throw new Error("Bitte zuerst ein Fahrzeug auswählen.");
+      withQuickTripStandard(vehicle);
+      if (!quickTripForm.startOdometer.trim() || !Number.isFinite(Number(quickTripForm.startOdometer)) || Number(quickTripForm.startOdometer) < 0) {
+        throw new Error("Bitte einen gültigen Start-Kilometerstand erfassen.");
+      }
+      if (quickTripForm.endOdometer.trim() && !calculatedTripKilometers(quickTripForm.startOdometer, quickTripForm.endOdometer)) {
+        throw new Error("End-Kilometerstand darf nicht kleiner als Start-Kilometerstand sein und muss eine gültige Zahl sein.");
+      }
+      if (quickTripForm.activeLogbookEntryId && [quickTripForm.date, quickTripForm.driverId, quickTripForm.startAddress].some((field) => !field.trim())) {
+        throw new Error("Für den Zwischenstand bitte Datum, Fahrer und Startadresse erfassen.");
+      }
+      if (complete) await saveQuickTrip();
+      else await startQuickTrip();
     } catch (error) {
-      console.warn("Fahrten-Entwurf konnte nicht gespeichert werden.", error);
-      setRecordNotice("Fahrten-Entwurf konnte nicht gespeichert werden.");
+      setRecordNotice(error instanceof Error ? error.message : "Fahrt konnte nicht gespeichert werden.");
+    } finally {
+      quickTripSavingRef.current = false;
+      setQuickTripSaving(false);
     }
   }
 
@@ -12546,18 +12530,22 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     }
   }
 
-  function updateActiveQuickTripEntry(form = quickTripForm) {
+  function updateActiveQuickTripEntry(form = quickTripForm, saveStandard = false) {
     if (!form.activeLogbookEntryId) return;
     const vehicle = resources.find((resource) => resource.id === form.resourceId && resource.type === "Fahrzeug");
     if (!vehicle) return;
     const existingEntry = vehicle.logbook.find((entry) => entry.id === form.activeLogbookEntryId);
-    if (!existingEntry) return;
+    if (!existingEntry || existingEntry.status !== "laufend" || vehicle.deletedLogbookEntryIds?.includes(existingEntry.id)) {
+      setRecordNotice("Diese Fahrt wurde inzwischen beendet oder gelöscht. Bitte die aktuelle Fahrt erneut öffnen.");
+      return false;
+    }
+    if (form.endOdometer.trim() && !calculatedTripKilometers(form.startOdometer, form.endOdometer)) return false;
     const expectedRevision = existingEntry.revision ?? 1;
     const mutationTime = new Date().toISOString();
     const nextResources = resources.map((resource) => (
       resource.id === vehicle.id
         ? {
-            ...resource,
+            ...(saveStandard ? withQuickTripStandard(resource) : resource),
             logbook: resource.logbook.map((entry) => (
               entry.id === form.activeLogbookEntryId
                 ? {
@@ -12571,7 +12559,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
                     endOdometer: form.endOdometer.trim(),
                     fuelOrCharge: form.fuelOrCharge.trim(),
                     fuelReceiptPhoto: form.fuelReceiptPhoto,
-                    kilometers: form.kilometers.trim() || calculatedTripKilometers(form.startOdometer, form.endOdometer) || "",
+                    kilometers: calculatedTripKilometers(form.startOdometer, form.endOdometer),
                     odometerPhotos: form.odometerPhotos,
                     purpose: form.purpose.trim(),
                     startAddress: form.startAddress.trim(),
@@ -12591,7 +12579,8 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     const updatedEntry = nextResources.find((resource) => resource.id === vehicle.id)?.logbook.find((entry) => entry.id === form.activeLogbookEntryId);
     if (updatedEntry) enqueueTripMutation("update", vehicle.id, updatedEntry, expectedRevision);
     setResources(nextResources);
-    persistResourcesFast(nextResources);
+    if (saveStandard) persistResourcesRelational(nextResources);
+    else persistResourcesFast(nextResources);
     const latestWaypoint = [...form.waypoints].reverse().find((waypoint) => waypoint.coordinates);
     const coordinates = form.endCoordinates ?? latestWaypoint?.coordinates ?? form.startCoordinates;
     const address = form.endAddress.trim() || latestWaypoint?.address.trim() || form.startAddress.trim();
@@ -12611,6 +12600,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
         visited: form.visited.trim(),
       });
     }
+    return true;
   }
 
   async function startQuickTrip() {
@@ -12620,13 +12610,16 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
       return;
     }
     if (quickTripForm.activeLogbookEntryId) {
-      updateActiveQuickTripEntry();
-      setRecordNotice("Laufende Fahrt wurde aktualisiert.");
+      if (updateActiveQuickTripEntry(quickTripForm, true)) setRecordNotice("Zwischenstand wurde gespeichert. Die Fahrt bleibt aktiv.");
+      return;
+    }
+    if (activeLogbookEntry(vehicle)) {
+      setRecordNotice("Für dieses Fahrzeug läuft bereits eine Fahrt. Bitte diese zuerst öffnen.");
       return;
     }
     let startAddress = quickTripForm.startAddress.trim();
     let startCoordinates = quickTripForm.startCoordinates;
-    if (!startCoordinates) {
+    if (!startCoordinates && !startAddress) {
       const coordinates = await currentDeviceCoordinates();
       if (coordinates) {
         startCoordinates = coordinates;
@@ -12660,15 +12653,15 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
       }] : [],
       date: quickTripForm.date,
       driverId: quickTripForm.driverId,
-      endAddress: "",
-      endCoordinates: undefined,
-      endOdometer: "",
-      fuelOrCharge: "",
-      fuelReceiptPhoto: undefined,
+      endAddress: quickTripForm.endAddress.trim(),
+      endCoordinates: quickTripForm.endCoordinates,
+      endOdometer: quickTripForm.endOdometer.trim(),
+      fuelOrCharge: quickTripForm.fuelOrCharge.trim(),
+      fuelReceiptPhoto: quickTripForm.fuelReceiptPhoto,
       id: logbookId,
       revision: 1,
       updatedAt: new Date().toISOString(),
-      kilometers: "",
+      kilometers: calculatedTripKilometers(quickTripForm.startOdometer, quickTripForm.endOdometer),
       notes: "Laufende Fahrt über Quickbutton gestartet.",
       odometerPhotos: quickTripForm.odometerPhotos,
       purpose: quickTripForm.purpose.trim(),
@@ -12685,12 +12678,12 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
       tripType: quickTripForm.tripType,
       validationWarnings,
       visited: quickTripForm.tripType === "Dienstfahrt" ? quickTripForm.visited.trim() : "",
-      waypoints: [],
+      waypoints: quickTripForm.waypoints,
     };
     const nextResources = resources.map((resource) => (
       resource.id === vehicle.id
         ? {
-            ...resource,
+            ...withQuickTripStandard(resource),
             currentOdometer: quickTripForm.startOdometer.trim(),
             currentOdometerDate: quickTripForm.date,
             logbook: sortVehicleLogbook([entry, ...resource.logbook]),
@@ -12730,12 +12723,33 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
       setLiveVehiclePositions((current) => [position, ...current.filter((item) => item.resourceId !== vehicle.id)]);
     }
     setQuickTripForm((current) => ({ ...current, activeLogbookEntryId: logbookId, startAddress, startCoordinates }));
-    setRecordNotice(validationWarnings[0] || "Fahrt wurde gestartet und ist in Positionen sichtbar.");
+    setRecordNotice(["Zwischenstand wurde gespeichert. Die Fahrt bleibt aktiv.", validationWarnings[0]].filter(Boolean).join(" "));
   }
 
   function cancelQuickTrip() {
+    const activeEntry = resources.find((resource) => resource.id === quickTripForm.resourceId)?.logbook.find((entry) => entry.id === quickTripForm.activeLogbookEntryId);
+    if (activeEntry && activeEntry.status !== "laufend") {
+      setRecordNotice("Diese Fahrt wurde inzwischen abgeschlossen und kann hier nicht verworfen werden.");
+      return;
+    }
+    const meaningful = quickTripForm.activeLogbookEntryId || quickTripForm.startAddress || quickTripForm.startOdometer || quickTripForm.endAddress || quickTripForm.endOdometer
+      || quickTripForm.purpose || quickTripForm.visited || quickTripForm.fuelOrCharge
+      || quickTripForm.waypoints.length || quickTripForm.odometerPhotos.length || quickTripForm.fuelReceiptPhoto;
+    if (meaningful && !window.confirm("Diese Fahrt wirklich verwerfen? Eingegebene Fahrtdaten werden entfernt.")) return;
+    if (quickTripDraftSaveTimerRef.current) window.clearTimeout(quickTripDraftSaveTimerRef.current);
+    window.localStorage.removeItem(storageKeys.quickTripDraft);
+    setQuickTripSaveStandard(false);
+    setQuickTripStandardId("");
+    setQuickTripStandardLabel("");
+    setQuickTripForm((current) => ({
+      ...current, activeLogbookEntryId: "", date: currentLocalDateValue(), startAddress: "", startCoordinates: undefined,
+      startOdometer: latestKnownVehicleOdometer(resources.find((resource) => resource.id === current.resourceId)),
+      endAddress: "", endCoordinates: undefined, endOdometer: "", kilometers: "", purpose: "", visited: "",
+      fuelOrCharge: "", fuelReceiptPhoto: undefined, waypoints: [], odometerPhotos: [],
+    }));
     if (!quickTripForm.activeLogbookEntryId) {
       setQuickTripOpen(false);
+      setRecordNotice("Fahrtentwurf wurde verworfen.");
       return;
     }
     const entryId = quickTripForm.activeLogbookEntryId;
@@ -12766,15 +12780,6 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     };
     setLiveVehiclePositions((current) => [canceledPosition, ...current.filter((item) => item.resourceId !== quickTripForm.resourceId)]);
     setQuickTripOpen(false);
-    setQuickTripForm((current) => ({
-      ...current,
-      activeLogbookEntryId: "",
-      endAddress: "",
-      endCoordinates: undefined,
-      endOdometer: "",
-      kilometers: "",
-      waypoints: [],
-    }));
     setRecordNotice("Laufende Fahrt wurde verworfen und aus dem Fahrtenbuch entfernt.");
   }
 
@@ -12786,7 +12791,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     }
     let endAddress = quickTripForm.endAddress.trim();
     let endCoordinates = quickTripForm.endCoordinates;
-    if (!endCoordinates) {
+    if (!endCoordinates && !endAddress) {
       const coordinates = await currentDeviceCoordinates();
       if (coordinates) {
         endCoordinates = coordinates;
@@ -12796,8 +12801,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
       }
     }
 
-    const kilometers = quickTripForm.kilometers.trim()
-      || String(Math.max(0, (Number(quickTripForm.endOdometer) || 0) - (Number(quickTripForm.startOdometer) || 0)) || "");
+    const kilometers = calculatedTripKilometers(quickTripForm.startOdometer, quickTripForm.endOdometer);
     const startKm = numericValue(quickTripForm.startOdometer);
     const endKm = numericValue(quickTripForm.endOdometer);
     if (Number.isFinite(startKm) && Number.isFinite(endKm) && endKm < startKm) {
@@ -12806,6 +12810,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     }
     const requiredFields = [
       quickTripForm.date,
+      quickTripForm.driverId,
       quickTripForm.startAddress,
       endAddress,
       quickTripForm.startOdometer,
@@ -12820,6 +12825,14 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     }
 
     const existingEntry = vehicle.logbook.find((item) => item.id === quickTripForm.activeLogbookEntryId);
+    if (quickTripForm.activeLogbookEntryId && (!existingEntry || existingEntry.status !== "laufend" || vehicle.deletedLogbookEntryIds?.includes(existingEntry.id))) {
+      setRecordNotice("Diese Fahrt wurde inzwischen beendet oder gelöscht. Bitte die aktuelle Fahrt erneut öffnen.");
+      return;
+    }
+    if (!existingEntry && activeLogbookEntry(vehicle)) {
+      setRecordNotice("Für dieses Fahrzeug läuft bereits eine Fahrt. Bitte diese zuerst öffnen.");
+      return;
+    }
     const expectedRevision = existingEntry?.revision ?? 1;
     const ruleSnapshot = existingEntry?.ruleVersion ? {
       ruleCountry: existingEntry.ruleCountry ?? "",
@@ -12865,7 +12878,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     const nextResources = resources.map((resource) => (
       resource.id === vehicle.id
         ? {
-            ...resource,
+            ...withQuickTripStandard(resource),
             currentOdometer: quickTripForm.endOdometer.trim(),
             currentOdometerDate: quickTripForm.date,
             logbook: quickTripForm.activeLogbookEntryId
@@ -12902,7 +12915,12 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
       tripDate: entry.date,
     };
     setLiveVehiclePositions((current) => [completedPosition, ...current.filter((item) => item.resourceId !== vehicle.id)]);
+    if (quickTripDraftSaveTimerRef.current) window.clearTimeout(quickTripDraftSaveTimerRef.current);
+    window.localStorage.removeItem(storageKeys.quickTripDraft);
     setQuickTripOpen(false);
+    setQuickTripSaveStandard(false);
+    setQuickTripStandardId("");
+    setQuickTripStandardLabel("");
     setRecordNotice(`Fahrt vom ${entry.date} wurde im Fahrtenbuch gespeichert.`);
     setQuickTripForm({
       date: currentLocalDateValue(),
@@ -13254,6 +13272,11 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
               onRetry={(mutationId) => {
                 tripSync.retry(mutationId);
               }}
+              onReviewConflicts={async (ids, resolve) => {
+                const reviews = await tripSync.reviewConflicts(ids, resolve);
+                if (resolve) await refreshAppDataNow();
+                return reviews;
+              }}
               summary={{
                 ...tripSync.summary,
                 failed: tripSync.summary.failed + (legacySyncStatus === "failed" ? 1 : 0),
@@ -13559,35 +13582,34 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
       </section>
 
       {quickTripOpen && (
-        <div className="modal-backdrop">
-          <section className="modal quick-trip-modal" role="dialog" aria-modal="true" aria-labelledby="quick-trip-title">
+          <TripDialog className="quick-trip-modal" labelledBy="quick-trip-title" onClose={closeQuickTripDialog}>
             <header>
               <div>
                 <p>{qtx("Fahrtenbuch")}</p>
                 <h2 id="quick-trip-title">{qtx("Fahrt erfassen")}</h2>
               </div>
               <div className="modal-header-actions">
-                <button className="ghost-button compact" onClick={openLogbookFromQuickTrip} type="button">
+                <button disabled={quickTripSaving} className="ghost-button compact" onClick={openLogbookFromQuickTrip} type="button">
                   <List size={16} />
                   {qtx("Fahrtenbuch öffnen")}
                 </button>
-                <button aria-label={`${qtx("Fahrt erfassen")} ${qtx("Schließen")}`} onClick={closeQuickTripDialog} type="button">
+                <button disabled={quickTripSaving} aria-label={`${qtx("Fahrt erfassen")} ${qtx("Schließen")}`} onClick={closeQuickTripDialog} type="button">
                   <X size={18} />
                 </button>
               </div>
             </header>
-            <div className="quick-trip-flow">
+            {recordNotice && <p role="status">{qtx(recordNotice)}</p>}
+            <fieldset className="quick-trip-flow trip-fields" disabled={quickTripSaving}>
               <section className="trip-step" aria-labelledby="standard-trip-title">
                 <div className="trip-step-head">
                   <span><List size={14} /></span>
                   <strong id="standard-trip-title">{qtx("Standardfahrt")}</strong>
-                  <small>{qtx("Häufige Route auswählen oder die aktuelle Route als Vorlage speichern.")}</small>
                 </div>
                 <div className="standard-trip-controls">
                   <label>
-                    <span>{qtx("Gespeicherte Standardfahrt")}</span>
+                    <span>{qtx("Standardfahrt wählen")}</span>
                     <select
-                      aria-label={qtx("Gespeicherte Standardfahrt")}
+                      aria-label={qtx("Standardfahrt wählen")}
                       disabled={!quickTripForm.resourceId}
                       value={quickTripStandardId}
                       onChange={(event) => selectQuickTripStandard(event.target.value)}
@@ -13596,28 +13618,6 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
                       {quickTripStandardTrips.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
                     </select>
                   </label>
-                  <label>
-                    <span>{qtx("Bezeichnung")}</span>
-                    <input
-                      aria-label={qtx("Bezeichnung der Standardfahrt")}
-                      placeholder="z. B. Kolaretorp – Gunnabo"
-                      value={quickTripStandardLabel}
-                      onChange={(event) => setQuickTripStandardLabel(event.target.value)}
-                    />
-                  </label>
-                  <button className="ghost-button compact" onClick={saveQuickTripStandard} type="button">
-                    <Check size={15} />
-                    {quickTripStandardId ? qtx("Aktualisieren") : qtx("Speichern")}
-                  </button>
-                  <button
-                    aria-label={qtx("Standardfahrt löschen")}
-                    className="icon-button danger"
-                    disabled={!quickTripStandardId}
-                    onClick={deleteQuickTripStandard}
-                    type="button"
-                  >
-                    <Trash2 size={15} />
-                  </button>
                 </div>
               </section>
               <section className="trip-step">
@@ -13628,7 +13628,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
                 </div>
                 <div className="form-grid compact-form">
                   <label><span>{qtx("Fahrzeug")}</span>
-                    <select value={quickTripForm.resourceId} onChange={(event) => {
+                    <select disabled={Boolean(quickTripForm.activeLogbookEntryId)} value={quickTripForm.resourceId} onChange={(event) => {
                       const defaults = quickTripDefaultsForVehicle(event.target.value);
                       setQuickTripStandardId("");
                       setQuickTripStandardLabel("");
@@ -13654,7 +13654,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
                   <label><span>{qtx("Start-Km")}</span><input inputMode="numeric" value={quickTripForm.startOdometer} onChange={(event) => setQuickTripForm({ ...quickTripForm, startOdometer: event.target.value })} /></label>
                   <label className="wide"><span>{qtx("Startadresse")}</span>
                     <div className="address-gps-row">
-                      <input list="quick-trip-address-options" value={quickTripForm.startAddress} onChange={(event) => setQuickTripForm({ ...quickTripForm, startAddress: event.target.value })} />
+                      <input aria-label={qtx("Startadresse")} list="quick-trip-address-options" value={quickTripForm.startAddress} onChange={(event) => setQuickTripForm({ ...quickTripForm, startAddress: event.target.value })} />
                       <button className="ghost-button compact" disabled={Boolean(quickTripAddressLoading)} onClick={() => void loadCurrentQuickTripAddress("start")} type="button">
                         <ScanLine size={15} />
                         {quickTripAddressLoading === "start" ? qtx("Lädt...") : qtx("Aktuelle Adresse")}
@@ -13836,10 +13836,10 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
                 </div>
                 <div className="form-grid compact-form">
                   <label><span>{qtx("End-Km")}</span><input ref={quickTripEndOdometerRef} inputMode="numeric" value={quickTripForm.endOdometer} onChange={(event) => setQuickTripForm({ ...quickTripForm, endOdometer: event.target.value })} /></label>
-                  <label><span>{qtx("Kilometer")}</span><input inputMode="numeric" placeholder={qtx("wird aus Km-Ständen berechnet")} value={quickTripForm.kilometers} onChange={(event) => setQuickTripForm({ ...quickTripForm, kilometers: event.target.value })} /></label>
+                  <label><span>{qtx("Kilometer")}</span><input readOnly inputMode="numeric" placeholder={qtx("wird aus Km-Ständen berechnet")} value={calculatedTripKilometers(quickTripForm.startOdometer, quickTripForm.endOdometer)} /></label>
                   <label className="wide"><span>{qtx("Zieladresse")}</span>
                     <div className="address-gps-row">
-                      <input list="quick-trip-address-options" value={quickTripForm.endAddress} onChange={(event) => setQuickTripForm({ ...quickTripForm, endAddress: event.target.value })} />
+                      <input aria-label={qtx("Zieladresse")} list="quick-trip-address-options" value={quickTripForm.endAddress} onChange={(event) => setQuickTripForm({ ...quickTripForm, endAddress: event.target.value })} />
                       <button className="ghost-button compact" disabled={Boolean(quickTripAddressLoading)} onClick={() => void loadCurrentQuickTripAddress("end")} type="button">
                         <ScanLine size={15} />
                         {quickTripAddressLoading === "end" ? qtx("Lädt...") : qtx("Aktuelle Adresse")}
@@ -13916,22 +13916,29 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
                   </div>
                 </div>
               </section>
-            </div>
-            <div className="modal-actions">
-              <button className="ghost-button" onClick={cancelQuickTrip} type="button">
-                {quickTripForm.activeLogbookEntryId ? qtx("Fahrt verwerfen") : qtx("Abbrechen")}
+              <label className="trip-standard-toggle">
+                <input type="checkbox" checked={quickTripSaveStandard} onChange={(event) => setQuickTripSaveStandard(event.target.checked)} />
+                <span>{qtx("Als Standardfahrt speichern")}</span>
+              </label>
+              {quickTripSaveStandard && <label>
+                <span>{qtx("Wie soll die Standardfahrt heißen?")}</span>
+                <input required value={quickTripStandardLabel} onChange={(event) => setQuickTripStandardLabel(event.target.value)} />
+              </label>}
+            </fieldset>
+            <div className="modal-actions trip-actions">
+              <button disabled={quickTripSaving} className="ghost-button trip-discard" onClick={cancelQuickTrip} type="button">
+                <Trash2 size={16} />{qtx("Fahrt verwerfen")}
               </button>
-              <button className="ghost-button" onClick={saveQuickTripDraft} type="button">
+              <button disabled={quickTripSaving} className="ghost-button" onClick={() => void persistQuickTrip(false)} type="button">
                 <Check size={16} />
-                {qtx("Zwischenspeichern")}
+                {qtx("Zwischenstand speichern")}
               </button>
-              <button className="primary-button" onClick={() => quickTripForm.activeLogbookEntryId ? void saveQuickTrip() : void startQuickTrip()} type="button">
+              <button disabled={quickTripSaving} className="primary-button" onClick={() => void persistQuickTrip(true)} type="button">
                 <Check size={16} />
-                {quickTripForm.activeLogbookEntryId ? qtx("Fahrt abschließen") : qtx("Fahrt starten")}
+                {qtx("Fahrt abschließen & speichern")}
               </button>
             </div>
-          </section>
-        </div>
+          </TripDialog>
       )}
 
       {completedPromptReport && completedPromptObject && (
@@ -20419,6 +20426,7 @@ function MasterDataView({
   const [editingPersonId, setEditingPersonId] = useState<string | null>(null);
   const [editingResourceId, setEditingResourceId] = useState<string | null>(null);
   const [editingLogEntryId, setEditingLogEntryId] = useState<string | null>(null);
+  const editingLogEntryRevision = useRef<number | null>(null);
   const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
   const [editingMaterialId, setEditingMaterialId] = useState<string | null>(null);
   const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
@@ -21159,6 +21167,7 @@ function MasterDataView({
   function resetLogbookForm() {
     const latestEntry = latestSelectedLogbookEntry();
     setEditingLogEntryId(null);
+    editingLogEntryRevision.current = null;
     setLogbookForm({
       date: new Date().toISOString().slice(0, 10),
       driverId: "",
@@ -21181,6 +21190,7 @@ function MasterDataView({
   }
 
   function editLogbookEntry(entry: VehicleLogEntry) {
+    editingLogEntryRevision.current = entry.revision ?? 1;
     setEditingLogEntryId(entry.id);
     setLogbookForm({ ...entry, endCoordinates: entry.endCoordinates, fuelReceiptPhoto: entry.fuelReceiptPhoto, odometerPhotos: entry.odometerPhotos ?? [], startCoordinates: entry.startCoordinates, waypoints: entry.waypoints ?? [] });
     setLogbookEntryEditorOpen(true);
@@ -21247,8 +21257,7 @@ function MasterDataView({
       return;
     }
 
-    const kilometers = logbookForm.kilometers.trim()
-      || String(Math.max(0, (Number(logbookForm.endOdometer) || 0) - (Number(logbookForm.startOdometer) || 0)) || "");
+    const kilometers = calculatedTripKilometers(logbookForm.startOdometer, logbookForm.endOdometer);
     const startKm = numericValue(logbookForm.startOdometer);
     const endKm = numericValue(logbookForm.endOdometer);
     if (Number.isFinite(startKm) && Number.isFinite(endKm) && endKm < startKm) {
@@ -21275,6 +21284,11 @@ function MasterDataView({
     // und mit einem alten Loeschmarker auf einem zweiten Geraet kollidieren.
     const logbookId = editingLogEntryId ?? createStableId("TRIP");
     const existingEntry = selectedResource.logbook.find((entry) => entry.id === editingLogEntryId);
+    if (editingLogEntryId && (!existingEntry || selectedResource.deletedLogbookEntryIds?.includes(editingLogEntryId)
+      || (existingEntry.revision ?? 1) !== editingLogEntryRevision.current)) {
+      setArchiveNotice("Diese Fahrt wurde inzwischen geändert oder gelöscht. Bitte die Bearbeitung schließen und erneut öffnen.");
+      return;
+    }
     const ruleSnapshot = existingEntry?.ruleVersion ? {
       ruleCountry: existingEntry.ruleCountry ?? "",
       ruleTitle: existingEntry.ruleTitle ?? "",
@@ -21322,7 +21336,7 @@ function MasterDataView({
       startAddressResolved: logbookForm.startAddress.trim(),
       startCoordinates: logbookForm.startCoordinates,
       startOdometer: logbookForm.startOdometer.trim(),
-      status: "abgeschlossen",
+      status: existingEntry?.status ?? "abgeschlossen",
       tripCategory: logbookForm.tripType === "Privatfahrt" ? "private" : logbookForm.tripType === "Arbeitsweg" ? "commute" : "business",
       validationWarnings,
       visited: logbookForm.tripType === "Dienstfahrt" ? logbookForm.visited.trim() : "",
@@ -21339,9 +21353,8 @@ function MasterDataView({
 
       return {
         ...resource,
-        currentOdometer: logbookForm.endOdometer.trim(),
-        currentOdometerDate: logbookForm.date,
-        deletedLogbookEntryIds: (resource.deletedLogbookEntryIds ?? []).filter((id) => id !== logbookId),
+        currentOdometer: Number(logbookForm.endOdometer) >= Number(resource.currentOdometer || 0) ? logbookForm.endOdometer.trim() : resource.currentOdometer,
+        currentOdometerDate: Number(logbookForm.endOdometer) >= Number(resource.currentOdometer || 0) ? logbookForm.date : resource.currentOdometerDate,
         logbook: sortVehicleLogbook(nextLogbook),
         odometerHistory: [
           createOdometerHistoryEntry({
@@ -21365,7 +21378,7 @@ function MasterDataView({
     onTripMutation(editingLogEntryId ? "update" : "create", selectedResource.id, saved, editingLogEntryId ? existingEntry?.revision ?? 1 : undefined);
     setResources(nextResources);
     onPersistResources(nextResources, {
-      serverRevisionBumpResourceId: editingLogEntryId ? selectedResource.id : undefined,
+      serverRevisionBumpResourceId: editingLogEntryId && saved.status === "abgeschlossen" ? selectedResource.id : undefined,
     });
     setArchiveNotice(validationWarnings[0] || `Fahrt vom ${saved.date} wurde gespeichert.`);
     setLogbookEntryEditorOpen(false);
@@ -22917,6 +22930,12 @@ function MasterDataView({
                 </div>
               )}
               {logbookEntryEditorOpen && (
+                <TripDialog className="logbook-edit-modal" labelledBy="logbook-edit-title" onClose={() => { resetLogbookForm(); setLogbookEntryEditorOpen(false); }}>
+                <header>
+                  <h2 id="logbook-edit-title">{editingLogEntryId ? lt("Fahrt bearbeiten") : lt("Fahrt eintragen")}</h2>
+                  <button type="button" aria-label={lt("Bearbeitung abbrechen")} onClick={() => { resetLogbookForm(); setLogbookEntryEditorOpen(false); }}><X size={18} /></button>
+                </header>
+                {archiveNotice && <p role="status">{lt(archiveNotice)}</p>}
                 <div className="form-grid compact-form logbook-entry-editor">
                   <label><span>{lt("Datum")}</span><input type="date" value={logbookForm.date} onChange={(event) => setLogbookForm({ ...logbookForm, date: event.target.value })} /></label>
                   <label><span>{lt("Fahrer")}</span>
@@ -22934,7 +22953,7 @@ function MasterDataView({
                   </label>
                   <label><span>{lt("Start-Km")}</span><input inputMode="numeric" value={logbookForm.startOdometer} onChange={(event) => setLogbookForm({ ...logbookForm, startOdometer: event.target.value })} /></label>
                   <label><span>{lt("End-Km")}</span><input inputMode="numeric" value={logbookForm.endOdometer} onChange={(event) => setLogbookForm({ ...logbookForm, endOdometer: event.target.value })} /></label>
-                  <label><span>{lt("Kilometer")}</span><input inputMode="numeric" value={logbookForm.kilometers} onChange={(event) => setLogbookForm({ ...logbookForm, kilometers: event.target.value })} /></label>
+                  <label><span>{lt("Kilometer")}</span><input readOnly inputMode="numeric" value={calculatedTripKilometers(logbookForm.startOdometer, logbookForm.endOdometer)} /></label>
                   <label><span>{lt("Startadresse")}</span>
                     <div className="address-gps-row">
                       <input list="logbook-address-options" value={logbookForm.startAddress} onChange={(event) => setLogbookForm({ ...logbookForm, startAddress: event.target.value })} />
@@ -23042,6 +23061,7 @@ function MasterDataView({
                   <button className="primary-button wide" onClick={saveLogbookEntry} type="button">{editingLogEntryId ? lt("Fahrt speichern") : lt("Fahrt eintragen")}</button>
                   <button className="ghost-button wide" onClick={() => { resetLogbookForm(); setLogbookEntryEditorOpen(false); }} type="button">{lt("Bearbeitung abbrechen")}</button>
                 </div>
+                </TripDialog>
               )}
               <div className="logbook-summary">
                 <span><strong>{logbookStats.totalKm}</strong> {lt("km gesamt")}</span>
@@ -23107,7 +23127,8 @@ function MasterDataView({
                           </td>
                           <td>
                             <div className="row-actions">
-                              <IconAction label={`${lt("Fahrt")} ${entry.date} ${lt("Bearbeiten")}`} onClick={() => editLogbookEntry(entry)}><Pencil size={16} /></IconAction>
+                              <button className="icon-button" type="button" aria-label={`${lt("Fahrt")} ${entry.date} ${lt("Bearbeiten")}`} data-tooltip={lt("Bearbeiten")}
+                                onClick={(event) => { event.currentTarget.focus({ preventScroll: true }); editLogbookEntry(entry); }}><Pencil size={16} /></button>
                               <IconAction danger label={`${lt("Fahrt")} ${entry.date} ${lt("Löschen")}`} onClick={() => deleteLogbookEntry(entry.id)}><Trash2 size={16} /></IconAction>
                             </div>
                           </td>

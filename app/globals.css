@@ -6674,6 +6674,29 @@ mark.neutral {
   width: min(100%, 1120px);
 }
 
+dialog.trip-dialog {
+  color: var(--foreground);
+  margin: auto;
+  max-height: calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  width: min(calc(100% - 24px), 780px);
+  overscroll-behavior: contain;
+}
+
+dialog.trip-dialog:not([open]) { display: none; }
+dialog.trip-dialog::backdrop { background: rgb(0 0 0 / 45%); }
+.trip-fields { border: 0; margin: 0; padding: 0; min-width: 0; }
+.trip-standard-toggle { display: flex; align-items: center; gap: 10px; }
+.trip-standard-toggle input { width: 18px; height: 18px; flex: 0 0 18px; }
+.trip-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+.trip-actions button { white-space: normal; }
+.trip-actions .trip-discard { color: var(--danger); border-color: var(--danger); }
+.quick-trip-modal .standard-trip-controls { grid-template-columns: 1fr; }
+
+@media (max-width: 600px) {
+  dialog.trip-dialog .trip-actions { display: grid; grid-template-columns: 1fr; }
+  dialog.trip-dialog .form-grid { grid-template-columns: 1fr; }
+}
+
 .job-editor-modal {
   gap: 12px;
   grid-template-rows: auto minmax(0, 1fr);

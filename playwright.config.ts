@@ -30,7 +30,7 @@ export default defineConfig({
     },
     {
       name: "webkit",
-      testMatch: /(?:safari-runtime|report-private-media|workcore-ux|report-transitions|dashboard-job-opening|sticky-header-layering)\.spec\.ts/,
+      testMatch: /(?:safari-runtime|report-private-media|workcore-ux|report-transitions|dashboard-job-opening|sticky-header-layering|drive-log-ux|logbook-language)\.spec\.ts/,
       use: { ...devices["Desktop Safari"] },
     },
   ],

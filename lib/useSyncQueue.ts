@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { apiFetch } from "@/lib/apiClient";
+import type { ConflictReview } from "@/lib/conflictReview";
 import {
   createSyncMutation,
   discardConflictingMutations,
@@ -52,6 +53,8 @@ export function useSyncQueue({ disabled = false, onApplied }: UseSyncQueueOption
   const [hydrated, setHydrated] = useState(false);
   const [online, setOnline] = useState(true);
   const processingRef = useRef(false);
+  const reviewEpoch = useRef(0);
+  const reviewRequests = useRef(new Set<AbortController>());
   const onAppliedRef = useRef(onApplied);
 
   useEffect(() => {
@@ -69,6 +72,9 @@ export function useSyncQueue({ disabled = false, onApplied }: UseSyncQueueOption
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
     return () => {
+      reviewEpoch.current += 1;
+      for (const controller of reviewRequests.current) controller.abort();
+      reviewRequests.current.clear();
       window.clearTimeout(hydrateId);
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
@@ -143,12 +149,62 @@ export function useSyncQueue({ disabled = false, onApplied }: UseSyncQueueOption
     });
   }, []);
 
+  const reviewConflicts = useCallback(async (ids: string[], resolve = false): Promise<ConflictReview[]> => {
+    const epoch = reviewEpoch.current;
+    const tenant = window.localStorage.getItem("workcore-active-tenant-id");
+    const assertContext = () => {
+      if (epoch !== reviewEpoch.current || tenant !== window.localStorage.getItem("workcore-active-tenant-id")) {
+        throw new Error("Sitzung geändert. Konfliktprüfung abgebrochen.");
+      }
+    };
+    const requested = new Set(ids);
+    const snapshot = queueRef.current.filter((m) => m.status === "conflict" && requested.has(m.id));
+    const reviews: ConflictReview[] = [];
+    for (let offset = 0; offset < snapshot.length; offset += 25) {
+      assertContext();
+      const batch = snapshot.slice(offset, offset + 25);
+      const controller = new AbortController();
+      reviewRequests.current.add(controller);
+      const timeout = window.setTimeout(() => controller.abort(), 15_000);
+      try {
+        const response = await apiFetch("/api/sync-conflicts/review", {
+          method: "POST", cache: "no-store", signal: controller.signal,
+          headers: { "Content-Type": "application/json" }, body: JSON.stringify(batch),
+        });
+        if (!response.ok) throw new Error("Serververgleich nicht verfügbar. Keine Konflikte entfernt.");
+        const result = await response.json() as { reviews: ConflictReview[] };
+        assertContext();
+        for (const mutation of batch) {
+          const current = queueRef.current.find((m) => m.id === mutation.id);
+          const dependent = queueRef.current.some((m) => m.id !== mutation.id && m.entityType === mutation.entityType
+            && m.entityId === mutation.entityId && m.status !== "synced");
+          const review = result.reviews.find((r) => r.id === mutation.id);
+          reviews.push(current !== mutation || dependent || !review
+            ? { id: mutation.id, redundant: false, reason: "Weitere oder inzwischen geänderte lokale Mutation. Manuell prüfen." }
+            : review);
+        }
+      } finally { window.clearTimeout(timeout); reviewRequests.current.delete(controller); }
+    }
+    if (resolve) {
+      assertContext();
+      const safe = reviews.filter((r) => r.redundant).filter((r) => {
+        const original = snapshot.find((m) => m.id === r.id);
+        return queueRef.current.find((m) => m.id === r.id) === original
+          && !queueRef.current.some((m) => m.id !== r.id && m.entityType === original?.entityType
+            && m.entityId === original.entityId && m.status !== "synced");
+      }).map((r) => r.id);
+      discardConflicts(safe);
+    }
+    return reviews;
+  }, [discardConflicts]);
+
   return {
     discardConflicts,
     enqueue,
     flush,
     online,
     queue,
+    reviewConflicts,
     retry,
     summary: useMemo(() => summarizeSyncQueue(queue), [queue]),
   };

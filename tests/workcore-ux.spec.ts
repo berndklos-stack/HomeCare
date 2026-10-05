@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { createSyncMutation, discardConflictingMutations, retrySyncMutation } from "../lib/syncQueue";
 import { prepareSettingMutation } from "../lib/settingsSync";
+import { reviewMediaConflict } from "../lib/conflictReview";
 
 const pixel = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=", "base64");
 
@@ -62,6 +63,96 @@ test("Konflikt-Retry verändert weder Nutzdaten noch erwartete Revision", () => 
   const mutation = { ...createSyncMutation({ entityId: "R", entityType: "report", operation: "update", expectedRevision: 2, resourceId: "R", payload: { summary: "lokal" } }), status: "conflict" as const };
   expect(retrySyncMutation([mutation], mutation.id)[0]).toMatchObject({ id: mutation.id, expectedRevision: 2, payload: mutation.payload, status: "pending" });
   expect(discardConflictingMutations([mutation], [])).toEqual([mutation]);
+});
+
+test("Konfliktprüfung verwirft weder unbekannte noch abweichende oder fremde Medien", () => {
+  const mutation = { ...createSyncMutation({ entityId: "M", entityType: "report_media", resourceId: "R", operation: "update", expectedRevision: 1, payload: { name: "Bild", storagePath: "T/R/M", details: { a: 1, b: 2 } } }), status: "conflict" as const };
+  const row = { id: "M", tenant_id: "T", owner_type: "report", owner_id: "R", revision: 3, deleted_at: null, name: "Bild", storage_path: "T/R/M", metadata: { ...mutation.payload, details: { b: 2, a: 1 } } };
+  expect(reviewMediaConflict(mutation, row, "T").redundant).toBe(true);
+  for (const changed of [null, { ...row, tenant_id: "OTHER" }, { ...row, owner_id: "OTHER" }, { ...row, name: "Neu" }, { ...row, storage_path: "neu" }, { ...row, metadata: {} }, { ...row, deleted_at: "2026-10-01" }]) {
+    expect(reviewMediaConflict(mutation, changed, "T").redundant).toBe(false);
+  }
+  expect(reviewMediaConflict({ ...mutation, operation: "delete" }, { ...row, deleted_at: "2026-10-01" }, "T").redundant).toBe(true);
+  expect(reviewMediaConflict({ ...mutation, operation: "create" }, row, "T").redundant).toBe(false);
+  expect(reviewMediaConflict({ ...mutation, entityType: "job" }, row, "T").redundant).toBe(false);
+  expect(reviewMediaConflict({ ...mutation, payload: {} }, row, "T").redundant).toBe(false);
+});
+
+test("Großer Konfliktbestand bleibt begrenzt und sichere Bereinigung überlebt erneuten App-Start", async ({ page, context }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.addInitScript(() => {
+    if (localStorage.getItem("ux-backlog")) return;
+    localStorage.setItem("ux-backlog", "1");
+    localStorage.setItem("workcore-sync-mutations-v1", JSON.stringify(Array.from({ length: 1112 }, (_, i) => ({
+      id: `BACKLOG-${i}`, entityType: "report_media", entityId: `MEDIA-${i}`, resourceId: "R", operation: "update", expectedRevision: 1,
+      status: "conflict", attempts: 1, createdAt: "2026-10-01T00:00:00Z", updatedAt: "2026-10-01T00:00:00Z",
+      payload: { name: `Foto ${i}`, storagePath: `tenant/R/${i}` },
+    }))));
+  });
+  let calls = 0;
+  await context.route("**/api/sync-conflicts/review", async (route) => {
+    calls++;
+    const batch = route.request().postDataJSON() as { id: string }[];
+    expect(batch.length).toBeLessThanOrEqual(25);
+    await route.fulfill({ json: { reviews: batch.map((m) => ({ id: m.id, redundant: m.id === "BACKLOG-0", reason: m.id === "BACKLOG-0" ? "Bereits vorhanden" : "Manuell prüfen" })) } });
+  });
+  page.on("dialog", (dialog) => dialog.accept());
+  await page.goto("/");
+  await page.getByRole("button", { name: "Synchronisierungskonflikt", exact: true }).click();
+  await expect(page.locator(".sync-conflict-entry")).toHaveCount(25);
+  await expect(page.locator(".sync-conflict-entry dl")).toHaveCount(0);
+  await page.screenshot({ path: `test-results/conflicts-mobile-${test.info().project.name}.png` });
+  await page.getByRole("button", { name: "Nächste Konfliktseite" }).click();
+  await expect(page.getByRole("region", { name: "Konflikt MEDIA-25", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Konflikte mit Server vergleichen" }).click();
+  await expect(page.getByText(/1 nachweislich erledigt/)).toBeVisible();
+  expect(calls).toBe(45);
+  await page.getByRole("button", { name: "Erledigte: Serverstand übernehmen" }).click();
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem("workcore-sync-mutations-v1") || "[]").filter((m: { id: string }) => m.id.startsWith("BACKLOG-")).length)).toBe(1111);
+  expect(calls).toBe(46);
+  await page.reload();
+  await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true");
+  const persisted = await page.evaluate(() => JSON.parse(localStorage.getItem("workcore-sync-mutations-v1") || "[]") as { id: string; status: string }[]);
+  expect(persisted.some((m) => m.id === "BACKLOG-0")).toBe(false);
+  expect(persisted.filter((m) => m.id.startsWith("BACKLOG-")).every((m) => m.status === "conflict")).toBe(true);
+  const reopened = await context.newPage();
+  await reopened.goto("/");
+  await expect(reopened.locator("main.app")).toHaveAttribute("data-ready", "true");
+  expect(await reopened.evaluate(() => JSON.parse(localStorage.getItem("workcore-sync-mutations-v1") || "[]").filter((m: { id: string }) => m.id.startsWith("BACKLOG-")).length)).toBe(1111);
+  await reopened.close();
+});
+
+test("Serverprüfung verlangt Authentifizierung", async ({ request }) => {
+  const response = await request.post("/api/sync-conflicts/review", { headers: { "X-WorkCore-E2E-Bypass": "0" }, data: [] });
+  expect(response.status()).toBe(401);
+});
+
+test("Erneuter Serververgleich schützt inzwischen geänderte Daten und abhängige Mutationen", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("workcore-sync-mutations-v1", JSON.stringify([0, 1, 2].map((i) => ({
+      id: `RECHECK-${i}`, entityType: "report_media", entityId: i === 0 ? "ONE" : "SHARED", resourceId: "R", operation: "update", expectedRevision: 1,
+      status: "conflict", attempts: 1, createdAt: "2026-10-01T00:00:00Z", updatedAt: "2026-10-01T00:00:00Z", payload: { name: `Foto ${i}` },
+    }))));
+  });
+  let calls = 0;
+  await page.route("**/api/sync-conflicts/review", async (route) => {
+    calls++;
+    await route.fulfill({ json: { reviews: (route.request().postDataJSON() as { id: string }[]).map((m) => ({ id: m.id, redundant: calls === 1, reason: "Vergleich" })) } });
+  });
+  page.on("dialog", (dialog) => dialog.accept());
+  await page.goto("/");
+  await page.getByRole("button", { name: "Synchronisierungskonflikt", exact: true }).click();
+  await page.getByRole("button", { name: "Konflikte mit Server vergleichen" }).click();
+  await expect(page.getByText(/1 nachweislich erledigt/)).toBeVisible();
+  await page.getByRole("button", { name: "Erledigte: Serverstand übernehmen" }).click();
+  await expect(page.getByText(/0 nachweislich erledigt/)).toBeVisible();
+  await expect(page.locator(".sync-conflict-entry")).toHaveCount(3);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("workcore-sync-mutations-v1") || "[]").filter((m: { id: string }) => m.id.startsWith("RECHECK-")).length)).toBe(3);
+  await page.unroute("**/api/sync-conflicts/review");
+  await page.route("**/api/sync-conflicts/review", (route) => route.fulfill({ status: 503, json: { error: "unavailable" } }));
+  await page.getByRole("button", { name: "Konflikte mit Server vergleichen" }).click();
+  await expect(page.locator(".sync-status-details").getByRole("alert")).toContainText("Lokale Änderungen bleiben erhalten");
+  await expect(page.locator(".sync-conflict-entry")).toHaveCount(3);
 });
 
 for (const policy of ["never", "ask", "always"] as const) test(`Kamera und Bibliothek mit Gerätespeichern ${policy}`, async ({ page }) => {

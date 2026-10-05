@@ -1,9 +1,10 @@
 "use client";
 
-import { AlertCircle, Check, CloudOff, LoaderCircle, RefreshCw, TriangleAlert } from "lucide-react";
+import { AlertCircle, Check, ChevronLeft, ChevronRight, CloudOff, LoaderCircle, RefreshCw, TriangleAlert } from "lucide-react";
 import { useState } from "react";
 import type { Language } from "@/lib/uiTypes";
 import type { SyncMutation, SyncQueueSummary } from "@/lib/syncQueue";
+import type { ConflictReview } from "@/lib/conflictReview";
 
 type SyncStatusProps = {
   language: Language;
@@ -13,6 +14,7 @@ type SyncStatusProps = {
   online: boolean;
   onDiscardConflicts: (mutationId: string | string[]) => Promise<void> | void;
   onRetry: (mutationId?: string) => void;
+  onReviewConflicts?: (ids: string[], resolve?: boolean) => Promise<ConflictReview[]>;
   summary: SyncQueueSummary;
 };
 
@@ -34,11 +36,26 @@ function describeValue(value: unknown, depth = 0): string {
   return Object.entries(value).slice(0, 12).map(([key, item]) => `${key}: ${describeValue(item, depth + 1)}`).join("; ");
 }
 
-export function SyncStatus({ conflicts = [], issues = [], language, lastSyncedAt, online, onDiscardConflicts, onRetry, summary }: SyncStatusProps) {
+export function SyncStatus({ conflicts = [], issues = [], language, lastSyncedAt, online, onDiscardConflicts, onRetry, onReviewConflicts, summary }: SyncStatusProps) {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [resolving, setResolving] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
   const [resolutionError, setResolutionError] = useState("");
+  const [page, setPage] = useState(0);
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [reviews, setReviews] = useState<ConflictReview[]>([]);
+  const lastPage = Math.max(0, Math.ceil(conflicts.length / 25) - 1);
+  const currentPage = Math.min(page, lastPage);
+  const visible = conflicts.slice(currentPage * 25, (currentPage + 1) * 25);
+  const redundantIds = reviews.filter((r) => r.redundant && conflicts.some((m) => m.id === r.id)).map((r) => r.id);
+  async function review(resolve = false) {
+    if (!onReviewConflicts || (resolve && !window.confirm(`${redundantIds.length} nachweislich erledigte Konflikte erneut prüfen und Serverstand übernehmen? Abweichende Änderungen bleiben erhalten.`))) return;
+    setResolving(true);
+    setResolutionError("");
+    try { setReviews(await onReviewConflicts(resolve ? redundantIds : conflicts.map((m) => m.id), resolve)); }
+    catch { setResolutionError("Serververgleich fehlgeschlagen. Lokale Änderungen bleiben erhalten."); }
+    finally { setResolving(false); }
+  }
   async function accept(ids: string[]) {
     if (!ids.length || !window.confirm(`${ids.length} lokale Konfliktänderung(en) verwerfen und Serverstand übernehmen? Andere Änderungen bleiben erhalten.`)) return;
     setResolving(true);
@@ -112,12 +129,24 @@ export function SyncStatus({ conflicts = [], issues = [], language, lastSyncedAt
             : copy(language, "Die lokale Änderung bleibt erhalten.", "Den lokala ändringen finns kvar.", "The local change is retained."))}</span>
           {conflicts.length > 1 && <button type="button" className="ghost-button compact" disabled={resolving || !selected.some((id) => conflicts.some((item) => item.id === id))}
             onClick={() => void accept(selected.filter((id) => conflicts.some((item) => item.id === id)))}>Ausgewählte: Serverstand übernehmen</button>}
-          {conflicts.map((mutation) => <section className="sync-conflict-entry" key={mutation.id} aria-label={`Konflikt ${mutation.entityId}`}>
+          {onReviewConflicts && <div className="sync-conflict-actions">
+            <button type="button" className="ghost-button compact" disabled={resolving || !online} onClick={() => void review()}>{resolving ? "Prüfung läuft" : "Konflikte mit Server vergleichen"}</button>
+            {reviews.length > 0 && <span>{redundantIds.length} nachweislich erledigt; übrige Änderungen bleiben geschützt.</span>}
+            {redundantIds.length > 0 && <button type="button" className="ghost-button compact" disabled={resolving || !online} onClick={() => void review(true)}>Erledigte: Serverstand übernehmen</button>}
+          </div>}
+          {conflicts.length > 25 && <nav className="sync-conflict-actions" aria-label="Konfliktseiten">
+            <button className="icon-button" type="button" aria-label="Vorherige Konfliktseite" title="Vorherige Seite" disabled={currentPage === 0 || resolving} onClick={() => { setPage(currentPage - 1); setExpanded(null); }}><ChevronLeft size={18} /></button>
+            <span>{currentPage * 25 + 1}–{Math.min((currentPage + 1) * 25, conflicts.length)} / {conflicts.length}</span>
+            <button className="icon-button" type="button" aria-label="Nächste Konfliktseite" title="Nächste Seite" disabled={currentPage === lastPage || resolving} onClick={() => { setPage(currentPage + 1); setExpanded(null); }}><ChevronRight size={18} /></button>
+          </nav>}
+          {visible.map((mutation) => <section className="sync-conflict-entry" key={mutation.id} aria-label={`Konflikt ${mutation.entityId}`}>
             <label><input type="checkbox" aria-label={`Konflikt ${mutation.entityId} auswählen`} checked={selected.includes(mutation.id)} onChange={(event) => setSelected((current) => event.target.checked ? [...current, mutation.id] : current.filter((id) => id !== mutation.id))} />{mutation.entityType} · {mutation.entityId}</label>
             <small>{mutation.operation} · lokal Revision {mutation.expectedRevision ?? "neu"} · Server Revision {String(mutation.serverRecord?.revision ?? "unbekannt")}</small>
             <span>{mutation.error}</span>
-            <details><summary>Änderung prüfen</summary><strong>Lokal</strong><dl>{Object.entries(mutation.payload).map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{describeValue(value)}</dd></div>)}</dl>
+            {reviews.find((r) => r.id === mutation.id)?.reason && <small>{reviews.find((r) => r.id === mutation.id)?.reason}</small>}
+            <details open={expanded === mutation.id}><summary onClick={(event) => { event.preventDefault(); setExpanded(expanded === mutation.id ? null : mutation.id); }}>Änderung prüfen</summary>{expanded === mutation.id && <><strong>Lokal</strong><dl>{Object.entries(mutation.payload).map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{describeValue(value)}</dd></div>)}</dl>
               <strong>Server</strong><dl>{Object.entries(mutation.serverRecord ?? {}).map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{describeValue(value)}</dd></div>)}</dl>
+            </>}
             </details>
             <div className="sync-conflict-actions">
               <button type="button" className="ghost-button compact" disabled={resolving} onClick={() => void accept([mutation.id])}>Serverstand übernehmen</button>

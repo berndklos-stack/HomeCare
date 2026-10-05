@@ -34,7 +34,7 @@ test("Reverse Geocoding ergänzt ländliche Ortsnamen ohne normale Straßen zu v
 test("Fahrtenentwurf und Standardfahrt bleiben nutzbar", async ({ page }) => {
   await page.goto("/");
   await expect(page.locator("main")).toHaveAttribute("data-ready", "true", { timeout: 30_000 });
-  await expect(page.getByRole("heading", { name: "WorkCore" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Koll" })).toBeVisible();
 
   await page.getByRole("button", { name: "Fahrt", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Fahrt erfassen" });
@@ -55,21 +55,28 @@ test("Fahrtenentwurf und Standardfahrt bleiben nutzbar", async ({ page }) => {
   await expect(waypointAddress).toHaveCSS("border-top-style", "solid");
   await expect(waypointAddress).toHaveCSS("border-top-width", "1px");
 
-  await dialog.getByLabel("Bezeichnung der Standardfahrt").fill("Kolaretorp – Gunnabo");
-  const standardSection = dialog.locator("section.trip-step").filter({ hasText: "Standardfahrt" }).first();
-  await standardSection.getByRole("button", { name: "Speichern", exact: true }).click();
-  await expect(dialog.getByLabel("Gespeicherte Standardfahrt").locator("option", { hasText: "Kolaretorp – Gunnabo" })).toHaveCount(1);
+  await dialog.getByLabel("Als Standardfahrt speichern", { exact: true }).check();
+  await dialog.getByLabel("Wie soll die Standardfahrt heißen?", { exact: true }).fill("Kolaretorp – Gunnabo");
+  await dialog.getByRole("button", { name: "Zwischenstand speichern", exact: true }).click();
+  await expect(dialog.getByLabel("Standardfahrt wählen").locator("option", { hasText: "Kolaretorp – Gunnabo" })).toHaveCount(1);
 
   await dialog.getByLabel("Zieladresse").fill("");
   await waypointAddress.fill("");
-  await dialog.getByLabel("Gespeicherte Standardfahrt").selectOption("");
-  await dialog.getByLabel("Gespeicherte Standardfahrt").selectOption({ label: "Kolaretorp – Gunnabo" });
+  await dialog.getByLabel("Standardfahrt wählen").selectOption("");
+  await dialog.getByLabel("Standardfahrt wählen").selectOption({ label: "Kolaretorp – Gunnabo" });
   await expect(dialog.getByLabel("Zieladresse")).toHaveValue("Gunnabo 126, 382 91 Nybro");
   await expect(dialog.getByLabel("Zwischenziel 1", { exact: true })).toHaveValue("Nybro centrum");
   await expect(dialog.getByLabel("End-Km")).toBeFocused();
 
   await dialog.getByLabel("End-Km").fill("12680");
-  await dialog.getByRole("button", { name: "Zwischenspeichern", exact: true }).click();
+  await dialog.getByRole("button", { name: "Zwischenstand speichern", exact: true }).click();
+  await expect(dialog.getByLabel("Standardfahrt wählen").locator("option", { hasText: "Kolaretorp – Gunnabo" })).toHaveCount(1);
+  await expect.poll(async () => page.evaluate(() => {
+    const resources = JSON.parse(window.localStorage.getItem("kolaretorp-resources") || "[]");
+    const trip = resources.flatMap((resource: { logbook: { purpose: string; status: string; endOdometer: string }[] }) => resource.logbook)
+      .find((entry: { purpose: string }) => entry.purpose === "Kundenauftrag Gunnabo");
+    return trip ? { status: trip.status, endOdometer: trip.endOdometer } : null;
+  })).toEqual({ status: "laufend", endOdometer: "12680" });
   await expect.poll(async () => page.evaluate(() => {
     const draft = window.localStorage.getItem("kolaretorp-quick-trip-draft");
     return draft ? JSON.parse(draft).endOdometer : "";
