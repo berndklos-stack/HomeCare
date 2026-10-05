@@ -24,10 +24,13 @@ function copy(language: Language, de: string, sv: string, en: string) {
   return language === "sv" ? sv : language === "en" ? en : de;
 }
 
-function syncedTime(value?: string) {
+export function formatSyncDataTime(value: string | undefined, language: Language) {
   if (!value) return "";
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? "" : date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const locale = language === "sv" ? "sv-SE" : language === "en" ? "en-GB" : "de-DE";
+  return Number.isNaN(date.getTime()) ? "" : date.toLocaleString(locale, {
+    year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false,
+  });
 }
 
 function describeValue(value: unknown, depth = 0): string {
@@ -46,6 +49,7 @@ export function SyncStatus({ conflicts = [], failures = [], issues = [], languag
   const [page, setPage] = useState(0);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [reviews, setReviews] = useState<ConflictReview[]>([]);
+  const [confirmation, setConfirmation] = useState<{ ids: string[]; review: boolean } | null>(null);
   const entries = [...conflicts, ...failures];
   const lastPage = Math.max(0, Math.ceil(entries.length / 25) - 1);
   const currentPage = Math.min(page, lastPage);
@@ -53,16 +57,18 @@ export function SyncStatus({ conflicts = [], failures = [], issues = [], languag
   const selectedIds = entries.filter((mutation) => selected.includes(mutation.id)).map((mutation) => mutation.id);
   const allSelected = entries.length > 0 && selectedIds.length === entries.length;
   const redundantIds = reviews.filter((r) => r.redundant && conflicts.some((m) => m.id === r.id)).map((r) => r.id);
-  async function review(resolve = false) {
-    if (!onReviewConflicts || (resolve && !window.confirm(`${redundantIds.length} nachweislich erledigte Konflikte erneut prüfen und Serverstand übernehmen? Abweichende Änderungen bleiben erhalten.`))) return;
+  async function review(resolve = false, ids = redundantIds) {
+    if (!onReviewConflicts) return;
     setResolving(true);
     setResolutionError("");
-    try { setReviews(await onReviewConflicts(resolve ? redundantIds : conflicts.map((m) => m.id), resolve)); }
+    try { setReviews(await onReviewConflicts(resolve ? ids : conflicts.map((m) => m.id), resolve)); }
     catch { setResolutionError("Serververgleich fehlgeschlagen. Lokale Änderungen bleiben erhalten."); }
-    finally { setResolving(false); }
+    finally { setResolving(false); if (resolve) setConfirmation(null); }
   }
-  async function accept(ids: string[]) {
-    if (!ids.length || !window.confirm(`${ids.length} nicht synchronisierte lokale Änderung(en) verwerfen und Serverstand übernehmen? Diese Änderungen werden nicht gespeichert. Andere Änderungen bleiben erhalten.`)) return;
+  function accept(ids: string[]) {
+    if (ids.length) setConfirmation({ ids, review: false });
+  }
+  async function confirmAccept(ids: string[]) {
     setResolving(true);
     setResolutionError("");
     try {
@@ -70,18 +76,18 @@ export function SyncStatus({ conflicts = [], failures = [], issues = [], languag
       setSelected((current) => current.filter((id) => !ids.includes(id)));
     } catch {
       setResolutionError("Serverstand konnte nicht geladen werden. Bitte aktualisieren.");
-    } finally { setResolving(false); }
+    } finally { setResolving(false); setConfirmation(null); }
   }
   const hasConflict = summary.conflict > 0;
   const hasFailed = summary.failed > 0;
   const isSyncing = summary.syncing > 0;
   const isPending = summary.pending > 0;
-  const time = syncedTime(lastSyncedAt);
+  const time = formatSyncDataTime(lastSyncedAt, language);
 
   let tone = "synced";
   let label = time
-    ? copy(language, `Synchronisiert ${time}`, `Synkroniserad ${time}`, `Synced ${time}`)
-    : copy(language, "Synchronisiert", "Synkroniserad", "Synced");
+    ? copy(language, `Datenstand ${time}`, `Datastatus ${time}`, `Data as of ${time}`)
+    : copy(language, "Keine offenen Änderungen", "Inga väntande ändringar", "No pending changes");
   let icon = <Check aria-hidden="true" size={14} />;
 
   if (!online) {
@@ -153,7 +159,7 @@ export function SyncStatus({ conflicts = [], failures = [], issues = [], languag
           {onReviewConflicts && conflicts.length > 0 && <div className="sync-conflict-actions">
             <button type="button" className="ghost-button compact" disabled={resolving || !online} onClick={() => void review()}>{resolving ? "Prüfung läuft" : "Konflikte mit Server vergleichen"}</button>
             {reviews.length > 0 && <span>{redundantIds.length} nachweislich erledigt; übrige Änderungen bleiben geschützt.</span>}
-            {redundantIds.length > 0 && <button type="button" className="ghost-button compact" disabled={resolving || !online} onClick={() => void review(true)}>Erledigte: Serverstand übernehmen</button>}
+            {redundantIds.length > 0 && <button type="button" className="ghost-button compact" disabled={resolving || !online} onClick={() => setConfirmation({ ids: redundantIds, review: true })}>Erledigte: Serverstand übernehmen</button>}
           </div>}
           {entries.length > 25 && <nav className="sync-conflict-actions" aria-label="Konfliktseiten">
             <button className="icon-button" type="button" aria-label="Vorherige Konfliktseite" title="Vorherige Seite" disabled={currentPage === 0 || resolving} onClick={() => { setPage(currentPage - 1); setExpanded(null); }}><ChevronLeft size={18} /></button>
@@ -185,6 +191,22 @@ export function SyncStatus({ conflicts = [], failures = [], issues = [], languag
           </div>
         </TripDialog>
       )}
+      {confirmation && <TripDialog className="sync-confirm-dialog" labelledBy="sync-confirm-title" onClose={() => { if (!resolving) setConfirmation(null); }}>
+        <header>
+          <h2 id="sync-confirm-title">{copy(language, "Serverstand übernehmen?", "Använd serverversionen?", "Accept server version?")}</h2>
+        </header>
+        <p>{confirmation.review
+          ? copy(language, `${confirmation.ids.length} nachweislich erledigte Konflikte werden erneut mit dem Server verglichen. Abweichende lokale Änderungen bleiben erhalten.`, `${confirmation.ids.length} redan lösta konflikter jämförs med servern igen. Avvikande lokala ändringar behålls.`, `${confirmation.ids.length} verified resolved conflicts will be checked against the server again. Different local changes are retained.`)
+          : copy(language, `${confirmation.ids.length} nicht synchronisierte lokale Änderung(en) werden verworfen und durch den Serverstand ersetzt. Diese Änderungen werden nicht gespeichert. Andere Änderungen bleiben erhalten.`, `${confirmation.ids.length} osynkroniserade lokala ändringar tas bort och ersätts med serverversionen. Dessa ändringar sparas inte. Övriga ändringar behålls.`, `${confirmation.ids.length} unsynced local change(s) will be discarded in favor of the server version. These changes will not be saved. Other changes are retained.`)}</p>
+        <div className="modal-actions">
+          <button autoFocus className="ghost-button" disabled={resolving} type="button" onClick={() => setConfirmation(null)}>{copy(language, "Abbrechen", "Avbryt", "Cancel")}</button>
+          <button className="primary-button" disabled={resolving || (confirmation.review && !online)} type="button"
+            onClick={() => void (confirmation.review ? review(true, confirmation.ids) : confirmAccept(confirmation.ids))}>
+            {resolving ? <LoaderCircle size={16} className="spin" /> : <Check size={16} />}
+            {copy(language, "Serverstand übernehmen", "Använd serverversionen", "Accept server version")}
+          </button>
+        </div>
+      </TripDialog>}
     </div>
   );
 }

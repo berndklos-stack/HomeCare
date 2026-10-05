@@ -1,9 +1,18 @@
 import { expect, test } from "@playwright/test";
+import { formatSyncDataTime } from "../components/SyncStatus";
 import { createSyncMutation, discardConflictingMutations, retrySyncMutation } from "../lib/syncQueue";
 import { prepareSettingMutation } from "../lib/settingsSync";
 import { reviewMediaConflict } from "../lib/conflictReview";
 
 const pixel = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=", "base64");
+
+test("Datenstand zeigt Datum und Uhrzeit statt vermeintlicher Synchronisierungszeit", () => {
+  for (const [language, expected] of [["de", "04.10.2026, 19:28"], ["sv", "2026-10-04 19:28"], ["en", "04/10/2026, 19:28"]] as const) {
+    expect(formatSyncDataTime("2026-10-04T19:28:00", language)).toBe(expected);
+  }
+  expect(formatSyncDataTime("invalid", "de")).toBe("");
+  expect(formatSyncDataTime(undefined, "de")).toBe("");
+});
 
 for (const width of [1440, 390]) test(`Kopfzeile bleibt bei ${width}px sichtbar`, async ({ page }) => {
   await page.setViewportSize({ width, height: 900 });
@@ -53,12 +62,14 @@ test("Einzelne und ausgewählte Konflikte bleiben nach Reload aufgelöst", async
   await entry.getByText("Änderung prüfen").click();
   await expect(entry.getByText("Entwurf 1", { exact: true })).toBeVisible();
   await entry.getByRole("button", { name: "Serverstand übernehmen", exact: true }).click();
+  await page.getByRole("dialog", { name: "Serverstand übernehmen?", exact: true }).getByRole("button", { name: "Serverstand übernehmen", exact: true }).click();
   await expect(entry).toHaveCount(0);
   await page.getByRole("region", { name: "Konflikt ROW-4", exact: true }).getByRole("button", { name: "Erneut versuchen" }).click();
   await expect(page.getByRole("region", { name: "Konflikt ROW-4", exact: true })).toHaveCount(0);
   await page.getByRole("checkbox", { name: "Alle auswählen", exact: true }).check();
   await expect(conflictDialog.getByText("2 von 2 ausgewählt", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Ausgewählte: Serverstand übernehmen", exact: true }).click();
+  await page.getByRole("dialog", { name: "Serverstand übernehmen?", exact: true }).getByRole("button", { name: "Serverstand übernehmen", exact: true }).click();
   await page.reload();
   await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true");
   await expect(page.getByRole("button", { name: "Synchronisierungskonflikt", exact: true })).toHaveCount(0);
@@ -92,12 +103,20 @@ test("Fehlgeschlagene Änderung ist prüfbar und nur nach Bestätigung dauerhaft
   await expect(page.getByRole("button", { name: "Konflikte mit Server vergleichen" })).toHaveCount(0);
   await entry.getByText("Änderung prüfen").click();
   await expect(entry.getByText("Nicht gespeicherter Entwurf", { exact: true })).toBeVisible();
-  page.once("dialog", (dialog) => dialog.dismiss());
   await entry.getByRole("button", { name: "Serverstand übernehmen", exact: true }).click();
+  const confirmation = page.getByRole("dialog", { name: "Serverstand übernehmen?", exact: true });
+  await expect(confirmation.getByText(/Diese Änderungen werden nicht gespeichert/)).toBeVisible();
+  await expect(confirmation.getByRole("button", { name: "Abbrechen", exact: true })).toBeFocused();
+  await confirmation.getByRole("button", { name: "Abbrechen", exact: true }).click();
   await expect(entry).toBeVisible();
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem("workcore-sync-mutations-v1") || "[]").some((item: { id: string }) => item.id === "FAIL-1"))).toBe(true);
-  page.once("dialog", (dialog) => dialog.accept());
   await entry.getByRole("button", { name: "Serverstand übernehmen", exact: true }).click();
+  await page.keyboard.press("Escape");
+  await expect(confirmation).toHaveCount(0);
+  await expect(entry).toBeVisible();
+  await entry.getByRole("button", { name: "Serverstand übernehmen", exact: true }).click();
+  await page.screenshot({ path: `test-results/sync-confirm-${test.info().project.name}.png` });
+  await confirmation.getByRole("button", { name: "Serverstand übernehmen", exact: true }).click();
   await expect(entry).toHaveCount(0);
   await page.reload();
   await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true");
@@ -161,6 +180,7 @@ test("Großer Konfliktbestand bleibt begrenzt und sichere Bereinigung überlebt 
   await expect(page.getByText(/1 nachweislich erledigt/)).toBeVisible();
   expect(calls).toBe(45);
   await page.getByRole("button", { name: "Erledigte: Serverstand übernehmen" }).click();
+  await page.getByRole("dialog", { name: "Serverstand übernehmen?", exact: true }).getByRole("button", { name: "Serverstand übernehmen", exact: true }).click();
   await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem("workcore-sync-mutations-v1") || "[]").filter((m: { id: string }) => m.id.startsWith("BACKLOG-")).length)).toBe(1111);
   expect(calls).toBe(46);
   await page.reload();
@@ -198,6 +218,7 @@ test("Erneuter Serververgleich schützt inzwischen geänderte Daten und abhängi
   await page.getByRole("button", { name: "Konflikte mit Server vergleichen" }).click();
   await expect(page.getByText(/1 nachweislich erledigt/)).toBeVisible();
   await page.getByRole("button", { name: "Erledigte: Serverstand übernehmen" }).click();
+  await page.getByRole("dialog", { name: "Serverstand übernehmen?", exact: true }).getByRole("button", { name: "Serverstand übernehmen", exact: true }).click();
   await expect(page.getByText(/0 nachweislich erledigt/)).toBeVisible();
   await expect(page.locator(".sync-conflict-entry")).toHaveCount(3);
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem("workcore-sync-mutations-v1") || "[]").filter((m: { id: string }) => m.id.startsWith("RECHECK-")).length)).toBe(3);

@@ -10693,6 +10693,11 @@ dialog.sync-conflict-dialog { width: min(720px, calc(100vw - 24px)); max-width: 
 .sync-conflict-actions label { display: inline-flex; align-items: center; gap: 8px; }
 .sync-conflict-actions input { width: 20px; height: 20px; }
 .sync-conflict-dialog button { white-space: normal; overflow-wrap: anywhere; max-width: 100%; }
+dialog.sync-confirm-dialog { width: min(520px, calc(100vw - 24px)); max-width: calc(100vw - 24px); align-content: start; gap: 20px; }
+.sync-confirm-dialog header h2 { font-size: 20px; }
+.sync-confirm-dialog p { color: var(--foreground); font-size: 14px; line-height: 1.5; text-transform: none; font-weight: 400; }
+.sync-confirm-dialog .modal-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 12px; }
+.sync-confirm-dialog button { white-space: normal; }
 .sync-conflict-entry { border-top: 1px solid var(--line); padding: 10px 0; display: grid; gap: 8px; }
 .modal-backdrop { z-index: 100; }
 .field-status-backdrop { z-index: 110; }
