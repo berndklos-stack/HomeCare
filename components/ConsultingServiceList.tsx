@@ -5,7 +5,7 @@ import { FileDown, Sheet, X } from "lucide-react";
 import { TripDialog } from "./TripDialog";
 import { exportServiceListExcel, exportServiceListPdf, filterServiceList, serviceListLabels, serviceListTotals, type ServiceListEntry, type ServiceListExport } from "@/lib/consultingServiceList";
 
-export function ConsultingServiceList({ entries, title, company, currency, rate, language, onClose }: ServiceListExport & { onClose: () => void }) {
+export function ConsultingServiceList({ entries, title, company, currency, rate, language, exportLanguage = language, onClose }: ServiceListExport & { exportLanguage?: ServiceListExport["language"]; onClose: () => void }) {
   const labels = serviceListLabels[language];
   const [from, setFrom] = useState("");
   const [through, setThrough] = useState("");
@@ -25,11 +25,11 @@ export function ConsultingServiceList({ entries, title, company, currency, rate,
     if (!selected.length || exporting) return;
     setExporting(true); setError("");
     try {
-      const input = { entries: selected, title, company, currency, rate, language };
+      const input = { entries: selected, title, company, currency, rate, language: exportLanguage };
       const bytes = format === "pdf" ? await exportServiceListPdf(input) : await exportServiceListExcel(input);
       const url = URL.createObjectURL(new Blob([bytes.buffer as ArrayBuffer], { type: format === "pdf" ? "application/pdf" : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
       const link = document.createElement("a");
-      link.href = url; link.download = `${labels.title}-${title.replace(/[^\p{L}\p{N}._-]+/gu, "-").slice(0, 90)}.${format}`;
+      link.href = url; link.download = `${serviceListLabels[exportLanguage].title}-${title.replace(/[^\p{L}\p{N}._-]+/gu, "-").slice(0, 90)}.${format}`;
       document.body.appendChild(link); link.click(); link.remove();
       window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
     } catch { setError(labels.error); }

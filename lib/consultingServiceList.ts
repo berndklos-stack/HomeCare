@@ -10,6 +10,13 @@ export const serviceListLabels = {
 };
 export type ServiceListExport = { title: string; company: string; currency: string; rate: number; language: keyof typeof serviceListLabels; entries: ServiceListEntry[] };
 
+export function serviceListRecipientLanguage(value?: string): ServiceListExport["language"] {
+  const normalized = (value ?? "").trim().toLowerCase();
+  if (/\b(sv|svenska|schwedisch|swedish)\b/.test(normalized)) return "sv";
+  if (/\b(en|english|englisch|engelska)\b/.test(normalized)) return "en";
+  return "de";
+}
+
 export function filterServiceList(entries: ServiceListEntry[], filter: ServiceListFilter) {
   const search = filter.search.trim().toLocaleLowerCase();
   return entries.filter((entry) => (!filter.from || entry.date >= filter.from)

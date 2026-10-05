@@ -10260,7 +10260,7 @@ button.media-thumb {
 .consulting-action-strip {
   align-items: center;
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: 10px;
   margin-top: 8px;
   min-width: 0;
@@ -10271,7 +10271,7 @@ button.media-thumb {
   align-items: center;
   display: inline-flex;
   flex: 0 0 auto;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: 8px;
   min-width: 0;
   width: fit-content;
@@ -10283,7 +10283,7 @@ button.media-thumb {
   border: 1px solid var(--line);
   border-radius: 10px;
   display: inline-flex;
-  flex: 0 1 330px;
+  flex: 0 0 auto;
   font-weight: 700;
   gap: 6px;
   justify-content: flex-start;
@@ -10297,6 +10297,15 @@ button.media-thumb {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.consulting-action-strip > .consulting-service-list-button {
+  flex: 0 0 auto;
+  width: max-content;
+  max-width: 100%;
+  justify-content: center;
+  min-height: 34px;
+  padding: 6px 12px;
 }
 
 .consulting-entry-button,
@@ -10497,6 +10506,11 @@ button.media-thumb {
 }
 
 @media (max-width: 700px) {
+  .job-row:has(.consulting-action-strip) > .job-row-main,
+  .job-row:has(.consulting-action-strip) > .job-row-meta {
+    grid-row: auto;
+  }
+
   .job-consulting-heading {
     align-items: flex-start;
     flex-direction: column;

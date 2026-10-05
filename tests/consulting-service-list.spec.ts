@@ -1,7 +1,17 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync, writeFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
-import { exportServiceListExcel, exportServiceListPdf, filterServiceList, serviceListTotals, type ServiceListEntry } from "../lib/consultingServiceList";
+import { exportServiceListExcel, exportServiceListPdf, filterServiceList, serviceListTotals, serviceListRecipientLanguage, type ServiceListEntry } from "../lib/consultingServiceList";
+
+test("Empfängersprache bestimmt die Anlage, unabhängig von der UI-Sprache", async () => {
+  for (const value of ["SV", "sv-SE", "Svenska", "Schwedisch", "Swedish"]) expect(serviceListRecipientLanguage(value)).toBe("sv");
+  for (const value of ["EN", "English", "Englisch", "Engelska"]) expect(serviceListRecipientLanguage(value)).toBe("en");
+  expect(serviceListRecipientLanguage("Deutsch")).toBe("de");
+  expect(serviceListRecipientLanguage()).toBe("de");
+  const pdf = await exportServiceListPdf({ title: "Testauftrag", company: "Testfirma", currency: "SEK", rate: 800, language: "sv", entries });
+  expect(Buffer.from(pdf).toString("latin1")).toContain("Fakturabilaga - Arbetsredovisning");
+  expect(Buffer.from(pdf).toString("latin1")).not.toContain("Rechnungsanlage");
+});
 
 const entries: ServiceListEntry[] = [
   { id: "TIME-1", date: "2026-09-14", startTime: "09:00", endTime: "10:00", minutes: 60, description: "Partnerrecherche", billingStatus: "offen" },
@@ -37,11 +47,21 @@ test("Excel enthält echte Zahlen und behandelt Leistungstext nicht als Formel",
 for (const width of [1440, 390]) test(`Leistungsliste bei ${width}px: Auswahl und Exporte ohne Abrechnung`, async ({ page }, testInfo) => {
   await page.setViewportSize({ width, height: 844 });
   await page.addInitScript((items) => {
-    localStorage.setItem("kolaretorp-jobs", JSON.stringify([{ id: "JOB-LIST", title: "Leistungslisten-Test", status: "in Arbeit", priority: "normal", dueDate: "2026-10-05", description: "", assignedTo: "Bernd Klos", type: "Sonstiges", schedule: { type: "einmalig" }, checklist: [], consulting: { enabled: true, hourlyRate: "800", currency: "SEK", openEnded: true, entries: items } }]));
+    localStorage.setItem("kolaretorp-customers", JSON.stringify([{ id: "CUS-LIST", name: "Schwedischer Empfänger", language: "Svenska", contacts: [], objects: [], portalLoginHistory: [] }]));
+    localStorage.setItem("kolaretorp-jobs", JSON.stringify([{ id: "JOB-LIST", customerId: "CUS-LIST", title: "Leistungslisten-Test", status: "in Arbeit", priority: "normal", dueDate: "2026-10-05", description: "", assignedTo: "Bernd Klos", type: "Sonstiges", schedule: { type: "einmalig" }, checklist: [], consulting: { enabled: true, hourlyRate: "800", currency: "SEK", openEnded: true, entries: items } }]));
   }, entries);
   await page.goto("/");
   await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true");
   await page.getByTestId("nav-jobs").click();
+  const history = page.getByRole("button", { name: "Leistungsnachweise (3)", exact: true });
+  const listButton = page.getByRole("button", { name: "Leistungsliste", exact: true });
+  await expect(history).toBeVisible();
+  expect(await history.locator("span").evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+  const historyBox = (await history.boundingBox())!;
+  const listBox = (await listButton.boundingBox())!;
+  expect(listBox.width).toBeLessThan(210);
+  expect(historyBox.x + historyBox.width).toBeLessThanOrEqual(width);
+  await page.screenshot({ path: testInfo.outputPath("service-list-actions.png") });
   const jobsBefore = await page.evaluate(() => localStorage.getItem("kolaretorp-jobs"));
   const queueBefore = await page.evaluate(() => localStorage.getItem("workcore-sync-mutations-v1"));
   await page.getByRole("button", { name: "Leistungsliste", exact: true }).click();
@@ -63,8 +83,11 @@ for (const width of [1440, 390]) test(`Leistungsliste bei ${width}px: Auswahl un
     await dialog.getByRole("button", { name: format, exact: true }).click();
     const result = await download;
     expect(result.suggestedFilename()).toMatch(format === "Excel" ? /\.xlsx$/ : /\.pdf$/);
+    expect(result.suggestedFilename()).toMatch(/^Arbetslista-/);
     const file = await result.path();
     expect(readFileSync(file!).subarray(0, format === "Excel" ? 2 : 4).toString()).toBe(format === "Excel" ? "PK" : "%PDF");
+    if (format === "PDF") expect(readFileSync(file!).toString("latin1")).toContain("Fakturabilaga - Arbetsredovisning");
+    else expect(execFileSync("unzip", ["-p", file!, "xl/sharedStrings.xml"], { encoding: "utf8" })).toContain("Fakturabilaga - Arbetsredovisning");
   }
   expect(await page.evaluate(() => localStorage.getItem("kolaretorp-jobs"))).toBe(jobsBefore);
   expect(await page.evaluate(() => localStorage.getItem("workcore-sync-mutations-v1"))).toBe(queueBefore);

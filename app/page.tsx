@@ -7,6 +7,7 @@ import { AuthGate, EmployeeLogoutButton } from "@/components/AuthGate";
 import { SyncStatus } from "@/components/SyncStatus";
 import { TripDialog } from "@/components/TripDialog";
 import { ConsultingServiceList } from "@/components/ConsultingServiceList";
+import { serviceListRecipientLanguage } from "@/lib/consultingServiceList";
 import { serviceListLabels } from "@/lib/consultingServiceList";
 import { DevicePhotoSave, type DevicePhotoPolicy } from "@/components/DevicePhotoSave";
 import { TenantSwitcher } from "@/components/TenantSwitcher";
@@ -13406,6 +13407,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
             {section === "jobs" && (
               <JobsView
                 companyName={companySettings.name}
+                customers={customers}
                 jobs={jobs}
                 language={language}
                 objects={activeObjects}
@@ -16248,6 +16250,7 @@ function CustomersView({
 
 function JobsView({
   companyName,
+  customers,
   jobs,
   language,
   objects,
@@ -16269,6 +16272,7 @@ function JobsView({
   reports,
 }: {
   companyName: string;
+  customers: CustomerRecord[];
   jobs: JobRecord[];
   language: Language;
   objects: ObjectRecord[];
@@ -16331,6 +16335,8 @@ function JobsView({
 
   const activeConsultingJob = consultingEntryJobId ? jobs.find((item) => item.id === consultingEntryJobId) : undefined;
   const serviceListJob = jobs.find((item) => item.id === serviceListJobId);
+  const serviceListObject = objects.find((item) => item.id === serviceListJob?.objectId);
+  const serviceListCustomer = customers.find((item) => item.id === (serviceListJob?.customerId || serviceListObject?.ownerCustomerId));
   const activeConsultingObject = activeConsultingJob ? objects.find((object) => object.id === activeConsultingJob.objectId) : undefined;
   const activeConsultingBillingJob = consultingBillingJobId ? jobs.find((item) => item.id === consultingBillingJobId) : undefined;
   const activeConsultingBillingObject = activeConsultingBillingJob ? objects.find((object) => object.id === activeConsultingBillingJob.objectId) : undefined;
@@ -16478,7 +16484,7 @@ function JobsView({
                 {expandedConsultingIds.includes(job.id) ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                 <span>{tt("Leistungsnachweise")} ({job.consulting.entries.length})</span>
               </button>
-              <button className="ghost-button compact" type="button" onClick={() => setServiceListJobId(job.id)}>
+              <button className="ghost-button compact consulting-service-list-button" type="button" onClick={() => setServiceListJobId(job.id)}>
                 <ClipboardList size={15} />{serviceListLabels[language].title}
               </button>
               {!isRecurring && !["storniert", "abgerechnet"].includes(job.status) && (
@@ -16680,7 +16686,7 @@ function JobsView({
       {serviceListJob?.consulting && <ConsultingServiceList title={serviceListJob.title} company={companyName}
         entries={serviceListJob.consulting.entries} currency={serviceListJob.consulting.currency}
         rate={Number.isFinite(decimalValue(serviceListJob.consulting.hourlyRate)) ? decimalValue(serviceListJob.consulting.hourlyRate) : 0}
-        language={language} onClose={() => setServiceListJobId("")} />}
+        language={language} exportLanguage={serviceListRecipientLanguage(serviceListCustomer?.language)} onClose={() => setServiceListJobId("")} />}
       {consultingEntryJobId && (
         <div className="modal-backdrop">
           <section className="modal consulting-entry-modal" role="dialog" aria-modal="true" aria-labelledby="consulting-entry-title">
