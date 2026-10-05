@@ -161,6 +161,37 @@ test("Abschließen zeigt einen Queue-Speicherfehler statt still abzubrechen und 
   expect(queue.some((item: { entityType: string; payload: { status?: string } }) => item.entityType === "job" && item.payload.status === "erledigt")).toBe(false);
 });
 
+for (const status of ["Geplant", "In Arbeit"]) test(`Statuswahl ${status} beim Schließen eines Berichts erhält Bericht und Fotos`, async ({ page }) => {
+  await page.route("**/api/media", async (route) => {
+    const id = route.request().postDataBuffer()!.toString().match(/name="mediaId"\r\n\r\n([^\r]+)/)![1];
+    await route.fulfill({ json: { id, path: `tenant/field-photos/${id}.jpg`, url: "" } });
+  });
+  await openJob(page);
+  await page.locator('input[aria-label^="Bilder zu"]').first().setInputFiles(photos(1));
+  await expect.poll(async () => (await storedPhotos(page)).filter((photo) => photo.uploadStatus === "uploaded").length).toBe(1);
+  await page.getByRole("button", { name: "Einsatz abschließen", exact: true }).click();
+  const report = await page.evaluate(() => JSON.parse(localStorage.getItem("kolaretorp-reports") || "[]").find((item: { title: string }) => item.title === "Gartenpflege und Sichtprüfung"));
+  await page.getByRole("button", { name: "Später", exact: true }).click();
+  await page.getByTestId("nav-field").click();
+  await page.getByRole("button", { name: /^Abgeschlossene Berichte/ }).click();
+  await page.getByRole("button", { name: /Gartenpflege und Sichtprüfung.*Bericht/ }).click();
+  const beforeClose = await page.evaluate(() => ({
+    ids: JSON.parse(localStorage.getItem("workcore-sync-mutations-v1") || "[]").map((item: { id: string }) => item.id) as string[],
+    billing: localStorage.getItem("kolaretorp-billing"),
+  }));
+  await page.getByRole("button", { name: "Auftrag Gartenpflege und Sichtprüfung Auftrag schließen", exact: true }).click();
+  await page.getByRole("dialog", { name: "Status beim Schließen" }).getByRole("button", { name: new RegExp(`^${status}`) }).click();
+  const read = () => page.evaluate((id) => JSON.parse(localStorage.getItem("kolaretorp-reports") || "[]").find((item: { id: string }) => item.id === id), report.id);
+  expect(await read()).toEqual(report);
+  const queue = await page.evaluate(() => JSON.parse(localStorage.getItem("workcore-sync-mutations-v1") || "[]"));
+  expect(queue.some((item: { entityType: string; operation: string; entityId: string }) => item.entityType === "report" && item.operation === "delete" && item.entityId === report.id)).toBe(false);
+  expect(queue.filter((item: { id: string }) => !beforeClose.ids.includes(item.id)).every((item: { entityType: string }) => item.entityType === "job")).toBe(true);
+  expect(await page.evaluate(() => localStorage.getItem("kolaretorp-billing"))).toBe(beforeClose.billing);
+  await page.reload();
+  await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true");
+  expect(await read()).toEqual(report);
+});
+
 for (const count of [1, 5]) test(`${count} Bibliotheksfotos erscheinen sofort und bleiben nach Berichtsspeicherung erhalten`, async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   let release!: () => void;

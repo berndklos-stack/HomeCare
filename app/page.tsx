@@ -10102,12 +10102,13 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     setAppUpdatedAt(updatedAt);
   }
 
-  function persistReportsRelational(nextReports: ReportRecord[]) {
-    const prepared = prepareReportMutations(reportsRef.current, nextReports);
-    prepared.mutations.forEach((mutation) => enqueueSyncMutation(mutation));
+  function persistReportRelational(report: ReportRecord) {
+    const previous = reportsRef.current;
+    const prepared = prepareReportMutations(previous.filter((item) => item.id === report.id), [report]);
+    tripSync.enqueueMany(prepared.mutations);
     // A compacted unsent edit advances the server revision only once.
     const optimistic = dedupeReports(overlayPendingReportCommunication(
-      prepared.reports as ReportRecord[], [], readSyncQueue(window.localStorage),
+      [prepared.reports[0] as ReportRecord, ...previous.filter((item) => item.id !== report.id)], [], readSyncQueue(window.localStorage),
     ).reports);
     reportsRef.current = optimistic;
     setReports(optimistic);
@@ -11403,7 +11404,6 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
   function clearActiveJob(job?: JobRecord, nextStatus: JobRecord["status"] = "geplant", material?: string) {
     const targetJobId = job?.id ?? activeJobId ?? jobs.find((item) => item.status === "in Arbeit")?.id;
     if (!targetJobId) return;
-    const activeReport = editingFieldReportId ? reports.find((report) => report.id === editingFieldReportId) : undefined;
     const savedMaterial = material?.trim() || job?.material?.trim() || "-";
     const statusChangedAt = new Date().toISOString();
     const nextJobs = jobs.map((item) => (
@@ -11417,22 +11417,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
           }
         : item
     ));
-    const reopenReportAsWork = activeReport && ["geplant", "in Arbeit"].includes(nextStatus);
-    const nextReports = reopenReportAsWork
-      ? reports.filter((report) => report.id !== activeReport.id)
-      : reports;
-    const nextBilling = reopenReportAsWork
-      ? billing.filter((item) => !removableBillingDraftForJobIds(item, new Set([targetJobId])))
-      : billing;
-    const nextDeletedReportIds = reopenReportAsWork
-      ? Array.from(new Set([...deletedReportIds, activeReport.id]))
-      : deletedReportIds;
     persistJobsRelational(nextJobs);
-    if (nextReports !== reports) {
-      persistReportsRelational(nextReports);
-    }
-    if (nextBilling !== billing) persistBillingRelational(nextBilling);
-    if (nextDeletedReportIds !== deletedReportIds) setDeletedReportIds(nextDeletedReportIds);
     persistActiveJobSelection(null);
     setEditingFieldReportId(null);
   }
@@ -11613,11 +11598,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     const existingReport = baseReports.find((item) => item.id === report.id || reportDedupeKey(item) === reportDedupeKey(report));
     const protectedReport = existingReport ? mergeReportPair(existingReport, report) : report;
     const stampedReport = { ...protectedReport, updatedAt: new Date().toISOString() };
-    const replaced = baseReports.some((item) => item.id === stampedReport.id);
-    const nextReports = dedupeReports(replaced
-      ? baseReports.map((item) => (item.id === stampedReport.id ? stampedReport : item))
-      : [stampedReport, ...baseReports]);
-    persistReportsRelational(nextReports);
+    persistReportRelational(stampedReport);
   }
 
   function openUnlockReportDialog(report: ReportRecord) {
@@ -11885,11 +11866,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
       updatedAt: new Date().toISOString(),
       visibleToCustomer: true,
     };
-    const nextReports = dedupeReports([
-      nextReport,
-      ...reports.filter((report) => report.id !== reportId),
-    ]);
-    persistReportsRelational(nextReports);
+    persistReportRelational(nextReport);
     setSection("reports");
     setSendPreviewReportBody(customerReportSendBody(customers.find((customer) => customer.id === object.ownerCustomerId || customer.name === object.owner), nextReport));
     setSendPreviewReportId(reportId);
