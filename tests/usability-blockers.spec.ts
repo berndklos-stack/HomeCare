@@ -47,7 +47,7 @@ test("Konflikt kann zugunsten des Serverstands dauerhaft verworfen werden", asyn
   await page.goto("/");
   await expect(page.getByRole("button", { name: "Synchronisierungskonflikt" })).toBeVisible();
   await page.getByRole("button", { name: "Synchronisierungskonflikt" }).click();
-  await page.getByRole("button", { name: "Serverstand übernehmen" }).click();
+  await page.getByRole("button", { name: "Serverstand übernehmen", exact: true }).click();
 
   await expect(page.getByRole("button", { name: "Synchronisierungskonflikt" })).toHaveCount(0);
   await expect.poll(() => page.evaluate((storageKey) => {

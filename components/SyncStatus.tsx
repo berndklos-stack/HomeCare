@@ -10,6 +10,7 @@ import type { ConflictReview } from "@/lib/conflictReview";
 type SyncStatusProps = {
   language: Language;
   conflicts?: SyncMutation[];
+  failures?: SyncMutation[];
   issues?: string[];
   lastSyncedAt?: string;
   online: boolean;
@@ -37,7 +38,7 @@ function describeValue(value: unknown, depth = 0): string {
   return Object.entries(value).slice(0, 12).map(([key, item]) => `${key}: ${describeValue(item, depth + 1)}`).join("; ");
 }
 
-export function SyncStatus({ conflicts = [], issues = [], language, lastSyncedAt, online, onDiscardConflicts, onRetry, onReviewConflicts, summary }: SyncStatusProps) {
+export function SyncStatus({ conflicts = [], failures = [], issues = [], language, lastSyncedAt, online, onDiscardConflicts, onRetry, onReviewConflicts, summary }: SyncStatusProps) {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [resolving, setResolving] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
@@ -45,11 +46,12 @@ export function SyncStatus({ conflicts = [], issues = [], language, lastSyncedAt
   const [page, setPage] = useState(0);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [reviews, setReviews] = useState<ConflictReview[]>([]);
-  const lastPage = Math.max(0, Math.ceil(conflicts.length / 25) - 1);
+  const entries = [...conflicts, ...failures];
+  const lastPage = Math.max(0, Math.ceil(entries.length / 25) - 1);
   const currentPage = Math.min(page, lastPage);
-  const visible = conflicts.slice(currentPage * 25, (currentPage + 1) * 25);
-  const selectedIds = conflicts.filter((mutation) => selected.includes(mutation.id)).map((mutation) => mutation.id);
-  const allSelected = conflicts.length > 0 && selectedIds.length === conflicts.length;
+  const visible = entries.slice(currentPage * 25, (currentPage + 1) * 25);
+  const selectedIds = entries.filter((mutation) => selected.includes(mutation.id)).map((mutation) => mutation.id);
+  const allSelected = entries.length > 0 && selectedIds.length === entries.length;
   const redundantIds = reviews.filter((r) => r.redundant && conflicts.some((m) => m.id === r.id)).map((r) => r.id);
   async function review(resolve = false) {
     if (!onReviewConflicts || (resolve && !window.confirm(`${redundantIds.length} nachweislich erledigte Konflikte erneut prüfen und Serverstand übernehmen? Abweichende Änderungen bleiben erhalten.`))) return;
@@ -60,7 +62,7 @@ export function SyncStatus({ conflicts = [], issues = [], language, lastSyncedAt
     finally { setResolving(false); }
   }
   async function accept(ids: string[]) {
-    if (!ids.length || !window.confirm(`${ids.length} lokale Konfliktänderung(en) verwerfen und Serverstand übernehmen? Andere Änderungen bleiben erhalten.`)) return;
+    if (!ids.length || !window.confirm(`${ids.length} nicht synchronisierte lokale Änderung(en) verwerfen und Serverstand übernehmen? Diese Änderungen werden nicht gespeichert. Andere Änderungen bleiben erhalten.`)) return;
     setResolving(true);
     setResolutionError("");
     try {
@@ -140,27 +142,28 @@ export function SyncStatus({ conflicts = [], issues = [], language, lastSyncedAt
           <span>{issues[0] || (hasConflict
             ? copy(language, "Der Serverstand wurde nicht überschrieben. Bitte Daten aktualisieren und die Änderung prüfen.", "Serverdata skrevs inte över. Uppdatera och kontrollera ändringen.", "The server version was not overwritten. Refresh and review the change.")
             : copy(language, "Die lokale Änderung bleibt erhalten.", "Den lokala ändringen finns kvar.", "The local change is retained."))}</span>
-          {conflicts.length > 0 && <div className="sync-conflict-actions">
+          {entries.length > 0 && <div className="sync-conflict-actions">
             <label><input type="checkbox" disabled={resolving} checked={allSelected}
-              onChange={(event) => setSelected(event.target.checked ? conflicts.map((mutation) => mutation.id) : [])} />
+              onChange={(event) => setSelected(event.target.checked ? entries.map((mutation) => mutation.id) : [])} />
               {copy(language, "Alle auswählen", "Välj alla", "Select all")}</label>
-            <span>{copy(language, `${selectedIds.length} von ${conflicts.length} ausgewählt`, `${selectedIds.length} av ${conflicts.length} valda`, `${selectedIds.length} of ${conflicts.length} selected`)}</span>
+            <span>{copy(language, `${selectedIds.length} von ${entries.length} ausgewählt`, `${selectedIds.length} av ${entries.length} valda`, `${selectedIds.length} of ${entries.length} selected`)}</span>
             <button type="button" className="ghost-button compact" disabled={resolving || !selectedIds.length}
               onClick={() => void accept(selectedIds)}>{copy(language, "Ausgewählte: Serverstand übernehmen", "Valda: använd serverversionen", "Selected: accept server version")}</button>
           </div>}
-          {onReviewConflicts && <div className="sync-conflict-actions">
+          {onReviewConflicts && conflicts.length > 0 && <div className="sync-conflict-actions">
             <button type="button" className="ghost-button compact" disabled={resolving || !online} onClick={() => void review()}>{resolving ? "Prüfung läuft" : "Konflikte mit Server vergleichen"}</button>
             {reviews.length > 0 && <span>{redundantIds.length} nachweislich erledigt; übrige Änderungen bleiben geschützt.</span>}
             {redundantIds.length > 0 && <button type="button" className="ghost-button compact" disabled={resolving || !online} onClick={() => void review(true)}>Erledigte: Serverstand übernehmen</button>}
           </div>}
-          {conflicts.length > 25 && <nav className="sync-conflict-actions" aria-label="Konfliktseiten">
+          {entries.length > 25 && <nav className="sync-conflict-actions" aria-label="Konfliktseiten">
             <button className="icon-button" type="button" aria-label="Vorherige Konfliktseite" title="Vorherige Seite" disabled={currentPage === 0 || resolving} onClick={() => { setPage(currentPage - 1); setExpanded(null); }}><ChevronLeft size={18} /></button>
-            <span>{currentPage * 25 + 1}–{Math.min((currentPage + 1) * 25, conflicts.length)} / {conflicts.length}</span>
+            <span>{currentPage * 25 + 1}–{Math.min((currentPage + 1) * 25, entries.length)} / {entries.length}</span>
             <button className="icon-button" type="button" aria-label="Nächste Konfliktseite" title="Nächste Seite" disabled={currentPage === lastPage || resolving} onClick={() => { setPage(currentPage + 1); setExpanded(null); }}><ChevronRight size={18} /></button>
           </nav>}
           {visible.map((mutation) => <section className="sync-conflict-entry" key={mutation.id} aria-label={`Konflikt ${mutation.entityId}`}>
             <label><input type="checkbox" disabled={resolving} aria-label={`Konflikt ${mutation.entityId} auswählen`} checked={selected.includes(mutation.id)} onChange={(event) => setSelected((current) => event.target.checked ? [...current, mutation.id] : current.filter((id) => id !== mutation.id))} />{mutation.entityType} · {mutation.entityId}</label>
             <small>{mutation.operation} · lokal Revision {mutation.expectedRevision ?? "neu"} · Server Revision {String(mutation.serverRecord?.revision ?? "unbekannt")}</small>
+            {mutation.status === "failed" && <strong>{copy(language, "Synchronisierung fehlgeschlagen", "Synkronisering misslyckades", "Sync failed")}</strong>}
             <span>{mutation.error}</span>
             {reviews.find((r) => r.id === mutation.id)?.reason && <small>{reviews.find((r) => r.id === mutation.id)?.reason}</small>}
             <details open={expanded === mutation.id}><summary onClick={(event) => { event.preventDefault(); setExpanded(expanded === mutation.id ? null : mutation.id); }}>Änderung prüfen</summary>{expanded === mutation.id && <><strong>Lokal</strong><dl>{Object.entries(mutation.payload).map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{describeValue(value)}</dd></div>)}</dl>

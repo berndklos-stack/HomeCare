@@ -150,7 +150,9 @@ export function retrySyncMutation(queue: SyncMutation[], mutationId?: string, no
 export function discardConflictingMutations(queue: SyncMutation[], mutationId?: string | string[]) {
   const selected = mutationId === undefined ? null : new Set(Array.isArray(mutationId) ? mutationId : [mutationId]);
   return queue.filter((mutation) => (
-    mutation.status !== "conflict" || (selected !== null && !selected.has(mutation.id))
+    selected === null
+      ? mutation.status !== "conflict"
+      : !(["conflict", "failed"].includes(mutation.status) && selected.has(mutation.id))
   ));
 }
 

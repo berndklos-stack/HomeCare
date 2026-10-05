@@ -13265,6 +13265,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
             </div>
             <SyncStatus
               conflicts={tripSync.queue.filter((mutation) => mutation.status === "conflict")}
+              failures={tripSync.queue.filter((mutation) => mutation.status === "failed")}
               issues={tripSync.queue.filter((mutation) => mutation.status === "failed" || mutation.status === "conflict").map((mutation) => mutation.error || "")}
               language={language}
               lastSyncedAt={appUpdatedAt}

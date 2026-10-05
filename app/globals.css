@@ -10686,7 +10686,8 @@ button.media-thumb {
   min-width: 0;
   overflow-wrap: anywhere;
 }
-dialog.sync-conflict-dialog { width: min(720px, calc(100vw - 24px)); max-width: calc(100vw - 24px); }
+dialog.sync-conflict-dialog { width: min(720px, calc(100vw - 24px)); max-width: calc(100vw - 24px); align-content: start; gap: 16px; }
+.sync-conflict-dialog .sync-status-details { align-content: start; }
 .sync-conflict-dialog header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .sync-conflict-dialog header h2 { font-size: 20px; overflow-wrap: anywhere; }
 .sync-conflict-actions label { display: inline-flex; align-items: center; gap: 8px; }

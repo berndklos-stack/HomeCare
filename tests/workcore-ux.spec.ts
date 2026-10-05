@@ -69,6 +69,40 @@ test("Konflikt-Retry verändert weder Nutzdaten noch erwartete Revision", () => 
   const mutation = { ...createSyncMutation({ entityId: "R", entityType: "report", operation: "update", expectedRevision: 2, resourceId: "R", payload: { summary: "lokal" } }), status: "conflict" as const };
   expect(retrySyncMutation([mutation], mutation.id)[0]).toMatchObject({ id: mutation.id, expectedRevision: 2, payload: mutation.payload, status: "pending" });
   expect(discardConflictingMutations([mutation], [])).toEqual([mutation]);
+  const failed = { ...mutation, id: "FAILED", status: "failed" as const };
+  const pending = { ...mutation, id: "PENDING", status: "pending" as const };
+  expect(discardConflictingMutations([failed, pending])).toEqual([failed, pending]);
+  expect(discardConflictingMutations([failed, pending], [failed.id, pending.id])).toEqual([pending]);
+});
+
+test("Fehlgeschlagene Änderung ist prüfbar und nur nach Bestätigung dauerhaft verwerfbar", async ({ page }) => {
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem("ux-failure")) return;
+    sessionStorage.setItem("ux-failure", "1");
+    localStorage.setItem("workcore-sync-mutations-v1", JSON.stringify([{
+      id: "FAIL-1", entityId: "FAILED-REPORT", entityType: "report", resourceId: "FAILED-REPORT", operation: "update",
+      expectedRevision: 1, payload: { summary: "Nicht gespeicherter Entwurf", date: "2026-10-01", title: "Fehlgeschlagener Bericht", jobId: "JOB-2407", objectId: "OBJ-1001", checklistResults: [], media: [], customerComment: "", visibleToCustomer: true }, status: "failed", attempts: 1,
+      createdAt: "2026-10-01T00:00:00Z", updatedAt: "2026-10-01T00:00:00Z", error: "Die Änderung konnte nicht synchronisiert werden.",
+    }]));
+  });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Synchronisierung fehlgeschlagen", exact: true }).click();
+  const entry = page.getByRole("region", { name: "Konflikt FAILED-REPORT", exact: true });
+  await expect(entry).toBeVisible();
+  await expect(page.getByRole("button", { name: "Konflikte mit Server vergleichen" })).toHaveCount(0);
+  await entry.getByText("Änderung prüfen").click();
+  await expect(entry.getByText("Nicht gespeicherter Entwurf", { exact: true })).toBeVisible();
+  page.once("dialog", (dialog) => dialog.dismiss());
+  await entry.getByRole("button", { name: "Serverstand übernehmen", exact: true }).click();
+  await expect(entry).toBeVisible();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("workcore-sync-mutations-v1") || "[]").some((item: { id: string }) => item.id === "FAIL-1"))).toBe(true);
+  page.once("dialog", (dialog) => dialog.accept());
+  await entry.getByRole("button", { name: "Serverstand übernehmen", exact: true }).click();
+  await expect(entry).toHaveCount(0);
+  await page.reload();
+  await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true");
+  await expect(page.getByRole("button", { name: "Synchronisierung fehlgeschlagen", exact: true })).toHaveCount(0);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("workcore-sync-mutations-v1") || "[]").some((item: { id: string }) => item.id === "FAIL-1"))).toBe(false);
 });
 
 test("Konfliktprüfung verwirft weder unbekannte noch abweichende oder fremde Medien", () => {
