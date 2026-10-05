@@ -8,6 +8,7 @@ import {
   enqueueSyncMutation,
   failSyncMutation,
   readSyncQueue,
+  persistSyncMutationBatch,
   retrySyncMutation,
   settleSyncMutation,
   syncQueueStorageKey,
@@ -50,6 +51,22 @@ test("Voller Lesecache überschreibt keine Daten und wird nicht als Serverfehler
   expect(writeLocalCache(full, "reports", [{ id: "REPORT-1" }])).toBe(false);
   expect(storage.getItem("reports")).toBe("bestehender Entwurf");
   expect(() => writeLocalCache({ getItem: storage.getItem, setItem: () => { throw new Error("unexpected"); } }, "reports", [])).toThrow("unexpected");
+});
+
+test("Bericht und Abschluss werden gemeinsam dauerhaft vorgemerkt; Speicherfehler lässt die alte Queue unverändert", () => {
+  const storage = memoryStorage();
+  const draft = createSyncMutation({ entityId: "PROGRESS-1", entityType: "field_progress", operation: "update", payload: { note: "Entwurf", minutes: 90 }, resourceId: "JOB-1" });
+  const queue = [draft];
+  writeSyncQueue(storage, queue);
+  const before = storage.getItem(syncQueueStorageKey);
+  const report = createSyncMutation({ entityId: "REP-1", entityType: "report", operation: "create", payload: { summary: "Bericht" }, resourceId: "REP-1" });
+  const job = createSyncMutation({ entityId: "JOB-1", entityType: "job", operation: "update", expectedRevision: 2, payload: { status: "erledigt" }, resourceId: "JOB-1" });
+  const full = { getItem: storage.getItem, setItem: () => { throw new DOMException("full", "QuotaExceededError"); } };
+  expect(() => persistSyncMutationBatch(full, queue, [report, job])).toThrow();
+  expect(storage.getItem(syncQueueStorageKey)).toBe(before);
+  expect(queue).toEqual([draft]);
+  expect(persistSyncMutationBatch(storage, queue, [report, job])).toEqual([draft, report, job]);
+  expect(readSyncQueue(storage)).toEqual([draft, report, job]);
 });
 
 function memoryStorage(): StorageLike & { value: Record<string, string> } {

@@ -126,6 +126,12 @@ export function writeSyncQueue(storage: StorageLike, queue: SyncMutation[]) {
   storage.setItem(currentSyncQueueStorageKey(), JSON.stringify([...completed, ...actionable]));
 }
 
+export function persistSyncMutationBatch(storage: StorageLike, queue: SyncMutation[], mutations: SyncMutation[]) {
+  const next = mutations.reduce(enqueueSyncMutation, queue);
+  writeSyncQueue(storage, next);
+  return next;
+}
+
 export function enqueueSyncMutation(queue: SyncMutation[], mutation: SyncMutation) {
   if (queue.some((item) => item.id === mutation.id)) return queue;
   if (["report", "field_progress", "job_note"].includes(mutation.entityType) && mutation.operation === "update" && mutation.attempts === 0) {

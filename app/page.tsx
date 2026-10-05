@@ -11532,7 +11532,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     };
     const nextReports = dedupeReports([
       savedReport,
-      ...reports.filter((report) => report.id !== reportId && (job.schedule.type === "serie" || isMultiDayJob || report.jobId !== job.id)),
+      ...reportsRef.current.filter((report) => report.id !== reportId),
     ]);
     const nextObjects = objects.map((object) => (object.id === job.objectId ? { ...object, lastVisit: executionDate } : object));
     const nextBilling = ensureBillingForJobs(nextJobs, billing, nextReports);
@@ -11557,12 +11557,39 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     }
     delete nextFieldNotes[progressKey];
 
-    persistJobsRelational(nextJobs);
-    persistBillingRelational(nextBilling);
-    persistReportsRelational(nextReports);
-    persistObjectsRelational(nextObjects);
-    persistFieldNotesRelational(nextFieldNotes);
-    persistFieldProgressRelational(nextFieldProgress);
+    const preparedJobs = prepareJobMutations(jobs, nextJobs);
+    const preparedBilling = prepareFinancialMutations(billing, nextBilling);
+    const preparedReport = prepareReportMutations(
+      reportsRef.current.filter((report) => report.id === reportId), [savedReport],
+    );
+    const preparedObjects = prepareObjectMutations(objects, nextObjects);
+    const preparedNotes = prepareNoteMutations(fieldNotes, nextFieldNotes, jobNoteMeta);
+    const preparedProgress = prepareProgressMutations(fieldProgressRef.current, nextFieldProgress);
+    tripSync.enqueueMany([
+      ...preparedReport.mutations, ...preparedJobs.mutations, ...preparedBilling.mutations,
+      ...preparedObjects.mutations, ...preparedNotes.mutations, ...preparedProgress.mutations,
+    ]);
+    const queue = readSyncQueue(window.localStorage);
+    const optimisticReports = dedupeReports(overlayPendingReportCommunication(
+      nextReports.map((report) => report.id === reportId ? preparedReport.reports[0] as ReportRecord : report), [], queue,
+    ).reports);
+    const optimisticOperations = overlayPendingJobOperations(preparedJobs.jobs, preparedProgress.progress, preparedNotes.notes, preparedNotes.meta, queue);
+    reportsRef.current = optimisticReports;
+    setReports(optimisticReports);
+    setJobs(optimisticOperations.jobs);
+    setBilling(preparedBilling.invoices as BillingRecord[]);
+    setObjects(preparedObjects.objects);
+    setFieldNotes(optimisticOperations.notes);
+    setJobNoteMeta(optimisticOperations.noteMeta);
+    setFieldProgress(optimisticOperations.progress as Record<string, Record<string, FieldTaskProgress>>);
+    persistLocalSections(currentSnapshot({
+      jobs: optimisticOperations.jobs, reports: optimisticReports,
+      billing: preparedBilling.invoices as BillingRecord[], objects: preparedObjects.objects,
+      fieldNotes: optimisticOperations.notes, jobNoteMeta: optimisticOperations.noteMeta,
+      fieldProgress: optimisticOperations.progress as Record<string, Record<string, FieldTaskProgress>>,
+      updatedAt: reportUpdatedAt,
+    }), ["jobs", "reports", "billing", "objects", "fieldNotes", "jobNoteMeta", "fieldProgress"]);
+    setAppUpdatedAt(reportUpdatedAt);
     persistActiveJobSelection(nextJobStatus === "in Arbeit" ? job.id : null);
     if (nextJobStatus === "in Arbeit") {
       setFieldWorkDates((current) => ({ ...current, [job.id]: nextOpenWorkDate }));
@@ -17306,6 +17333,7 @@ function FieldView({
   const [materialDraft, setMaterialDraft] = useState("");
   const [pendingReportAttachments, setPendingReportAttachments] = useState<ReportAttachment[]>([]);
   const [pendingAttachmentNotice, setPendingAttachmentNotice] = useState("");
+  const [completionNotice, setCompletionNotice] = useState("");
   const [photoNoteDraft, setPhotoNoteDraft] = useState("");
   const [photoNoteEditor, setPhotoNoteEditor] = useState<{ photoId: string; taskId: string } | null>(null);
   const [localPhotoPreviewUrls, setLocalPhotoPreviewUrls] = useState<Record<string, string>>({});
@@ -17708,29 +17736,42 @@ function FieldView({
   }
 
   function completeActiveJob(options: CompleteJobOptions = {}) {
+    setCompletionNotice("");
     if (preparingFieldPhotos > 0) {
+      setCompletionNotice(tt("Fotos werden vorbereitet..."));
       return;
     }
-    retryQueuedFieldPhotoUploads();
-    const results = fieldTasks.map((task) => {
-      const currentTask = valueForTask(task);
-      return {
-        id: task.id,
-        title: task.title,
-        meta: task.meta,
-        description: task.description,
-        completed: currentTask.completed,
-        minutes: Number(currentTask.minutes) || 0,
-        showWorkTimeInReport: currentTask.showWorkTimeInReport ?? defaultTimeVisibilityForTask(task),
-        note: currentTask.note.trim(),
-        photos: normalizeFieldPhotosForSave(currentTask.photos),
-        updatedAt: currentTask.updatedAt,
-      };
-    });
+    try {
+      retryQueuedFieldPhotoUploads();
+      if (hasVolatileFieldPhotos) {
+        setCompletionNotice(language === "sv" ? "Vänta tills fotona har laddats upp innan du avslutar." : language === "en" ? "Wait until the photos finish uploading before completing the job." : "Bitte warten, bis die Fotos hochgeladen sind. Sie sind noch nicht offline gesichert.");
+        return;
+      }
+      const results = fieldTasks.map((task) => {
+        const currentTask = valueForTask(task);
+        return {
+          id: task.id,
+          title: task.title,
+          meta: task.meta,
+          description: task.description,
+          completed: currentTask.completed,
+          minutes: Number(currentTask.minutes) || 0,
+          showWorkTimeInReport: currentTask.showWorkTimeInReport ?? defaultTimeVisibilityForTask(task),
+          note: currentTask.note.trim(),
+          photos: normalizeFieldPhotosForSave(currentTask.photos),
+          updatedAt: currentTask.updatedAt,
+        };
+      });
 
-    onComplete(activeJob, results, fieldNote, activeWorkDate, pendingReportAttachments, materialDraft, options);
-    setPendingReportAttachments([]);
-    setPendingAttachmentNotice("");
+      onComplete(activeJob, results, fieldNote, activeWorkDate, pendingReportAttachments, materialDraft, options);
+      setPendingReportAttachments([]);
+      setPendingAttachmentNotice("");
+    } catch (error) {
+      console.error("Einsatzbericht konnte nicht lokal gespeichert werden.", error);
+      setCompletionNotice(isStorageQuotaError(error)
+        ? language === "sv" ? "Rapporten kunde inte sparas: enhetens lagring är full. Håll vyn öppen och vänta tills synkroniseringen är klar." : language === "en" ? "Report could not be saved: device storage is full. Keep this view open and wait for sync to finish." : "Bericht konnte nicht gespeichert werden: Browserspeicher voll. Bitte Ansicht offen lassen und die Synchronisierung abwarten."
+        : language === "sv" ? "Rapporten kunde inte sparas. Dina uppgifter finns kvar i den öppna vyn." : language === "en" ? "Report could not be saved. Your entries remain in the open view." : "Bericht konnte nicht gespeichert werden. Deine Eingaben bleiben in der geöffneten Ansicht erhalten.");
+    }
   }
 
   function closeActiveJobWithStatus(nextStatus: JobRecord["status"]) {
@@ -18183,6 +18224,7 @@ function FieldView({
             {tt("Speichern und als gesendet markieren")}
           </button>
         )}
+        {completionNotice && <p role="alert">{completionNotice}</p>}
         <button className="primary-button" disabled={reportLocked || preparingFieldPhotos > 0} onClick={() => completeActiveJob()} type="button">
           {preparingFieldPhotos > 0 ? tt("Fotos werden vorbereitet...") : editingReportId ? tt("Bericht speichern") : workDates.length > 1 ? (isLastOpenWorkDate ? tt("Letzten Tag speichern und Auftrag abschließen") : tt("Tagesbericht zwischenspeichern")) : tt("Einsatz abschließen")}
         </button>

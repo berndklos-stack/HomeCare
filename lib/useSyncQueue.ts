@@ -6,10 +6,10 @@ import type { ConflictReview } from "@/lib/conflictReview";
 import {
   createSyncMutation,
   discardConflictingMutations,
-  enqueueSyncMutation,
   failSyncMutation,
   markMutationSyncing,
   nextPendingMutation,
+  persistSyncMutationBatch,
   readSyncQueue,
   retrySyncMutation,
   settleSyncMutation,
@@ -119,17 +119,13 @@ export function useSyncQueue({ disabled = false, onApplied }: UseSyncQueueOption
     return () => window.clearTimeout(timeoutId);
   }, [disabled, flush, online, queue]);
 
-  const enqueue = useCallback((input: Parameters<typeof createSyncMutation>[0]) => {
-    const mutation = createSyncMutation(input);
-    setQueue((current) => {
-      const next = enqueueSyncMutation(current, mutation);
-      // Persist before returning control to the UI so an immediate reload cannot
-      // lose a mutation while React is still scheduling effects.
-      writeSyncQueue(window.localStorage, next);
-      return next;
-    });
-    return mutation;
+  const enqueueMany = useCallback((inputs: Parameters<typeof createSyncMutation>[0][]) => {
+    const mutations = inputs.map((input) => createSyncMutation(input));
+    // Commit all related local mutations before exposing any state change.
+    setQueue((current) => persistSyncMutationBatch(window.localStorage, current, mutations));
+    return mutations;
   }, []);
+  const enqueue = useCallback((input: Parameters<typeof createSyncMutation>[0]) => enqueueMany([input])[0], [enqueueMany]);
 
   const retry = useCallback((mutationId?: string) => {
     setQueue((current) => {
@@ -201,6 +197,7 @@ export function useSyncQueue({ disabled = false, onApplied }: UseSyncQueueOption
   return {
     discardConflicts,
     enqueue,
+    enqueueMany,
     flush,
     online,
     queue,

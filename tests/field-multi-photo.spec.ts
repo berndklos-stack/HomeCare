@@ -145,6 +145,22 @@ test("Voller Berichtscache zeigt Warnung ohne Reload und erhält den Bericht in 
   expect(queue.some((item: { entityType: string; status: string }) => item.entityType === "report" && item.status === "pending")).toBe(true);
 });
 
+test("Abschließen zeigt einen Queue-Speicherfehler statt still abzubrechen und schließt den Auftrag nicht", async ({ page }) => {
+  await page.addInitScript(() => {
+    const original = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (key, value) {
+      if (key.startsWith("workcore-sync-mutations") && value.includes('"entityType":"report"')) throw new DOMException("Report queue full", "QuotaExceededError");
+      return original.call(this, key, value);
+    };
+  });
+  await openJob(page);
+  await page.getByRole("button", { name: "Einsatz abschließen", exact: true }).click();
+  await expect(page.getByRole("alert").filter({ hasText: "Bericht konnte nicht gespeichert werden" })).toBeVisible();
+  await expect(page.locator(".service-task-list")).toBeVisible();
+  const queue = await page.evaluate(() => JSON.parse(localStorage.getItem("workcore-sync-mutations-v1") || "[]"));
+  expect(queue.some((item: { entityType: string; payload: { status?: string } }) => item.entityType === "job" && item.payload.status === "erledigt")).toBe(false);
+});
+
 for (const count of [1, 5]) test(`${count} Bibliotheksfotos erscheinen sofort und bleiben nach Berichtsspeicherung erhalten`, async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   let release!: () => void;
@@ -182,6 +198,9 @@ for (const count of [1, 5]) test(`${count} Bibliotheksfotos erscheinen sofort un
   expect(new Set(ids).size).toBe(count);
   const queue = await page.evaluate(() => JSON.parse(localStorage.getItem("workcore-sync-mutations-v1") || "[]") as { entityType: string; entityId: string; resourceId: string }[]);
   expect(queue.filter((item) => item.entityType === "report_media" && ids.includes(item.entityId))).toHaveLength(count);
+  expect(queue.filter((item) => item.entityType === "report_media")).toHaveLength(count);
+  const savedReportId = queue.find((item) => item.entityType === "report")!.entityId;
+  expect(queue.filter((item) => item.entityType === "report_media").every((item) => item.resourceId === savedReportId)).toBe(true);
   await page.reload();
   await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true");
   await expect.poll(reportPhotos).toHaveLength(count);
