@@ -2662,6 +2662,7 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Noch keine Zeiten vorhanden.", sv: "Inga tider finns ännu.", en: "No times yet." },
   { de: "Keine Arbeitsdetails vorhanden.", sv: "Inga arbetsdetaljer finns.", en: "No work details available." },
   { de: "Zeit je Kunde", sv: "Tid per kund", en: "Time by customer" },
+  { de: "Nur mit erfasster Zeit", sv: "Endast med registrerad tid", en: "Only with recorded time" },
   { de: "Laufender Auftrag", sv: "Löpande uppdrag", en: "Ongoing job" },
   { de: "Zeit je Mitarbeiter", sv: "Tid per medarbetare", en: "Time by employee" },
   { de: "Zeit je Objekt", sv: "Tid per objekt", en: "Time by property" },
@@ -14832,6 +14833,7 @@ function AnalyticsView({
   const currentMonth = `${currentYear}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   const currentWeek = `${currentYear}-W${String(isoWeekNumber(now.toISOString().slice(0, 10))).padStart(2, "0")}`;
   const [period, setPeriod] = useState<"month" | "week" | "custom" | "all">("month");
+  const [onlyBooked, setOnlyBooked] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
   const [selectedWeek, setSelectedWeek] = useState(currentWeek);
   const [customFrom, setCustomFrom] = useState(currentMonth ? `${currentMonth}-01` : "");
@@ -14897,7 +14899,7 @@ function AnalyticsView({
         reportCount: customerReports.length,
       };
     })
-    .filter((row) => row.minutes > 0 || row.reportCount > 0 || row.jobCount > 0)
+    .filter((row) => (row.minutes > 0 || row.reportCount > 0 || row.jobCount > 0) && (!onlyBooked || row.minutes > 0))
     .sort((first, second) => second.minutes - first.minutes || first.customer.name.localeCompare(second.customer.name, "de"));
   const objectRows = objects
     .filter((object) => !object.archived)
@@ -14913,7 +14915,7 @@ function AnalyticsView({
         reportCount: objectReports.length,
       };
     })
-    .filter((row) => row.minutes > 0 || row.reportCount > 0 || row.jobCount > 0)
+    .filter((row) => (row.minutes > 0 || row.reportCount > 0 || row.jobCount > 0) && (!onlyBooked || row.minutes > 0))
     .sort((first, second) => second.minutes - first.minutes || first.object.name.localeCompare(second.object.name, "de"));
   const personnelMap = filteredReports.reduce((map, report) => {
     const job = jobs.find((item) => item.id === report.jobId);
@@ -14932,6 +14934,7 @@ function AnalyticsView({
     personnelMap.set(name, { ...current, minutes: current.minutes + entry.minutes });
   });
   const personnelRows = Array.from(personnelMap.values())
+    .filter((row) => !onlyBooked || row.minutes > 0)
     .sort((first, second) => second.minutes - first.minutes || first.name.localeCompare(second.name, "de"));
   const totalMinutes = filteredReports.reduce((sum, report) => sum + reportWorkMinutes(report), 0) + entryMinutes(timeEntries);
   const totalPhotos = analyticsReportPhotoCount(filteredReports);
@@ -15079,6 +15082,10 @@ function AnalyticsView({
             </div>
           )}
         </div>
+        <label className="analytics-booked-filter">
+          <input type="checkbox" checked={onlyBooked} onChange={(event) => setOnlyBooked(event.target.checked)} />
+          <span>{tt("Nur mit erfasster Zeit")}</span>
+        </label>
         <div className="analytics-summary-grid">
           <div><span>{tt("Dokumentierte Arbeitszeit")}</span><strong>{formatWorkHours(totalMinutes)}</strong></div>
           <div><span>{tt("Einsatzberichte")}</span><strong>{filteredReports.length}</strong></div>

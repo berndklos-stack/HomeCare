@@ -983,6 +983,13 @@ button {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.analytics-booked-filter {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  width: fit-content;
+}
+
 .analytics-table {
   border: 1px solid var(--line);
   border-radius: 8px;

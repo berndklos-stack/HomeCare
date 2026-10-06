@@ -75,6 +75,7 @@ test("Auswertung trennt gleiche Kundennamen und zählt laufende Leistungen im ge
       { id: "A-PRIVATE", personalNumber: "001", name: "Christoph Korn", company: "" },
       { id: "A-CDK", personalNumber: "002", name: "Christoph Korn", company: "CDK Family Office GbR" },
       { id: "A-BO", personalNumber: "003", name: "Börjes", company: "Börjes Logistik" },
+      { id: "A-EMPTY", personalNumber: "004", name: "Ohne Zeit", company: "" },
     ].map((customer) => ({ ...customer, language: "Deutsch", email: "", phone: "", contact: "", address: "", objects: [], contacts: [], portalLoginHistory: [] }));
     localStorage.setItem("kolaretorp-customers", JSON.stringify(customers));
     localStorage.setItem("kolaretorp-objects", JSON.stringify(customers.map((customer) => ({
@@ -88,11 +89,14 @@ test("Auswertung trennt gleiche Kundennamen und zählt laufende Leistungen im ge
       // The contractual customer takes precedence over the property's owner.
       { id: "J-CDK", customerId: "A-CDK", title: "Laufende Verwaltung", objectId: "OBJ-A-PRIVATE", consulting: { enabled: true, entries: [time("E-CDK", "2026-10-05", 30)] } },
       { id: "J-BO", customerId: "A-BO", title: "Partnersuche", objectId: "OBJ-A-BO", consulting: { enabled: true, entries: [time("E-BO", "2026-10-05", 200), time("E-SEPT", "2026-09-14", 600)] } },
-    ].map((job) => ({ ...job, status: "in Arbeit", priority: "normal", assignedTo: "Bernd Klos", dueDate: "2026-10-05", type: "Sonstiges", schedule: { type: "einmalig" }, checklist: [] }));
+      { id: "J-EMPTY", customerId: "A-EMPTY", title: "Noch ohne Zeit", objectId: "OBJ-A-EMPTY" },
+    ].map((job) => ({ ...job, status: "in Arbeit", priority: "normal", assignedTo: job.id === "J-EMPTY" ? "Person ohne Zeit" : "Bernd Klos", dueDate: "2026-10-05", type: "Sonstiges", schedule: { type: "einmalig" }, checklist: [] }));
     localStorage.setItem("kolaretorp-jobs", JSON.stringify(jobs));
     localStorage.setItem("kolaretorp-reports", JSON.stringify([{
       id: "R-PRIVATE", jobId: "J-PRIVATE", objectId: "OBJ-A-PRIVATE", title: "Privater Bericht", date: "2026-10-05", media: [], summary: "", internalNotes: "", customerComment: "",
       checklistResults: [{ id: "TASK", title: "Arbeit", minutes: 60, note: "", completed: true, photos: [] }],
+    }, {
+      id: "R-EMPTY", jobId: "J-EMPTY", objectId: "OBJ-A-EMPTY", title: "Ohne gebuchte Zeit", date: "2026-09-14", media: [], summary: "", internalNotes: "", customerComment: "", checklistResults: [],
     }]));
   });
   await page.goto("/");
@@ -100,7 +104,7 @@ test("Auswertung trennt gleiche Kundennamen und zählt laufende Leistungen im ge
   await page.getByTestId("nav-analytics").click();
   await page.getByLabel("Monat", { exact: true }).fill("2026-10");
   const rows = page.locator(".analytics-view > section").filter({ has: page.getByRole("heading", { name: "Zeit je Kunde", exact: true }) }).locator("article");
-  await expect(rows).toHaveCount(3);
+  await expect(rows).toHaveCount(4);
   const privateRow = rows.filter({ hasText: "Kundennummer: 001" });
   await expect(privateRow).toContainText("1 Std.");
   await expect(privateRow).not.toContainText("Laufende Verwaltung");
@@ -119,6 +123,20 @@ test("Auswertung trennt gleiche Kundennamen und zählt laufende Leistungen im ge
   await dialog.getByRole("button", { name: "Schließen", exact: true }).click();
   await page.getByRole("button", { name: "Alle Zeiten", exact: true }).click();
   await expect(borjes).toContainText("13,3 Std.");
+  await expect(page.locator(".analytics-split .clickable-report-row").filter({ hasText: "Person ohne Zeit" })).toHaveCount(1);
+  const booked = page.getByRole("checkbox", { name: "Nur mit erfasster Zeit", exact: true });
+  await booked.check();
+  await expect(rows).toHaveCount(3);
+  await expect(rows.filter({ hasText: "Kundennummer: 004" })).toHaveCount(0);
+  await expect(page.locator(".analytics-split .clickable-report-row").filter({ hasText: "Ohne Zeit" })).toHaveCount(0);
+  await expect(page.locator(".analytics-split .clickable-report-row").filter({ hasText: "Person ohne Zeit" })).toHaveCount(0);
+  await expect(borjes).toContainText("13,3 Std.");
+  await page.getByRole("button", { name: "Monat", exact: true }).click();
+  await page.getByLabel("Monat", { exact: true }).fill("2026-09");
+  await expect(rows).toHaveCount(1);
+  await expect(borjes).toContainText("10 Std.");
+  await booked.uncheck();
+  await expect(rows.filter({ hasText: "Kundennummer: 004" })).toHaveCount(1);
 });
 
 for (const width of [1440, 390]) test(`Stammdaten-Reiter bleiben im Dunkelmodus lesbar: ${width}px`, async ({ page }) => {
