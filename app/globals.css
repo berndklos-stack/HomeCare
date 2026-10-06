@@ -646,7 +646,7 @@ button {
   border-color: var(--brand-2);
   box-shadow: 0 10px 24px var(--shadow), 0 0 0 3px color-mix(in srgb, var(--brand-2), transparent 78%);
   outline: none;
-  transform: translateY(-1px) scaleX(-1);
+  transform: translateY(-1px);
 }
 
 .quickbar strong {
@@ -7318,6 +7318,25 @@ dialog.trip-dialog::backdrop { background: rgb(0 0 0 / 45%); }
   flex-wrap: wrap;
   gap: 8px;
   justify-content: flex-end;
+  position: relative;
+}
+
+/* Anchor header tooltips inside the dialog rather than above its scroll area. */
+.modal-header-actions .icon-button[data-tooltip] {
+  position: static;
+}
+
+.modal-header-actions .icon-button[data-tooltip]::after {
+  bottom: auto;
+  left: auto;
+  right: 0;
+  top: calc(100% + 8px);
+  transform: translateY(-4px);
+}
+
+.modal-header-actions .icon-button[data-tooltip]:hover::after,
+.modal-header-actions .icon-button[data-tooltip]:focus-visible::after {
+  transform: translateY(0);
 }
 
 .modal header button {

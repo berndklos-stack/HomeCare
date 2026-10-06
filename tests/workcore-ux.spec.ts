@@ -6,6 +6,69 @@ import { reviewMediaConflict } from "../lib/conflictReview";
 
 const pixel = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=", "base64");
 
+for (const width of [1440, 320]) test(`Dialogkopf-Tooltip bleibt vollständig sichtbar: ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 900 });
+  await page.goto("/");
+  await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true");
+  await page.getByTestId("nav-analytics").click();
+  await page.getByRole("button", { name: "Alle Zeiten", exact: true }).click();
+  await page.locator(".analytics-view .clickable-report-row").first().click();
+  const dialog = page.getByRole("dialog");
+  const pdf = dialog.getByRole("button", { name: "PDF herunterladen", exact: true });
+  for (const state of ["hover", "focus"]) {
+    if (state === "hover") await pdf.hover();
+    else {
+      await page.mouse.move(0, 0);
+      await pdf.focus();
+      await page.keyboard.press("Tab");
+      await page.keyboard.press("Shift+Tab");
+      await expect(pdf).toBeFocused();
+    }
+    await expect.poll(() => pdf.evaluate((button) => getComputedStyle(button, "::after").opacity)).toBe("1");
+    const bounds = await pdf.evaluate((button) => {
+      const group = button.closest(".modal-header-actions")!;
+      const modal = button.closest(".modal")!;
+      const g = group.getBoundingClientRect();
+      const m = modal.getBoundingClientRect();
+      const style = getComputedStyle(button, "::after");
+      const top = g.top + parseFloat(style.top);
+      const right = g.right - parseFloat(style.right);
+      return { left: right - parseFloat(style.width), right, top, bottom: top + parseFloat(style.height),
+        modalLeft: m.left, modalRight: m.right, modalTop: m.top, modalBottom: m.bottom,
+        groupBottom: g.bottom, anchor: getComputedStyle(button).position };
+    });
+    expect(bounds.anchor).toBe("static");
+    expect(bounds.top).toBeGreaterThanOrEqual(bounds.groupBottom);
+    expect(bounds.left).toBeGreaterThanOrEqual(bounds.modalLeft);
+    expect(bounds.right).toBeLessThanOrEqual(bounds.modalRight);
+    expect(bounds.top).toBeGreaterThanOrEqual(bounds.modalTop);
+    expect(bounds.bottom).toBeLessThanOrEqual(bounds.modalBottom);
+  }
+  await page.screenshot({ path: `test-results/dialog-tooltip-${width}-${test.info().project.name}.png` });
+});
+
+test("Blaue Kennzahlen spiegeln sich weder bei Hover noch bei Tastaturfokus", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true");
+  const buttons = page.locator(".quickbar button");
+  await expect(buttons).toHaveCount(4);
+  for (const button of await buttons.all()) {
+    for (const state of ["hover", "focus"]) {
+      if (state === "hover") await button.hover();
+      else {
+        await page.mouse.move(0, 0);
+        await button.focus();
+      }
+      const transform = await button.evaluate((element) => {
+        const matrix = new DOMMatrixReadOnly(getComputedStyle(element).transform);
+        return { x: matrix.a, y: matrix.d };
+      });
+      expect(transform).toEqual({ x: 1, y: 1 });
+    }
+  }
+  await page.screenshot({ path: `test-results/quickbar-hover-${test.info().project.name}.png` });
+});
+
 test("Auswertung trennt gleiche Kundennamen und zählt laufende Leistungen im gewählten Zeitraum", async ({ page }) => {
   await page.addInitScript(() => {
     const customers = [
