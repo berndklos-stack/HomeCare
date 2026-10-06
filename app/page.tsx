@@ -2662,6 +2662,7 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Noch keine Zeiten vorhanden.", sv: "Inga tider finns ännu.", en: "No times yet." },
   { de: "Keine Arbeitsdetails vorhanden.", sv: "Inga arbetsdetaljer finns.", en: "No work details available." },
   { de: "Zeit je Kunde", sv: "Tid per kund", en: "Time by customer" },
+  { de: "Laufender Auftrag", sv: "Löpande uppdrag", en: "Ongoing job" },
   { de: "Zeit je Mitarbeiter", sv: "Tid per medarbetare", en: "Time by employee" },
   { de: "Zeit je Objekt", sv: "Tid per objekt", en: "Time by property" },
   { de: "Zeiten und Kunden", sv: "Tider och kunder", en: "Time and customers" },
@@ -14863,20 +14864,32 @@ function AnalyticsView({
     if (!rawName || isUnassignedJobAssignee(rawName)) return tt("nicht zugewiesen");
     return personnelNameByAlias.get(rawName.toLowerCase()) ?? rawName;
   };
+  const objectCustomerId = (objectId: string) => objects.find((object) => object.id === objectId)?.ownerCustomerId ?? "";
+  const jobCustomerId = (job: JobRecord) => job.customerId || objectCustomerId(job.objectId);
+  const reportCustomerId = (report: ReportRecord) => {
+    const job = jobs.find((item) => item.id === report.jobId);
+    return job ? jobCustomerId(job) : objectCustomerId(report.objectId);
+  };
+  const timeEntries = Array.from(new Map(jobs.flatMap((job) => (job.consulting?.entries ?? [])
+    .filter((entry) => periodMatchesDate(entry.date))
+    .map((entry) => [`${job.id}:${entry.id}`, { job, entry }] as const))).values());
+  const entryMinutes = (entries: typeof timeEntries) => entries.reduce((sum, { entry }) => sum + entry.minutes, 0);
+  const customerLabel = (customer: CustomerRecord) => customer.company?.trim() || customer.name;
   const customerRows = customers
     .filter((customer) => !customer.archived)
     .map((customer) => {
-      const customerObjects = objects.filter((object) => object.ownerCustomerId === customer.id || object.owner === customer.name);
-      const objectIds = new Set(customerObjects.map((object) => object.id));
-      const customerJobs = jobs.filter((job) => job.customerId === customer.id || objectIds.has(job.objectId));
-      const customerReports = filteredReports.filter((report) => objectIds.has(report.objectId) || customerJobs.some((job) => job.id === report.jobId));
-      const minutes = customerReports.reduce((sum, report) => sum + reportWorkMinutes(report), 0);
+      const customerObjects = objects.filter((object) => object.ownerCustomerId === customer.id);
+      const customerJobs = jobs.filter((job) => jobCustomerId(job) === customer.id);
+      const customerReports = filteredReports.filter((report) => reportCustomerId(report) === customer.id);
+      const customerEntries = timeEntries.filter(({ job }) => jobCustomerId(job) === customer.id);
+      const minutes = customerReports.reduce((sum, report) => sum + reportWorkMinutes(report), 0) + entryMinutes(customerEntries);
       const lastReport = customerReports
         .map((report) => normalizeReportDate(report.date))
         .sort((first, second) => second.localeCompare(first))[0] ?? "-";
 
       return {
         customer,
+        ongoingJobs: customerJobs.filter((job) => job.consulting?.enabled && !["storniert", "erledigt", "abgerechnet"].includes(job.status)),
         jobCount: customerJobs.filter((job) => job.status !== "storniert").length,
         lastReport,
         minutes,
@@ -14891,7 +14904,8 @@ function AnalyticsView({
     .map((object) => {
       const objectReports = filteredReports.filter((report) => report.objectId === object.id);
       const objectJobs = jobs.filter((job) => job.objectId === object.id && job.status !== "storniert");
-      const minutes = objectReports.reduce((sum, report) => sum + reportWorkMinutes(report), 0);
+      const minutes = objectReports.reduce((sum, report) => sum + reportWorkMinutes(report), 0)
+        + entryMinutes(timeEntries.filter(({ job }) => job.objectId === object.id));
       return {
         object,
         jobCount: objectJobs.length,
@@ -14901,7 +14915,7 @@ function AnalyticsView({
     })
     .filter((row) => row.minutes > 0 || row.reportCount > 0 || row.jobCount > 0)
     .sort((first, second) => second.minutes - first.minutes || first.object.name.localeCompare(second.object.name, "de"));
-  const personnelRows = Array.from(filteredReports.reduce((map, report) => {
+  const personnelMap = filteredReports.reduce((map, report) => {
     const job = jobs.find((item) => item.id === report.jobId);
     const assignee = normalizedAssigneeName(job?.assignedTo);
     const current = map.get(assignee) ?? { minutes: 0, name: assignee, reportCount: 0 };
@@ -14911,26 +14925,36 @@ function AnalyticsView({
       reportCount: current.reportCount + 1,
     });
     return map;
-  }, new Map<string, { minutes: number; name: string; reportCount: number }>()).values())
+  }, new Map<string, { minutes: number; name: string; reportCount: number }>());
+  timeEntries.forEach(({ job, entry }) => {
+    const name = normalizedAssigneeName(job.assignedTo);
+    const current = personnelMap.get(name) ?? { minutes: 0, name, reportCount: 0 };
+    personnelMap.set(name, { ...current, minutes: current.minutes + entry.minutes });
+  });
+  const personnelRows = Array.from(personnelMap.values())
     .sort((first, second) => second.minutes - first.minutes || first.name.localeCompare(second.name, "de"));
-  const totalMinutes = filteredReports.reduce((sum, report) => sum + reportWorkMinutes(report), 0);
+  const totalMinutes = filteredReports.reduce((sum, report) => sum + reportWorkMinutes(report), 0) + entryMinutes(timeEntries);
   const totalPhotos = analyticsReportPhotoCount(filteredReports);
   const completedJobs = jobs.filter((job) => ["erledigt", "abgerechnet"].includes(job.status) && periodMatchesDate(jobExecutionDate(job))).length;
   const detailReports = detailReport
     ? filteredReports.filter((report) => {
       const job = jobs.find((item) => item.id === report.jobId);
-      const object = objects.find((item) => item.id === report.objectId);
       if (detailReport.type === "object") return report.objectId === detailReport.id;
       if (detailReport.type === "personnel") return normalizedAssigneeName(job?.assignedTo) === detailReport.id;
-      return object?.ownerCustomerId === detailReport.id || job?.customerId === detailReport.id;
+      return reportCustomerId(report) === detailReport.id;
     }).sort((first, second) => normalizeReportDate(first.date).localeCompare(normalizeReportDate(second.date)))
     : [];
-  const detailMinutes = detailReports.reduce((sum, report) => sum + reportWorkMinutes(report), 0);
+  const detailTimeEntries = detailReport ? timeEntries.filter(({ job }) => {
+    if (detailReport.type === "object") return job.objectId === detailReport.id;
+    if (detailReport.type === "personnel") return normalizedAssigneeName(job.assignedTo) === detailReport.id;
+    return jobCustomerId(job) === detailReport.id;
+  }) : [];
+  const detailMinutes = detailReports.reduce((sum, report) => sum + reportWorkMinutes(report), 0) + entryMinutes(detailTimeEntries);
   const detailObject = detailReport?.type === "object" ? objects.find((object) => object.id === detailReport.id) : undefined;
   const detailCustomer = detailReport?.type === "customer"
     ? customers.find((customer) => customer.id === detailReport.id)
     : detailObject
-      ? customers.find((customer) => customer.id === detailObject.ownerCustomerId || customer.name === detailObject.owner)
+      ? customers.find((customer) => customer.id === detailObject.ownerCustomerId)
       : undefined;
   const detailPersonnel = detailReport?.type === "personnel" ? personnelByDisplayName.get(detailReport.id) : undefined;
   const detailRecipientEmail = detailReport?.type === "personnel" ? detailPersonnel?.email ?? "" : detailCustomer?.email ?? "";
@@ -14940,7 +14964,7 @@ function AnalyticsView({
   const detailMailSubject = detailReport ? analyticsReportMailSubject(detailReport.title, periodLabel) : "";
   const detailMailFileName = detailReport ? analyticsReportFileName(detailReport.title, periodLabel) : "";
   const detailDefaultMailBody = analyticsReportMailBody(periodLabel, detailRecipientName);
-  const detailEntries: AnalyticsReportPdfEntry[] = detailReports.map((report) => {
+  const detailEntries: (AnalyticsReportPdfEntry & { id: string })[] = detailReports.map((report) => {
     const job = jobs.find((item) => item.id === report.jobId);
     const object = objects.find((item) => item.id === report.objectId);
     const tasks = report.checklistResults
@@ -14951,6 +14975,7 @@ function AnalyticsView({
         title: item.title,
       }));
     return {
+      id: report.id,
       assignee: normalizedAssigneeName(job?.assignedTo),
       date: report.date,
       objectName: object?.name ?? tt("Objekt unbekannt"),
@@ -14959,6 +14984,16 @@ function AnalyticsView({
       totalMinutes: reportWorkMinutes(report),
     };
   });
+  detailTimeEntries.forEach(({ job, entry }) => detailEntries.push({
+    id: `${job.id}:${entry.id}`,
+    assignee: normalizedAssigneeName(job.assignedTo),
+    date: entry.date,
+    objectName: objects.find((object) => object.id === job.objectId)?.name ?? tt("Objekt unbekannt"),
+    title: job.title,
+    totalMinutes: entry.minutes,
+    tasks: [{ minutes: entry.minutes, title: `${entry.startTime}–${entry.endTime}`, text: entry.description }],
+  }));
+  detailEntries.sort((first, second) => normalizeReportDate(first.date).localeCompare(normalizeReportDate(second.date)));
   const shiftSelectedMonth = (direction: -1 | 1) => {
     const [year, month] = selectedMonth.split("-").map(Number);
     const date = new Date(year, (month || 1) - 1 + direction, 1, 12);
@@ -15072,17 +15107,21 @@ function AnalyticsView({
             <article
               className="clickable-report-row"
               key={row.customer.id}
-              onClick={() => setDetailReport({ id: row.customer.id, title: row.customer.name, type: "customer" })}
+              onClick={() => setDetailReport({ id: row.customer.id, title: `${billingCustomerNumber(row.customer)} · ${customerLabel(row.customer)}`, type: "customer" })}
               onKeyDown={(event) => {
                 if (event.key === "Enter" || event.key === " ") {
                   event.preventDefault();
-                  setDetailReport({ id: row.customer.id, title: row.customer.name, type: "customer" });
+                  setDetailReport({ id: row.customer.id, title: `${billingCustomerNumber(row.customer)} · ${customerLabel(row.customer)}`, type: "customer" });
                 }
               }}
               role="button"
               tabIndex={0}
             >
-              <strong>{row.customer.name}</strong>
+              <div className="analytics-customer-identity">
+                <strong>{customerLabel(row.customer)}</strong>
+                <small>{tt("Kundennummer")}: {billingCustomerNumber(row.customer)}{row.customer.company?.trim() ? ` · ${row.customer.name}` : ""}</small>
+                {row.ongoingJobs.map((job) => <small key={job.id}>{tt("Laufender Auftrag")}: {job.title}</small>)}
+              </div>
               <span>{formatWorkHours(row.minutes)}</span>
               <span>{row.reportCount}</span>
               <span>{row.objectCount}</span>
@@ -15243,11 +15282,12 @@ function AnalyticsView({
               <div><span>{tt("Zeitraum")}</span><strong>{periodLabel}</strong></div>
               <div><span>{tt("Arbeitszeit")}</span><strong>{formatWorkHours(detailMinutes)}</strong></div>
               <div><span>{tt("Berichte")}</span><strong>{detailReports.length}</strong></div>
+              <div><span>{tt("Leistungsnachweise")}</span><strong>{detailTimeEntries.length}</strong></div>
             </div>
             <div className="analytics-report-list">
               {detailEntries.map((entry) => {
                 return (
-                  <article key={`${entry.date}-${entry.title}-${entry.objectName}`}>
+                  <article key={entry.id}>
                     <header>
                       <div>
                         <strong>{entry.date} · {entry.title}</strong>
@@ -15270,7 +15310,7 @@ function AnalyticsView({
                   </article>
                 );
               })}
-              {detailReports.length === 0 && <p className="empty-list-note">{tt("Noch keine Zeiten vorhanden.")}</p>}
+              {detailEntries.length === 0 && <p className="empty-list-note">{tt("Noch keine Zeiten vorhanden.")}</p>}
             </div>
           </section>
         </div>

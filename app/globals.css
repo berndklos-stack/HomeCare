@@ -4824,6 +4824,17 @@ mark.neutral {
   color: var(--foreground);
 }
 
+.analytics-customer-identity {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.analytics-customer-identity small {
+  color: var(--muted);
+}
+
 .master-data-editor {
   margin-bottom: 18px;
 }

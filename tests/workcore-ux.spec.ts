@@ -6,6 +6,58 @@ import { reviewMediaConflict } from "../lib/conflictReview";
 
 const pixel = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=", "base64");
 
+test("Auswertung trennt gleiche Kundennamen und zählt laufende Leistungen im gewählten Zeitraum", async ({ page }) => {
+  await page.addInitScript(() => {
+    const customers = [
+      { id: "A-PRIVATE", personalNumber: "001", name: "Christoph Korn", company: "" },
+      { id: "A-CDK", personalNumber: "002", name: "Christoph Korn", company: "CDK Family Office GbR" },
+      { id: "A-BO", personalNumber: "003", name: "Börjes", company: "Börjes Logistik" },
+    ].map((customer) => ({ ...customer, language: "Deutsch", email: "", phone: "", contact: "", address: "", objects: [], contacts: [], portalLoginHistory: [] }));
+    localStorage.setItem("kolaretorp-customers", JSON.stringify(customers));
+    localStorage.setItem("kolaretorp-objects", JSON.stringify(customers.map((customer) => ({
+      id: `OBJ-${customer.id}`, name: customer.company || "Privathaus", owner: customer.name,
+      ownerCustomerId: customer.id, archived: false, media: { images: 0, documents: 0, floorPlans: 0, items: [] },
+      status: "Saison aktiv", region: "", address: "", equipment: [], risks: [], access: {}, utilities: {},
+    }))));
+    const time = (id: string, date: string, minutes: number) => ({ id, date, minutes, startTime: "09:00", endTime: "10:00", description: "Erfasste Leistung", billingStatus: "offen" });
+    const jobs = [
+      { id: "J-PRIVATE", customerId: "A-PRIVATE", title: "Gunnabo", objectId: "OBJ-A-PRIVATE" },
+      // The contractual customer takes precedence over the property's owner.
+      { id: "J-CDK", customerId: "A-CDK", title: "Laufende Verwaltung", objectId: "OBJ-A-PRIVATE", consulting: { enabled: true, entries: [time("E-CDK", "2026-10-05", 30)] } },
+      { id: "J-BO", customerId: "A-BO", title: "Partnersuche", objectId: "OBJ-A-BO", consulting: { enabled: true, entries: [time("E-BO", "2026-10-05", 200), time("E-SEPT", "2026-09-14", 600)] } },
+    ].map((job) => ({ ...job, status: "in Arbeit", priority: "normal", assignedTo: "Bernd Klos", dueDate: "2026-10-05", type: "Sonstiges", schedule: { type: "einmalig" }, checklist: [] }));
+    localStorage.setItem("kolaretorp-jobs", JSON.stringify(jobs));
+    localStorage.setItem("kolaretorp-reports", JSON.stringify([{
+      id: "R-PRIVATE", jobId: "J-PRIVATE", objectId: "OBJ-A-PRIVATE", title: "Privater Bericht", date: "2026-10-05", media: [], summary: "", internalNotes: "", customerComment: "",
+      checklistResults: [{ id: "TASK", title: "Arbeit", minutes: 60, note: "", completed: true, photos: [] }],
+    }]));
+  });
+  await page.goto("/");
+  await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true");
+  await page.getByTestId("nav-analytics").click();
+  await page.getByLabel("Monat", { exact: true }).fill("2026-10");
+  const rows = page.locator(".analytics-view > section").filter({ has: page.getByRole("heading", { name: "Zeit je Kunde", exact: true }) }).locator("article");
+  await expect(rows).toHaveCount(3);
+  const privateRow = rows.filter({ hasText: "Kundennummer: 001" });
+  await expect(privateRow).toContainText("1 Std.");
+  await expect(privateRow).not.toContainText("Laufende Verwaltung");
+  const companyRow = rows.filter({ hasText: "Kundennummer: 002" });
+  await expect(companyRow).toContainText("CDK Family Office GbR");
+  await expect(companyRow).toContainText("0,5 Std.");
+  await expect(companyRow).toContainText("Laufender Auftrag: Laufende Verwaltung");
+  const borjes = rows.filter({ hasText: "Kundennummer: 003" });
+  await expect(borjes).toContainText("3,3 Std.");
+  await expect(page.locator(".analytics-summary-grid").getByText("4,8 Std.", { exact: true })).toBeVisible();
+  await borjes.click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.locator(".analytics-report-list article")).toHaveCount(1);
+  await expect(dialog).toContainText("Erfasste Leistung");
+  await expect(dialog).not.toContainText("Noch keine Zeiten vorhanden.");
+  await dialog.getByRole("button", { name: "Schließen", exact: true }).click();
+  await page.getByRole("button", { name: "Alle Zeiten", exact: true }).click();
+  await expect(borjes).toContainText("13,3 Std.");
+});
+
 for (const width of [1440, 390]) test(`Stammdaten-Reiter bleiben im Dunkelmodus lesbar: ${width}px`, async ({ page }) => {
   await page.setViewportSize({ width, height: 900 });
   await page.goto("/");

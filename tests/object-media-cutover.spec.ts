@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { overlayPendingObjectMutations, prepareObjectMutations, type RevisionedObject } from "../lib/objectSync";
+import { normalizeObjectDatePayload, overlayPendingObjectMutations, prepareObjectMutations, type RevisionedObject } from "../lib/objectSync";
 import { createSyncMutation } from "../lib/syncQueue";
 
 function object(overrides: Partial<RevisionedObject> = {}): RevisionedObject {
@@ -15,6 +15,20 @@ function object(overrides: Partial<RevisionedObject> = {}): RevisionedObject {
     ...overrides,
   };
 }
+
+test("Archivierung sendet keine Datumsplatzhalter und behält die bestätigte Revisionsbedingung", () => {
+  const original = object({ revision: 1, archived: false, nextVisit: "noch planen", lastVisit: "-" });
+  const { mutations } = prepareObjectMutations([original], [{ ...original, archived: true }]);
+  expect(mutations).toEqual([expect.objectContaining({ expectedRevision: 1, payload: expect.objectContaining({ archived: true, nextVisit: "", lastVisit: "" }) })]);
+  expect(original).toMatchObject({ nextVisit: "noch planen", lastVisit: "-", archived: false });
+  const oldQueuedPayload = { archived: true, nextVisit: "noch planen", lastVisit: "-", name: "Unverändert" };
+  const normalized = normalizeObjectDatePayload(oldQueuedPayload);
+  expect(normalized).toEqual({ ...oldQueuedPayload, nextVisit: "", lastVisit: "" });
+  expect(normalizeObjectDatePayload(normalized)).toEqual(normalized);
+  expect(normalizeObjectDatePayload({ nextVisit: "2026-10-06", lastVisit: "2026-10-05" })).toEqual({ nextVisit: "2026-10-06", lastVisit: "2026-10-05" });
+  expect(normalizeObjectDatePayload({ nextVisit: "unerwarteter Wert" })).toEqual({ nextVisit: "unerwarteter Wert" });
+  expect(readFileSync(path.join(process.cwd(), "app/api/sync-mutations/route.ts"), "utf8")).toContain('mutation.entityType === "object" ? normalizeObjectDatePayload(mutation.payload)');
+});
 
 test("Objekte und Medien werden unabhängig und revisioniert mutiert", () => {
   const created = prepareObjectMutations([], [object({

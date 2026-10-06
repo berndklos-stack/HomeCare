@@ -31,7 +31,16 @@ const objectTransientFields = new Set(["deletedAt", "id", "media", "revision", "
 const mediaTransientFields = new Set(["deletedAt", "id", "revision", "updatedAt"]);
 
 export function objectMutationPayload(object: RevisionedObject) {
-  return Object.fromEntries(Object.entries(object).filter(([key]) => !objectTransientFields.has(key)));
+  return normalizeObjectDatePayload(Object.fromEntries(Object.entries(object).filter(([key]) => !objectTransientFields.has(key))));
+}
+
+export function normalizeObjectDatePayload(payload: Record<string, unknown>) {
+  const normalized = { ...payload };
+  for (const field of ["nextVisit", "lastVisit"]) {
+    const value = normalized[field];
+    if (typeof value === "string" && ["-", "noch planen"].includes(value.trim().toLowerCase())) normalized[field] = "";
+  }
+  return normalized;
 }
 
 export function objectMediaMutationPayload(item: RevisionedObjectMedia) {

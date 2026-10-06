@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import type { SyncMutation, SyncMutationResult } from "@/lib/syncQueue";
 import { membershipAllows } from "@/lib/authModel";
+import { normalizeObjectDatePayload } from "@/lib/objectSync";
 import { isAuthError, requireApiAuth } from "@/lib/server/apiAuth";
 
 export const runtime = "nodejs";
@@ -87,7 +88,7 @@ export async function POST(request: Request) {
     p_expected_revision: mutation.expectedRevision ?? null,
     p_mutation_id: mutation.id,
     p_operation: mutation.operation,
-    p_payload: mutation.payload,
+    p_payload: mutation.entityType === "object" ? normalizeObjectDatePayload(mutation.payload) : mutation.payload,
     p_resource_id: mutation.resourceId,
     p_tenant_id: auth.tenantId,
   });
