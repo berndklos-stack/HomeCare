@@ -20,6 +20,32 @@ function job(overrides: Record<string, unknown> = {}) {
   };
 }
 
+test("Tagesmail berechnet alte Kalender-Serien einschließlich Ausschlüssen und verschobenen Terminen", () => {
+  const ics = ["BEGIN:VCALENDAR", "VERSION:2.0",
+    "BEGIN:VEVENT", "UID:weekly", "DTSTART;TZID=Europe/Stockholm:20260922T090000",
+    "DTEND;TZID=Europe/Stockholm:20260922T100000", "RRULE:FREQ=WEEKLY;COUNT=5",
+    "EXDATE;TZID=Europe/Stockholm:20261013T090000", "SUMMARY:Wöchentlich", "END:VEVENT",
+    "BEGIN:VEVENT", "UID:weekly", "RECURRENCE-ID;TZID=Europe/Stockholm:20261006T090000",
+    "DTSTART;TZID=Europe/Stockholm:20261007T140000", "DTEND;TZID=Europe/Stockholm:20261007T150000",
+    "SUMMARY:Verschoben", "END:VEVENT",
+    "BEGIN:VEVENT", "UID:cancelled", "DTSTART:20261006T100000Z", "STATUS:CANCELLED", "SUMMARY:Abgesagt", "END:VEVENT",
+    "END:VCALENDAR"].join("\r\n");
+  const events = parseIcsEvents(ics, "Arbeit", "2026-10-06", "2026-10-09");
+  expect(events.map((event) => [event.title, event.date, calendarEventTimeLabel(event)]))
+    .toEqual([["Verschoben", "2026-10-07", "14:00–15:00"]]);
+  expect(parseIcsEvents(ics, "Arbeit", "2026-10-13", "2026-10-16")).toEqual([]);
+  expect(parseIcsEvents(ics, "Arbeit", "2026-10-27", "2026-10-30")).toEqual([]);
+});
+
+test("Ganztägige Wiederholungen und zusätzliche Termine erscheinen im Tagesmail-Zeitraum", () => {
+  const events = parseIcsEvents(["BEGIN:VCALENDAR", "BEGIN:VEVENT", "UID:annual",
+    "DTSTART;VALUE=DATE:20201006", "RRULE:FREQ=YEARLY", "SUMMARY:Jahrestag", "END:VEVENT",
+    "BEGIN:VEVENT", "UID:extra", "DTSTART:20260901T080000Z", "RDATE:20261008T080000Z",
+    "SUMMARY:Zusatztermin", "END:VEVENT", "END:VCALENDAR"].join("\r\n"), "Arbeit", "2026-10-06", "2026-10-09");
+  expect(events.map((event) => [event.title, event.date, calendarEventTimeLabel(event)]))
+    .toEqual([["Jahrestag", "2026-10-06", "Ganztägig"], ["Zusatztermin", "2026-10-08", "10:00"]]);
+});
+
 test("abgeschlossene normale Aufträge bleiben aus der Tagesmail", () => {
   const visible = activeOverviewJobs([
     job({ id: "OPEN", status: "geplant" }),

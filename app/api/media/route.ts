@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { isAuthError, requireApiAuth } from "@/lib/server/apiAuth";
+import { hasReadablePrivateMediaReference } from "@/lib/server/privateMediaAccess";
 
 export const runtime = "nodejs";
 
@@ -148,13 +149,12 @@ export async function GET(request: Request) {
   if (!path || path.includes("..")) {
     return NextResponse.json({ error: "Mediendatei fehlt oder ist ungültig." }, { status: 400 });
   }
-  const { data: mediaRecord } = await supabase
+  const { data: mediaRecords, error: referenceError } = await supabase
     .from("homecare_media")
-    .select("id,deleted_at")
+    .select("id,owner_type,deleted_at")
     .eq("tenant_id", auth.tenantId)
-    .eq("storage_path", path)
-    .maybeSingle();
-  if (!mediaRecord || mediaRecord.deleted_at) {
+    .eq("storage_path", path);
+  if (referenceError || !hasReadablePrivateMediaReference(mediaRecords)) {
     return NextResponse.json({ error: "Mediendatei wurde gelöscht." }, { status: 404 });
   }
   if (!path.startsWith(`${auth.tenantId}/`)) {

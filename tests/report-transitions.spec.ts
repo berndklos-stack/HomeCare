@@ -3,6 +3,55 @@ import { createSyncMutation, enqueueSyncMutation, markMutationSyncing, type Sync
 
 test.use({ isMobile: true, hasTouch: true });
 
+test("Passwortfreigabe entsperrt den Bericht dauerhaft und erlaubt Nachbearbeitung", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.addInitScript(() => {
+    if (localStorage.getItem("unlock-fixture")) return;
+    localStorage.setItem("unlock-fixture", "1");
+    localStorage.setItem("kolaretorp-jobs", JSON.stringify([{
+      id: "UNLOCK-JOB", title: "Entsperrtest", objectId: "OBJ-1001", status: "erledigt", priority: "normal",
+      assignedTo: "Test", dueDate: "2026-10-07", type: "Kontrolle", checklist: ["Kontrolle"], serviceIds: [],
+      schedule: { type: "einmalig" },
+    }]));
+    localStorage.setItem("kolaretorp-reports", JSON.stringify([{
+      id: "UNLOCK-REPORT", jobId: "UNLOCK-JOB", objectId: "OBJ-1001", revision: 7,
+      title: "Entsperrtest", date: "2026-10-06", summary: "Vorher", internalNotes: "Protokoll behalten",
+      sentAt: "2026-10-06T09:00:00Z", updatedAt: "2026-10-06T09:00:00Z", customerComment: "",
+      checklistResults: [{ id: "Kontrolle", title: "Kontrolle", completed: true, minutes: 15, note: "Gestern dokumentiert", photos: [] }],
+      media: [], visibleToCustomer: true,
+    }]));
+  });
+  await page.route("**/api/reports/unlock-authorize", (route) => route.fulfill({ status: 200, json: { ok: true } }));
+  await page.goto("/");
+  await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true");
+  await page.getByRole("button", { name: /^1 Berichte$/ }).click();
+  await page.getByRole("button", { name: /Entsperrtest/ }).first().click();
+  await expect(page.getByRole("textbox", { name: "Berichtstext", exact: true })).toBeDisabled();
+  await page.getByRole("button", { name: "Bericht Entsperrtest Bericht entsperren", exact: true }).click();
+  await page.getByRole("textbox", { name: "Passwort", exact: true }).fill("local-test-only");
+  await page.getByRole("button", { name: "Bericht entsperren", exact: true }).click();
+  const note = page.getByRole("textbox", { name: "Einsatznotiz", exact: true });
+  await expect(note).toBeEnabled();
+  await expect(page.getByTestId("editing-report-date")).toContainText("2026-10-06");
+  await expect(page.getByRole("textbox", { name: /^Hinweis / }).first()).toHaveValue("Gestern dokumentiert");
+  await note.fill("Nachbearbeitet");
+  await page.getByRole("button", { name: "Bericht speichern", exact: true }).click();
+  await page.reload();
+  await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true");
+  const persisted = await page.evaluate(() => ({
+    report: JSON.parse(localStorage.getItem("kolaretorp-reports") || "[]").find((r: { id: string }) => r.id === "UNLOCK-REPORT"),
+    queue: JSON.parse(localStorage.getItem("workcore-sync-mutations-v1") || "[]"),
+  }));
+  expect(persisted.report.sentAt).toBeFalsy();
+  expect(persisted.report.date).toBe("2026-10-06");
+  expect(persisted.report.summary).toContain("Nachbearbeitet");
+  expect(persisted.report.internalNotes).toContain("Protokoll behalten");
+  expect(persisted.report.internalNotes).toContain("Versandstatus wurde zurückgesetzt.");
+  const mutation = persisted.queue.find((m: SyncMutation) => m.entityType === "report" && m.entityId === "UNLOCK-REPORT");
+  expect(mutation.payload.sentAt).toBe("");
+  expect(mutation.expectedRevision).toBe(7);
+});
+
 for (const mode of ["overview", "field"] as const) test(`fünf Berichte ohne Fotos (${mode}): Ressourcen und Entwürfe bleiben stabil`, async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const requests: string[] = [];

@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import ICAL from "ical.js";
 import { isAuthError, requireApiAuth } from "@/lib/server/apiAuth";
 
 export const runtime = "nodejs";
@@ -391,43 +392,51 @@ export function calendarEventTimeLabel(event: Pick<CalendarEvent, "allDay" | "st
 }
 
 export function parseIcsEvents(ics: string, calendar: string, fromDate: string, toDate: string): CalendarEvent[] {
-  const lines = unfoldIcsLines(ics);
+  const root = new ICAL.Component(ICAL.parse(ics));
+  const components = root.getAllSubcomponents("vevent");
   const events: CalendarEvent[] = [];
-  let current: Record<string, string> | null = null;
-
-  lines.forEach((line) => {
-    if (line === "BEGIN:VEVENT") {
-      current = {};
-      return;
+  const seen = new Set<string>();
+  const parseTime = (time: ICAL.Time, item: ICAL.Event, field: string) => {
+    const zone = item.component.getFirstProperty(field)?.getParameter("tzid")
+      ?? item.component.getFirstProperty("dtstart")?.getParameter("tzid");
+    return parseIcsDateTime(time.toICALString(), time.isDate ? "VALUE=DATE" : zone ? `TZID=${zone}` : "");
+  };
+  const append = (item: ICAL.Event, startTime: ICAL.Time, endTime: ICAL.Time) => {
+    if (item.component.getFirstPropertyValue("status") === "CANCELLED") return;
+    const start = parseTime(startTime, item, "dtstart");
+    const end = item.component.hasProperty("dtend") || item.component.hasProperty("duration")
+      ? parseTime(endTime, item, "dtend") : parseIcsDateTime("");
+    const key = `${item.uid || components.indexOf(item.component)}:${start.sortTimestamp}`;
+    if (start.date < fromDate || start.date > toDate || seen.has(key)) return;
+    seen.add(key);
+    events.push({ allDay: start.allDay, calendar, date: start.date, endDate: end.date,
+      endTime: end.time, location: item.location || "", sortTimestamp: start.sortTimestamp,
+      startTime: start.time, title: item.summary || "Termin ohne Titel" });
+  };
+  const exceptions = components.filter((component) => component.hasProperty("recurrence-id"));
+  for (const component of components) {
+    if (!component.hasProperty("dtstart")) continue;
+    const item = new ICAL.Event(component, { exceptions: component.hasProperty("recurrence-id") ? []
+      : exceptions.filter((exception) => component.getFirstPropertyValue("uid")
+        && exception.getFirstPropertyValue("uid") === component.getFirstPropertyValue("uid")) });
+    if (component.getFirstPropertyValue("status") === "CANCELLED") continue;
+    if (!item.isRecurring() || component.hasProperty("recurrence-id")) {
+      append(item, item.startDate, item.endDate);
+      continue;
     }
-    if (line === "END:VEVENT") {
-      if (current) {
-        const start = parseIcsDateTime(current.DTSTART ?? "", current.DTSTART_PROPERTY ?? "");
-        const end = parseIcsDateTime(current.DTEND ?? "", current.DTEND_PROPERTY ?? "");
-        if (start.date >= fromDate && start.date <= toDate) {
-          events.push({
-            allDay: start.allDay,
-            calendar,
-            date: start.date,
-            endDate: end.date,
-            endTime: end.time,
-            location: cleanIcsValue(current.LOCATION ?? ""),
-            sortTimestamp: start.sortTimestamp,
-            startTime: start.time,
-            title: cleanIcsValue(current.SUMMARY ?? "Termin ohne Titel"),
-          });
-        }
-      }
-      current = null;
-      return;
+    // Start at DTSTART to preserve COUNT, EXDATE and recurrence exceptions.
+    const iterator = item.iterator();
+    let finished = false;
+    for (let count = 0; count < 50000; count += 1) {
+      const occurrence = iterator.next();
+      if (!occurrence) { finished = true; break; }
+      const original = parseTime(occurrence, item, "dtstart");
+      if (original.date > addDays(toDate, 1)) { finished = true; break; }
+      const details = item.getOccurrenceDetails(occurrence);
+      append(details.item, details.startDate, details.endDate);
     }
-    if (!current || !line.includes(":")) return;
-    const [rawKey, ...valueParts] = line.split(":");
-    const key = rawKey.split(";")[0];
-    current[key] = valueParts.join(":");
-    current[`${key}_PROPERTY`] = rawKey;
-  });
-
+    if (!finished) throw new Error("Kalender-Serie überschreitet das sichere Verarbeitungslimit.");
+  }
   return events.sort((first, second) => first.sortTimestamp - second.sortTimestamp || first.title.localeCompare(second.title, "de"));
 }
 

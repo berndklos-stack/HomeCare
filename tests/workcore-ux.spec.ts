@@ -6,6 +6,34 @@ import { reviewMediaConflict } from "../lib/conflictReview";
 
 const pixel = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=", "base64");
 
+for (const width of [1440, 390]) test(`Tagesmail-Einstellungen sind sauber ausgerichtet: ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 900 });
+  await page.goto("/");
+  await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true");
+  await page.getByTestId("nav-masterData").click();
+  await page.locator(".master-data-tabs").getByRole("button", { name: "Tagesmail", exact: true }).click();
+  const form = page.locator(".daily-mail-form");
+  const checkbox = form.getByRole("checkbox", { name: "Tagesmail automatisch versenden", exact: true });
+  await expect(checkbox).toBeVisible();
+  const checkBounds = await checkbox.boundingBox();
+  const textBounds = await form.locator(".checkbox-line span").boundingBox();
+  expect(Math.abs(checkBounds!.y + checkBounds!.height / 2 - textBounds!.y - textBounds!.height / 2)).toBeLessThan(3);
+  const time = form.getByLabel("Versandzeit", { exact: true }).first();
+  const frequency = form.locator(".daily-mail-frequency select");
+  const timeBounds = await time.boundingBox();
+  const frequencyBounds = await frequency.boundingBox();
+  if (width > 600) expect(Math.abs(timeBounds!.y - frequencyBounds!.y)).toBeLessThan(2);
+  else expect(frequencyBounds!.y).toBeGreaterThan(timeBounds!.y + timeBounds!.height);
+  await form.getByRole("button", { name: "Versandzeit hinzufügen", exact: true }).click();
+  await expect(form.getByLabel("Versandzeit", { exact: true })).toHaveCount(2);
+  for (const control of await form.locator("input, select, button").all()) {
+    const bounds = await control.boundingBox();
+    expect(bounds!.x).toBeGreaterThanOrEqual(0);
+    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
+  }
+  await page.screenshot({ path: `test-results/daily-mail-layout-${width}-${test.info().project.name}.png`, fullPage: true });
+});
+
 for (const width of [1440, 320]) test(`Dialogkopf-Tooltip bleibt vollständig sichtbar: ${width}px`, async ({ page }) => {
   await page.setViewportSize({ width, height: 900 });
   await page.goto("/");

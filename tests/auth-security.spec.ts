@@ -1,4 +1,15 @@
 import { expect, test } from "@playwright/test";
+import { hasReadablePrivateMediaReference } from "../lib/server/privateMediaAccess";
+
+test("private Dateireferenzen erlauben Upload plus Anhang, aber keine Tombstone-Wiederbelebung", () => {
+  const pending = { owner_type: "pending", deleted_at: null };
+  const attached = { owner_type: "object", deleted_at: null };
+  expect(hasReadablePrivateMediaReference([pending, attached])).toBe(true);
+  expect(hasReadablePrivateMediaReference([pending])).toBe(true);
+  expect(hasReadablePrivateMediaReference([pending, { ...attached, deleted_at: "2026-10-07" }])).toBe(false);
+  expect(hasReadablePrivateMediaReference([])).toBe(false);
+  expect(hasReadablePrivateMediaReference(null)).toBe(false);
+});
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import {
@@ -95,7 +106,7 @@ test("Cron-Servicezugriffe sind an einen expliziten Mandanten gebunden", () => {
 test("private Medien bleiben nach Rechteentzug nicht im langlebigen Browsercache", () => {
   const source = readFileSync(path.join(process.cwd(), "app/api/private-media/route.ts"), "utf8");
   expect(source).toContain('"Cache-Control": "private, no-store"');
-  expect(source).toContain("!mediaRecord || mediaRecord.deleted_at");
+  expect(source).toContain("referenceError || !hasReadablePrivateMediaReference(mediaRecords)");
   expect(source).toContain(".list(folder");
   expect(source).not.toContain("max-age=31536000, immutable");
 });

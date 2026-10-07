@@ -4082,7 +4082,9 @@ async function mediaSourceToDataUrl(source: string) {
   if (!normalizedSource || normalizedSource.startsWith("data:")) return normalizedSource;
   let response: Response;
   try {
-    response = await fetch(normalizedSource);
+    response = /^\/api\/(?:private-media|media)\?/.test(normalizedSource)
+      ? await apiFetch(normalizedSource, { cache: "no-store" })
+      : await fetch(normalizedSource);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Adresse konnte nicht geladen werden.";
     throw new Error(`Mediendatei konnte nicht geladen werden: ${message}`);
@@ -11639,14 +11641,17 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
       }
 
       const changedAt = new Date().toISOString();
-      const protocolLine = `${formatCreatedAtWithSeconds(changedAt)} · ${tx("Versandstatus wurde zurückgesetzt.")} Gesendet: ${formatCreatedAtWithSeconds(report.sentAt)}`;
+      const currentReport = reportsRef.current.find((item) => item.id === report.id) ?? report;
+      const protocolLine = `${formatCreatedAtWithSeconds(changedAt)} · ${tx("Versandstatus wurde zurückgesetzt.")} Gesendet: ${formatCreatedAtWithSeconds(currentReport.sentAt || report.sentAt)}`;
       const unlockedReport: ReportRecord = {
-        ...report,
-        internalNotes: [report.internalNotes?.trim(), protocolLine].filter(Boolean).join("\n"),
-        sentAt: undefined,
+        ...currentReport,
+        internalNotes: [currentReport.internalNotes?.trim(), protocolLine].filter(Boolean).join("\n"),
+        sentAt: "",
         updatedAt: changedAt,
       };
-      updateReportRecord(unlockedReport, { forceRemote: true });
+      // An authorized status reset must bypass the merge that preserves sent reports.
+      // The empty string survives JSON serialization and clears sent_at in the RPC.
+      persistReportRelational(unlockedReport);
       setRecordNotice(tx("Bericht wurde für Nachbearbeitung entsperrt."));
       closeUnlockReportDialog();
       editReportInField(unlockedReport);
@@ -17518,7 +17523,8 @@ function FieldView({
   const object = objects.find((item) => item.id === activeJob.objectId) ?? objects[0];
   const customer = customers.find((item) => item.id === activeJob.customerId) ?? customers.find((item) => object?.ownerCustomerId && item.id === object.ownerCustomerId);
   const workDates = jobWorkDates(activeJob);
-  const activeWorkDate = selectedWorkDate && workDates.includes(selectedWorkDate) ? selectedWorkDate : workDates[0];
+  const activeWorkDate = activeReport ? normalizeReportDate(activeReport.date)
+    : selectedWorkDate && workDates.includes(selectedWorkDate) ? selectedWorkDate : workDates[0];
   const reportedWorkDates = new Set(reports.filter((report) => report.jobId === activeJob.id).map((report) => normalizeReportDate(report.date)));
   const isLastOpenWorkDate = workDates.length > 1 && workDates.every((date) => date === activeWorkDate || reportedWorkDates.has(date));
   void packages;
@@ -17941,6 +17947,9 @@ function FieldView({
             </IconAction>
           </div>
         </div>
+        {activeReport && <p className="warning-line" data-testid="editing-report-date">
+          {language === "sv" ? "Du redigerar rapporten från" : language === "en" ? "You are editing the report dated" : "Du bearbeitest den Bericht vom"} {activeWorkDate}
+        </p>}
         {reportLocked && <div className="warning-line">{tt("Dieser Bericht wurde gesendet und ist für Änderungen gesperrt.")} {activeReport?.sentAt}</div>}
         <DevicePhotoSave files={devicePhotoFiles} policy={photoDevicePolicy} onDismiss={() => setDevicePhotoFiles([])} />
         {!reportLocked && retryableFieldPhotoCount > 0 && (
@@ -17963,7 +17972,7 @@ function FieldView({
             {object.carePackage}
           </small>
         </div>
-        {workDates.length > 1 && (
+        {!activeReport && workDates.length > 1 && (
           <div className="field-day-picker" aria-label="Arbeitstag auswählen">
             {workDates.map((date) => {
               const hasReport = reports.some((report) => report.jobId === activeJob.id && normalizeReportDate(report.date) === date);
@@ -22533,8 +22542,8 @@ function MasterDataView({
               <h2>{tt("Kalenderquellen konfigurieren")}</h2>
             </div>
           </div>
-          <div className="form-grid compact-form">
-            <label className="toggle-row wide">
+          <div className="form-grid compact-form daily-mail-form">
+            <label className="checkbox-line wide">
               <input
                 checked={mailSettingsForm.enabled}
                 onChange={(event) => setMailSettingsForm({ ...mailSettingsForm, enabled: event.target.checked })}
@@ -22570,7 +22579,7 @@ function MasterDataView({
                 {tt("Versandzeit hinzufügen")}
               </button>
             </div>
-            <label>
+            <label className="daily-mail-frequency">
               <span>{tt("Häufigkeit")}</span>
               <select
                 value={mailSettingsForm.frequency}
@@ -24144,8 +24153,8 @@ function ObjectEditorPage({
   const dynamicSubmitLabel = object
     ? objectTypeActionLabel(entityName, language, "save")
     : objectTypeActionLabel(entityName, language, "create");
-  const primaryImage = newObject.mediaItems.find((item) => item.type === "Bild" && item.isPrimary && item.previewUrl)
-    ?? newObject.mediaItems.find((item) => item.type === "Bild" && item.previewUrl);
+  const primaryImage = newObject.mediaItems.find((item) => item.type === "Bild" && item.isPrimary && (item.previewUrl || item.storagePath))
+    ?? newObject.mediaItems.find((item) => item.type === "Bild" && (item.previewUrl || item.storagePath));
 
   return (
     <div className="object-editor-page">
@@ -24157,13 +24166,14 @@ function ObjectEditorPage({
               {tt("Zurück zu Projekte & Objekte")}
             </button>
           </div>
-          {primaryImage?.previewUrl ? (
+          {primaryImage ? (
             <div
               aria-label={`${language === "de" ? "Aktuelles" : language === "sv" ? "Aktuell" : "Current"} ${entityImageLabel}`}
               className="object-editor-image"
               role="img"
-              style={{ backgroundImage: `url(${primaryImage.previewUrl})` }}
-            />
+            >
+              <ObjectPhotoImage item={primaryImage} key={`${primaryImage.id}:${primaryImage.previewUrl}:${primaryImage.storagePath}`} language={language} />
+            </div>
           ) : (
             <div className="object-editor-image object-editor-image-empty">
               <Home size={26} />
@@ -24446,6 +24456,27 @@ function AddressFields({
       <label><span>{tt("Ort")}</span><input disabled={disabled} value={address.city} onChange={(event) => onChange("city", event.target.value)} /></label>
     </>
   );
+}
+
+function ObjectPhotoImage({ item, language, expanded = false }: { item: MediaItem; language: Language; expanded?: boolean }) {
+  const sources = [item.previewUrl || "", mediaSourceFromStoragePath(item.storagePath)]
+    .filter((source, index, values) => source && values.indexOf(source) === index);
+  const [sourceIndex, setSourceIndex] = useState(0);
+  const [decodeFailed, setDecodeFailed] = useState(false);
+  const media = useAuthenticatedMedia(sources[sourceIndex] || "");
+  useEffect(() => {
+    if (media.failed && sourceIndex + 1 < sources.length) setSourceIndex(sourceIndex + 1);
+  }, [media.failed, sourceIndex, sources.length]);
+  if (!media.url || decodeFailed) return <span className="object-photo-placeholder" role="status">
+    <Camera size={24} />
+    {uiText(media.loading ? "Foto wird geladen..." : "Keine Bildvorschau verfügbar", language)}
+  </span>;
+  return <img alt={`${expanded ? "Vorschau" : "Foto"} ${item.name}`}
+    className={expanded ? "document-preview-image" : "object-photo-image"} src={media.url}
+    onError={() => {
+      if (sourceIndex + 1 < sources.length) setSourceIndex(sourceIndex + 1);
+      else setDecodeFailed(true);
+    }} />;
 }
 
 function ObjectForm({
@@ -24797,9 +24828,10 @@ function ObjectForm({
                   aria-label={`Foto ${item.name} Vorschau öffnen`}
                   className="object-photo-tile"
                   onClick={() => setPreviewPhoto(item)}
-                  style={{ backgroundImage: `url(${item.previewUrl})` }}
                   type="button"
-                />
+                >
+                  <ObjectPhotoImage item={item} key={`${item.id}:${item.previewUrl}:${item.storagePath}`} language={language} />
+                </button>
                 <input
                   aria-label={`Kurzbeschreibung ${item.name}`}
                   placeholder={tt("Kurzbeschreibung zum Foto")}
@@ -24917,15 +24949,7 @@ function ObjectForm({
                 <strong>{previewPhoto.name}</strong>
                 <small>{previewPhoto.description || tt("Keine Kurzbeschreibung hinterlegt.")}</small>
               </div>
-              {previewPhoto.previewUrl ? (
-                <img alt={`Vorschau ${previewPhoto.name}`} className="document-preview-image" src={previewPhoto.previewUrl} />
-              ) : (
-                <div className="document-preview-placeholder">
-                  <Camera size={34} />
-                  <strong>{tt("Keine Bildvorschau verfügbar")}</strong>
-                  <span>{tt("Das Foto ist als Eintrag vorhanden, aber ohne gespeicherte Vorschau.")}</span>
-                </div>
-              )}
+              <ObjectPhotoImage expanded item={previewPhoto} key={`${previewPhoto.id}:${previewPhoto.previewUrl}:${previewPhoto.storagePath}`} language={language} />
             </article>
             <div className="modal-actions">
               <button className="ghost-button" onClick={() => setPreviewPhoto(null)} type="button">{tt("Schließen")}</button>
