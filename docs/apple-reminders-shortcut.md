@@ -49,6 +49,15 @@ Das Wertefeld von "Woerterbuchwert konfigurieren" verwendet dagegen einen
 verifiziert auch, dass Testlisten mit 0, 1 und 5 Woerterbuechern ihre Inhaltstypen
 und Werte behalten; sie liest keine Apple-Erinnerungen und sendet nichts.
 
+Die beiden Datumsaktionen verwenden `WFDateFormat: Custom` und das separate
+`WFDateFormatString` fuer `yyyy-MM-dd` bzw. ISO 8601 mit Uhrzeit und Zeitzone.
+Ein Muster direkt in `WFDateFormat` ist keine gueltige Formatauswahl.
+API-Fehler nennen das betroffene Feld bzw. die Eintragsnummer, niemals Inhalte
+oder Zugangsdaten. Die Altersgrenze von 15 Minuten bleibt unveraendert.
+Zusaetzlich pruefen synthetische Daten mit 0, 1 und 5 Erinnerungen Apples native
+Woerterbuch-zu-JSON-Umwandlung, einschliesslich leerer Daten, Anfuehrungszeichen
+und Zeilenumbruechen. Das ist kein vollstaendiger Lauf der Kurzbefehle-App.
+
 ## Manuelle Alternative
 
 Die Bezeichnungen einzelner Aktionen unterscheiden sich je nach iOS-Version.

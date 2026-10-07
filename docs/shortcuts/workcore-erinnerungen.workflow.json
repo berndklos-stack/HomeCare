@@ -368,15 +368,21 @@
       "WFWorkflowActionParameters": {
         "WFDate": {
           "Value": {
-            "Type": "ActionOutput",
-            "OutputUUID": "9DDDDBAA-E791-B40E-10B9-E9D3030D1D11",
-            "OutputName": "Due date"
+            "string": "￼",
+            "attachmentsByRange": {
+              "{0, 1}": {
+                "Type": "ActionOutput",
+                "OutputUUID": "9DDDDBAA-E791-B40E-10B9-E9D3030D1D11",
+                "OutputName": "Due date"
+              }
+            }
           },
-          "WFSerializationType": "WFTextTokenAttachment"
+          "WFSerializationType": "WFTextTokenString"
         },
         "WFDateFormatStyle": "Custom",
         "WFTimeFormatStyle": "None",
-        "WFDateFormat": "yyyy-MM-dd",
+        "WFDateFormat": "Custom",
+        "WFDateFormatString": "yyyy-MM-dd",
         "UUID": "192E9EB1-2ED9-16A7-CB5F-96269107B06D",
         "CustomOutputName": "Formatted date"
       }
@@ -529,15 +535,21 @@
       "WFWorkflowActionParameters": {
         "WFDate": {
           "Value": {
-            "Type": "ActionOutput",
-            "OutputUUID": "42C7260D-6116-A162-0919-79970BFA061B",
-            "OutputName": "Now"
+            "string": "￼",
+            "attachmentsByRange": {
+              "{0, 1}": {
+                "Type": "ActionOutput",
+                "OutputUUID": "42C7260D-6116-A162-0919-79970BFA061B",
+                "OutputName": "Now"
+              }
+            }
           },
-          "WFSerializationType": "WFTextTokenAttachment"
+          "WFSerializationType": "WFTextTokenString"
         },
         "WFDateFormatStyle": "Custom",
         "WFTimeFormatStyle": "None",
-        "WFDateFormat": "yyyy-MM-dd'T'HH:mm:ssXXX",
+        "WFDateFormat": "Custom",
+        "WFDateFormatString": "yyyy-MM-dd'T'HH:mm:ssXXXXX",
         "UUID": "18DF63C5-0E29-B926-6A1D-11D940524127",
         "CustomOutputName": "Timestamp"
       }

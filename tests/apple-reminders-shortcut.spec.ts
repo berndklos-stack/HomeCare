@@ -10,6 +10,20 @@ const workflow = JSON.parse(manifest);
 const actions = workflow.WFWorkflowActions as Array<{ WFWorkflowActionIdentifier: string; WFWorkflowActionParameters: Record<string, any> }>;
 const find = (name: string) => actions.find((a) => a.WFWorkflowActionParameters.CustomOutputName === name)!.WFWorkflowActionParameters;
 
+test("API-Datumsformate verwenden Apples separates benutzerdefiniertes Formatfeld", () => {
+  for (const [name, source, pattern] of [
+    ["Formatted date", "Due date", "yyyy-MM-dd"],
+    ["Timestamp", "Now", "yyyy-MM-dd'T'HH:mm:ssXXXXX"],
+  ]) {
+    const p = find(name);
+    expect(p.WFDateFormatStyle).toBe("Custom");
+    expect(p.WFDateFormat).toBe("Custom");
+    expect(p.WFDateFormatString).toBe(pattern);
+    expect(p.WFDate.WFSerializationType).toBe("WFTextTokenString");
+    expect(p.WFDate.Value.attachmentsByRange["{0, 1}"].OutputUUID).toBe(find(source).UUID);
+  }
+});
+
 test("Vorlage enthält nur lesende Apple-Aktionen und zwei zugangsfreie Importfragen", () => {
   const allowed = ["gettext", "conditional", "alert", "exit", "filter.reminders", "repeat.each", "properties.reminders", "setvariable", "format.date", "dictionary", "date", "setvalueforkey", "downloadurl", "detect.dictionary", "getvalueforkey", "output"];
   for (const action of actions) expect(allowed).toContain(action.WFWorkflowActionIdentifier.replace("is.workflow.actions.", ""));
@@ -121,11 +135,24 @@ test("Apples Serializer reproduziert den alten Bearbeitungsabsturz und akzeptier
     const missingValue = spawnSync(validator, [badValueFile], { encoding: "utf8" });
     expect(missingValue.status).toBe(1);
     expect(missingValue.stderr).toContain("Invalid dictionary value: Full payload");
+    const badDate = JSON.parse(manifest);
+    const timestamp = badDate.WFWorkflowActions.find((a: any) => a.WFWorkflowActionParameters.CustomOutputName === "Timestamp");
+    timestamp.WFWorkflowActionParameters.WFDateFormat = timestamp.WFWorkflowActionParameters.WFDateFormatString;
+    delete timestamp.WFWorkflowActionParameters.WFDateFormatString;
+    const badDateFile = join(temp, "old-invalid-date-format.json");
+    writeFileSync(badDateFile, JSON.stringify(badDate));
+    const missingDate = spawnSync(validator, [badDateFile], { encoding: "utf8" });
+    expect(missingDate.status).toBe(1);
+    expect(missingDate.stderr).toContain("Invalid custom date format: Timestamp");
     const current = spawnSync(validator, [resolve(root, "docs/shortcuts/workcore-erinnerungen.workflow.json")], { encoding: "utf8" });
     expect(current.status, current.stderr).toBe(0);
     expect(current.stdout).toContain("4 parameter states roundtripped");
     expect(current.stdout).toContain("7 conditional inputs roundtripped");
     expect(current.stdout).toContain("1 typed dictionary values roundtripped");
-    for (const count of [0, 1, 5]) expect(current.stdout).toContain(`${count} reminder dictionaries preserved`);
+    expect(current.stdout).toContain("2 API date formats verified");
+    for (const count of [0, 1, 5]) {
+      expect(current.stdout).toContain(`${count} reminder dictionaries preserved`);
+      expect(current.stdout).toContain(`${count} reminders serialized as JSON`);
+    }
   } finally { rmSync(temp, { recursive: true, force: true }); }
 });

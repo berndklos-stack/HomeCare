@@ -126,6 +126,20 @@ test("echte API-Handler: Einrichtung, Tenant-Schutz, Wiederholung, leere Liste u
   expect((await exports.PUT(req("PUT", token))).status).toBe(401);
   expect((await exports.PUT(req("PUT", setup.token, tenant, { generatedAt: new Date().toISOString(), reminders: "x".repeat(1_000_000) }))).status).toBe(413);
   expect((await exports.PUT(req("PUT", setup.token, tenant, { generatedAt: "2020-01-01T00:00:00Z", reminders: [] }))).status).toBe(400);
+  const protectedRevision = row!.revision;
+  for (const [snapshot, message] of [
+    [{ generatedAt: "7. Oktober 2026", reminders: [] }, "generatedAt ist kein gültiger Zeitstempel"],
+    [{ generatedAt: new Date().toISOString(), reminders: { title: "PRIVATE TITLE" } }, "reminders muss eine JSON-Liste sein"],
+    [{ generatedAt: new Date().toISOString(), reminders: [{ title: "PRIVATE TITLE", date: "2026-99-99" }] }, "Erinnerung 1: Titel"],
+    [{ generatedAt: new Date().toISOString(), reminders: [{ title: "PRIVATE TITLE", notes: 42 }] }, "Erinnerung 1: notes"],
+  ] as const) {
+    const failure = await exports.PUT(req("PUT", setup.token, tenant, snapshot));
+    expect(failure.status).toBe(400);
+    const body = await failure.text();
+    expect(body).toContain(message);
+    expect(body).not.toContain("PRIVATE TITLE");
+    expect(row!.revision).toBe(protectedRevision);
+  }
   const snapshot = { generatedAt: new Date(Date.now() - 1000).toISOString(), reminders: bridge.reminders };
   expect((await (await exports.PUT(req("PUT", setup.token, tenant, snapshot))).json()).count).toBe(4);
   const firstRevision = row!.revision;
@@ -136,6 +150,16 @@ test("echte API-Handler: Einrichtung, Tenant-Schutz, Wiederholung, leere Liste u
   expect(status.count).toBe(0);
   expect(status.receivedAt).toBeTruthy();
   expect(status.tokenHash).toBeUndefined();
+  for (const count of [1, 5]) {
+    const reminders = Array.from({ length: count }, (_, index) => ({
+      title: `Fixture ${index}`, list: "Test", notes: 'Quoted "note"\nsecond', date: index % 2 ? "2026-10-07" : "",
+    }));
+    const generatedAt = new Date(Date.now() + count * 1000).toISOString();
+    const result = await exports.PUT(req("PUT", setup.token, tenant, { generatedAt, reminders }));
+    expect(result.status).toBe(200);
+    expect(await result.json()).toEqual({ accepted: true, count });
+    expect(row!.value.reminders).toEqual(reminders);
+  }
   expect((await exports.DELETE(req("DELETE"))).status).toBe(200);
   expect((await exports.PUT(req("PUT", setup.token))).status).toBe(401);
 });

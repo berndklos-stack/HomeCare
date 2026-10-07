@@ -9,7 +9,7 @@
 - (id)contentForVariableWithName:(NSString *)name { return [name isEqual:@"Fixture"] ? self.content : nil; }
 @end
 
-static BOOL verifyReminderLists(NSDictionary * value) {
+static BOOL verifyReminderLists(NSDictionary * value, BOOL jsonBody) {
   // Resolve the exact value-field encoding against in-memory content, not Apple data.
   NSMutableDictionary * fixtureValue = [value mutableCopy];
   NSMutableDictionary * inner = [value[@"Value"] mutableCopy];
@@ -24,10 +24,15 @@ static BOOL verifyReminderLists(NSDictionary * value) {
       [expected addObject:row];
       ((void (*)(id, SEL, id))objc_msgSend)(collection, NSSelectorFromString(@"addObject:"), row);
     }
+    NSDictionary * payload = @{@"generatedAt": @"2026-10-07T03:00:00+02:00", @"reminders": expected};
+    if (jsonBody) {
+      collection = [NSClassFromString(@"WFContentCollection") new];
+      ((void (*)(id, SEL, id))objc_msgSend)(collection, NSSelectorFromString(@"addObject:"), payload);
+    }
     WorkCoreReminderFixtureSource * source = [WorkCoreReminderFixtureSource new];
     source.content = collection;
     id parameter = ((id (*)(id, SEL, id))objc_msgSend)([NSClassFromString(@"WFTextInputParameter") alloc],
-      NSSelectorFromString(@"initWithDefinition:"), @{@"Key": @"WFDictionaryValue", @"Class": @"WFTextInputParameter", @"Label": @"Value"});
+      NSSelectorFromString(@"initWithDefinition:"), @{@"Key": jsonBody ? @"WFTextActionText" : @"WFDictionaryValue", @"Class": @"WFTextInputParameter", @"Label": @"Value"});
     id context = ((id (*)(id, SEL, id, id, BOOL, id, id, NSInteger))objc_msgSend)([NSClassFromString(@"WFParameterStateProcessingContext") alloc],
       NSSelectorFromString(@"initWithVariableSource:parameter:isInputParameter:environment:contentAttributionTracker:widgetSizeClass:"),
       source, parameter, NO, nil, [NSClassFromString(@"WFContentAttributionTracker") new], 0);
@@ -36,16 +41,24 @@ static BOOL verifyReminderLists(NSDictionary * value) {
     id string = ((id (*)(id, SEL))objc_msgSend)(state, NSSelectorFromString(@"variableString"));
     __block BOOL done = NO;
     __block BOOL passed = NO;
-    ((void (*)(id, SEL, id, id))objc_msgSend)(string, NSSelectorFromString(@"processIntoContentItemsWithContext:completionHandler:"), context, ^(id output, NSError * error) {
-      ((void (*)(id, SEL, id, Class))objc_msgSend)(output, NSSelectorFromString(@"getObjectRepresentations:forClass:"), ^(NSArray * actual, NSError * failure) {
-        passed = [expected isEqual:actual];
+    if (jsonBody) {
+      ((void (*)(id, SEL, id, id))objc_msgSend)(string, NSSelectorFromString(@"processWithContext:completionHandler:"), context, ^(NSString * output, NSError * error) {
+        id actual = output ? [NSJSONSerialization JSONObjectWithData:[output dataUsingEncoding:NSUTF8StringEncoding] options:0 error:NULL] : nil;
+        passed = [payload isEqual:actual];
         done = YES;
-      }, [NSDictionary class]);
-    });
+      });
+    } else {
+      ((void (*)(id, SEL, id, id))objc_msgSend)(string, NSSelectorFromString(@"processIntoContentItemsWithContext:completionHandler:"), context, ^(id output, NSError * error) {
+        ((void (*)(id, SEL, id, Class))objc_msgSend)(output, NSSelectorFromString(@"getObjectRepresentations:forClass:"), ^(NSArray * actual, NSError * failure) {
+          passed = [expected isEqual:actual];
+          done = YES;
+        }, [NSDictionary class]);
+      });
+    }
     NSDate * until = [NSDate dateWithTimeIntervalSinceNow:5];
     while (!done && [until timeIntervalSinceNow] > 0) [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.01]];
     if (!passed) { fprintf(stderr, "Reminder content fixture failed: %d\n", count.intValue); return NO; }
-    printf("WorkflowKit: %d reminder dictionaries preserved\n", count.intValue);
+    printf("WorkflowKit: %d %s\n", count.intValue, jsonBody ? "reminders serialized as JSON" : "reminder dictionaries preserved");
   }
   return YES;
 }
@@ -66,8 +79,34 @@ int main(int argc, const char * argv[]) {
     int checked = 0;
     int conditions = 0;
     int values = 0;
+    int dates = 0;
+    int bodies = 0;
     for (NSDictionary * action in workflow[@"WFWorkflowActions"]) {
       NSDictionary * parameters = action[@"WFWorkflowActionParameters"];
+      if ([parameters[@"CustomOutputName"] isEqual:@"JSON body"]) {
+        if (!verifyReminderLists(parameters[@"WFTextActionText"], YES)) return 1;
+        bodies++;
+      }
+      if ([action[@"WFWorkflowActionIdentifier"] isEqual:@"is.workflow.actions.format.date"]) {
+        NSString * name = parameters[@"CustomOutputName"];
+        BOOL timestamp = [name isEqual:@"Timestamp"];
+        NSString * pattern = timestamp ? @"yyyy-MM-dd'T'HH:mm:ssXXXXX" : @"yyyy-MM-dd";
+        if (![parameters[@"WFDateFormat"] isEqual:@"Custom"] || ![parameters[@"WFDateFormatString"] isEqual:pattern]) {
+          fprintf(stderr, "Invalid custom date format: %s\n", [name UTF8String]);
+          return 1;
+        }
+        NSDateFormatter * formatter = [NSDateFormatter new];
+        formatter.locale = [NSLocale localeWithLocaleIdentifier:@"sv_SE"];
+        formatter.timeZone = [NSTimeZone timeZoneWithName:@"Europe/Stockholm"];
+        formatter.dateFormat = parameters[@"WFDateFormatString"];
+        NSString * result = [formatter stringFromDate:[NSDate dateWithTimeIntervalSince1970:1791334800]];
+        NSString * expected = timestamp ? @"2026-10-07T03:00:00+02:00" : @"2026-10-07";
+        if (![result isEqual:expected]) {
+          fprintf(stderr, "Date fixture failed: %s\n", [result UTF8String]);
+          return 1;
+        }
+        dates++;
+      }
       if ([action[@"WFWorkflowActionIdentifier"] isEqual:@"is.workflow.actions.setvalueforkey"]) {
         Class textState = NSClassFromString(@"WFVariableStringParameterState");
         id state = ((id (*)(id, SEL, id, id, id))objc_msgSend)([textState alloc],
@@ -79,7 +118,7 @@ int main(int argc, const char * argv[]) {
           fprintf(stderr, "Invalid dictionary value: %s\n", [parameters[@"CustomOutputName"] UTF8String]);
           return 1;
         }
-        if (!verifyReminderLists(parameters[@"WFDictionaryValue"])) return 1;
+        if (!verifyReminderLists(parameters[@"WFDictionaryValue"], NO)) return 1;
         values++;
       }
       if ([action[@"WFWorkflowActionIdentifier"] isEqual:@"is.workflow.actions.conditional"] &&
@@ -111,10 +150,11 @@ int main(int argc, const char * argv[]) {
         }
       }
     }
-    if (checked < 3 || conditions != 7 || values != 1) return 2;
+    if (checked < 3 || conditions != 7 || values != 1 || dates != 2 || bodies != 1) return 2;
     printf("WorkflowKit: %d parameter states roundtripped\n", checked);
     printf("WorkflowKit: %d conditional inputs roundtripped\n", conditions);
     printf("WorkflowKit: %d typed dictionary values roundtripped\n", values);
+    printf("Foundation: %d API date formats verified\n", dates);
   }
   return 0;
 }

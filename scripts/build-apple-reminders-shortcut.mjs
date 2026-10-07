@@ -61,14 +61,14 @@ for (const [name, property] of [["Title", "Title"], ["List", "List"], ["Notes", 
 action("gettext", "Empty date", { WFTextActionText: "" });
 action("setvariable", "Clear date", { WFVariableName: "Due text", WFInput: ref("Empty date") });
 action("conditional", "Date if", { WFInput: subject(ref("Due date")), WFCondition: 100, WFControlFlowMode: 0, GroupingIdentifier: id("due-if") });
-action("format.date", "Formatted date", { WFDate: ref("Due date"), WFDateFormatStyle: "Custom", WFTimeFormatStyle: "None", WFDateFormat: "yyyy-MM-dd" });
+action("format.date", "Formatted date", { WFDate: inline(ref("Due date")), WFDateFormatStyle: "Custom", WFTimeFormatStyle: "None", WFDateFormat: "Custom", WFDateFormatString: "yyyy-MM-dd" });
 action("setvariable", "Set date", { WFVariableName: "Due text", WFInput: ref("Formatted date") });
 action("conditional", "Date end", { WFControlFlowMode: 2, GroupingIdentifier: id("due-if") });
 dictionary("Reminder", [["title", inline(ref("Title"))], ["list", inline(ref("List"))],
   ["notes", inline(ref("Notes"))], ["date", inline(variable("Due text"))]]);
 action("repeat.each", "Reminders array", { WFControlFlowMode: 2, GroupingIdentifier: id("repeat") });
 action("date", "Now", { WFDateActionMode: "Current Date" });
-action("format.date", "Timestamp", { WFDate: ref("Now"), WFDateFormatStyle: "Custom", WFTimeFormatStyle: "None", WFDateFormat: "yyyy-MM-dd'T'HH:mm:ssXXX" });
+action("format.date", "Timestamp", { WFDate: inline(ref("Now")), WFDateFormatStyle: "Custom", WFTimeFormatStyle: "None", WFDateFormat: "Custom", WFDateFormatString: "yyyy-MM-dd'T'HH:mm:ssXXXXX" });
 dictionary("Empty payload", [["generatedAt", inline(ref("Timestamp"))], ["reminders", {
   Value: [], WFSerializationType: "WFArrayParameterState",
 }, 2]]);

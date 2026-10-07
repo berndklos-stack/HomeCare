@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
 import { isAuthError, requireApiAuth, serviceClient } from "@/lib/server/apiAuth";
-import { appleReminderKey, parseReminderSnapshot, reminderTokenHash, reminderTokenMatches, type AppleReminderBridge } from "@/lib/server/appleReminders";
+import { appleReminderKey, parseReminderSnapshot, ReminderSnapshotError, reminderTokenHash, reminderTokenMatches, type AppleReminderBridge } from "@/lib/server/appleReminders";
 
 export const runtime = "nodejs";
 const response = (body: unknown, status = 200) => NextResponse.json(body, { status, headers: { "Cache-Control": "no-store" } });
@@ -83,7 +83,10 @@ export async function PUT(request: Request) {
     if (raw === null) return response({ error: "Übertragung zu groß." }, 413);
     let snapshot: ReturnType<typeof parseReminderSnapshot>;
     try { snapshot = parseReminderSnapshot(JSON.parse(raw)); }
-    catch { return response({ error: "Ungültige oder veraltete Momentaufnahme." }, 400); }
+    catch (error) {
+      return response({ error: error instanceof ReminderSnapshotError
+        ? error.message : "Anfragetext ist kein gültiges JSON. Im Kurzbefehl das vollständige Wörterbuch als JSON senden." }, 400);
+    }
     if (row.value.generatedAt && snapshot.generatedAt <= row.value.generatedAt) {
       return response({ accepted: false, reason: "Bereits empfangen oder älter als der gespeicherte Stand." });
     }
