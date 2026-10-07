@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import ICAL from "ical.js";
 import { isAuthError, requireApiAuth } from "@/lib/server/apiAuth";
+import { appleReminderKey, remindersForMail, type AppleReminderBridge } from "@/lib/server/appleReminders";
 
 export const runtime = "nodejs";
 
@@ -34,6 +35,7 @@ type ObjectRecord = {
 };
 
 type AppSnapshot = {
+  appleReminders?: AppleReminderBridge;
   dailyMailSettings?: DailyMailSettings;
   jobs?: JobRecord[];
   objects?: ObjectRecord[];
@@ -552,6 +554,13 @@ export async function buildDailyJobMail(snapshot: AppSnapshot, today: string) {
     jobs: jobs.filter((job) => jobBucket(job, today, occurrenceGroups[job.id] ?? []) === label),
   }));
   const calendarData = await loadCalendarEvents(today, snapshot.dailyMailSettings);
+  const appleBridge = snapshot.appleReminders;
+  const reminders = [...calendarData.reminders, ...remindersForMail(appleBridge, addDays(today, 5))];
+  const appleStatus = appleBridge?.tokenHash
+    ? appleBridge.receivedAt
+      ? `Letzter iPhone-Abruf: ${new Date(appleBridge.receivedAt).toLocaleString("de-DE", { timeZone: stockholmTimeZone })}${Date.now() - Date.parse(appleBridge.receivedAt) > 26 * 60 * 60_000 ? " – Achtung: Daten sind älter als 26 Stunden." : ""}`
+      : "iPhone-Anbindung eingerichtet, aber noch keine Erinnerungen empfangen."
+    : "";
   const calendarHtml = `
     <h2 style="font-size:16px;margin:28px 0 10px;color:#1d1d1f;">Kalender heute plus 3 Tage</h2>
     ${calendarData.calendars.length > 0 ? `
@@ -585,10 +594,11 @@ export async function buildDailyJobMail(snapshot: AppSnapshot, today: string) {
     ` : `<p style="margin:18px 0;color:#1d1d1f;">Keine Geburtstagsquelle verbunden oder keine Geburtstage im Zeitraum.</p>`}
   `;
   const reminderHtml = `
-    <h2 style="font-size:16px;margin:28px 0 10px;color:#1d1d1f;">Erinnerungen nächste 5 Tage</h2>
-    ${calendarData.reminders.length > 0 ? `
+    <h2 style="font-size:16px;margin:28px 0 10px;color:#1d1d1f;">Erinnerungen nächste 5 Tage, überfällig und ohne Datum</h2>
+    ${appleStatus ? `<p>${escapeHtml(appleStatus)}</p>` : ""}
+    ${reminders.length > 0 ? `
       <table role="presentation" style="border-collapse:collapse;width:100%;">
-        ${calendarData.reminders.map((reminder) => `
+        ${reminders.map((reminder) => `
           <tr>
             <td style="border:1px solid #d2d2d7;border-radius:8px;padding:12px 14px;">
               <strong style="display:block;font-size:15px;color:#1d1d1f;">${escapeHtml(reminder.title)}</strong>
@@ -599,7 +609,7 @@ export async function buildDailyJobMail(snapshot: AppSnapshot, today: string) {
           <tr><td style="height:8px;"></td></tr>
         `).join("")}
       </table>
-    ` : `<p style="margin:18px 0;color:#1d1d1f;">Keine fälligen Erinnerungen in den nächsten 5 Tagen${calendarData.reminderSources === 0 ? " - es sind noch keine Erinnerungsquellen konfiguriert." : "."}</p>`}
+    ` : `<p style="margin:18px 0;color:#1d1d1f;">Keine offenen Erinnerungen im Zeitraum${calendarData.reminderSources === 0 && !appleBridge?.tokenHash ? " - es sind noch keine Erinnerungsquellen konfiguriert." : "."}</p>`}
   `;
   const listHtml = grouped
     .filter((group) => group.jobs.length > 0)
@@ -656,14 +666,15 @@ export async function buildDailyJobMail(snapshot: AppSnapshot, today: string) {
     "Kalender heute plus 3 Tage",
     ...(calendarData.calendars.length > 0 ? calendarData.calendars.map((event) => `${displayDate(event.date)} | ${calendarEventTimeLabel(event)} – ${event.title} | ${event.calendar}${event.location ? ` | ${event.location}` : ""}`) : ["Keine Kalendertermine gefunden."]),
     "",
-    "Erinnerungen nächste 5 Tage",
-    ...(calendarData.reminders.length > 0 ? calendarData.reminders.map((reminder) => `${displayDate(reminder.date)} | ${reminder.list} | ${reminder.title}${reminder.notes ? ` | ${reminder.notes}` : ""}`) : ["Keine fälligen Erinnerungen in den nächsten 5 Tagen."]),
+    "Erinnerungen nächste 5 Tage, überfällig und ohne Datum",
+    ...(appleStatus ? [appleStatus] : []),
+    ...(reminders.length > 0 ? reminders.map((reminder) => `${displayDate(reminder.date)} | ${reminder.list} | ${reminder.title}${reminder.notes ? ` | ${reminder.notes}` : ""}`) : ["Keine offenen Erinnerungen im Zeitraum."]),
     "",
     "Geburtstage",
     ...(calendarData.birthdays.length > 0 ? calendarData.birthdays.map((event) => `${displayDate(event.date)} | ${event.title}`) : ["Keine Geburtstagsquelle verbunden oder keine Geburtstage im Zeitraum."]),
   ].join("\n");
 
-  return { calendarCount: calendarData.calendars.length, birthdayCount: calendarData.birthdays.length, html, openJobCount: jobs.length, reminderCount: calendarData.reminders.length, text };
+  return { calendarCount: calendarData.calendars.length, birthdayCount: calendarData.birthdays.length, html, openJobCount: jobs.length, reminderCount: reminders.length, text };
 }
 
 async function sendResendMail({ cc, html, subject, text, to }: { cc: string[]; html: string; subject: string; text: string; to: string[] }) {
@@ -803,7 +814,10 @@ async function sendDailyMail(request: Request, tenantId: string, manual = false)
     return NextResponse.json({ error: "Bitte mindestens einen Tagesmail-Empfänger konfigurieren." }, { status: 400 });
   }
 
-  const mail = await buildDailyJobMail({ ...snapshot, dailyMailSettings: settings }, today);
+  const { data: appleRow, error: appleError } = await supabase.from("homecare_settings").select("value")
+    .eq("tenant_id", tenantId).eq("key", appleReminderKey).is("deleted_at", null).maybeSingle();
+  if (appleError) return NextResponse.json({ error: "Erinnerungsstand konnte nicht geladen werden." }, { status: 500 });
+  const mail = await buildDailyJobMail({ ...snapshot, dailyMailSettings: settings, appleReminders: appleRow?.value as AppleReminderBridge | undefined }, today);
   const executionKey = force ? `${today}-manual-${crypto.randomUUID()}` : sendKey;
   const { data: claimed, error: claimError } = await supabase.rpc("homecare_claim_daily_mail_send", {
     p_send_key: executionKey,

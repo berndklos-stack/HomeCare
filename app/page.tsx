@@ -5,6 +5,7 @@
 import Image from "next/image";
 import { AuthGate, EmployeeLogoutButton } from "@/components/AuthGate";
 import { SyncStatus } from "@/components/SyncStatus";
+import { AppleRemindersBridge } from "@/components/AppleRemindersBridge";
 import { TripDialog } from "@/components/TripDialog";
 import { ConsultingServiceList } from "@/components/ConsultingServiceList";
 import { serviceListRecipientLanguage } from "@/lib/consultingServiceList";
@@ -22666,6 +22667,7 @@ function MasterDataView({
               <Check size={16} />
               {tt("Tagesmail-Einstellungen speichern")}
             </button>
+            <AppleRemindersBridge />
             <button className="ghost-button wide" disabled={dailyMailSending} onClick={() => void onSendDailyMail()} type="button">
               <Mail size={16} />
               {dailyMailSending ? tt("Tagesmail wird gesendet...") : tt("Tagesmail jetzt senden")}

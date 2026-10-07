@@ -6,6 +6,37 @@ import { reviewMediaConflict } from "../lib/conflictReview";
 
 const pixel = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=", "base64");
 
+test("iPhone-Erinnerungsanbindung zeigt einmaligen Zugang und lässt sich widerrufen", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  let connected = false;
+  const key = "c".repeat(64);
+  await page.route("**/api/integrations/apple-reminders", async (route) => {
+    const method = route.request().method();
+    if (method === "POST") {
+      connected = true;
+      await route.fulfill({ json: { token: key, tenantId: "00000000-0000-0000-0000-000000000001" } });
+    } else {
+      if (method === "DELETE") connected = false;
+      await route.fulfill({ json: { connected, receivedAt: "", count: 0 } });
+    }
+  });
+  await page.goto("/");
+  await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true");
+  await page.getByTestId("nav-masterData").click();
+  await page.locator(".master-data-tabs").getByRole("button", { name: "Tagesmail", exact: true }).click();
+  await page.getByRole("button", { name: "iPhone verbinden", exact: true }).click();
+  await expect(page.getByLabel("Authorization (nur jetzt sichtbar)", { exact: true })).toHaveValue(`Bearer ${key}`);
+  await expect(page.getByLabel("Authorization (nur jetzt sichtbar)", { exact: true })).toHaveAttribute("type", "password");
+  expect(await page.evaluate((secret) => JSON.stringify(localStorage).includes(secret), key)).toBe(false);
+  const setup = page.getByLabel("Übertragungs-URL");
+  const bounds = await setup.boundingBox();
+  expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(390);
+  await page.screenshot({ path: `test-results/apple-reminders-${test.info().project.name}.png`, fullPage: true });
+  await page.getByRole("button", { name: "Anbindung widerrufen", exact: true }).click();
+  await expect(page.getByRole("button", { name: "iPhone verbinden", exact: true })).toBeVisible();
+  await expect(page.getByLabel("Authorization (nur jetzt sichtbar)", { exact: true })).toHaveCount(0);
+});
+
 for (const width of [1440, 390]) test(`Tagesmail-Einstellungen sind sauber ausgerichtet: ${width}px`, async ({ page }) => {
   await page.setViewportSize({ width, height: 900 });
   await page.goto("/");

@@ -1,0 +1,87 @@
+# Apple Erinnerungen fuer die Tagesmail
+
+## Zugang in WorkCore
+
+Als Inhaber unter Stammdaten > Tagesmail auf **iPhone verbinden** klicken.
+URL, Mandantenkennung (`X-WorkCore-Tenant`) und den kopierten Authorization-Wert
+nur in den eigenen Kurzbefehl eintragen. Der Zugang erlaubt ausschliesslich
+die Uebertragung einer Erinnerungs-Momentaufnahme, keinen Zugriff auf Auftraege.
+Er wird nur einmal angezeigt, serverseitig nur als SHA-256 gespeichert und kann
+in WorkCore widerrufen werden. Keine Supabase-Schluessel oder Apple-Passwoerter verwenden.
+
+Alle Listen bedeutet auch private Listen. Saemtliche uebertragene Titel, Notizen
+und Listennamen koennen in der Mail an alle konfigurierten To-/CC-Empfaenger erscheinen.
+
+## Kurzbefehl auf dem iPhone erstellen
+
+Die Bezeichnungen einzelner Aktionen unterscheiden sich je nach iOS-Version.
+
+1. Kurzbefehle > neuer Kurzbefehl, Name **WorkCore Erinnerungen senden**.
+2. Aktion **Erinnerungen suchen**: Filter **Ist abgeschlossen = Nein**.
+   Keine Einschraenkung auf eine Liste, kein Ergebnislimit. Nicht nach Faelligkeit
+   filtern: Auch Erinnerungen ohne Datum oder mit spaeterem Datum uebertragen.
+3. Aktion **Mit jedem wiederholen** fuer die gefundenen Erinnerungen.
+4. Innerhalb der Wiederholung Details der aktuellen Erinnerung lesen:
+   Titel, Liste (deren Namen als Text), Notizen und Faelligkeitsdatum.
+5. Wenn ein Faelligkeitsdatum vorhanden ist: **Datum formatieren**, Format
+   **Benutzerdefiniert**, `yyyy-MM-dd`. Ohne Datum einen leeren Text verwenden.
+6. Pro Erinnerung ein **Woerterbuch** mit vier Textfeldern erstellen:
+   `title` = Titel, `list` = Listenname, `notes` = Notizen oder leer,
+   `date` = formatiertes Datum oder leer. Das Woerterbuch als letztes Ergebnis
+   der Wiederholung verwenden. Nicht manuell JSON-Text zusammenbauen.
+7. Nach der Wiederholung **Aktuelles Datum** > **Datum formatieren** mit
+   **ISO 8601**, inklusive Uhrzeit und Zeitzone. Als `generatedAt` merken.
+8. Ein weiteres **Woerterbuch** anlegen:
+   `generatedAt` (Text) = ISO-Zeit; `reminders` (Array) = Wiederholungsergebnisse.
+   Falls keine offenen Erinnerungen gefunden wurden, hier explizit ein leeres
+   Array einsetzen. Diese leere Momentaufnahme entfernt alte Erinnerungen aus
+   WorkCore, nicht aus Apple.
+9. **Inhalt von URL abrufen**, URL aus WorkCore, Methode **PUT**:
+   Header `Authorization` = kopierter Wert inklusive `Bearer `,
+   Header `X-WorkCore-Tenant` = Mandantenkennung,
+   Header `Content-Type` = `application/json`.
+   Anfragetext **JSON**, die zwei Felder aus Schritt 8 einsetzen
+   (`reminders` muss ein Array von Woerterbuechern bleiben, kein Text).
+10. Antwort pruefen: `accepted: true` und `count`. Bei einer Fehlerantwort
+    keine Erfolgsmeldung anzeigen. Den ersten Lauf manuell starten und den
+    Zugriff auf Erinnerungen sowie die Netzwerkverbindung erlauben.
+11. In WorkCore den Abrufstatus aktualisieren und Anzahl/Datum kontrollieren.
+
+Beispiel des Anfragetexts (keine echten Daten):
+
+```json
+{
+  "generatedAt": "2026-10-07T05:45:00+02:00",
+  "reminders": [
+    { "title": "Material bestellen", "list": "Arbeit", "date": "2026-10-07", "notes": "" },
+    { "title": "Rueckruf", "list": "Privat", "date": "", "notes": "" }
+  ]
+}
+```
+
+## Automatisch vor der Tagesmail
+
+Auf diesem iPhone eine persoenliche Automation **Tageszeit**, taeglich **05:45**
+anlegen und den Kurzbefehl ausfuehren. Bei Tagesmail um 06:00 ist so etwas
+Zeitreserve vorhanden. **Sofort ausfuehren** bzw. **Vor Ausfuehren bestaetigen**
+ausschalten, je nach iOS. Falls angeboten Ausfuehrung bei Sperre erlauben.
+
+Mit gesperrtem Bildschirm testen. iPhone muss eingeschaltet und online sein;
+Ausfuehrung und Freigaben koennen von iOS abhaengen. Keine Ausfuehrungsgarantie.
+Die Automation ist geraetespezifisch, der Mac muss nicht laufen.
+
+## Darstellung und Grenzen
+
+- Mail zeigt offene Eintraege bis fuenf Tage voraus, ueberfaellige und undatierte
+  Eintraege. Spaeter faellige Eintraege bleiben gespeichert bis sie relevant sind.
+- Jede Uebertragung ersetzt nur die vorherige Integration-Momentaufnahme.
+  Sie aendert keine Auftraege und hakt keine Apple-Erinnerung ab.
+- Wiederholung derselben Uebertragung erzeugt keine Duplikate. Aeltere
+  Momentaufnahmen ueberschreiben keinen neueren Stand.
+- Maximal 2000 Eintraege und 1 MB pro Uebertragung. Momentaufnahme beim Senden
+  maximal 15 Minuten alt. Bei Ueberschreitung wird nichts teilweise gespeichert.
+- Mail nennt den letzten Empfang; bei mehr als 26 Stunden Alter mit Warnung.
+  Ausbleibende Uebertragung ist nicht gleichbedeutend mit leerer Erinnerungsliste.
+- Noch vorhandene ICS-Aufgabenquellen werden weiterhin separat gelesen. Dieselbe
+  Liste nicht gleichzeitig per ICS und Kurzbefehl anbinden, sonst doppelte Anzeige.
+- Der Zugang laeuft bis zum Widerruf; Kurzbefehle mit Zugang nicht teilen.
