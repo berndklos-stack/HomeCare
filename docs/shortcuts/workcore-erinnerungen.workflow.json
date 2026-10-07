@@ -642,11 +642,16 @@
         "WFDictionaryKey": "reminders",
         "WFDictionaryValue": {
           "Value": {
-            "Type": "ActionOutput",
-            "OutputUUID": "7D149A59-7855-8006-A244-279A349009D7",
-            "OutputName": "Reminders array"
+            "string": "￼",
+            "attachmentsByRange": {
+              "{0, 1}": {
+                "Type": "ActionOutput",
+                "OutputUUID": "7D149A59-7855-8006-A244-279A349009D7",
+                "OutputName": "Reminders array"
+              }
+            }
           },
-          "WFSerializationType": "WFTextTokenAttachment"
+          "WFSerializationType": "WFTextTokenString"
         },
         "UUID": "3B75006A-F5BC-4570-04FC-6BC7F31CCC62",
         "CustomOutputName": "Full payload"

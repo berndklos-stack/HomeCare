@@ -43,6 +43,11 @@ Auch die sieben Wenn-Eingaben werden mit Apples nativer Bibliothek geprueft:
 Sie brauchen eine zusaetzliche `Type: Variable`-Huelle um den Variablenbezug.
 Ein nackter `WFTextTokenAttachment` wird hier als leere Bedingung gelesen,
 obwohl er als Eingabe anderer Aktionen gueltig ist.
+Das Wertefeld von "Woerterbuchwert konfigurieren" verwendet dagegen einen
+`WFTextTokenString` mit genau einer Inhaltsvariable. Ein direkter
+`WFTextTokenAttachment` wird dort als fehlender Wert gelesen. Die native Pruefung
+verifiziert auch, dass Testlisten mit 0, 1 und 5 Woerterbuechern ihre Inhaltstypen
+und Werte behalten; sie liest keine Apple-Erinnerungen und sendet nichts.
 
 ## Manuelle Alternative
 

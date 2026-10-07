@@ -49,7 +49,10 @@ test("native Verknüpfungen, Wiederholung und leere Momentaufnahme bleiben gült
   expect(reminders.WFSerializationType).toBe("WFArrayParameterState");
   expect(Array.isArray(reminders.Value)).toBe(true);
   expect(reminders.Value).toEqual([]);
-  expect(find("Full payload").WFDictionaryValue.Value.OutputUUID).toBe(find("Reminders array").UUID);
+  const value = find("Full payload").WFDictionaryValue;
+  expect(value.WFSerializationType).toBe("WFTextTokenString");
+  expect(value.Value.string).toBe("\uFFFC");
+  expect(value.Value.attachmentsByRange["{0, 1}"].OutputUUID).toBe(find("Reminders array").UUID);
   const row = find("Reminder").WFItems.Value.WFDictionaryFieldValueItems;
   expect(row.map((f: any) => f.WFKey.Value.string)).toEqual(["title", "list", "notes", "date"]);
   expect(find("Clear date").WFInput.Value.OutputUUID).toBe(find("Empty date").UUID);
@@ -107,9 +110,22 @@ test("Apples Serializer reproduziert den alten Bearbeitungsabsturz und akzeptier
     const missing = spawnSync(validator, [badConditionFile], { encoding: "utf8" });
     expect(missing.status).toBe(1);
     expect(missing.stderr).toContain("Invalid conditional input: access-empty-if");
+    const badValue = JSON.parse(manifest);
+    const setter = badValue.WFWorkflowActions.find((a: any) => a.WFWorkflowActionIdentifier === "is.workflow.actions.setvalueforkey");
+    setter.WFWorkflowActionParameters.WFDictionaryValue = {
+      Value: setter.WFWorkflowActionParameters.WFDictionaryValue.Value.attachmentsByRange["{0, 1}"],
+      WFSerializationType: "WFTextTokenAttachment",
+    };
+    const badValueFile = join(temp, "old-invalid-dictionary-value.json");
+    writeFileSync(badValueFile, JSON.stringify(badValue));
+    const missingValue = spawnSync(validator, [badValueFile], { encoding: "utf8" });
+    expect(missingValue.status).toBe(1);
+    expect(missingValue.stderr).toContain("Invalid dictionary value: Full payload");
     const current = spawnSync(validator, [resolve(root, "docs/shortcuts/workcore-erinnerungen.workflow.json")], { encoding: "utf8" });
     expect(current.status, current.stderr).toBe(0);
     expect(current.stdout).toContain("4 parameter states roundtripped");
     expect(current.stdout).toContain("7 conditional inputs roundtripped");
+    expect(current.stdout).toContain("1 typed dictionary values roundtripped");
+    for (const count of [0, 1, 5]) expect(current.stdout).toContain(`${count} reminder dictionaries preserved`);
   } finally { rmSync(temp, { recursive: true, force: true }); }
 });

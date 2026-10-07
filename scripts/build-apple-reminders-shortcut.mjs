@@ -74,7 +74,7 @@ dictionary("Empty payload", [["generatedAt", inline(ref("Timestamp"))], ["remind
 }, 2]]);
 action("setvariable", "Initialize payload", { WFVariableName: "Payload", WFInput: ref("Empty payload") });
 action("conditional", "Results if", { WFInput: subject(ref("Reminders array")), WFCondition: 100, WFControlFlowMode: 0, GroupingIdentifier: id("results-if") });
-action("setvalueforkey", "Full payload", { WFDictionary: ref("Empty payload"), WFDictionaryKey: "reminders", WFDictionaryValue: ref("Reminders array") });
+action("setvalueforkey", "Full payload", { WFDictionary: ref("Empty payload"), WFDictionaryKey: "reminders", WFDictionaryValue: inline(ref("Reminders array")) });
 action("setvariable", "Set payload", { WFVariableName: "Payload", WFInput: ref("Full payload") });
 action("conditional", "Results end", { WFControlFlowMode: 2, GroupingIdentifier: id("results-if") });
 action("gettext", "JSON body", { WFTextActionText: inline(variable("Payload")) });
