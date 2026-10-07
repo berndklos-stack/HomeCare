@@ -13,6 +13,8 @@ const id = (name) => {
 const token = (Value) => ({ Value, WFSerializationType: "WFTextTokenAttachment" });
 const ref = (name) => token({ Type: "ActionOutput", OutputUUID: id(name), OutputName: name });
 const variable = (name) => token({ Type: "Variable", VariableName: name });
+// Conditional subjects need a typed wrapper, unlike ordinary action inputs.
+const subject = (input) => ({ Type: "Variable", Variable: input });
 const text = (value) => ({ Value: { string: value }, WFSerializationType: "WFTextTokenString" });
 const inline = (attachment) => ({
   Value: { string: "\uFFFC", attachmentsByRange: { "{0, 1}": attachment.Value } },
@@ -24,7 +26,7 @@ function action(type, name, parameters = {}) {
   } });
 }
 function guard(name, input, message, condition = 101) {
-  action("conditional", `${name}-if`, { WFInput: input, WFCondition: condition,
+  action("conditional", `${name}-if`, { WFInput: subject(input), WFCondition: condition,
     ...(condition === 4 ? { WFConditionalActionString: message } : {}),
     WFControlFlowMode: 0, GroupingIdentifier: id(name) });
   action("alert", `${name}-alert`, { WFAlertActionTitle: "WorkCore Einrichtung",
@@ -58,7 +60,7 @@ for (const [name, property] of [["Title", "Title"], ["List", "List"], ["Notes", 
 }
 action("gettext", "Empty date", { WFTextActionText: "" });
 action("setvariable", "Clear date", { WFVariableName: "Due text", WFInput: ref("Empty date") });
-action("conditional", "Date if", { WFInput: ref("Due date"), WFCondition: 100, WFControlFlowMode: 0, GroupingIdentifier: id("due-if") });
+action("conditional", "Date if", { WFInput: subject(ref("Due date")), WFCondition: 100, WFControlFlowMode: 0, GroupingIdentifier: id("due-if") });
 action("format.date", "Formatted date", { WFDate: ref("Due date"), WFDateFormatStyle: "Custom", WFTimeFormatStyle: "None", WFDateFormat: "yyyy-MM-dd" });
 action("setvariable", "Set date", { WFVariableName: "Due text", WFInput: ref("Formatted date") });
 action("conditional", "Date end", { WFControlFlowMode: 2, GroupingIdentifier: id("due-if") });
@@ -71,7 +73,7 @@ dictionary("Empty payload", [["generatedAt", inline(ref("Timestamp"))], ["remind
   Value: [], WFSerializationType: "WFArrayParameterState",
 }, 2]]);
 action("setvariable", "Initialize payload", { WFVariableName: "Payload", WFInput: ref("Empty payload") });
-action("conditional", "Results if", { WFInput: ref("Reminders array"), WFCondition: 100, WFControlFlowMode: 0, GroupingIdentifier: id("results-if") });
+action("conditional", "Results if", { WFInput: subject(ref("Reminders array")), WFCondition: 100, WFControlFlowMode: 0, GroupingIdentifier: id("results-if") });
 action("setvalueforkey", "Full payload", { WFDictionary: ref("Empty payload"), WFDictionaryKey: "reminders", WFDictionaryValue: ref("Reminders array") });
 action("setvariable", "Set payload", { WFVariableName: "Payload", WFInput: ref("Full payload") });
 action("conditional", "Results end", { WFControlFlowMode: 2, GroupingIdentifier: id("results-if") });
@@ -85,7 +87,7 @@ action("downloadurl", "Response", {
 });
 action("detect.dictionary", "Response dictionary", { WFInput: ref("Response") });
 action("getvalueforkey", "Error", { WFInput: ref("Response dictionary"), WFGetDictionaryValueType: "Value", WFDictionaryKey: "error" });
-action("conditional", "Error if", { WFInput: ref("Error"), WFCondition: 100, WFControlFlowMode: 0, GroupingIdentifier: id("error-if") });
+action("conditional", "Error if", { WFInput: subject(ref("Error")), WFCondition: 100, WFControlFlowMode: 0, GroupingIdentifier: id("error-if") });
 action("alert", "Error message", { WFAlertActionTitle: "WorkCore Uebertragung fehlgeschlagen", WFAlertActionMessage: inline(ref("Error")), WFAlertActionCancelButtonShown: false });
 action("exit", "Error stop");
 action("conditional", "Error end", { WFControlFlowMode: 2, GroupingIdentifier: id("error-if") });

@@ -30,12 +30,15 @@
       "WFWorkflowActionIdentifier": "is.workflow.actions.conditional",
       "WFWorkflowActionParameters": {
         "WFInput": {
-          "Value": {
-            "Type": "ActionOutput",
-            "OutputUUID": "BD4BDB92-0B96-0FD4-D332-ED2AC50FBC8C",
-            "OutputName": "Authorization"
-          },
-          "WFSerializationType": "WFTextTokenAttachment"
+          "Type": "Variable",
+          "Variable": {
+            "Value": {
+              "Type": "ActionOutput",
+              "OutputUUID": "BD4BDB92-0B96-0FD4-D332-ED2AC50FBC8C",
+              "OutputName": "Authorization"
+            },
+            "WFSerializationType": "WFTextTokenAttachment"
+          }
         },
         "WFCondition": 101,
         "WFControlFlowMode": 0,
@@ -74,12 +77,15 @@
       "WFWorkflowActionIdentifier": "is.workflow.actions.conditional",
       "WFWorkflowActionParameters": {
         "WFInput": {
-          "Value": {
-            "Type": "ActionOutput",
-            "OutputUUID": "BD4BDB92-0B96-0FD4-D332-ED2AC50FBC8C",
-            "OutputName": "Authorization"
-          },
-          "WFSerializationType": "WFTextTokenAttachment"
+          "Type": "Variable",
+          "Variable": {
+            "Value": {
+              "Type": "ActionOutput",
+              "OutputUUID": "BD4BDB92-0B96-0FD4-D332-ED2AC50FBC8C",
+              "OutputName": "Authorization"
+            },
+            "WFSerializationType": "WFTextTokenAttachment"
+          }
         },
         "WFCondition": 4,
         "WFConditionalActionString": "BEARER_AUS_WORKCORE_EINTRAGEN",
@@ -119,12 +125,15 @@
       "WFWorkflowActionIdentifier": "is.workflow.actions.conditional",
       "WFWorkflowActionParameters": {
         "WFInput": {
-          "Value": {
-            "Type": "ActionOutput",
-            "OutputUUID": "CDB95508-BA08-E9EE-8B6B-4CB9AEA36C5D",
-            "OutputName": "Tenant"
-          },
-          "WFSerializationType": "WFTextTokenAttachment"
+          "Type": "Variable",
+          "Variable": {
+            "Value": {
+              "Type": "ActionOutput",
+              "OutputUUID": "CDB95508-BA08-E9EE-8B6B-4CB9AEA36C5D",
+              "OutputName": "Tenant"
+            },
+            "WFSerializationType": "WFTextTokenAttachment"
+          }
         },
         "WFCondition": 101,
         "WFControlFlowMode": 0,
@@ -163,12 +172,15 @@
       "WFWorkflowActionIdentifier": "is.workflow.actions.conditional",
       "WFWorkflowActionParameters": {
         "WFInput": {
-          "Value": {
-            "Type": "ActionOutput",
-            "OutputUUID": "CDB95508-BA08-E9EE-8B6B-4CB9AEA36C5D",
-            "OutputName": "Tenant"
-          },
-          "WFSerializationType": "WFTextTokenAttachment"
+          "Type": "Variable",
+          "Variable": {
+            "Value": {
+              "Type": "ActionOutput",
+              "OutputUUID": "CDB95508-BA08-E9EE-8B6B-4CB9AEA36C5D",
+              "OutputName": "Tenant"
+            },
+            "WFSerializationType": "WFTextTokenAttachment"
+          }
         },
         "WFCondition": 4,
         "WFConditionalActionString": "MANDANT_AUS_WORKCORE_EINTRAGEN",
@@ -334,12 +346,15 @@
       "WFWorkflowActionIdentifier": "is.workflow.actions.conditional",
       "WFWorkflowActionParameters": {
         "WFInput": {
-          "Value": {
-            "Type": "ActionOutput",
-            "OutputUUID": "9DDDDBAA-E791-B40E-10B9-E9D3030D1D11",
-            "OutputName": "Due date"
-          },
-          "WFSerializationType": "WFTextTokenAttachment"
+          "Type": "Variable",
+          "Variable": {
+            "Value": {
+              "Type": "ActionOutput",
+              "OutputUUID": "9DDDDBAA-E791-B40E-10B9-E9D3030D1D11",
+              "OutputName": "Due date"
+            },
+            "WFSerializationType": "WFTextTokenAttachment"
+          }
         },
         "WFCondition": 100,
         "WFControlFlowMode": 0,
@@ -596,12 +611,15 @@
       "WFWorkflowActionIdentifier": "is.workflow.actions.conditional",
       "WFWorkflowActionParameters": {
         "WFInput": {
-          "Value": {
-            "Type": "ActionOutput",
-            "OutputUUID": "7D149A59-7855-8006-A244-279A349009D7",
-            "OutputName": "Reminders array"
-          },
-          "WFSerializationType": "WFTextTokenAttachment"
+          "Type": "Variable",
+          "Variable": {
+            "Value": {
+              "Type": "ActionOutput",
+              "OutputUUID": "7D149A59-7855-8006-A244-279A349009D7",
+              "OutputName": "Reminders array"
+            },
+            "WFSerializationType": "WFTextTokenAttachment"
+          }
         },
         "WFCondition": 100,
         "WFControlFlowMode": 0,
@@ -804,12 +822,15 @@
       "WFWorkflowActionIdentifier": "is.workflow.actions.conditional",
       "WFWorkflowActionParameters": {
         "WFInput": {
-          "Value": {
-            "Type": "ActionOutput",
-            "OutputUUID": "D4691F80-5BCD-3089-FF13-347BBAAF4787",
-            "OutputName": "Error"
-          },
-          "WFSerializationType": "WFTextTokenAttachment"
+          "Type": "Variable",
+          "Variable": {
+            "Value": {
+              "Type": "ActionOutput",
+              "OutputUUID": "D4691F80-5BCD-3089-FF13-347BBAAF4787",
+              "OutputName": "Error"
+            },
+            "WFSerializationType": "WFTextTokenAttachment"
+          }
         },
         "WFCondition": 100,
         "WFControlFlowMode": 0,

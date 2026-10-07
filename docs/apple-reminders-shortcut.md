@@ -39,6 +39,10 @@ wieder serialisiert, ohne sie auszufuehren. Leere Arrays muessen im nativen
 kann Kurzbefehle beim Bearbeiten einer beliebigen Aktion zum Absturz bringen.
 Nach einem Download der ersten fehlerhaften Vorlage die alte Kopie ersetzen;
 die neue Datei erneut herunterladen, nicht nur die Eingaben wiederholen.
+Auch die sieben Wenn-Eingaben werden mit Apples nativer Bibliothek geprueft:
+Sie brauchen eine zusaetzliche `Type: Variable`-Huelle um den Variablenbezug.
+Ein nackter `WFTextTokenAttachment` wird hier als leere Bedingung gelesen,
+obwohl er als Eingabe anderer Aktionen gueltig ist.
 
 ## Manuelle Alternative
 

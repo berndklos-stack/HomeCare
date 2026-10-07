@@ -71,6 +71,19 @@ test("einziger HTTP-Aufruf sendet JSON nur an WorkCore; signierter Download erre
   expect(await response.body()).toEqual(local);
 });
 
+test("alle Wenn-Bedingungen enthalten einen vollständigen Apple-Variablenbezug", () => {
+  const conditions = actions.filter((a) => a.WFWorkflowActionIdentifier === "is.workflow.actions.conditional" && a.WFWorkflowActionParameters.WFControlFlowMode === 0);
+  expect(conditions).toHaveLength(7);
+  expect(conditions.map((a) => a.WFWorkflowActionParameters.WFCondition)).toEqual([101, 4, 101, 4, 100, 100, 100]);
+  for (const { WFWorkflowActionParameters: p } of conditions) {
+    expect(p.WFInput.Type).toBe("Variable");
+    expect(p.WFInput.Variable.WFSerializationType).toBe("WFTextTokenAttachment");
+    expect(p.WFInput.Variable.Value.Type).toBe("ActionOutput");
+    expect(p.WFInput.Variable.Value.OutputUUID).toBeTruthy();
+    if (p.WFCondition === 4) expect(p.WFConditionalActionString).toBeTruthy();
+  }
+});
+
 test("Apples Serializer reproduziert den alten Bearbeitungsabsturz und akzeptiert die korrigierte Vorlage", () => {
   test.skip(process.platform !== "darwin", "WorkflowKit ist nur auf macOS verfügbar; Strukturtests laufen auf allen Plattformen.");
   const temp = mkdtempSync(join(tmpdir(), "workcore-shortcut-test-"));
@@ -86,8 +99,17 @@ test("Apples Serializer reproduziert den alten Bearbeitungsabsturz und akzeptier
     expect(old.status).toBe(1);
     expect(old.stderr).toContain("NSInvalidArgumentException");
     expect(old.stderr).toContain("attempt to insert nil object");
+    const badConditional = JSON.parse(manifest);
+    const condition = badConditional.WFWorkflowActions.find((a: any) => a.WFWorkflowActionIdentifier === "is.workflow.actions.conditional");
+    condition.WFWorkflowActionParameters.WFInput = condition.WFWorkflowActionParameters.WFInput.Variable;
+    const badConditionFile = join(temp, "old-invalid-condition.json");
+    writeFileSync(badConditionFile, JSON.stringify(badConditional));
+    const missing = spawnSync(validator, [badConditionFile], { encoding: "utf8" });
+    expect(missing.status).toBe(1);
+    expect(missing.stderr).toContain("Invalid conditional input: access-empty-if");
     const current = spawnSync(validator, [resolve(root, "docs/shortcuts/workcore-erinnerungen.workflow.json")], { encoding: "utf8" });
     expect(current.status, current.stderr).toBe(0);
     expect(current.stdout).toContain("4 parameter states roundtripped");
+    expect(current.stdout).toContain("7 conditional inputs roundtripped");
   } finally { rmSync(temp, { recursive: true, force: true }); }
 });
