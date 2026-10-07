@@ -6,6 +6,38 @@ import { reviewMediaConflict } from "../lib/conflictReview";
 
 const pixel = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=", "base64");
 
+test("Tagesmail behält ihre Serverrevision beim Laden und nach erneutem Speichern", async ({ page }) => {
+  await page.route("**/api/integrations/apple-reminders", (route) => route.fulfill({ json: { connected: false, receivedAt: "", count: 0 } }));
+  await page.addInitScript(() => {
+    if (!localStorage.getItem("DAILY-REVISION-FIXTURE")) {
+      localStorage.setItem("kolaretorp-daily-mail-settings", JSON.stringify({
+        revision: 7, updatedAt: "2026-10-07T12:00:00Z", enabled: true,
+        sendTime: "06:00", sendTimes: ["06:00"], toRecipients: "test@example.com", ccRecipients: "",
+        calendarSources: "", birthdaySources: "", reminderSources: "", frequency: "daily", weekdays: ["1"],
+      }));
+      localStorage.setItem("DAILY-REVISION-FIXTURE", "1");
+      localStorage.setItem("kolaretorp-field-progress", JSON.stringify({ "DAILY-REVISION": {} }));
+    }
+  });
+  await page.goto("/");
+  for (const time of ["07:00", "08:00"]) {
+    await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true");
+    await page.getByTestId("nav-masterData").click();
+    await page.locator(".master-data-tabs").getByRole("button", { name: "Tagesmail", exact: true }).click();
+    await page.getByLabel("Versandzeit", { exact: true }).first().fill(time);
+    await page.getByRole("button", { name: "Tagesmail-Einstellungen speichern", exact: true }).click();
+    await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem("kolaretorp-daily-mail-settings") || "{}").sendTime)).toBe(time);
+    const queue = await page.evaluate(() => JSON.parse(localStorage.getItem("workcore-sync-mutations-v1") || "[]"));
+    const settings = queue.filter((row: { entityId: string }) => row.entityId === "dailyMailSettings");
+    expect(settings.length).toBeGreaterThan(0);
+    expect(settings.map((row: { operation: string; expectedRevision: number }) => ({ operation: row.operation, expectedRevision: row.expectedRevision }))).toEqual(expect.arrayContaining([{ operation: "update", expectedRevision: time === "07:00" ? 7 : 8 }]));
+    const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("kolaretorp-daily-mail-settings") || "{}"));
+    expect(stored.revision).toBeGreaterThanOrEqual(8);
+    expect(stored.toRecipients).toBe("test@example.com");
+    await page.reload();
+  }
+});
+
 test("iPhone-Erinnerungsanbindung zeigt einmaligen Zugang und lässt sich widerrufen", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   let connected = false;

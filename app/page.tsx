@@ -7938,6 +7938,8 @@ function normalizeDailyMailSettings(settings?: Partial<DailyMailSettings>): Dail
     : "daily";
   const sendTimes = normalizeDailyMailSendTimes(settings);
   return {
+    revision: settings?.revision,
+    updatedAt: settings?.updatedAt,
     birthdaySources: settings?.birthdaySources ?? "",
     calendarSources: settings?.calendarSources ?? "",
     ccRecipients: settings?.ccRecipients ?? "Nicole.Klos@icloud.com",
