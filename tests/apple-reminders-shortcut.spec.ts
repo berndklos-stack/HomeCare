@@ -1,6 +1,8 @@
 import { test, expect } from "@playwright/test";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { readFileSync, mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { join, resolve } from "node:path";
+import { tmpdir } from "node:os";
+import { execFileSync, spawnSync } from "node:child_process";
 
 const root = resolve(__dirname, "..");
 const manifest = readFileSync(resolve(root, "docs/shortcuts/workcore-erinnerungen.workflow.json"), "utf8");
@@ -43,7 +45,10 @@ test("native Verknüpfungen, Wiederholung und leere Momentaufnahme bleiben gült
   }
   expect(groups).toEqual([]);
   const fields = find("Empty payload").WFItems.Value.WFDictionaryFieldValueItems;
-  expect(fields.find((f: any) => f.WFKey.Value.string === "reminders").WFValue.Value.WFArrayParameterStateItems).toEqual([]);
+  const reminders = fields.find((f: any) => f.WFKey.Value.string === "reminders").WFValue;
+  expect(reminders.WFSerializationType).toBe("WFArrayParameterState");
+  expect(Array.isArray(reminders.Value)).toBe(true);
+  expect(reminders.Value).toEqual([]);
   expect(find("Full payload").WFDictionaryValue.Value.OutputUUID).toBe(find("Reminders array").UUID);
   const row = find("Reminder").WFItems.Value.WFDictionaryFieldValueItems;
   expect(row.map((f: any) => f.WFKey.Value.string)).toEqual(["title", "list", "notes", "date"]);
@@ -64,4 +69,25 @@ test("einziger HTTP-Aufruf sendet JSON nur an WorkCore; signierter Download erre
   const response = await request.get("/shortcuts/workcore-erinnerungen.shortcut");
   expect(response.status()).toBe(200);
   expect(await response.body()).toEqual(local);
+});
+
+test("Apples Serializer reproduziert den alten Bearbeitungsabsturz und akzeptiert die korrigierte Vorlage", () => {
+  test.skip(process.platform !== "darwin", "WorkflowKit ist nur auf macOS verfügbar; Strukturtests laufen auf allen Plattformen.");
+  const temp = mkdtempSync(join(tmpdir(), "workcore-shortcut-test-"));
+  try {
+    const validator = join(temp, "validate");
+    execFileSync("clang", ["-framework", "Foundation", "-o", validator, resolve(root, "scripts/validate-apple-reminders-shortcut.m")]);
+    const bad = JSON.parse(manifest);
+    const payload = bad.WFWorkflowActions.find((a: any) => a.WFWorkflowActionParameters.CustomOutputName === "Empty payload");
+    payload.WFWorkflowActionParameters.WFItems.Value.WFDictionaryFieldValueItems.find((f: any) => f.WFItemType === 2).WFValue.Value = { WFArrayParameterStateItems: [] };
+    const badFile = join(temp, "old-invalid-workflow.json");
+    writeFileSync(badFile, JSON.stringify(bad));
+    const old = spawnSync(validator, [badFile], { encoding: "utf8" });
+    expect(old.status).toBe(1);
+    expect(old.stderr).toContain("NSInvalidArgumentException");
+    expect(old.stderr).toContain("attempt to insert nil object");
+    const current = spawnSync(validator, [resolve(root, "docs/shortcuts/workcore-erinnerungen.workflow.json")], { encoding: "utf8" });
+    expect(current.status, current.stderr).toBe(0);
+    expect(current.stdout).toContain("4 parameter states roundtripped");
+  } finally { rmSync(temp, { recursive: true, force: true }); }
 });

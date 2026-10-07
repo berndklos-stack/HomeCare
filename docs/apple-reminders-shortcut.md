@@ -33,6 +33,13 @@ ueber Apples Signierdienst signieren (Netzwerk erforderlich). Die lesbare
 Workflow-Definition liegt unter `docs/shortcuts/workcore-erinnerungen.workflow.json`.
 Keine persoenlichen Zugaenge in diese Dateien eintragen.
 
+Die Vorlage wird vor der Signierung mit Apples WorkflowKit deserialisiert und
+wieder serialisiert, ohne sie auszufuehren. Leere Arrays muessen im nativen
+`WFArrayParameterState` als `Value: []` vorliegen. Ein Woerterbuch an dieser Stelle
+kann Kurzbefehle beim Bearbeiten einer beliebigen Aktion zum Absturz bringen.
+Nach einem Download der ersten fehlerhaften Vorlage die alte Kopie ersetzen;
+die neue Datei erneut herunterladen, nicht nur die Eingaben wiederholen.
+
 ## Manuelle Alternative
 
 Die Bezeichnungen einzelner Aktionen unterscheiden sich je nach iOS-Version.

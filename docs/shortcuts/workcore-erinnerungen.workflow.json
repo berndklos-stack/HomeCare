@@ -564,9 +564,7 @@
                   "WFSerializationType": "WFTextTokenString"
                 },
                 "WFValue": {
-                  "Value": {
-                    "WFArrayParameterStateItems": []
-                  },
+                  "Value": [],
                   "WFSerializationType": "WFArrayParameterState"
                 }
               }
@@ -693,6 +691,12 @@
             "OutputName": "JSON body"
           },
           "WFSerializationType": "WFTextTokenAttachment"
+        },
+        "WFFormValues": {
+          "Value": {
+            "WFDictionaryFieldValueItems": []
+          },
+          "WFSerializationType": "WFDictionaryFieldValue"
         },
         "WFHTTPHeaders": {
           "Value": {

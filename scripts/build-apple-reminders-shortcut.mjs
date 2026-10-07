@@ -68,7 +68,7 @@ action("repeat.each", "Reminders array", { WFControlFlowMode: 2, GroupingIdentif
 action("date", "Now", { WFDateActionMode: "Current Date" });
 action("format.date", "Timestamp", { WFDate: ref("Now"), WFDateFormatStyle: "Custom", WFTimeFormatStyle: "None", WFDateFormat: "yyyy-MM-dd'T'HH:mm:ssXXX" });
 dictionary("Empty payload", [["generatedAt", inline(ref("Timestamp"))], ["reminders", {
-  Value: { WFArrayParameterStateItems: [] }, WFSerializationType: "WFArrayParameterState",
+  Value: [], WFSerializationType: "WFArrayParameterState",
 }, 2]]);
 action("setvariable", "Initialize payload", { WFVariableName: "Payload", WFInput: ref("Empty payload") });
 action("conditional", "Results if", { WFInput: ref("Reminders array"), WFCondition: 100, WFControlFlowMode: 0, GroupingIdentifier: id("results-if") });
@@ -80,6 +80,7 @@ const headers = [["Authorization", inline(ref("Authorization"))], ["X-WorkCore-T
 action("downloadurl", "Response", {
   WFURL: "https://homecare-xi.vercel.app/api/integrations/apple-reminders", WFHTTPMethod: "PUT", WFHTTPBodyType: "File",
   WFRequestVariable: ref("JSON body"),
+  WFFormValues: { Value: { WFDictionaryFieldValueItems: [] }, WFSerializationType: "WFDictionaryFieldValue" },
   WFHTTPHeaders: { Value: { WFDictionaryFieldValueItems: headers.map(([key, value]) => ({ WFItemType: 0, WFKey: text(key), WFValue: value })) }, WFSerializationType: "WFDictionaryFieldValue" },
 });
 action("detect.dictionary", "Response dictionary", { WFInput: ref("Response") });
@@ -104,6 +105,9 @@ mkdirSync(resolve("docs/shortcuts"), { recursive: true });
 const manifest = resolve("docs/shortcuts/workcore-erinnerungen.workflow.json");
 writeFileSync(manifest, JSON.stringify(workflow, null, 2) + "\n");
 const temp = mkdtempSync(join(tmpdir(), "workcore-reminders-"));
+const validator = join(temp, "validate-shortcut");
+execFileSync("clang", ["-framework", "Foundation", "-o", validator, resolve("scripts/validate-apple-reminders-shortcut.m")]);
+execFileSync(validator, [manifest], { stdio: "inherit" });
 const unsigned = join(temp, "WorkCore Erinnerungen senden.shortcut");
 execFileSync("plutil", ["-convert", "xml1", "-o", unsigned, manifest]);
 mkdirSync(resolve("public/shortcuts"), { recursive: true });
