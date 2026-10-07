@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Copy, RefreshCw, Unplug } from "lucide-react";
+import { Copy, Download, RefreshCw, Unplug } from "lucide-react";
 import { apiFetch, getActiveTenantId } from "@/lib/apiClient";
 
 export function AppleRemindersBridge() {
@@ -52,6 +52,7 @@ export function AppleRemindersBridge() {
       ? `Letzter Abruf: ${new Date(status.receivedAt).toLocaleString()} · ${status.count} offene Erinnerungen`
       : status?.connected ? "Eingerichtet; noch kein Abruf empfangen." : "Noch nicht verbunden."}</p>
     <div className="button-row">
+      <a className="ghost-button" href="/shortcuts/workcore-erinnerungen.shortcut" download><Download size={16} style={{ flexShrink: 0 }} />Kurzbefehl herunterladen</a>
       {!status?.connected && <button type="button" className="ghost-button" disabled={busy || status === null} onClick={() => void act("POST")}>iPhone verbinden</button>}
       <button type="button" className="icon-button" title="Abrufstatus aktualisieren" aria-label="Abrufstatus aktualisieren" disabled={busy} onClick={() => void act("GET")}><RefreshCw size={16} /></button>
       {status?.connected && <button type="button" className="ghost-button" disabled={busy} onClick={() => void act("DELETE")}><Unplug size={16} />Anbindung widerrufen</button>}
@@ -67,12 +68,9 @@ export function AppleRemindersBridge() {
     <details>
       <summary>Kurzbefehl auf dem iPhone einrichten</summary>
       <ol>
-        <li>In Kurzbefehle einen neuen Kurzbefehl „WorkCore Erinnerungen senden“ anlegen.</li>
-        <li>„Erinnerungen suchen“: Ist abgeschlossen = Nein. Alle Listen, kein Ergebnislimit.</li>
-        <li>Mit jeder Erinnerung wiederholen. Titel, Listenname, Notizen und Fälligkeitsdatum lesen.</li>
-        <li>Ein Wörterbuch pro Erinnerung erstellen: title = Titel, list = Listenname, notes = Notizen, date = Datum im Format yyyy-MM-dd oder leer. Dieses Wörterbuch ist das Wiederholungsergebnis.</li>
-        <li>Aktuelles Datum im ISO-8601-Format mit Uhrzeit und Zeitzone formatieren.</li>
-        <li>„Inhalt von URL abrufen“ mit der Übertragungs-URL: Methode PUT, Header Authorization und X-WorkCore-Tenant wie oben. JSON-Anfragetext: generatedAt = ISO-Datum, reminders = Array der Wiederholungsergebnisse (bei keiner Erinnerung leeres Array).</li>
+        <li>„iPhone verbinden“ wählen und den Zugang kopieren. Falls ein früherer Zugang verloren ist, die Anbindung widerrufen und neu verbinden.</li>
+        <li>„Kurzbefehl herunterladen“ auf dem iPhone wählen, die Datei in Kurzbefehle öffnen und hinzufügen. Beim Import Authorization inklusive „Bearer“ und X-WorkCore-Tenant aus WorkCore eintragen. Falls iOS keine Einrichtungsfragen zeigt, die ersten beiden Textaktionen ausfüllen.</li>
+        <li>Die Vorlage liest alle Listen und nur offene Erinnerungen. Die Download-Datei enthält noch keinen persönlichen Zugang. Den eingerichteten Kurzbefehl nicht teilen.</li>
         <li>Manuell ausführen, Apple-Freigaben erlauben und hier den Abrufstatus aktualisieren.</li>
         <li>Persönliche Automation täglich um 05:45 für diesen Kurzbefehl einrichten, sofort ausführen. Bei Tagesmail um 06:00 bleibt Zeitreserve.</li>
       </ol>

@@ -56,6 +56,10 @@ test("iPhone-Erinnerungsanbindung zeigt einmaligen Zugang und lässt sich widerr
   await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true");
   await page.getByTestId("nav-masterData").click();
   await page.locator(".master-data-tabs").getByRole("button", { name: "Tagesmail", exact: true }).click();
+  const shortcut = page.getByRole("link", { name: "Kurzbefehl herunterladen", exact: true });
+  await expect(shortcut).toBeVisible();
+  await expect(shortcut).toHaveAttribute("href", "/shortcuts/workcore-erinnerungen.shortcut");
+  await expect(shortcut).toHaveAttribute("download", "");
   await page.getByRole("button", { name: "iPhone verbinden", exact: true }).click();
   await expect(page.getByLabel("Authorization (nur jetzt sichtbar)", { exact: true })).toHaveValue(`Bearer ${key}`);
   await expect(page.getByLabel("Authorization (nur jetzt sichtbar)", { exact: true })).toHaveAttribute("type", "password");

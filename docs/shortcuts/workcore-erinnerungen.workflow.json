@@ -1,0 +1,887 @@
+{
+  "WFWorkflowName": "WorkCore Erinnerungen senden",
+  "WFWorkflowClientVersion": "3036.0.4.2",
+  "WFWorkflowMinimumClientVersion": 900,
+  "WFWorkflowMinimumClientVersionString": "900",
+  "WFWorkflowIcon": {
+    "WFWorkflowIconStartColor": 3031607807,
+    "WFWorkflowIconGlyphNumber": 61440
+  },
+  "WFWorkflowTypes": [],
+  "WFWorkflowInputContentItemClasses": [],
+  "WFWorkflowActions": [
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.gettext",
+      "WFWorkflowActionParameters": {
+        "WFTextActionText": "BEARER_AUS_WORKCORE_EINTRAGEN",
+        "UUID": "BD4BDB92-0B96-0FD4-D332-ED2AC50FBC8C",
+        "CustomOutputName": "Authorization"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.gettext",
+      "WFWorkflowActionParameters": {
+        "WFTextActionText": "MANDANT_AUS_WORKCORE_EINTRAGEN",
+        "UUID": "CDB95508-BA08-E9EE-8B6B-4CB9AEA36C5D",
+        "CustomOutputName": "Tenant"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.conditional",
+      "WFWorkflowActionParameters": {
+        "WFInput": {
+          "Value": {
+            "Type": "ActionOutput",
+            "OutputUUID": "BD4BDB92-0B96-0FD4-D332-ED2AC50FBC8C",
+            "OutputName": "Authorization"
+          },
+          "WFSerializationType": "WFTextTokenAttachment"
+        },
+        "WFCondition": 101,
+        "WFControlFlowMode": 0,
+        "GroupingIdentifier": "8827A69A-990C-ACE5-4767-7C32F70FB8E3",
+        "UUID": "55B1EACE-A5FE-2EC2-DF0B-1D30451C3FD6",
+        "CustomOutputName": "access-empty-if"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.alert",
+      "WFWorkflowActionParameters": {
+        "WFAlertActionTitle": "WorkCore Einrichtung",
+        "WFAlertActionMessage": "Bitte den Zugang und die Mandantenkennung unter Stammdaten > Tagesmail kopieren und in den ersten beiden Textaktionen eintragen.",
+        "WFAlertActionCancelButtonShown": false,
+        "UUID": "DB34EF6D-60F6-BC55-A7C3-EB3628177215",
+        "CustomOutputName": "access-empty-alert"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.exit",
+      "WFWorkflowActionParameters": {
+        "UUID": "00F02176-45A2-16C1-F47E-B831B0A440D8",
+        "CustomOutputName": "access-empty-stop"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.conditional",
+      "WFWorkflowActionParameters": {
+        "WFControlFlowMode": 2,
+        "GroupingIdentifier": "8827A69A-990C-ACE5-4767-7C32F70FB8E3",
+        "UUID": "6292EE32-2815-676C-F7FA-9BB91A14E834",
+        "CustomOutputName": "access-empty-end"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.conditional",
+      "WFWorkflowActionParameters": {
+        "WFInput": {
+          "Value": {
+            "Type": "ActionOutput",
+            "OutputUUID": "BD4BDB92-0B96-0FD4-D332-ED2AC50FBC8C",
+            "OutputName": "Authorization"
+          },
+          "WFSerializationType": "WFTextTokenAttachment"
+        },
+        "WFCondition": 4,
+        "WFConditionalActionString": "BEARER_AUS_WORKCORE_EINTRAGEN",
+        "WFControlFlowMode": 0,
+        "GroupingIdentifier": "D35DE367-6053-16E7-A341-5EB66478E32E",
+        "UUID": "20E17156-C49B-D940-93D0-3B889D2F7310",
+        "CustomOutputName": "access-placeholder-if"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.alert",
+      "WFWorkflowActionParameters": {
+        "WFAlertActionTitle": "WorkCore Einrichtung",
+        "WFAlertActionMessage": "Bitte den Zugang und die Mandantenkennung unter Stammdaten > Tagesmail kopieren und in den ersten beiden Textaktionen eintragen.",
+        "WFAlertActionCancelButtonShown": false,
+        "UUID": "F4A52E70-0706-A0B8-215D-B7AEB84FB64B",
+        "CustomOutputName": "access-placeholder-alert"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.exit",
+      "WFWorkflowActionParameters": {
+        "UUID": "E4E20265-0984-90CC-E378-374BD7850FCB",
+        "CustomOutputName": "access-placeholder-stop"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.conditional",
+      "WFWorkflowActionParameters": {
+        "WFControlFlowMode": 2,
+        "GroupingIdentifier": "D35DE367-6053-16E7-A341-5EB66478E32E",
+        "UUID": "DA39B9BC-FDA7-123B-0BF0-4D24695063D4",
+        "CustomOutputName": "access-placeholder-end"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.conditional",
+      "WFWorkflowActionParameters": {
+        "WFInput": {
+          "Value": {
+            "Type": "ActionOutput",
+            "OutputUUID": "CDB95508-BA08-E9EE-8B6B-4CB9AEA36C5D",
+            "OutputName": "Tenant"
+          },
+          "WFSerializationType": "WFTextTokenAttachment"
+        },
+        "WFCondition": 101,
+        "WFControlFlowMode": 0,
+        "GroupingIdentifier": "ADC408B2-A82E-4301-CD23-672B2002DB59",
+        "UUID": "9398C6FA-DFC7-F614-044F-B9B821619F38",
+        "CustomOutputName": "tenant-empty-if"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.alert",
+      "WFWorkflowActionParameters": {
+        "WFAlertActionTitle": "WorkCore Einrichtung",
+        "WFAlertActionMessage": "Bitte den Zugang und die Mandantenkennung unter Stammdaten > Tagesmail kopieren und in den ersten beiden Textaktionen eintragen.",
+        "WFAlertActionCancelButtonShown": false,
+        "UUID": "4D7A9FEE-11F5-DFE5-241D-66317780A2A3",
+        "CustomOutputName": "tenant-empty-alert"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.exit",
+      "WFWorkflowActionParameters": {
+        "UUID": "B4D498D8-4189-4A18-C1F2-D6AD9312ABBC",
+        "CustomOutputName": "tenant-empty-stop"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.conditional",
+      "WFWorkflowActionParameters": {
+        "WFControlFlowMode": 2,
+        "GroupingIdentifier": "ADC408B2-A82E-4301-CD23-672B2002DB59",
+        "UUID": "F1AFBAD8-CA43-4DBC-BC93-D724BDE067FD",
+        "CustomOutputName": "tenant-empty-end"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.conditional",
+      "WFWorkflowActionParameters": {
+        "WFInput": {
+          "Value": {
+            "Type": "ActionOutput",
+            "OutputUUID": "CDB95508-BA08-E9EE-8B6B-4CB9AEA36C5D",
+            "OutputName": "Tenant"
+          },
+          "WFSerializationType": "WFTextTokenAttachment"
+        },
+        "WFCondition": 4,
+        "WFConditionalActionString": "MANDANT_AUS_WORKCORE_EINTRAGEN",
+        "WFControlFlowMode": 0,
+        "GroupingIdentifier": "51019784-805B-1D35-AC9F-6F8C91F828DC",
+        "UUID": "A3820698-C42E-011E-FE7A-2D873C39514F",
+        "CustomOutputName": "tenant-placeholder-if"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.alert",
+      "WFWorkflowActionParameters": {
+        "WFAlertActionTitle": "WorkCore Einrichtung",
+        "WFAlertActionMessage": "Bitte den Zugang und die Mandantenkennung unter Stammdaten > Tagesmail kopieren und in den ersten beiden Textaktionen eintragen.",
+        "WFAlertActionCancelButtonShown": false,
+        "UUID": "79B8DC3C-CD67-0499-7F27-11B30A466D53",
+        "CustomOutputName": "tenant-placeholder-alert"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.exit",
+      "WFWorkflowActionParameters": {
+        "UUID": "C4A44152-43CC-1CEF-7E1F-8D505AF026AB",
+        "CustomOutputName": "tenant-placeholder-stop"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.conditional",
+      "WFWorkflowActionParameters": {
+        "WFControlFlowMode": 2,
+        "GroupingIdentifier": "51019784-805B-1D35-AC9F-6F8C91F828DC",
+        "UUID": "01D1C9BB-F1CE-B9F1-F94E-B9A9DD91564B",
+        "CustomOutputName": "tenant-placeholder-end"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.filter.reminders",
+      "WFWorkflowActionParameters": {
+        "WFContentItemFilter": {
+          "Value": {
+            "WFActionParameterFilterPrefix": 1,
+            "WFContentPredicateBoundedDate": false,
+            "WFActionParameterFilterTemplates": [
+              {
+                "Operator": 4,
+                "Property": "Is Completed",
+                "Removable": true,
+                "Values": {
+                  "Bool": false
+                }
+              }
+            ]
+          },
+          "WFSerializationType": "WFContentPredicateTableTemplate"
+        },
+        "WFContentItemLimitEnabled": false,
+        "UUID": "44838FE4-2D79-E3B5-96DB-0E86523286A9",
+        "CustomOutputName": "Open reminders"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.repeat.each",
+      "WFWorkflowActionParameters": {
+        "WFInput": {
+          "Value": {
+            "Type": "ActionOutput",
+            "OutputUUID": "44838FE4-2D79-E3B5-96DB-0E86523286A9",
+            "OutputName": "Open reminders"
+          },
+          "WFSerializationType": "WFTextTokenAttachment"
+        },
+        "WFControlFlowMode": 0,
+        "GroupingIdentifier": "A676256C-FE02-6822-EC77-B36C6FE51EC4",
+        "UUID": "82CD6F85-F896-AE59-D49D-EC35FF354D94",
+        "CustomOutputName": "Repeat start"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.properties.reminders",
+      "WFWorkflowActionParameters": {
+        "WFInput": {
+          "Value": {
+            "Type": "Variable",
+            "VariableName": "Repeat Item"
+          },
+          "WFSerializationType": "WFTextTokenAttachment"
+        },
+        "WFContentItemPropertyName": "Title",
+        "UUID": "DE83FFB5-CB10-90B4-04FE-F0CCC53E4E13",
+        "CustomOutputName": "Title"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.properties.reminders",
+      "WFWorkflowActionParameters": {
+        "WFInput": {
+          "Value": {
+            "Type": "Variable",
+            "VariableName": "Repeat Item"
+          },
+          "WFSerializationType": "WFTextTokenAttachment"
+        },
+        "WFContentItemPropertyName": "List",
+        "UUID": "24A1ABF7-F606-884E-3D14-029705E58647",
+        "CustomOutputName": "List"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.properties.reminders",
+      "WFWorkflowActionParameters": {
+        "WFInput": {
+          "Value": {
+            "Type": "Variable",
+            "VariableName": "Repeat Item"
+          },
+          "WFSerializationType": "WFTextTokenAttachment"
+        },
+        "WFContentItemPropertyName": "Notes",
+        "UUID": "24324D74-DE7E-FC5D-94CC-8EE5EF7BB082",
+        "CustomOutputName": "Notes"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.properties.reminders",
+      "WFWorkflowActionParameters": {
+        "WFInput": {
+          "Value": {
+            "Type": "Variable",
+            "VariableName": "Repeat Item"
+          },
+          "WFSerializationType": "WFTextTokenAttachment"
+        },
+        "WFContentItemPropertyName": "Due Date",
+        "UUID": "9DDDDBAA-E791-B40E-10B9-E9D3030D1D11",
+        "CustomOutputName": "Due date"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.gettext",
+      "WFWorkflowActionParameters": {
+        "WFTextActionText": "",
+        "UUID": "2787021A-98AB-8F8E-90C5-8708C1DCC716",
+        "CustomOutputName": "Empty date"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.setvariable",
+      "WFWorkflowActionParameters": {
+        "WFVariableName": "Due text",
+        "WFInput": {
+          "Value": {
+            "Type": "ActionOutput",
+            "OutputUUID": "2787021A-98AB-8F8E-90C5-8708C1DCC716",
+            "OutputName": "Empty date"
+          },
+          "WFSerializationType": "WFTextTokenAttachment"
+        },
+        "UUID": "B6A8AA8C-AD92-8C41-9CD0-B97928E6F527",
+        "CustomOutputName": "Clear date"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.conditional",
+      "WFWorkflowActionParameters": {
+        "WFInput": {
+          "Value": {
+            "Type": "ActionOutput",
+            "OutputUUID": "9DDDDBAA-E791-B40E-10B9-E9D3030D1D11",
+            "OutputName": "Due date"
+          },
+          "WFSerializationType": "WFTextTokenAttachment"
+        },
+        "WFCondition": 100,
+        "WFControlFlowMode": 0,
+        "GroupingIdentifier": "003413DF-A560-443A-80F6-4DBF4CE5D921",
+        "UUID": "345A1D90-19D0-7787-4EE7-4A7BF43034F8",
+        "CustomOutputName": "Date if"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.format.date",
+      "WFWorkflowActionParameters": {
+        "WFDate": {
+          "Value": {
+            "Type": "ActionOutput",
+            "OutputUUID": "9DDDDBAA-E791-B40E-10B9-E9D3030D1D11",
+            "OutputName": "Due date"
+          },
+          "WFSerializationType": "WFTextTokenAttachment"
+        },
+        "WFDateFormatStyle": "Custom",
+        "WFTimeFormatStyle": "None",
+        "WFDateFormat": "yyyy-MM-dd",
+        "UUID": "192E9EB1-2ED9-16A7-CB5F-96269107B06D",
+        "CustomOutputName": "Formatted date"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.setvariable",
+      "WFWorkflowActionParameters": {
+        "WFVariableName": "Due text",
+        "WFInput": {
+          "Value": {
+            "Type": "ActionOutput",
+            "OutputUUID": "192E9EB1-2ED9-16A7-CB5F-96269107B06D",
+            "OutputName": "Formatted date"
+          },
+          "WFSerializationType": "WFTextTokenAttachment"
+        },
+        "UUID": "1F3CD337-BA0E-B3A2-4E2B-91E2E077B7D7",
+        "CustomOutputName": "Set date"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.conditional",
+      "WFWorkflowActionParameters": {
+        "WFControlFlowMode": 2,
+        "GroupingIdentifier": "003413DF-A560-443A-80F6-4DBF4CE5D921",
+        "UUID": "7DCFA5CC-A5E9-914F-59C0-1A2DB5A01454",
+        "CustomOutputName": "Date end"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.dictionary",
+      "WFWorkflowActionParameters": {
+        "WFItems": {
+          "Value": {
+            "WFDictionaryFieldValueItems": [
+              {
+                "WFItemType": 0,
+                "WFKey": {
+                  "Value": {
+                    "string": "title"
+                  },
+                  "WFSerializationType": "WFTextTokenString"
+                },
+                "WFValue": {
+                  "Value": {
+                    "string": "￼",
+                    "attachmentsByRange": {
+                      "{0, 1}": {
+                        "Type": "ActionOutput",
+                        "OutputUUID": "DE83FFB5-CB10-90B4-04FE-F0CCC53E4E13",
+                        "OutputName": "Title"
+                      }
+                    }
+                  },
+                  "WFSerializationType": "WFTextTokenString"
+                }
+              },
+              {
+                "WFItemType": 0,
+                "WFKey": {
+                  "Value": {
+                    "string": "list"
+                  },
+                  "WFSerializationType": "WFTextTokenString"
+                },
+                "WFValue": {
+                  "Value": {
+                    "string": "￼",
+                    "attachmentsByRange": {
+                      "{0, 1}": {
+                        "Type": "ActionOutput",
+                        "OutputUUID": "24A1ABF7-F606-884E-3D14-029705E58647",
+                        "OutputName": "List"
+                      }
+                    }
+                  },
+                  "WFSerializationType": "WFTextTokenString"
+                }
+              },
+              {
+                "WFItemType": 0,
+                "WFKey": {
+                  "Value": {
+                    "string": "notes"
+                  },
+                  "WFSerializationType": "WFTextTokenString"
+                },
+                "WFValue": {
+                  "Value": {
+                    "string": "￼",
+                    "attachmentsByRange": {
+                      "{0, 1}": {
+                        "Type": "ActionOutput",
+                        "OutputUUID": "24324D74-DE7E-FC5D-94CC-8EE5EF7BB082",
+                        "OutputName": "Notes"
+                      }
+                    }
+                  },
+                  "WFSerializationType": "WFTextTokenString"
+                }
+              },
+              {
+                "WFItemType": 0,
+                "WFKey": {
+                  "Value": {
+                    "string": "date"
+                  },
+                  "WFSerializationType": "WFTextTokenString"
+                },
+                "WFValue": {
+                  "Value": {
+                    "string": "￼",
+                    "attachmentsByRange": {
+                      "{0, 1}": {
+                        "Type": "Variable",
+                        "VariableName": "Due text"
+                      }
+                    }
+                  },
+                  "WFSerializationType": "WFTextTokenString"
+                }
+              }
+            ]
+          },
+          "WFSerializationType": "WFDictionaryFieldValue"
+        },
+        "UUID": "F680691A-EABC-015A-FED7-2D4D43FA7DC1",
+        "CustomOutputName": "Reminder"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.repeat.each",
+      "WFWorkflowActionParameters": {
+        "WFControlFlowMode": 2,
+        "GroupingIdentifier": "A676256C-FE02-6822-EC77-B36C6FE51EC4",
+        "UUID": "7D149A59-7855-8006-A244-279A349009D7",
+        "CustomOutputName": "Reminders array"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.date",
+      "WFWorkflowActionParameters": {
+        "WFDateActionMode": "Current Date",
+        "UUID": "42C7260D-6116-A162-0919-79970BFA061B",
+        "CustomOutputName": "Now"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.format.date",
+      "WFWorkflowActionParameters": {
+        "WFDate": {
+          "Value": {
+            "Type": "ActionOutput",
+            "OutputUUID": "42C7260D-6116-A162-0919-79970BFA061B",
+            "OutputName": "Now"
+          },
+          "WFSerializationType": "WFTextTokenAttachment"
+        },
+        "WFDateFormatStyle": "Custom",
+        "WFTimeFormatStyle": "None",
+        "WFDateFormat": "yyyy-MM-dd'T'HH:mm:ssXXX",
+        "UUID": "18DF63C5-0E29-B926-6A1D-11D940524127",
+        "CustomOutputName": "Timestamp"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.dictionary",
+      "WFWorkflowActionParameters": {
+        "WFItems": {
+          "Value": {
+            "WFDictionaryFieldValueItems": [
+              {
+                "WFItemType": 0,
+                "WFKey": {
+                  "Value": {
+                    "string": "generatedAt"
+                  },
+                  "WFSerializationType": "WFTextTokenString"
+                },
+                "WFValue": {
+                  "Value": {
+                    "string": "￼",
+                    "attachmentsByRange": {
+                      "{0, 1}": {
+                        "Type": "ActionOutput",
+                        "OutputUUID": "18DF63C5-0E29-B926-6A1D-11D940524127",
+                        "OutputName": "Timestamp"
+                      }
+                    }
+                  },
+                  "WFSerializationType": "WFTextTokenString"
+                }
+              },
+              {
+                "WFItemType": 2,
+                "WFKey": {
+                  "Value": {
+                    "string": "reminders"
+                  },
+                  "WFSerializationType": "WFTextTokenString"
+                },
+                "WFValue": {
+                  "Value": {
+                    "WFArrayParameterStateItems": []
+                  },
+                  "WFSerializationType": "WFArrayParameterState"
+                }
+              }
+            ]
+          },
+          "WFSerializationType": "WFDictionaryFieldValue"
+        },
+        "UUID": "81FEAD17-02DE-7648-FA4B-EB293F838F80",
+        "CustomOutputName": "Empty payload"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.setvariable",
+      "WFWorkflowActionParameters": {
+        "WFVariableName": "Payload",
+        "WFInput": {
+          "Value": {
+            "Type": "ActionOutput",
+            "OutputUUID": "81FEAD17-02DE-7648-FA4B-EB293F838F80",
+            "OutputName": "Empty payload"
+          },
+          "WFSerializationType": "WFTextTokenAttachment"
+        },
+        "UUID": "6132313D-FF8A-306A-412F-0F8FBCB954B2",
+        "CustomOutputName": "Initialize payload"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.conditional",
+      "WFWorkflowActionParameters": {
+        "WFInput": {
+          "Value": {
+            "Type": "ActionOutput",
+            "OutputUUID": "7D149A59-7855-8006-A244-279A349009D7",
+            "OutputName": "Reminders array"
+          },
+          "WFSerializationType": "WFTextTokenAttachment"
+        },
+        "WFCondition": 100,
+        "WFControlFlowMode": 0,
+        "GroupingIdentifier": "71D4E780-3550-4F39-72E6-E551CBAFF7A9",
+        "UUID": "6E6F7DB4-F147-BB47-ED83-5DA62669BAD2",
+        "CustomOutputName": "Results if"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.setvalueforkey",
+      "WFWorkflowActionParameters": {
+        "WFDictionary": {
+          "Value": {
+            "Type": "ActionOutput",
+            "OutputUUID": "81FEAD17-02DE-7648-FA4B-EB293F838F80",
+            "OutputName": "Empty payload"
+          },
+          "WFSerializationType": "WFTextTokenAttachment"
+        },
+        "WFDictionaryKey": "reminders",
+        "WFDictionaryValue": {
+          "Value": {
+            "Type": "ActionOutput",
+            "OutputUUID": "7D149A59-7855-8006-A244-279A349009D7",
+            "OutputName": "Reminders array"
+          },
+          "WFSerializationType": "WFTextTokenAttachment"
+        },
+        "UUID": "3B75006A-F5BC-4570-04FC-6BC7F31CCC62",
+        "CustomOutputName": "Full payload"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.setvariable",
+      "WFWorkflowActionParameters": {
+        "WFVariableName": "Payload",
+        "WFInput": {
+          "Value": {
+            "Type": "ActionOutput",
+            "OutputUUID": "3B75006A-F5BC-4570-04FC-6BC7F31CCC62",
+            "OutputName": "Full payload"
+          },
+          "WFSerializationType": "WFTextTokenAttachment"
+        },
+        "UUID": "0A729C35-8132-1B38-E80E-0976F0361AAF",
+        "CustomOutputName": "Set payload"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.conditional",
+      "WFWorkflowActionParameters": {
+        "WFControlFlowMode": 2,
+        "GroupingIdentifier": "71D4E780-3550-4F39-72E6-E551CBAFF7A9",
+        "UUID": "8A5CBF56-7894-9064-52D0-F0B758B4A7E9",
+        "CustomOutputName": "Results end"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.gettext",
+      "WFWorkflowActionParameters": {
+        "WFTextActionText": {
+          "Value": {
+            "string": "￼",
+            "attachmentsByRange": {
+              "{0, 1}": {
+                "Type": "Variable",
+                "VariableName": "Payload"
+              }
+            }
+          },
+          "WFSerializationType": "WFTextTokenString"
+        },
+        "UUID": "D9C4EFE7-DCAD-094A-F2F8-E0B689C614C9",
+        "CustomOutputName": "JSON body"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.downloadurl",
+      "WFWorkflowActionParameters": {
+        "WFURL": "https://homecare-xi.vercel.app/api/integrations/apple-reminders",
+        "WFHTTPMethod": "PUT",
+        "WFHTTPBodyType": "File",
+        "WFRequestVariable": {
+          "Value": {
+            "Type": "ActionOutput",
+            "OutputUUID": "D9C4EFE7-DCAD-094A-F2F8-E0B689C614C9",
+            "OutputName": "JSON body"
+          },
+          "WFSerializationType": "WFTextTokenAttachment"
+        },
+        "WFHTTPHeaders": {
+          "Value": {
+            "WFDictionaryFieldValueItems": [
+              {
+                "WFItemType": 0,
+                "WFKey": {
+                  "Value": {
+                    "string": "Authorization"
+                  },
+                  "WFSerializationType": "WFTextTokenString"
+                },
+                "WFValue": {
+                  "Value": {
+                    "string": "￼",
+                    "attachmentsByRange": {
+                      "{0, 1}": {
+                        "Type": "ActionOutput",
+                        "OutputUUID": "BD4BDB92-0B96-0FD4-D332-ED2AC50FBC8C",
+                        "OutputName": "Authorization"
+                      }
+                    }
+                  },
+                  "WFSerializationType": "WFTextTokenString"
+                }
+              },
+              {
+                "WFItemType": 0,
+                "WFKey": {
+                  "Value": {
+                    "string": "X-WorkCore-Tenant"
+                  },
+                  "WFSerializationType": "WFTextTokenString"
+                },
+                "WFValue": {
+                  "Value": {
+                    "string": "￼",
+                    "attachmentsByRange": {
+                      "{0, 1}": {
+                        "Type": "ActionOutput",
+                        "OutputUUID": "CDB95508-BA08-E9EE-8B6B-4CB9AEA36C5D",
+                        "OutputName": "Tenant"
+                      }
+                    }
+                  },
+                  "WFSerializationType": "WFTextTokenString"
+                }
+              },
+              {
+                "WFItemType": 0,
+                "WFKey": {
+                  "Value": {
+                    "string": "Content-Type"
+                  },
+                  "WFSerializationType": "WFTextTokenString"
+                },
+                "WFValue": {
+                  "Value": {
+                    "string": "application/json"
+                  },
+                  "WFSerializationType": "WFTextTokenString"
+                }
+              }
+            ]
+          },
+          "WFSerializationType": "WFDictionaryFieldValue"
+        },
+        "UUID": "1D1DAD6D-12D7-C9E6-A8C4-562E326FDE77",
+        "CustomOutputName": "Response"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.detect.dictionary",
+      "WFWorkflowActionParameters": {
+        "WFInput": {
+          "Value": {
+            "Type": "ActionOutput",
+            "OutputUUID": "1D1DAD6D-12D7-C9E6-A8C4-562E326FDE77",
+            "OutputName": "Response"
+          },
+          "WFSerializationType": "WFTextTokenAttachment"
+        },
+        "UUID": "2B8289D1-414E-4E07-03C4-8F183A9FB876",
+        "CustomOutputName": "Response dictionary"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.getvalueforkey",
+      "WFWorkflowActionParameters": {
+        "WFInput": {
+          "Value": {
+            "Type": "ActionOutput",
+            "OutputUUID": "2B8289D1-414E-4E07-03C4-8F183A9FB876",
+            "OutputName": "Response dictionary"
+          },
+          "WFSerializationType": "WFTextTokenAttachment"
+        },
+        "WFGetDictionaryValueType": "Value",
+        "WFDictionaryKey": "error",
+        "UUID": "D4691F80-5BCD-3089-FF13-347BBAAF4787",
+        "CustomOutputName": "Error"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.conditional",
+      "WFWorkflowActionParameters": {
+        "WFInput": {
+          "Value": {
+            "Type": "ActionOutput",
+            "OutputUUID": "D4691F80-5BCD-3089-FF13-347BBAAF4787",
+            "OutputName": "Error"
+          },
+          "WFSerializationType": "WFTextTokenAttachment"
+        },
+        "WFCondition": 100,
+        "WFControlFlowMode": 0,
+        "GroupingIdentifier": "DAAD9617-5CAA-E8EC-309A-131CD691769E",
+        "UUID": "427A027C-7AA2-3BA5-EDE7-8D9EB6988C2D",
+        "CustomOutputName": "Error if"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.alert",
+      "WFWorkflowActionParameters": {
+        "WFAlertActionTitle": "WorkCore Uebertragung fehlgeschlagen",
+        "WFAlertActionMessage": {
+          "Value": {
+            "string": "￼",
+            "attachmentsByRange": {
+              "{0, 1}": {
+                "Type": "ActionOutput",
+                "OutputUUID": "D4691F80-5BCD-3089-FF13-347BBAAF4787",
+                "OutputName": "Error"
+              }
+            }
+          },
+          "WFSerializationType": "WFTextTokenString"
+        },
+        "WFAlertActionCancelButtonShown": false,
+        "UUID": "F7A8AE16-D1B3-18D2-E305-A43F64F8B821",
+        "CustomOutputName": "Error message"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.exit",
+      "WFWorkflowActionParameters": {
+        "UUID": "B8B35E84-8F13-1229-E491-3A5F974ADE06",
+        "CustomOutputName": "Error stop"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.conditional",
+      "WFWorkflowActionParameters": {
+        "WFControlFlowMode": 2,
+        "GroupingIdentifier": "DAAD9617-5CAA-E8EC-309A-131CD691769E",
+        "UUID": "7E18F0CB-5E33-1333-8534-A8455FFAEE5C",
+        "CustomOutputName": "Error end"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.output",
+      "WFWorkflowActionParameters": {
+        "WFOutput": {
+          "Value": {
+            "Type": "ActionOutput",
+            "OutputUUID": "2B8289D1-414E-4E07-03C4-8F183A9FB876",
+            "OutputName": "Response dictionary"
+          },
+          "WFSerializationType": "WFTextTokenAttachment"
+        },
+        "UUID": "0F3E1A88-40AB-1349-1CA4-573111643D49",
+        "CustomOutputName": "Result"
+      }
+    }
+  ],
+  "WFWorkflowImportQuestions": [
+    {
+      "ActionIndex": 0,
+      "ParameterKey": "WFTextActionText",
+      "Category": "Parameter",
+      "Text": "Authorization aus WorkCore einfuegen (inklusive Bearer). Nicht weitergeben.",
+      "DefaultValue": "BEARER_AUS_WORKCORE_EINTRAGEN"
+    },
+    {
+      "ActionIndex": 1,
+      "ParameterKey": "WFTextActionText",
+      "Category": "Parameter",
+      "Text": "X-WorkCore-Tenant aus WorkCore einfuegen.",
+      "DefaultValue": "MANDANT_AUS_WORKCORE_EINTRAGEN"
+    }
+  ]
+}

@@ -12,7 +12,28 @@ in WorkCore widerrufen werden. Keine Supabase-Schluessel oder Apple-Passwoerter 
 Alle Listen bedeutet auch private Listen. Saemtliche uebertragene Titel, Notizen
 und Listennamen koennen in der Mail an alle konfigurierten To-/CC-Empfaenger erscheinen.
 
-## Kurzbefehl auf dem iPhone erstellen
+## Fertige Vorlage importieren
+
+Unter Stammdaten > Tagesmail **Kurzbefehl herunterladen** waehlen oder
+[die signierte Vorlage oeffnen](https://homecare-xi.vercel.app/shortcuts/workcore-erinnerungen.shortcut).
+Die heruntergeladene Datei auf dem iPhone in Kurzbefehle oeffnen und hinzufuegen.
+Beim Import den Authorization-Wert inklusive `Bearer ` und die Mandantenkennung
+aus WorkCore eintragen. Falls iOS keine Einrichtungsfragen zeigt, die ersten
+beiden Textaktionen bearbeiten. Die oeffentliche Vorlage enthaelt keine Zugangsdaten.
+
+Einmal manuell ausfuehren, den Zugriff auf Erinnerungen und die Verbindung zu
+WorkCore erlauben. Danach in WorkCore den Abrufstatus aktualisieren und Anzahl
+pruefen. Der native Lauf auf dem eigenen iPhone ist der abschliessende Funktionstest;
+die Apple-Signierung allein bestaetigt nicht die Ausfuehrung auf jeder iOS-Version.
+Erst danach die unten beschriebene taegliche Automation anlegen.
+
+Die Datei wird aus `scripts/build-apple-reminders-shortcut.mjs` erzeugt.
+Auf macOS mit `node scripts/build-apple-reminders-shortcut.mjs` neu erzeugen und
+ueber Apples Signierdienst signieren (Netzwerk erforderlich). Die lesbare
+Workflow-Definition liegt unter `docs/shortcuts/workcore-erinnerungen.workflow.json`.
+Keine persoenlichen Zugaenge in diese Dateien eintragen.
+
+## Manuelle Alternative
 
 Die Bezeichnungen einzelner Aktionen unterscheiden sich je nach iOS-Version.
 
