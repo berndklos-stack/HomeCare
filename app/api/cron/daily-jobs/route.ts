@@ -871,10 +871,40 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Cron-Autorisierung erforderlich." }, { status: 401 });
   }
   const tenantId = request.headers.get("x-workcore-tenant")?.trim() ?? "";
-  if (!tenantId) {
-    return NextResponse.json({ error: "Mandant für Cron-Lauf fehlt." }, { status: 400 });
+  if (tenantId) return sendDailyMail(request, tenantId);
+
+  const supabase = getSupabaseServerClient();
+  if (!supabase) {
+    return NextResponse.json({ error: "Supabase-Zugangsdaten fehlen." }, { status: 500 });
   }
-  return sendDailyMail(request, tenantId);
+  const results: { tenantId: string; status: number; result: unknown }[] = [];
+  // Vercel cron requests have no tenant header. Discover opted-in companies server-side.
+  for (let offset = 0; ; offset += 100) {
+    const { data: settings, error } = await supabase.from("homecare_settings")
+      .select("tenant_id")
+      .eq("key", "dailyMailSettings")
+      .eq("value->>enabled", "true")
+      .is("deleted_at", null)
+      .order("tenant_id")
+      .range(offset, offset + 99);
+    if (error) return NextResponse.json({ error: "Tagesmail-Firmen konnten nicht geladen werden." }, { status: 500 });
+    if (!settings?.length) break;
+    const { data: tenants, error: tenantError } = await supabase.from("homecare_tenants")
+      .select("id")
+      .in("id", settings.map((setting) => setting.tenant_id))
+      .eq("archived", false);
+    if (tenantError) return NextResponse.json({ error: "Aktive Tagesmail-Firmen konnten nicht geladen werden." }, { status: 500 });
+    for (const tenant of tenants ?? []) {
+      try {
+        const response = await sendDailyMail(request, tenant.id);
+        results.push({ tenantId: tenant.id, status: response.status, result: await response.json() });
+      } catch {
+        results.push({ tenantId: tenant.id, status: 500, result: { error: "Tagesmail-Versand fehlgeschlagen." } });
+      }
+    }
+    if (settings.length < 100) break;
+  }
+  return NextResponse.json({ results }, { status: results.some((result) => result.status >= 400) ? 500 : 200 });
 }
 
 export async function POST(request: Request) {
