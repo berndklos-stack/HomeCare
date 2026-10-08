@@ -3,7 +3,7 @@
 ## Modulgrenzen
 
 - Materialstammdaten werden in **Lager & Material** gepflegt.
-- Ressourcen, Zuweisungen und Ausstattung bleiben in **Stammdaten > Ressourcen**.
+- Ressourcen, Zuweisungen, Ausstattung sowie Wartung und Pruefungen bleiben in **Stammdaten > Ressourcen**.
 - **Stammdaten > Ressourcentypen** verwaltet frei benennbare Typen und deren Felder.
 
 ## Relationales Modell

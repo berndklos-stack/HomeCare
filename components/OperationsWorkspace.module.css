@@ -13,6 +13,13 @@
 .row > div { min-width: 0; }
 .row strong, .meta { overflow-wrap: anywhere; }
 .meta { display: flex; flex-wrap: wrap; gap: 8px; font-size: 13px; margin-top: 4px; }
+.contactDetails { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 14px; margin-top: 8px; }
+.contactDetails:empty { display: none; }
+.contactDetails a, .address { display: inline-flex; align-items: flex-start; gap: 6px; max-width: 100%; overflow-wrap: anywhere; }
+.contactDetails a { color: var(--brand, #0878d9); }
+.contactDetails a:focus-visible { outline: 2px solid var(--brand, #0878d9); outline-offset: 3px; }
+.contactDetails svg { flex-shrink: 0; margin-top: 2px; }
+.address { white-space: pre-line; }
 .fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 16px 0; }
 .field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .field input, .field select, .field textarea { width: 100%; min-height: 42px; box-sizing: border-box; font: inherit; color: var(--foreground); background: var(--paper-soft, #f5f6f8); border: 1px solid var(--line, #d1d5db); border-radius: 6px; padding: 8px; }

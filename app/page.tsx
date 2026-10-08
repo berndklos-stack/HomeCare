@@ -22903,7 +22903,7 @@ function MasterDataView({
               {tt("Neue Ressource anlegen")}
             </button>
           </div>
-          <button className="ghost-button" onClick={() => setResourceOperationsOpen((current) => !current)} type="button"><Wrench size={16}/>{language === "de" ? "Zuweisungen & Ausstattung" : language === "sv" ? "Tilldelningar och utrustning" : "Assignments & equipment"}</button>
+          <button className="ghost-button" onClick={() => setResourceOperationsOpen((current) => !current)} type="button"><Wrench size={16}/>{language === "de" ? "Zuweisungen, Ausstattung & Wartung" : language === "sv" ? "Tilldelningar, utrustning och underhåll" : "Assignments, equipment & maintenance"}</button>
           {resourceOperationsOpen && resourceOperations}
           {resourceEditorOpen && (
             <TripDialog onClose={resetResourceForm} labelledBy="resource-editor-title" className={`resource-editor-modal${resourceModalView === "logbook" ? " resource-logbook-modal" : ""}`}>

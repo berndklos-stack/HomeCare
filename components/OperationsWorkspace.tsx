@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Archive, ChevronLeft, ChevronRight, History, Pencil, Plus, RefreshCw, X } from "lucide-react";
+import { Archive, ChevronLeft, ChevronRight, History, Mail, MapPin, Pencil, Phone, Plus, RefreshCw, X } from "lucide-react";
 import { apiFetch, tenantScopedStorageKey } from "@/lib/apiClient";
 import { createStableId, type SyncMutation } from "@/lib/syncQueue";
 import { operationsLabels, maintenanceStatus, type OperationsLanguage } from "@/lib/operations";
@@ -223,7 +223,7 @@ export function OperationsWorkspace(props: Props) {
   const fields = form?.kind === "receive" ? ["quantity", "note"] : form?.kind === "complete"
     ? ["completed_date", "mileage", "operating_hours", "cost", "currency", "supplier_id", "document_id", "notes"] : form ? operationsFields[form.entity] : [];
   return <div className={styles.workspace}>
-    <nav className={styles.tabs} aria-label="Operations">{Object.keys(groups).filter((key) => props.resourcesOnly ? key === "resources" : key !== "resources").map((key) => <button key={key} className={tab === key ? styles.selected : ""}
+    <nav className={styles.tabs} aria-label="Operations">{Object.keys(groups).filter((key) => props.resourcesOnly ? ["resources", "maintenance"].includes(key) : ["inventory", "purchasing"].includes(key)).map((key) => <button key={key} className={tab === key ? styles.selected : ""}
       onClick={() => { setTab(key); change(groups[key][0]); }}>{operationsLabels[key as keyof typeof operationsLabels][language]}</button>)}</nav>
     {tab === "inventory" && (stockActive ? <OperationsStock {...props} /> : props.children)}
     <div className={styles.toolbar}>
@@ -240,11 +240,20 @@ export function OperationsWorkspace(props: Props) {
       {!rows.length && !loading && !error && <p>{t("empty")}</p>}
       {rows.map((row) => <article key={row.id} className={styles.row}>
         <div><strong>{title(row)}</strong><div className={styles.meta}>{row.status ? operationsLabels[row.status as keyof typeof operationsLabels]?.[language] : null}
+          {entity === "suppliers" && ["supplier_number", "vat_number", "payment_terms"].map((key) => typeof row[key] === "string" && String(row[key]).trim()
+            ? <span key={key}>{t(key)}: {String(row[key]).trim()}</span> : null)}
+          {entity === "supplier_contacts" && typeof row.role === "string" && row.role.trim() && <span>{t("role")}: {row.role.trim()}</span>}
           {entity === "maintenance_plans" && (row.in_progress ? t("inProgress") : operationsLabels[maintenanceStatus({ dueDate: row.due_date as string | null, dueMileage: row.due_mileage == null ? null : Number(row.due_mileage), dueHours: row.due_hours == null ? null : Number(row.due_hours) }, { date: new Date().toLocaleDateString("sv-SE"), mileage: props.resources.find((r) => r.id === row.resource_id)?.mileage, hours: resourceDetails.find((r) => r.id === row.resource_id)?.hours }, Boolean(row.completed))][language])}
           {row.quantity != null && <span>{t("quantity")}: {String(row.quantity)} · {t("unit_price")}: {String(row.unit_price)}</span>}
           {row.due_date ? <span>{t("due_date")}: {String(row.due_date)}</span> : null}
           {row.availability ? <span>{t(row.availability === "unavailable" ? "unavailableStatus" : String(row.availability))}</span> : null}
-        </div></div>
+        </div>
+          {(entity === "suppliers" || entity === "supplier_contacts") && <div className={styles.contactDetails}>
+            {typeof row.phone === "string" && row.phone.trim() && <a href={`tel:${row.phone.replace(/[^\d+*#]/g, "")}`} aria-label={`${t("phone")}: ${row.phone.trim()}`}><Phone size={16} aria-hidden="true" />{row.phone.trim()}</a>}
+            {typeof row.email === "string" && row.email.trim() && <a href={`mailto:${encodeURIComponent(row.email.trim())}`} aria-label={`${t("email")}: ${row.email.trim()}`}><Mail size={16} aria-hidden="true" />{row.email.trim()}</a>}
+            {typeof row.address === "string" && row.address.trim() && <span className={styles.address}><MapPin size={16} aria-hidden="true" /><span>{row.address.trim()}</span></span>}
+          </div>}
+        </div>
         <div className={styles.actions}>
           {(entity === "purchase_order_items" || entity === "maintenance_plans") && <button onClick={() => setHistory({ entity: entity === "purchase_order_items" ? "purchase_receipts" : "maintenance_events", row, title: title(row) })}><History size={18} />{t(entity === "purchase_order_items" ? "purchase_receipts" : "maintenance_events")}</button>}
           {entity === "suppliers" && <button onClick={() => change("supplier_contacts", row)}>{t("supplier_contacts")}</button>}

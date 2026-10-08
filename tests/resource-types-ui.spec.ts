@@ -88,6 +88,28 @@ test("Materialstammdaten bleiben ausschließlich im Lagermodul", async ({ page }
   await expect(page.locator(".master-data-tabs").getByRole("button", { name: "Material", exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "Lager & Material", exact: true }).click();
   await expect(page.getByRole("button", { name: "Ressourcen", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Wartung & Prüfungen", exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "Materialstammdaten", exact: true }).click();
   await expect(page.getByRole("button", { name: "Ressourcentypen", exact: true })).toHaveCount(0);
 });
+
+for (const mobile of [false, true]) {
+  test(`Wartung und Prüfungen gehören zu Ressourcen ${mobile ? "mobil" : "desktop"}`, async ({ page }) => {
+    await page.setViewportSize(mobile ? { width: 390, height: 844 } : { width: 1440, height: 1000 });
+    await openMaster(page);
+    await page.getByRole("button", { name: "Lager & Material", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Wartung & Prüfungen", exact: true })).toHaveCount(0);
+    await page.getByRole("button", { name: "Stammdaten", exact: true }).click();
+    await page.getByRole("button", { name: "Ressourcen", exact: true }).click();
+    await page.getByRole("button", { name: "Zuweisungen, Ausstattung & Wartung", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Material & Lager", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Lieferanten & Einkauf", exact: true })).toHaveCount(0);
+    await page.getByRole("button", { name: "Wartung & Prüfungen", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Wartungspläne", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Neu", exact: true }).click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await page.getByRole("dialog").getByRole("button", { name: "Abbrechen", exact: true }).click();
+    await page.screenshot({ path: `test-results/resource-maintenance-${mobile ? "mobile" : "desktop"}-${test.info().project.name}.png` });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  });
+}

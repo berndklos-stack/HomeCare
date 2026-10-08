@@ -21,6 +21,48 @@ async function purchasing(page: Page) {
   await page.getByRole("button", { name: "Lieferanten & Einkauf", exact: true }).click();
   await expect(page.getByText("Test Supplier", { exact: true })).toBeVisible();
 }
+async function openMaintenance(page: Page) {
+  await page.getByRole("button", { name: "Stammdaten", exact: true }).click();
+  await page.getByRole("button", { name: "Ressourcen", exact: true }).click();
+  await page.getByRole("button", { name: "Zuweisungen, Ausstattung & Wartung", exact: true }).click();
+  await page.getByRole("button", { name: "Wartung & Prüfungen", exact: true }).click();
+}
+for (const mobile of [false, true]) {
+  test(`Lieferantenliste zeigt Kontaktdaten und direkte Links ${mobile ? "mobil" : "desktop"}`, async ({ page }) => {
+    await page.setViewportSize(mobile ? { width: 390, height: 844 } : { width: 1440, height: 1000 });
+    await mock(page);
+    await page.route("**/api/operations?entity=suppliers**", (route) => route.fulfill({ json: { rows: [
+      { ...supplier, phone: "+46 (0) 70 123 45 67", email: "info@example.se", address: "Testgatan 1\n123 45 Stockholm", vat_number: "SE123456789001", payment_terms: "30 dagar" },
+      { ...supplier, id: "44444444-4444-4444-8444-444444444444", company: "No contact supplier", supplier_number: "S-2", phone: "", email: "  ", address: "" },
+    ], count: 2 } }));
+    await page.route("**/api/operations?entity=supplier_contacts**", (route) => route.fulfill({ json: { rows: [
+      { id: "55555555-5555-4555-8555-555555555555", supplier_id: supplier.id, name: "Test Contact", phone: "+46 70 999 88 77", email: "contact@example.se", role: "Service", revision: 1 },
+      { id: "66666666-6666-4666-8666-666666666666", supplier_id: supplier.id, name: "No details contact", phone: "", email: "", role: "" },
+    ], count: 2 } }));
+    await page.goto("/"); await ready(page); await purchasing(page);
+    const row = page.getByRole("article").filter({ hasText: "Test Supplier" });
+    await expect(row.getByRole("link", { name: "Telefon: +46 (0) 70 123 45 67", exact: true })).toHaveAttribute("href", "tel:+460701234567");
+    await expect(row.getByRole("link", { name: "E-Mail: info@example.se", exact: true })).toHaveAttribute("href", "mailto:info%40example.se");
+    await expect(row).toContainText("Testgatan 1");
+    await expect(row).toContainText("123 45 Stockholm");
+    await expect(row).toContainText("Lieferantennummer: S-1");
+    await expect(row).toContainText("USt-ID: SE123456789001");
+    await expect(row).toContainText("Zahlungsbedingungen: 30 dagar");
+    await expect(row.getByRole("button", { name: "Kontakte", exact: true })).toBeVisible();
+    await expect(page.getByRole("article").filter({ hasText: "No contact supplier" }).getByRole("link")).toHaveCount(0);
+    await page.screenshot({ path: `test-results/supplier-contacts-${mobile ? "mobile" : "desktop"}-${test.info().project.name}.png` });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await row.getByRole("button", { name: "Kontakte", exact: true }).click();
+    const contact = page.getByRole("article").filter({ hasText: "Test Contact" });
+    await expect(contact.getByRole("link", { name: "Telefon: +46 70 999 88 77", exact: true })).toHaveAttribute("href", "tel:+46709998877");
+    await expect(contact.getByRole("link", { name: "E-Mail: contact@example.se", exact: true })).toHaveAttribute("href", "mailto:contact%40example.se");
+    await expect(contact).toContainText("Service");
+    await expect(contact.getByRole("button", { name: "Bearbeiten: Test Contact", exact: true })).toBeVisible();
+    await expect(page.getByRole("article").filter({ hasText: "No details contact" }).getByRole("link")).toHaveCount(0);
+    await page.screenshot({ path: `test-results/supplier-contact-details-${mobile ? "mobile" : "desktop"}-${test.info().project.name}.png` });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  });
+}
 for (const mobile of [false, true]) {
   test(`Lieferantenformular, Abbruch, durable Queue und Modal ${mobile ? "mobil" : "desktop"}`, async ({ page }) => {
     await page.setViewportSize(mobile ? { width: 390, height: 844 } : { width: 1440, height: 1000 });
@@ -82,8 +124,7 @@ test("Wartungsbeginn schützt Plan- und Ressourcenrevision gemeinsam", async ({ 
   await page.route("**/api/operations?entity=maintenance_plans**", (route) => route.fulfill({ json: { rows: [plan], count: 1 } }));
   await page.route("**/api/operations?entity=resource_details**", (route) => route.fulfill({ json: { rows: [{ id: "RES-1", revision: 7, operating_hours: 100, availability: "available" }], count: 1 } }));
   await page.goto("/"); await ready(page);
-  await page.getByRole("button", { name: "Lager & Material", exact: true }).click();
-  await page.getByRole("button", { name: "Wartung & Prüfungen", exact: true }).click();
+  await openMaintenance(page);
   await page.getByRole("button", { name: "Wartung beginnen", exact: true }).click();
   await expect(page.getByRole("button", { name: "Wartung beginnen", exact: true })).toBeDisabled();
   const queue = await page.evaluate(() => JSON.parse(localStorage.getItem("workcore-sync-mutations-v1") ?? "[]"));
@@ -131,8 +172,7 @@ async function maintenance(page: Page) {
   await mock(page);
   await page.route("**/api/operations?entity=maintenance_plans**", (route) => route.fulfill({ json: { rows: [plan], count: 1 } }));
   await page.goto("/"); await ready(page);
-  await page.getByRole("button", { name: "Lager & Material", exact: true }).click();
-  await page.getByRole("button", { name: "Wartung & Prüfungen", exact: true }).click();
+  await openMaintenance(page);
 }
 
 test("Wartungsbeleg: fehlgeschlagener Upload, Wiederholen mit gleicher ID und Abschlussreferenz", async ({ page }) => {
