@@ -75,7 +75,7 @@ test("Legacy-Schreibwege und unregistrierte private Medien sind gesperrt", () =>
   expect(sectionRoute).not.toContain("async function saveReportsSection");
   expect(sectionRoute).not.toContain("async function savePortalMessagesSection");
   expect(stateRoute).toContain("APP_STATE_RETIRED");
-  expect(mediaRoute).toContain("if (!mediaRecord || mediaRecord.deleted_at)");
+  expect(mediaRoute).toContain("referenceError || !hasReadablePrivateMediaReference(mediaRecords)");
   expect(backupRoute).not.toContain('.from("app_state")');
   expect(photoRecoveryRoute).not.toContain(".upsert(");
   expect(photoRecoveryRoute).not.toContain('.from("homecare_reports")');

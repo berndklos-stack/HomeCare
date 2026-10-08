@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import type { SyncMutation, SyncMutationResult } from "@/lib/syncQueue";
 import { membershipAllows } from "@/lib/authModel";
 import { normalizeObjectDatePayload } from "@/lib/objectSync";
+import { requiredOperationsPermission, validateOperationsMutation } from "@/lib/operationsCommands";
 import { isAuthError, requireApiAuth } from "@/lib/server/apiAuth";
 
 export const runtime = "nodejs";
@@ -22,7 +23,7 @@ function validMutation(value: unknown): value is SyncMutation {
     mutation.id
     && mutation.entityId
     && mutation.resourceId
-    && ["accounting_account", "accounting_export", "communication_media", "customer", "customer_contact", "field_progress", "inventory_location", "invoice", "invoice_line", "job", "job_note", "job_time_entry", "material", "object", "object_media", "payment", "personnel", "portal_message", "portal_message_reply", "report", "report_media", "resource", "service", "service_package", "setting", "tenant_settings", "translation", "vehicle_media", "vehicle_position", "vehicle_trip"].includes(String(mutation.entityType))
+    && ["operations", "accounting_account", "accounting_export", "communication_media", "customer", "customer_contact", "field_progress", "inventory_location", "invoice", "invoice_line", "job", "job_note", "job_time_entry", "material", "object", "object_media", "payment", "personnel", "portal_message", "portal_message_reply", "report", "report_media", "resource", "service", "service_package", "setting", "tenant_settings", "translation", "vehicle_media", "vehicle_position", "vehicle_trip"].includes(String(mutation.entityType))
     && ["create", "update", "delete", "restore"].includes(String(mutation.operation)),
   );
 }
@@ -35,6 +36,22 @@ export async function POST(request: Request) {
   const mutation = await request.json().catch(() => null);
   if (!validMutation(mutation)) {
     return NextResponse.json({ error: "Ungültige Synchronisierungsanfrage." }, { status: 400 });
+  }
+  if (mutation.entityType === "operations") {
+    if (process.env.NODE_ENV !== "production" && process.env.WORKCORE_E2E_AUTH_BYPASS === "1") {
+      return NextResponse.json({ error: "OPERATIONS_E2E_MOCK_REQUIRED" }, { status: 503 });
+    }
+    try {
+      const command = validateOperationsMutation(mutation);
+      const fieldStock = command.kind === "stock" && !membershipAllows(auth.membership, "data.write");
+      if (fieldStock && (!command.job_id || Boolean(command.source_id) === Boolean(command.destination_id))) {
+        return NextResponse.json({ error: "PERMISSION_DENIED" }, { status: 403 });
+      }
+      const permission = requiredOperationsPermission(command, membershipAllows(auth.membership, "data.write"));
+      if (!membershipAllows(auth.membership, permission)) return NextResponse.json({ error: "PERMISSION_DENIED" }, { status: 403 });
+    } catch {
+      return NextResponse.json({ error: "INVALID_OPERATIONS_COMMAND" }, { status: 400 });
+    }
   }
   if (["customer", "customer_contact"].includes(mutation.entityType) && !membershipAllows(auth.membership, "customers.manage")) {
     return NextResponse.json({ error: "PERMISSION_DENIED" }, { status: 403 });
@@ -65,7 +82,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "PERMISSION_DENIED" }, { status: 403 });
   }
 
-  const rpcName = ["customer", "customer_contact"].includes(mutation.entityType)
+  const rpcName = mutation.entityType === "operations" ? "homecare_apply_operations_mutation" : ["customer", "customer_contact"].includes(mutation.entityType)
     ? "homecare_apply_customer_mutation"
     : ["object", "object_media"].includes(mutation.entityType)
       ? "homecare_apply_object_mutation"
@@ -83,6 +100,7 @@ export async function POST(request: Request) {
       ? "homecare_apply_resource_mutation"
       : "homecare_apply_sync_mutation";
   const { data, error } = await supabase.rpc(rpcName, {
+    ...(mutation.entityType === "operations" ? { p_actor_id: auth.user.id } : {}),
     p_entity_id: mutation.entityId,
     p_entity_type: mutation.entityType,
     p_expected_revision: mutation.expectedRevision ?? null,

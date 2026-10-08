@@ -1,0 +1,23 @@
+.workspace { min-width: 0; }
+.tabs, .toolbar, .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.tabs { border-bottom: 1px solid var(--border, #d1d5db); margin-bottom: 16px; padding-bottom: 8px; }
+.workspace button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; width: auto; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--line, #d1d5db); background: var(--paper, #fff); color: var(--brand, #0878d9); font: inherit; cursor: pointer; }
+.workspace button:disabled { opacity: .5; cursor: default; }
+.workspace button:focus-visible { outline: 2px solid var(--brand, #0878d9); outline-offset: 2px; }
+.workspace .selected { background: #0878d9; color: #fff; }
+.toolbar { margin: 12px 0; }
+.toolbar > input { width: min(240px, 100%); min-height: 42px; box-sizing: border-box; padding: 8px; border: 1px solid var(--line, #d1d5db); border-radius: 6px; background: var(--paper-soft, #f5f6f8); color: var(--foreground); font: inherit; }
+.toolbar h2 { flex: 1; font-size: 20px; margin: 0; }
+.list { border-top: 1px solid var(--border, #d1d5db); }
+.row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--border, #d1d5db); }
+.row > div { min-width: 0; }
+.row strong, .meta { overflow-wrap: anywhere; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px; font-size: 13px; margin-top: 4px; }
+.fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 16px 0; }
+.field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.field input, .field select, .field textarea { width: 100%; min-height: 42px; box-sizing: border-box; font: inherit; color: var(--foreground); background: var(--paper-soft, #f5f6f8); border: 1px solid var(--line, #d1d5db); border-radius: 6px; padding: 8px; }
+.field input[type="checkbox"] { width: 20px; min-height: 20px; }
+.dialog { width: min(720px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); padding: 20px; box-sizing: border-box; overflow-y: auto; }
+.dialog footer { justify-content: flex-end; padding-top: 16px; border-top: 1px solid var(--border, #d1d5db); }
+.pending { border-left: 3px solid #b78106; padding-left: 12px; }
+@media (max-width: 600px) { .fields { grid-template-columns: minmax(0, 1fr); } .row { align-items: flex-start; flex-direction: column; } .dialog { padding: 12px; } }

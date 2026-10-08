@@ -7,6 +7,8 @@ import { AuthGate, EmployeeLogoutButton } from "@/components/AuthGate";
 import { SyncStatus } from "@/components/SyncStatus";
 import { AppleRemindersBridge } from "@/components/AppleRemindersBridge";
 import { TripDialog } from "@/components/TripDialog";
+import { OperationsWorkspace } from "@/components/OperationsWorkspace";
+import { OperationsWarnings } from "@/components/OperationsWarnings";
 import { ConsultingServiceList } from "@/components/ConsultingServiceList";
 import { serviceListRecipientLanguage } from "@/lib/consultingServiceList";
 import { serviceListLabels } from "@/lib/consultingServiceList";
@@ -495,6 +497,8 @@ type LineDiscount = {
 };
 
 type MaterialItem = {
+  stockTotal?: number;
+  stockByLocation?: Record<string, number>;
   id: string;
   accountingAccount?: string;
   sku?: string;
@@ -3334,7 +3338,8 @@ function signedMaterialInventoryQuantity(entry: Pick<MaterialInventoryEntry, "qu
   return Math.abs(entry.quantity);
 }
 
-function materialInventoryTotal(material: Pick<MaterialItem, "inventoryEntries">) {
+function materialInventoryTotal(material: Pick<MaterialItem, "inventoryEntries" | "stockTotal">) {
+  if (typeof material.stockTotal === "number") return material.stockTotal;
   return (material.inventoryEntries ?? []).reduce((total, entry) => total + signedMaterialInventoryQuantity(entry), 0);
 }
 
@@ -5881,7 +5886,7 @@ async function downloadMaterialInventoryMovementPdf(material: MaterialItem, cust
   const margin = 10;
   const contentWidth = pageWidth - margin * 2;
   const entries = [...(material.inventoryEntries ?? [])].sort((first, second) => first.createdAt.localeCompare(second.createdAt));
-  const stockByLocation = materialInventoryByLocation(material.inventoryEntries ?? []);
+  const stockByLocation = material.stockByLocation ?? materialInventoryByLocation(material.inventoryEntries ?? []);
   let y = margin;
   let runningStock = 0;
 
@@ -8939,6 +8944,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
   const [customerMessageSending, setCustomerMessageSending] = useState(false);
   const [quickTripOpen, setQuickTripOpen] = useState(false);
   const [resourceLogbookOpenRequestId, setResourceLogbookOpenRequestId] = useState("");
+  const [operationsMasterDataRequest, setOperationsMasterDataRequest] = useState("");
   const [dailyMailSending, setDailyMailSending] = useState(false);
   const [manualRefreshRunning, setManualRefreshRunning] = useState(false);
   const [quickTripAddressLoading, setQuickTripAddressLoading] = useState("");
@@ -9004,6 +9010,25 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
   const handleMutationApplied = useCallback((mutation: SyncMutation, result: SyncMutationResult) => {
     const serverRecord = result.record;
     if (!serverRecord) return;
+    if (mutation.entityType === "operations") {
+      const resourceId = mutation.payload.entity === "resource_details" ? mutation.entityId : String(serverRecord.resource_id ?? "");
+      const resourceRevision = Number(mutation.payload.entity === "resource_details" ? serverRecord.revision : serverRecord.resource_revision);
+      if (resourceId && Number.isFinite(resourceRevision)) setResources((current) => current.map((r) => r.id === resourceId ? { ...r, revision: Math.max(r.revision ?? 1, resourceRevision) } : r));
+      type MaterialState = { id: string; revision: number; stockTotal: number; stockByLocation: Record<string, number>; purchase_price?: number };
+      const changedMaterials = (Array.isArray(serverRecord.material_records) ? serverRecord.material_records
+        : serverRecord.material_record ? [serverRecord.material_record] : []) as MaterialState[];
+      if (changedMaterials.length) {
+        const byId = new Map(changedMaterials.map((material) => [material.id, material]));
+        setMaterials((current) => current.map((r) => {
+          const material = byId.get(r.id);
+          return material ? { ...r, revision: material.revision, stockTotal: material.stockTotal, stockByLocation: material.stockByLocation,
+            ...(material.purchase_price != null ? { purchasePrice: String(material.purchase_price) } : {}) } : r;
+        }));
+      }
+      if (mutation.payload.entity === "material_details") setMaterials((current) => current.map((r) => r.id === mutation.entityId ? { ...r, revision: Number(serverRecord.revision) } : r));
+      if (mutation.payload.entity === "location_details") setInventoryLocations((current) => current.map((r) => r.id === mutation.entityId ? { ...r, revision: Number(serverRecord.revision) } : r));
+      return;
+    }
     const revision = Number(serverRecord.revision ?? serverRecord.settings_revision);
     const deletedAt = typeof serverRecord.deleted_at === "string" ? serverRecord.deleted_at : undefined;
     const updatedAt = typeof serverRecord.updated_at === "string" ? serverRecord.updated_at : new Date().toISOString();
@@ -13372,6 +13397,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
                   reports={reports}
                   setSection={setSection}
                 />
+                <OperationsWarnings language={language} onOpen={() => setSection("inventory")} />
               </>
             )}
             {section === "objects" && objectEditorOpen && (
@@ -13557,6 +13583,15 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
               />
             )}
             {section === "inventory" && (
+              <OperationsWorkspace language={language} queue={tripSync.queue} enqueue={enqueueSyncMutation}
+                onOpenMasterData={(tab) => { setOperationsMasterDataRequest(`${tab}:${Date.now()}`); setSection("masterData"); }}
+                materials={materials.map((r) => ({ id: r.id, name: r.name, minStock: r.minStock }))}
+                locations={inventoryLocations.map((r) => ({ id: r.id, name: r.name }))}
+                resources={resources.map((r) => ({ id: r.id, name: r.name, mileage: r.currentOdometer ? Number(r.currentOdometer) : undefined,
+                  documents: (r.media ?? []).filter((m) => m.type === "Dokument").map((m) => ({ id: m.id, name: m.name })) }))}
+                employees={personnel.map((r) => ({ id: r.id, name: `${r.firstName} ${r.lastName}`.trim() }))}
+                jobs={jobs.map((r) => ({ id: r.id, name: r.title }))}
+                projects={objects.map((r) => ({ id: r.id, name: r.name }))}>
               <InventoryView
                 customers={activeCustomers}
                 inventoryLocations={inventoryLocations}
@@ -13572,6 +13607,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
                 setInventoryLocations={setInventoryLocations}
                 setMaterials={setMaterials}
               />
+              </OperationsWorkspace>
             )}
             {section === "tracking" && (
               <TrackingView
@@ -13602,6 +13638,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
                 services={services}
                 dailyMailSending={dailyMailSending}
                 openResourceLogbookRequestId={resourceLogbookOpenRequestId}
+                operationsMasterDataRequest={operationsMasterDataRequest}
                 translate={tx}
                 translationOverrides={translationOverrides}
                 setCompanySettings={persistCompanySettingsRelational}
@@ -20549,6 +20586,7 @@ function MasterDataView({
   onSendDailyMail,
   onStartOnboarding,
   openResourceLogbookRequestId,
+  operationsMasterDataRequest,
   personnel,
   resources,
   services,
@@ -20578,6 +20616,7 @@ function MasterDataView({
   onSendDailyMail: () => Promise<void>;
   onStartOnboarding: () => void;
   openResourceLogbookRequestId: string;
+  operationsMasterDataRequest: string;
   personnel: PersonnelRecord[];
   resources: ResourceRecord[];
   services: ServiceItem[];
@@ -20601,6 +20640,10 @@ function MasterDataView({
 }) {
   const tt = translate;
   const [masterDataTab, setMasterDataTab] = useState<"company" | "branding" | "objectTypes" | "personal" | "resources" | "services" | "materials" | "accounting" | "mail" | "languages" | "backups">("company");
+  useEffect(() => {
+    const tab = operationsMasterDataRequest.split(":")[0];
+    if (tab === "materials" || tab === "resources") setMasterDataTab(tab);
+  }, [operationsMasterDataRequest]);
   const [editingPersonId, setEditingPersonId] = useState<string | null>(null);
   const [editingResourceId, setEditingResourceId] = useState<string | null>(null);
   const [editingLogEntryId, setEditingLogEntryId] = useState<string | null>(null);
@@ -21991,6 +22034,8 @@ function MasterDataView({
 
     const existingMaterial = materials.find((material) => material.id === editingMaterialId);
     const saved: MaterialItem = {
+      stockTotal: existingMaterial?.stockTotal,
+      stockByLocation: existingMaterial?.stockByLocation,
       archived: existingMaterial?.archived ?? false,
       accountingAccount: materialForm.accountingAccount || defaultAccountingAccount("Material", materialForm.name),
       category: materialForm.category.trim() || "Material",
@@ -23871,7 +23916,7 @@ function MasterDataView({
               </datalist>
               <label><span>{tt("Mindestbestand")}</span><input inputMode="decimal" value={materialForm.minStock} onChange={(event) => setMaterialForm({ ...materialForm, minStock: event.target.value })} /></label>
               <label><span>{tt("Maximalbestand")}</span><input inputMode="decimal" value={materialForm.maxStock} onChange={(event) => setMaterialForm({ ...materialForm, maxStock: event.target.value })} /></label>
-              <label><span>{tt("Bestand aktuell")}</span><input disabled value={`${formatInventoryQuantity(materialInventoryTotal(materialForm))} ${materialForm.unit}`} /></label>
+              <label><span>{tt("Bestand aktuell")}</span><input disabled value={`${formatInventoryQuantity(materialInventoryTotal({ ...materialForm, stockTotal: materials.find((item) => item.id === editingMaterialId)?.stockTotal }))} ${materialForm.unit}`} /></label>
               <label className="wide"><span>{tt("Beschreibung")}</span><textarea value={materialForm.description} onChange={(event) => setMaterialForm({ ...materialForm, description: event.target.value })} /></label>
             </div>
             <div className="message-actions">
@@ -25713,7 +25758,7 @@ function JobForm({
 
   function materialInventoryLabel(material: MaterialItem) {
     const total = materialInventoryTotal(material);
-    const locations = Object.entries(materialInventoryByLocation(material.inventoryEntries ?? []))
+    const locations = Object.entries(material.stockByLocation ?? materialInventoryByLocation(material.inventoryEntries ?? []))
       .filter(([, quantity]) => Math.abs(quantity) > 0.000001)
       .map(([location, quantity]) => `${location}: ${formatInventoryQuantity(quantity)}`)
       .join(" · ");

@@ -1685,12 +1685,38 @@ async function loadMaterialsSection(supabase: NonNullable<ReturnType<typeof getS
     .order("created_at", { ascending: true });
   if (movementError) throw new Error(movementError.message);
 
+  const { data: cutovers, error: cutoverError } = await supabase.from("homecare_stock_cutovers").select("tenant_id");
+  if (cutoverError && !["42P01", "PGRST205"].includes(cutoverError.code)) throw new Error(cutoverError.message);
+  const stock = new Map<string, { total: number; locations: Record<string, number> }>();
+  if (cutovers?.length) {
+    // Use the authenticated client's RLS, and page aggregated location balances.
+    const { data: locationRows, error: locationError } = await supabase.from("homecare_inventory_locations").select("id,name");
+    if (locationError) throw new Error(locationError.message);
+    const names = new Map((locationRows ?? []).map((r) => [r.id, r.name]));
+    for (let offset = 0; ; offset += 500) {
+      const { data, error } = await supabase.rpc("homecare_stock_summary").range(offset, offset + 499);
+      if (error) throw new Error(error.message);
+      for (const row of data ?? []) {
+        const current = stock.get(row.material_id) ?? { total: 0, locations: Object.create(null) as Record<string, number> };
+        const quantity = Number(row.quantity);
+        current.total += quantity;
+        const location = names.get(row.location_id) ?? row.location_id;
+        current.locations[location] = (Object.hasOwn(current.locations, location) ? current.locations[location] : 0) + quantity;
+        stock.set(row.material_id, current);
+      }
+      if (!data || data.length < 500) break;
+    }
+  }
+
   return {
     updatedAt: maxUpdatedAt([
       ...(materialRows as MaterialRow[]).map((row) => row.updated_at),
       ...((movementRows ?? []) as InventoryMovementRow[]).map((row) => row.updated_at),
     ]),
-    value: ((materialRows ?? []) as MaterialRow[]).filter((row) => !row.deleted_at).map((row) => rowToMaterial(row, (movementRows ?? []) as InventoryMovementRow[])),
+    value: ((materialRows ?? []) as MaterialRow[]).filter((row) => !row.deleted_at).map((row) => ({
+      ...rowToMaterial(row, (movementRows ?? []) as InventoryMovementRow[]),
+      ...(cutovers?.length ? { stockTotal: stock.get(row.id)?.total ?? 0, stockByLocation: stock.get(row.id)?.locations ?? {} } : {}),
+    })),
   };
 }
 

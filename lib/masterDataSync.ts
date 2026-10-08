@@ -8,7 +8,7 @@ function recordId(record: RevisionedMasterRecord) {
 
 function normalized(record: RevisionedMasterRecord) {
   return Object.fromEntries(Object.entries(record)
-    .filter(([key, value]) => !["revision", "updatedAt"].includes(key) && value !== undefined)
+    .filter(([key, value]) => !["revision", "updatedAt", "stockTotal", "stockByLocation"].includes(key) && value !== undefined)
     .sort(([left], [right]) => left.localeCompare(right)));
 }
 
