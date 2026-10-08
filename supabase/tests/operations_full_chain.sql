@@ -11,6 +11,8 @@ insert into public.homecare_tenant_memberships(tenant_id,user_id,role_id) values
 insert into public.homecare_inventory_locations(tenant_id,id,name) values('00000000-0000-0000-0000-000000000001','warehouse','Warehouse');
 insert into public.homecare_materials(tenant_id,id,name) values('00000000-0000-0000-0000-000000000001','material','Material');
 insert into public.homecare_resources(tenant_id,id,name,type) values('00000000-0000-0000-0000-000000000001','resource','Vehicle','Fahrzeug');
+update public.homecare_resources set resource_type_id='00000000-0000-4000-8000-000000000001',serial_number='BACKUP-SN',operating_hours=123,
+ operating_hours_date='2026-10-08',maintenance_interval_value=200,maintenance_interval_unit='hours' where id='resource';
 update public.homecare_inventory_locations set resource_id='resource' where id='warehouse';
 insert into public.homecare_suppliers(tenant_id,id,supplier_number,company) values
   ('00000000-0000-0000-0000-000000000001','33333333-3333-4333-8333-333333333333','S-1','Supplier A'),

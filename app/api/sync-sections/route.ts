@@ -38,6 +38,16 @@ type SyncSectionKey = typeof allowedSyncSections[number];
 type JsonObject = Record<string, unknown>;
 
 type ResourceRow = {
+  resource_type_id?: string | null;
+  serial_number?: string | null;
+  operating_hours?: number | null;
+  operating_hours_date?: string | null;
+  purchase_date?: string | null;
+  purchase_price?: number | null;
+  warranty_until?: string | null;
+  warranty_notes?: string | null;
+  maintenance_interval_value?: number | null;
+  maintenance_interval_unit?: string | null;
   archived: boolean | null;
   brand: string | null;
   build_year: string | null;
@@ -1377,6 +1387,16 @@ function rowToResource(row: ResourceRow, trips: VehicleTripRow[], mediaRows: Med
   const media = mediaRows.filter((item) => item.owner_id === row.id).map(rowToMedia);
   const tracking = row.tracking && typeof row.tracking === "object" && !Array.isArray(row.tracking) ? row.tracking as JsonObject : {};
   return {
+    resourceTypeId: row.resource_type_id ?? undefined,
+    serialNumber: row.serial_number ?? "",
+    operatingHours: row.operating_hours == null ? "" : String(row.operating_hours),
+    operatingHoursDate: row.operating_hours_date ?? "",
+    purchaseDate: row.purchase_date ?? "",
+    purchasePrice: row.purchase_price == null ? "" : String(row.purchase_price),
+    warrantyUntil: row.warranty_until ?? "",
+    warrantyNotes: row.warranty_notes ?? "",
+    maintenanceIntervalValue: row.maintenance_interval_value == null ? "" : String(row.maintenance_interval_value),
+    maintenanceIntervalUnit: row.maintenance_interval_unit ?? "",
     archived: Boolean(row.archived),
     brand: row.brand ?? "",
     buildYear: row.build_year ?? undefined,
@@ -1425,7 +1445,7 @@ function rowToResource(row: ResourceRow, trips: VehicleTripRow[], mediaRows: Med
 async function loadResourceSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
   const { data: resourceRows, error: resourceError } = await supabase
     .from("homecare_resources")
-    .select("id, type, brand, build_year, current_odometer, current_odometer_date, default_driver_id, name, identifier, license_plate, status, responsible_person_id, location, logbook_active, notes, logbook_year, model, odometer_year_start, odometer_year_end, odometer_history, odometer_last_confirmed, odometer_last_confirmed_at, odometer_last_confirmed_by, odometer_last_confirmed_photo, owner_company, private_use_allowed, registration_country, tax_country, tracking, maintenance_items, standard_trips, deleted_logbook_entry_ids, archived, revision, deleted_at, updated_at")
+    .select("id, resource_type_id, serial_number, operating_hours, operating_hours_date, purchase_date, purchase_price, warranty_until, warranty_notes, maintenance_interval_value, maintenance_interval_unit, type, brand, build_year, current_odometer, current_odometer_date, default_driver_id, name, identifier, license_plate, status, responsible_person_id, location, logbook_active, notes, logbook_year, model, odometer_year_start, odometer_year_end, odometer_history, odometer_last_confirmed, odometer_last_confirmed_at, odometer_last_confirmed_by, odometer_last_confirmed_photo, owner_company, private_use_allowed, registration_country, tax_country, tracking, maintenance_items, standard_trips, deleted_logbook_entry_ids, archived, revision, deleted_at, updated_at")
     .is("deleted_at", null)
     .order("name", { ascending: true });
 

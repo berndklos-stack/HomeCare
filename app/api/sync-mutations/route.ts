@@ -4,6 +4,7 @@ import type { SyncMutation, SyncMutationResult } from "@/lib/syncQueue";
 import { membershipAllows } from "@/lib/authModel";
 import { normalizeObjectDatePayload } from "@/lib/objectSync";
 import { requiredOperationsPermission, validateOperationsMutation } from "@/lib/operationsCommands";
+import { validateResourceType } from "@/lib/resourceTypes";
 import { isAuthError, requireApiAuth } from "@/lib/server/apiAuth";
 
 export const runtime = "nodejs";
@@ -23,7 +24,7 @@ function validMutation(value: unknown): value is SyncMutation {
     mutation.id
     && mutation.entityId
     && mutation.resourceId
-    && ["operations", "accounting_account", "accounting_export", "communication_media", "customer", "customer_contact", "field_progress", "inventory_location", "invoice", "invoice_line", "job", "job_note", "job_time_entry", "material", "object", "object_media", "payment", "personnel", "portal_message", "portal_message_reply", "report", "report_media", "resource", "service", "service_package", "setting", "tenant_settings", "translation", "vehicle_media", "vehicle_position", "vehicle_trip"].includes(String(mutation.entityType))
+    && ["resource_type", "operations", "accounting_account", "accounting_export", "communication_media", "customer", "customer_contact", "field_progress", "inventory_location", "invoice", "invoice_line", "job", "job_note", "job_time_entry", "material", "object", "object_media", "payment", "personnel", "portal_message", "portal_message_reply", "report", "report_media", "resource", "service", "service_package", "setting", "tenant_settings", "translation", "vehicle_media", "vehicle_position", "vehicle_trip"].includes(String(mutation.entityType))
     && ["create", "update", "delete", "restore"].includes(String(mutation.operation)),
   );
 }
@@ -53,6 +54,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "INVALID_OPERATIONS_COMMAND" }, { status: 400 });
     }
   }
+  if (mutation.entityType === "resource_type") {
+    if (!membershipAllows(auth.membership, "resources.manage")) return NextResponse.json({ error: "PERMISSION_DENIED" }, { status: 403 });
+    if (process.env.NODE_ENV !== "production" && process.env.WORKCORE_E2E_AUTH_BYPASS === "1") return NextResponse.json({ error: "RESOURCE_TYPES_E2E_MOCK_REQUIRED" }, { status: 503 });
+    try {
+      validateResourceType(mutation.payload);
+      if (!["create", "update"].includes(mutation.operation) || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(mutation.entityId)
+        || (mutation.operation === "update" && (!Number.isSafeInteger(mutation.expectedRevision) || Number(mutation.expectedRevision) < 1))) throw new Error("INVALID_RESOURCE_TYPE");
+    } catch { return NextResponse.json({ error: "INVALID_RESOURCE_TYPE" }, { status: 400 }); }
+  }
+  if (mutation.entityType === "resource" && !membershipAllows(auth.membership, "resources.manage")) return NextResponse.json({ error: "PERMISSION_DENIED" }, { status: 403 });
   if (["customer", "customer_contact"].includes(mutation.entityType) && !membershipAllows(auth.membership, "customers.manage")) {
     return NextResponse.json({ error: "PERMISSION_DENIED" }, { status: 403 });
   }
@@ -82,7 +93,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "PERMISSION_DENIED" }, { status: 403 });
   }
 
-  const rpcName = mutation.entityType === "operations" ? "homecare_apply_operations_mutation" : ["customer", "customer_contact"].includes(mutation.entityType)
+  const rpcName = mutation.entityType === "resource_type" ? "homecare_apply_resource_type_mutation" : mutation.entityType === "operations" ? "homecare_apply_operations_mutation" : ["customer", "customer_contact"].includes(mutation.entityType)
     ? "homecare_apply_customer_mutation"
     : ["object", "object_media"].includes(mutation.entityType)
       ? "homecare_apply_object_mutation"

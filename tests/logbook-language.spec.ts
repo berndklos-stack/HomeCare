@@ -1,4 +1,9 @@
 import { expect, test } from "@playwright/test";
+import { defaultResourceTypes } from "../lib/resourceTypes";
+
+test.beforeEach(async ({ page }) => {
+  await page.route("**/api/resource-types", (route) => route.fulfill({ json: { types: defaultResourceTypes.map((type) => ({ ...type, revision: 1 })) } }));
+});
 
 test("Fahrtenbuch verwendet die am Fahrzeug gespeicherte Sprache", async ({ page }) => {
   await page.goto("/");
@@ -11,7 +16,7 @@ test("Fahrtenbuch verwendet die am Fahrzeug gespeicherte Sprache", async ({ page
 
   const resourceDialog = page.getByRole("dialog");
   await expect(resourceDialog.getByText("Tillverkningsår", { exact: true })).toBeVisible();
-  await resourceDialog.getByLabel("Körjournalspråk").selectOption("sv");
+  await resourceDialog.getByLabel("Körjournalens språk").selectOption("sv");
   await resourceDialog.getByRole("button", { name: "Spara resurs", exact: true }).click();
   await resourceDialog.getByRole("button", { name: "Körjournal", exact: true }).click();
   await expect(resourceDialog.getByRole("cell", { name: "Tjänsteresa", exact: true })).toBeVisible();

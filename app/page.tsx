@@ -9,6 +9,8 @@ import { AppleRemindersBridge } from "@/components/AppleRemindersBridge";
 import { TripDialog } from "@/components/TripDialog";
 import { OperationsWorkspace } from "@/components/OperationsWorkspace";
 import { OperationsWarnings } from "@/components/OperationsWarnings";
+import { DynamicResourceFields, ResourceTypesPanel, useResourceTypes } from "@/components/ResourceTypes";
+import { legacyResourceType, missingResourceFields, resourceIsVehicle, resourceLanguageIndex, resourceTypesText } from "@/lib/resourceTypes";
 import { ConsultingServiceList } from "@/components/ConsultingServiceList";
 import { serviceListRecipientLanguage } from "@/lib/consultingServiceList";
 import { serviceListLabels } from "@/lib/consultingServiceList";
@@ -758,6 +760,17 @@ type ResourceMaintenanceItem = {
 };
 
 type ResourceRecord = {
+  resourceTypeId?: string;
+  resourceTypeCategory?: "vehicle" | "machine" | "equipment";
+  serialNumber?: string;
+  operatingHours?: string;
+  operatingHoursDate?: string;
+  purchaseDate?: string;
+  purchasePrice?: string;
+  warrantyUntil?: string;
+  warrantyNotes?: string;
+  maintenanceIntervalValue?: string;
+  maintenanceIntervalUnit?: string;
   id: string;
   deletedAt?: string;
   revision?: number;
@@ -1357,7 +1370,7 @@ const navLabels: Record<Language, Record<Section, string>> = {
     customers: "Kunden",
     dashboard: "Dashboard",
     field: "Mobil vor Ort",
-    inventory: "Lagerverwaltung",
+    inventory: "Lager & Material",
     jobs: "Aufträge",
     masterData: "Stammdaten",
     objects: "Projekte & Objekte",
@@ -1373,7 +1386,7 @@ const navLabels: Record<Language, Record<Section, string>> = {
     customers: "Kunder",
     dashboard: "Dashboard",
     field: "Mobilt på plats",
-    inventory: "Lager",
+    inventory: "Lager & material",
     jobs: "Uppdrag",
     masterData: "Grunddata",
     objects: "Projekt & objekt",
@@ -1389,7 +1402,7 @@ const navLabels: Record<Language, Record<Section, string>> = {
     customers: "Customers",
     dashboard: "Dashboard",
     field: "Mobile field",
-    inventory: "Inventory",
+    inventory: "Inventory & materials",
     jobs: "Jobs",
     masterData: "Master data",
     objects: "Projects & objects",
@@ -1737,6 +1750,7 @@ const swedishUiText: Record<string, string> = {
   "Lagerorte": "Lagerplatser",
   "Lagerorte anzeigen": "Visa lagerplatser",
   "Lagerverwaltung": "Lagerhantering",
+  "Lager & Material": "Lager och material",
   "Lieferant": "Leverantör",
   "Menge": "Antal",
   "Moms %": "Moms %",
@@ -1847,6 +1861,7 @@ const englishUiText: Record<string, string> = {
   "Lagerorte": "Storage locations",
   "Lagerorte anzeigen": "Show storage locations",
   "Lagerverwaltung": "Inventory",
+  "Lager & Material": "Inventory & materials",
   "Laufende Daueraufträge": "Ongoing jobs",
   "Aufträge ohne festen Einsatztermin bleiben hier sichtbar und werden nicht als überfällig behandelt.": "Jobs without a fixed service date remain visible here and are not marked as overdue.",
   "offene Zeit": "open time",
@@ -8945,6 +8960,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
   const [quickTripOpen, setQuickTripOpen] = useState(false);
   const [resourceLogbookOpenRequestId, setResourceLogbookOpenRequestId] = useState("");
   const [operationsMasterDataRequest, setOperationsMasterDataRequest] = useState("");
+  const [materialMasterOpen, setMaterialMasterOpen] = useState(false);
   const [dailyMailSending, setDailyMailSending] = useState(false);
   const [manualRefreshRunning, setManualRefreshRunning] = useState(false);
   const [quickTripAddressLoading, setQuickTripAddressLoading] = useState("");
@@ -10301,7 +10317,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
   ];
   const customerLanguageOptions = uniqueSortedValues(customers.map((customer) => customer.language), ["Deutsch", "Svenska", "English", "DE", "SV", "EN", "SV / DE", "DE / EN"]);
   const objectStatusOptions = uniqueSortedValues(objects.map((object) => object.status), ["Saison aktiv", "Kontrolle offen", "Winterruhe"]);
-  const activeVehicles = resources.filter((resource) => resource.type === "Fahrzeug" && !resource.archived);
+  const activeVehicles = resources.filter((resource) => resourceIsVehicle(resource) && !resource.archived);
   const quickTripVehicle = activeVehicles.find((vehicle) => vehicle.id === quickTripForm.resourceId);
   const quickTripLanguage = vehicleLogbookLanguage(quickTripVehicle, language);
   const qtx = (value: string) => translateForLanguage(value, quickTripLanguage);
@@ -12113,7 +12129,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
   }
 
   function quickTripDefaultsForVehicle(vehicleId: string, sourceResources = resources) {
-    const vehicle = sourceResources.find((resource) => resource.id === vehicleId && resource.type === "Fahrzeug");
+    const vehicle = sourceResources.find((resource) => resource.id === vehicleId && resourceIsVehicle(resource));
     // Start-KM und Startort einer neuen Fahrt muessen aus derselben, zuletzt
     // abgeschlossenen Fahrt stammen. So bleiben beide Werte geraeteuebergreifend
     // konsistent, auch wenn Hilfstabellen/History etwas spaeter synchronisieren.
@@ -12172,7 +12188,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
         );
     if (livePositions.length) setLiveVehiclePositions(livePositions);
     const freshResources = supabaseSyncDisabled ? resources : await syncedResourcesForQuickTrip();
-    const freshVehicles = freshResources.filter((resource) => resource.type === "Fahrzeug" && !resource.archived);
+    const freshVehicles = freshResources.filter((resource) => resourceIsVehicle(resource) && !resource.archived);
     setQuickTripForm((current) => {
       if (current.activeLogbookEntryId) return current;
       const vehicleWithActiveTrip = freshVehicles.find((vehicle) => activeLogbookEntry(vehicle));
@@ -12207,7 +12223,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
           || freshVehicles[0]?.id
           || activeVehicles[0]?.id
           || "";
-      const vehicle = freshResources.find((resource) => resource.id === resourceId && resource.type === "Fahrzeug");
+      const vehicle = freshResources.find((resource) => resource.id === resourceId && resourceIsVehicle(resource));
       const activeEntry = activeLogbookEntry(vehicle);
       const activeLiveTrip = activeLiveQuickTrip(resourceId) ?? liveTrip;
       const defaults = quickTripDefaultsForVehicle(resourceId, freshResources);
@@ -12590,7 +12606,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
 
   function updateActiveQuickTripEntry(form = quickTripForm, saveStandard = false) {
     if (!form.activeLogbookEntryId) return;
-    const vehicle = resources.find((resource) => resource.id === form.resourceId && resource.type === "Fahrzeug");
+    const vehicle = resources.find((resource) => resource.id === form.resourceId && resourceIsVehicle(resource));
     if (!vehicle) return;
     const existingEntry = vehicle.logbook.find((entry) => entry.id === form.activeLogbookEntryId);
     if (!existingEntry || existingEntry.status !== "laufend" || vehicle.deletedLogbookEntryIds?.includes(existingEntry.id)) {
@@ -12662,7 +12678,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
   }
 
   async function startQuickTrip() {
-    const vehicle = resources.find((resource) => resource.id === quickTripForm.resourceId && resource.type === "Fahrzeug");
+    const vehicle = resources.find((resource) => resource.id === quickTripForm.resourceId && resourceIsVehicle(resource));
     if (!vehicle) {
       setRecordNotice("Bitte zuerst ein Fahrzeug für die Fahrt auswählen.");
       return;
@@ -12813,7 +12829,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     const entryId = quickTripForm.activeLogbookEntryId;
     const existingEntry = resources.find((resource) => resource.id === quickTripForm.resourceId)?.logbook.find((entry) => entry.id === entryId);
     const nextResources = resources.map((resource) => (
-      resource.id === quickTripForm.resourceId && resource.type === "Fahrzeug"
+      resource.id === quickTripForm.resourceId && resourceIsVehicle(resource)
         ? {
             ...resource,
             deletedLogbookEntryIds: Array.from(new Set([...(resource.deletedLogbookEntryIds ?? []), entryId])),
@@ -12842,7 +12858,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
   }
 
   async function saveQuickTrip() {
-    const vehicle = resources.find((resource) => resource.id === quickTripForm.resourceId && resource.type === "Fahrzeug");
+    const vehicle = resources.find((resource) => resource.id === quickTripForm.resourceId && resourceIsVehicle(resource));
     if (!vehicle) {
       setRecordNotice("Bitte zuerst ein Fahrzeug für die Fahrt auswählen.");
       return;
@@ -13582,9 +13598,9 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
                 reports={reports}
               />
             )}
-            {section === "inventory" && (
+            {section === "inventory" && !materialMasterOpen && (
               <OperationsWorkspace language={language} queue={tripSync.queue} enqueue={enqueueSyncMutation}
-                onOpenMasterData={(tab) => { setOperationsMasterDataRequest(`${tab}:${Date.now()}`); setSection("masterData"); }}
+                onOpenMasterData={(tab) => { setOperationsMasterDataRequest(`${tab}:${Date.now()}`); if (tab === "materials") setMaterialMasterOpen(true); else setSection("masterData"); }}
                 materials={materials.map((r) => ({ id: r.id, name: r.name, minStock: r.minStock }))}
                 locations={inventoryLocations.map((r) => ({ id: r.id, name: r.name }))}
                 resources={resources.map((r) => ({ id: r.id, name: r.name, mileage: r.currentOdometer ? Number(r.currentOdometer) : undefined,
@@ -13621,8 +13637,20 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
                 resources={resources}
               />
             )}
-            {section === "masterData" && (
+            {(section === "masterData" || (section === "inventory" && materialMasterOpen)) && (
               <MasterDataView
+                materialsOnly={section === "inventory"}
+                onCloseMaterials={() => setMaterialMasterOpen(false)}
+                queue={tripSync.queue}
+                enqueue={enqueueSyncMutation}
+                resourceOperations={<OperationsWorkspace resourcesOnly language={language} queue={tripSync.queue} enqueue={enqueueSyncMutation}
+                  onOpenMasterData={() => setOperationsMasterDataRequest(`resources:${Date.now()}`)}
+                  materials={materials.map((row) => ({ id: row.id, name: row.name }))}
+                  locations={inventoryLocations.map((row) => ({ id: row.id, name: row.name }))}
+                  resources={resources.map((row) => ({ id: row.id, name: row.name, mileage: row.currentOdometer ? Number(row.currentOdometer) : undefined,
+                    documents: (row.media ?? []).filter((media) => media.type === "Dokument").map((media) => ({ id: media.id, name: media.name })) }))}
+                  employees={personnel.map((row) => ({ id: row.id, name: `${row.firstName} ${row.lastName}`.trim() }))}
+                  jobs={jobs.map((row) => ({ id: row.id, name: row.title }))} projects={objects.map((row) => ({ id: row.id, name: row.name }))}/>}
                 accountingAccounts={accountingAccounts}
                 companySettings={companySettings}
                 customers={activeCustomers}
@@ -18795,7 +18823,7 @@ function TrackingView({
 }) {
   const tt = (value: string) => uiText(value, language);
   const [mapMode, setMapMode] = useState<"standard" | "satellite">("standard");
-  const vehicles = resources.filter((resource) => resource.type === "Fahrzeug" && !resource.archived);
+  const vehicles = resources.filter((resource) => resourceIsVehicle(resource) && !resource.archived);
   const trackedVehicles = vehicles.filter((vehicle) => (vehicle.tracking?.mode ?? "phone") !== "none");
   const positionedVehicles = vehicles
     .map((vehicle) => ({ position: latestVehiclePosition(vehicle, livePositions), vehicle }))
@@ -20575,6 +20603,11 @@ function CustomerPortalView({
 }
 
 function MasterDataView({
+  resourceOperations,
+  materialsOnly = false,
+  onCloseMaterials,
+  queue,
+  enqueue,
   accountingAccounts,
   companySettings,
   customers,
@@ -20605,6 +20638,11 @@ function MasterDataView({
   translate,
   translationOverrides,
 }: {
+  resourceOperations: ReactNode;
+  materialsOnly?: boolean;
+  onCloseMaterials: () => void;
+  queue: SyncMutation[];
+  enqueue: (mutation: SyncMutation) => void;
   accountingAccounts: AccountingAccount[];
   companySettings: CompanySettings;
   customers: CustomerRecord[];
@@ -20639,11 +20677,15 @@ function MasterDataView({
   translationOverrides: TranslationFileRow[];
 }) {
   const tt = translate;
-  const [masterDataTab, setMasterDataTab] = useState<"company" | "branding" | "objectTypes" | "personal" | "resources" | "services" | "materials" | "accounting" | "mail" | "languages" | "backups">("company");
+  const resourceTypes = useResourceTypes(queue, enqueue);
+  const [resourceOperationsOpen, setResourceOperationsOpen] = useState(false);
+  const [masterDataTab, setMasterDataTab] = useState<"company" | "branding" | "objectTypes" | "personal" | "resources" | "resourceTypes" | "services" | "materials" | "accounting" | "mail" | "languages" | "backups">(materialsOnly ? "materials" : "company");
   useEffect(() => {
     const tab = operationsMasterDataRequest.split(":")[0];
-    if (tab === "materials" || tab === "resources") setMasterDataTab(tab);
-  }, [operationsMasterDataRequest]);
+    if (materialsOnly) setMasterDataTab("materials");
+    else if (tab === "resources") setMasterDataTab(tab);
+    else setMasterDataTab((current) => current === "materials" ? "company" : current);
+  }, [operationsMasterDataRequest, materialsOnly]);
   const [editingPersonId, setEditingPersonId] = useState<string | null>(null);
   const [editingResourceId, setEditingResourceId] = useState<string | null>(null);
   const [editingLogEntryId, setEditingLogEntryId] = useState<string | null>(null);
@@ -20683,6 +20725,8 @@ function MasterDataView({
     status: "aktiv" as PersonnelRecord["status"],
   });
   const [resourceForm, setResourceForm] = useState({
+    resourceTypeId: "", serialNumber: "", operatingHours: "", operatingHoursDate: "", purchaseDate: "", purchasePrice: "",
+    warrantyUntil: "", warrantyNotes: "", maintenanceIntervalValue: "", maintenanceIntervalUnit: "",
     brand: "",
     buildYear: "",
     currentOdometer: "",
@@ -20712,6 +20756,8 @@ function MasterDataView({
     trackingMode: "phone" as NonNullable<ResourceRecord["tracking"]>["mode"],
     type: "Fahrzeug" as ResourceRecord["type"],
   });
+  const selectedResourceType = resourceTypes.types.find((type) => type.id === resourceForm.resourceTypeId)
+    ?? (editingResourceId ? resourceTypes.types.find((type) => type.name === resourceForm.type) : undefined);
   const [maintenanceForm, setMaintenanceForm] = useState({
     notes: "",
     target: "",
@@ -20811,12 +20857,11 @@ function MasterDataView({
   const selectedResource = resources.find((resource) => resource.id === editingResourceId);
   const selectedLogbookLanguage = vehicleLogbookLanguage(selectedResource, language);
   const lt = (value: string) => uiTextWithOverrides(value, selectedLogbookLanguage, translationOverrides);
-  const selectedResourceLogbook = selectedResource?.type === "Fahrzeug" ? sortVehicleLogbook(selectedResource.logbook) : [];
-  const selectedResourceRegulation = selectedResource?.type === "Fahrzeug" ? drivingLogRegulationForCountry(selectedResource.taxCountry) : undefined;
-  const selectedResourceNeedsOdometerCheck = selectedResource?.type === "Fahrzeug" ? needsCurrentMonthOdometerCheck(selectedResource) : false;
+  const selectedResourceLogbook = resourceIsVehicle(selectedResource) ? sortVehicleLogbook(selectedResource.logbook) : [];
+  const selectedResourceRegulation = resourceIsVehicle(selectedResource) ? drivingLogRegulationForCountry(selectedResource.taxCountry) : undefined;
+  const selectedResourceNeedsOdometerCheck = resourceIsVehicle(selectedResource) ? needsCurrentMonthOdometerCheck(selectedResource) : false;
   const resourceImages = resourceForm.mediaItems.filter((item) => item.type === "Bild");
   const selectedResourceImage = resourceImages[Math.min(resourceImageIndex, Math.max(0, resourceImages.length - 1))];
-  const resourceStatusOptions = uniqueSortedValues(resources.map((resource) => resource.status), ["aktiv", "Wartung", "reserviert", "defekt"]);
   const categories = Array.from(new Set(activeServices.map((service) => service.category).filter(Boolean)))
     .sort((first, second) => first.localeCompare(second, "de"));
   const serviceUnits = Array.from(new Set(activeServices.map((service) => service.unit).filter(Boolean)))
@@ -21010,6 +21055,8 @@ function MasterDataView({
     setResourceEditorOpen(false);
     setResourceModalView("details");
     setResourceForm({
+      resourceTypeId: "", serialNumber: "", operatingHours: "", operatingHoursDate: "", purchaseDate: "", purchasePrice: "",
+      warrantyUntil: "", warrantyNotes: "", maintenanceIntervalValue: "", maintenanceIntervalUnit: "",
       brand: "",
       buildYear: "",
       currentOdometer: "",
@@ -21052,6 +21099,10 @@ function MasterDataView({
     setEditingResourceId(resource.id);
     setResourceEditorOpen(true);
     setResourceForm({
+      resourceTypeId: resource.resourceTypeId ?? resourceTypes.types.find((type) => type.name === resource.type)?.id ?? "",
+      serialNumber: resource.serialNumber ?? "", operatingHours: resource.operatingHours ?? "", operatingHoursDate: resource.operatingHoursDate ?? "",
+      purchaseDate: resource.purchaseDate ?? "", purchasePrice: resource.purchasePrice ?? "", warrantyUntil: resource.warrantyUntil ?? "",
+      warrantyNotes: resource.warrantyNotes ?? "", maintenanceIntervalValue: resource.maintenanceIntervalValue ?? "", maintenanceIntervalUnit: resource.maintenanceIntervalUnit ?? "",
       brand: resource.brand ?? "",
       buildYear: resource.buildYear ?? "",
       currentOdometer: resource.currentOdometer ?? latestKnownVehicleOdometer(resource),
@@ -21120,7 +21171,7 @@ function MasterDataView({
   }
 
   function saveMonthlyOdometerCheck() {
-    if (!selectedResource || selectedResource.type !== "Fahrzeug") return;
+    if (!selectedResource || !resourceIsVehicle(selectedResource)) return;
     if (!monthlyOdometerForm.odometer.trim() || !monthlyOdometerForm.driverId || !monthlyOdometerForm.photo?.previewUrl) {
       setArchiveNotice("Für die monatliche Kontrolle bitte Kilometerstand, Benutzer und Foto erfassen.");
       return;
@@ -21160,18 +21211,26 @@ function MasterDataView({
   useEffect(() => {
     if (!openResourceLogbookRequestId) return;
     const resourceId = openResourceLogbookRequestId.split(":")[0];
-    const resource = resources.find((item) => item.id === resourceId && item.type === "Fahrzeug");
+    const resource = resources.find((item) => item.id === resourceId && resourceIsVehicle(item));
     if (resource) openResourceLogbook(resource);
   }, [openResourceLogbookRequestId]);
 
   function saveResource() {
-    if (!resourceForm.name.trim() || !resourceForm.type.trim()) {
+    if (!selectedResourceType || !resourceForm.name.trim() || !resourceTypes.ready) {
       setArchiveNotice("Bitte Ressourcenname und Typ erfassen.");
       return;
     }
+    const missing = missingResourceFields(selectedResourceType, resourceForm);
+    if (missing.length) { setArchiveNotice(`${tt("Pflichtfeld")}: ${missing.map((field) => field.labels[resourceLanguageIndex(language)]).join(", ")}`); return; }
 
     const existingResource = resources.find((resource) => resource.id === editingResourceId);
     const saved: ResourceRecord = {
+      ...existingResource,
+      resourceTypeId: selectedResourceType.id,
+      resourceTypeCategory: selectedResourceType.category,
+      serialNumber: resourceForm.serialNumber, operatingHours: resourceForm.operatingHours, operatingHoursDate: resourceForm.operatingHoursDate,
+      purchaseDate: resourceForm.purchaseDate, purchasePrice: resourceForm.purchasePrice, warrantyUntil: resourceForm.warrantyUntil,
+      warrantyNotes: resourceForm.warrantyNotes, maintenanceIntervalValue: resourceForm.maintenanceIntervalValue, maintenanceIntervalUnit: resourceForm.maintenanceIntervalUnit,
       id: editingResourceId ?? createStableId("RES"),
       revision: existingResource?.revision,
       updatedAt: existingResource?.updatedAt,
@@ -21181,7 +21240,7 @@ function MasterDataView({
       currentOdometerDate: resourceForm.currentOdometerDate,
       defaultDriverId: resourceForm.defaultDriverId,
       identifier: resourceForm.identifier.trim(),
-      licensePlate: resourceForm.licensePlate.trim() || resourceForm.identifier.trim(),
+      licensePlate: resourceForm.licensePlate.trim(),
       location: resourceForm.location.trim(),
       logbookActive: resourceForm.logbookActive,
       logbookLanguage: resourceForm.logbookLanguage,
@@ -21205,15 +21264,13 @@ function MasterDataView({
       responsiblePersonId: resourceForm.responsiblePersonId,
       status: resourceForm.status.trim() || "aktiv",
       taxCountry: resourceForm.taxCountry,
-      tracking: resourceForm.type === "Fahrzeug"
-          ? {
+      tracking: {
             deviceId: resourceForm.trackerDeviceId.trim(),
             logbookLanguage: resourceForm.logbookLanguage,
             mode: resourceForm.trackingMode,
             provider: resourceForm.trackerProvider.trim(),
-          }
-        : undefined,
-      type: resourceForm.type,
+          },
+      type: legacyResourceType(selectedResourceType.category),
       archived: existingResource?.archived ?? false,
     };
 
@@ -21473,7 +21530,7 @@ function MasterDataView({
   }
 
   function saveLogbookEntry() {
-    if (!selectedResource || selectedResource.type !== "Fahrzeug") {
+    if (!selectedResource || !resourceIsVehicle(selectedResource)) {
       setArchiveNotice("Bitte zuerst ein Fahrzeug speichern oder bearbeiten.");
       return;
     }
@@ -22208,7 +22265,7 @@ function MasterDataView({
 
   return (
       <div className="stack">
-      <div className="segmented-control master-data-tabs">
+      {materialsOnly ? <div className="row-actions"><h2>{language === "de" ? "Lager & Material" : language === "sv" ? "Lager och material" : "Inventory & materials"}</h2><button className="ghost-button" onClick={onCloseMaterials} type="button"><ArrowLeft size={16}/>{tt("Zurück")}</button></div> : <div className="segmented-control master-data-tabs">
         <button className={masterDataTab === "company" ? "active" : ""} onClick={() => setMasterDataTab("company")} type="button">
           <Home size={16} />
           {tt("Firma")}
@@ -22233,9 +22290,9 @@ function MasterDataView({
           <Wrench size={16} />
           {tt("Leistungen")}
         </button>
-        <button className={masterDataTab === "materials" ? "active" : ""} onClick={() => setMasterDataTab("materials")} type="button">
-          <Paperclip size={16} />
-          {tt("Material")}
+        <button className={masterDataTab === "resourceTypes" ? "active" : ""} onClick={() => setMasterDataTab("resourceTypes")} type="button">
+          <LayoutGrid size={16} />
+          {resourceTypesText.title[resourceLanguageIndex(language)]}
         </button>
         <button className={masterDataTab === "accounting" ? "active" : ""} onClick={() => setMasterDataTab("accounting")} type="button">
           <Euro size={16} />
@@ -22253,7 +22310,9 @@ function MasterDataView({
           <Archive size={16} />
           Backups
         </button>
-      </div>
+      </div>}
+
+      {masterDataTab === "resourceTypes" && <ResourceTypesPanel types={resourceTypes.types} language={language} save={resourceTypes.save} ready={resourceTypes.ready} error={!resourceTypes.ready && resourceTypes.error} retry={resourceTypes.retry}/>}
 
       {archiveNotice && <p className="archive-notice">{archiveNotice}</p>}
 
@@ -22844,9 +22903,10 @@ function MasterDataView({
               {tt("Neue Ressource anlegen")}
             </button>
           </div>
+          <button className="ghost-button" onClick={() => setResourceOperationsOpen((current) => !current)} type="button"><Wrench size={16}/>{language === "de" ? "Zuweisungen & Ausstattung" : language === "sv" ? "Tilldelningar och utrustning" : "Assignments & equipment"}</button>
+          {resourceOperationsOpen && resourceOperations}
           {resourceEditorOpen && (
-            <div className="modal-backdrop">
-              <section className={`modal resource-editor-modal${resourceModalView === "logbook" ? " resource-logbook-modal" : ""}`} role="dialog" aria-modal="true" aria-labelledby="resource-editor-title">
+            <TripDialog onClose={resetResourceForm} labelledBy="resource-editor-title" className={`resource-editor-modal${resourceModalView === "logbook" ? " resource-logbook-modal" : ""}`}>
                 <header>
                   <div>
                     <p>{resourceModalView === "logbook" ? lt("Fahrtenbuch") : tt("Ressourcen")}</p>
@@ -22854,7 +22914,7 @@ function MasterDataView({
                     {resourceModalView === "logbook" && selectedResource ? <span>{selectedResource.name}</span> : null}
                   </div>
                   <div className="modal-header-actions">
-                    {selectedResource?.type === "Fahrzeug" && resourceModalView === "logbook" && (
+                    {resourceIsVehicle(selectedResource) && resourceModalView === "logbook" && (
                       <>
                         <button className="primary-button" onClick={openCreateLogbookEntry} type="button">
                           <Plus size={16} />
@@ -22874,7 +22934,7 @@ function MasterDataView({
                         </button>
                       </>
                     )}
-                    {selectedResource?.type === "Fahrzeug" && (
+                    {resourceIsVehicle(selectedResource) && (
                       <button className="ghost-button" onClick={() => setResourceModalView(resourceModalView === "logbook" ? "details" : "logbook")} type="button">
                         <CarFront size={16} />
                         {resourceModalView === "logbook" ? lt("Stammdaten") : tt("Fahrtenbuch")}
@@ -22920,89 +22980,22 @@ function MasterDataView({
               <small>{resourceImages.length ? `${Math.min(resourceImageIndex + 1, resourceImages.length)} / ${resourceImages.length}` : "kein Bild"}</small>
             </aside>
             <div className="resource-main-fields">
-              <label className="resource-field"><span>{tt("Typ")}</span>
-                <select value={resourceForm.type} onChange={(event) => setResourceForm({ ...resourceForm, type: event.target.value as ResourceRecord["type"] })}>
-                  <option>Fahrzeug</option>
-                  <option>Maschine</option>
-                  <option>Gerät</option>
+              <label className="resource-field"><span>{resourceTypesText.type[resourceLanguageIndex(language)]}</span>
+                <select aria-label={resourceTypesText.type[resourceLanguageIndex(language)]} value={selectedResourceType?.id ?? ""} onChange={(event) => {
+                  const type = resourceTypes.types.find((item) => item.id === event.target.value);
+                  setResourceForm((current) => ({ ...current, resourceTypeId: event.target.value, type: type ? legacyResourceType(type.category) : current.type }));
+                }}>
+                  <option value="">{resourceTypesText.choose[resourceLanguageIndex(language)]}</option>
+                  {resourceTypes.types.filter((type) => !type.archived || type.id === selectedResourceType?.id).map((type) => <option key={type.id} value={type.id}>{type.name}</option>)}
                 </select>
               </label>
-              <label className="resource-field"><span>{tt("Name")}</span><input value={resourceForm.name} onChange={(event) => setResourceForm({ ...resourceForm, name: event.target.value })} /></label>
-              <label className="resource-field"><span>{tt("Kennzeichen / Inventarnr.")}</span><input value={resourceForm.identifier} onChange={(event) => setResourceForm({ ...resourceForm, identifier: event.target.value })} /></label>
-              {resourceForm.type === "Fahrzeug" && (
-                <>
-                  <label className="resource-field"><span>{tt("Kennzeichen")}</span><input value={resourceForm.licensePlate} onChange={(event) => setResourceForm({ ...resourceForm, licensePlate: event.target.value })} /></label>
-                  <label className="resource-field"><span>{tt("Marke")}</span><input value={resourceForm.brand} onChange={(event) => setResourceForm({ ...resourceForm, brand: event.target.value })} /></label>
-                  <label className="resource-field"><span>{tt("Modell")}</span><input value={resourceForm.model} onChange={(event) => setResourceForm({ ...resourceForm, model: event.target.value })} /></label>
-                  <label className="resource-field"><span>{tt("Eigentümer / Firma")}</span><input value={resourceForm.ownerCompany} onChange={(event) => setResourceForm({ ...resourceForm, ownerCompany: event.target.value })} /></label>
-                  <label className="resource-field"><span>{tt("Land der Zulassung")}</span><input value={resourceForm.registrationCountry} onChange={(event) => setResourceForm({ ...resourceForm, registrationCountry: event.target.value })} placeholder="z.B. Schweden" /></label>
-                  <label className="resource-field"><span>{tt("Steuerland Fahrtenbuch")}</span>
-                    <select value={resourceForm.taxCountry} onChange={(event) => setResourceForm({ ...resourceForm, taxCountry: event.target.value as DrivingLogRuleCountry })}>
-                      <option value="">{tt("nicht festgelegt")}</option>
-                      <option value="DE">{tt("Deutschland")}</option>
-                      <option value="SE">{tt("Schweden")}</option>
-                    </select>
-                  </label>
-                  <label className="resource-field"><span>{tt("Fahrtenbuch aktiv")}</span>
-                    <select value={resourceForm.logbookActive ? "ja" : "nein"} onChange={(event) => setResourceForm({ ...resourceForm, logbookActive: event.target.value === "ja" })}>
-                      <option value="ja">{tt("Ja")}</option>
-                      <option value="nein">{tt("Nein")}</option>
-                    </select>
-                  </label>
-                  <label className="resource-field"><span>{tt("Fahrtenbuchsprache")}</span>
-                    <select value={resourceForm.logbookLanguage} onChange={(event) => setResourceForm({ ...resourceForm, logbookLanguage: event.target.value as Language })}>
-                      <option value="de">{tt("Deutsch")}</option>
-                      <option value="sv">{tt("Schwedisch")}</option>
-                      <option value="en">{tt("Englisch")}</option>
-                    </select>
-                  </label>
-                  <label className="resource-field"><span>{tt("Privatnutzung erlaubt")}</span>
-                    <select value={resourceForm.privateUseAllowed ? "ja" : "nein"} onChange={(event) => setResourceForm({ ...resourceForm, privateUseAllowed: event.target.value === "ja" })}>
-                      <option value="ja">{tt("Ja")}</option>
-                      <option value="nein">{tt("Nein")}</option>
-                    </select>
-                  </label>
-                  <label className="resource-field"><span>{tt("Standardfahrer")}</span>
-                    <select value={resourceForm.defaultDriverId} onChange={(event) => setResourceForm({ ...resourceForm, defaultDriverId: event.target.value })}>
-                      <option value="">{tt("Nicht zugeordnet")}</option>
-                      {activePersonnel.map((person) => <option key={person.id} value={person.id}>{person.firstName} {person.lastName}</option>)}
-                    </select>
-                  </label>
-                  <label className="resource-field"><span>{tt("Kilometerstand aktuell")}</span><input inputMode="numeric" value={resourceForm.currentOdometer} onChange={(event) => setResourceForm({ ...resourceForm, currentOdometer: event.target.value })} /></label>
-                  <label className="resource-field"><span>{tt("Datum Kilometerstand")}</span><input type="date" value={resourceForm.currentOdometerDate} onChange={(event) => setResourceForm({ ...resourceForm, currentOdometerDate: event.target.value })} /></label>
-                </>
-              )}
-              <label className="resource-field"><span>{tt("Status")}</span>
-                <input list="resource-status-options" value={resourceForm.status} onChange={(event) => setResourceForm({ ...resourceForm, status: event.target.value })} />
-                <datalist id="resource-status-options">
-                  {resourceStatusOptions.map((status) => <option key={status} value={status} />)}
-                </datalist>
-              </label>
-              <label className="resource-field"><span>{tt("Verantwortlich")}</span>
-                <select value={resourceForm.responsiblePersonId} onChange={(event) => setResourceForm({ ...resourceForm, responsiblePersonId: event.target.value })}>
-                  <option value="">{tt("Nicht zugeordnet")}</option>
-                  {activePersonnel.map((person) => <option key={person.id} value={person.id}>{person.firstName} {person.lastName}</option>)}
-                </select>
-              </label>
-              <label className="resource-field"><span>{tt("Standort")}</span><input value={resourceForm.location} onChange={(event) => setResourceForm({ ...resourceForm, location: event.target.value })} /></label>
-              {resourceForm.type === "Fahrzeug" && (
-                <>
-                  <label className="resource-field"><span>{tt("Baujahr")}</span><input inputMode="numeric" value={resourceForm.buildYear} onChange={(event) => setResourceForm({ ...resourceForm, buildYear: event.target.value })} /></label>
-                  <label className="resource-field"><span>{tt("Km-Stand Jahresbeginn")}</span><input inputMode="numeric" value={resourceForm.odometerYearStart} onChange={(event) => setResourceForm({ ...resourceForm, odometerYearStart: event.target.value })} /></label>
-                  <label className="resource-field"><span>{tt("Km-Stand Jahresende")}</span><input inputMode="numeric" value={resourceForm.odometerYearEnd} onChange={(event) => setResourceForm({ ...resourceForm, odometerYearEnd: event.target.value })} /></label>
-                  <label className="resource-field"><span>{tt("Tracking")}</span>
-                    <select value={resourceForm.trackingMode} onChange={(event) => setResourceForm({ ...resourceForm, trackingMode: event.target.value as NonNullable<ResourceRecord["tracking"]>["mode"] })}>
-                      <option value="phone">{tt("Mitarbeiter-Mobil")}</option>
-                      <option value="tracker">{tt("GPS-Tracker")}</option>
-                      <option value="none">{tt("Aus")}</option>
-                    </select>
-                  </label>
-                  <label className="resource-field"><span>{tt("Tracker-Anbieter")}</span><input disabled={resourceForm.trackingMode !== "tracker"} value={resourceForm.trackerProvider} onChange={(event) => setResourceForm({ ...resourceForm, trackerProvider: event.target.value })} placeholder="z.B. Teltonika" /></label>
-                  <label className="resource-field"><span>{tt("Tracker-ID")}</span><input disabled={resourceForm.trackingMode !== "tracker"} value={resourceForm.trackerDeviceId} onChange={(event) => setResourceForm({ ...resourceForm, trackerDeviceId: event.target.value })} placeholder="Geräte-ID / API-ID" /></label>
-                </>
-              )}
+              {resourceTypes.error && <p role="alert">{resourceTypesText.unavailable[resourceLanguageIndex(language)]}<button className="ghost-button" onClick={resourceTypes.retry} type="button"><RefreshCw size={16}/>{tt("Erneut versuchen")}</button></p>}
+              {selectedResourceType && <DynamicResourceFields type={selectedResourceType} values={resourceForm} language={language}
+                employees={activePersonnel.map((person) => ({ id: person.id, name: `${person.firstName} ${person.lastName}` }))}
+                onChange={(key, value) => setResourceForm((current) => ({ ...current, [key]: value }))}/>}
+              {archiveNotice && <p className="wide" role="status">{archiveNotice}</p>}
             </div>
-            {resourceForm.type === "Fahrzeug" && (
+            {resourceIsVehicle(resourceForm) && selectedResourceType?.fields.some((field) => field.key === "taxCountry" && field.enabled) && (
               <section className="wide regulation-info-card">
                 <div>
                   <span>{tt("Steuerliche Vorgaben")}</span>
@@ -23025,8 +23018,7 @@ function MasterDataView({
                 )}
               </section>
             )}
-            <label className="resource-notes"><span>{tt("Notizen")}</span><textarea value={resourceForm.notes} onChange={(event) => setResourceForm({ ...resourceForm, notes: event.target.value })} /></label>
-            {resourceForm.type === "Fahrzeug" && (
+            {resourceIsVehicle(resourceForm) && (
               <>
                 <section className="wide object-attachment-section resource-document-section">
                   <div className="attachment-section-head">
@@ -23112,7 +23104,7 @@ function MasterDataView({
             <button className="primary-button wide" onClick={saveResource} type="button">{editingResourceId ? tt("Ressource speichern") : tt("Ressource anlegen")}</button>
             <button className="ghost-button wide" onClick={resetResourceForm} type="button">{tt("Bearbeitung abbrechen")}</button>
           </div>
-          ) : selectedResource?.type === "Fahrzeug" ? (
+          ) : resourceIsVehicle(selectedResource) ? (
             <section className="vehicle-logbook resource-modal-logbook">
               <div className={selectedResourceNeedsOdometerCheck && new Date().getDate() >= 20 ? "logbook-warning strong" : "logbook-warning"}>
                 <div className="logbook-warning-copy">
@@ -23364,8 +23356,7 @@ function MasterDataView({
               </div>
             </section>
           ) : null}
-              </section>
-            </div>
+            </TripDialog>
           )}
           <div className="master-list-toolbar">
             <div className="segmented-control master-view-toggle">
@@ -23395,10 +23386,10 @@ function MasterDataView({
                       <CarFront size={18} />
                     </div>
                   )}
-                  <span>{resource.type}</span>
+                  <span>{resourceTypes.types.find((type) => type.id === resource.resourceTypeId)?.name ?? tt(resource.type)}</span>
                   <strong>{resource.name}</strong>
                   <small>{[resource.identifier, resource.location, personName(resource.responsiblePersonId)].filter(Boolean).join(" · ")}</small>
-                  <small>{resource.type === "Fahrzeug" ? `${resource.logbook.length} ${tt("Fahrten")} · ${resource.logbookYear}` : resource.notes || tt("Keine Notizen hinterlegt.")}</small>
+                  <small>{resourceIsVehicle(resource) ? `${resource.logbook.length} ${tt("Fahrten")} · ${resource.logbookYear}` : resource.notes || tt("Keine Notizen hinterlegt.")}</small>
                   <small>{resource.media?.length ?? 0} {tt("Bilder")}</small>
                   <mark>{tt(resource.status)}</mark>
                   <div className="card-actions" onClick={(event) => event.stopPropagation()}>
@@ -23430,8 +23421,8 @@ function MasterDataView({
                     )}
                     <div>
                       <strong>{resource.name}</strong>
-                      <span>{tt(resource.type)} · {[resource.identifier, resource.location, personName(resource.responsiblePersonId)].filter(Boolean).join(" · ") || tt("Stammdaten offen")}</span>
-                      <span>{resource.type === "Fahrzeug" ? `${resource.logbook.length} ${tt("Fahrten")} · ${resource.logbookYear}` : resource.notes || tt("Keine Notizen hinterlegt.")}</span>
+                      <span>{resourceTypes.types.find((type) => type.id === resource.resourceTypeId)?.name ?? tt(resource.type)} · {[resource.identifier, resource.location, personName(resource.responsiblePersonId)].filter(Boolean).join(" · ") || tt("Stammdaten offen")}</span>
+                      <span>{resourceIsVehicle(resource) ? `${resource.logbook.length} ${tt("Fahrten")} · ${resource.logbookYear}` : resource.notes || tt("Keine Notizen hinterlegt.")}</span>
                     </div>
                     <Badge value={resource.status} />
                     <div className="row-actions" onClick={(event) => event.stopPropagation()}>
@@ -23444,7 +23435,7 @@ function MasterDataView({
               {activeResources.length === 0 && <p>{tt("Noch keine aktiven Ressourcen angelegt.")}</p>}
             </div>
           )}
-          {resourceEditorOpen && selectedResource?.type === "Fahrzeug" && false && (
+          {resourceEditorOpen && resourceIsVehicle(selectedResource) && false && (
             <section className="vehicle-logbook">
               <div className="panel-title">
                 <div>

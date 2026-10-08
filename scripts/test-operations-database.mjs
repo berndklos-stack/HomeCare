@@ -17,10 +17,13 @@ try {
   if (process.argv.includes("--full-chain")) {
     sql("supabase/tests/operations_full_chain_bootstrap.sql");
     for (const migration of readdirSync("supabase/migrations").filter((file) => file.endsWith(".sql")).sort()) {
+      if (migration === "20261008100000_resource_types.sql") sql("supabase/tests/resource_types_migration_fixture.sql");
       console.log(`Applying ${migration}`);
       execFileSync("psql", [...args, "-q", "-f", resolve("supabase/migrations", migration)], { stdio: "inherit" });
     }
     sql("supabase/tests/operations_full_chain.sql");
+    sql("supabase/migrations/20261008100000_resource_types.sql");
+    sql("supabase/tests/resource_types.sql");
     console.log("Complete migration chain and Operations backup round trip passed (local Auth shim, not live Supabase).");
   } else {
   sql("supabase/tests/operations_foundation_fixture.sql");

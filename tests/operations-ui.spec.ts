@@ -17,7 +17,7 @@ async function mock(page: Page) {
   await page.route("**/api/sync-mutations", (route) => route.fulfill({ status: 503, json: { error: "OFFLINE_TEST" } }));
 }
 async function purchasing(page: Page) {
-  await page.getByRole("button", { name: "Lagerverwaltung", exact: true }).click();
+  await page.getByRole("button", { name: "Lager & Material", exact: true }).click();
   await page.getByRole("button", { name: "Lieferanten & Einkauf", exact: true }).click();
   await expect(page.getByText("Test Supplier", { exact: true })).toBeVisible();
 }
@@ -52,7 +52,7 @@ for (const mobile of [false, true]) {
 
 test("Materialbuchung hat Quelle, Ziel und separate idempotente Queue-Aktion", async ({ page }) => {
   await mock(page); await page.goto("/"); await ready(page);
-  await page.getByRole("button", { name: "Lagerverwaltung", exact: true }).click();
+  await page.getByRole("button", { name: "Lager & Material", exact: true }).click();
   await page.getByRole("button", { name: "Lagerbuchung", exact: true }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("Nach Standort", { exact: true }).selectOption({ index: 1 });
@@ -82,7 +82,7 @@ test("Wartungsbeginn schützt Plan- und Ressourcenrevision gemeinsam", async ({ 
   await page.route("**/api/operations?entity=maintenance_plans**", (route) => route.fulfill({ json: { rows: [plan], count: 1 } }));
   await page.route("**/api/operations?entity=resource_details**", (route) => route.fulfill({ json: { rows: [{ id: "RES-1", revision: 7, operating_hours: 100, availability: "available" }], count: 1 } }));
   await page.goto("/"); await ready(page);
-  await page.getByRole("button", { name: "Lagerverwaltung", exact: true }).click();
+  await page.getByRole("button", { name: "Lager & Material", exact: true }).click();
   await page.getByRole("button", { name: "Wartung & Prüfungen", exact: true }).click();
   await page.getByRole("button", { name: "Wartung beginnen", exact: true }).click();
   await expect(page.getByRole("button", { name: "Wartung beginnen", exact: true })).toBeDisabled();
@@ -131,7 +131,7 @@ async function maintenance(page: Page) {
   await mock(page);
   await page.route("**/api/operations?entity=maintenance_plans**", (route) => route.fulfill({ json: { rows: [plan], count: 1 } }));
   await page.goto("/"); await ready(page);
-  await page.getByRole("button", { name: "Lagerverwaltung", exact: true }).click();
+  await page.getByRole("button", { name: "Lager & Material", exact: true }).click();
   await page.getByRole("button", { name: "Wartung & Prüfungen", exact: true }).click();
 }
 
@@ -215,7 +215,7 @@ test("Materialbeschaffung lädt bevorzugte Lieferanten auch ohne Wechsel zum Ein
   await mock(page);
   await page.route("**/api/operations?entity=material_details**", (route) => route.fulfill({ json: { rows: [{ id: "MAT-TEST", revision: 2, preferred_supplier_id: null }], count: 1 } }));
   await page.goto("/"); await ready(page);
-  await page.getByRole("button", { name: "Lagerverwaltung", exact: true }).click();
+  await page.getByRole("button", { name: "Lager & Material", exact: true }).click();
   await page.getByRole("button", { name: "Bearbeiten: MAT-TEST", exact: true }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByLabel("Bevorzugter Lieferant").locator("option").filter({ hasText: "Test Supplier" })).toHaveCount(1);

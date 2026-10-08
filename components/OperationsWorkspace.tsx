@@ -15,10 +15,11 @@ import { OperationsHistory } from "./OperationsHistory";
 
 type Reference = { id: string; name: string; minStock?: string; revision?: number; hours?: number; mileage?: number; availability?: string; documents?: { id: string; name: string }[] };
 type Props = {
-  children: ReactNode; language: OperationsLanguage; queue: SyncMutation[];
+  children?: ReactNode; language: OperationsLanguage; queue: SyncMutation[];
   enqueue: (input: Parameters<typeof import("@/lib/syncQueue").createSyncMutation>[0]) => unknown;
   materials: Reference[]; locations: Reference[]; resources: Reference[]; employees: Reference[]; jobs: Reference[]; projects: Reference[];
   onOpenMasterData: (tab: "materials" | "resources") => void;
+  resourcesOnly?: boolean;
 };
 type Form = { entity: OperationsEntity; row?: OperationsRow; kind: "save" | "receive" | "complete"; values: Record<string, string>; target?: OperationsRow };
 const numeric = new Set(["quantity", "unit_price", "due_mileage", "due_hours", "interval_days", "interval_mileage", "interval_hours", "purchase_price", "operating_hours", "reorder_quantity", "mileage", "cost"]);
@@ -41,8 +42,8 @@ const enums: Record<string, string[]> = {
 export function OperationsWorkspace(props: Props) {
   const { language, queue, enqueue } = props;
   const t = (key: string) => operationLabel(key, language);
-  const [tab, setTab] = useState("inventory");
-  const [entity, setEntity] = useState<OperationsEntity>("material_details");
+  const [tab, setTab] = useState(props.resourcesOnly ? "resources" : "inventory");
+  const [entity, setEntity] = useState<OperationsEntity>(props.resourcesOnly ? "resource_assignments" : "material_details");
   const [parent, setParent] = useState<OperationsRow | null>(null);
   const [rows, setRows] = useState<OperationsRow[]>([]);
   const [count, setCount] = useState(0);
@@ -222,11 +223,11 @@ export function OperationsWorkspace(props: Props) {
   const fields = form?.kind === "receive" ? ["quantity", "note"] : form?.kind === "complete"
     ? ["completed_date", "mileage", "operating_hours", "cost", "currency", "supplier_id", "document_id", "notes"] : form ? operationsFields[form.entity] : [];
   return <div className={styles.workspace}>
-    <nav className={styles.tabs} aria-label="Operations">{Object.keys(groups).map((key) => <button key={key} className={tab === key ? styles.selected : ""}
+    <nav className={styles.tabs} aria-label="Operations">{Object.keys(groups).filter((key) => props.resourcesOnly ? key === "resources" : key !== "resources").map((key) => <button key={key} className={tab === key ? styles.selected : ""}
       onClick={() => { setTab(key); change(groups[key][0]); }}>{operationsLabels[key as keyof typeof operationsLabels][language]}</button>)}</nav>
     {tab === "inventory" && (stockActive ? <OperationsStock {...props} /> : props.children)}
     <div className={styles.toolbar}>
-      {(tab === "inventory" || tab === "resources") && <button onClick={() => props.onOpenMasterData(tab === "inventory" ? "materials" : "resources")}><Pencil size={18} />{language === "de" ? "Stammdaten" : language === "sv" ? "Grunddata" : "Master data"}</button>}
+      {(tab === "inventory" || tab === "resources") && <button onClick={() => props.onOpenMasterData(tab === "inventory" ? "materials" : "resources")}><Pencil size={18} />{tab === "inventory" ? (language === "de" ? "Materialstammdaten" : language === "sv" ? "Materialregister" : "Material master data") : (language === "de" ? "Ressourcen bearbeiten" : language === "sv" ? "Redigera resurser" : "Edit resources")}</button>}
       {groups[tab].map((key) => <button key={key} aria-pressed={entity === key} onClick={() => change(key)}>{t(key)}</button>)}
       {parent && <button onClick={() => change(entity === "supplier_contacts" ? "suppliers" : "purchase_orders")}>{String(parent.company ?? parent.order_number)} <ChevronLeft size={16} /></button>}
       {["suppliers", "purchase_orders", "maintenance_plans", "resource_details", "material_details", "location_details"].includes(entity) && <input aria-label={language === "de" ? "Einträge suchen" : language === "sv" ? "Sök poster" : "Search records"} type="search" value={search} onChange={(e) => setSearch(e.target.value)} />}
