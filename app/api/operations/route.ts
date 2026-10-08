@@ -108,6 +108,40 @@ export async function GET(request: Request) {
   }
   const { data, error, count } = await query;
   if (error) return NextResponse.json({ error: "OPERATIONS_UNAVAILABLE" }, { status: 503 });
+  if (["purchase_order_items", "purchase_orders"].includes(entity) && data?.length) {
+    const resultRows = data as unknown as Record<string, unknown>[];
+    const rows: Record<string, unknown>[] = entity === "purchase_order_items" ? resultRows : [];
+    if (entity === "purchase_orders") {
+      for (let offset = 0; ; offset += 500) {
+        const { data: items, error: itemError } = await client.from("homecare_purchase_order_items")
+          .select("id,order_id,quantity").eq("tenant_id", tenantId).is("deleted_at", null)
+          .in("order_id", resultRows.map((row) => String(row.id))).order("id").range(offset, offset + 499);
+        if (itemError) return NextResponse.json({ error: "OPERATIONS_UNAVAILABLE" }, { status: 503 });
+        rows.push(...(items ?? []));
+        if (!items || items.length < 500) break;
+      }
+    }
+    const quantities = new Map<string, number>();
+    // Limit IN filters as well as response pages for larger purchase orders.
+    for (let start = 0; start < rows.length; start += 100) {
+     for (let offset = 0; ; offset += 500) {
+      const { data: receipts, error: receiptError } = await client.from("homecare_purchase_receipts")
+        .select("item_id,quantity").eq("tenant_id", tenantId).in("item_id", rows.slice(start, start + 100).map((row) => String(row.id)))
+        .order("id").range(offset, offset + 499);
+      if (receiptError) return NextResponse.json({ error: "OPERATIONS_UNAVAILABLE" }, { status: 503 });
+      for (const receipt of receipts ?? []) quantities.set(receipt.item_id, (quantities.get(receipt.item_id) ?? 0) + Number(receipt.quantity));
+      if (!receipts || receipts.length < 500) break;
+     }
+    }
+    for (const row of rows) row.received_quantity = quantities.get(String(row.id)) ?? 0;
+    if (entity === "purchase_orders") {
+      for (const order of resultRows) {
+        const items = rows.filter((row) => row.order_id === order.id);
+        order.item_count = items.length;
+        order.open_item_count = order.status === "cancelled" ? 0 : items.filter((row) => Number(row.received_quantity) < Number(row.quantity)).length;
+      }
+    }
+  }
   if (entity === "maintenance_events" && data?.length) {
     const rows = data as unknown as Record<string, unknown>[];
     const ids = [...new Set(rows.map((row) => row.document_id).filter((id): id is string => typeof id === "string"))];

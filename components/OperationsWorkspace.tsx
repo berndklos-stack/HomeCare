@@ -12,6 +12,7 @@ import styles from "./OperationsWorkspace.module.css";
 import { OperationsStock } from "./OperationsStock";
 import { OperationsDocumentUpload } from "./OperationsDocumentUpload";
 import { OperationsHistory } from "./OperationsHistory";
+import { PurchaseOrderSend } from "./PurchaseOrderSend";
 
 type Reference = { id: string; name: string; minStock?: string; revision?: number; hours?: number; mileage?: number; availability?: string; documents?: { id: string; name: string }[] };
 type Props = {
@@ -58,6 +59,7 @@ export function OperationsWorkspace(props: Props) {
   const [orders, setOrders] = useState<Reference[]>([]);
   const [resourceDetails, setResourceDetails] = useState<Reference[]>([]);
   const [form, setForm] = useState<Form | null>(null);
+  const [itemDetails, setItemDetails] = useState<OperationsRow | null>(null);
   const [archive, setArchive] = useState<OperationsRow | null>(null);
   const [formError, setFormError] = useState("");
   const [consumption, setConsumption] = useState<{ material_id: string; location_id: string; quantity: string }[]>([]);
@@ -154,7 +156,7 @@ export function OperationsWorkspace(props: Props) {
       props.materials.find((r) => r.id === row.material_id)?.name ?? props.resources.find((r) => r.id === row.resource_id)?.name ?? row.id);
   }
   function change(next: OperationsEntity, owner: OperationsRow | null = null) {
-    setEntity(next); setParent(owner); setPage(0); setSearch(""); setQuerySearch(""); setForm(null);
+    setEntity(next); setParent(owner); setPage(0); setSearch(""); setQuerySearch(""); setForm(null); setItemDetails(null);
   }
   function open(kind: Form["kind"], row?: OperationsRow) {
     setFormError(""); setConsumption([]);
@@ -222,6 +224,10 @@ export function OperationsWorkspace(props: Props) {
   const editable = !entity.endsWith("_details");
   const fields = form?.kind === "receive" ? ["quantity", "note"] : form?.kind === "complete"
     ? ["completed_date", "mileage", "operating_hours", "cost", "currency", "supplier_id", "document_id", "notes"] : form ? operationsFields[form.entity] : [];
+  const detail = itemDetails ? rows.find((row) => row.id === itemDetails.id) ?? itemDetails : null;
+  const number = (value: unknown) => value == null ? "—" : new Intl.NumberFormat(language === "sv" ? "sv-SE" : language === "en" ? "en-GB" : "de-DE", { maximumFractionDigits: 3 }).format(Number(value));
+  const date = (value: unknown) => typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)
+    ? new Intl.DateTimeFormat(language === "sv" ? "sv-SE" : language === "en" ? "en-GB" : "de-DE").format(new Date(`${value}T12:00:00`)) : "—";
   return <div className={styles.workspace}>
     <nav className={styles.tabs} aria-label="Operations">{Object.keys(groups).filter((key) => props.resourcesOnly ? ["resources", "maintenance"].includes(key) : ["inventory", "purchasing"].includes(key)).map((key) => <button key={key} className={tab === key ? styles.selected : ""}
       onClick={() => { setTab(key); change(groups[key][0]); }}>{operationsLabels[key as keyof typeof operationsLabels][language]}</button>)}</nav>
@@ -238,11 +244,23 @@ export function OperationsWorkspace(props: Props) {
     {active.length > 0 && <div role="status" className={styles.pending}>{active.map((m) => <p key={m.id}>{t(m.status === "failed" || m.status === "conflict" ? "failed" : "waiting")}: {String((m.payload.values as Record<string, unknown> | undefined)?.company ?? (m.payload.values as Record<string, unknown> | undefined)?.name ?? m.entityId)}</p>)}</div>}
     <div className={styles.list} aria-busy={loading}>
       {!rows.length && !loading && !error && <p>{t("empty")}</p>}
-      {rows.map((row) => <article key={row.id} className={styles.row}>
+      {entity === "purchase_order_items" && rows.length > 0 ? <table className={styles.items}>
+        <thead><tr><th scope="col">{t("position")}</th><th scope="col">{t("orderedQuantity")}</th><th scope="col">{t("receivedQuantity")}</th></tr></thead>
+        <tbody>{rows.map((row) => <tr key={row.id} onClick={() => setItemDetails(row)}>
+          <th scope="row"><button className={styles.itemName} onClick={() => setItemDetails(row)}>{title(row)}<ChevronRight size={16} aria-hidden="true" /></button></th>
+          <td>{number(row.quantity)}</td><td>{number(row.received_quantity)}</td>
+        </tr>)}</tbody>
+      </table> : rows.map((row) => <article key={row.id} className={styles.row}>
         <div><strong>{title(row)}</strong><div className={styles.meta}>{row.status ? operationsLabels[row.status as keyof typeof operationsLabels]?.[language] : null}
           {entity === "suppliers" && ["supplier_number", "vat_number", "payment_terms"].map((key) => typeof row[key] === "string" && String(row[key]).trim()
             ? <span key={key}>{t(key)}: {String(row[key]).trim()}</span> : null)}
           {entity === "supplier_contacts" && typeof row.role === "string" && row.role.trim() && <span>{t("role")}: {row.role.trim()}</span>}
+          {entity === "purchase_orders" && <>
+            <span>{t("supplier_id")}: {suppliers.find((supplier) => supplier.id === row.supplier_id)?.name ?? "—"}</span>
+            <span>{t("order_date")}: {date(row.order_date)}</span>
+            <span>{t("expected_delivery")}: {date(row.expected_delivery)}</span>
+            <span>{t("openItems")}: {number(row.open_item_count)} / {number(row.item_count)}</span>
+          </>}
           {entity === "maintenance_plans" && (row.in_progress ? t("inProgress") : operationsLabels[maintenanceStatus({ dueDate: row.due_date as string | null, dueMileage: row.due_mileage == null ? null : Number(row.due_mileage), dueHours: row.due_hours == null ? null : Number(row.due_hours) }, { date: new Date().toLocaleDateString("sv-SE"), mileage: props.resources.find((r) => r.id === row.resource_id)?.mileage, hours: resourceDetails.find((r) => r.id === row.resource_id)?.hours }, Boolean(row.completed))][language])}
           {row.quantity != null && <span>{t("quantity")}: {String(row.quantity)} · {t("unit_price")}: {String(row.unit_price)}</span>}
           {row.due_date ? <span>{t("due_date")}: {String(row.due_date)}</span> : null}
@@ -258,7 +276,7 @@ export function OperationsWorkspace(props: Props) {
           {(entity === "purchase_order_items" || entity === "maintenance_plans") && <button onClick={() => setHistory({ entity: entity === "purchase_order_items" ? "purchase_receipts" : "maintenance_events", row, title: title(row) })}><History size={18} />{t(entity === "purchase_order_items" ? "purchase_receipts" : "maintenance_events")}</button>}
           {entity === "suppliers" && <button onClick={() => change("supplier_contacts", row)}>{t("supplier_contacts")}</button>}
           {entity === "purchase_orders" && <><button onClick={() => change("purchase_order_items", row)}>{t("purchase_order_items")}</button>
-            {row.status === "draft" && <button disabled={blocked(row.id)} onClick={() => { try { submitCommand(row.id, { kind: "order" }, "update", row.revision); } catch (e) { setFormError(String(e)); } }}>{t("order")}</button>}
+            {row.status === "draft" && <PurchaseOrderSend orderId={row.id} revision={Number(row.revision)} disabled={blocked(row.id)} language={language} onSent={() => submitCommand(row.id, { kind: "order" }, "update", row.revision)} />}
             {["draft", "ordered"].includes(String(row.status)) && <button disabled={blocked(row.id)} onClick={() => { try { submitCommand(row.id, { kind: "cancel" }, "update", row.revision); } catch (e) { setFormError(String(e)); } }}>{t("cancelOrder")}</button>}</>}
           {entity === "purchase_order_items" && parent && ["ordered", "partially_received"].includes(String(parent.status)) && <button disabled={!stockActive || blocked(parent.id)} onClick={() => open("receive", row)}>{t("receive")}</button>}
           {entity === "maintenance_plans" && !row.completed && <button disabled={blocked(row.id)} onClick={() => open("complete", row)}>{t("complete")}</button>}
@@ -273,6 +291,23 @@ export function OperationsWorkspace(props: Props) {
       </article>)}
     </div>
     {count > 50 && <div className={styles.toolbar}><button aria-label={t("previous")} disabled={page === 0} onClick={() => setPage((p) => p - 1)}><ChevronLeft size={18} /></button><span>{page + 1} / {Math.ceil(count / 50)}</span><button aria-label={t("next")} disabled={(page + 1) * 50 >= count} onClick={() => setPage((p) => p + 1)}><ChevronRight size={18} /></button></div>}
+    {detail && <TripDialog labelledBy="purchase-item-title" onClose={() => setItemDetails(null)} className={styles.dialog}>
+      <div className={styles.toolbar}><div><p>{t("itemDetails")} · {String(parent?.order_number ?? "")}</p><h2 id="purchase-item-title">{title(detail)}</h2></div><button aria-label={t("close")} title={t("close")} onClick={() => setItemDetails(null)}><X size={18} /></button></div>
+      <dl className={styles.itemFacts}>
+        <div><dt>{t("orderedQuantity")}</dt><dd>{number(detail.quantity)}</dd></div>
+        <div><dt>{t("receivedQuantity")}</dt><dd>{number(detail.received_quantity)}</dd></div>
+        <div><dt>{t("unit_price")}</dt><dd>{number(detail.unit_price)} {String(parent?.currency ?? "")}</dd></div>
+        <div><dt>{t("lineTotal")}</dt><dd>{number(Number(detail.quantity) * Number(detail.unit_price))} {String(parent?.currency ?? "")}</dd></div>
+      </dl>
+      <footer className={styles.actions}>
+        <button onClick={() => { setItemDetails(null); setHistory({ entity: "purchase_receipts", row: detail, title: title(detail) }); }}><History size={18} />{t("deliveryHistory")}</button>
+        {parent && ["ordered", "partially_received"].includes(String(parent.status)) && <button className={styles.selected} disabled={!stockActive || blocked(parent.id)} onClick={() => { setItemDetails(null); open("receive", detail); }}><Plus size={18} />{t("receive")}</button>}
+        {parent?.status === "draft" && <>
+          <button disabled={blocked(detail.id) || blocked(parent.id)} onClick={() => { setItemDetails(null); open("save", detail); }}><Pencil size={18} />{t("edit")}</button>
+          <button disabled={blocked(detail.id) || blocked(parent.id)} onClick={() => { setItemDetails(null); setArchive(detail); }}><Archive size={18} />{t("archive")}</button>
+        </>}
+      </footer>
+    </TripDialog>}
     {form && <TripDialog labelledBy="operations-form-title" onClose={() => setForm(null)} className={styles.dialog}>
       <form onSubmit={(e) => { e.preventDefault(); save(); }}>
         <div className={styles.toolbar}><h2 id="operations-form-title">{t(form.kind === "save" ? form.entity : form.kind)}</h2><button type="button" title={t("close")} aria-label={t("close")} onClick={() => setForm(null)}><X size={18} /></button></div>

@@ -110,12 +110,44 @@ test("Bestellung absenden verwendet die aktuelle Revision und sperrt doppelte Ak
   await mock(page);
   const order = { id: "22222222-2222-4222-8222-222222222222", order_number: "PO-1", supplier_id: supplier.id, status: "draft", revision: 4 };
   await page.route("**/api/operations?entity=purchase_orders**", (route) => route.fulfill({ json: { rows: [order], count: 1 } }));
+  const actions: string[] = [];
+  await page.route("**/api/purchase-orders/send", (route) => {
+    const request = route.request().postDataJSON();
+    actions.push(request.action);
+    expect(request).toMatchObject({ orderId: order.id, revision: 4 });
+    return route.fulfill({ json: request.action === "preview" ? { to: "supplier@example.se", subject: "Bestellung PO-1", body: "Test order", token: "snapshot-token" } : { sent: true } });
+  });
   await page.goto("/"); await ready(page); await purchasing(page);
   await page.getByRole("button", { name: "Bestellungen", exact: true }).click();
   await page.getByRole("button", { name: "Bestellung absenden", exact: true }).click();
+  await expect(page.getByRole("dialog")).toContainText("supplier@example.se");
+  expect(actions).toEqual(["preview"]);
+  await page.getByRole("dialog").getByRole("button", { name: "Bestellung per E-Mail senden", exact: true }).click();
   await expect(page.getByRole("button", { name: "Bestellung absenden", exact: true })).toBeDisabled();
   const queue = await page.evaluate(() => JSON.parse(localStorage.getItem("workcore-sync-mutations-v1") ?? "[]"));
   expect(queue.filter((m: { payload: { kind?: string } }) => m.payload.kind === "order")).toMatchObject([{ expectedRevision: 4, entityId: order.id, payload: { kind: "order" } }]);
+  expect(actions).toEqual(["preview", "send"]);
+});
+
+test("Bestellvorschau: Abbruch und fehlgeschlagener Versand ändern keinen Bestellstatus", async ({ page }) => {
+  await mock(page);
+  const order = { id: "22222222-2222-4222-8222-222222222222", order_number: "PO-FAIL", status: "draft", revision: 4 };
+  await page.route("**/api/operations?entity=purchase_orders**", (route) => route.fulfill({ json: { rows: [order], count: 1 } }));
+  let sends = 0;
+  await page.route("**/api/purchase-orders/send", (route) => {
+    if (route.request().postDataJSON().action === "preview") return route.fulfill({ json: { to: "supplier@example.se", subject: "PO-FAIL", body: "Preview", token: "token" } });
+    sends++;
+    return route.fulfill({ status: 502, json: { error: "MAIL_FAILED" } });
+  });
+  await page.goto("/"); await ready(page); await purchasing(page);
+  await page.getByRole("button", { name: "Bestellungen", exact: true }).click();
+  await page.getByRole("button", { name: "Bestellung absenden", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Schließen", exact: true }).last().click();
+  expect(sends).toBe(0);
+  await page.getByRole("button", { name: "Bestellung absenden", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Bestellung per E-Mail senden", exact: true }).click();
+  await expect(page.getByRole("dialog").getByRole("alert")).toContainText("Versand nicht bestätigt");
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("workcore-sync-mutations-v1") ?? "[]").filter((mutation: { payload: { kind?: string } }) => mutation.payload.kind === "order"))).toHaveLength(0);
 });
 
 test("Wartungsbeginn schützt Plan- und Ressourcenrevision gemeinsam", async ({ page }) => {
@@ -265,6 +297,47 @@ test("Materialbeschaffung lädt bevorzugte Lieferanten auch ohne Wechsel zum Ein
   expect(queue.filter((m: { entityId: string }) => m.entityId === "MAT-TEST")).toMatchObject([{ expectedRevision: 2, payload: { kind: "save", entity: "material_details", values: { preferred_supplier_id: supplier.id } } }]);
 });
 
+for (const mobile of [false, true]) {
+ test(`Bestellübersicht und Positionsdetails ${mobile ? "mobil" : "desktop"}`, async ({ page }) => {
+  await page.setViewportSize(mobile ? { width: 390, height: 844 } : { width: 1440, height: 1000 });
+  await mock(page);
+  const order = { id: "22222222-2222-4222-8222-222222222222", order_number: "PO-DETAIL", supplier_id: supplier.id, status: "partially_received", revision: 4, order_date: "2026-10-08", expected_delivery: "2026-10-15", item_count: 2, open_item_count: 1, currency: "SEK" };
+  const items = [
+    { id: "55555555-5555-4555-8555-555555555555", order_id: order.id, material_id: "MAT-1", quantity: 10, received_quantity: 4, unit_price: 5, revision: 1 },
+    { id: "66666666-6666-4666-8666-666666666666", order_id: order.id, material_id: "MAT-2", quantity: 20, received_quantity: 20, unit_price: 3, revision: 1 },
+  ];
+  await page.route("**/api/operations?entity=purchase_orders**", (route) => route.fulfill({ json: { rows: [order], count: 1 } }));
+  await page.route("**/api/operations?entity=purchase_order_items**", (route) => route.fulfill({ json: { rows: items, count: 2 } }));
+  await page.goto("/"); await ready(page); await purchasing(page);
+  await page.getByRole("button", { name: "Bestellungen", exact: true }).click();
+  const summary = page.getByRole("article").filter({ hasText: "PO-DETAIL" });
+  await expect(summary).toContainText("Lieferant: Test Supplier");
+  await expect(summary).toContainText("Bestelldatum: 8.10.2026");
+  await expect(summary).toContainText("Erwartete Lieferung: 15.10.2026");
+  await expect(summary).toContainText("Offene Positionen: 1 / 2");
+  await summary.getByRole("button", { name: "Positionen", exact: true }).click();
+  const table = page.getByRole("table");
+  await expect(table.getByRole("columnheader")).toHaveText(["Position", "Bestellt", "Geliefert"]);
+  await expect(table.getByRole("row").nth(1).getByRole("cell")).toHaveText(["10", "4"]);
+  await expect(table.getByRole("row").nth(2).getByRole("cell")).toHaveText(["20", "20"]);
+  await table.getByRole("button").first().focus();
+  await page.keyboard.press("Enter");
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  expect(await dialog.evaluate((element) => element.matches(":modal"))).toBe(true);
+  await expect(dialog).toContainText("Einzelpreis");
+  await expect(dialog).toContainText("50 SEK");
+  await expect(dialog.getByRole("button", { name: "Lieferverlauf", exact: true })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Bearbeiten", exact: true })).toHaveCount(0);
+  await page.screenshot({ path: `test-results/purchase-item-${mobile ? "mobile" : "desktop"}-${test.info().project.name}.png` });
+  await dialog.getByRole("button", { name: "Wareneingang", exact: true }).click();
+  await expect(page.getByRole("dialog").getByLabel("Menge", { exact: true })).toBeVisible();
+  await page.getByRole("dialog").getByRole("button", { name: "Abbrechen", exact: true }).click();
+  await expect(table).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+ });
+}
+
 test("Wareneingangshistorie zeigt Teillieferungen nur der ausgewählten Position", async ({ page }) => {
   await mock(page);
   const order = { id: "22222222-2222-4222-8222-222222222222", order_number: "PO-1", status: "partially_received", revision: 4 };
@@ -279,7 +352,8 @@ test("Wareneingangshistorie zeigt Teillieferungen nur der ausgewählten Position
   await page.getByRole("button", { name: "Bestellungen", exact: true }).click();
   await page.locator("article").filter({ has: page.getByText("PO-1", { exact: true }) })
     .getByRole("button", { name: "Positionen", exact: true }).click();
-  await page.getByRole("button", { name: "Wareneingänge", exact: true }).click();
+  await page.getByRole("table").getByRole("button").first().click();
+  await page.getByRole("button", { name: "Lieferverlauf", exact: true }).click();
   await expect(page.getByRole("dialog").getByText("First partial delivery", { exact: true })).toBeVisible();
   await expect(page.getByRole("dialog").getByText("Menge: 4", { exact: true })).toBeVisible();
 });

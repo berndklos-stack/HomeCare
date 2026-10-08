@@ -9,6 +9,19 @@
 .toolbar > input { width: min(240px, 100%); min-height: 42px; box-sizing: border-box; padding: 8px; border: 1px solid var(--line, #d1d5db); border-radius: 6px; background: var(--paper-soft, #f5f6f8); color: var(--foreground); font: inherit; }
 .toolbar h2 { flex: 1; font-size: 20px; margin: 0; }
 .list { border-top: 1px solid var(--border, #d1d5db); }
+.items { width: 100%; table-layout: fixed; border-collapse: collapse; }
+.items th, .items td { padding: 12px 8px; border-bottom: 1px solid var(--border, #d1d5db); overflow-wrap: anywhere; }
+.items th:first-child { width: 52%; text-align: left; }
+.items thead th { font-size: 13px; font-weight: 600; }
+.items th:not(:first-child), .items td { text-align: right; font-variant-numeric: tabular-nums; }
+.items tbody tr { cursor: pointer; }
+.items tbody tr:hover { background: var(--paper-soft, #f5f6f8); }
+.workspace .itemName { width: 100%; justify-content: space-between; padding: 8px 0; border: 0; background: transparent; text-align: left; overflow-wrap: anywhere; font-weight: 600; }
+.itemName svg { flex-shrink: 0; }
+.itemFacts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin: 24px 0; }
+.itemFacts dt { font-size: 13px; }
+.itemFacts dd { margin: 4px 0 0; font-weight: 600; overflow-wrap: anywhere; }
+.mailPreview { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; line-height: 1.5; padding: 16px 0; }
 .row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--border, #d1d5db); }
 .row > div { min-width: 0; }
 .row strong, .meta { overflow-wrap: anywhere; }
