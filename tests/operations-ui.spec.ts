@@ -1,4 +1,37 @@
 import { expect, test, type Page } from "@playwright/test";
+import { jsPDF } from "jspdf";
+
+for (const mobile of [false, true]) {
+  test(`Lieferschein aus Bestelluebersicht in App ansehen ${mobile ? "mobil" : "desktop"}`, async ({ page }) => {
+    if (mobile) await page.setViewportSize({ width: 390, height: 844 });
+    await mock(page);
+    const order = { id: "22222222-2222-4222-8222-222222222222", order_number: "PO-PDF", status: "received", revision: 4 };
+    await page.route("**/api/operations?entity=purchase_orders**", (route) => route.fulfill({ json: { rows: [order], count: 1 } }));
+    await page.route("**/api/operations?entity=purchase_receipts**", (route) => {
+      const params = new URL(route.request().url()).searchParams;
+      expect(params.get("order")).toBe(order.id); expect(params.has("parent")).toBe(false);
+      return route.fulfill({ json: { rows: [{ id: "receipt", quantity: 2, occurred_at: "2026-10-09", document: { name: "note.pdf", storage_path: "tenant/purchase-documents/note.pdf" } }], count: 1 } });
+    });
+    const pdf = new jsPDF(); pdf.text("Delivery note", 20, 20);
+    let fail = true;
+    await page.route("**/api/private-media?**", (route) => fail ? route.fulfill({ status: 503 }) : route.fulfill({ contentType: "application/pdf", body: Buffer.from(pdf.output("arraybuffer")) }));
+    await page.goto("/"); await ready(page); await purchasing(page);
+    await page.getByRole("button", { name: "Bestellungen", exact: true }).click();
+    await page.locator("article").filter({ has: page.getByText("PO-PDF", { exact: true }) }).getByRole("button", { name: "Lieferscheine", exact: true }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByRole("button", { name: "note.pdf", exact: true }).click();
+    await expect(dialog.getByRole("alert")).toBeVisible();
+    fail = false;
+    await dialog.getByRole("button", { name: "note.pdf", exact: true }).click();
+    await expect(dialog.locator("iframe")).toHaveAttribute("src", /^blob:/);
+    await expect(dialog.locator("iframe")).toBeVisible();
+    await dialogLayout(page);
+    await page.screenshot({ path: `test-results/order-pdf-${mobile}-${test.info().project.name}.png` });
+    await dialog.getByRole("button", { name: "Zurück zum Lieferverlauf" }).click();
+    await expect(dialog.locator("iframe")).toHaveCount(0);
+    await expect(dialog.getByRole("button", { name: "note.pdf", exact: true })).toBeVisible();
+  });
+}
 
 const supplier = { id: "11111111-1111-4111-8111-111111111111", supplier_number: "S-1", company: "Test Supplier", revision: 1, archived: false };
 async function ready(page: Page) {
@@ -287,7 +320,7 @@ test("Wartungshistorie lädt nur den ausgewählten Plan und bietet einen private
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByText("Inspected", { exact: true })).toBeVisible();
   const downloaded = page.waitForEvent("download");
-  await dialog.getByRole("button", { name: "receipt.pdf", exact: true }).click();
+  await dialog.getByRole("button", { name: "Download: receipt.pdf", exact: true }).click();
   expect((await downloaded).suggestedFilename()).toBe("receipt.pdf");
 });
 
@@ -386,7 +419,7 @@ test("Wareneingangshistorie zeigt Teillieferungen nur der ausgewählten Position
   await dialogLayout(page, 420);
   await page.screenshot({ path: `test-results/receipt-history-${test.info().project.name}.png` });
   const download = page.waitForEvent("download");
-  await page.getByRole("dialog").getByRole("button", { name: "delivery.pdf", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Download: delivery.pdf", exact: true }).click();
   expect((await download).suggestedFilename()).toBe("delivery.pdf");
 });
 

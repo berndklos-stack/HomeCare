@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.426.0",
+  version: "1.426.1",
   releaseDate: "2026-10-09",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  {
+    version: "1.426.1",
+    date: "2026-10-09",
+    changes: [
+      "Lieferscheine direkt aus der Bestelluebersicht aufrufen",
+      "Private PDF-Vorschau innerhalb der App mit separatem Download",
+    ],
+  },
   {
     version: "1.426.0",
     date: "2026-10-09",

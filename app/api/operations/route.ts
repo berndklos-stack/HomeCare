@@ -84,8 +84,10 @@ export async function GET(request: Request) {
   if (!Object.hasOwn(tables, entity)) return NextResponse.json({ error: "INVALID_ENTITY" }, { status: 400 });
   const page = Number(params.get("page") ?? 0);
   if (!Number.isSafeInteger(page) || page < 0 || page > 100000) return NextResponse.json({ error: "INVALID_PAGE" }, { status: 400 });
-  let query = auth.client.from(tables[entity as keyof typeof tables]).select(projections[entity] ?? "*", { count: "exact" })
+  const order = entity === "purchase_receipts" ? params.get("order") : null;
+  let query = auth.client.from(tables[entity as keyof typeof tables]).select(order ? "*,purchase_item:homecare_purchase_order_items!inner(order_id,tenant_id)" : projections[entity] ?? "*", { count: "exact" })
     .eq("tenant_id", auth.tenantId);
+  if (order) query = query.eq("purchase_item.order_id", order).eq("purchase_item.tenant_id", auth.tenantId);
   if (immutable.has(entity)) query = query.order(entity === "maintenance_events" ? "created_at" : "occurred_at", { ascending: false });
   query = query.order("id").range(page * 50, page * 50 + 49);
   if (!immutable.has(entity)) query = query.is("deleted_at", null);

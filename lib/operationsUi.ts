@@ -1,4 +1,7 @@
 export const operationText = {
+  deliveryDocuments: ["Lieferscheine", "Följesedlar", "Delivery notes"],
+  pdfPreview: ["PDF-Vorschau", "PDF-förhandsvisning", "PDF preview"],
+  backToHistory: ["Zurück zum Lieferverlauf", "Tillbaka till leveranshistoriken", "Back to delivery history"],
   orderPreview: ["Bestellvorschau", "Förhandsvisning av beställning", "Purchase order preview"],
   recipient: ["Empfänger", "Mottagare", "Recipient"],
   sendOrderEmail: ["Bestellung per E-Mail senden", "Skicka beställning via e-post", "Send purchase order by email"],

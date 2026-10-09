@@ -65,7 +65,7 @@ export function OperationsWorkspace(props: Props) {
   const [consumption, setConsumption] = useState<{ material_id: string; location_id: string; quantity: string }[]>([]);
   const [documentPending, setDocumentPending] = useState(false);
   const [uploadedDocument, setUploadedDocument] = useState<{ id: string; name: string } | null>(null);
-  const [history, setHistory] = useState<{ entity: "purchase_receipts" | "maintenance_events"; row: OperationsRow; title: string } | null>(null);
+  const [history, setHistory] = useState<{ entity: "purchase_receipts" | "maintenance_events"; row: OperationsRow; title: string; order?: boolean } | null>(null);
   const [receiptSelection, setReceiptSelection] = useState<Record<string, string>>({});
   const [receiptLocation, setReceiptLocation] = useState("");
   const [receiptNote, setReceiptNote] = useState("");
@@ -321,6 +321,7 @@ export function OperationsWorkspace(props: Props) {
           {(entity === "purchase_order_items" || entity === "maintenance_plans") && <button onClick={() => setHistory({ entity: entity === "purchase_order_items" ? "purchase_receipts" : "maintenance_events", row, title: title(row) })}><History size={18} />{t(entity === "purchase_order_items" ? "purchase_receipts" : "maintenance_events")}</button>}
           {entity === "suppliers" && <button onClick={() => change("supplier_contacts", row)}>{t("supplier_contacts")}</button>}
           {entity === "purchase_orders" && <><button onClick={() => change("purchase_order_items", row)}>{t("purchase_order_items")}</button>
+            <button onClick={() => setHistory({ entity: "purchase_receipts", row, title: title(row), order: true })}><History size={18} />{t("deliveryDocuments")}</button>
             {row.status === "draft" && <PurchaseOrderSend orderId={row.id} revision={Number(row.revision)} disabled={blocked(row.id)} language={language} onSent={() => submitCommand(row.id, { kind: "order" }, "update", row.revision)} />}
             {["draft", "ordered"].includes(String(row.status)) && <button disabled={blocked(row.id)} onClick={() => { try { submitCommand(row.id, { kind: "cancel" }, "update", row.revision); } catch (e) { setFormError(String(e)); } }}>{t("cancelOrder")}</button>}</>}
           {entity === "purchase_order_items" && parent && ["ordered", "partially_received"].includes(String(parent.status)) && <button disabled={!stockActive || blocked(parent.id)} onClick={() => open("receive", row)}>{t("receive")}</button>}
@@ -382,6 +383,6 @@ export function OperationsWorkspace(props: Props) {
       </form>
     </TripDialog>}
     {archive && <TripDialog labelledBy="operations-archive-title" onClose={() => setArchive(null)} className={`${styles.dialog} ${styles.itemDialog}`}><header className={styles.dialogHeader}><h2 id="operations-archive-title">{t("confirmArchive")}</h2><button aria-label={t("close")} title={t("close")} onClick={() => setArchive(null)}><X size={18} /></button></header><p>{title(archive)}</p><footer className={styles.actions}><button onClick={() => setArchive(null)}>{t("cancel")}</button><button onClick={() => { try { submitCommand(archive.id, { kind: "archive", entity }, "delete", archive.revision, parent?.id); setArchive(null); } catch (e) { setFormError(String(e)); } }}>{t("archive")}</button></footer></TripDialog>}
-    {history && <OperationsHistory entity={history.entity} parent={history.row.id} title={history.title} language={language} onClose={() => setHistory(null)} />}
+    {history && <OperationsHistory entity={history.entity} parent={history.row.id} order={history.order} title={history.title} language={language} onClose={() => setHistory(null)} />}
   </div>;
 }

@@ -4,6 +4,11 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.426.1 - 2026-10-09
+
+- Lieferscheine sind direkt aus der Bestelluebersicht erreichbar.
+- Private PDF-Belege lassen sich innerhalb der App ansehen und weiterhin herunterladen.
+
 ## 1.426.0 - 2026-10-09
 
 - Kompakte Dialoge fuer Einkauf, Wareneingaenge und Ressourcen.
