@@ -1,4 +1,15 @@
 .workspace { min-width: 0; }
+.historyEntry { padding: 16px 0; border-bottom: 1px solid var(--line); }
+.historyHeading { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.historyHeading > div:first-child { min-width: 0; }
+.historyHeading strong { font-size: 15px; }
+.documentName { margin: 6px 0; font-size: 13px; overflow-wrap: anywhere; }
+.historyActions { display: flex; flex-shrink: 0; gap: 6px; }
+.historyActions button { width: 40px; height: 40px; padding: 8px; }
+.historyPosition { display: flex; justify-content: space-between; gap: 16px; padding: 8px 0; font-size: 14px; }
+.historyPosition > span:first-child { min-width: 0; overflow-wrap: anywhere; }
+.historyPosition > span:last-child { flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.historyEntry > p { font-size: 13px; margin: 8px 0 0; overflow-wrap: anywhere; }
 .pdfPreview iframe { display: block; width: 100%; height: 60dvh; border: 1px solid var(--line); background: white; }
 .pdfPreview a { display: inline-flex; align-items: center; gap: 6px; overflow-wrap: anywhere; }
 .tabs, .toolbar, .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }

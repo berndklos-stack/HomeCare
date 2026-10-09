@@ -32,13 +32,38 @@ export function OperationsHistory({ entity, parent, order = false, title, langua
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true); setError(false);
-    apiFetch(`/api/operations?${new URLSearchParams({ entity, [order ? "order" : "parent"]: parent, page: String(page) })}`, { signal: controller.signal, cache: "no-store" })
-      .then(async (response) => { if (!response.ok) throw new Error(); return response.json(); })
+    async function load() {
+      const all: OperationsRow[] = [];
+      let current = order ? 0 : page;
+      let count = 0;
+      do {
+        const response = await apiFetch(`/api/operations?${new URLSearchParams({ entity, [order ? "order" : "parent"]: parent, page: String(current) })}`, { signal: controller.signal, cache: "no-store" });
+        if (!response.ok) throw new Error();
+        const data = await response.json();
+        all.push(...data.rows); count = data.count;
+        current++;
+        if (!order || !data.rows.length) break;
+      } while (all.length < count);
+      return { rows: all, count: order ? 0 : count };
+    }
+    load()
       .then((data) => { if (!controller.signal.aborted) { setRows(data.rows); setCount(data.count); } })
       .catch(() => { if (!controller.signal.aborted) setError(true); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
   }, [entity, parent, order, page]);
+
+  const groups = new Map<string, OperationsRow[]>();
+  for (const row of rows) {
+    const document = row.document as { id?: string; storage_path?: string } | undefined;
+    const key = order && document ? String(document.id ?? document.storage_path ?? row.id) : row.id;
+    groups.set(key, [...(groups.get(key) ?? []), row]);
+  }
+  const formattedDate = (value: unknown) => {
+    const date = new Date(String(value));
+    return Number.isNaN(date.getTime()) ? "—" : new Intl.DateTimeFormat(language, { dateStyle: "medium", ...(String(value).includes("T") ? { timeStyle: "short" as const } : {}) }).format(date);
+  };
+  const number = (value: unknown) => new Intl.NumberFormat(language, { maximumFractionDigits: 3 }).format(Number(value));
 
   async function download(document: { name: string; storage_path: string }, inline = false) {
     if (downloadRequest.current) return;
@@ -73,17 +98,24 @@ export function OperationsHistory({ entity, parent, order = false, title, langua
       <iframe title={`${t("pdfPreview")}: ${preview.name}`} src={preview.url} />
     </section> : <><div className={styles.list} aria-busy={loading}>
       {!loading && !error && !rows.length && <p>{t("empty")}</p>}
-      {rows.map((row) => {
+      {[...groups.entries()].map(([key, entries]) => {
+        const row = entries[0];
         const document = row.document as { name: string; storage_path: string } | undefined;
-        return <article className={styles.row} key={row.id}><div>
-          <strong>{String(row.completed_date ?? row.occurred_at)}</strong>
-          <div className={styles.meta}>{row.quantity != null && <span>{t("quantity")}: {String(row.quantity)}</span>}
+        return <article className={styles.historyEntry} key={key}>
+          <div className={styles.historyHeading}><div><strong>{formattedDate(row.completed_date ?? row.occurred_at)}</strong>
+          {document && <p className={styles.documentName}>{document.name}</p>}</div>
+          {document && <div className={styles.historyActions}><button aria-label={document.name} title={t("pdfPreview")} disabled={downloading} onClick={() => void download(document, /\.pdf$/i.test(document.name))}><FileText size={18} /></button><button aria-label={`Download: ${document.name}`} title={`Download: ${document.name}`} disabled={downloading} onClick={() => void download(document)}><Download size={18} /></button></div>}</div>
+          {entries.map((entry) => {
+            const material = entry.material as { name?: string; unit?: string } | null;
+            return entry.quantity != null ? <div className={styles.historyPosition} key={entry.id}><span>{material?.name ?? t("position")}</span><span>{t("quantity")}: {number(entry.quantity)}{material?.unit ? ` ${material.unit}` : ""}</span></div> : null;
+          })}
+          <div className={styles.meta}>
             {row.cost != null && <span>{t("cost")}: {String(row.cost)} {String(row.currency)}</span>}
             {row.mileage != null && <span>{t("mileage")}: {String(row.mileage)}</span>}
             {row.operating_hours != null && <span>{t("operating_hours")}: {String(row.operating_hours)}</span>}
-            <span>{t("actor")}: {String(row.actor_user_id)}</span></div>
-          <p>{String(row.note ?? row.notes ?? "")}</p>
-        </div>{document && <div className={styles.actions}><button disabled={downloading} onClick={() => void download(document, /\.pdf$/i.test(document.name))}><FileText size={18} />{document.name}</button><button aria-label={`Download: ${document.name}`} title={`Download: ${document.name}`} disabled={downloading} onClick={() => void download(document)}><Download size={18} /></button></div>}</article>;
+            {typeof row.actor_name === "string" && <span>{t("actor")}: {row.actor_name}</span>}</div>
+          {[...new Set(entries.map((entry) => String(entry.note ?? entry.notes ?? "")).filter(Boolean))].map((note) => <p key={note}>{note}</p>)}
+        </article>;
       })}
     </div>
     {count > 50 && <div className={styles.toolbar}><button aria-label={t("previous")} disabled={page === 0} onClick={() => setPage((p) => p - 1)}><ChevronLeft size={18} /></button><span>{page + 1} / {Math.ceil(count / 50)}</span><button aria-label={t("next")} disabled={(page + 1) * 50 >= count} onClick={() => setPage((p) => p + 1)}><ChevronRight size={18} /></button></div>}</>}

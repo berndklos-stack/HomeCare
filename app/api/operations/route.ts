@@ -146,6 +146,13 @@ export async function GET(request: Request) {
   }
   if (["maintenance_events", "purchase_receipts"].includes(entity) && data?.length) {
     const rows = data as unknown as Record<string, unknown>[];
+    if (entity === "purchase_receipts") {
+      const { data: items, error: itemError } = await client.from("homecare_purchase_order_items")
+        .select("id,material:homecare_materials(name,unit)").eq("tenant_id", tenantId).in("id", rows.map((row) => row.item_id));
+      if (itemError) return NextResponse.json({ error: "OPERATIONS_UNAVAILABLE" }, { status: 503 });
+      const byItem = new Map((items ?? []).map((item) => [item.id, item.material]));
+      for (const row of rows) row.material = byItem.get(row.item_id as string) ?? null;
+    }
     const ids = [...new Set(rows.map((row) => row.document_id).filter((id): id is string => typeof id === "string"))];
     if (ids.length) {
       const { data: documents, error: documentError } = await client.from("homecare_media")

@@ -4,6 +4,12 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.426.2 - 2026-10-09
+
+- Lageraktionen stehen oberhalb der Listen; der Materialfilter kann geleert werden.
+- Lieferscheine gruppieren zugehoerige Positionen mit Material und Menge.
+- Lesbare Datumswerte, kompakte Vorschau-/Downloadaktionen und keine technischen Benutzer-IDs.
+
 ## 1.426.1 - 2026-10-09
 
 - Lieferscheine sind direkt aus der Bestelluebersicht erreichbar.

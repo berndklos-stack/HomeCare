@@ -267,7 +267,6 @@ export function OperationsWorkspace(props: Props) {
   return <div className={styles.workspace}>
     <nav className={styles.tabs} aria-label="Operations">{Object.keys(groups).filter((key) => props.resourcesOnly ? ["resources", "maintenance"].includes(key) : ["inventory", "purchasing"].includes(key)).map((key) => <button key={key} className={tab === key ? styles.selected : ""}
       onClick={() => { setTab(key); change(groups[key][0]); }}>{operationsLabels[key as keyof typeof operationsLabels][language]}</button>)}</nav>
-    {tab === "inventory" && (stockActive ? <OperationsStock {...props} /> : props.children)}
     <div className={styles.toolbar}>
       {(tab === "inventory" || tab === "resources") && <button onClick={() => props.onOpenMasterData(tab === "inventory" ? "materials" : "resources")}><Pencil size={18} />{tab === "inventory" ? (language === "de" ? "Materialstammdaten" : language === "sv" ? "Materialregister" : "Material master data") : (language === "de" ? "Ressourcen bearbeiten" : language === "sv" ? "Redigera resurser" : "Edit resources")}</button>}
       {groups[tab].map((key) => <button key={key} aria-pressed={entity === key} onClick={() => change(key)}>{t(key)}</button>)}
@@ -276,6 +275,7 @@ export function OperationsWorkspace(props: Props) {
       <button title={t("refresh")} aria-label={t("refresh")} onClick={() => setRefresh((n) => n + 1)}><RefreshCw size={18} /></button>
       {editable && !error && <button onClick={() => open("save")} disabled={entity === "purchase_order_items" && (!parent || parent.status !== "draft" || blocked(parent.id))}><Plus size={18} />{t("create")}</button>}
     </div>
+    {tab === "inventory" && (stockActive ? <OperationsStock {...props} /> : props.children)}
     {error && <p role="status">{t(error)}</p>}
     {active.length > 0 && <div role="status" className={styles.pending}>{active.map((m) => <p key={m.id}>{t(m.status === "failed" || m.status === "conflict" ? "failed" : "waiting")}: {String((m.payload.values as Record<string, unknown> | undefined)?.company ?? (m.payload.values as Record<string, unknown> | undefined)?.name ?? m.entityId)}</p>)}</div>}
     <div className={styles.list} aria-busy={loading}>

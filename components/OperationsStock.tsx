@@ -40,11 +40,11 @@ export function OperationsStock({ language, materials, locations, jobs, projects
     return () => controller.abort();
   }, [materialId, page, settled, refresh]);
   return <section>
-    <div className={styles.toolbar}><label>{t("material_id")} <select value={materialId} onChange={(e) => { setMaterialId(e.target.value); setPage(0); }}>{materials.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</select></label>
-      <button title={t("refresh")} aria-label={t("refresh")} onClick={() => setRefresh((n) => n + 1)}><RefreshCw size={18} /></button>
+    <div className={styles.toolbar}><label>{t("material_id")} <select aria-label={t("material_id")} value={materialId} onChange={(e) => { setMaterialId(e.target.value); setPage(0); setBalances([]); setHistory([]); setCount(0); setError(""); }}><option value="">—</option>{materials.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</select></label>
+      <button disabled={!materialId} title={t("refresh")} aria-label={t("refresh")} onClick={() => setRefresh((n) => n + 1)}><RefreshCw size={18} /></button>
       <button disabled={!materialId} onClick={() => { setError(""); setOpen(true); }}><Plus size={18} />{t("stock")}</button></div>
     {error && <p role="alert">{t(error)}</p>}
-    <strong>{t("quantity")}: {total}</strong>{selected?.minStock && total < Number(selected.minStock) && <p role="status">{language === "de" ? "Mindestbestand unterschritten" : language === "sv" ? "Under minimilager" : "Below minimum stock"}</p>}
+    {materialId && <strong>{t("quantity")}: {total}</strong>}{selected?.minStock && total < Number(selected.minStock) && <p role="status">{language === "de" ? "Mindestbestand unterschritten" : language === "sv" ? "Under minimilager" : "Below minimum stock"}</p>}
     {balances.map((r) => <p key={r.location_id}>{locations.find((l) => l.id === r.location_id)?.name ?? r.location_id}: {String(r.quantity)}</p>)}
     <div className={styles.list}>{history.map((r) => <article className={styles.row} key={String(r.id)}><div><strong>{String(r.quantity)}</strong><p>{r.source_id ? locations.find((l) => l.id === r.source_id)?.name ?? String(r.source_id) : "—"} → {r.destination_id ? locations.find((l) => l.id === r.destination_id)?.name ?? String(r.destination_id) : "—"}</p><p>{String(r.note)}</p><small>{new Date(String(r.occurred_at)).toLocaleString(language)} · {String(r.actor_user_id ?? (language === "de" ? "Altbestand: Benutzer nicht dokumentiert" : language === "sv" ? "Historik: användare saknas" : "Legacy: actor not recorded"))}</small></div></article>)}</div>
     {count > 50 && <div className={styles.toolbar}><button disabled={!page} aria-label={t("previous")} onClick={() => setPage((p) => p - 1)}><ChevronLeft size={18} /></button><span>{page + 1} / {Math.ceil(count / 50)}</span><button disabled={(page + 1) * 50 >= count} aria-label={t("next")} onClick={() => setPage((p) => p + 1)}><ChevronRight size={18} /></button></div>}

@@ -10,7 +10,10 @@ for (const mobile of [false, true]) {
     await page.route("**/api/operations?entity=purchase_receipts**", (route) => {
       const params = new URL(route.request().url()).searchParams;
       expect(params.get("order")).toBe(order.id); expect(params.has("parent")).toBe(false);
-      return route.fulfill({ json: { rows: [{ id: "receipt", quantity: 2, occurred_at: "2026-10-09", document: { name: "note.pdf", storage_path: "tenant/purchase-documents/note.pdf" } }], count: 1 } });
+      return route.fulfill({ json: { rows: [
+        { id: "receipt", quantity: 55, material: { name: "Kantholz 45x95", unit: "Stk" }, occurred_at: "2026-10-09T07:37:26Z", actor_user_id: "secret-user-id", document: { name: "note.pdf", storage_path: "tenant/purchase-documents/note.pdf" } },
+        { id: "receipt-2", quantity: 4442, material: { name: "Latten 28 x 38", unit: "Stk" }, occurred_at: "2026-10-09T07:37:26Z", document: { name: "note.pdf", storage_path: "tenant/purchase-documents/note.pdf" } },
+      ], count: 2 } });
     });
     const pdf = new jsPDF(); pdf.text("Delivery note", 20, 20);
     let fail = true;
@@ -19,6 +22,12 @@ for (const mobile of [false, true]) {
     await page.getByRole("button", { name: "Bestellungen", exact: true }).click();
     await page.locator("article").filter({ has: page.getByText("PO-PDF", { exact: true }) }).getByRole("button", { name: "Lieferscheine", exact: true }).click();
     const dialog = page.getByRole("dialog");
+    await expect(dialog.getByRole("button", { name: "note.pdf", exact: true })).toHaveCount(1);
+    await expect(dialog.getByText("Kantholz 45x95", { exact: true })).toBeVisible();
+    await expect(dialog.getByText("Latten 28 x 38", { exact: true })).toBeVisible();
+    await expect(dialog).not.toContainText("secret-user-id");
+    await expect(dialog).not.toContainText("T07:37");
+    await page.screenshot({ path: `test-results/delivery-list-${mobile}-${test.info().project.name}.png` });
     await dialog.getByRole("button", { name: "note.pdf", exact: true }).click();
     await expect(dialog.getByRole("alert")).toBeVisible();
     fail = false;
@@ -143,6 +152,22 @@ for (const mobile of [false, true]) {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   });
 }
+
+test("Lageraktionen stehen oben und Materialfilter ist leerbar", async ({ page }) => {
+  await mock(page); await page.goto("/"); await ready(page);
+  await page.getByRole("button", { name: "Lager & Material", exact: true }).click();
+  const filter = page.getByLabel("Material", { exact: true });
+  await expect(filter).toBeVisible();
+  const original = await filter.inputValue();
+  const master = await page.getByRole("button", { name: "Materialstammdaten", exact: true }).boundingBox();
+  const stock = await page.getByRole("button", { name: "Lagerbuchung", exact: true }).boundingBox();
+  expect(master!.y).toBeLessThan(stock!.y);
+  await filter.selectOption("");
+  await expect(filter).toHaveValue("");
+  await expect(page.getByRole("button", { name: "Lagerbuchung", exact: true })).toBeDisabled();
+  await filter.selectOption(original);
+  await expect(page.getByRole("button", { name: "Lagerbuchung", exact: true })).toBeEnabled();
+});
 
 test("Materialbuchung hat Quelle, Ziel und separate idempotente Queue-Aktion", async ({ page }) => {
   await mock(page); await page.goto("/"); await ready(page);
