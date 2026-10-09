@@ -60,7 +60,7 @@ export function OperationsHistory({ entity, parent, title, language, onClose }: 
   }
 
   return <TripDialog labelledBy="operations-history-title" onClose={onClose} className={styles.dialog}>
-    <div className={styles.toolbar}><h2 id="operations-history-title">{t(entity)}: {title}</h2><button type="button" aria-label={t("close")} onClick={onClose}><X size={18} /></button></div>
+    <header className={styles.dialogHeader}><h2 id="operations-history-title">{t(entity)}: {title}</h2><button type="button" title={t("close")} aria-label={t("close")} onClick={onClose}><X size={18} /></button></header>
     {error && <p role="alert">{t("historyFailed")}</p>}
     <div className={styles.list} aria-busy={loading}>
       {!loading && !error && !rows.length && <p>{t("empty")}</p>}

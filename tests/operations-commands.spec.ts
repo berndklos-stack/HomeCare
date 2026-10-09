@@ -51,3 +51,14 @@ test("Berechnete Lagerbestände werden niemals als Stammdatenmutation zurückges
   const changed = prepareMasterDataMutations("material", [material], [{ ...material, name: "Updated" }]);
   expect(changed.mutations[0].payload).toEqual({ id: "MAT-1", name: "Updated" });
 });
+
+test("Sammel-Wareneingang validiert eindeutige Positionen, Lagerort und Mengen", () => {
+  const item = { item_id: "22222222-2222-4222-8222-222222222222", quantity: 2.5 };
+  const mutation = createSyncMutation({ entityType: "operations", entityId: "11111111-1111-4111-8111-111111111111", resourceId: "order", operation: "update", expectedRevision: 4,
+    payload: { kind: "receive_batch", location_id: "warehouse", document_id: null, note: "Delivery", items: [item] } });
+  expect(validateOperationsMutation(mutation).kind).toBe("receive_batch");
+  for (const patch of [{ items: [] }, { items: [item, item] }, { location_id: "" }, { items: [{ ...item, quantity: 0 }] },
+    { items: [{ ...item, quantity: Infinity }] }, { items: [{ ...item, quantity: 0.0001 }] }, { tenant_id: "foreign" }]) {
+    expect(() => validateOperationsMutation({ ...mutation, payload: { ...mutation.payload, ...patch } })).toThrow();
+  }
+});

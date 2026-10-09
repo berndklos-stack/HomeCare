@@ -60,6 +60,11 @@ test("Eigener Ressourcentyp konfiguriert Pflichtfelder und überlebt Reload offl
   await page.getByRole("button", { name: "Neuer Ressourcentyp", exact: true }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("Name", { exact: true }).fill("Messgerät");
+  expect(await dialog.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    const close = element.querySelector("header button")!.getBoundingClientRect();
+    return rect.left >= 12 && rect.right <= innerWidth - 12 && rect.top >= 12 && rect.bottom <= innerHeight - 12 && rect.right - close.right <= 24;
+  })).toBe(true);
   await dialog.getByLabel("Aktiviert Seriennummer", { exact: true }).check();
   await dialog.getByLabel("Pflichtfeld Seriennummer", { exact: true }).check();
   await dialog.getByLabel("Reihenfolge Seriennummer", { exact: true }).fill("1");

@@ -20,6 +20,7 @@ export type OperationsCommand =
   | { kind: "start"; resource_revision: number }
   | { kind: "stock"; material_id: string; source_id: string | null; destination_id: string | null; quantity: number; note: string; job_id?: string | null; project_id?: string | null }
   | { kind: "receive"; item_id: string; quantity: number; note: string }
+  | { kind: "receive_batch"; location_id: string; note: string; document_id: string | null; items: { item_id: string; quantity: number }[] }
   | { kind: "complete"; completed_date: string; mileage: number | null; operating_hours: number | null; cost: number; currency: string; supplier_id: string | null; document_id: string | null; notes: string; materials: { material_id: string; location_id: string; quantity: number }[] };
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -82,6 +83,20 @@ export function validateOperationsMutation(mutation: Pick<SyncMutation, "id" | "
       keys = ["kind", "item_id", "quantity", "note"];
       if (mutation.operation !== "update" || !uuid.test(String(p.item_id)) || !number(p.quantity, true) || !text(p.note)) fail();
       break;
+    case "receive_batch": {
+      keys = ["kind", "location_id", "note", "document_id", "items"];
+      if (mutation.operation !== "update" || !uuid.test(mutation.entityId) || !text(p.location_id) || !text(p.note)
+        || !nullableText(p.document_id) || !Array.isArray(p.items) || !p.items.length || p.items.length > 50) fail();
+      const ids = new Set<string>();
+      for (const item of p.items as Record<string, unknown>[]) {
+        if (!item || Object.keys(item).some((key) => !["item_id", "quantity"].includes(key))
+          || !uuid.test(String(item.item_id)) || !number(item.quantity, true)
+          || Math.abs(Number(item.quantity) * 1000 - Math.round(Number(item.quantity) * 1000)) > 0.000001
+          || ids.has(String(item.item_id))) fail();
+        ids.add(String(item.item_id));
+      }
+      break;
+    }
     case "complete":
       keys = ["kind", "completed_date", "mileage", "operating_hours", "cost", "currency", "supplier_id", "document_id", "notes", "materials"];
       if (mutation.operation !== "update" || !date(p.completed_date) || !number(p.cost) || !text(p.currency)

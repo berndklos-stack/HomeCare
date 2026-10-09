@@ -23,6 +23,7 @@ end $$;
 alter table public.homecare_materials add column purchase_price numeric(12,2);
 alter table public.homecare_materials add column currency text default 'SEK';
 alter table public.homecare_materials add column record_data jsonb not null default '{}';
+alter table public.homecare_media add column storage_path text, add column metadata jsonb not null default '{}';
 create table public.homecare_inventory_movements(tenant_id uuid not null,id text not null,material_id text not null,location_id text,
   movement_type text,quantity numeric,created_at timestamptz default now(),primary key(tenant_id,id));
 create table public.homecare_vehicle_trips(tenant_id uuid not null,id text not null,resource_id text not null,status text,deleted_at timestamptz,primary key(tenant_id,id));

@@ -33,7 +33,7 @@ export function PurchaseOrderSend({ orderId, revision, disabled, language, onSen
   return <>
     <button disabled={disabled || busy || sent} onClick={() => void execute("preview")}><Send size={18} />{t("order")}</button>
     {opened && <TripDialog labelledBy={`purchase-preview-${orderId}`} onClose={close} className={styles.dialog}>
-      <div className={styles.toolbar}><h2 id={`purchase-preview-${orderId}`}>{t("orderPreview")}</h2><button disabled={busy} aria-label={t("close")} onClick={close}><X size={18} /></button></div>
+      <header className={styles.dialogHeader}><h2 id={`purchase-preview-${orderId}`}>{t("orderPreview")}</h2><button disabled={busy} title={t("close")} aria-label={t("close")} onClick={close}><X size={18} /></button></header>
       {preview && <><p><strong>{t("recipient")}:</strong> {preview.to || t("SUPPLIER_EMAIL_MISSING")}</p><h3>{preview.subject}</h3><pre className={styles.mailPreview}>{preview.body}</pre></>}
       {busy && <p role="status">{t("mailLoading")}</p>}
       {error && <p role="alert">{t(error)}</p>}

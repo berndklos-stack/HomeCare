@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.425.0",
-  releaseDate: "2026-10-05",
+  version: "1.426.0",
+  releaseDate: "2026-10-09",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  {
+    version: "1.426.0",
+    date: "2026-10-09",
+    changes: [
+      "Kompakte Dialoge fuer Einkauf, Wareneingaenge und Ressourcen",
+      "Sammel-Wareneingang mit Teilmengen und gemeinsamem Lagerort",
+      "Lieferschein-Fotos werden als private PDF-Belege zur Buchung gespeichert",
+    ],
+  },
   {
     version: "1.425.0",
     date: "2026-10-05",

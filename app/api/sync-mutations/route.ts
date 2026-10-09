@@ -93,7 +93,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "PERMISSION_DENIED" }, { status: 403 });
   }
 
-  const rpcName = mutation.entityType === "resource_type" ? "homecare_apply_resource_type_mutation" : mutation.entityType === "operations" ? "homecare_apply_operations_mutation" : ["customer", "customer_contact"].includes(mutation.entityType)
+  const rpcName = mutation.entityType === "resource_type" ? "homecare_apply_resource_type_mutation" : mutation.entityType === "operations"
+    ? mutation.payload.kind === "receive_batch" ? "homecare_apply_purchase_receipt_batch" : "homecare_apply_operations_mutation" : ["customer", "customer_contact"].includes(mutation.entityType)
     ? "homecare_apply_customer_mutation"
     : ["object", "object_media"].includes(mutation.entityType)
       ? "homecare_apply_object_mutation"

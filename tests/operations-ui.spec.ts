@@ -4,6 +4,23 @@ const supplier = { id: "11111111-1111-4111-8111-111111111111", supplier_number: 
 async function ready(page: Page) {
   await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true", { timeout: 30000 });
 }
+async function dialogLayout(page: Page, maxHeight?: number) {
+  const dialog = page.getByRole("dialog");
+  const dimensions = await dialog.evaluate((element) => {
+    const bounds = element.getBoundingClientRect();
+    const header = element.querySelector("header")!.getBoundingClientRect();
+    const close = element.querySelector("header button")!.getBoundingClientRect();
+    return { height: bounds.height, right: bounds.right, left: bounds.left, top: bounds.top, bottom: bounds.bottom,
+      closeRight: close.right, closeTop: close.top, headerTop: header.top, viewport: innerWidth, viewportHeight: innerHeight };
+  });
+  expect(dimensions.left).toBeGreaterThanOrEqual(12);
+  expect(dimensions.right).toBeLessThanOrEqual(dimensions.viewport - 12);
+  expect(dimensions.top).toBeGreaterThanOrEqual(12);
+  expect(dimensions.bottom).toBeLessThanOrEqual(dimensions.viewportHeight - 12);
+  expect(dimensions.right - dimensions.closeRight).toBeLessThanOrEqual(24);
+  expect(Math.abs(dimensions.closeTop - dimensions.headerTop)).toBeLessThanOrEqual(2);
+  if (maxHeight) expect(dimensions.height).toBeLessThan(maxHeight);
+}
 async function mock(page: Page) {
   // Never let the E2E auth bypass contact production Operations tables.
   await page.route("**/api/operations?**", async (route) => {
@@ -71,6 +88,8 @@ for (const mobile of [false, true]) {
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
     expect(await dialog.evaluate((e) => e.matches(":modal"))).toBe(true);
+    await dialogLayout(page);
+    await page.screenshot({ path: `test-results/supplier-form-${mobile ? "mobile" : "desktop"}-${test.info().project.name}.png` });
     await dialog.getByLabel("Unternehmen", { exact: true }).fill("Cancelled change");
     await dialog.getByRole("button", { name: "Abbrechen", exact: true }).click();
     await expect(page.getByText("Cancelled change")).toHaveCount(0);
@@ -121,6 +140,8 @@ test("Bestellung absenden verwendet die aktuelle Revision und sperrt doppelte Ak
   await page.getByRole("button", { name: "Bestellungen", exact: true }).click();
   await page.getByRole("button", { name: "Bestellung absenden", exact: true }).click();
   await expect(page.getByRole("dialog")).toContainText("supplier@example.se");
+  await dialogLayout(page, 480);
+  await page.screenshot({ path: `test-results/order-preview-${test.info().project.name}.png` });
   expect(actions).toEqual(["preview"]);
   await page.getByRole("dialog").getByRole("button", { name: "Bestellung per E-Mail senden", exact: true }).click();
   await expect(page.getByRole("button", { name: "Bestellung absenden", exact: true })).toBeDisabled();
@@ -317,9 +338,9 @@ for (const mobile of [false, true]) {
   await expect(summary).toContainText("Offene Positionen: 1 / 2");
   await summary.getByRole("button", { name: "Positionen", exact: true }).click();
   const table = page.getByRole("table");
-  await expect(table.getByRole("columnheader")).toHaveText(["Position", "Bestellt", "Geliefert"]);
-  await expect(table.getByRole("row").nth(1).getByRole("cell")).toHaveText(["10", "4"]);
-  await expect(table.getByRole("row").nth(2).getByRole("cell")).toHaveText(["20", "20"]);
+  await expect(table.getByRole("columnheader")).toHaveText(["Position", "Bestellt", "Geliefert", "Offen", "WE-Menge"]);
+  await expect(table.getByRole("row").nth(1).getByRole("cell")).toHaveText(["10", "4", "6", ""]);
+  await expect(table.getByRole("row").nth(2).getByRole("cell")).toHaveText(["20", "20", "0", "—"]);
   await table.getByRole("button").first().focus();
   await page.keyboard.press("Enter");
   const dialog = page.getByRole("dialog");
@@ -327,6 +348,7 @@ for (const mobile of [false, true]) {
   expect(await dialog.evaluate((element) => element.matches(":modal"))).toBe(true);
   await expect(dialog).toContainText("Einzelpreis");
   await expect(dialog).toContainText("50 SEK");
+  await dialogLayout(page, 420);
   await expect(dialog.getByRole("button", { name: "Lieferverlauf", exact: true })).toBeVisible();
   await expect(dialog.getByRole("button", { name: "Bearbeiten", exact: true })).toHaveCount(0);
   await page.screenshot({ path: `test-results/purchase-item-${mobile ? "mobile" : "desktop"}-${test.info().project.name}.png` });
@@ -346,7 +368,12 @@ test("Wareneingangshistorie zeigt Teillieferungen nur der ausgewählten Position
   await page.route("**/api/operations?entity=purchase_order_items**", (route) => route.fulfill({ json: { rows: [item], count: 1 } }));
   await page.route("**/api/operations?entity=purchase_receipts**", (route) => {
     expect(new URL(route.request().url()).searchParams.get("parent")).toBe(item.id);
-    return route.fulfill({ json: { rows: [{ id: "receipt-1", quantity: 4, occurred_at: "2026-10-08T06:00:00Z", note: "First partial delivery", actor_user_id: "user" }], count: 1 } });
+    return route.fulfill({ json: { rows: [{ id: "receipt-1", quantity: 4, occurred_at: "2026-10-08T06:00:00Z", note: "First partial delivery", actor_user_id: "user",
+      document: { name: "delivery.pdf", storage_path: "tenant/purchase-documents/delivery.pdf" } }], count: 1 } });
+  });
+  await page.route("**/api/private-media?**", (route) => {
+    expect(new URL(route.request().url()).searchParams.get("path")).toBe("tenant/purchase-documents/delivery.pdf");
+    return route.fulfill({ contentType: "application/pdf", body: "private delivery note" });
   });
   await page.goto("/"); await ready(page); await purchasing(page);
   await page.getByRole("button", { name: "Bestellungen", exact: true }).click();
@@ -356,4 +383,94 @@ test("Wareneingangshistorie zeigt Teillieferungen nur der ausgewählten Position
   await page.getByRole("button", { name: "Lieferverlauf", exact: true }).click();
   await expect(page.getByRole("dialog").getByText("First partial delivery", { exact: true })).toBeVisible();
   await expect(page.getByRole("dialog").getByText("Menge: 4", { exact: true })).toBeVisible();
+  await dialogLayout(page, 420);
+  await page.screenshot({ path: `test-results/receipt-history-${test.info().project.name}.png` });
+  const download = page.waitForEvent("download");
+  await page.getByRole("dialog").getByRole("button", { name: "delivery.pdf", exact: true }).click();
+  expect((await download).suggestedFilename()).toBe("delivery.pdf");
 });
+
+for (const mobile of [false, true]) {
+  test(`Archivierungsdialog bleibt kompakt und Abbruch unverändert ${mobile ? "mobil" : "desktop"}`, async ({ page }) => {
+    await page.setViewportSize(mobile ? { width: 390, height: 844 } : { width: 1440, height: 1000 });
+    await mock(page); await page.goto("/"); await ready(page); await purchasing(page);
+    await page.getByRole("button", { name: "Archivieren: Test Supplier", exact: true }).click();
+    await dialogLayout(page, 300);
+    await page.getByRole("dialog").getByRole("button", { name: "Schließen", exact: true }).click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(page.getByText("Test Supplier", { exact: true })).toBeVisible();
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem("workcore-sync-mutations-v1") ?? "[]").filter((m: { entityType: string }) => m.entityType === "operations"))).toHaveLength(0);
+  });
+}
+
+for (const mobile of [false, true]) {
+  test(`Sammel-Wareneingang: Auswahl, Teilmengen, Lagerort und Foto-PDF ${mobile ? "mobil" : "desktop"}`, async ({ page }) => {
+    await page.setViewportSize(mobile ? { width: 390, height: 844 } : { width: 1440, height: 1000 });
+    await mock(page);
+    await page.addInitScript(() => {
+      const original = window.fetch;
+      window.fetch = async (...args) => {
+        const body = args[1]?.body;
+        if (body instanceof FormData && body.get("scope") === "purchase-documents") {
+          const file = body.get("file") as File;
+          sessionStorage.setItem("test-receipt-pdf", JSON.stringify({ name: file.name, size: file.size, type: file.type, header: await file.slice(0, 5).text() }));
+        }
+        return original(...args);
+      };
+    });
+    const order = { id: "22222222-2222-4222-8222-222222222222", order_number: "PO-BATCH", status: "partially_received", revision: 4 };
+    const items = [
+      { id: "55555555-5555-4555-8555-555555555555", order_id: order.id, material_id: "MAT-1", quantity: 10, received_quantity: 4, unit_price: 5 },
+      { id: "66666666-6666-4666-8666-666666666666", order_id: order.id, material_id: "MAT-2", quantity: 20, received_quantity: 0, unit_price: 3 },
+      { id: "77777777-7777-4777-8777-777777777777", order_id: order.id, material_id: "MAT-3", quantity: 1, received_quantity: 1, unit_price: 1 },
+    ];
+    await page.route("**/api/operations?entity=purchase_orders**", (route) => route.fulfill({ json: { rows: [order], count: 1 } }));
+    await page.route("**/api/operations?entity=purchase_order_items**", (route) => route.fulfill({ json: { rows: items, count: 3 } }));
+    let documentId = "";
+    await page.route("**/api/media", async (route) => {
+      const raw = route.request().postDataBuffer()!.toString("latin1");
+      expect(raw).toContain('filename="delivery.pdf"'); expect(raw).toContain("Content-Type: application/pdf");
+      // WebKit's intercepted postData omits binary file parts; check the actual
+      // outgoing FormData File in-page as well, rather than treating that as data loss.
+      if (test.info().project.name !== "webkit") expect(raw).toContain("%PDF-");
+      expect(raw).toContain("purchase-documents");
+      documentId = raw.match(/name="mediaId"\r\n\r\n([^\r]+)/)![1];
+      await route.fulfill({ json: { id: documentId, path: `tenant/purchase-documents/${documentId}.pdf` } });
+    });
+    await page.goto("/"); await ready(page); await purchasing(page);
+    await page.getByRole("button", { name: "Bestellungen", exact: true }).click();
+    await page.getByRole("article").filter({ hasText: "PO-BATCH" }).getByRole("button", { name: "Positionen", exact: true }).click();
+    const table = page.getByRole("table");
+    const checkboxes = table.getByRole("checkbox");
+    await expect(checkboxes.nth(3)).toBeDisabled();
+    await checkboxes.nth(1).check(); await expect(checkboxes.first()).toHaveJSProperty("indeterminate", true);
+    await checkboxes.first().check();
+    const quantities = table.getByRole("spinbutton");
+    await expect(quantities.nth(0)).toHaveValue("6"); await expect(quantities.nth(1)).toHaveValue("20");
+    await quantities.nth(0).fill("7");
+    await page.getByLabel("Standort", { exact: true }).selectOption({ index: 1 });
+    await page.getByRole("button", { name: "Ausgewählte Wareneingänge buchen (2)", exact: true }).click();
+    await expect(page.getByRole("alert").filter({ hasText: "gültige Mengen" })).toBeVisible();
+    await quantities.nth(0).fill("2.5");
+    const png = await page.evaluate(() => { const canvas = document.createElement("canvas"); canvas.width = 100; canvas.height = 200;
+      const context = canvas.getContext("2d")!; context.fillStyle = "#111"; context.fillRect(10, 10, 80, 180); return canvas.toDataURL("image/png").split(",")[1]; });
+    await page.locator('input[type="file"]:not([capture])').setInputFiles({ name: "delivery.png", mimeType: "image/png", buffer: Buffer.from(png, "base64") });
+    await expect(page.getByRole("status").filter({ hasText: "Beleg hochgeladen" })).toBeVisible();
+    const pdf = await page.evaluate(() => JSON.parse(sessionStorage.getItem("test-receipt-pdf")!));
+    expect(pdf).toMatchObject({ name: "delivery.pdf", type: "application/pdf", header: "%PDF-" });
+    expect(pdf.size).toBeGreaterThan(1000);
+    await expect(page.locator('input[capture="environment"]')).toHaveAttribute("accept", "image/*");
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.screenshot({ path: `test-results/receipt-batch-${mobile ? "mobile" : "desktop"}-${test.info().project.name}.png`, fullPage: true });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.context().setOffline(true);
+    await page.getByRole("button", { name: "Ausgewählte Wareneingänge buchen (2)", exact: true }).click();
+    const queued = await page.evaluate(() => JSON.parse(localStorage.getItem("workcore-sync-mutations-v1") ?? "[]").filter((m: { payload: { kind: string } }) => m.payload.kind === "receive_batch"));
+    expect(queued).toHaveLength(1);
+    expect(queued[0]).toMatchObject({ entityId: order.id, expectedRevision: 4, payload: { document_id: documentId,
+      items: [{ item_id: items[0].id, quantity: 2.5 }, { item_id: items[1].id, quantity: 20 }] } });
+    await expect(page.getByRole("button", { name: "Ausgewählte Wareneingänge buchen (2)", exact: true })).toBeDisabled();
+    await page.context().setOffline(false); await page.reload(); await ready(page);
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem("workcore-sync-mutations-v1") ?? "[]").filter((m: { payload: { kind: string } }) => m.payload.kind === "receive_batch").map((m: { id: string }) => m.id))).toEqual([queued[0].id]);
+  });
+}

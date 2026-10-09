@@ -4,6 +4,13 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.426.0 - 2026-10-09
+
+- Kompakte Dialoge fuer Einkauf, Wareneingaenge und Ressourcen.
+- Sammel-Wareneingang mit offenen Mengen, Teilmengen und gemeinsamem Lagerort.
+- Lieferschein-Fotos werden als private PDF-Belege zur Buchung gespeichert.
+- Atomare, wiederholbare Buchung mit Schutz vor Doppelbuchungen und Mandantentrennung.
+
 ## 1.213.0 - 2026-08-27
 
 - Gelöschte Fahrten im Fahrtenbuch werden beim Sync zwischen Geräten nicht mehr wiederhergestellt.

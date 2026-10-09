@@ -142,7 +142,7 @@ export async function GET(request: Request) {
       }
     }
   }
-  if (entity === "maintenance_events" && data?.length) {
+  if (["maintenance_events", "purchase_receipts"].includes(entity) && data?.length) {
     const rows = data as unknown as Record<string, unknown>[];
     const ids = [...new Set(rows.map((row) => row.document_id).filter((id): id is string => typeof id === "string"))];
     if (ids.length) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Archive, ChevronLeft, ChevronRight, History, Mail, MapPin, Pencil, Phone, Plus, RefreshCw, X } from "lucide-react";
 import { apiFetch, tenantScopedStorageKey } from "@/lib/apiClient";
 import { createStableId, type SyncMutation } from "@/lib/syncQueue";
@@ -66,6 +66,14 @@ export function OperationsWorkspace(props: Props) {
   const [documentPending, setDocumentPending] = useState(false);
   const [uploadedDocument, setUploadedDocument] = useState<{ id: string; name: string } | null>(null);
   const [history, setHistory] = useState<{ entity: "purchase_receipts" | "maintenance_events"; row: OperationsRow; title: string } | null>(null);
+  const [receiptSelection, setReceiptSelection] = useState<Record<string, string>>({});
+  const [receiptLocation, setReceiptLocation] = useState("");
+  const [receiptNote, setReceiptNote] = useState("");
+  const [receiptError, setReceiptError] = useState("");
+  const [receiptBusy, setReceiptBusy] = useState(false);
+  const [receiptDocument, setReceiptDocument] = useState<{ id: string; name: string } | null>(null);
+  const [receiptDocumentPending, setReceiptDocumentPending] = useState(false);
+  const receiptLock = useRef(false);
   const settled = queue.filter((m) => m.entityType === "operations" && m.status === "synced").map((m) => m.id).join(":");
   const active = queue.filter((m) => m.entityType === "operations" && m.status !== "synced");
   const blocked = (id: string) => active.some((m) => m.entityId === id || m.resourceId === id);
@@ -133,6 +141,16 @@ export function OperationsWorkspace(props: Props) {
   }, [tab, settled, refresh]);
 
   const parentId = parent?.id;
+  const parentLocation = String(parent?.location_id ?? "");
+  const receiptSettled = queue.filter((mutation) => mutation.entityType === "operations" && mutation.entityId === parentId && mutation.status === "synced").map((mutation) => mutation.id).join(":");
+  useEffect(() => {
+    setReceiptSelection({}); setReceiptError("");
+  }, [rows]);
+  useEffect(() => {
+    setReceiptLocation(parentLocation);
+    setReceiptNote(""); setReceiptBusy(false); receiptLock.current = false;
+    setReceiptDocument(null); setReceiptDocumentPending(false);
+  }, [parentId, parentLocation, receiptSettled]); // A pending order mutation remains blocked by the durable queue.
   useEffect(() => {
     if (!parentId) return;
     const controller = new AbortController();
@@ -225,6 +243,24 @@ export function OperationsWorkspace(props: Props) {
   const fields = form?.kind === "receive" ? ["quantity", "note"] : form?.kind === "complete"
     ? ["completed_date", "mileage", "operating_hours", "cost", "currency", "supplier_id", "document_id", "notes"] : form ? operationsFields[form.entity] : [];
   const detail = itemDetails ? rows.find((row) => row.id === itemDetails.id) ?? itemDetails : null;
+  const outstanding = (row: OperationsRow) => Math.max(0, Number(row.quantity) - Number(row.received_quantity ?? 0));
+  const receivable = entity === "purchase_order_items" && parent && ["ordered", "partially_received"].includes(String(parent.status));
+  const openRows = rows.filter((row) => outstanding(row) > 0);
+  const receiptDisabled = !stockActive || loading || Boolean(error) || !parent || blocked(parent.id) || receiptBusy;
+  function bookReceipts() {
+    if (!parent || receiptDisabled || receiptDocumentPending || receiptLock.current) return;
+    try {
+      const items = rows.filter((row) => receiptSelection[row.id] !== undefined).map((row) => {
+        const quantity = Number(receiptSelection[row.id]);
+        if (!Number.isFinite(quantity) || quantity <= 0 || quantity > outstanding(row)) throw new Error("receiptInvalid");
+        return { item_id: row.id, quantity };
+      });
+      if (!items.length || !props.locations.some((location) => location.id === receiptLocation)) throw new Error("receiptInvalid");
+      receiptLock.current = true;
+      submitCommand(parent.id, { kind: "receive_batch", items, location_id: receiptLocation, document_id: receiptDocument?.id ?? null, note: receiptNote.trim() || `${t("receiptReason")} ${String(parent.order_number ?? "")}` }, "update", parent.revision);
+      setReceiptBusy(true); setReceiptError("");
+    } catch { receiptLock.current = false; setReceiptError("receiptInvalid"); }
+  }
   const number = (value: unknown) => value == null ? "—" : new Intl.NumberFormat(language === "sv" ? "sv-SE" : language === "en" ? "en-GB" : "de-DE", { maximumFractionDigits: 3 }).format(Number(value));
   const date = (value: unknown) => typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)
     ? new Intl.DateTimeFormat(language === "sv" ? "sv-SE" : language === "en" ? "en-GB" : "de-DE").format(new Date(`${value}T12:00:00`)) : "—";
@@ -244,13 +280,22 @@ export function OperationsWorkspace(props: Props) {
     {active.length > 0 && <div role="status" className={styles.pending}>{active.map((m) => <p key={m.id}>{t(m.status === "failed" || m.status === "conflict" ? "failed" : "waiting")}: {String((m.payload.values as Record<string, unknown> | undefined)?.company ?? (m.payload.values as Record<string, unknown> | undefined)?.name ?? m.entityId)}</p>)}</div>}
     <div className={styles.list} aria-busy={loading}>
       {!rows.length && !loading && !error && <p>{t("empty")}</p>}
-      {entity === "purchase_order_items" && rows.length > 0 ? <table className={styles.items}>
-        <thead><tr><th scope="col">{t("position")}</th><th scope="col">{t("orderedQuantity")}</th><th scope="col">{t("receivedQuantity")}</th></tr></thead>
-        <tbody>{rows.map((row) => <tr key={row.id} onClick={() => setItemDetails(row)}>
-          <th scope="row"><button className={styles.itemName} onClick={() => setItemDetails(row)}>{title(row)}<ChevronRight size={16} aria-hidden="true" /></button></th>
-          <td>{number(row.quantity)}</td><td>{number(row.received_quantity)}</td>
+      {entity === "purchase_order_items" && rows.length > 0 ? <div className={styles.itemsScroll}><table className={styles.items}>
+        <thead><tr><th scope="col">{receivable && <input type="checkbox" aria-label={t(count > 50 ? "selectOpenPage" : "selectOpen")} title={t(count > 50 ? "selectOpenPage" : "selectOpen")} disabled={receiptDisabled || !openRows.length}
+          checked={openRows.length > 0 && openRows.every((row) => receiptSelection[row.id] !== undefined)}
+          ref={(element) => { if (element) element.indeterminate = openRows.some((row) => receiptSelection[row.id] !== undefined) && !openRows.every((row) => receiptSelection[row.id] !== undefined); }}
+          onChange={(event) => setReceiptSelection(event.target.checked ? Object.fromEntries(openRows.map((row) => [row.id, String(outstanding(row))])) : {})} />}{t("position")}</th><th scope="col">{t("orderedQuantity")}</th><th scope="col">{t("receivedQuantity")}</th><th scope="col">{t("openQuantity")}</th>{receivable && <th scope="col">{t("receiptQuantity")}</th>}</tr></thead>
+        <tbody>{rows.map((row) => <tr key={row.id}>
+          <th scope="row"><div className={styles.itemSelection}>{receivable && <input type="checkbox" aria-label={`${t("selectPosition")}: ${title(row)}`} checked={receiptSelection[row.id] !== undefined}
+            disabled={receiptDisabled || !outstanding(row)} onChange={(event) => setReceiptSelection((current) => {
+              const next = { ...current }; if (event.target.checked) next[row.id] = String(outstanding(row)); else delete next[row.id]; return next;
+            })} />}<button className={styles.itemName} onClick={() => setItemDetails(row)}>{title(row)}<ChevronRight size={16} aria-hidden="true" /></button></div></th>
+          <td>{number(row.quantity)}</td><td>{number(row.received_quantity)}</td><td>{number(outstanding(row))}</td>
+          {receivable && <td>{outstanding(row) > 0 ? <input className={styles.receiptQuantity} type="number" min="0.001" max={outstanding(row)} step="0.001"
+            aria-label={`${t("receiptQuantity")}: ${title(row)}`} disabled={receiptDisabled || receiptSelection[row.id] === undefined} value={receiptSelection[row.id] ?? ""}
+            onChange={(event) => { setReceiptError(""); setReceiptSelection((current) => ({ ...current, [row.id]: event.target.value })); }} /> : "—"}</td>}
         </tr>)}</tbody>
-      </table> : rows.map((row) => <article key={row.id} className={styles.row}>
+      </table></div> : rows.map((row) => <article key={row.id} className={styles.row}>
         <div><strong>{title(row)}</strong><div className={styles.meta}>{row.status ? operationsLabels[row.status as keyof typeof operationsLabels]?.[language] : null}
           {entity === "suppliers" && ["supplier_number", "vat_number", "payment_terms"].map((key) => typeof row[key] === "string" && String(row[key]).trim()
             ? <span key={key}>{t(key)}: {String(row[key]).trim()}</span> : null)}
@@ -291,8 +336,19 @@ export function OperationsWorkspace(props: Props) {
       </article>)}
     </div>
     {count > 50 && <div className={styles.toolbar}><button aria-label={t("previous")} disabled={page === 0} onClick={() => setPage((p) => p - 1)}><ChevronLeft size={18} /></button><span>{page + 1} / {Math.ceil(count / 50)}</span><button aria-label={t("next")} disabled={(page + 1) * 50 >= count} onClick={() => setPage((p) => p + 1)}><ChevronRight size={18} /></button></div>}
-    {detail && <TripDialog labelledBy="purchase-item-title" onClose={() => setItemDetails(null)} className={styles.dialog}>
-      <div className={styles.toolbar}><div><p>{t("itemDetails")} · {String(parent?.order_number ?? "")}</p><h2 id="purchase-item-title">{title(detail)}</h2></div><button aria-label={t("close")} title={t("close")} onClick={() => setItemDetails(null)}><X size={18} /></button></div>
+    {receivable && <section className={styles.receiptBooking}>
+      <div className={styles.fields}>
+        {input("location_id", { location_id: receiptLocation }, (_key, value) => setReceiptLocation(value), true)}
+        {input("note", { note: receiptNote }, (_key, value) => setReceiptNote(value))}
+      </div>
+      <OperationsDocumentUpload key={`${parentId}:${receiptSettled}`} language={language} scope="purchase-documents" photoPdf disabled={receiptDisabled}
+        onPending={setReceiptDocumentPending} onUploaded={setReceiptDocument} />
+      {receiptError && <p role="alert">{t(receiptError)}</p>}
+      <div className={styles.actions}><button className={styles.selected} disabled={receiptDisabled || receiptDocumentPending || !Object.keys(receiptSelection).length || !receiptLocation}
+        onClick={bookReceipts}><Plus size={18} />{t("bookSelected")} ({Object.keys(receiptSelection).length})</button></div>
+    </section>}
+    {detail && <TripDialog labelledBy="purchase-item-title" onClose={() => setItemDetails(null)} className={`${styles.dialog} ${styles.itemDialog}`}>
+      <header className={styles.dialogHeader}><div><p>{t("itemDetails")} · {String(parent?.order_number ?? "")}</p><h2 id="purchase-item-title">{title(detail)}</h2></div><button aria-label={t("close")} title={t("close")} onClick={() => setItemDetails(null)}><X size={18} /></button></header>
       <dl className={styles.itemFacts}>
         <div><dt>{t("orderedQuantity")}</dt><dd>{number(detail.quantity)}</dd></div>
         <div><dt>{t("receivedQuantity")}</dt><dd>{number(detail.received_quantity)}</dd></div>
@@ -310,7 +366,7 @@ export function OperationsWorkspace(props: Props) {
     </TripDialog>}
     {form && <TripDialog labelledBy="operations-form-title" onClose={() => setForm(null)} className={styles.dialog}>
       <form onSubmit={(e) => { e.preventDefault(); save(); }}>
-        <div className={styles.toolbar}><h2 id="operations-form-title">{t(form.kind === "save" ? form.entity : form.kind)}</h2><button type="button" title={t("close")} aria-label={t("close")} onClick={() => setForm(null)}><X size={18} /></button></div>
+        <header className={styles.dialogHeader}><h2 id="operations-form-title">{t(form.kind === "save" ? form.entity : form.kind)}</h2><button type="button" title={t("close")} aria-label={t("close")} onClick={() => setForm(null)}><X size={18} /></button></header>
         <div className={styles.fields}>{fields.map((key) => input(key, form.values, (k, v) => setForm({ ...form, values: { ...form.values, [k]: v } }),
           form.kind === "save" ? required[form.entity]?.includes(key) : ["quantity", "note", "completed_date", "cost", "currency"].includes(key)))}</div>
         {form.kind === "complete" && <OperationsDocumentUpload language={language} onPending={setDocumentPending} onUploaded={(document) => {
@@ -325,7 +381,7 @@ export function OperationsWorkspace(props: Props) {
         <footer className={styles.actions}><button type="button" onClick={() => setForm(null)}>{t("cancel")}</button><button type="submit" disabled={documentPending} className={styles.selected}>{t("save")}</button></footer>
       </form>
     </TripDialog>}
-    {archive && <TripDialog labelledBy="operations-archive-title" onClose={() => setArchive(null)} className={styles.dialog}><h2 id="operations-archive-title">{t("confirmArchive")}</h2><p>{title(archive)}</p><div className={styles.actions}><button onClick={() => setArchive(null)}>{t("cancel")}</button><button onClick={() => { try { submitCommand(archive.id, { kind: "archive", entity }, "delete", archive.revision, parent?.id); setArchive(null); } catch (e) { setFormError(String(e)); } }}>{t("archive")}</button></div></TripDialog>}
+    {archive && <TripDialog labelledBy="operations-archive-title" onClose={() => setArchive(null)} className={`${styles.dialog} ${styles.itemDialog}`}><header className={styles.dialogHeader}><h2 id="operations-archive-title">{t("confirmArchive")}</h2><button aria-label={t("close")} title={t("close")} onClick={() => setArchive(null)}><X size={18} /></button></header><p>{title(archive)}</p><footer className={styles.actions}><button onClick={() => setArchive(null)}>{t("cancel")}</button><button onClick={() => { try { submitCommand(archive.id, { kind: "archive", entity }, "delete", archive.revision, parent?.id); setArchive(null); } catch (e) { setFormError(String(e)); } }}>{t("archive")}</button></footer></TripDialog>}
     {history && <OperationsHistory entity={history.entity} parent={history.row.id} title={history.title} language={language} onClose={() => setHistory(null)} />}
   </div>;
 }

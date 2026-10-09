@@ -10801,6 +10801,15 @@ button.media-thumb {
   min-width: 0;
   overflow-wrap: anywhere;
 }
+dialog.resource-editor-modal:not(.resource-logbook-modal) {
+  display: block;
+  height: fit-content;
+  min-height: 0;
+  width: min(860px, calc(100vw - 32px));
+  max-width: calc(100vw - 32px);
+  max-height: calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  border-radius: 8px;
+}
 dialog.sync-conflict-dialog { width: min(720px, calc(100vw - 24px)); max-width: calc(100vw - 24px); align-content: start; gap: 16px; }
 .sync-conflict-dialog .sync-status-details { align-content: start; }
 .sync-conflict-dialog header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }

@@ -36,6 +36,9 @@ try {
   sql("supabase/migrations/20261008010000_operations_inventory_cutover.sql");
   sql("supabase/migrations/20261008000000_operations_commands.sql");
   sql("supabase/tests/operations_foundation.sql");
+  sql("supabase/migrations/20261008230000_purchase_receipt_batch.sql");
+  sql("supabase/migrations/20261008230000_purchase_receipt_batch.sql");
+  sql("supabase/tests/purchase_receipt_batch.sql");
   sql("supabase/tests/operations_commands.sql");
   sql("supabase/tests/operations_inventory_cutover.sql");
   sql("supabase/tests/operations_backup.sql");

@@ -3,9 +3,13 @@
 .toolbar h2 { margin: 0; font-size: 20px; }
 .typeRow { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; padding: 12px 0; border-bottom: 1px solid var(--border-color, #a1a1aa); }
 .typeRow strong { flex: 1; min-width: 120px; overflow-wrap: anywhere; }
-.dialog { width: min(760px, calc(100vw - 24px)); }
+dialog.dialog:global(.trip-dialog) { display: block; width: min(760px, calc(100vw - 32px)); max-width: calc(100vw - 32px); height: fit-content; min-height: 0; max-height: calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); padding: 20px; border-radius: 8px; }
+.dialog > header { flex-wrap: nowrap; align-items: flex-start; position: static; padding: 0 0 16px; margin-bottom: 16px; border-bottom: 1px solid var(--line, #d1d5db); }
+.dialog > header h2 { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.dialog > header button { flex: 0 0 40px; width: 40px; height: 40px; }
+.dialog footer { justify-content: flex-end; border-top: 1px solid var(--line, #d1d5db); }
 .dialog > label { display: grid; gap: 6px; margin: 10px 0; }
-.fields { overflow-x: auto; margin: 16px 0; }
+.fields { overflow: auto; max-height: 45dvh; margin: 16px 0; }
 .fieldRow { display: grid; grid-template-columns: minmax(150px, 1fr) 86px 86px 100px; gap: 8px; align-items: center; min-width: 446px; border-bottom: 1px solid var(--border-color, #a1a1aa); padding: 8px 0; }
 .fieldRow input[type="checkbox"] { width: 18px; height: 18px; justify-self: center; }
 .fieldRow input[type="number"] { min-width: 0; width: 100%; }
