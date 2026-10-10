@@ -8,12 +8,13 @@ import { operationLabel } from "@/lib/operationsUi";
 import type { OperationsLanguage } from "@/lib/operations";
 import styles from "./OperationsWorkspace.module.css";
 
-export function OperationsDocumentUpload({ language, onUploaded, onPending, scope = "resource-documents", photoPdf = false, disabled = false }: {
+export function OperationsDocumentUpload({ language, onUploaded, onPending, scope = "resource-documents", photoPdf = false, imagesOnly = false, disabled = false }: {
   language: OperationsLanguage;
   onUploaded: (document: { id: string; name: string }) => void;
   onPending: (pending: boolean) => void;
   scope?: "resource-documents" | "purchase-documents";
   photoPdf?: boolean;
+  imagesOnly?: boolean;
   disabled?: boolean;
 }) {
   const t = (key: string) => operationLabel(key, language);
@@ -35,6 +36,7 @@ export function OperationsDocumentUpload({ language, onUploaded, onPending, scop
       if (request.current !== controller) return;
       if (controller.signal.aborted) throw new Error("UPLOAD_TIMEOUT");
       if (photoPdf && file.type !== "application/pdf") throw new Error("PDF_REQUIRED");
+      if (imagesOnly && !file.type.startsWith("image/")) throw new Error("IMAGE_REQUIRED");
       const data = new FormData();
       data.append("file", file); data.append("mediaId", item.id);
       data.append("scope", scope);
@@ -59,11 +61,11 @@ export function OperationsDocumentUpload({ language, onUploaded, onPending, scop
     setSelection(item); void upload(item);
   }
   return <section>
-    <label className={styles.field}><span><Upload size={16} /> {t(photoPdf ? "deliveryNote" : "uploadDocument")}</span>
-      <input type="file" accept={photoPdf ? ".pdf,application/pdf,image/*" : ".pdf,.doc,.docx,.xls,.xlsx,.txt,image/*"} disabled={disabled || Boolean(selection)} onChange={select} />
+    <label className={styles.field}><span><Upload size={16} /> {t(imagesOnly ? "damagePhoto" : photoPdf ? "deliveryNote" : "uploadDocument")}</span>
+      <input type="file" accept={imagesOnly ? "image/*" : photoPdf ? ".pdf,application/pdf,image/*" : ".pdf,.doc,.docx,.xls,.xlsx,.txt,image/*"} disabled={disabled || Boolean(selection)} onChange={select} />
     </label>
-    {photoPdf && <><input ref={camera} type="file" accept="image/*" capture="environment" hidden onChange={select} />
-      <button type="button" disabled={disabled || Boolean(selection)} onClick={() => camera.current?.click()}><Camera size={16} />{t("photographDeliveryNote")}</button></>}
+    {(photoPdf || imagesOnly) && <><input ref={camera} type="file" accept="image/*" capture="environment" hidden onChange={select} />
+      <button type="button" disabled={disabled || Boolean(selection)} onClick={() => camera.current?.click()}><Camera size={16} />{t(imagesOnly ? "photographDamage" : "photographDeliveryNote")}</button></>}
     <div role="status" className={styles.meta}>{status === "saved" ? savedName : selection?.file.name} {status && t(status === "saved" ? "documentSaved" : status === "uploading" ? "documentUploading" : "documentFailed")}</div>
     {selection && status !== "saved" && <div className={styles.actions}>
       {status === "failed" && <button type="button" onClick={() => void upload(selection)}><RefreshCw size={16} />{t("retryUpload")}</button>}

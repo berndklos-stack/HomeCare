@@ -61,6 +61,12 @@ for (const width of [1440, 390]) test(`Leistungsliste bei ${width}px: Auswahl un
   const listBox = (await listButton.boundingBox())!;
   expect(listBox.width).toBeLessThan(210);
   expect(historyBox.x + historyBox.width).toBeLessThanOrEqual(width);
+  const actionButtons = page.locator(".consulting-primary-actions").getByRole("button");
+  await expect(actionButtons).toHaveCount(3);
+  if (width === 1440) {
+    const boxes = await actionButtons.evaluateAll((elements) => elements.map((element) => ({ top: element.getBoundingClientRect().top, right: element.getBoundingClientRect().right })));
+    expect(Math.max(...boxes.map((box) => box.top)) - Math.min(...boxes.map((box) => box.top))).toBeLessThan(2);
+  }
   await page.screenshot({ path: testInfo.outputPath("service-list-actions.png") });
   const jobsBefore = await page.evaluate(() => localStorage.getItem("kolaretorp-jobs"));
   const queueBefore = await page.evaluate(() => localStorage.getItem("workcore-sync-mutations-v1"));

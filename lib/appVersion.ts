@@ -1,10 +1,15 @@
 export const appVersion = {
-  version: "1.427.20",
+  version: "1.427.21",
   releaseDate: "2026-10-11",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  {
+    version: "1.427.21",
+    date: "2026-10-11",
+    changes: ["Umlagerung: fehlerhafte Abfrage der Scan-Ziele korrigiert", "Kommissionierung per Dropdown oder Code; lesbarer Tagescode und QR-Code in der PDF", "Storno mit Sicherheitsabfrage, Pflichtgrund und Benutzer-/Zeitprotokoll; Aenderungsverlauf der Kommissionierung", "Kompakte Dauerauftragsaktionen nebeneinander", "Verstaendliche Wareneingangsbestätigung und Beleg-/Schadensdokumentation beim Scan-Wareneingang"],
+  },
   {
     version: "1.427.20",
     date: "2026-10-11",

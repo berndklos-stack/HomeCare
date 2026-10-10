@@ -1,6 +1,35 @@
 import { expect, test } from "@playwright/test";
 import QRCode from "qrcode";
+import { readFileSync } from "node:fs";
 import { storageLocationPath } from "../lib/locationLabel";
+
+test("Kommissionierung storniert nur nach Bestaetigung mit Grund und zeigt Benutzerverlauf", async ({ page }) => {
+ await page.addInitScript(() => { localStorage.setItem("kolaretorp-updated-at", "2026-10-11T10:00:00Z"); });
+ const order = { id: "55555555-5555-4555-8555-555555555555", picking_code: "2026-10-11-00001", job_id: "cancel-job", title: "Stornoprüfung", revision: 1, status: "open", created_at: "2026-10-11T10:00:00Z" };
+ const items = [{ material_id: "cancel-material", quantity: 1, picked: 0, material: { name: "Material", unit: "Stück" } }];
+ const events: Record<string, unknown>[] = [], posts: Record<string, unknown>[] = [];
+ await page.route("**/api/operations?**", (route) => route.fulfill({ json: { active: true, rows: [], count: 0 } }));
+ await page.route("**/api/picking-orders**", (route) => {
+  if (route.request().method() === "GET") return route.fulfill({ json: { rows: [order], items, events, count: 1 } });
+  const data = route.request().postDataJSON(); posts.push(data); order.status = "cancelled"; order.revision = 2;
+  events.push({ id: "cancel-event", action: "cancelled", status: "cancelled", note: data.reason, actor_name: "Bernd Klos", occurred_at: "2026-10-11T10:15:00Z" });
+  return route.fulfill({ json: { id: order.id, revision: 2 } });
+ });
+ await page.goto("/"); await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true", { timeout: 30000 });
+ await page.getByRole("button", { name: "Lager & Material", exact: true }).click(); await page.getByRole("tab", { name: "Scanabläufe", exact: true }).click();
+ await page.getByRole("dialog", { name: "Scanabläufe", exact: true }).getByRole("button", { name: "Kommissionierung", exact: true }).click();
+ await page.getByRole("combobox", { name: "Kommissionierauftrag auswählen", exact: true }).selectOption(order.id);
+ await page.getByRole("button", { name: "Kommissionierung stornieren", exact: true }).click();
+ const confirm = page.getByRole("dialog", { name: "Kommissionierung wirklich stornieren?", exact: true });
+ await expect(confirm.getByRole("button", { name: "Kommissionierung wirklich stornieren?", exact: true })).toBeDisabled();
+ await confirm.getByRole("button", { name: "Abbrechen", exact: true }).click(); expect(posts).toHaveLength(0);
+ await page.getByRole("button", { name: "Kommissionierung stornieren", exact: true }).click();
+ await confirm.getByLabel("Stornogrund", { exact: true }).fill("Material wird nicht mehr benötigt");
+ await confirm.getByRole("button", { name: "Kommissionierung wirklich stornieren?", exact: true }).click();
+ await expect(confirm).toHaveCount(0); await expect(page.getByText("Material wird nicht mehr benötigt", { exact: true })).toBeVisible();
+ await expect(page.getByText(/Bernd Klos.*Storniert/)).toBeVisible();
+ expect(posts).toEqual([{ action: "cancel", id: order.id, revision: 1, reason: "Material wird nicht mehr benötigt" }]);
+});
 
 test("Lagerweg enthaelt Standort und alle zugehoerigen Lagerplaetze", () => {
   const locations = [
@@ -17,12 +46,19 @@ test("Lagerweg enthaelt Standort und alle zugehoerigen Lagerplaetze", () => {
 for (const mobile of [false, true]) test(`Kommissionierplatz Abholcode und Auftrag ${mobile ? "mobil" : "desktop"}`, async ({ page }, testInfo) => {
  await page.setViewportSize(mobile ? { width: 390, height: 844 } : { width: 1440, height: 1000 });
  await page.addInitScript(() => { localStorage.setItem("kolaretorp-updated-at", "2026-10-11T10:00:00Z"); localStorage.setItem("kolaretorp-field-progress", JSON.stringify({ "synthetic-pick": {} })); });
- const order = { id: "55555555-5555-4555-8555-555555555555", job_id: "pick-job", title: "Gartenhaus", revision: 1, status: "open", created_at: "2026-10-11T10:00:00Z", staging_id: null as string | null, pickup_code: null as string | null };
+ const order = { id: "55555555-5555-4555-8555-555555555555", picking_code: "2026-10-11-00001", job_id: "pick-job", title: "Gartenhaus", revision: 1, status: "open", created_at: "2026-10-11T10:00:00Z", staging_id: null as string | null, pickup_code: null as string | null };
  const pickup = "66666666-6666-4666-8666-666666666666";
  const items = [{ material_id: "pick-material", quantity: 2.5, picked: 0, material: { name: "Kantholz", sku: "KH001", unit: "Meter", record_data: { scanCode: "PICK-MAT" } } }];
  const posts: Record<string, unknown>[] = [];
  await page.route("**/api/picking-orders**", (route) => {
-  if (route.request().method() === "GET") return route.fulfill({ json: { rows: [order], items, count: 1 } });
+  if (route.request().method() === "GET") {
+   const params = new URL(route.request().url()).searchParams;
+   if (mobile && !params.has("id") && !params.has("pickup") && !params.has("code")) {
+    const first = [order, ...Array.from({ length: 49 }, (_, index) => ({ ...order, id: `77777777-7777-4777-8777-${String(index).padStart(12, "0")}`, title: `Weiterer Auftrag ${index + 1}` }))];
+    return route.fulfill({ json: { rows: params.get("page") === "1" ? [{ ...order, id: "88888888-8888-4888-8888-888888888888", title: "Auftrag auf zweiter Seite" }] : first, items: [], count: 51 } });
+   }
+   return route.fulfill({ json: { rows: [order], items, count: 1 } });
+  }
   const input = route.request().postDataJSON(); posts.push(input);
   if (input.action === "pick") { expect(input).toMatchObject({ material: "pick-material", source: "pick-source", destination: "pick-place", quantity: 2.5 }); order.status = "completed"; order.revision = 2; order.staging_id = "pick-place"; order.pickup_code = pickup; items[0].picked = 2.5; }
   else { expect(input).toMatchObject({ action: "dispatch", destination: null, pickup, revision: 2 }); order.status = "dispatched"; order.revision = 3; }
@@ -39,14 +75,36 @@ for (const mobile of [false, true]) test(`Kommissionierplatz Abholcode und Auftr
  await page.goto("/"); await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true", { timeout: 30000 });
  await page.getByRole("button", { name: "Lager & Material", exact: true }).click(); await page.getByRole("tab", { name: "Scanabläufe", exact: true }).click();
  await page.getByRole("dialog", { name: "Scanabläufe", exact: true }).getByRole("button", { name: "Kommissionierung", exact: true }).click();
- await page.getByRole("textbox", { name: "Kommissioniercode", exact: true }).fill(`PICK:${order.id}`); await page.getByRole("textbox", { name: "Kommissioniercode", exact: true }).press("Enter");
+ if (mobile) {
+  const choice = page.getByRole("combobox", { name: "Kommissionierauftrag auswählen", exact: true });
+  await expect(choice.getByRole("option")).toHaveCount(52);
+  await expect(choice.getByRole("option").last()).toContainText("Auftrag auf zweiter Seite");
+  await page.screenshot({ path: testInfo.outputPath("picking-dropdown-mobile.png"), fullPage: true });
+  await choice.selectOption(order.id);
+ }
+ else {
+  const input = page.getByRole("textbox", { name: "Kommissioniercode", exact: true });
+  await input.fill(`PICK:${order.id}`); await input.press("Enter");
+  await expect(page.getByText(`Kommissioniercode: ${order.picking_code} · Offen`, { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Zurück", exact: true }).click();
+  await input.fill(`PICK:${order.picking_code}`); await input.press("Enter");
+ }
+ await expect(page.getByText(`Kommissioniercode: ${order.picking_code} · Offen`, { exact: true })).toBeVisible();
+ await expect(page.getByText(`ID: ${order.id}`, { exact: false })).toHaveCount(0);
  await page.getByRole("button", { name: "Kommissionierung scannen", exact: true }).click();
  const scan = page.getByRole("dialog", { name: "Kommissionierung scannen", exact: true }), code = scan.getByRole("textbox", { name: "Code", exact: true });
  for (const value of ["PICK-MAT", "SOURCE", "STAGING"]) { await code.fill(value); await code.press("Enter"); }
  await scan.getByRole("spinbutton", { name: "Menge", exact: true }).fill("2.5"); await scan.getByRole("button", { name: "Umlagerung buchen", exact: true }).click();
  await expect(page.getByText(`Abholcode: PICKUP:${pickup}`, { exact: true })).toBeVisible();
  const download = page.waitForEvent("download"); await page.getByRole("button", { name: "Abholcode als PDF", exact: true }).click(); await (await download).saveAs(`test-results/pickup-label-${mobile}-${testInfo.project.name}.pdf`);
- const listDownload = page.waitForEvent("download"); await page.getByRole("button", { name: "Kommissionierliste als PDF", exact: true }).click(); await (await listDownload).saveAs(`test-results/picking-list-${mobile}-${testInfo.project.name}.pdf`);
+ const listDownload = page.waitForEvent("download"); await page.getByRole("button", { name: "Kommissionierliste als PDF", exact: true }).click();
+ const pdfDownload = await listDownload;
+ expect(pdfDownload.suggestedFilename()).toBe(`Kommissionierung-${order.picking_code}.pdf`);
+ const pdfPath = `test-results/picking-list-${mobile}-${testInfo.project.name}.pdf`;
+ await pdfDownload.saveAs(pdfPath);
+ const pdfContents = readFileSync(pdfPath).toString("latin1");
+ expect(pdfContents).toContain(`Kommissioniercode: ${order.picking_code}`);
+ expect(pdfContents).not.toContain(order.id);
  await page.getByRole("button", { name: "Abholung scannen", exact: true }).click();
  const dispatch = page.getByRole("dialog", { name: "Abholung scannen", exact: true });
  const pickupInput = dispatch.getByRole("textbox", { name: "Abholcode", exact: true }); await pickupInput.fill("WRONG"); await pickupInput.press("Enter"); await expect(dispatch.getByRole("alert")).toContainText("Abholcode");
@@ -74,7 +132,7 @@ for (const withOrder of [false, true]) test(`Scan-Auswahl und gemeinsamer Warene
   return route.fulfill({ json: { rows, count: rows.length } });
  });
  const posts: Record<string, unknown>[] = [];
- await page.route("**/api/goods-receipts", (route) => { posts.push(route.request().postDataJSON()); return route.fulfill({ json: { id: "receipt-success" } }); });
+ await page.route("**/api/goods-receipts", (route) => { const body = route.request().postDataJSON(); posts.push(body); return route.fulfill({ json: { id: body.id } }); });
  await page.goto("/"); await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true", { timeout: 30000 });
  await page.getByRole("button", { name: "Lager & Material", exact: true }).click();
  await page.getByRole("tab", { name: "Scanabläufe", exact: true }).click();
@@ -97,7 +155,7 @@ for (const withOrder of [false, true]) test(`Scan-Auswahl und gemeinsamer Warene
  await expect(page.getByRole("table", { name: "Wareneingang scannen", exact: true })).toContainText("2.5 Meter");
  await page.screenshot({ path: `test-results/scan-receipt-${withOrder}-${testInfo.project.name}.png` });
  await page.getByRole("button", { name: "Wareneingang abschließen", exact: true }).click();
- await expect(page.getByRole("status")).toContainText("Wareneingang gebucht");
+ await expect(page.getByRole("status")).toContainText("Wareneingang erfolgreich gebucht");
  expect(posts).toHaveLength(1); expect(posts[0]).toMatchObject({ payload: { delivery_number: "LS-TEST", location_id: "receipt-bin", order_id: withOrder ? "33333333-3333-4333-8333-333333333333" : null, items: [{ material_id: "receipt-material", quantity: 2.5 }] } });
 });
 

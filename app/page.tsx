@@ -16680,11 +16680,12 @@ function JobsView({
                 {expandedConsultingIds.includes(job.id) ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                 <span>{tt("Leistungsnachweise")} ({job.consulting.entries.length})</span>
               </button>
+              <div className="consulting-primary-actions">
               <button className="ghost-button compact consulting-service-list-button" type="button" onClick={() => setServiceListJobId(job.id)}>
                 <ClipboardList size={15} />{serviceListLabels[language].title}
               </button>
               {!isRecurring && !["storniert", "abgerechnet"].includes(job.status) && (
-                <div className="consulting-primary-actions">
+                <>
                   <button className="ghost-button compact consulting-entry-button" onClick={() => openConsultingEntry(job)} type="button">
                     <Plus size={15} />
                     {tt("Leistung erfassen")}
@@ -16695,8 +16696,9 @@ function JobsView({
                       {tt("Offene Leistungen abrechnen")}
                     </button>
                   )}
-                </div>
+                </>
               )}
+              </div>
             </div>
           )}
           {!isRecurring && job.executionDate && jobDateRangeLabel(job) !== jobOriginalDateRangeLabel(job) && (

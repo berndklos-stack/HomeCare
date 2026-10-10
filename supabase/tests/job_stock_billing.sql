@@ -99,7 +99,19 @@ begin
  exception when check_violation then if sqlerrm<>'MATERIAL_NOT_ACTIVE' then raise; end if; end;
  if (select count(*) from public.homecare_stock_movements)<>before_count then raise exception 'PARTIAL_GOODS_COMMIT'; end if;
  payload:=jsonb_build_object('supplier_id','22222222-2222-4222-8222-222222222222','delivery_number','LS-ORDER','location_id','stock-root','order_id','33333333-3333-4333-8333-333333333333','revision',(select revision from public.homecare_purchase_orders where order_number='TEST-SCAN-ORDER'),'items',jsonb_build_array(jsonb_build_object('material_id','stock-material','item_id','44444444-4444-4444-8444-444444444444','quantity',7)));
- perform public.homecare_scan_goods_receipt(tenant,gen_random_uuid(),actor,payload);
+ insert into public.homecare_media(tenant_id,id,owner_type,owner_id,kind,name,storage_path,metadata) values
+  (tenant,'receipt-test-pdf','pending','receipt','document','Delivery.pdf',tenant::text||'/purchase-documents/receipt.pdf','{"contentType":"application/pdf"}'),
+  (tenant,'receipt-test-photo','pending','receipt','image','Damage.jpg',tenant::text||'/purchase-documents/damage.jpg','{"contentType":"image/jpeg"}');
+ payload:=payload||jsonb_build_object('document_id','receipt-test-pdf','damage',jsonb_build_object('description','Damaged packaging','photos',jsonb_build_array('receipt-test-photo')));
+ receipt:=gen_random_uuid();
+ perform public.homecare_scan_goods_receipt(tenant,receipt,actor,payload);
+ perform public.homecare_scan_goods_receipt(tenant,receipt,actor,payload);
+ if (select document_id from public.homecare_goods_receipts where id=receipt)<>'receipt-test-pdf'
+  or (select count(*) from public.homecare_supplier_damage_cases where id=receipt and status='open')<>1
+  or (select count(*) from public.homecare_supplier_damage_photos where case_id=receipt)<>1
+  or (select count(*) from public.homecare_supplier_damage_events where case_id=receipt)<>1
+  or (select count(*) from public.homecare_purchase_receipts where document_id='receipt-test-pdf')<>1
+ then raise exception 'RECEIPT_DOCUMENTATION_NOT_ATOMIC'; end if;
  if (select status from public.homecare_purchase_orders where order_number='TEST-SCAN-ORDER')<>'received' then raise exception 'ORDER_NOT_RECEIVED'; end if;
  if (select sum(quantity) from public.homecare_purchase_receipts where item_id='44444444-4444-4444-8444-444444444444')<>7 then raise exception 'ORDER_RECEIPT_QUANTITY_WRONG'; end if;
 end $$;

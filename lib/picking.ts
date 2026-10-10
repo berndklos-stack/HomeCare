@@ -1,5 +1,5 @@
 export type PickingItem = { material_id: string; quantity: number; picked: number; material: { name: string; sku?: string; unit?: string; record_data?: { scanCode?: string } } };
-export type PickingOrder = { id: string; job_id: string; title: string; revision: number; status: "open" | "completed" | "loaded" | "dispatched" | "cancelled"; created_at: string; staging_id?: string | null; destination_id?: string | null; dispatched_at?: string | null; pickup_code?: string | null };
+export type PickingOrder = { id: string; picking_code?: string; job_id: string; title: string; revision: number; status: "open" | "completed" | "loaded" | "dispatched" | "cancelled"; created_at: string; staging_id?: string | null; destination_id?: string | null; dispatched_at?: string | null; pickup_code?: string | null };
 
 export async function pickingPdf(order: PickingOrder, items: PickingItem[], language: "de" | "sv" | "en") {
   const [{ jsPDF }, { default: QRCode }] = await Promise.all([import("jspdf"), import("qrcode")]);
@@ -7,13 +7,14 @@ export async function pickingPdf(order: PickingOrder, items: PickingItem[], lang
   const response = await fetch("/kolaretorp-logo.png");
   if (!response.ok) throw new Error("LOGO_UNAVAILABLE");
   const logo = new Uint8Array(await response.arrayBuffer()), size = pdf.getImageProperties(logo);
-  const qr = await QRCode.toDataURL(`PICK:${order.id}`, { width: 500, margin: 4 });
+  const qr = await QRCode.toDataURL(`PICK:${order.picking_code ?? order.id}`, { width: 500, margin: 4 });
   const labels = language === "de" ? ["Kommissionierliste", "Auftrag", "Bezeichnung", "Benötigt", "Entnommen", "Datum / Unterschrift"] : language === "sv" ? ["Plocklista", "Uppdrag", "Benämning", "Behov", "Plockat", "Datum / Signatur"] : ["Picking list", "Job", "Designation", "Required", "Picked", "Date / Signature"];
   let y = 0;
   function header() {
     pdf.addImage(logo, "PNG", 150, 12, 45, 45 * size.height / size.width);
     pdf.setFont("helvetica", "bold"); pdf.setFontSize(16); pdf.text(labels[0], 15, 22);
-    pdf.setFont("helvetica", "normal"); pdf.setFontSize(8); pdf.text(`ID: ${order.id}`, 15, 34);
+    const codeLabel = language === "de" ? "Kommissioniercode" : language === "sv" ? "Plockkod" : "Picking code";
+    pdf.setFont("helvetica", "normal"); pdf.setFontSize(10); pdf.text(`${codeLabel}: ${order.picking_code ?? "-"}`, 15, 34);
     const title = pdf.splitTextToSize(`${labels[1]}: ${order.title}`, 135) as string[];
     pdf.text(title, 15, 43); y = Math.max(75, 45 + title.length * 4);
     pdf.addImage(qr, "PNG", 163, 36, 30, 30);
