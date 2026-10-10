@@ -60,7 +60,6 @@ export function OperationsWorkspace(props: Props) {
   const [refresh, setRefresh] = useState(0);
   const [loading, setLoading] = useState(false);
   const [stockActive, setStockActive] = useState<boolean | null>(null);
-  const [stockMaterialId, setStockMaterialId] = useState("");
   const [stockError, setStockError] = useState(false);
   const [error, setError] = useState("");
   const [suppliers, setSuppliers] = useState<Reference[]>([]);
@@ -105,6 +104,7 @@ export function OperationsWorkspace(props: Props) {
   }, [refresh]);
 
   useEffect(() => {
+    if (entity === "material_details") return;
     const controller = new AbortController();
     setLoading(true); setError(""); setRows([]);
     // One bounded read page, not a growing cache per search/page/report.
@@ -336,15 +336,15 @@ export function OperationsWorkspace(props: Props) {
       <button title={t("refresh")} aria-label={t("refresh")} onClick={() => setRefresh((n) => n + 1)}><RefreshCw size={18} /></button>
       {editable && !error && <button onClick={() => open("save")} disabled={entity === "purchase_order_items" && (!parent || parent.status !== "draft" || blocked(parent.id))}><Plus size={18} />{t(entity === "location_details" ? parent ? "createStoragePlace" : "createLocation" : "create")}</button>}
     </div>
-    {tab === "inventory" && (stockActive === true ? <OperationsStock {...props} onMaterialSelected={setStockMaterialId} /> : stockActive === false ? props.children : <div role="status" aria-busy={!stockError}>{t(stockError ? "OPERATIONS_UNAVAILABLE" : "loading")}</div>)}
+    {tab === "inventory" && (stockActive === true ? <OperationsStock {...props} /> : stockActive === false ? props.children : <div role="status" aria-busy={!stockError}>{t(stockError ? "OPERATIONS_UNAVAILABLE" : "loading")}</div>)}
     {error && <p role="status">{t(error)}</p>}
     {active.length > 0 && <div role="status" className={styles.pending}>{active.map((m) => <p key={m.id}>{t(m.status === "failed" || m.status === "conflict" ? "failed" : "waiting")}: {String((m.payload.values as Record<string, unknown> | undefined)?.company ?? (m.payload.values as Record<string, unknown> | undefined)?.name ?? m.entityId)}</p>)}</div>}
-    {(tab !== "inventory" || stockActive !== null) && <div className={`panel ${styles.list}`} aria-busy={loading}>
+    {entity !== "material_details" && (tab !== "inventory" || stockActive !== null) && <div className={`panel ${styles.list}`} aria-busy={loading}>
       <div className="panel-title"><div><p>{tab === "inventory" ? t("inventorySection") : operationsLabels[tab as keyof typeof operationsLabels][language]}</p><h2>{entity === "location_details" && parent ? `${t("storagePlaces")}: ${String(parent.name ?? "")}` : t(entity)}</h2></div></div>
       {!tableEntities.has(entity) && !rows.length && !loading && !error && <p>{t("empty")}</p>}
-      {tableEntities.has(entity) ? <OperationsDataTable key={`${entity}:${parent?.id ?? ""}`} rows={entity === "material_details" && stockActive && stockMaterialId ? rows.filter((row) => row.id === stockMaterialId) : rows} columns={columns} actions={["material_details", "suppliers", "location_details", "location_types"].includes(entity) ? undefined : tableActions} label={t(entity)} filterLabel={t("filter")} emptyLabel={t("empty")} actionsLabel={t("actions")}
+      {tableEntities.has(entity) ? <OperationsDataTable key={`${entity}:${parent?.id ?? ""}`} rows={rows} columns={columns} actions={["suppliers", "location_details", "location_types"].includes(entity) ? undefined : tableActions} label={t(entity)} filterLabel={t("filter")} emptyLabel={t("empty")} actionsLabel={t("actions")}
         canActivate={(row) => !blocked(row.id) && !(parent && blocked(parent.id))}
-        sortBy={entity === "material_details" ? "name" : undefined} language={language}
+        language={language}
         onRowActivate={(row) => entity === "purchase_orders" && row.status !== "draft" ? change("purchase_order_items", row) : open("save", row)} /> : entity === "purchase_order_items" && rows.length > 0 ? <div className={styles.itemsScroll}><table className={styles.items}>
         <thead><tr><th scope="col">{receivable && <input type="checkbox" aria-label={t(count > 50 ? "selectOpenPage" : "selectOpen")} title={t(count > 50 ? "selectOpenPage" : "selectOpen")} disabled={receiptDisabled || !openRows.length}
           checked={openRows.length > 0 && openRows.every((row) => receiptSelection[row.id] !== undefined)}

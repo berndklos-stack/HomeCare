@@ -62,27 +62,37 @@ for (const mobile of [false, true]) test(`Scancodes bleiben Text ${mobile ? "mob
   expect(newType.payload.values.name).toBe("Eigener Lagertyp");
 });
 
-test("Beschaffung sortiert alle Seiten alphabetisch nach Bezeichnung", async ({ page }) => {
-  const rows = Array.from({ length: 55 }, (_, index) => ({ id: `sort-${54 - index}`, name: `Material ${54 - index}`, revision: 1 }));
+for (const mobile of [false, true]) test(`Beschaffung ist direkt am Material bearbeitbar statt in der Lageruebersicht ${mobile ? "mobil" : "desktop"}`, async ({ page }) => {
+  await page.setViewportSize(mobile ? { width: 390, height: 844 } : { width: 1440, height: 1000 });
+  await page.addInitScript(() => {
+    localStorage.setItem("kolaretorp-updated-at", "2026-10-10T10:00:00Z");
+    localStorage.setItem("kolaretorp-field-progress", JSON.stringify({ "synthetic-test": {} }));
+    localStorage.setItem("kolaretorp-materials", JSON.stringify([{ id: "purchasing-material", name: "Testmaterial", category: "Material", unit: "Meter", price: "0", currency: "SEK", description: "Test", revision: 4 }]));
+  });
+  const supplierId = "f465fa78-717c-4f6a-87bb-5cf99b81318d";
   await page.route("**/api/operations?**", (route) => {
     const params = new URL(route.request().url()).searchParams;
     const entity = params.get("entity");
-    const start = Number(params.get("page") ?? 0) * 50;
-    return route.fulfill({ json: entity === "stock_status" ? { active: true } : { rows: entity === "material_details" ? rows.slice(start, start + 50) : [], count: entity === "material_details" ? rows.length : 0 } });
+    return route.fulfill({ json: entity === "stock_status" ? { active: true } : { rows: entity === "material_details" ? [{ id: "purchasing-material", revision: 4, preferred_supplier_id: supplierId, reorder_quantity: 2, notes: "Vorhandene Notiz" }] : entity === "suppliers" ? [{ id: supplierId, company: "Testlieferant" }] : [], count: 1 } });
   });
   await page.goto("/");
   await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true", { timeout: 30000 });
   await page.getByRole("button", { name: "Lager & Material", exact: true }).click();
-  const table = page.getByRole("table", { name: "Beschaffung", exact: true });
-  await expect(table.locator("tbody tr")).toHaveCount(50);
-  expect(await table.locator("tbody tr td:first-child").allTextContents()).toEqual(Array.from({ length: 50 }, (_, index) => `Material ${index}`));
-  const panel = table.locator("xpath=ancestor::div[contains(@class, 'panel')][1]");
-  await panel.getByRole("button", { name: "Next", exact: true }).click();
-  expect(await table.locator("tbody tr td:first-child").allTextContents()).toEqual(["Material 50", "Material 51", "Material 52", "Material 53", "Material 54"]);
-  await table.getByRole("searchbox", { name: "Filter: Bezeichnung", exact: true }).fill("Material 5");
-  expect(await table.locator("tbody tr td:first-child").allTextContents()).toEqual(["Material 5", "Material 50", "Material 51", "Material 52", "Material 53", "Material 54"]);
-  await table.locator("tbody tr").first().click();
-  await expect(page.getByRole("dialog", { name: "Beschaffung", exact: true })).toBeVisible();
+  await expect(page.getByRole("table", { name: "Beschaffung", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Materialstammdaten", exact: true }).click();
+  await page.getByRole("button", { name: "Material Testmaterial bearbeiten", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Material bearbeiten", exact: true });
+  await expect(dialog.getByLabel("Bevorzugter Lieferant", { exact: true })).toHaveValue(supplierId);
+  await expect(dialog.getByLabel("Nachbestellmenge", { exact: true })).toHaveValue("2");
+  await expect(dialog.getByLabel("Notizen", { exact: true })).toHaveValue("Vorhandene Notiz");
+  expect(await dialog.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+  await dialog.getByRole("heading", { name: "Beschaffung", exact: true }).scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `test-results/material-purchasing-${mobile}-${test.info().project.name}.png` });
+  await dialog.getByLabel("Nachbestellmenge", { exact: true }).fill("5.5");
+  await dialog.getByRole("button", { name: "Beschaffungsdaten speichern", exact: true }).click();
+  await expect(dialog.getByRole("button", { name: "Material speichern", exact: true })).toBeDisabled();
+  const mutation = await page.evaluate(() => JSON.parse(localStorage.getItem("workcore-sync-mutations-v1") ?? "[]").find((row: { payload: { entity?: string } }) => row.payload.entity === "material_details"));
+  expect(mutation).toMatchObject({ entityId: "purchasing-material", expectedRevision: 4, payload: { values: { preferred_supplier_id: supplierId, reorder_quantity: 5.5, notes: "Vorhandene Notiz" } } });
 });
 
 test("Lageroeffnung zeigt Beschaffung nicht vor der Lageruebersicht", async ({ page }) => {
@@ -101,7 +111,7 @@ test("Lageroeffnung zeigt Beschaffung nicht vor der Lageruebersicht", async ({ p
   await expect(page.getByRole("heading", { name: "Beschaffung", exact: true })).toHaveCount(0);
   releaseStatus();
   await expect(page.getByRole("heading", { name: "Bestände und Buchungen", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Beschaffung", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Beschaffung", exact: true })).toHaveCount(0);
   await expect(page.getByRole("combobox", { name: "Bezeichnung", exact: true })).toHaveValue("");
 });
 
@@ -263,24 +273,17 @@ for (const mobile of [false, true]) test(`Materialstammdaten kehren ohne alten L
   await page.route("**/api/operations?entity=material_details**", (route) => route.fulfill({ json: { rows: options.map((row) => ({ ...row, revision: 1 })), count: options.length } }));
   await page.getByRole("button", { name: "Materialstammdaten", exact: true }).locator("..").getByRole("button", { name: "Aktualisieren", exact: true }).click();
   const materialTable = page.getByRole("table", { name: "Beschaffung", exact: true });
-  await expect(materialTable.locator("tbody tr")).toHaveCount(1);
-  await expect(materialTable.locator("tbody")).toContainText(options.find((row) => row.id === value)!.name);
+  await expect(materialTable).toHaveCount(0);
   await expect(bookings.locator("tbody")).toContainText(options.find((row) => row.id === value)!.name);
   await expect(page.getByRole("button", { name: "Allgemeine Lagerbuchung", exact: true })).toHaveCount(1);
-  await expect(page.getByRole("heading", { name: "Beschaffung", exact: true })).toBeVisible();
-  await expect(materialTable.getByRole("columnheader", { name: "Bezeichnung", exact: true })).toBeVisible();
-  await expect(materialTable.getByRole("columnheader", { name: "Name", exact: true })).toHaveCount(0);
-  await expect(materialTable.getByRole("columnheader", { name: "Aktionen", exact: true })).toHaveCount(0);
-  await materialTable.locator("tbody tr").first().click();
-  await expect(page.getByRole("dialog", { name: "Beschaffung", exact: true })).toBeVisible();
-  await page.getByRole("dialog").getByRole("button", { name: "Abbrechen", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Beschaffung", exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "Allgemeine Lagerbuchung", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Lagerbuchung", exact: true });
   await expect(dialog).toContainText(options.find((row) => row.id === value)!.name);
   await expect(dialog.getByRole("combobox", { name: "Bezeichnung", exact: true })).toHaveValue(value!);
   await dialog.getByRole("button", { name: "Schließen", exact: true }).click();
   await material.selectOption("");
-  await expect(materialTable.locator("tbody tr")).toHaveCount(options.length);
+  await expect(page.getByRole("table", { name: "Lagerbestandsübersicht", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Allgemeine Lagerbuchung", exact: true }).click();
   await expect(dialog.getByRole("button", { name: "Speichern", exact: true })).toBeDisabled();
   const bookingMaterial = dialog.getByRole("combobox", { name: "Bezeichnung", exact: true });

@@ -8,6 +8,7 @@ import { SyncStatus } from "@/components/SyncStatus";
 import { AppleRemindersBridge } from "@/components/AppleRemindersBridge";
 import { TripDialog } from "@/components/TripDialog";
 import { OperationsWorkspace } from "@/components/OperationsWorkspace";
+import { MaterialPurchasing } from "@/components/MaterialPurchasing";
 import { OperationsWarnings } from "@/components/OperationsWarnings";
 import { DynamicResourceFields, ResourceTypesPanel, useResourceTypes } from "@/components/ResourceTypes";
 import { legacyResourceType, missingResourceFields, resourceIsVehicle, resourceLanguageIndex, resourceTypesText } from "@/lib/resourceTypes";
@@ -23937,9 +23938,10 @@ function MasterDataView({
               <label><span>{tt("Bestand aktuell")}</span><input disabled value={`${formatInventoryQuantity(materialInventoryTotal({ ...materialForm, stockTotal: materials.find((item) => item.id === editingMaterialId)?.stockTotal }))} ${materialForm.unit}`} /></label>
               <label className="wide"><span>{tt("Beschreibung")}</span><textarea value={materialForm.description} onChange={(event) => setMaterialForm({ ...materialForm, description: event.target.value })} /></label>
             </div>
+            {editingMaterialId && <MaterialPurchasing key={editingMaterialId} materialId={editingMaterialId} language={language} queue={queue} enqueue={enqueue} />}
             <div className="message-actions">
               <button className="ghost-button" onClick={resetMaterialForm} type="button">{tt("Abbrechen")}</button>
-              <button className="primary-button" onClick={saveMaterial} type="button">
+              <button className="primary-button" disabled={queue.some((mutation) => mutation.entityType === "operations" && mutation.entityId === editingMaterialId && mutation.status !== "synced")} onClick={saveMaterial} type="button">
                 <Check size={16} />
                 {editingMaterialId ? tt("Material speichern") : tt("Material anlegen")}
               </button>

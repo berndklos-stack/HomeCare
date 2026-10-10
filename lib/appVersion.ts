@@ -1,10 +1,15 @@
 export const appVersion = {
-  version: "1.427.12",
+  version: "1.427.13",
   releaseDate: "2026-10-10",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  {
+    version: "1.427.13",
+    date: "2026-10-10",
+    changes: ["Beschaffungsdaten direkt im Materialdialog statt als separater Block in der Lageruebersicht", "Bevorzugter Lieferant, Nachbestellmenge und Notizen bleiben am bestehenden Material erhalten; parallele Speicherung gegen dieselbe Revision gesperrt"],
+  },
   {
     version: "1.427.12",
     date: "2026-10-10",

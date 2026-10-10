@@ -206,6 +206,7 @@ test("Bestellung absenden verwendet die aktuelle Revision und sperrt doppelte Ak
   expect(actions).toEqual(["preview"]);
   await page.getByRole("dialog").getByRole("button", { name: "Bestellung per E-Mail senden", exact: true }).click();
   await expect(page.getByRole("button", { name: "Bestellung absenden", exact: true })).toBeDisabled();
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem("workcore-sync-mutations-v1") ?? "[]").filter((mutation: { payload: { kind?: string } }) => mutation.payload.kind === "order").length)).toBe(1);
   const queue = await page.evaluate(() => JSON.parse(localStorage.getItem("workcore-sync-mutations-v1") ?? "[]"));
   expect(queue.filter((m: { payload: { kind?: string } }) => m.payload.kind === "order")).toMatchObject([{ expectedRevision: 4, entityId: order.id, payload: { kind: "order" } }]);
   expect(actions).toEqual(["preview", "send"]);
@@ -364,15 +365,20 @@ test("Operations-Lesecache wächst nicht mit Suchanfragen", async ({ page }) => 
 
 test("Materialbeschaffung lädt bevorzugte Lieferanten auch ohne Wechsel zum Einkaufsreiter", async ({ page }) => {
   await mock(page);
+  await page.addInitScript(() => {
+    localStorage.setItem("kolaretorp-updated-at", "2026-10-10T10:00:00Z");
+    localStorage.setItem("kolaretorp-field-progress", JSON.stringify({ "synthetic-test": {} }));
+    localStorage.setItem("kolaretorp-materials", JSON.stringify([{ id: "MAT-TEST", name: "Testmaterial", category: "Material", unit: "Meter", price: "0", currency: "SEK", description: "Test", revision: 2 }]));
+  });
   await page.route("**/api/operations?entity=material_details**", (route) => route.fulfill({ json: { rows: [{ id: "MAT-TEST", revision: 2, preferred_supplier_id: null }], count: 1 } }));
   await page.goto("/"); await ready(page);
   await page.getByRole("button", { name: "Lager & Material", exact: true }).click();
-  await page.getByLabel("Bezeichnung", { exact: true }).selectOption("");
-  await page.getByRole("table", { name: "Beschaffung", exact: true }).locator("tbody tr").filter({ hasText: "MAT-TEST" }).click();
+  await page.getByRole("button", { name: "Materialstammdaten", exact: true }).click();
+  await page.getByRole("button", { name: "Material Testmaterial bearbeiten", exact: true }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByLabel("Bevorzugter Lieferant").locator("option").filter({ hasText: "Test Supplier" })).toHaveCount(1);
   await dialog.getByLabel("Bevorzugter Lieferant").selectOption(supplier.id);
-  await dialog.getByRole("button", { name: "Speichern", exact: true }).click();
+  await dialog.getByRole("button", { name: "Beschaffungsdaten speichern", exact: true }).click();
   const queue = await page.evaluate(() => JSON.parse(localStorage.getItem("workcore-sync-mutations-v1") ?? "[]"));
   expect(queue.filter((m: { entityId: string }) => m.entityId === "MAT-TEST")).toMatchObject([{ expectedRevision: 2, payload: { kind: "save", entity: "material_details", values: { preferred_supplier_id: supplier.id } } }]);
 });

@@ -4,6 +4,12 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.427.13 - 2026-10-10
+
+- Separaten Beschaffungsblock aus der Lageruebersicht entfernt. Beschaffungsdaten werden nun im jeweiligen Materialdialog geladen und bearbeitet.
+- Bevorzugter Lieferant, Nachbestellmenge und Beschaffungsnotizen verwenden weiterhin dieselben relationalen Daten, ohne Migration oder Duplikation.
+- Schutz gegen gleichzeitige Material- und Beschaffungsaenderungen; vorhandene Lieferantenzuordnungen bleiben auch bei archivierten Lieferanten erhalten.
+
 ## 1.427.12 - 2026-10-10
 
 - Bestands-PDF mit Firmenlogo oben rechts, unverzerrt und auf jeder Seite wiederholt.
