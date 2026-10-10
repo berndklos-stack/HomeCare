@@ -46,6 +46,7 @@ const enums: Record<string, string[]> = {
 export function OperationsWorkspace(props: Props) {
   const { language, queue, enqueue } = props;
   const t = (key: string) => operationLabel(key, language);
+  const fieldLabel = (key: string, target: OperationsEntity = entity) => t(key === "name" && target !== "supplier_contacts" ? "designation" : key);
   const [tab, setTab] = useState(props.resourcesOnly ? "resources" : "inventory");
   const [entity, setEntity] = useState<OperationsEntity>(props.resourcesOnly ? "resource_assignments" : "material_details");
   const [parent, setParent] = useState<OperationsRow | null>(null);
@@ -255,9 +256,9 @@ export function OperationsWorkspace(props: Props) {
     const references = refs[key as keyof typeof refs];
     const choices = enums[key];
     const value = key === "availability" && values[key] === "unavailable" ? "unavailableStatus" : values[key] ?? "";
-    return <label key={key} className={styles.field}><span>{t(key)}</span>
+    return <label key={key} className={styles.field}><span>{fieldLabel(key, form?.entity)}</span>
       {key === "archived" ? <input type="checkbox" checked={value === "true"} onChange={(e) => update(key, String(e.target.checked))} />
-        : references || choices ? <select aria-label={t(key)} required={mandatory} value={value} onChange={(e) => update(key, e.target.value)}>
+        : references || choices ? <select aria-label={fieldLabel(key, form?.entity)} required={mandatory} value={value} onChange={(e) => update(key, e.target.value)}>
           <option value="">—</option>{references ? references.map((r) => <option key={r.id} value={r.id}>{r.name}</option>) : choices?.map((c) => <option key={c} value={c}>{t(c)}</option>)}
         </select> : key === "notes" || key === "warranty_notes" || key === "address" ? <textarea value={value} onChange={(e) => update(key, e.target.value)} />
           : <input required={mandatory} type={numeric.has(key) ? "number" : key.endsWith("_date") || ["due_date", "expected_delivery", "warranty_until"].includes(key) ? "date" : "text"}
@@ -294,7 +295,7 @@ export function OperationsWorkspace(props: Props) {
     : entity === "purchase_orders" ? ["order_number", "supplier_id", "status", "order_date", "expected_delivery", "openItems"]
     : entity === "material_details" ? ["name", "preferred_supplier_id", "reorder_quantity", "notes"]
     : entity === "location_details" ? ["name", "location_kind", "notes"] : ["name", "availability", "notes"];
-  const columns: DataColumn[] = tableKeys.map((key) => ({ key, label: t(key), value: (row) => {
+  const columns: DataColumn[] = tableKeys.map((key) => ({ key, label: fieldLabel(key), value: (row) => {
     if (key === "name") return title(row);
     if (key === "supplier_id" || key === "preferred_supplier_id") return suppliers.find((supplier) => supplier.id === row[key])?.name ?? "";
     if (key === "status") return operationsLabels[row.status as keyof typeof operationsLabels]?.[language] ?? String(row.status ?? "");
@@ -329,6 +330,7 @@ export function OperationsWorkspace(props: Props) {
     {error && <p role="status">{t(error)}</p>}
     {active.length > 0 && <div role="status" className={styles.pending}>{active.map((m) => <p key={m.id}>{t(m.status === "failed" || m.status === "conflict" ? "failed" : "waiting")}: {String((m.payload.values as Record<string, unknown> | undefined)?.company ?? (m.payload.values as Record<string, unknown> | undefined)?.name ?? m.entityId)}</p>)}</div>}
     <div className={styles.list} aria-busy={loading}>
+      {tab === "inventory" && <h3 className={styles.tableHeading}>{t(entity)}</h3>}
       {!tableEntities.has(entity) && !rows.length && !loading && !error && <p>{t("empty")}</p>}
       {tableEntities.has(entity) ? <OperationsDataTable key={`${entity}:${parent?.id ?? ""}`} rows={entity === "material_details" && stockActive && stockMaterialId ? rows.filter((row) => row.id === stockMaterialId) : rows} columns={columns} actions={tableActions} label={t(entity)} filterLabel={t("filter")} emptyLabel={t("empty")} actionsLabel={t("actions")}
         canActivate={(row) => !blocked(row.id) && !(parent && blocked(parent.id))}

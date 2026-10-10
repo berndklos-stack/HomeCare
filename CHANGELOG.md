@@ -4,6 +4,12 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.427.6 - 2026-10-10
+
+- Lageransicht an bestehende Farben, Schriftgroessen und kompakte Abstaende angepasst; Beschaffung und Bestaende klar beschriftet.
+- Nur eine Lagerbuchung oben rechts; ausgewaehltes Material ist im Dialog vorbelegt und jederzeit aenderbar.
+- Bezeichnung statt wechselnder Material-/Name-Beschriftungen in Materialformular, Tabellen, Filtern und Buchungsauswahl. Personenkontakte behalten Name.
+
 ## 1.427.5 - 2026-10-10
 
 - Foto-Upload-Zwischenstaende (wartend, laufend, fehlgeschlagen) bleiben lokal; sie erzeugen keine Fotolisten-Ersetzungen oder unnoetigen Revisionen.

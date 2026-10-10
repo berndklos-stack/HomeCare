@@ -22095,7 +22095,7 @@ function MasterDataView({
 
   function saveMaterial() {
     if (!materialForm.name.trim() || !materialForm.unit.trim()) {
-      setArchiveNotice("Bitte Materialname und Einheit erfassen.");
+      setArchiveNotice("Bitte Bezeichnung und Einheit erfassen.");
       return;
     }
 
@@ -23886,7 +23886,7 @@ function MasterDataView({
               </button>
             </header>
             <div className="form-grid compact-form material-editor-form">
-              <label><span>{tt("Material")}</span><input required value={materialForm.name} onChange={(event) => setMaterialForm({ ...materialForm, name: event.target.value })} /></label>
+              <label><span>{tt("Bezeichnung")}</span><input required value={materialForm.name} onChange={(event) => setMaterialForm({ ...materialForm, name: event.target.value })} /></label>
               <label><span>{tt("Artikelnummer / SKU")}</span><input value={materialForm.sku} onChange={(event) => setMaterialForm({ ...materialForm, sku: event.target.value })} placeholder="z.B. REIN-001" /></label>
               <label><span>{tt("Kategorie")}</span><input list="material-categories" value={materialForm.category} onChange={(event) => setMaterialForm({ ...materialForm, category: event.target.value })} /></label>
               <datalist id="material-categories">

@@ -160,19 +160,19 @@ test("Lageraktionen stehen oben und Materialfilter ist leerbar", async ({ page }
   await expect(filter).toBeVisible();
   const original = await filter.inputValue();
   const master = await page.getByRole("button", { name: "Materialstammdaten", exact: true }).boundingBox();
-  const stock = await page.getByRole("button", { name: "Lagerbuchung", exact: true }).boundingBox();
+  const stock = await page.getByRole("button", { name: "Allgemeine Lagerbuchung", exact: true }).boundingBox();
   expect(master!.y).toBeLessThan(stock!.y);
   await filter.selectOption("");
   await expect(filter).toHaveValue("");
-  await expect(page.getByRole("button", { name: "Lagerbuchung", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Allgemeine Lagerbuchung", exact: true })).toBeEnabled();
   await filter.selectOption(original);
-  await expect(page.getByRole("button", { name: "Lagerbuchung", exact: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Allgemeine Lagerbuchung", exact: true })).toBeEnabled();
 });
 
 test("Materialbuchung hat Quelle, Ziel und separate idempotente Queue-Aktion", async ({ page }) => {
   await mock(page); await page.goto("/"); await ready(page);
   await page.getByRole("button", { name: "Lager & Material", exact: true }).click();
-  await page.getByRole("button", { name: "Lagerbuchung", exact: true }).click();
+  await page.getByRole("button", { name: "Allgemeine Lagerbuchung", exact: true }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("Nach Standort", { exact: true }).selectOption({ index: 1 });
   await dialog.getByLabel("Menge", { exact: true }).fill("5");
@@ -364,6 +364,7 @@ test("Materialbeschaffung lädt bevorzugte Lieferanten auch ohne Wechsel zum Ein
   await page.route("**/api/operations?entity=material_details**", (route) => route.fulfill({ json: { rows: [{ id: "MAT-TEST", revision: 2, preferred_supplier_id: null }], count: 1 } }));
   await page.goto("/"); await ready(page);
   await page.getByRole("button", { name: "Lager & Material", exact: true }).click();
+  await page.getByLabel("Material", { exact: true }).selectOption("");
   await page.getByRole("button", { name: "Bearbeiten: MAT-TEST", exact: true }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByLabel("Bevorzugter Lieferant").locator("option").filter({ hasText: "Test Supplier" })).toHaveCount(1);

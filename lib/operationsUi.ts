@@ -1,7 +1,8 @@
 export const operationText = {
   loading: ["Wird geladen ...", "Laddar ...", "Loading ..."],
   globalStockBooking: ["Allgemeine Lagerbuchung", "Ny lagerbokning", "Global stock booking"],
-  materialNumber: ["Materialnummer / Material", "Artikelnummer / material", "Material number / material"],
+  materialNumber: ["Materialnummer / Bezeichnung", "Artikelnummer / benämning", "Material number / description"],
+  designation: ["Bezeichnung", "Benämning", "Description"],
   stockOverview: ["Bestände und Buchungen", "Lagersaldo och bokningar", "Stock and movements"],
   stockTotal: ["Gesamtbestand", "Totalt lagersaldo", "Total stock"],
   stockByLocation: ["Bestand je Lagerort", "Lagersaldo per lagerplats", "Stock by location"],

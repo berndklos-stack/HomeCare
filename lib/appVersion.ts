@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.427.5",
+  version: "1.427.6",
   releaseDate: "2026-10-10",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  {
+    version: "1.427.6",
+    date: "2026-10-10",
+    changes: [
+      "Kompakte Lageransicht mit einheitlichen Tabellenfarben und klaren Bereichsueberschriften",
+      "Eine zentrale Lagerbuchung mit vorausgewaehltem, aenderbarem Material",
+      "Einheitliche Bezeichnung fuer Materialien in Tabellen, Filtern und Dialogen",
+    ],
+  },
   {
     version: "1.427.5",
     date: "2026-10-10",
