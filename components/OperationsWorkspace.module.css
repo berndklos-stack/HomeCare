@@ -18,6 +18,7 @@
 .stockOverview select { max-width: 100%; min-height: 40px; padding: 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); color: var(--foreground); font: inherit; }
 .movementDesignation { display: flex; align-items: center; gap: 10px; }
 .movementDesignation > div { min-width: 0; }
+.movementDesignation strong { font-weight: 600; }
 .movementDesignation small { display: block; margin-top: 3px; color: var(--muted); font-size: 12px; }
 .movementIndicator { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 28px; height: 28px; border-radius: 4px; color: var(--muted); background: var(--paper-soft); }
 .movementIn { color: var(--good); background: color-mix(in srgb, var(--good) 12%, var(--paper)); }
@@ -37,6 +38,17 @@
 .clickableRow:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
 .dataTable a { color: var(--brand); }
 .dataTable .actions { min-width: 160px; }
+.movementTable { table-layout: fixed; min-width: 1080px; }
+.movementTable td { min-width: 0; max-width: none; overflow-wrap: break-word; }
+.movementTable thead input { min-width: 0; }
+.movementTable th:nth-child(1) { width: 20%; }
+.movementTable th:nth-child(2) { width: 14%; }
+.movementTable th:nth-child(3) { width: 12%; }
+.movementTable th:nth-child(4) { width: 6%; }
+.movementTable th:nth-child(5), .movementTable th:nth-child(6) { width: 10%; }
+.movementTable th:nth-child(7) { width: 16%; }
+.movementTable th:nth-child(8) { width: 12%; }
+.movementTable th:nth-child(4), .movementTable td:nth-child(4) { text-align: right; font-variant-numeric: tabular-nums; }
 .historyEntry { padding: 16px 0; border-bottom: 1px solid var(--line); }
 .historyHeading { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
 .historyHeading > div:first-child { min-width: 0; }

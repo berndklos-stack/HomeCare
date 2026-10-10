@@ -49,7 +49,7 @@ export function OperationsStock({ language, materials, locations, jobs, projects
       const Icon = direction === "stockIn" ? ArrowDownLeft : direction === "stockOut" ? ArrowUpRight : ArrowLeftRight;
       return <div className={styles.movementDesignation}>
         <span className={`${styles.movementIndicator} ${direction === "stockIn" ? styles.movementIn : direction === "stockOut" ? styles.movementOut : direction === "stockTransfer" ? styles.movementTransfer : ""}`} title={t(direction)}><Icon size={18} aria-hidden="true" /></span>
-        <div>{selected ? materialLabel(selected) : ""}<small>{t(direction)}</small></div>
+        <div><strong>{selected?.name ?? ""}</strong><small>{selected?.sku ? `${selected.sku} · ` : ""}{t(direction)}</small></div>
       </div>;
     } },
     { key: "occurred_at", label: t("bookedAt"), value: (row) => {
@@ -60,7 +60,7 @@ export function OperationsStock({ language, materials, locations, jobs, projects
     { key: "quantity", label: t("quantity"), value: (row) => quantity(row.quantity) },
     { key: "source_id", label: t("source_id"), value: (row) => location(row.source_id) },
     { key: "destination_id", label: t("destination_id"), value: (row) => location(row.destination_id) },
-    { key: "note", label: t("note"), value: (row) => String(row.note ?? "") },
+    { key: "note", label: t("note"), value: (row) => String(row.note ?? ""), render: (row) => String(row.note ?? "").replace(/^(Inventur|Korrekturbuchung|Korrigeringsbokning|Correction booking) \[[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\]:\s*/i, "$1 · ") },
     { key: "job_id", label: t("job_id"), value: (row) => jobs.find((job) => job.id === row.job_id)?.name ?? "" },
   ];
   useEffect(() => {
@@ -113,7 +113,7 @@ export function OperationsStock({ language, materials, locations, jobs, projects
       </div></section>
       <section className="panel">
       <div className="panel-title"><div><p>{t("inventorySection")}</p><h2>{t("bookings")}</h2></div></div>
-      <OperationsDataTable key={`${materialId}:${page}`} rows={history} columns={columns} label={t("bookings")} filterLabel={t("filter")} emptyLabel={t(loading ? "loading" : error ? "unavailable" : "empty")} actionsLabel={t("actions")} onRowActivate={(row) => setDetails({ kind: "movement", row })} />
+      <OperationsDataTable className={styles.movementTable} key={`${materialId}:${page}`} rows={history} columns={columns} label={t("bookings")} filterLabel={t("filter")} emptyLabel={t(loading ? "loading" : error ? "unavailable" : "empty")} actionsLabel={t("actions")} onRowActivate={(row) => setDetails({ kind: "movement", row })} />
     {count > 50 && <div className={styles.toolbar}><button disabled={!page} aria-label={t("previous")} onClick={() => setPage((p) => p - 1)}><ChevronLeft size={18} /></button><span>{page + 1} / {Math.ceil(count / 50)}</span><button disabled={(page + 1) * 50 >= count} aria-label={t("next")} onClick={() => setPage((p) => p + 1)}><ChevronRight size={18} /></button></div>}
       </section>
     </>}

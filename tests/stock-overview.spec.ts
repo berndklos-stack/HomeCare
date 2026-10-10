@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { readFile } from "node:fs/promises";
 import { stockOverviewRows } from "../lib/stockOverview";
 
 test("Bestandszeilen behalten Einheiten, Nullbestaende und Archivstatus", () => {
@@ -48,6 +49,7 @@ for (const mobile of [false, true]) test(`Gesamtbestand Export und Inventur ${mo
     const file = await download;
     expect(file.suggestedFilename()).toMatch(format === "PDF" ? /\.pdf$/ : /\.xlsx$/);
     await file.saveAs(`test-results/stock-overview-${mobile}-${testInfo.project.name}.${format === "PDF" ? "pdf" : "xlsx"}`);
+    if (format === "PDF") expect((await readFile((await file.path())!)).toString("latin1")).toMatch(/\/Subtype\s*\/Image/);
   }
   await page.screenshot({ path: `test-results/stock-overview-${mobile}-${testInfo.project.name}.png` });
   await page.getByRole("button", { name: "Inventur", exact: true }).click();

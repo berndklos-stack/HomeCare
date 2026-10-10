@@ -7,12 +7,13 @@ import styles from "./OperationsWorkspace.module.css";
 
 export type DataColumn = { key: string; label: string; value: (row: OperationsRow) => string; render?: (row: OperationsRow) => ReactNode };
 
-export function OperationsDataTable({ rows, columns, actions, label, filterLabel, emptyLabel, actionsLabel, onRowActivate, canActivate, sortBy, language, onFiltersChange }: {
+export function OperationsDataTable({ rows, columns, actions, label, filterLabel, emptyLabel, actionsLabel, onRowActivate, canActivate, sortBy, language, onFiltersChange, className }: {
   rows: OperationsRow[]; columns: DataColumn[]; actions?: (row: OperationsRow) => ReactNode;
   label: string; filterLabel: string; emptyLabel: string; actionsLabel: string;
   onRowActivate?: (row: OperationsRow) => void; canActivate?: (row: OperationsRow) => boolean;
   sortBy?: string; language?: string;
   onFiltersChange?: (filters: Record<string, string>) => void;
+  className?: string;
 }) {
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [page, setPage] = useState(0);
@@ -24,7 +25,7 @@ export function OperationsDataTable({ rows, columns, actions, label, filterLabel
   }
   const current = Math.min(page, Math.max(0, Math.ceil(filtered.length / 50) - 1));
   return <>
-    <div className={`${styles.itemsScroll} ${styles.tableFrame}`}><table className={styles.dataTable} aria-label={label}>
+    <div className={`${styles.itemsScroll} ${styles.tableFrame}`}><table className={`${styles.dataTable} ${className ?? ""}`} aria-label={label}>
       <thead><tr>{columns.map((column) => <th scope="col" key={column.key}>{column.label}</th>)}{actions && <th scope="col">{actionsLabel}</th>}</tr>
         <tr>{columns.map((column) => <td key={column.key}><input type="search" aria-label={`${filterLabel}: ${column.label}`} value={filters[column.key] ?? ""} onChange={(event) => { const next = { ...filters, [column.key]: event.target.value }; setFilters(next); onFiltersChange?.(next); setPage(0); }} /></td>)}{actions && <td />}</tr>
       </thead>

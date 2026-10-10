@@ -4,6 +4,12 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.427.12 - 2026-10-10
+
+- Bestands-PDF mit Firmenlogo oben rechts, unverzerrt und auf jeder Seite wiederholt.
+- Buchungstabelle mit bedarfsgerechten Spaltenbreiten, rechtsbuendiger Menge und getrennter Bezeichnung/Materialnummer.
+- Technische Inventur- und Korrekturreferenzen nur in den Buchungsdetails; Originaldaten und Filterbarkeit bleiben erhalten.
+
 ## 1.427.11 - 2026-10-10
 
 - Beschaffung standardmaessig alphabetisch nach der angezeigten Bezeichnung sortiert. Sprachabhaengige Sortierung mit natuerlicher Zahlenreihenfolge, vor der Seiteneinteilung.

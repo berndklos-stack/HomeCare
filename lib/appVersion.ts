@@ -1,10 +1,15 @@
 export const appVersion = {
-  version: "1.427.11",
+  version: "1.427.12",
   releaseDate: "2026-10-10",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  {
+    version: "1.427.12",
+    date: "2026-10-10",
+    changes: ["Firmenlogo oben rechts auf jeder Seite der Bestands-PDF", "Kompaktere Buchungstabelle mit passenden Spaltenbreiten und lesbaren Inventurgruenden; vollstaendige Referenzen bleiben in den Details"],
+  },
   {
     version: "1.427.11",
     date: "2026-10-10",

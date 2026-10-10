@@ -28,9 +28,16 @@ export async function exportStockOverview(rows: StockOverviewRow[], headers: str
   }
   const { jsPDF } = await import("jspdf");
   const pdf = new jsPDF({ orientation: "landscape" });
+  const logoResponse = await fetch("/kolaretorp-logo.png");
+  if (!logoResponse.ok) throw new Error("LOGO_UNAVAILABLE");
+  const logo = new Uint8Array(await logoResponse.arrayBuffer());
+  const logoSize = pdf.getImageProperties(logo);
+  const logoWidth = 65;
+  const logoHeight = logoWidth * logoSize.height / logoSize.width;
   const widths = [32, 82, 57, 35, 30, 36];
   let y = 0;
   const header = () => {
+    pdf.addImage(logo, "PNG", 284 - logoWidth, 13, logoWidth, logoHeight, "company-logo");
     pdf.setFont("helvetica", "bold"); pdf.setFontSize(16); pdf.text(title, 12, 18);
     pdf.setFont("helvetica", "normal"); pdf.setFontSize(9); pdf.text(capturedAt, 12, 26);
     pdf.setFillColor(240, 242, 245); pdf.rect(12, 32, 272, 10, "F");
