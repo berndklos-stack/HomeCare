@@ -4,11 +4,12 @@ import { ChevronLeft, ChevronRight, Plus, RefreshCw, X } from "lucide-react";
 import { apiFetch } from "@/lib/apiClient";
 import { createStableId, type SyncMutation } from "@/lib/syncQueue";
 import { operationLabel } from "@/lib/operationsUi";
-import { validateOperationsMutation } from "@/lib/operationsCommands";
+import { validateOperationsMutation, type OperationsRow } from "@/lib/operationsCommands";
+import { OperationsDataTable, type DataColumn } from "./OperationsDataTable";
 import { TripDialog } from "./TripDialog";
 import styles from "./OperationsWorkspace.module.css";
 
-type Ref = { id: string; name: string; minStock?: string };
+type Ref = { id: string; name: string; unit?: string; minStock?: string };
 export function OperationsStock({ language, materials, locations, jobs, projects, queue, enqueue }: {
   language: "de" | "sv" | "en"; materials: Ref[]; locations: Ref[]; jobs: Ref[]; projects: Ref[]; queue: SyncMutation[];
   enqueue: (input: Parameters<typeof import("@/lib/syncQueue").createSyncMutation>[0]) => unknown;
@@ -16,18 +17,31 @@ export function OperationsStock({ language, materials, locations, jobs, projects
   const t = (key: string) => operationLabel(key, language);
   const [materialId, setMaterialId] = useState(materials[0]?.id ?? "");
   const [balances, setBalances] = useState<{ location_id: string; quantity: number }[]>([]);
-  const [history, setHistory] = useState<Record<string, unknown>[]>([]);
+  const [history, setHistory] = useState<OperationsRow[]>([]);
   const [page, setPage] = useState(0), [count, setCount] = useState(0), [refresh, setRefresh] = useState(0);
   const [error, setError] = useState(""), [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [draft, setDraft] = useState({ source_id: "", destination_id: "", quantity: "1", note: "", job_id: "", project_id: "" });
   const settled = queue.filter((m) => m.entityType === "operations" && m.status === "synced").map((m) => m.id).join(":");
   const total = balances.reduce((sum, row) => sum + Number(row.quantity), 0);
   const selected = materials.find((m) => m.id === materialId);
+  const quantity = (value: unknown) => new Intl.NumberFormat(language, { maximumFractionDigits: 3 }).format(Number(value));
+  const location = (id: unknown) => locations.find((row) => row.id === id)?.name ?? (id ? t("unknownLocation") : "—");
+  const columns: DataColumn[] = [
+    { key: "occurred_at", label: t("bookingDate"), value: (row) => new Date(String(row.occurred_at)).toLocaleString(language, { dateStyle: "short", timeStyle: "short" }) },
+    { key: "quantity", label: t("quantity"), value: (row) => quantity(row.quantity) },
+    { key: "source_id", label: t("source_id"), value: (row) => location(row.source_id) },
+    { key: "destination_id", label: t("destination_id"), value: (row) => location(row.destination_id) },
+    { key: "note", label: t("note"), value: (row) => String(row.note ?? "") },
+    { key: "job_id", label: t("job_id"), value: (row) => jobs.find((job) => job.id === row.job_id)?.name ?? "" },
+  ];
   useEffect(() => {
     if (!materialId) return;
     const controller = new AbortController();
-    setError(""); setBalances([]); setHistory([]);
     async function load() {
+      await Promise.resolve();
+      if (controller.signal.aborted) return;
+      setError(""); setLoading(true); setBalances([]); setHistory([]); setCount(0);
       const balanceResponse = await apiFetch(`/api/operations?entity=stock_balances&parent=${encodeURIComponent(materialId)}`, { signal: controller.signal });
       if (!balanceResponse.ok) throw new Error("unavailable");
       const balance = await balanceResponse.json();
@@ -36,17 +50,31 @@ export function OperationsStock({ language, materials, locations, jobs, projects
       const history = await historyResponse.json();
       if (!controller.signal.aborted) { setBalances(balance.rows); setHistory(history.rows); setCount(history.count); }
     }
-    void load().catch(() => { if (!controller.signal.aborted) setError("unavailable"); });
+    void load().catch(() => { if (!controller.signal.aborted) setError("unavailable"); })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
   }, [materialId, page, settled, refresh]);
-  return <section>
-    <div className={styles.toolbar}><label>{t("material_id")} <select aria-label={t("material_id")} value={materialId} onChange={(e) => { setMaterialId(e.target.value); setPage(0); setBalances([]); setHistory([]); setCount(0); setError(""); }}><option value="">—</option>{materials.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</select></label>
+  return <section className={styles.stockOverview}>
+    <header className={styles.stockHeading}><h2>{t("stockOverview")}</h2><span>{selected?.name ?? "—"}</span></header>
+    <div className={styles.toolbar}><label>{t("material_id")} <select aria-label={t("material_id")} value={materialId} onChange={(e) => { setMaterialId(e.target.value); setPage(0); setBalances([]); setHistory([]); setCount(0); setLoading(false); setError(""); }}><option value="">—</option>{materials.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</select></label>
       <button disabled={!materialId} title={t("refresh")} aria-label={t("refresh")} onClick={() => setRefresh((n) => n + 1)}><RefreshCw size={18} /></button>
       <button disabled={!materialId} onClick={() => { setError(""); setOpen(true); }}><Plus size={18} />{t("stock")}</button></div>
     {error && <p role="alert">{t(error)}</p>}
-    {materialId && <strong>{t("quantity")}: {total}</strong>}{selected?.minStock && total < Number(selected.minStock) && <p role="status">{language === "de" ? "Mindestbestand unterschritten" : language === "sv" ? "Under minimilager" : "Below minimum stock"}</p>}
-    {balances.map((r) => <p key={r.location_id}>{locations.find((l) => l.id === r.location_id)?.name ?? r.location_id}: {String(r.quantity)}</p>)}
-    <div className={styles.list}>{history.map((r) => <article className={styles.row} key={String(r.id)}><div><strong>{String(r.quantity)}</strong><p>{r.source_id ? locations.find((l) => l.id === r.source_id)?.name ?? String(r.source_id) : "—"} → {r.destination_id ? locations.find((l) => l.id === r.destination_id)?.name ?? String(r.destination_id) : "—"}</p><p>{String(r.note)}</p><small>{new Date(String(r.occurred_at)).toLocaleString(language)} · {String(r.actor_user_id ?? (language === "de" ? "Altbestand: Benutzer nicht dokumentiert" : language === "sv" ? "Historik: användare saknas" : "Legacy: actor not recorded"))}</small></div></article>)}</div>
+    {materialId && <>
+      <dl className={styles.stockSummary}>
+        <div><dt>{t("stockTotal")}{selected?.unit ? ` (${selected.unit})` : ""}</dt><dd>{loading || error ? "—" : quantity(total)}</dd></div>
+        <div><dt>{t("locations")}</dt><dd>{loading || error ? "—" : balances.filter((row) => Number(row.quantity) !== 0).length}</dd></div>
+        <div><dt>{t("bookings")}</dt><dd>{loading || error ? "—" : quantity(count)}</dd></div>
+      </dl>
+      {selected?.minStock && !loading && !error && total < Number(selected.minStock) && <p role="status">{language === "de" ? "Mindestbestand unterschritten" : language === "sv" ? "Under minimilager" : "Below minimum stock"}</p>}
+      <h3>{t("stockByLocation")}</h3>
+      <table className={styles.balanceTable} aria-label={t("stockByLocation")}><thead><tr><th scope="col">{t("location")}</th><th scope="col">{t("quantity")}{selected?.unit ? ` (${selected.unit})` : ""}</th></tr></thead><tbody>
+        {balances.map((row) => <tr key={row.location_id}><td>{location(row.location_id)}</td><td>{quantity(row.quantity)}</td></tr>)}
+        {!balances.length && <tr><td colSpan={2}>{t(loading ? "loading" : error ? "unavailable" : "empty")}</td></tr>}
+      </tbody></table>
+      <h3>{t("bookings")}</h3>
+      <OperationsDataTable key={`${materialId}:${page}`} rows={history} columns={columns} label={t("bookings")} filterLabel={t("filter")} emptyLabel={t(loading ? "loading" : error ? "unavailable" : "empty")} actionsLabel={t("actions")} />
+    </>}
     {count > 50 && <div className={styles.toolbar}><button disabled={!page} aria-label={t("previous")} onClick={() => setPage((p) => p - 1)}><ChevronLeft size={18} /></button><span>{page + 1} / {Math.ceil(count / 50)}</span><button disabled={(page + 1) * 50 >= count} aria-label={t("next")} onClick={() => setPage((p) => p + 1)}><ChevronRight size={18} /></button></div>}
     {open && <TripDialog labelledBy="stock-title" onClose={() => setOpen(false)} className={styles.dialog}><form onSubmit={(e) => {
       e.preventDefault();

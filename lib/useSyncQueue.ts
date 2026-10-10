@@ -187,7 +187,7 @@ export function useSyncQueue({ disabled = false, onApplied }: UseSyncQueueOption
 
   useEffect(() => {
     if (!hydrated || disabled || !online || nextPendingMutation(queue)) return;
-    const conflicts = queue.filter((mutation) => mutation.entityType === "field_progress" && mutation.status === "conflict");
+    const conflicts = queue.filter((mutation) => ["field_progress", "job"].includes(mutation.entityType) && mutation.status === "conflict");
     if (!conflicts.length) return;
     const signature = queue.filter((mutation) => mutation.status !== "synced").map((mutation) => `${mutation.id}:${mutation.status}`).join("|");
     if (automaticReviewSignature.current === signature) return;

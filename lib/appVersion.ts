@@ -1,10 +1,20 @@
 export const appVersion = {
-  version: "1.427.2",
+  version: "1.427.3",
   releaseDate: "2026-10-10",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  {
+    version: "1.427.3",
+    date: "2026-10-10",
+    changes: [
+      "Zurueck aus Materialstammdaten erhaelt die Lageransicht samt Filtern ohne alten Zwischenbildschirm",
+      "Lageruebersicht mit Kennzahlen, Bestands- und Buchungstabellen statt technischer Rohdaten",
+      "Gezielte Konfliktsicherungen bleiben von der vollstaendigen App-Wiederherstellung getrennt",
+      "Gesicherte Alt-Konflikte werden auch bei weiteren lokalen Eingaben separat bereinigt; identischer Gunnabo-Auftrag bestaetigt",
+    ],
+  },
   {
     version: "1.427.2",
     date: "2026-10-10",

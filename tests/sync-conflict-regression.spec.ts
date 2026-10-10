@@ -67,6 +67,9 @@ test("Bestaetigte Zusammenfuehrung gilt nur fuer die exakt gesicherte Mutation d
   const reviewed = reviewApprovedResolution(mutation, journal, "T");
   expect(reviewed?.redundant).toBe(true);
   expect(reviewConflictSequence([mutation], [mutation], [reviewed!])[0].redundant).toBe(true);
+  const pending = { ...edit(3), id: "new-local-edit", payload: { ...mutation.payload, note: "Neue lokale Eingabe" } };
+  expect(reviewConflictSequence([mutation], [mutation, pending], [reviewed!])[0].redundant).toBe(true);
+  expect(reviewConflictSequence([mutation], [{ ...mutation, payload: { ...mutation.payload, note: "Geaendert" } }, pending], [reviewed!])[0].redundant).toBe(false);
   for (const changed of [{ ...journal, tenant_id: "OTHER" }, { ...journal, mutation_id: "OTHER" },
     { ...journal, request_payload: { ...mutation.payload, minutes: "120" } },
     { ...journal, response_payload: { resolution: { ...resolution, backupId: "" } } }]) {

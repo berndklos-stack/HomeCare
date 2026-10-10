@@ -1,4 +1,13 @@
 export const operationText = {
+  loading: ["Wird geladen ...", "Laddar ...", "Loading ..."],
+  stockOverview: ["Bestände und Buchungen", "Lagersaldo och bokningar", "Stock and movements"],
+  stockTotal: ["Gesamtbestand", "Totalt lagersaldo", "Total stock"],
+  stockByLocation: ["Bestand je Lagerort", "Lagersaldo per lagerplats", "Stock by location"],
+  bookings: ["Buchungen", "Bokningar", "Movements"],
+  bookingDate: ["Datum", "Datum", "Date"],
+  unknownLocation: ["Unbekannter Lagerort", "Okänd lagerplats", "Unknown location"],
+  locations: ["Lagerorte mit Bestand", "Lagerplatser med saldo", "Locations with stock"],
+  location: ["Lagerort", "Lagerplats", "Location"],
   filter: ["Filter", "Filter", "Filter"],
   status: ["Status", "Status", "Status"],
   actions: ["Aktionen", "Åtgärder", "Actions"],

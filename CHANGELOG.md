@@ -4,6 +4,14 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.427.3 - 2026-10-10
+
+- Zurueck aus den Materialstammdaten erhaelt Lageransicht und Materialfilter ohne Neuaufbau oder alten Zwischenbildschirm.
+- Neue Lageransicht mit klaren Kennzahlen, Bestaenden je Lagerort und filterbarer Buchungstabelle mit lesbaren Daten statt Benutzer-IDs.
+- Ungeklaerter Lagerstatus zeigt keine alte Lagerverwaltung; Verbindungsfehler bleiben sichtbar und erneut ladbar.
+- Gezielte Konfliktsicherungen werden nicht als vollstaendige App-Sicherung angeboten oder wiederhergestellt.
+- Nachweislich gesicherte Originalkonflikte koennen unabhaengig von neuen lokalen Eingaben bereinigt werden; identischer Gunnabo-Auftragsstand wurde gesichert und bestaetigt.
+
 ## 1.427.2 - 2026-10-10
 
 - Ausdruecklich genehmigte Zusammenfuehrungen mit vorherigem relationalem Backup werden im Mutationsjournal nachgewiesen.

@@ -49,12 +49,12 @@ export function reviewProgressConflict(mutation: SyncMutation, row: Record<strin
 export function reviewConflictSequence(snapshot: SyncMutation[], current: SyncMutation[], reviews: ConflictReview[]): ConflictReview[] {
   return snapshot.map((mutation) => {
     const group = snapshot.filter((item) => item.entityType === mutation.entityType && item.entityId === mutation.entityId);
+    const own = reviews.find((review) => review.id === mutation.id);
+    if (own?.approvedResolution && own.redundant && current.find((item) => item.id === mutation.id) === mutation) return own;
     const unchanged = group.every((item) => current.find((candidate) => candidate.id === item.id) === item);
     const dependent = current.some((item) => item.entityType === mutation.entityType && item.entityId === mutation.entityId
       && item.status !== "synced" && !group.some((candidate) => candidate.id === item.id));
     if (!unchanged || dependent) return { id: mutation.id, redundant: false, reason: "Weitere oder inzwischen geaenderte lokale Mutation. Manuell pruefen." };
-    const own = reviews.find((review) => review.id === mutation.id);
-    if (own?.approvedResolution && own.redundant) return own;
     if (group.length === 1) return own ?? { id: mutation.id, redundant: false, reason: "Serververgleich unvollstaendig." };
     const latest = group.at(-1)!;
     if (mutation.entityType === "field_progress" && group.every((item) => ["create", "update"].includes(item.operation)

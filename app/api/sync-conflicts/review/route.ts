@@ -27,10 +27,10 @@ export async function POST(request: Request) {
     .select("id,tenant_id,job_id,revision,deleted_at,task_id,work_date,completed,minutes,show_work_time_in_report,note,photos")
     .eq("tenant_id", auth.tenantId).in("id", progressIds) : { data: [], error: null };
   if (progress.error) return NextResponse.json({ error: "CONFLICT_REVIEW_FAILED" }, { status: 503 });
-  const progressMutationIds = mutations.filter((m) => m.entityType === "field_progress" && /^[a-f0-9-]{36}$/i.test(m.id)).map((m) => m.id);
+  const progressMutationIds = mutations.filter((m) => ["field_progress", "job"].includes(m.entityType) && /^[a-f0-9-]{36}$/i.test(m.id)).map((m) => m.id);
   const journal = progressMutationIds.length ? await auth.serviceClient.from("homecare_sync_mutations")
     .select("mutation_id,tenant_id,entity_type,entity_id,operation,request_payload,response_payload")
-    .eq("tenant_id", auth.tenantId).eq("entity_type", "field_progress").in("mutation_id", progressMutationIds) : { data: [], error: null };
+    .eq("tenant_id", auth.tenantId).in("mutation_id", progressMutationIds) : { data: [], error: null };
   if (journal.error) return NextResponse.json({ error: "CONFLICT_REVIEW_FAILED" }, { status: 503 });
   return NextResponse.json({ reviews: mutations.map((m) => reviewApprovedResolution(m,
     journal.data?.find((row) => row.mutation_id === m.id) ?? null, auth.tenantId) ?? (m.entityType === "field_progress"

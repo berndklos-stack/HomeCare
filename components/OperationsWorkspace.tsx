@@ -17,7 +17,7 @@ import { OperationsDataTable, type DataColumn } from "./OperationsDataTable";
 
 const tableEntities = new Set(["suppliers", "supplier_contacts", "purchase_orders", "material_details", "location_details", "resource_details"]);
 
-type Reference = { id: string; name: string; minStock?: string; revision?: number; hours?: number; mileage?: number; availability?: string; documents?: { id: string; name: string }[] };
+type Reference = { id: string; name: string; unit?: string; minStock?: string; revision?: number; hours?: number; mileage?: number; availability?: string; documents?: { id: string; name: string }[] };
 type Props = {
   children?: ReactNode; language: OperationsLanguage; queue: SyncMutation[];
   enqueue: (input: Parameters<typeof import("@/lib/syncQueue").createSyncMutation>[0]) => unknown;
@@ -56,7 +56,8 @@ export function OperationsWorkspace(props: Props) {
   const [querySearch, setQuerySearch] = useState("");
   const [refresh, setRefresh] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [stockActive, setStockActive] = useState(false);
+  const [stockActive, setStockActive] = useState<boolean | null>(null);
+  const [stockError, setStockError] = useState(false);
   const [error, setError] = useState("");
   const [suppliers, setSuppliers] = useState<Reference[]>([]);
   const [orders, setOrders] = useState<Reference[]>([]);
@@ -89,8 +90,13 @@ export function OperationsWorkspace(props: Props) {
 
   useEffect(() => {
     const controller = new AbortController();
+    setStockError(false);
     apiFetch("/api/operations?entity=stock_status", { signal: controller.signal }).then(async (r) => r.ok ? r.json() : null)
-      .then((data) => { if (!controller.signal.aborted) setStockActive(Boolean(data?.active)); }).catch(() => {});
+      .then((data) => {
+        if (controller.signal.aborted) return;
+        if (typeof data?.active !== "boolean") throw new Error("OPERATIONS_UNAVAILABLE");
+        setStockActive(data.active);
+      }).catch(() => { if (!controller.signal.aborted) setStockError(true); });
     return () => controller.abort();
   }, [refresh]);
 
@@ -318,7 +324,7 @@ export function OperationsWorkspace(props: Props) {
       <button title={t("refresh")} aria-label={t("refresh")} onClick={() => setRefresh((n) => n + 1)}><RefreshCw size={18} /></button>
       {editable && !error && <button onClick={() => open("save")} disabled={entity === "purchase_order_items" && (!parent || parent.status !== "draft" || blocked(parent.id))}><Plus size={18} />{t("create")}</button>}
     </div>
-    {tab === "inventory" && (stockActive ? <OperationsStock {...props} /> : props.children)}
+    {tab === "inventory" && (stockActive === true ? <OperationsStock {...props} /> : stockActive === false ? props.children : <div role="status" aria-busy={!stockError}>{t(stockError ? "OPERATIONS_UNAVAILABLE" : "loading")}</div>)}
     {error && <p role="status">{t(error)}</p>}
     {active.length > 0 && <div role="status" className={styles.pending}>{active.map((m) => <p key={m.id}>{t(m.status === "failed" || m.status === "conflict" ? "failed" : "waiting")}: {String((m.payload.values as Record<string, unknown> | undefined)?.company ?? (m.payload.values as Record<string, unknown> | undefined)?.name ?? m.entityId)}</p>)}</div>}
     <div className={styles.list} aria-busy={loading}>
