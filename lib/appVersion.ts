@@ -1,10 +1,15 @@
 export const appVersion = {
-  version: "1.427.13",
+  version: "1.427.14",
   releaseDate: "2026-10-10",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  {
+    version: "1.427.14",
+    date: "2026-10-10",
+    changes: ["Materialzeilen per Klick oder Tastatur bearbeiten, ohne Bearbeitungsstifte", "Standorte und Lagerorttypen als eigene Stammdatenansichten mit Zurueck und linksbuendiger Ueberschrift"],
+  },
   {
     version: "1.427.13",
     date: "2026-10-10",

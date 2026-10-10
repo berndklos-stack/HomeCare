@@ -22292,7 +22292,7 @@ function MasterDataView({
 
   return (
       <div className="stack">
-      {materialsOnly ? <div className="row-actions"><h2>{language === "de" ? "Lager & Material" : language === "sv" ? "Lager och material" : "Inventory & materials"}</h2><button className="ghost-button" onClick={onCloseMaterials} type="button"><ArrowLeft size={16}/>{tt("Zurück")}</button></div> : <div className="segmented-control master-data-tabs">
+      {materialsOnly ? <div className="master-data-view-header"><h2>{language === "de" ? "Lager & Material" : language === "sv" ? "Lager och material" : "Inventory & materials"}</h2><button className="ghost-button" onClick={onCloseMaterials} type="button"><ArrowLeft size={16}/>{tt("Zurück")}</button></div> : <div className="segmented-control master-data-tabs">
         <button className={masterDataTab === "company" ? "active" : ""} onClick={() => setMasterDataTab("company")} type="button">
           <Home size={16} />
           {tt("Firma")}
@@ -23687,7 +23687,9 @@ function MasterDataView({
           </div>
           <div className="table-list compact-list">
             {activeMaterials.map((material) => (
-              <article key={material.id}>
+              <article className="clickable-record-row" key={material.id} role="button" tabIndex={0} aria-label={`Material ${material.name} bearbeiten`}
+                onClick={(event) => { if (!(event.target as HTMLElement).closest("button, a")) editMaterial(material); }}
+                onKeyDown={(event) => { if (event.target === event.currentTarget && ["Enter", " "].includes(event.key)) { event.preventDefault(); editMaterial(material); } }}>
                 <div>
                   <strong>{material.name}</strong>
                   <span>{material.category} · {materialRate(material)} · {tt("Konto")} {material.accountingAccount || defaultAccountingAccount("Material", material.name)}</span>
@@ -23695,7 +23697,6 @@ function MasterDataView({
                 </div>
                 <span>{material.description}</span>
                 <div className="row-actions">
-                  <IconAction label={`Material ${material.name} bearbeiten`} onClick={() => editMaterial(material)}><Pencil size={16} /></IconAction>
                   <IconAction danger label={`Material ${material.name} archivieren`} onClick={() => archiveMaterial(material)}><Archive size={16} /></IconAction>
                 </div>
               </article>
@@ -23707,14 +23708,15 @@ function MasterDataView({
               <h3>{tt("Archiviertes Material")}</h3>
               <div className="table-list compact-list archive-list">
                 {archivedMaterials.map((material) => (
-                  <article key={material.id}>
+                  <article className="clickable-record-row" key={material.id} role="button" tabIndex={0} aria-label={`Archiviertes Material ${material.name} bearbeiten`}
+                    onClick={(event) => { if (!(event.target as HTMLElement).closest("button, a")) editMaterial(material); }}
+                    onKeyDown={(event) => { if (event.target === event.currentTarget && ["Enter", " "].includes(event.key)) { event.preventDefault(); editMaterial(material); } }}>
                     <div>
                       <strong>{material.name}</strong>
                       <span>{material.category} · {materialRate(material)}</span>
                     </div>
                     <Badge value="archiviert" />
                     <div className="row-actions">
-                      <IconAction label={`Archiviertes Material ${material.name} bearbeiten`} onClick={() => editMaterial(material)}><Pencil size={16} /></IconAction>
                       <IconAction label={`Archiviertes Material ${material.name} reaktivieren`} onClick={() => restoreMaterial(material)}><RotateCcw size={16} /></IconAction>
                       <IconAction danger label={`Archiviertes Material ${material.name} löschen`} onClick={() => deleteArchivedMaterial(material)}><Trash2 size={16} /></IconAction>
                     </div>

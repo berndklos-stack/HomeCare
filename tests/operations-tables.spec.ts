@@ -20,11 +20,15 @@ for (const mobile of [false, true]) test(`Scancodes bleiben Text ${mobile ? "mob
   await material.getByRole("button", { name: "Material anlegen", exact: true }).click();
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("kolaretorp-materials") ?? "[]").find((row: { name: string }) => row.name === "Scan Testmaterial"));
   expect(saved.scanCode).toBe("0012345678905");
-  await page.getByRole("button", { name: "Material Scan Testmaterial bearbeiten", exact: true }).click();
+  const materialRow = page.getByRole("button", { name: "Material Scan Testmaterial bearbeiten", exact: true });
+  expect(await materialRow.evaluate((element) => element.tagName)).toBe("ARTICLE");
+  await expect(materialRow.locator("button")).toHaveCount(1);
+  await materialRow.press("Enter");
   await expect(page.getByRole("dialog", { name: "Material bearbeiten", exact: true }).getByLabel("EAN / Scancode", { exact: true })).toHaveValue("0012345678905");
   await page.getByRole("button", { name: "Material-Dialog schließen", exact: true }).click();
   await page.getByRole("button", { name: "Zurück", exact: true }).click();
   await page.getByRole("button", { name: "Standorte", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Bestände und Buchungen", exact: true })).not.toBeVisible();
   const locations = page.getByRole("table", { name: "Standorte", exact: true });
   await expect(locations).toContainText("001-LAGER");
   await locations.locator("tbody tr").first().click();
@@ -38,7 +42,7 @@ for (const mobile of [false, true]) test(`Scancodes bleiben Text ${mobile ? "mob
   await location.getByRole("button", { name: "Speichern", exact: true }).click();
   const place = await page.evaluate(() => JSON.parse(localStorage.getItem("workcore-sync-mutations-v1") ?? "[]").find((row: { payload: { values?: { name?: string } } }) => row.payload.values?.name === "Wagen 1"));
   expect(place.payload.values).toMatchObject({ parent_location_id: "scan-location", location_type_id: "scan-type" });
-  await page.getByRole("button", { name: "Standorte", exact: true }).click();
+  await page.getByRole("button", { name: "Zurück", exact: true }).click();
   await locations.locator("tbody tr").first().click();
   await location.getByLabel("Lagercode", { exact: true }).fill("002-LAGER");
   await location.getByRole("button", { name: "Speichern", exact: true }).click();
@@ -53,13 +57,42 @@ for (const mobile of [false, true]) test(`Scancodes bleiben Text ${mobile ? "mob
   await location.getByRole("button", { name: "Speichern", exact: true }).click();
   const created = await page.evaluate(() => JSON.parse(localStorage.getItem("workcore-sync-mutations-v1") ?? "[]").find((row: { operation: string; payload: { values?: { name?: string } } }) => row.operation === "create" && row.payload.values?.name === "Neuer Testlagerort"));
   expect(created.payload.values).toMatchObject({ name: "Neuer Testlagerort", location_code: "003-LAGER", location_kind: "warehouse", note: "Standortnotiz" });
+  await page.getByRole("button", { name: "Zurück", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Bestände und Buchungen", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Lagerorttypen", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Bestände und Buchungen", exact: true })).not.toBeVisible();
+  const typeTable = page.getByRole("table", { name: "Lagerorttypen", exact: true });
+  await expect(typeTable.getByRole("columnheader", { name: "Aktionen", exact: true })).toHaveCount(0);
+  await typeTable.locator("tbody tr").first().press("Enter");
+  await expect(page.getByRole("dialog", { name: "Lagerorttypen", exact: true }).getByLabel("Bezeichnung", { exact: true })).toHaveValue("Kommissionierwagen");
+  await page.getByRole("dialog").getByRole("button", { name: "Schließen", exact: true }).click();
   await page.getByRole("button", { name: "Neu", exact: true }).click();
   const type = page.getByRole("dialog", { name: "Lagerorttypen", exact: true });
   await type.getByLabel("Bezeichnung", { exact: true }).fill("Eigener Lagertyp");
   await type.getByRole("button", { name: "Speichern", exact: true }).click();
   const newType = await page.evaluate(() => JSON.parse(localStorage.getItem("workcore-sync-mutations-v1") ?? "[]").find((row: { payload: { entity?: string } }) => row.payload.entity === "location_types"));
   expect(newType.payload.values.name).toBe("Eigener Lagertyp");
+  await page.getByRole("button", { name: "Zurück", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Bestände und Buchungen", exact: true })).toBeVisible();
+});
+
+test("Archivierungsaktionen oeffnen keinen Editor und archivierte Materialzeilen sind bearbeitbar", async ({ page }) => {
+  await page.route("**/api/operations?**", (route) => route.fulfill({ json: new URL(route.request().url()).searchParams.get("entity") === "stock_status" ? { active: true } : { rows: [], count: 0 } }));
+  await page.goto("/");
+  await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true", { timeout: 30000 });
+  await page.getByRole("button", { name: "Lager & Material", exact: true }).click();
+  await page.getByRole("button", { name: "Materialstammdaten", exact: true }).click();
+  const row = page.locator("article.clickable-record-row").first();
+  const name = await row.locator("strong").first().textContent();
+  await row.getByRole("button", { name: `Material ${name} archivieren`, exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Material bearbeiten", exact: true })).toHaveCount(0);
+  const archived = page.getByRole("button", { name: `Archiviertes Material ${name} bearbeiten`, exact: true });
+  await archived.press(" ");
+  await expect(page.getByRole("dialog", { name: "Material bearbeiten", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Material-Dialog schließen", exact: true }).click();
+  const title = await page.locator(".master-data-view-header h2").boundingBox();
+  const back = await page.getByRole("button", { name: "Zurück", exact: true }).boundingBox();
+  expect(title!.x).toBeLessThan(back!.x);
 });
 
 for (const mobile of [false, true]) test(`Beschaffung ist direkt am Material bearbeitbar statt in der Lageruebersicht ${mobile ? "mobil" : "desktop"}`, async ({ page }) => {

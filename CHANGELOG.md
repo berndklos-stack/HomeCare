@@ -4,6 +4,12 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.427.14 - 2026-10-10
+
+- Aktive und archivierte Materialien per Zeilenklick, Enter oder Leertaste bearbeiten. Bearbeitungsstifte entfernt; Archivierungs- und Wiederherstellungsaktionen bleiben unabhaengig bedienbar.
+- Standorte und Lagerorttypen oeffnen eigene Ansichten innerhalb Lager & Material. Zurueck aus Lagerplaetzen fuehrt zum Lagerort, danach zur unveraenderten Lageruebersicht.
+- Ueberschriften links, Zurueck rechts, auch bei den Materialstammdaten.
+
 ## 1.427.13 - 2026-10-10
 
 - Separaten Beschaffungsblock aus der Lageruebersicht entfernt. Beschaffungsdaten werden nun im jeweiligen Materialdialog geladen und bearbeitet.
