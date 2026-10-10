@@ -1,5 +1,30 @@
 import { expect, test } from "@playwright/test";
 
+test("Lageransicht verwendet die Panel- und Kennzahlgestaltung der Auswertung", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.route("**/api/operations?**", (route) => {
+    const entity = new URL(route.request().url()).searchParams.get("entity");
+    return route.fulfill({ json: entity === "stock_status" ? { active: true } : { rows: [], count: 0 } });
+  });
+  await page.goto("/");
+  await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true", { timeout: 30000 });
+  await page.getByRole("button", { name: "Auswertung", exact: true }).click();
+  const panel = page.locator(".analytics-view > .panel").first();
+  await expect(panel).toBeVisible();
+  const appearance = (element: Element) => {
+    const style = getComputedStyle(element);
+    return { background: style.backgroundColor, radius: style.borderRadius, border: style.border, padding: style.padding };
+  };
+  const panelStyle = await panel.evaluate(appearance);
+  const metricStyle = await panel.locator(".analytics-summary-grid > div").first().evaluate(appearance);
+  await page.screenshot({ path: `test-results/analytics-reference-${test.info().project.name}.png` });
+  await page.getByRole("button", { name: "Lager & Material", exact: true }).click();
+  const stockPanel = page.getByRole("heading", { name: "Bestände und Buchungen", exact: true }).locator("xpath=ancestor::section[1]");
+  await expect(stockPanel).toBeVisible();
+  expect(await stockPanel.evaluate(appearance)).toEqual(panelStyle);
+  expect(await stockPanel.locator(".analytics-summary-grid > div").first().evaluate(appearance)).toEqual(metricStyle);
+});
+
 for (const mobile of [false, true]) test(`Materialstammdaten kehren ohne alten Lagerbildschirm zurueck ${mobile ? "mobil" : "desktop"}`, async ({ page }) => {
   await page.setViewportSize(mobile ? { width: 390, height: 844 } : { width: 1440, height: 1000 });
   let statusReads = 0;
@@ -18,13 +43,18 @@ for (const mobile of [false, true]) test(`Materialstammdaten kehren ohne alten L
   await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true", { timeout: 30000 });
   await page.getByRole("button", { name: "Lager & Material", exact: true }).click();
   await expect(page.getByText("Materialbestand, Lagerorte, Ein- und Ausgänge sowie Einkaufsbelege zentral verwalten.", { exact: true })).not.toBeVisible();
-  const material = page.getByRole("combobox", { name: "Material", exact: true });
+  const material = page.getByRole("heading", { name: "Bestände und Buchungen", exact: true }).locator("xpath=ancestor::section[1]").getByRole("combobox", { name: "Bezeichnung", exact: true });
   await expect(material).toBeVisible();
   const value = await material.locator("option").last().getAttribute("value");
   expect(value).toBeTruthy();
   await material.selectOption(value!);
   const bookings = page.getByRole("table", { name: "Buchungen", exact: true });
   await expect(bookings).toContainText("Anlieferung");
+  await expect(bookings.getByRole("columnheader", { name: "Bezeichnung", exact: true })).toBeVisible();
+  await expect(bookings.getByRole("columnheader", { name: "Material", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Bestände und Buchungen", exact: true }).locator("xpath=ancestor::section[1]")).toHaveClass(/panel/);
+  await expect(page.getByRole("heading", { name: "Buchungen", exact: true }).locator("xpath=ancestor::section[1]")).toHaveClass(/panel/);
+  await expect(page.locator(".analytics-summary-grid")).toBeVisible();
   await expect(bookings).not.toContainText("1924d8ca-0781-42e3-98cf-3aa69fcc1f90");
   await expect(bookings).not.toContainText("2026-10-09T07:37:26Z");
   await bookings.getByRole("searchbox", { name: "Filter: Buchungsgrund", exact: true }).fill("Anlieferung");
@@ -50,13 +80,13 @@ for (const mobile of [false, true]) test(`Materialstammdaten kehren ohne alten L
   await page.getByRole("button", { name: "Allgemeine Lagerbuchung", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Lagerbuchung", exact: true });
   await expect(dialog).toContainText(options.find((row) => row.id === value)!.name);
-  await expect(dialog.getByRole("combobox", { name: "Materialnummer / Bezeichnung", exact: true })).toHaveValue(value!);
+  await expect(dialog.getByRole("combobox", { name: "Bezeichnung", exact: true })).toHaveValue(value!);
   await dialog.getByRole("button", { name: "Schließen", exact: true }).click();
   await material.selectOption("");
   await expect(materialTable.locator("tbody tr")).toHaveCount(options.length);
   await page.getByRole("button", { name: "Allgemeine Lagerbuchung", exact: true }).click();
   await expect(dialog.getByRole("button", { name: "Speichern", exact: true })).toBeDisabled();
-  const bookingMaterial = dialog.getByRole("combobox", { name: "Materialnummer / Bezeichnung", exact: true });
+  const bookingMaterial = dialog.getByRole("combobox", { name: "Bezeichnung", exact: true });
   await bookingMaterial.selectOption(value!);
   await expect(dialog).toContainText(options.find((row) => row.id === value)!.name);
   await expect(material).toHaveValue("");
@@ -67,7 +97,7 @@ for (const mobile of [false, true]) test(`Materialstammdaten kehren ohne alten L
   expect(overviewBounds!.x + overviewBounds!.width).toBeLessThanOrEqual(mobile ? 390 : 1440);
   await expect(page.getByText("Materialbestand, Lagerorte, Ein- und Ausgänge sowie Einkaufsbelege zentral verwalten.", { exact: true })).not.toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.screenshot({ path: `test-results/material-return-${mobile}-${test.info().project.name}.png` });
+  await page.screenshot({ path: `test-results/material-return-${mobile}-${test.info().project.name}.png`, fullPage: true });
 });
 
 for (const mobile of [false, true]) test(`Spaltenfilter kombinieren alle Lieferantenseiten ${mobile ? "mobil" : "desktop"}`, async ({ page }) => {

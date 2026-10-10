@@ -329,8 +329,8 @@ export function OperationsWorkspace(props: Props) {
     {tab === "inventory" && (stockActive === true ? <OperationsStock {...props} onMaterialSelected={setStockMaterialId} /> : stockActive === false ? props.children : <div role="status" aria-busy={!stockError}>{t(stockError ? "OPERATIONS_UNAVAILABLE" : "loading")}</div>)}
     {error && <p role="status">{t(error)}</p>}
     {active.length > 0 && <div role="status" className={styles.pending}>{active.map((m) => <p key={m.id}>{t(m.status === "failed" || m.status === "conflict" ? "failed" : "waiting")}: {String((m.payload.values as Record<string, unknown> | undefined)?.company ?? (m.payload.values as Record<string, unknown> | undefined)?.name ?? m.entityId)}</p>)}</div>}
-    <div className={styles.list} aria-busy={loading}>
-      {tab === "inventory" && <h3 className={styles.tableHeading}>{t(entity)}</h3>}
+    <div className={`panel ${styles.list}`} aria-busy={loading}>
+      <div className="panel-title"><div><p>{tab === "inventory" ? t("inventorySection") : operationsLabels[tab as keyof typeof operationsLabels][language]}</p><h2>{t(entity)}</h2></div></div>
       {!tableEntities.has(entity) && !rows.length && !loading && !error && <p>{t("empty")}</p>}
       {tableEntities.has(entity) ? <OperationsDataTable key={`${entity}:${parent?.id ?? ""}`} rows={entity === "material_details" && stockActive && stockMaterialId ? rows.filter((row) => row.id === stockMaterialId) : rows} columns={columns} actions={tableActions} label={t(entity)} filterLabel={t("filter")} emptyLabel={t("empty")} actionsLabel={t("actions")}
         canActivate={(row) => !blocked(row.id) && !(parent && blocked(parent.id))}
@@ -431,7 +431,7 @@ export function OperationsWorkspace(props: Props) {
         {form.kind === "complete" && <section><h3>{t("consumption")}</h3>{consumption.map((m, index) => <div className={styles.fields} key={index}>
           {(["material_id", "location_id", "quantity"] as const).map((key) => input(key, m, (k, v) => setConsumption((old) => old.map((r, i) => i === index ? { ...r, [k]: v } : r)), true))}
           <button type="button" aria-label={t("archive")} onClick={() => setConsumption((old) => old.filter((_, i) => i !== index))}><X size={18} /></button>
-        </div>)}<button type="button" onClick={() => setConsumption((old) => [...old, { material_id: "", location_id: "", quantity: "1" }])}><Plus size={18} />{t("material_id")}</button></section>}
+        </div>)}<button type="button" onClick={() => setConsumption((old) => [...old, { material_id: "", location_id: "", quantity: "1" }])}><Plus size={18} />{t("addMaterial")}</button></section>}
         {formError && <p role="alert">{t(formError)}</p>}
         <footer className={styles.actions}><button type="button" onClick={() => setForm(null)}>{t("cancel")}</button><button type="submit" disabled={documentPending} className={styles.selected}>{t("save")}</button></footer>
       </form>

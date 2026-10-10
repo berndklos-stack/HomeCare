@@ -17,7 +17,7 @@ export function OperationsDataTable({ rows, columns, actions, label, filterLabel
   const filtered = rows.filter((row) => columns.every((column) => column.value(row).toLocaleLowerCase().includes((filters[column.key] ?? "").trim().toLocaleLowerCase())));
   const current = Math.min(page, Math.max(0, Math.ceil(filtered.length / 50) - 1));
   return <>
-    <div className={styles.itemsScroll}><table className={styles.dataTable} aria-label={label}>
+    <div className={`${styles.itemsScroll} ${styles.tableFrame}`}><table className={styles.dataTable} aria-label={label}>
       <thead><tr>{columns.map((column) => <th scope="col" key={column.key}>{column.label}</th>)}{actions && <th scope="col">{actionsLabel}</th>}</tr>
         <tr>{columns.map((column) => <td key={column.key}><input type="search" aria-label={`${filterLabel}: ${column.label}`} value={filters[column.key] ?? ""} onChange={(event) => { setFilters((old) => ({ ...old, [column.key]: event.target.value })); setPage(0); }} /></td>)}{actions && <td />}</tr>
       </thead>

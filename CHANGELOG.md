@@ -4,6 +4,12 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.427.7 - 2026-10-10
+
+- Auswertungsdesign direkt uebernommen: bestehende Panel-, Titel- und Kennzahlklassen fuer Lageruebersicht, Bestaende, Buchungen und Beschaffung; eingerahmte Tabellen mit den Auswertungs-Kopfzeilen.
+- Bezeichnung auch im Uebersichtsfilter, in Buchungstabellen und in der Buchungsauswahl statt wechselnder Material-Beschriftungen.
+- Eigener Vergleichstest kontrolliert identische Panel- und Kennzahlgestaltung zwischen Auswertung und Lager.
+
 ## 1.427.6 - 2026-10-10
 
 - Lageransicht an bestehende Farben, Schriftgroessen und kompakte Abstaende angepasst; Beschaffung und Bestaende klar beschriftet.

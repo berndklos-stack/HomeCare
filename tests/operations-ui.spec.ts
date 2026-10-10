@@ -156,7 +156,7 @@ for (const mobile of [false, true]) {
 test("Lageraktionen stehen oben und Materialfilter ist leerbar", async ({ page }) => {
   await mock(page); await page.goto("/"); await ready(page);
   await page.getByRole("button", { name: "Lager & Material", exact: true }).click();
-  const filter = page.getByLabel("Material", { exact: true });
+  const filter = page.getByLabel("Bezeichnung", { exact: true });
   await expect(filter).toBeVisible();
   const original = await filter.inputValue();
   const master = await page.getByRole("button", { name: "Materialstammdaten", exact: true }).boundingBox();
@@ -364,7 +364,7 @@ test("Materialbeschaffung lädt bevorzugte Lieferanten auch ohne Wechsel zum Ein
   await page.route("**/api/operations?entity=material_details**", (route) => route.fulfill({ json: { rows: [{ id: "MAT-TEST", revision: 2, preferred_supplier_id: null }], count: 1 } }));
   await page.goto("/"); await ready(page);
   await page.getByRole("button", { name: "Lager & Material", exact: true }).click();
-  await page.getByLabel("Material", { exact: true }).selectOption("");
+  await page.getByLabel("Bezeichnung", { exact: true }).selectOption("");
   await page.getByRole("button", { name: "Bearbeiten: MAT-TEST", exact: true }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByLabel("Bevorzugter Lieferant").locator("option").filter({ hasText: "Test Supplier" })).toHaveCount(1);

@@ -1,10 +1,18 @@
 export const appVersion = {
-  version: "1.427.6",
+  version: "1.427.7",
   releaseDate: "2026-10-10",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  {
+    version: "1.427.7",
+    date: "2026-10-10",
+    changes: [
+      "Lageransicht verwendet die bestehenden Panels und Kennzahlen der Auswertung",
+      "Einheitliche Bezeichnung in Materialfilter, Buchungstabelle und Dialogauswahl",
+    ],
+  },
   {
     version: "1.427.6",
     date: "2026-10-10",
