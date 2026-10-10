@@ -9,6 +9,7 @@ import { AppleRemindersBridge } from "@/components/AppleRemindersBridge";
 import { TripDialog } from "@/components/TripDialog";
 import { OperationsWorkspace } from "@/components/OperationsWorkspace";
 import { MaterialPurchasing } from "@/components/MaterialPurchasing";
+import { MaterialLabel } from "@/components/MaterialLabel";
 import { OperationsWarnings } from "@/components/OperationsWarnings";
 import { DynamicResourceFields, ResourceTypesPanel, useResourceTypes } from "@/components/ResourceTypes";
 import { legacyResourceType, missingResourceFields, resourceIsVehicle, resourceLanguageIndex, resourceTypesText } from "@/lib/resourceTypes";
@@ -23939,6 +23940,7 @@ function MasterDataView({
             </div>
             {editingMaterialId && <MaterialPurchasing key={editingMaterialId} materialId={editingMaterialId} language={language} queue={queue} enqueue={enqueue} />}
             <div className="message-actions">
+              {editingMaterialId && materials.find((item) => item.id === editingMaterialId) && <MaterialLabel saved={materials.find((item) => item.id === editingMaterialId)!} current={materialForm} language={language} />}
               <button className="ghost-button" onClick={resetMaterialForm} type="button">{tt("Abbrechen")}</button>
               <button className="primary-button" disabled={queue.some((mutation) => mutation.entityType === "operations" && mutation.entityId === editingMaterialId && mutation.status !== "synced")} onClick={saveMaterial} type="button">
                 <Check size={16} />

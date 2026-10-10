@@ -4,6 +4,10 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.427.18 - 2026-10-10
+
+- Materialdialog mit PDF-Etikett (100 x 60 mm), Firmenlogo, Materialnummer, Bezeichnung und QR-Code des gespeicherten EAN-/Scancodes. Fuehrende Nullen bleiben erhalten; fehlende Codes und ungespeicherte Etikettenaenderungen verhindern den Druck.
+
 ## 1.427.17 - 2026-10-10
 
 - Inventur als eigener Reiter und Inhaltsblock. Inventurplanung vor Beginn speichern, mit dauerhafter ID, Auswahl einzelner oder aller Lagerorte/Lagerplaetze und optionalen Nullbestaenden.

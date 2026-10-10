@@ -1,10 +1,15 @@
 export const appVersion = {
-  version: "1.427.17",
+  version: "1.427.18",
   releaseDate: "2026-10-10",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  {
+    version: "1.427.18",
+    date: "2026-10-10",
+    changes: ["Materialetiketten als PDF mit Firmenlogo, Materialnummer, Bezeichnung und QR-Code des gespeicherten EAN-/Scancodes"],
+  },
   {
     version: "1.427.17",
     date: "2026-10-10",

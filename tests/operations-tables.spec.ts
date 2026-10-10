@@ -136,6 +136,7 @@ for (const mobile of [false, true]) test(`Scancodes bleiben Text ${mobile ? "mob
   await page.getByRole("button", { name: "Neues Material anlegen", exact: true }).click();
   const material = page.getByRole("dialog", { name: "Neues Material anlegen", exact: true });
   await material.getByLabel("Bezeichnung", { exact: true }).fill("Scan Testmaterial");
+  await material.getByLabel("Artikelnummer / SKU", { exact: true }).fill("MAT-QR-001");
   await material.getByLabel("EAN / Scancode", { exact: true }).fill("0012345678905");
   await page.screenshot({ path: `test-results/material-scan-${mobile}-${test.info().project.name}.png` });
   await material.getByRole("button", { name: "Material anlegen", exact: true }).click();
@@ -146,6 +147,16 @@ for (const mobile of [false, true]) test(`Scancodes bleiben Text ${mobile ? "mob
   await expect(materialRow.locator("button")).toHaveCount(1);
   await materialRow.press("Enter");
   await expect(page.getByRole("dialog", { name: "Material bearbeiten", exact: true }).getByLabel("EAN / Scancode", { exact: true })).toHaveValue("0012345678905");
+  const editMaterial = page.getByRole("dialog", { name: "Material bearbeiten", exact: true });
+  const labelDownload = page.waitForEvent("download");
+  await editMaterial.getByRole("button", { name: "Etikett als PDF", exact: true }).click();
+  const label = await labelDownload;
+  expect(label.suggestedFilename()).toBe("Material-MAT-QR-001.pdf");
+  await label.saveAs(`test-results/material-label-${mobile}-${test.info().project.name}.pdf`);
+  await editMaterial.getByLabel("EAN / Scancode", { exact: true }).fill("CHANGED");
+  await editMaterial.getByRole("button", { name: "Etikett als PDF", exact: true }).click();
+  await expect(editMaterial.getByRole("alert").filter({ hasText: "zuerst speichern" })).toBeVisible();
+  await page.screenshot({ path: `test-results/material-label-dialog-${mobile}-${test.info().project.name}.png` });
   await page.getByRole("button", { name: "Material-Dialog schließen", exact: true }).click();
   await page.getByRole("tab", { name: "Bestandsübersicht", exact: true }).click();
   await page.getByRole("tab", { name: "Standorte", exact: true }).click();
