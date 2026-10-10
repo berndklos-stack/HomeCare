@@ -107,11 +107,12 @@ for (const mobile of [false, true]) {
     await expect(row).toContainText("S-1");
     await expect(row).toContainText("SE123456789001");
     await expect(row).toContainText("30 dagar");
-    await expect(row.getByRole("button", { name: "Kontakte", exact: true })).toBeVisible();
+    await expect(page.getByRole("columnheader", { name: "Aktionen", exact: true })).toHaveCount(0);
     await expect(page.getByRole("row").filter({ hasText: "No contact supplier" }).getByRole("link")).toHaveCount(0);
     await page.screenshot({ path: `test-results/supplier-contacts-${mobile ? "mobile" : "desktop"}-${test.info().project.name}.png` });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    await row.getByRole("button", { name: "Kontakte", exact: true }).click();
+    await row.locator("td").first().click();
+    await page.getByRole("dialog").getByRole("button", { name: "Kontakte", exact: true }).click();
     const contact = page.getByRole("row").filter({ hasText: "Test Contact" });
     await expect(contact.getByRole("link", { name: "Telefon: +46 70 999 88 77", exact: true })).toHaveAttribute("href", "tel:+46709998877");
     await expect(contact.getByRole("link", { name: "E-Mail: contact@example.se", exact: true })).toHaveAttribute("href", "mailto:contact%40example.se");
@@ -126,7 +127,7 @@ for (const mobile of [false, true]) {
   test(`Lieferantenformular, Abbruch, durable Queue und Modal ${mobile ? "mobil" : "desktop"}`, async ({ page }) => {
     await page.setViewportSize(mobile ? { width: 390, height: 844 } : { width: 1440, height: 1000 });
     await mock(page); await page.goto("/"); await ready(page); await purchasing(page);
-    await page.getByRole("button", { name: "Bearbeiten: Test Supplier", exact: true }).click();
+    await page.getByRole("row").filter({ hasText: "Test Supplier" }).locator("td").first().click();
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
     expect(await dialog.evaluate((e) => e.matches(":modal"))).toBe(true);
@@ -452,7 +453,8 @@ for (const mobile of [false, true]) {
   test(`Archivierungsdialog bleibt kompakt und Abbruch unverändert ${mobile ? "mobil" : "desktop"}`, async ({ page }) => {
     await page.setViewportSize(mobile ? { width: 390, height: 844 } : { width: 1440, height: 1000 });
     await mock(page); await page.goto("/"); await ready(page); await purchasing(page);
-    await page.getByRole("button", { name: "Archivieren: Test Supplier", exact: true }).click();
+    await page.getByRole("row").filter({ hasText: "Test Supplier" }).locator("td").first().click();
+    await page.getByRole("dialog").getByRole("button", { name: "Archivieren", exact: true }).click();
     await dialogLayout(page, 300);
     await page.getByRole("dialog").getByRole("button", { name: "Schließen", exact: true }).click();
     await expect(page.getByRole("dialog")).toHaveCount(0);

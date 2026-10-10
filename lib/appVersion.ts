@@ -1,10 +1,15 @@
 export const appVersion = {
-  version: "1.427.9",
+  version: "1.427.10",
   releaseDate: "2026-10-10",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  {
+    version: "1.427.10",
+    date: "2026-10-10",
+    changes: ["Buchungsbenutzer und genauer Zeitpunkt in Lagerbuchungen, Details und Wareneingaengen", "Lieferanten ohne Aktionsspalte; Kontakte und Archivierung im Zeilendialog"],
+  },
   {
     version: "1.427.9",
     date: "2026-10-10",

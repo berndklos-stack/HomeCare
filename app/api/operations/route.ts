@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { isAuthError, requireApiAuth } from "@/lib/server/apiAuth";
 import { maintenanceStatus } from "@/lib/operations";
+import { attachOperationsActors } from "@/lib/server/operationsActors";
 
 const tables = {
   suppliers: "homecare_suppliers", supplier_contacts: "homecare_supplier_contacts",
@@ -110,6 +111,10 @@ export async function GET(request: Request) {
   }
   const { data, error, count } = await query;
   if (error) return NextResponse.json({ error: "OPERATIONS_UNAVAILABLE" }, { status: 503 });
+  if (immutable.has(entity) && data?.length) {
+    try { await attachOperationsActors(auth.serviceClient, tenantId, data as unknown as Record<string, unknown>[]); }
+    catch { return NextResponse.json({ error: "OPERATIONS_UNAVAILABLE" }, { status: 503 }); }
+  }
   if (["purchase_order_items", "purchase_orders"].includes(entity) && data?.length) {
     const resultRows = data as unknown as Record<string, unknown>[];
     const rows: Record<string, unknown>[] = entity === "purchase_order_items" ? resultRows : [];

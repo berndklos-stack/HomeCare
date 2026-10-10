@@ -31,8 +31,10 @@ export function OperationsHistory({ entity, parent, order = false, title, langua
   }, []);
   useEffect(() => {
     const controller = new AbortController();
-    setLoading(true); setError(false);
     async function load() {
+      await Promise.resolve();
+      if (controller.signal.aborted) return { rows: [], count: 0 };
+      setLoading(true); setError(false);
       const all: OperationsRow[] = [];
       let current = order ? 0 : page;
       let count = 0;
@@ -61,7 +63,7 @@ export function OperationsHistory({ entity, parent, order = false, title, langua
   }
   const formattedDate = (value: unknown) => {
     const date = new Date(String(value));
-    return Number.isNaN(date.getTime()) ? "—" : new Intl.DateTimeFormat(language, { dateStyle: "medium", ...(String(value).includes("T") ? { timeStyle: "short" as const } : {}) }).format(date);
+    return Number.isNaN(date.getTime()) ? "—" : new Intl.DateTimeFormat(language, { dateStyle: "medium", timeZone: "Europe/Stockholm", ...(String(value).includes("T") ? { timeStyle: "medium" as const } : {}) }).format(date);
   };
   const number = (value: unknown) => new Intl.NumberFormat(language, { maximumFractionDigits: 3 }).format(Number(value));
 
@@ -113,7 +115,7 @@ export function OperationsHistory({ entity, parent, order = false, title, langua
             {row.cost != null && <span>{t("cost")}: {String(row.cost)} {String(row.currency)}</span>}
             {row.mileage != null && <span>{t("mileage")}: {String(row.mileage)}</span>}
             {row.operating_hours != null && <span>{t("operating_hours")}: {String(row.operating_hours)}</span>}
-            {typeof row.actor_name === "string" && <span>{t("actor")}: {row.actor_name}</span>}</div>
+            <span>{t("bookedBy")}: {typeof row.actor_name === "string" && row.actor_name.trim() ? row.actor_name : t("unknownActor")}</span></div>
           {[...new Set(entries.map((entry) => String(entry.note ?? entry.notes ?? "")).filter(Boolean))].map((note) => <p key={note}>{note}</p>)}
         </article>;
       })}

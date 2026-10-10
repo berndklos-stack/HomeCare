@@ -107,7 +107,7 @@ for (const mobile of [false, true]) test(`Materialstammdaten kehren ohne alten L
     }
     if (entity === "stock_balances") return route.fulfill({ json: { rows: [{ location_id: "test-location", quantity: 55 }] } });
     if (entity === "stock_movements") return route.fulfill({ json: { rows: [
-      { id: "movement-1", quantity: 55, source_id: null, destination_id: "test-location", occurred_at: "2026-10-09T07:37:26Z", note: "Anlieferung", actor_user_id: "1924d8ca-0781-42e3-98cf-3aa69fcc1f90" },
+      { id: "movement-1", quantity: 55, source_id: null, destination_id: "test-location", occurred_at: "2026-10-09T07:37:26Z", note: "Anlieferung", actor_user_id: "1924d8ca-0781-42e3-98cf-3aa69fcc1f90", actor_name: "Bernd Klos" },
       { id: "movement-2", quantity: 5, source_id: "test-location", destination_id: null, occurred_at: "2026-10-09T08:37:26Z", note: "Verbrauch" },
       { id: "movement-3", quantity: 2, source_id: "test-location", destination_id: "other-location", occurred_at: "2026-10-09T09:37:26Z", note: "Transport" },
     ], count: 3 } });
@@ -126,6 +126,10 @@ for (const mobile of [false, true]) test(`Materialstammdaten kehren ohne alten L
   await material.selectOption(value!);
   const bookings = page.getByRole("table", { name: "Buchungen", exact: true });
   await expect(bookings).toContainText("Anlieferung");
+  await expect(bookings.getByRole("columnheader", { name: "Gebucht von", exact: true })).toBeVisible();
+  await expect(bookings.getByRole("columnheader", { name: "Gebucht am", exact: true })).toBeVisible();
+  await expect(bookings).toContainText("Bernd Klos");
+  await expect(bookings).toContainText("09:37:26");
   const filterBounds = await material.boundingBox();
   expect(filterBounds!.height).toBeGreaterThanOrEqual(48);
   if (!mobile) expect(filterBounds!.width).toBeGreaterThanOrEqual(400);
@@ -141,6 +145,8 @@ for (const mobile of [false, true]) test(`Materialstammdaten kehren ohne alten L
   const movementDetails = page.getByRole("dialog");
   await expect(movementDetails).toContainText("Buchungsdetails");
   await expect(movementDetails).toContainText("Anlieferung");
+  await expect(movementDetails).toContainText("Bernd Klos");
+  await expect(movementDetails).toContainText("09:37:26");
   await movementDetails.getByRole("button", { name: "Schließen", exact: true }).first().click();
   await page.getByRole("table", { name: "Bestand je Lagerort", exact: true }).locator("tbody tr").first().press("Enter");
   await expect(page.getByRole("dialog")).toContainText("55");

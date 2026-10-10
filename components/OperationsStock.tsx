@@ -51,7 +51,11 @@ export function OperationsStock({ language, materials, locations, jobs, projects
         <div>{selected ? materialLabel(selected) : ""}<small>{t(direction)}</small></div>
       </div>;
     } },
-    { key: "occurred_at", label: t("bookingDate"), value: (row) => new Date(String(row.occurred_at)).toLocaleString(language, { dateStyle: "short", timeStyle: "short" }) },
+    { key: "occurred_at", label: t("bookedAt"), value: (row) => {
+      const date = new Date(String(row.occurred_at));
+      return Number.isNaN(date.getTime()) ? "—" : date.toLocaleString(language, { dateStyle: "medium", timeStyle: "medium", timeZone: "Europe/Stockholm" });
+    } },
+    { key: "actor_name", label: t("bookedBy"), value: (row) => typeof row.actor_name === "string" && row.actor_name.trim() ? row.actor_name : t("unknownActor") },
     { key: "quantity", label: t("quantity"), value: (row) => quantity(row.quantity) },
     { key: "source_id", label: t("source_id"), value: (row) => location(row.source_id) },
     { key: "destination_id", label: t("destination_id"), value: (row) => location(row.destination_id) },

@@ -332,7 +332,7 @@ export function OperationsWorkspace(props: Props) {
     {(tab !== "inventory" || stockActive !== null) && <div className={`panel ${styles.list}`} aria-busy={loading}>
       <div className="panel-title"><div><p>{tab === "inventory" ? t("inventorySection") : operationsLabels[tab as keyof typeof operationsLabels][language]}</p><h2>{t(entity)}</h2></div></div>
       {!tableEntities.has(entity) && !rows.length && !loading && !error && <p>{t("empty")}</p>}
-      {tableEntities.has(entity) ? <OperationsDataTable key={`${entity}:${parent?.id ?? ""}`} rows={entity === "material_details" && stockActive && stockMaterialId ? rows.filter((row) => row.id === stockMaterialId) : rows} columns={columns} actions={entity === "material_details" ? undefined : tableActions} label={t(entity)} filterLabel={t("filter")} emptyLabel={t("empty")} actionsLabel={t("actions")}
+      {tableEntities.has(entity) ? <OperationsDataTable key={`${entity}:${parent?.id ?? ""}`} rows={entity === "material_details" && stockActive && stockMaterialId ? rows.filter((row) => row.id === stockMaterialId) : rows} columns={columns} actions={["material_details", "suppliers"].includes(entity) ? undefined : tableActions} label={t(entity)} filterLabel={t("filter")} emptyLabel={t("empty")} actionsLabel={t("actions")}
         canActivate={(row) => !blocked(row.id) && !(parent && blocked(parent.id))}
         onRowActivate={(row) => entity === "purchase_orders" && row.status !== "draft" ? change("purchase_order_items", row) : open("save", row)} /> : entity === "purchase_order_items" && rows.length > 0 ? <div className={styles.itemsScroll}><table className={styles.items}>
         <thead><tr><th scope="col">{receivable && <input type="checkbox" aria-label={t(count > 50 ? "selectOpenPage" : "selectOpen")} title={t(count > 50 ? "selectOpenPage" : "selectOpen")} disabled={receiptDisabled || !openRows.length}
@@ -433,7 +433,12 @@ export function OperationsWorkspace(props: Props) {
           <button type="button" aria-label={t("archive")} onClick={() => setConsumption((old) => old.filter((_, i) => i !== index))}><X size={18} /></button>
         </div>)}<button type="button" onClick={() => setConsumption((old) => [...old, { material_id: "", location_id: "", quantity: "1" }])}><Plus size={18} />{t("addMaterial")}</button></section>}
         {formError && <p role="alert">{t(formError)}</p>}
-        <footer className={styles.actions}><button type="button" onClick={() => setForm(null)}>{t("cancel")}</button><button type="submit" disabled={documentPending} className={styles.selected}>{t("save")}</button></footer>
+        <footer className={styles.actions}>
+          {form.entity === "suppliers" && form.row && <>
+            <button type="button" onClick={() => change("supplier_contacts", form.row!)}>{t("supplier_contacts")}</button>
+            <button type="button" disabled={blocked(form.row.id)} onClick={() => { setArchive(form.row!); setForm(null); }}><Archive size={18} />{t("archive")}</button>
+          </>}
+          <button type="button" onClick={() => setForm(null)}>{t("cancel")}</button><button type="submit" disabled={documentPending} className={styles.selected}>{t("save")}</button></footer>
       </form>
     </TripDialog>}
     {archive && <TripDialog labelledBy="operations-archive-title" onClose={() => setArchive(null)} className={`${styles.dialog} ${styles.itemDialog}`}><header className={styles.dialogHeader}><h2 id="operations-archive-title">{t("confirmArchive")}</h2><button aria-label={t("close")} title={t("close")} onClick={() => setArchive(null)}><X size={18} /></button></header><p>{title(archive)}</p><footer className={styles.actions}><button onClick={() => setArchive(null)}>{t("cancel")}</button><button onClick={() => { try { submitCommand(archive.id, { kind: "archive", entity }, "delete", archive.revision, parent?.id); setArchive(null); } catch (e) { setFormError(String(e)); } }}>{t("archive")}</button></footer></TripDialog>}

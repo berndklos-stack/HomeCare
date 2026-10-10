@@ -4,6 +4,13 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.427.10 - 2026-10-10
+
+- Lagerbuchungen zeigen Gebucht von und Gebucht am mit Datum, Uhrzeit und Sekunden in Stockholm-Zeit; identische Angaben in Buchungsdetails und Korrekturbewegungen.
+- Benutzernamen werden serverseitig ausschliesslich fuer die Buchungsbenutzer des authentifizierten Mandanten aufgeloest. Fehlende Profile werden ausdruecklich als nicht zugeordnet angezeigt, nicht als technische UUID.
+- Auch Wareneingangs- und Wartungshistorien erhalten die Benutzerzuordnung und genaue Uhrzeiten.
+- Lieferantenliste ohne Aktionsspalte. Zeilenklick oeffnet den Lieferantendialog; Kontakte und Archivierung bleiben dort erreichbar.
+
 ## 1.427.9 - 2026-10-10
 
 - Lageruebersicht startet mit leerem Bezeichnungsfilter. Beschaffung erscheint nicht vor der Lageruebersicht waehrend der Statuspruefung.
