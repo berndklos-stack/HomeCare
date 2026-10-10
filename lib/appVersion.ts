@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.426.2",
-  releaseDate: "2026-10-09",
+  version: "1.427.0",
+  releaseDate: "2026-10-10",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  {
+    version: "1.427.0",
+    date: "2026-10-10",
+    changes: [
+      "Bestellungen, Lieferanten und Kontakte als Tabellen mit kombinierbaren Spaltenfiltern",
+      "Material-Einkaufsdaten, Standort- und Ressourcendetails mit derselben Tabellenansicht",
+      "Filter beruecksichtigen alle Datenseiten; Beschaffungsbutton entfernt",
+    ],
+  },
   {
     version: "1.426.2",
     date: "2026-10-09",

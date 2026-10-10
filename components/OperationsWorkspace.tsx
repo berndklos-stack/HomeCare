@@ -13,6 +13,9 @@ import { OperationsStock } from "./OperationsStock";
 import { OperationsDocumentUpload } from "./OperationsDocumentUpload";
 import { OperationsHistory } from "./OperationsHistory";
 import { PurchaseOrderSend } from "./PurchaseOrderSend";
+import { OperationsDataTable, type DataColumn } from "./OperationsDataTable";
+
+const tableEntities = new Set(["suppliers", "supplier_contacts", "purchase_orders", "material_details", "location_details", "resource_details"]);
 
 type Reference = { id: string; name: string; minStock?: string; revision?: number; hours?: number; mileage?: number; availability?: string; documents?: { id: string; name: string }[] };
 type Props = {
@@ -98,18 +101,33 @@ export function OperationsWorkspace(props: Props) {
     try {
       const cached = JSON.parse(sessionStorage.getItem(cacheKey) ?? "null");
       if (cached?.entity === entity && cached.parent === (parent?.id ?? "") && cached.page === page && cached.search === querySearch) {
-        setRows(cached.rows); setCount(cached.count);
+        setRows(cached.rows); setCount(tableEntities.has(entity) ? 0 : cached.count);
       }
     } catch { /* Read cache is optional. */ }
     const query = new URLSearchParams({ entity, page: String(page) });
     if (querySearch) query.set("search", querySearch);
     if (parent) query.set("parent", parent.id);
     apiFetch(`/api/operations?${query}`, { signal: controller.signal, cache: "no-store" })
-      .then(async (r) => { if (!r.ok) throw new Error("OPERATIONS_UNAVAILABLE"); return r.json(); })
+      .then(async (r) => {
+        if (!r.ok) throw new Error("OPERATIONS_UNAVAILABLE");
+        const data = await r.json();
+        if (tableEntities.has(entity)) {
+          let next = 1;
+          while (data.rows.length < data.count) {
+            query.set("page", String(next++));
+            const response = await apiFetch(`/api/operations?${query}`, { signal: controller.signal, cache: "no-store" });
+            if (!response.ok) throw new Error("OPERATIONS_UNAVAILABLE");
+            const more = await response.json();
+            if (!more.rows.length) break;
+            data.rows.push(...more.rows);
+          }
+        }
+        return data;
+      })
       .then((data) => {
         if (controller.signal.aborted) return;
-        setRows(data.rows); setCount(data.count);
-        try { sessionStorage.setItem(cacheKey, JSON.stringify({ entity, parent: parent?.id ?? "", page, search: querySearch, rows: data.rows, count: data.count })); } catch { /* Queue durability is independent of read caching. */ }
+        setRows(data.rows); setCount(tableEntities.has(entity) ? 0 : data.count);
+        try { if (data.rows.length <= 50) sessionStorage.setItem(cacheKey, JSON.stringify({ entity, parent: parent?.id ?? "", page, search: querySearch, rows: data.rows, count: data.count })); else sessionStorage.removeItem(cacheKey); } catch { /* Queue durability is independent of read caching. */ }
       })
       .catch(() => { if (!controller.signal.aborted) setError("unavailable"); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
@@ -264,14 +282,39 @@ export function OperationsWorkspace(props: Props) {
   const number = (value: unknown) => value == null ? "—" : new Intl.NumberFormat(language === "sv" ? "sv-SE" : language === "en" ? "en-GB" : "de-DE", { maximumFractionDigits: 3 }).format(Number(value));
   const date = (value: unknown) => typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)
     ? new Intl.DateTimeFormat(language === "sv" ? "sv-SE" : language === "en" ? "en-GB" : "de-DE").format(new Date(`${value}T12:00:00`)) : "—";
+  const tableKeys = entity === "suppliers" ? ["supplier_number", "company", "phone", "email", "address", "vat_number", "payment_terms"]
+    : entity === "supplier_contacts" ? ["name", "role", "phone", "email"]
+    : entity === "purchase_orders" ? ["order_number", "supplier_id", "status", "order_date", "expected_delivery", "openItems"]
+    : entity === "material_details" ? ["name", "preferred_supplier_id", "reorder_quantity", "notes"]
+    : entity === "location_details" ? ["name", "location_kind", "notes"] : ["name", "availability", "notes"];
+  const columns: DataColumn[] = tableKeys.map((key) => ({ key, label: t(key), value: (row) => {
+    if (key === "name") return title(row);
+    if (key === "supplier_id" || key === "preferred_supplier_id") return suppliers.find((supplier) => supplier.id === row[key])?.name ?? "";
+    if (key === "status") return operationsLabels[row.status as keyof typeof operationsLabels]?.[language] ?? String(row.status ?? "");
+    if (key === "order_date" || key === "expected_delivery") return row[key] ? date(row[key]) : "";
+    if (key === "openItems") return `${number(row.open_item_count)} / ${number(row.item_count)}`;
+    if (key === "availability" || key === "location_kind") return row[key] ? t(String(row[key])) : "";
+    return String(row[key] ?? "");
+  }, ...(key === "phone" || key === "email" ? { render: (row: OperationsRow) => String(row[key] ?? "").trim() ? <a aria-label={`${t(key)}: ${String(row[key]).trim()}`} href={key === "phone" ? `tel:${String(row[key]).replace(/[^\d+*#]/g, "")}` : `mailto:${encodeURIComponent(String(row[key]).trim())}`}>{String(row[key]).trim()}</a> : "—" } : {}) }));
+  const tableActions = (row: OperationsRow) => <>
+    {entity === "suppliers" && <button onClick={() => change("supplier_contacts", row)}>{t("supplier_contacts")}</button>}
+    {entity === "purchase_orders" && <>
+      <button onClick={() => change("purchase_order_items", row)}>{t("purchase_order_items")}</button>
+      <button title={t("deliveryDocuments")} aria-label={t("deliveryDocuments")} onClick={() => setHistory({ entity: "purchase_receipts", row, title: title(row), order: true })}><History size={18} /></button>
+      {row.status === "draft" && <PurchaseOrderSend orderId={row.id} revision={Number(row.revision)} disabled={blocked(row.id)} language={language} onSent={() => submitCommand(row.id, { kind: "order" }, "update", row.revision)} />}
+      {["draft", "ordered"].includes(String(row.status)) && <button disabled={blocked(row.id)} onClick={() => { try { submitCommand(row.id, { kind: "cancel" }, "update", row.revision); } catch (e) { setFormError(String(e)); } }}>{t("cancelOrder")}</button>}
+    </>}
+    {!(entity === "purchase_orders" && row.status !== "draft") && <button title={t("edit")} aria-label={`${t("edit")}: ${title(row)}`} disabled={blocked(row.id) || Boolean(parent && blocked(parent.id))} onClick={() => open("save", row)}><Pencil size={18} /></button>}
+    {["suppliers", "supplier_contacts"].includes(entity) && <button title={t("archive")} aria-label={`${t("archive")}: ${title(row)}`} disabled={blocked(row.id) || Boolean(parent && blocked(parent.id))} onClick={() => setArchive(row)}><Archive size={18} /></button>}
+  </>;
   return <div className={styles.workspace}>
     <nav className={styles.tabs} aria-label="Operations">{Object.keys(groups).filter((key) => props.resourcesOnly ? ["resources", "maintenance"].includes(key) : ["inventory", "purchasing"].includes(key)).map((key) => <button key={key} className={tab === key ? styles.selected : ""}
       onClick={() => { setTab(key); change(groups[key][0]); }}>{operationsLabels[key as keyof typeof operationsLabels][language]}</button>)}</nav>
     <div className={styles.toolbar}>
       {(tab === "inventory" || tab === "resources") && <button onClick={() => props.onOpenMasterData(tab === "inventory" ? "materials" : "resources")}><Pencil size={18} />{tab === "inventory" ? (language === "de" ? "Materialstammdaten" : language === "sv" ? "Materialregister" : "Material master data") : (language === "de" ? "Ressourcen bearbeiten" : language === "sv" ? "Redigera resurser" : "Edit resources")}</button>}
-      {groups[tab].map((key) => <button key={key} aria-pressed={entity === key} onClick={() => change(key)}>{t(key)}</button>)}
+      {groups[tab].filter((key) => key !== "material_details").map((key) => <button key={key} aria-pressed={entity === key} onClick={() => change(key)}>{t(key)}</button>)}
       {parent && <button onClick={() => change(entity === "supplier_contacts" ? "suppliers" : "purchase_orders")}>{String(parent.company ?? parent.order_number)} <ChevronLeft size={16} /></button>}
-      {["suppliers", "purchase_orders", "maintenance_plans", "resource_details", "material_details", "location_details"].includes(entity) && <input aria-label={language === "de" ? "Einträge suchen" : language === "sv" ? "Sök poster" : "Search records"} type="search" value={search} onChange={(e) => setSearch(e.target.value)} />}
+      {entity === "maintenance_plans" && <input aria-label={language === "de" ? "Einträge suchen" : language === "sv" ? "Sök poster" : "Search records"} type="search" value={search} onChange={(e) => setSearch(e.target.value)} />}
       <button title={t("refresh")} aria-label={t("refresh")} onClick={() => setRefresh((n) => n + 1)}><RefreshCw size={18} /></button>
       {editable && !error && <button onClick={() => open("save")} disabled={entity === "purchase_order_items" && (!parent || parent.status !== "draft" || blocked(parent.id))}><Plus size={18} />{t("create")}</button>}
     </div>
@@ -279,8 +322,8 @@ export function OperationsWorkspace(props: Props) {
     {error && <p role="status">{t(error)}</p>}
     {active.length > 0 && <div role="status" className={styles.pending}>{active.map((m) => <p key={m.id}>{t(m.status === "failed" || m.status === "conflict" ? "failed" : "waiting")}: {String((m.payload.values as Record<string, unknown> | undefined)?.company ?? (m.payload.values as Record<string, unknown> | undefined)?.name ?? m.entityId)}</p>)}</div>}
     <div className={styles.list} aria-busy={loading}>
-      {!rows.length && !loading && !error && <p>{t("empty")}</p>}
-      {entity === "purchase_order_items" && rows.length > 0 ? <div className={styles.itemsScroll}><table className={styles.items}>
+      {!tableEntities.has(entity) && !rows.length && !loading && !error && <p>{t("empty")}</p>}
+      {tableEntities.has(entity) ? <OperationsDataTable key={`${entity}:${parent?.id ?? ""}`} rows={rows} columns={columns} actions={tableActions} label={t(entity)} filterLabel={t("filter")} emptyLabel={t("empty")} actionsLabel={t("actions")} /> : entity === "purchase_order_items" && rows.length > 0 ? <div className={styles.itemsScroll}><table className={styles.items}>
         <thead><tr><th scope="col">{receivable && <input type="checkbox" aria-label={t(count > 50 ? "selectOpenPage" : "selectOpen")} title={t(count > 50 ? "selectOpenPage" : "selectOpen")} disabled={receiptDisabled || !openRows.length}
           checked={openRows.length > 0 && openRows.every((row) => receiptSelection[row.id] !== undefined)}
           ref={(element) => { if (element) element.indeterminate = openRows.some((row) => receiptSelection[row.id] !== undefined) && !openRows.every((row) => receiptSelection[row.id] !== undefined); }}

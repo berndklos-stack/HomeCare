@@ -18,3 +18,9 @@
 -   Neue und geänderte Dialoge mit Chromium und WebKit sowie Desktop- und
     Mobil-Screenshots prüfen; Öffnen allein ist keine ausreichende Layoutprüfung.
 -   Gemeinsame Modal-Regeln nicht ohne Regressionstests für bestehende Dialoge ändern.
+# Stammdaten-Standard
+
+Stammdatenlisten als Tabellen mit Spaltenkoepfen und direkt darunter einer leeren
+Filterzeile je Datenspalte gestalten. Filter kombinieren, vor der Pagination anwenden
+und einzeln loeschen koennen. Aktionsspalten bleiben filterfrei. Auf schmalen Geraeten
+nur den Tabellenbereich horizontal scrollen. Siehe `master-data-tables.md`.

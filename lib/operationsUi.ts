@@ -1,4 +1,7 @@
 export const operationText = {
+  filter: ["Filter", "Filter", "Filter"],
+  status: ["Status", "Status", "Status"],
+  actions: ["Aktionen", "Åtgärder", "Actions"],
   deliveryDocuments: ["Lieferscheine", "Följesedlar", "Delivery notes"],
   pdfPreview: ["PDF-Vorschau", "PDF-förhandsvisning", "PDF preview"],
   backToHistory: ["Zurück zum Lieferverlauf", "Tillbaka till leveranshistoriken", "Back to delivery history"],

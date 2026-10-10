@@ -4,6 +4,13 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.427.0 - 2026-10-10
+
+- Bestellungen, Lieferanten und Kontakte als Tabellen mit leeren Spaltenfiltern.
+- Gleiches Tabellenmuster fuer Material-Einkaufsdaten, Standorte und Ressourcendetails.
+- Kombinierte Filter ueber alle Datenseiten und horizontal scrollbare mobile Tabellen.
+- Wirkungslosen Beschaffungsbutton entfernt; weitere Stammdatenlisten fuer den Folgeumbau dokumentiert.
+
 ## 1.426.2 - 2026-10-09
 
 - Lageraktionen stehen oberhalb der Listen; der Materialfilter kann geleert werden.

@@ -1,4 +1,12 @@
 .workspace { min-width: 0; }
+.dataTable { width: 100%; min-width: 760px; border-collapse: collapse; font-size: 14px; }
+.dataTable th, .dataTable td { padding: 10px 12px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+.dataTable th { font-size: 13px; white-space: nowrap; }
+.dataTable td { min-width: 120px; max-width: 280px; overflow-wrap: anywhere; }
+.dataTable thead input { box-sizing: border-box; width: 100%; min-width: 100px; height: 36px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 4px; background: var(--paper); color: var(--foreground); font: inherit; }
+.dataTable tbody tr:hover { background: var(--paper-soft); }
+.dataTable a { color: var(--brand); }
+.dataTable .actions { min-width: 160px; }
 .historyEntry { padding: 16px 0; border-bottom: 1px solid var(--line); }
 .historyHeading { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
 .historyHeading > div:first-child { min-width: 0; }

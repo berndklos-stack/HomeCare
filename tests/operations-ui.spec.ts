@@ -20,7 +20,7 @@ for (const mobile of [false, true]) {
     await page.route("**/api/private-media?**", (route) => fail ? route.fulfill({ status: 503 }) : route.fulfill({ contentType: "application/pdf", body: Buffer.from(pdf.output("arraybuffer")) }));
     await page.goto("/"); await ready(page); await purchasing(page);
     await page.getByRole("button", { name: "Bestellungen", exact: true }).click();
-    await page.locator("article").filter({ has: page.getByText("PO-PDF", { exact: true }) }).getByRole("button", { name: "Lieferscheine", exact: true }).click();
+    await page.getByRole("row").filter({ has: page.getByText("PO-PDF", { exact: true }) }).getByRole("button", { name: "Lieferscheine", exact: true }).click();
     const dialog = page.getByRole("dialog");
     await expect(dialog.getByRole("button", { name: "note.pdf", exact: true })).toHaveCount(1);
     await expect(dialog.getByText("Kantholz 45x95", { exact: true })).toBeVisible();
@@ -99,25 +99,25 @@ for (const mobile of [false, true]) {
       { id: "66666666-6666-4666-8666-666666666666", supplier_id: supplier.id, name: "No details contact", phone: "", email: "", role: "" },
     ], count: 2 } }));
     await page.goto("/"); await ready(page); await purchasing(page);
-    const row = page.getByRole("article").filter({ hasText: "Test Supplier" });
+    const row = page.getByRole("row").filter({ hasText: "Test Supplier" });
     await expect(row.getByRole("link", { name: "Telefon: +46 (0) 70 123 45 67", exact: true })).toHaveAttribute("href", "tel:+460701234567");
     await expect(row.getByRole("link", { name: "E-Mail: info@example.se", exact: true })).toHaveAttribute("href", "mailto:info%40example.se");
     await expect(row).toContainText("Testgatan 1");
     await expect(row).toContainText("123 45 Stockholm");
-    await expect(row).toContainText("Lieferantennummer: S-1");
-    await expect(row).toContainText("USt-ID: SE123456789001");
-    await expect(row).toContainText("Zahlungsbedingungen: 30 dagar");
+    await expect(row).toContainText("S-1");
+    await expect(row).toContainText("SE123456789001");
+    await expect(row).toContainText("30 dagar");
     await expect(row.getByRole("button", { name: "Kontakte", exact: true })).toBeVisible();
-    await expect(page.getByRole("article").filter({ hasText: "No contact supplier" }).getByRole("link")).toHaveCount(0);
+    await expect(page.getByRole("row").filter({ hasText: "No contact supplier" }).getByRole("link")).toHaveCount(0);
     await page.screenshot({ path: `test-results/supplier-contacts-${mobile ? "mobile" : "desktop"}-${test.info().project.name}.png` });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await row.getByRole("button", { name: "Kontakte", exact: true }).click();
-    const contact = page.getByRole("article").filter({ hasText: "Test Contact" });
+    const contact = page.getByRole("row").filter({ hasText: "Test Contact" });
     await expect(contact.getByRole("link", { name: "Telefon: +46 70 999 88 77", exact: true })).toHaveAttribute("href", "tel:+46709998877");
     await expect(contact.getByRole("link", { name: "E-Mail: contact@example.se", exact: true })).toHaveAttribute("href", "mailto:contact%40example.se");
     await expect(contact).toContainText("Service");
     await expect(contact.getByRole("button", { name: "Bearbeiten: Test Contact", exact: true })).toBeVisible();
-    await expect(page.getByRole("article").filter({ hasText: "No details contact" }).getByRole("link")).toHaveCount(0);
+    await expect(page.getByRole("row").filter({ hasText: "No details contact" }).getByRole("link")).toHaveCount(0);
     await page.screenshot({ path: `test-results/supplier-contact-details-${mobile ? "mobile" : "desktop"}-${test.info().project.name}.png` });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   });
@@ -351,13 +351,10 @@ test("Wartungshistorie lädt nur den ausgewählten Plan und bietet einen private
 
 test("Operations-Lesecache wächst nicht mit Suchanfragen", async ({ page }) => {
   await mock(page); await page.goto("/"); await ready(page); await purchasing(page);
-  const search = page.getByRole("searchbox", { name: "Einträge suchen", exact: true });
+  const search = page.getByRole("searchbox", { name: "Filter: Unternehmen", exact: true });
   for (const value of ["Supplier", "Test", "Another search", ""]) {
     await search.fill(value);
-    await expect.poll(() => page.evaluate(() => {
-      const key = Object.keys(sessionStorage).find((k) => k.startsWith("workcore-operations-read-page"));
-      return key ? JSON.parse(sessionStorage.getItem(key)!).search : null;
-    })).toBe(value);
+    await expect(search).toHaveValue(value);
   }
   expect(await page.evaluate(() => Object.keys(sessionStorage).filter((k) => k.startsWith("workcore-operations")).length)).toBe(1);
 });
@@ -389,11 +386,11 @@ for (const mobile of [false, true]) {
   await page.route("**/api/operations?entity=purchase_order_items**", (route) => route.fulfill({ json: { rows: items, count: 2 } }));
   await page.goto("/"); await ready(page); await purchasing(page);
   await page.getByRole("button", { name: "Bestellungen", exact: true }).click();
-  const summary = page.getByRole("article").filter({ hasText: "PO-DETAIL" });
-  await expect(summary).toContainText("Lieferant: Test Supplier");
-  await expect(summary).toContainText("Bestelldatum: 8.10.2026");
-  await expect(summary).toContainText("Erwartete Lieferung: 15.10.2026");
-  await expect(summary).toContainText("Offene Positionen: 1 / 2");
+  const summary = page.getByRole("row").filter({ hasText: "PO-DETAIL" });
+  await expect(summary).toContainText("Test Supplier");
+  await expect(summary).toContainText("8.10.2026");
+  await expect(summary).toContainText("15.10.2026");
+  await expect(summary).toContainText("1 / 2");
   await summary.getByRole("button", { name: "Positionen", exact: true }).click();
   const table = page.getByRole("table");
   await expect(table.getByRole("columnheader")).toHaveText(["Position", "Bestellt", "Geliefert", "Offen", "WE-Menge"]);
@@ -435,7 +432,7 @@ test("Wareneingangshistorie zeigt Teillieferungen nur der ausgewählten Position
   });
   await page.goto("/"); await ready(page); await purchasing(page);
   await page.getByRole("button", { name: "Bestellungen", exact: true }).click();
-  await page.locator("article").filter({ has: page.getByText("PO-1", { exact: true }) })
+  await page.getByRole("row").filter({ has: page.getByText("PO-1", { exact: true }) })
     .getByRole("button", { name: "Positionen", exact: true }).click();
   await page.getByRole("table").getByRole("button").first().click();
   await page.getByRole("button", { name: "Lieferverlauf", exact: true }).click();
@@ -497,7 +494,7 @@ for (const mobile of [false, true]) {
     });
     await page.goto("/"); await ready(page); await purchasing(page);
     await page.getByRole("button", { name: "Bestellungen", exact: true }).click();
-    await page.getByRole("article").filter({ hasText: "PO-BATCH" }).getByRole("button", { name: "Positionen", exact: true }).click();
+    await page.getByRole("row").filter({ hasText: "PO-BATCH" }).getByRole("button", { name: "Positionen", exact: true }).click();
     const table = page.getByRole("table");
     const checkboxes = table.getByRole("checkbox");
     await expect(checkboxes.nth(3)).toBeDisabled();
