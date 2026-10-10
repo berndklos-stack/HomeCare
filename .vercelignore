@@ -1,0 +1,13 @@
+workcore-erinnerungen.shortcut
+*.shortcut
+.env*
+!.env.example
+.git
+.vercel
+node_modules
+.next
+test-results
+playwright-report
+coverage
+outputs
+work
