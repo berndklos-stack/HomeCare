@@ -4,6 +4,11 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.427.8 - 2026-10-10
+
+- Buchungsrichtung vorne gekennzeichnet: Eingang gruen, Ausgang rot, Umbuchung blau; mit Symbol und lesbarer Beschriftung.
+- Oberer Bezeichnungsfilter breiter und hoeher, mit groesserer Schrift und responsiver Darstellung.
+
 ## 1.427.7 - 2026-10-10
 
 - Auswertungsdesign direkt uebernommen: bestehende Panel-, Titel- und Kennzahlklassen fuer Lageruebersicht, Bestaende, Buchungen und Beschaffung; eingerahmte Tabellen mit den Auswertungs-Kopfzeilen.

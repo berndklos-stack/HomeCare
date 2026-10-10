@@ -36,7 +36,11 @@ for (const mobile of [false, true]) test(`Materialstammdaten kehren ohne alten L
       return route.fulfill({ json: { active: true } });
     }
     if (entity === "stock_balances") return route.fulfill({ json: { rows: [{ location_id: "test-location", quantity: 55 }] } });
-    if (entity === "stock_movements") return route.fulfill({ json: { rows: [{ id: "movement-1", quantity: 55, source_id: null, destination_id: "test-location", occurred_at: "2026-10-09T07:37:26Z", note: "Anlieferung", actor_user_id: "1924d8ca-0781-42e3-98cf-3aa69fcc1f90" }], count: 1 } });
+    if (entity === "stock_movements") return route.fulfill({ json: { rows: [
+      { id: "movement-1", quantity: 55, source_id: null, destination_id: "test-location", occurred_at: "2026-10-09T07:37:26Z", note: "Anlieferung", actor_user_id: "1924d8ca-0781-42e3-98cf-3aa69fcc1f90" },
+      { id: "movement-2", quantity: 5, source_id: "test-location", destination_id: null, occurred_at: "2026-10-09T08:37:26Z", note: "Verbrauch" },
+      { id: "movement-3", quantity: 2, source_id: "test-location", destination_id: "other-location", occurred_at: "2026-10-09T09:37:26Z", note: "Transport" },
+    ], count: 3 } });
     return route.fulfill({ json: { rows: [], count: 0 } });
   });
   await page.goto("/");
@@ -50,6 +54,19 @@ for (const mobile of [false, true]) test(`Materialstammdaten kehren ohne alten L
   await material.selectOption(value!);
   const bookings = page.getByRole("table", { name: "Buchungen", exact: true });
   await expect(bookings).toContainText("Anlieferung");
+  const filterBounds = await material.boundingBox();
+  expect(filterBounds!.height).toBeGreaterThanOrEqual(48);
+  if (!mobile) expect(filterBounds!.width).toBeGreaterThanOrEqual(400);
+  const directionColors = [];
+  for (const direction of ["Eingang", "Ausgang", "Umbuchung"]) {
+    await expect(bookings.getByText(direction, { exact: true })).toBeVisible();
+    const indicator = bookings.locator(`[title="${direction}"]`);
+    await expect(indicator.locator("svg")).toHaveCount(1);
+    directionColors.push(await indicator.evaluate((node) => getComputedStyle(node).color));
+  }
+  expect(new Set(directionColors).size).toBe(3);
+  await bookings.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `test-results/booking-directions-${mobile}-${test.info().project.name}.png` });
   await expect(bookings.getByRole("columnheader", { name: "Bezeichnung", exact: true })).toBeVisible();
   await expect(bookings.getByRole("columnheader", { name: "Material", exact: true })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Bestände und Buchungen", exact: true }).locator("xpath=ancestor::section[1]")).toHaveClass(/panel/);

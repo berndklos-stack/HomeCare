@@ -10,9 +10,19 @@
 .balanceTable th { color: var(--muted); font-size: 11px; font-weight: 850; text-transform: uppercase; background: var(--paper-soft); }
 .balanceTable tbody tr:last-child td { border-bottom: 0; }
 .balanceTable td { background: var(--paper); }
-.stockOverview .toolbar label { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 13px; }
-.stockOverview .toolbar select { width: 280px; }
+.stockOverview .toolbar label { display: flex; align-items: center; gap: 12px; min-width: 0; font-size: 16px; }
+.stockFilter { position: relative; width: 400px; max-width: 100%; min-width: 0; }
+.stockFilter > svg { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); pointer-events: none; }
+.stockOverview .toolbar select { appearance: none; box-sizing: border-box; width: 100%; height: 48px; min-height: 48px; padding: 10px 36px 10px 12px; font-size: 16px; }
+.stockOverview .toolbar > button { min-height: 48px; min-width: 48px; }
 .stockOverview select { max-width: 100%; min-height: 40px; padding: 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); color: var(--foreground); font: inherit; }
+.movementDesignation { display: flex; align-items: center; gap: 10px; }
+.movementDesignation > div { min-width: 0; }
+.movementDesignation small { display: block; margin-top: 3px; color: var(--muted); font-size: 12px; }
+.movementIndicator { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 28px; height: 28px; border-radius: 4px; color: var(--muted); background: var(--paper-soft); }
+.movementIn { color: var(--good); background: color-mix(in srgb, var(--good) 12%, var(--paper)); }
+.movementOut { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, var(--paper)); }
+.movementTransfer { color: var(--brand); background: color-mix(in srgb, var(--brand) 12%, var(--paper)); }
 .dataTable { width: 100%; min-width: 760px; border-collapse: collapse; font-size: 14px; }
 .dataTable th, .dataTable td { padding: 10px 12px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
 .dataTable th { color: var(--muted); font-size: 11px; font-weight: 850; text-transform: uppercase; white-space: nowrap; background: var(--paper-soft); }
@@ -102,6 +112,7 @@ dialog.itemDialog:global(.trip-dialog) { width: min(560px, calc(100vw - 32px)); 
 @media (max-width: 600px) { .fields { grid-template-columns: minmax(0, 1fr); } .row { align-items: flex-start; flex-direction: column; } .dialog { padding: 12px; } }
 @media (max-width: 600px) {
   .stockHeading { gap: 12px; }
-  .stockOverview .toolbar label { flex: 1; }
+  .stockOverview .toolbar { align-items: flex-end; }
+  .stockOverview .toolbar label { flex: 1; flex-direction: column; align-items: stretch; gap: 6px; }
   .stockOverview .toolbar select { width: 100%; min-width: 0; }
 }

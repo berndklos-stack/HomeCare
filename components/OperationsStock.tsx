@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight, Plus, RefreshCw, X } from "lucide-react";
+import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, ChevronLeft, ChevronRight, ChevronsUpDown, Plus, RefreshCw, X } from "lucide-react";
 import { apiFetch } from "@/lib/apiClient";
 import { createStableId, type SyncMutation } from "@/lib/syncQueue";
 import { operationLabel } from "@/lib/operationsUi";
@@ -36,7 +36,14 @@ export function OperationsStock({ language, materials, locations, jobs, projects
   const quantity = (value: unknown) => new Intl.NumberFormat(language, { maximumFractionDigits: 3 }).format(Number(value));
   const location = (id: unknown) => locations.find((row) => row.id === id)?.name ?? (id ? t("unknownLocation") : "—");
   const columns: DataColumn[] = [
-    { key: "material_id", label: t("material_id"), value: () => selected ? materialLabel(selected) : "" },
+    { key: "material_id", label: t("material_id"), value: () => selected ? materialLabel(selected) : "", render: (row) => {
+      const direction = row.source_id && row.destination_id ? "stockTransfer" : row.destination_id ? "stockIn" : row.source_id ? "stockOut" : "bookings";
+      const Icon = direction === "stockIn" ? ArrowDownLeft : direction === "stockOut" ? ArrowUpRight : ArrowLeftRight;
+      return <div className={styles.movementDesignation}>
+        <span className={`${styles.movementIndicator} ${direction === "stockIn" ? styles.movementIn : direction === "stockOut" ? styles.movementOut : direction === "stockTransfer" ? styles.movementTransfer : ""}`} title={t(direction)}><Icon size={18} aria-hidden="true" /></span>
+        <div>{selected ? materialLabel(selected) : ""}<small>{t(direction)}</small></div>
+      </div>;
+    } },
     { key: "occurred_at", label: t("bookingDate"), value: (row) => new Date(String(row.occurred_at)).toLocaleString(language, { dateStyle: "short", timeStyle: "short" }) },
     { key: "quantity", label: t("quantity"), value: (row) => quantity(row.quantity) },
     { key: "source_id", label: t("source_id"), value: (row) => location(row.source_id) },
@@ -66,7 +73,7 @@ export function OperationsStock({ language, materials, locations, jobs, projects
   return <div className={`stack ${styles.stockOverview}`}>
     <section className="panel">
     <header className={`panel-title ${styles.stockHeading}`}><div><p>{t("inventorySection")}</p><h2>{t("stockOverview")}</h2></div><button className={styles.primaryAction} disabled={!materials.length} aria-label={t("globalStockBooking")} onClick={openBooking}><Plus size={18} />{t("stock")}</button></header>
-    <div className={styles.toolbar}><label>{t("material_id")} <select aria-label={t("material_id")} value={materialId} onChange={(e) => { setMaterialId(e.target.value); onMaterialSelected?.(e.target.value); setPage(0); setBalances([]); setHistory([]); setCount(0); setLoading(false); setError(""); }}><option value="">—</option>{materials.map((m) => <option key={m.id} value={m.id}>{materialLabel(m)}</option>)}</select></label>
+    <div className={styles.toolbar}><label>{t("material_id")} <span className={styles.stockFilter}><select aria-label={t("material_id")} value={materialId} onChange={(e) => { setMaterialId(e.target.value); onMaterialSelected?.(e.target.value); setPage(0); setBalances([]); setHistory([]); setCount(0); setLoading(false); setError(""); }}><option value="">—</option>{materials.map((m) => <option key={m.id} value={m.id}>{materialLabel(m)}</option>)}</select><ChevronsUpDown size={18} aria-hidden="true" /></span></label>
       <button disabled={!materialId} title={t("refresh")} aria-label={t("refresh")} onClick={() => setRefresh((n) => n + 1)}><RefreshCw size={18} /></button>
     </div>
     {error && <p role="alert">{t(error)}</p>}
