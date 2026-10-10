@@ -4,6 +4,11 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.427.2 - 2026-10-10
+
+- Ausdruecklich genehmigte Zusammenfuehrungen mit vorherigem relationalem Backup werden im Mutationsjournal nachgewiesen.
+- Beide Geraete koennen damit die exakt gesicherten alten Fortschrittskonflikte bereinigen; veraenderte oder neue Entwuerfe bleiben geschuetzt.
+
 ## 1.427.1 - 2026-10-10
 
 - Verspaetete Speicherbestaetigungen setzen die Revision neuerer lokaler Eingaben nicht zurueck.

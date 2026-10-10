@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { createSyncMutation, enqueueSyncMutation, markMutationSyncing, nextPendingMutation, revisionAfterConfirmation, settleSyncMutation } from "../lib/syncQueue";
 import { prepareProgressMutations } from "../lib/jobOperationsSync";
-import { reviewConflictSequence, reviewProgressConflict } from "../lib/conflictReview";
+import { reviewApprovedResolution, reviewConflictSequence, reviewProgressConflict } from "../lib/conflictReview";
 
 const edit = (revision: number, minutes = "90") => createSyncMutation({
   entityType: "field_progress", entityId: "JOB:task", resourceId: "JOB", operation: "update", expectedRevision: revision,
@@ -57,4 +57,19 @@ test("Alte Konfliktfolgen sind nur erledigt, wenn der letzte vollstaendige lokal
   const partial = { ...latest, payload: { taskId: "task", note: "Arbeit" } };
   const partialSnapshot = [first, partial];
   expect(reviewConflictSequence(partialSnapshot, partialSnapshot, partialSnapshot.map((m) => reviewProgressConflict(m, row, "T"))).some((r) => r.redundant)).toBe(false);
+});
+
+test("Bestaetigte Zusammenfuehrung gilt nur fuer die exakt gesicherte Mutation desselben Mandanten", () => {
+  const mutation = { ...edit(2), status: "conflict" as const };
+  const resolution = { kind: "user_approved_merge", resourceId: "JOB", backupId: "00000000-0000-0000-0000-000000000002", approvedAt: "2026-10-10T08:00:00Z" };
+  const journal = { mutation_id: mutation.id, tenant_id: "T", entity_type: mutation.entityType, entity_id: mutation.entityId,
+    operation: mutation.operation, request_payload: mutation.payload, response_payload: { resolution } };
+  const reviewed = reviewApprovedResolution(mutation, journal, "T");
+  expect(reviewed?.redundant).toBe(true);
+  expect(reviewConflictSequence([mutation], [mutation], [reviewed!])[0].redundant).toBe(true);
+  for (const changed of [{ ...journal, tenant_id: "OTHER" }, { ...journal, mutation_id: "OTHER" },
+    { ...journal, request_payload: { ...mutation.payload, minutes: "120" } },
+    { ...journal, response_payload: { resolution: { ...resolution, backupId: "" } } }]) {
+    expect(reviewApprovedResolution(mutation, changed, "T")).toBeNull();
+  }
 });

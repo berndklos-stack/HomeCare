@@ -1,6 +1,18 @@
 import type { SyncMutation } from "./syncQueue";
 
-export type ConflictReview = { id: string; redundant: boolean; reason: string };
+export type ConflictReview = { id: string; redundant: boolean; reason: string; approvedResolution?: boolean };
+
+export function reviewApprovedResolution(mutation: SyncMutation, journal: Record<string, unknown> | null, tenantId: string): ConflictReview | null {
+  if (!journal || journal.tenant_id !== tenantId || journal.mutation_id !== mutation.id
+    || journal.entity_type !== mutation.entityType || journal.entity_id !== mutation.entityId
+    || journal.operation !== mutation.operation || !sameValue(journal.request_payload, mutation.payload)) return null;
+  const response = journal.response_payload as Record<string, unknown> | null;
+  const resolution = response?.resolution as Record<string, unknown> | undefined;
+  if (!resolution || resolution.kind !== "user_approved_merge" || resolution.resourceId !== mutation.resourceId
+    || typeof resolution.backupId !== "string" || !/^[a-f0-9-]{36}$/i.test(resolution.backupId)
+    || typeof resolution.approvedAt !== "string" || !Number.isFinite(Date.parse(resolution.approvedAt))) return null;
+  return { id: mutation.id, redundant: true, approvedResolution: true, reason: "Lokaler und Serverstand wurden mit deiner Zustimmung gesichert und zusammengefuehrt." };
+}
 
 const progressColumns: Record<string, string> = {
   taskId: "task_id", workDate: "work_date", completed: "completed", minutes: "minutes",
@@ -42,6 +54,7 @@ export function reviewConflictSequence(snapshot: SyncMutation[], current: SyncMu
       && item.status !== "synced" && !group.some((candidate) => candidate.id === item.id));
     if (!unchanged || dependent) return { id: mutation.id, redundant: false, reason: "Weitere oder inzwischen geaenderte lokale Mutation. Manuell pruefen." };
     const own = reviews.find((review) => review.id === mutation.id);
+    if (own?.approvedResolution && own.redundant) return own;
     if (group.length === 1) return own ?? { id: mutation.id, redundant: false, reason: "Serververgleich unvollstaendig." };
     const latest = group.at(-1)!;
     if (mutation.entityType === "field_progress" && group.every((item) => ["create", "update"].includes(item.operation)
