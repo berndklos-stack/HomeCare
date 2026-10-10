@@ -4,6 +4,13 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.427.9 - 2026-10-10
+
+- Lageruebersicht startet mit leerem Bezeichnungsfilter. Beschaffung erscheint nicht vor der Lageruebersicht waehrend der Statuspruefung.
+- Beschaffung ohne Bearbeitungsstift und Aktionsspalte: Zeilenklick oeffnet die Bearbeitung.
+- Bestands- und Buchungszeilen oeffnen kompakte Details per Klick oder Tastatur; gebuchte Bewegungen bleiben unveraenderbar.
+- Korrektur aus Buchungsdetails: volle oder teilweise Gegenbuchung mit vertauschten Lagerorten, Pflichtgrund und Referenz zur Originalbuchung. Bestehende Bestandspruefung und dauerhafte Synchronisierungswarteschlange bleiben erhalten.
+
 ## 1.427.8 - 2026-10-10
 
 - Buchungsrichtung vorne gekennzeichnet: Eingang gruen, Ausgang rot, Umbuchung blau; mit Symbol und lesbarer Beschriftung.

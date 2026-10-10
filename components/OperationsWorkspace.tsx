@@ -58,7 +58,7 @@ export function OperationsWorkspace(props: Props) {
   const [refresh, setRefresh] = useState(0);
   const [loading, setLoading] = useState(false);
   const [stockActive, setStockActive] = useState<boolean | null>(null);
-  const [stockMaterialId, setStockMaterialId] = useState(props.materials[0]?.id ?? "");
+  const [stockMaterialId, setStockMaterialId] = useState("");
   const [stockError, setStockError] = useState(false);
   const [error, setError] = useState("");
   const [suppliers, setSuppliers] = useState<Reference[]>([]);
@@ -312,7 +312,7 @@ export function OperationsWorkspace(props: Props) {
       {row.status === "draft" && <PurchaseOrderSend orderId={row.id} revision={Number(row.revision)} disabled={blocked(row.id)} language={language} onSent={() => submitCommand(row.id, { kind: "order" }, "update", row.revision)} />}
       {["draft", "ordered"].includes(String(row.status)) && <button disabled={blocked(row.id)} onClick={() => { try { submitCommand(row.id, { kind: "cancel" }, "update", row.revision); } catch (e) { setFormError(String(e)); } }}>{t("cancelOrder")}</button>}
     </>}
-    {!(entity === "purchase_orders" && row.status !== "draft") && <button title={t("edit")} aria-label={`${t("edit")}: ${title(row)}`} disabled={blocked(row.id) || Boolean(parent && blocked(parent.id))} onClick={() => open("save", row)}><Pencil size={18} /></button>}
+    {entity !== "material_details" && !(entity === "purchase_orders" && row.status !== "draft") && <button title={t("edit")} aria-label={`${t("edit")}: ${title(row)}`} disabled={blocked(row.id) || Boolean(parent && blocked(parent.id))} onClick={() => open("save", row)}><Pencil size={18} /></button>}
     {["suppliers", "supplier_contacts"].includes(entity) && <button title={t("archive")} aria-label={`${t("archive")}: ${title(row)}`} disabled={blocked(row.id) || Boolean(parent && blocked(parent.id))} onClick={() => setArchive(row)}><Archive size={18} /></button>}
   </>;
   return <div className={styles.workspace}>
@@ -329,10 +329,10 @@ export function OperationsWorkspace(props: Props) {
     {tab === "inventory" && (stockActive === true ? <OperationsStock {...props} onMaterialSelected={setStockMaterialId} /> : stockActive === false ? props.children : <div role="status" aria-busy={!stockError}>{t(stockError ? "OPERATIONS_UNAVAILABLE" : "loading")}</div>)}
     {error && <p role="status">{t(error)}</p>}
     {active.length > 0 && <div role="status" className={styles.pending}>{active.map((m) => <p key={m.id}>{t(m.status === "failed" || m.status === "conflict" ? "failed" : "waiting")}: {String((m.payload.values as Record<string, unknown> | undefined)?.company ?? (m.payload.values as Record<string, unknown> | undefined)?.name ?? m.entityId)}</p>)}</div>}
-    <div className={`panel ${styles.list}`} aria-busy={loading}>
+    {(tab !== "inventory" || stockActive !== null) && <div className={`panel ${styles.list}`} aria-busy={loading}>
       <div className="panel-title"><div><p>{tab === "inventory" ? t("inventorySection") : operationsLabels[tab as keyof typeof operationsLabels][language]}</p><h2>{t(entity)}</h2></div></div>
       {!tableEntities.has(entity) && !rows.length && !loading && !error && <p>{t("empty")}</p>}
-      {tableEntities.has(entity) ? <OperationsDataTable key={`${entity}:${parent?.id ?? ""}`} rows={entity === "material_details" && stockActive && stockMaterialId ? rows.filter((row) => row.id === stockMaterialId) : rows} columns={columns} actions={tableActions} label={t(entity)} filterLabel={t("filter")} emptyLabel={t("empty")} actionsLabel={t("actions")}
+      {tableEntities.has(entity) ? <OperationsDataTable key={`${entity}:${parent?.id ?? ""}`} rows={entity === "material_details" && stockActive && stockMaterialId ? rows.filter((row) => row.id === stockMaterialId) : rows} columns={columns} actions={entity === "material_details" ? undefined : tableActions} label={t(entity)} filterLabel={t("filter")} emptyLabel={t("empty")} actionsLabel={t("actions")}
         canActivate={(row) => !blocked(row.id) && !(parent && blocked(parent.id))}
         onRowActivate={(row) => entity === "purchase_orders" && row.status !== "draft" ? change("purchase_order_items", row) : open("save", row)} /> : entity === "purchase_order_items" && rows.length > 0 ? <div className={styles.itemsScroll}><table className={styles.items}>
         <thead><tr><th scope="col">{receivable && <input type="checkbox" aria-label={t(count > 50 ? "selectOpenPage" : "selectOpen")} title={t(count > 50 ? "selectOpenPage" : "selectOpen")} disabled={receiptDisabled || !openRows.length}
@@ -389,7 +389,7 @@ export function OperationsWorkspace(props: Props) {
           {(["suppliers", "supplier_contacts", "maintenance_plans"].includes(entity) || (entity === "purchase_order_items" && parent?.status === "draft")) && <button title={t("archive")} aria-label={`${t("archive")}: ${title(row)}`} disabled={Boolean(row.in_progress) || blocked(row.id) || Boolean(parent && blocked(parent.id))} onClick={() => setArchive(row)}><Archive size={18} /></button>}
         </div>
       </article>)}
-    </div>
+    </div>}
     {count > 50 && <div className={styles.toolbar}><button aria-label={t("previous")} disabled={page === 0} onClick={() => setPage((p) => p - 1)}><ChevronLeft size={18} /></button><span>{page + 1} / {Math.ceil(count / 50)}</span><button aria-label={t("next")} disabled={(page + 1) * 50 >= count} onClick={() => setPage((p) => p + 1)}><ChevronRight size={18} /></button></div>}
     {receivable && <section className={styles.receiptBooking}>
       <div className={styles.fields}>

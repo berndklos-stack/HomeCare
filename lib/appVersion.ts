@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.427.8",
+  version: "1.427.9",
   releaseDate: "2026-10-10",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  {
+    version: "1.427.9",
+    date: "2026-10-10",
+    changes: [
+      "Lageroeffnung ohne vorausgewaehltes Material und ohne vorgezogene Beschaffung",
+      "Beschaffung per Zeilenklick bearbeiten, Bestaende und Buchungen per Zeilenklick oeffnen",
+      "Korrekturbuchungen als separate Gegenbuchung mit Pflichtgrund und Originalreferenz",
+    ],
+  },
   {
     version: "1.427.8",
     date: "2026-10-10",

@@ -1,5 +1,72 @@
 import { expect, test } from "@playwright/test";
 
+test("Lageroeffnung zeigt Beschaffung nicht vor der Lageruebersicht", async ({ page }) => {
+  let releaseStatus!: () => void;
+  const status = new Promise<void>((resolve) => { releaseStatus = resolve; });
+  await page.route("**/api/operations?**", async (route) => {
+    if (new URL(route.request().url()).searchParams.get("entity") === "stock_status") {
+      await status;
+      return route.fulfill({ json: { active: true } });
+    }
+    return route.fulfill({ json: { rows: [], count: 0 } });
+  });
+  await page.goto("/");
+  await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true", { timeout: 30000 });
+  await page.getByRole("button", { name: "Lager & Material", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Beschaffung", exact: true })).toHaveCount(0);
+  releaseStatus();
+  await expect(page.getByRole("heading", { name: "Bestände und Buchungen", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Beschaffung", exact: true })).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "Bezeichnung", exact: true })).toHaveValue("");
+});
+
+for (const direction of ["in", "out", "transfer"]) test(`Korrektur bucht ${direction} separat in Gegenrichtung`, async ({ page }) => {
+  await page.setViewportSize(direction === "out" ? { width: 390, height: 844 } : { width: 1440, height: 1000 });
+  const source = direction === "in" ? null : "source-location";
+  const destination = direction === "out" ? null : "destination-location";
+  await page.route("**/api/operations?**", (route) => {
+    const entity = new URL(route.request().url()).searchParams.get("entity");
+    return route.fulfill({ json: entity === "stock_status" ? { active: true } : { rows: entity === "stock_movements" ? [{
+      id: "original-movement", quantity: 10, source_id: source, destination_id: destination, occurred_at: "2026-10-10T08:00:00Z", note: "Original booking", job_id: "job-ref", project_id: "project-ref",
+    }] : [], count: entity === "stock_movements" ? 1 : 0 } });
+  });
+  await page.goto("/");
+  await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true", { timeout: 30000 });
+  await page.getByRole("button", { name: "Lager & Material", exact: true }).click();
+  await page.getByRole("combobox", { name: "Bezeichnung", exact: true }).selectOption({ index: 1 });
+  const row = page.getByRole("table", { name: "Buchungen", exact: true }).locator("tbody tr").first();
+  await row.click();
+  await page.getByRole("dialog").getByRole("button", { name: "Korrekturbuchung", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Korrekturbuchung", exact: true });
+  await expect(dialog.getByRole("button", { name: "Korrektur buchen", exact: true })).toBeDisabled();
+  const bounds = await dialog.boundingBox();
+  expect(bounds!.x).toBeGreaterThanOrEqual(0);
+  expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(direction === "out" ? 390 : 1440);
+  expect(await dialog.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+  await page.screenshot({ path: `test-results/stock-correction-${direction}-${test.info().project.name}.png` });
+  await dialog.getByRole("button", { name: "Abbrechen", exact: true }).click();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("workcore-sync-mutations-v1") ?? "[]").filter((m: { payload: { kind?: string } }) => m.payload.kind === "stock"))).toHaveLength(0);
+  await row.press("Enter");
+  await page.getByRole("dialog").getByRole("button", { name: "Korrekturbuchung", exact: true }).click();
+  const amount = direction === "in" ? 10 : 2;
+  await dialog.getByRole("spinbutton", { name: "Menge", exact: true }).fill("11");
+  await dialog.getByRole("textbox", { name: "Korrekturgrund", exact: true }).fill("Falsche Menge");
+  await dialog.getByRole("button", { name: "Korrektur buchen", exact: true }).click();
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("spinbutton", { name: "Menge", exact: true }).fill(String(amount));
+  await dialog.locator("form").evaluate((form) => {
+    form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+  });
+  await expect(dialog).toHaveCount(0);
+  const queued = await page.evaluate(() => JSON.parse(localStorage.getItem("workcore-sync-mutations-v1") ?? "[]").filter((m: { payload: { kind?: string } }) => m.payload.kind === "stock"));
+  expect(queued).toHaveLength(1);
+  expect(queued[0]).toMatchObject({ operation: "create", payload: { kind: "stock", source_id: destination, destination_id: source, quantity: amount, note: "Korrekturbuchung [original-movement]: Falsche Menge", job_id: "job-ref", project_id: "project-ref" } });
+  await expect(row).toContainText("Original booking");
+  await row.click();
+  await expect(page.getByRole("dialog").getByRole("button", { name: "Korrekturbuchung", exact: true })).toBeDisabled();
+});
+
 test("Lageransicht verwendet die Panel- und Kennzahlgestaltung der Auswertung", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.route("**/api/operations?**", (route) => {
@@ -22,6 +89,9 @@ test("Lageransicht verwendet die Panel- und Kennzahlgestaltung der Auswertung", 
   const stockPanel = page.getByRole("heading", { name: "Bestände und Buchungen", exact: true }).locator("xpath=ancestor::section[1]");
   await expect(stockPanel).toBeVisible();
   expect(await stockPanel.evaluate(appearance)).toEqual(panelStyle);
+  const material = stockPanel.getByRole("combobox", { name: "Bezeichnung", exact: true });
+  await expect(material).toHaveValue("");
+  await material.selectOption({ index: 1 });
   expect(await stockPanel.locator(".analytics-summary-grid > div").first().evaluate(appearance)).toEqual(metricStyle);
 });
 
@@ -49,6 +119,8 @@ for (const mobile of [false, true]) test(`Materialstammdaten kehren ohne alten L
   await expect(page.getByText("Materialbestand, Lagerorte, Ein- und Ausgänge sowie Einkaufsbelege zentral verwalten.", { exact: true })).not.toBeVisible();
   const material = page.getByRole("heading", { name: "Bestände und Buchungen", exact: true }).locator("xpath=ancestor::section[1]").getByRole("combobox", { name: "Bezeichnung", exact: true });
   await expect(material).toBeVisible();
+  await expect(material).toHaveValue("");
+  await expect(page.getByRole("heading", { name: "Buchungen", exact: true })).toHaveCount(0);
   const value = await material.locator("option").last().getAttribute("value");
   expect(value).toBeTruthy();
   await material.selectOption(value!);
@@ -65,6 +137,14 @@ for (const mobile of [false, true]) test(`Materialstammdaten kehren ohne alten L
     directionColors.push(await indicator.evaluate((node) => getComputedStyle(node).color));
   }
   expect(new Set(directionColors).size).toBe(3);
+  await bookings.locator("tbody tr").first().getByText("Anlieferung", { exact: true }).click();
+  const movementDetails = page.getByRole("dialog");
+  await expect(movementDetails).toContainText("Buchungsdetails");
+  await expect(movementDetails).toContainText("Anlieferung");
+  await movementDetails.getByRole("button", { name: "Schließen", exact: true }).first().click();
+  await page.getByRole("table", { name: "Bestand je Lagerort", exact: true }).locator("tbody tr").first().press("Enter");
+  await expect(page.getByRole("dialog")).toContainText("55");
+  await page.getByRole("dialog").getByRole("button", { name: "Schließen", exact: true }).first().click();
   await bookings.scrollIntoViewIfNeeded();
   await page.screenshot({ path: `test-results/booking-directions-${mobile}-${test.info().project.name}.png` });
   await expect(bookings.getByRole("columnheader", { name: "Bezeichnung", exact: true })).toBeVisible();
@@ -94,6 +174,10 @@ for (const mobile of [false, true]) test(`Materialstammdaten kehren ohne alten L
   await expect(page.getByRole("heading", { name: "Beschaffung", exact: true })).toBeVisible();
   await expect(materialTable.getByRole("columnheader", { name: "Bezeichnung", exact: true })).toBeVisible();
   await expect(materialTable.getByRole("columnheader", { name: "Name", exact: true })).toHaveCount(0);
+  await expect(materialTable.getByRole("columnheader", { name: "Aktionen", exact: true })).toHaveCount(0);
+  await materialTable.locator("tbody tr").first().click();
+  await expect(page.getByRole("dialog", { name: "Beschaffung", exact: true })).toBeVisible();
+  await page.getByRole("dialog").getByRole("button", { name: "Abbrechen", exact: true }).click();
   await page.getByRole("button", { name: "Allgemeine Lagerbuchung", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Lagerbuchung", exact: true });
   await expect(dialog).toContainText(options.find((row) => row.id === value)!.name);

@@ -159,6 +159,7 @@ test("Lageraktionen stehen oben und Materialfilter ist leerbar", async ({ page }
   const filter = page.getByLabel("Bezeichnung", { exact: true });
   await expect(filter).toBeVisible();
   const original = await filter.inputValue();
+  expect(original).toBe("");
   const master = await page.getByRole("button", { name: "Materialstammdaten", exact: true }).boundingBox();
   const stock = await page.getByRole("button", { name: "Allgemeine Lagerbuchung", exact: true }).boundingBox();
   expect(master!.y).toBeLessThan(stock!.y);
@@ -174,6 +175,7 @@ test("Materialbuchung hat Quelle, Ziel und separate idempotente Queue-Aktion", a
   await page.getByRole("button", { name: "Lager & Material", exact: true }).click();
   await page.getByRole("button", { name: "Allgemeine Lagerbuchung", exact: true }).click();
   const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Bezeichnung", { exact: true }).selectOption({ index: 1 });
   await dialog.getByLabel("Nach Standort", { exact: true }).selectOption({ index: 1 });
   await dialog.getByLabel("Menge", { exact: true }).fill("5");
   await dialog.getByLabel("Buchungsgrund", { exact: true }).fill("Delivery test");
@@ -365,7 +367,7 @@ test("Materialbeschaffung lädt bevorzugte Lieferanten auch ohne Wechsel zum Ein
   await page.goto("/"); await ready(page);
   await page.getByRole("button", { name: "Lager & Material", exact: true }).click();
   await page.getByLabel("Bezeichnung", { exact: true }).selectOption("");
-  await page.getByRole("button", { name: "Bearbeiten: MAT-TEST", exact: true }).click();
+  await page.getByRole("table", { name: "Beschaffung", exact: true }).locator("tbody tr").filter({ hasText: "MAT-TEST" }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByLabel("Bevorzugter Lieferant").locator("option").filter({ hasText: "Test Supplier" })).toHaveCount(1);
   await dialog.getByLabel("Bevorzugter Lieferant").selectOption(supplier.id);
