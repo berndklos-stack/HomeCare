@@ -8967,7 +8967,6 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
   const [quickTripOpen, setQuickTripOpen] = useState(false);
   const [resourceLogbookOpenRequestId, setResourceLogbookOpenRequestId] = useState("");
   const [operationsMasterDataRequest, setOperationsMasterDataRequest] = useState("");
-  const [materialMasterOpen, setMaterialMasterOpen] = useState(false);
   const [dailyMailSending, setDailyMailSending] = useState(false);
   const [manualRefreshRunning, setManualRefreshRunning] = useState(false);
   const [quickTripAddressLoading, setQuickTripAddressLoading] = useState("");
@@ -13241,6 +13240,57 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     );
   }
 
+  const masterDataView = (
+    <MasterDataView
+      materialsOnly={section === "inventory"}
+      queue={tripSync.queue}
+      enqueue={enqueueSyncMutation}
+      resourceOperations={<OperationsWorkspace resourcesOnly language={language} queue={tripSync.queue} enqueue={enqueueSyncMutation}
+        onOpenMasterData={() => setOperationsMasterDataRequest(`resources:${Date.now()}`)}
+        materials={materials.map((row) => ({ id: row.id, name: row.name }))}
+        locations={inventoryLocations.map((row) => ({ id: row.id, name: row.name }))}
+        resources={resources.map((row) => ({ id: row.id, name: row.name, mileage: row.currentOdometer ? Number(row.currentOdometer) : undefined,
+          documents: (row.media ?? []).filter((media) => media.type === "Dokument").map((media) => ({ id: media.id, name: media.name })) }))}
+        employees={personnel.map((row) => ({ id: row.id, name: `${row.firstName} ${row.lastName}`.trim() }))}
+        jobs={jobs.map((row) => ({ id: row.id, name: row.title }))} projects={objects.map((row) => ({ id: row.id, name: row.name }))}/>}
+      accountingAccounts={accountingAccounts}
+      companySettings={companySettings}
+      customers={activeCustomers}
+      dailyMailSettings={dailyMailSettings}
+      language={language}
+      objects={activeObjects}
+      onSendDailyMail={sendDailyMailNow}
+      onStartOnboarding={startOnboarding}
+      materials={materials}
+      packages={servicePackages}
+      personnel={personnel}
+      resources={resources}
+      services={services}
+      dailyMailSending={dailyMailSending}
+      openResourceLogbookRequestId={resourceLogbookOpenRequestId}
+      operationsMasterDataRequest={operationsMasterDataRequest}
+      translate={tx}
+      translationOverrides={translationOverrides}
+      setCompanySettings={persistCompanySettingsRelational}
+      setAccountingAccounts={persistAccountingAccountsRelational}
+      setMaterials={persistMaterialsRelational}
+      setPackages={persistPackagesRelational}
+      setPersonnel={persistPersonnelRelational}
+      onPersistResources={(nextResources, options) => (
+        options?.localOnly
+          ? persistResourcesFast(nextResources)
+          : persistResourcesRelational(nextResources, {
+              serverRevisionBumpResourceId: options?.serverRevisionBumpResourceId,
+            })
+      )}
+      onTripMutation={enqueueTripMutation}
+      setResources={setResources}
+      setServices={persistServicesRelational}
+      setDailyMailSettings={persistDailyMailSettingsRelational}
+      setTranslationOverrides={persistTranslationsRelational}
+    />
+  );
+
   return (
     <main className="app" data-ready="true" data-theme={theme}>
       {onboardingVisible && (
@@ -13620,9 +13670,9 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
               />
             )}
             {section === "inventory" && (
-              <div hidden={materialMasterOpen} style={{ minWidth: 0 }}>
               <OperationsWorkspace language={language} queue={tripSync.queue} enqueue={enqueueSyncMutation}
-                onOpenMasterData={(tab) => { setOperationsMasterDataRequest(`${tab}:${Date.now()}`); if (tab === "materials") setMaterialMasterOpen(true); else setSection("masterData"); }}
+                materialMasterData={masterDataView}
+                onOpenMasterData={(tab) => { setOperationsMasterDataRequest(`${tab}:${Date.now()}`); setSection("masterData"); }}
                 materials={materials.map((r) => ({ id: r.id, name: r.name, sku: r.sku, unit: r.unit, minStock: r.minStock, archived: r.archived }))}
                 locations={inventoryLocations.filter((r) => !r.archived).map((r) => ({ id: r.id, parentLocationId: r.parentLocationId, name: r.parentLocationId ? `${inventoryLocations.find((parent) => parent.id === r.parentLocationId)?.name ?? ""} / ${r.name}` : r.name }))}
                 resources={resources.map((r) => ({ id: r.id, name: r.name, mileage: r.currentOdometer ? Number(r.currentOdometer) : undefined,
@@ -13646,7 +13696,6 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
                 setMaterials={setMaterials}
               />
               </OperationsWorkspace>
-              </div>
             )}
             {section === "tracking" && (
               <TrackingView
@@ -13660,57 +13709,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
                 resources={resources}
               />
             )}
-            {(section === "masterData" || (section === "inventory" && materialMasterOpen)) && (
-              <MasterDataView
-                materialsOnly={section === "inventory"}
-                onCloseMaterials={() => setMaterialMasterOpen(false)}
-                queue={tripSync.queue}
-                enqueue={enqueueSyncMutation}
-                resourceOperations={<OperationsWorkspace resourcesOnly language={language} queue={tripSync.queue} enqueue={enqueueSyncMutation}
-                  onOpenMasterData={() => setOperationsMasterDataRequest(`resources:${Date.now()}`)}
-                  materials={materials.map((row) => ({ id: row.id, name: row.name }))}
-                  locations={inventoryLocations.map((row) => ({ id: row.id, name: row.name }))}
-                  resources={resources.map((row) => ({ id: row.id, name: row.name, mileage: row.currentOdometer ? Number(row.currentOdometer) : undefined,
-                    documents: (row.media ?? []).filter((media) => media.type === "Dokument").map((media) => ({ id: media.id, name: media.name })) }))}
-                  employees={personnel.map((row) => ({ id: row.id, name: `${row.firstName} ${row.lastName}`.trim() }))}
-                  jobs={jobs.map((row) => ({ id: row.id, name: row.title }))} projects={objects.map((row) => ({ id: row.id, name: row.name }))}/>}
-                accountingAccounts={accountingAccounts}
-                companySettings={companySettings}
-                customers={activeCustomers}
-                dailyMailSettings={dailyMailSettings}
-                language={language}
-                objects={activeObjects}
-                onSendDailyMail={sendDailyMailNow}
-                onStartOnboarding={startOnboarding}
-                materials={materials}
-                packages={servicePackages}
-                personnel={personnel}
-                resources={resources}
-                services={services}
-                dailyMailSending={dailyMailSending}
-                openResourceLogbookRequestId={resourceLogbookOpenRequestId}
-                operationsMasterDataRequest={operationsMasterDataRequest}
-                translate={tx}
-                translationOverrides={translationOverrides}
-                setCompanySettings={persistCompanySettingsRelational}
-                setAccountingAccounts={persistAccountingAccountsRelational}
-                setMaterials={persistMaterialsRelational}
-                setPackages={persistPackagesRelational}
-                setPersonnel={persistPersonnelRelational}
-                onPersistResources={(nextResources, options) => (
-                  options?.localOnly
-                    ? persistResourcesFast(nextResources)
-                    : persistResourcesRelational(nextResources, {
-                        serverRevisionBumpResourceId: options?.serverRevisionBumpResourceId,
-                      })
-                )}
-                onTripMutation={enqueueTripMutation}
-                setResources={setResources}
-                setServices={persistServicesRelational}
-                setDailyMailSettings={persistDailyMailSettingsRelational}
-                setTranslationOverrides={persistTranslationsRelational}
-              />
-            )}
+            {section === "masterData" && masterDataView}
           </div>
         </section>
       </section>
@@ -20629,7 +20628,6 @@ function CustomerPortalView({
 function MasterDataView({
   resourceOperations,
   materialsOnly = false,
-  onCloseMaterials,
   queue,
   enqueue,
   accountingAccounts,
@@ -20664,7 +20662,6 @@ function MasterDataView({
 }: {
   resourceOperations: ReactNode;
   materialsOnly?: boolean;
-  onCloseMaterials: () => void;
   queue: SyncMutation[];
   enqueue: (mutation: SyncMutation) => void;
   accountingAccounts: AccountingAccount[];
@@ -22292,7 +22289,7 @@ function MasterDataView({
 
   return (
       <div className="stack">
-      {materialsOnly ? <div className="master-data-view-header"><h2>{language === "de" ? "Lager & Material" : language === "sv" ? "Lager och material" : "Inventory & materials"}</h2><button className="ghost-button" onClick={onCloseMaterials} type="button"><ArrowLeft size={16}/>{tt("Zurück")}</button></div> : <div className="segmented-control master-data-tabs">
+      {!materialsOnly && <div className="segmented-control master-data-tabs">
         <button className={masterDataTab === "company" ? "active" : ""} onClick={() => setMasterDataTab("company")} type="button">
           <Home size={16} />
           {tt("Firma")}
@@ -23676,8 +23673,8 @@ function MasterDataView({
         <section className="panel">
           <div className="panel-title">
             <div>
-              <p>{tt("Stammdaten")}</p>
-              <h2>{tt("Material verwalten")}</h2>
+              <p>{tt("Lager & Material")}</p>
+              <h2>{tt("Materialstammdaten")}</h2>
               <span>{tt("Materialpositionen erhalten hier ihr Erlöskonto für die spätere Spiris / Visma-Übergabe.")}</span>
             </div>
             <button className="primary-button" onClick={openCreateMaterial} type="button">

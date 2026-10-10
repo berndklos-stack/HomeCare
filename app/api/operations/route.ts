@@ -106,7 +106,9 @@ export async function GET(request: Request) {
   else query = query.order("id");
   query = query.range(page * 50, page * 50 + 49);
   if (!immutable.has(entity)) query = query.is("deleted_at", null);
-  if (entity === "location_details" && !params.get("parent") && !params.get("id")) query = query.is("parent_location_id", null);
+  if (entity === "location_details" && !params.get("parent") && !params.get("id")) {
+    query = params.get("storage_places") === "1" ? query.not("parent_location_id", "is", null) : query.is("parent_location_id", null);
+  }
   const search = params.get("search")?.trim();
   if (search) {
     if (search.length > 100) return NextResponse.json({ error: "INVALID_SEARCH" }, { status: 400 });

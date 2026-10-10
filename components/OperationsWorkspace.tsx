@@ -24,6 +24,7 @@ type Props = {
   materials: Reference[]; locations: Reference[]; resources: Reference[]; employees: Reference[]; jobs: Reference[]; projects: Reference[];
   onOpenMasterData: (tab: "materials" | "resources") => void;
   resourcesOnly?: boolean;
+  materialMasterData?: ReactNode;
 };
 type Form = { entity: OperationsEntity; row?: OperationsRow; kind: "save" | "receive" | "complete"; values: Record<string, string>; target?: OperationsRow };
 const numeric = new Set(["quantity", "unit_price", "due_mileage", "due_hours", "interval_days", "interval_mileage", "interval_hours", "purchase_price", "operating_hours", "reorder_quantity", "mileage", "cost"]);
@@ -50,10 +51,14 @@ export function OperationsWorkspace(props: Props) {
   const fieldLabel = (key: string, target: OperationsEntity = entity) => t(key === "name" && target !== "supplier_contacts" ? "designation" : key === "note" && target === "location_details" ? "notes" : key);
   const [tab, setTab] = useState(props.resourcesOnly ? "resources" : "inventory");
   const [stockView, setStockView] = useState<"overview" | "bookings">("overview");
+  const [materialMasterSelected, setMaterialMasterSelected] = useState(false);
+  const [materialMasterMounted, setMaterialMasterMounted] = useState(false);
+  const [storagePlacesView, setStoragePlacesView] = useState(false);
   const [entity, setEntity] = useState<OperationsEntity>(props.resourcesOnly ? "resource_assignments" : "material_details");
   const [parent, setParent] = useState<OperationsRow | null>(null);
   const [rows, setRows] = useState<OperationsRow[]>([]);
   const [locationTypes, setLocationTypes] = useState<Reference[]>([]);
+  const [locationRoots, setLocationRoots] = useState<Reference[]>([]);
   const [count, setCount] = useState(0);
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState("");
@@ -111,13 +116,14 @@ export function OperationsWorkspace(props: Props) {
     // One bounded read page, not a growing cache per search/page/report.
     try {
       const cached = JSON.parse(sessionStorage.getItem(cacheKey) ?? "null");
-      if (cached?.entity === entity && cached.parent === (parent?.id ?? "") && cached.page === page && cached.search === querySearch) {
+      if (cached?.entity === entity && cached.places === storagePlacesView && cached.parent === (parent?.id ?? "") && cached.page === page && cached.search === querySearch) {
         setRows(cached.rows); setCount(tableEntities.has(entity) ? 0 : cached.count);
       }
     } catch { /* Read cache is optional. */ }
     const query = new URLSearchParams({ entity, page: String(page) });
     if (querySearch) query.set("search", querySearch);
     if (parent) query.set("parent", parent.id);
+    else if (entity === "location_details" && storagePlacesView) query.set("storage_places", "1");
     apiFetch(`/api/operations?${query}`, { signal: controller.signal, cache: "no-store" })
       .then(async (r) => {
         if (!r.ok) throw new Error("OPERATIONS_UNAVAILABLE");
@@ -138,12 +144,12 @@ export function OperationsWorkspace(props: Props) {
       .then((data) => {
         if (controller.signal.aborted) return;
         setRows(data.rows); setCount(tableEntities.has(entity) ? 0 : data.count);
-        try { if (data.rows.length <= 50) sessionStorage.setItem(cacheKey, JSON.stringify({ entity, parent: parent?.id ?? "", page, search: querySearch, rows: data.rows, count: data.count })); else sessionStorage.removeItem(cacheKey); } catch { /* Queue durability is independent of read caching. */ }
+        try { if (data.rows.length <= 50) sessionStorage.setItem(cacheKey, JSON.stringify({ entity, places: storagePlacesView, parent: parent?.id ?? "", page, search: querySearch, rows: data.rows, count: data.count })); else sessionStorage.removeItem(cacheKey); } catch { /* Queue durability is independent of read caching. */ }
       })
       .catch(() => { if (!controller.signal.aborted) setError("unavailable"); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [entity, page, parent, refresh, settled, cacheKey, querySearch]);
+  }, [entity, page, parent, refresh, settled, cacheKey, querySearch, storagePlacesView]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -162,7 +168,10 @@ export function OperationsWorkspace(props: Props) {
       if (!controller.signal.aborted) setter(result);
     }
     void references("suppliers", "company", setSuppliers).catch(() => {});
-    if (tab === "inventory") void references("location_types", "name", setLocationTypes).catch(() => {});
+    if (tab === "inventory") {
+      void references("location_types", "name", setLocationTypes).catch(() => {});
+      void references("location_details", "name", setLocationRoots).catch(() => {});
+    }
     if (tab !== "inventory") {
       void references("purchase_orders", "order_number", setOrders).catch(() => {});
       void references("resource_details", "id", setResourceDetails).catch(() => {});
@@ -184,7 +193,7 @@ export function OperationsWorkspace(props: Props) {
   useEffect(() => {
     if (!parentId) return;
     const controller = new AbortController();
-    const kind = entity === "purchase_order_items" ? "purchase_orders" : "suppliers";
+    const kind = entity === "location_details" ? "location_details" : entity === "purchase_order_items" ? "purchase_orders" : "suppliers";
     apiFetch(`/api/operations?entity=${kind}&id=${encodeURIComponent(parentId)}`, { signal: controller.signal })
       .then(async (r) => r.ok ? r.json() : null).then((data) => {
         if (!controller.signal.aborted && data?.rows[0]) setParent(data.rows[0]);
@@ -196,17 +205,21 @@ export function OperationsWorkspace(props: Props) {
     supplier_id: suppliers, preferred_supplier_id: suppliers, order_id: orders,
     resource_id: props.resources, employee_id: props.employees, responsible_person_id: props.employees,
     material_id: props.materials, location_id: props.locations, job_id: props.jobs, project_id: props.projects,
-    location_type_id: locationTypes, parent_location_id: [...props.locations.filter((location) => !location.parentLocationId && location.id !== form?.row?.id),
-      ...(parent && entity === "location_details" && !props.locations.some((location) => location.id === parent.id) ? [{ id: parent.id, name: String(parent.name ?? parent.id) }] : [])],
+    location_type_id: locationTypes, parent_location_id: [...new Map([
+      ...props.locations.filter((location) => !location.parentLocationId), ...locationRoots,
+      ...(parent && entity === "location_details" ? [{ id: parent.id, name: String(parent.name ?? parent.id) }] : []),
+    ].map((location) => [location.id, location])).values()].filter((location) => location.id !== form?.row?.id),
     document_id: [...(props.resources.find((r) => r.id === form?.row?.resource_id)?.documents ?? []), ...(uploadedDocument ? [uploadedDocument] : [])],
-  }), [suppliers, orders, locationTypes, props.resources, props.employees, props.materials, props.locations, props.jobs, props.projects, form?.row?.resource_id, form?.row?.id, parent, entity, uploadedDocument]);
+  }), [suppliers, orders, locationTypes, locationRoots, props.resources, props.employees, props.materials, props.locations, props.jobs, props.projects, form?.row?.resource_id, form?.row?.id, parent, entity, uploadedDocument]);
   function title(row: OperationsRow) {
     if (entity === "location_details" && row.name) return String(row.name);
     const existing = entity === "resource_details" ? props.resources : entity === "material_details" ? props.materials : entity === "location_details" ? props.locations : [];
     return existing.find((r) => r.id === row.id)?.name ?? String(row.company ?? row.name ?? row.order_number ??
       props.materials.find((r) => r.id === row.material_id)?.name ?? props.resources.find((r) => r.id === row.resource_id)?.name ?? row.id);
   }
-  function change(next: OperationsEntity, owner: OperationsRow | null = null) {
+  function change(next: OperationsEntity, owner: OperationsRow | null = null, places = false) {
+    setMaterialMasterSelected(false);
+    setStoragePlacesView(next === "location_details" && (places || Boolean(owner)));
     setEntity(next); setParent(owner); setPage(0); setSearch(""); setQuerySearch(""); setForm(null); setItemDetails(null);
   }
   function open(kind: Form["kind"], row?: OperationsRow) {
@@ -237,6 +250,7 @@ export function OperationsWorkspace(props: Props) {
       const v = form.values;
       if (form.kind === "save") {
         if (form.entity === "location_details" && !v.name?.trim()) throw new Error("INVALID_OPERATIONS_COMMAND");
+        if (form.entity === "location_details" && storagePlacesView && !v.parent_location_id) throw new Error("INVALID_OPERATIONS_COMMAND");
         if (form.entity === "maintenance_plans" && !["due_date", "due_mileage", "due_hours"].some((key) => v[key]?.trim())) {
           throw new Error("maintenanceDueRequired");
         }
@@ -303,11 +317,12 @@ export function OperationsWorkspace(props: Props) {
     : entity === "supplier_contacts" ? ["name", "role", "phone", "email"]
     : entity === "purchase_orders" ? ["order_number", "supplier_id", "status", "order_date", "expected_delivery", "openItems"]
     : entity === "material_details" ? ["name", "preferred_supplier_id", "reorder_quantity", "notes"]
-    : entity === "location_details" ? ["name", "location_code", "location_type_id", "job_id", "note"] : entity === "location_types" ? ["name", "notes"] : ["name", "availability", "notes"];
+    : entity === "location_details" ? ["name", "location_code", ...(storagePlacesView ? ["parent_location_id"] : []), "location_type_id", "job_id", "note"] : entity === "location_types" ? ["name", "notes"] : ["name", "availability", "notes"];
   const columns: DataColumn[] = tableKeys.map((key) => ({ key, label: fieldLabel(key), value: (row) => {
     if (key === "name") return title(row);
     if (key === "supplier_id" || key === "preferred_supplier_id") return suppliers.find((supplier) => supplier.id === row[key])?.name ?? "";
     if (key === "location_type_id") return locationTypes.find((type) => type.id === row[key])?.name ?? (row.location_kind ? t(String(row.location_kind)) : "");
+    if (key === "parent_location_id") return locationRoots.find((location) => location.id === row.parent_location_id)?.name ?? props.locations.find((location) => location.id === row.parent_location_id)?.name ?? t("unknownLocation");
     if (key === "job_id") return props.jobs.find((job) => job.id === row[key])?.name ?? "";
     if (key === "status") return operationsLabels[row.status as keyof typeof operationsLabels]?.[language] ?? String(row.status ?? "");
     if (key === "order_date" || key === "expected_delivery") return row[key] ? date(row[key]) : "";
@@ -326,29 +341,34 @@ export function OperationsWorkspace(props: Props) {
     {entity !== "material_details" && !(entity === "purchase_orders" && row.status !== "draft") && <button title={t("edit")} aria-label={`${t("edit")}: ${title(row)}`} disabled={blocked(row.id) || Boolean(parent && blocked(parent.id))} onClick={() => open("save", row)}><Pencil size={18} /></button>}
     {["suppliers", "supplier_contacts"].includes(entity) && <button title={t("archive")} aria-label={`${t("archive")}: ${title(row)}`} disabled={blocked(row.id) || Boolean(parent && blocked(parent.id))} onClick={() => setArchive(row)}><Archive size={18} /></button>}
   </>;
-  const inventoryMaster = tab === "inventory" && entity !== "material_details";
+  const inventoryMaster = tab === "inventory" && (entity !== "material_details" || materialMasterSelected);
   return <div className={styles.workspace}>
     <nav className={styles.tabs} aria-label="Operations">{Object.keys(groups).filter((key) => props.resourcesOnly ? ["resources", "maintenance"].includes(key) : ["inventory", "purchasing"].includes(key)).map((key) => <button key={key} className={tab === key ? styles.selected : ""}
       onClick={() => { setTab(key); change(groups[key][0]); }}>{operationsLabels[key as keyof typeof operationsLabels][language]}</button>)}</nav>
     <div className={styles.toolbar}>
       {tab === "inventory" && <div className={styles.tabs} role="tablist" aria-label={t("inventorySection")}>
         {(["overview", "bookings"] as const).map((view) => <button key={view} role="tab" aria-selected={!inventoryMaster && stockView === view} aria-controls="inventory-stock-panel" className={!inventoryMaster && stockView === view ? styles.selected : ""} onClick={() => { setStockView(view); change("material_details"); }}>{view === "bookings" ? t("bookings") : language === "de" ? "Bestandsübersicht" : language === "sv" ? "Lageröversikt" : "Stock overview"}</button>)}
-        {groups.inventory.filter((key) => key !== "material_details").map((key) => <button key={key} role="tab" aria-selected={entity === key} aria-controls="inventory-master-panel" className={entity === key ? styles.selected : ""} onClick={() => change(key)}>{t(key)}</button>)}
+        <button role="tab" aria-selected={materialMasterSelected} aria-controls="inventory-material-panel" className={materialMasterSelected ? styles.selected : ""} onClick={() => { change("material_details"); setMaterialMasterMounted(true); setMaterialMasterSelected(true); }}>{language === "de" ? "Materialstammdaten" : language === "sv" ? "Materialregister" : "Material master data"}</button>
+        {groups.inventory.filter((key) => key !== "material_details").map((key) => <button key={key} role="tab" aria-selected={entity === key && !storagePlacesView} aria-controls="inventory-master-panel" className={entity === key && !storagePlacesView ? styles.selected : ""} onClick={() => change(key)}>{t(key)}</button>)}
+        <button role="tab" aria-selected={entity === "location_details" && storagePlacesView} aria-controls="inventory-master-panel" className={entity === "location_details" && storagePlacesView ? styles.selected : ""} onClick={() => change("location_details", null, true)}>{t("storagePlaces")}</button>
       </div>}
-      {(tab === "inventory" || tab === "resources") && <button onClick={() => props.onOpenMasterData(tab === "inventory" ? "materials" : "resources")}><Pencil size={18} />{tab === "inventory" ? (language === "de" ? "Materialstammdaten" : language === "sv" ? "Materialregister" : "Material master data") : (language === "de" ? "Ressourcen bearbeiten" : language === "sv" ? "Redigera resurser" : "Edit resources")}</button>}
+      {tab === "resources" && <button onClick={() => props.onOpenMasterData("resources")}><Pencil size={18} />{language === "de" ? "Ressourcen bearbeiten" : language === "sv" ? "Redigera resurser" : "Edit resources"}</button>}
       {tab !== "inventory" && groups[tab].filter((key) => key !== "material_details").map((key) => <button key={key} aria-pressed={entity === key} onClick={() => change(key)}>{t(key)}</button>)}
       {parent && <button onClick={() => change(entity === "location_details" ? "location_details" : entity === "supplier_contacts" ? "suppliers" : "purchase_orders")}>{String(parent.name ?? parent.company ?? parent.order_number)} <ChevronLeft size={16} /></button>}
       {entity === "maintenance_plans" && <input aria-label={language === "de" ? "Einträge suchen" : language === "sv" ? "Sök poster" : "Search records"} type="search" value={search} onChange={(e) => setSearch(e.target.value)} />}
-      <button title={t("refresh")} aria-label={t("refresh")} onClick={() => setRefresh((n) => n + 1)}><RefreshCw size={18} /></button>
-      {editable && !error && <button onClick={() => open("save")} disabled={entity === "purchase_order_items" && (!parent || parent.status !== "draft" || blocked(parent.id))}><Plus size={18} />{t(entity === "location_details" ? parent ? "createStoragePlace" : "createLocation" : "create")}</button>}
+      {tab !== "inventory" && <button title={t("refresh")} aria-label={t("refresh")} onClick={() => setRefresh((n) => n + 1)}><RefreshCw size={18} /></button>}
+      {tab !== "inventory" && editable && !error && <button onClick={() => open("save")} disabled={entity === "purchase_order_items" && (!parent || parent.status !== "draft" || blocked(parent.id))}><Plus size={18} />{t("create")}</button>}
     </div>
     <div id="inventory-stock-panel" role="tabpanel" aria-label={stockView === "bookings" ? t("bookings") : language === "de" ? "Bestandsübersicht" : language === "sv" ? "Lageröversikt" : "Stock overview"} hidden={inventoryMaster || tab !== "inventory"}>{tab === "inventory" && (stockActive === true ? <OperationsStock {...props} view={stockView} /> : stockActive === false ? props.children : <div role="status" aria-busy={!stockError}>{t(stockError ? "OPERATIONS_UNAVAILABLE" : "loading")}</div>)}</div>
+    {materialMasterMounted && <div id="inventory-material-panel" role="tabpanel" aria-label={language === "de" ? "Materialstammdaten" : language === "sv" ? "Materialregister" : "Material master data"} hidden={tab !== "inventory" || !materialMasterSelected}>{props.materialMasterData}</div>}
     {error && <p role="status">{t(error)}</p>}
     {active.length > 0 && <div role="status" className={styles.pending}>{active.map((m) => <p key={m.id}>{t(m.status === "failed" || m.status === "conflict" ? "failed" : "waiting")}: {String((m.payload.values as Record<string, unknown> | undefined)?.company ?? (m.payload.values as Record<string, unknown> | undefined)?.name ?? m.entityId)}</p>)}</div>}
     {entity !== "material_details" && (tab !== "inventory" || stockActive !== null) && <div id="inventory-master-panel" role={inventoryMaster ? "tabpanel" : undefined} aria-label={inventoryMaster ? t(entity) : undefined} className={`panel ${styles.list}`} aria-busy={loading}>
-      <div className="panel-title"><div><p>{tab === "inventory" ? t("inventorySection") : operationsLabels[tab as keyof typeof operationsLabels][language]}</p><h2>{entity === "location_details" && parent ? `${t("storagePlaces")}: ${String(parent.name ?? "")}` : t(entity)}</h2></div></div>
+      <div className="panel-title"><div><p>{tab === "inventory" ? t("inventorySection") : operationsLabels[tab as keyof typeof operationsLabels][language]}</p><h2>{entity === "location_details" && storagePlacesView ? `${t("storagePlaces")}${parent ? `: ${String(parent.name ?? "")}` : ""}` : t(entity)}</h2></div>
+        {inventoryMaster && <div className={styles.actions}><button title={t("refresh")} aria-label={t("refresh")} onClick={() => setRefresh((n) => n + 1)}><RefreshCw size={18} /></button>{editable && !error && <button className={styles.primaryAction} onClick={() => open("save")}><Plus size={18} />{t(entity === "location_details" ? storagePlacesView ? "createStoragePlace" : "createLocation" : "create")}</button>}</div>}
+      </div>
       {!tableEntities.has(entity) && !rows.length && !loading && !error && <p>{t("empty")}</p>}
-      {tableEntities.has(entity) ? <OperationsDataTable key={`${entity}:${parent?.id ?? ""}`} rows={rows} columns={columns} actions={["suppliers", "location_details", "location_types"].includes(entity) ? undefined : tableActions} label={t(entity)} filterLabel={t("filter")} emptyLabel={t("empty")} actionsLabel={t("actions")}
+      {tableEntities.has(entity) ? <OperationsDataTable key={`${entity}:${storagePlacesView}:${parent?.id ?? ""}`} rows={rows} columns={columns} actions={["suppliers", "location_details", "location_types"].includes(entity) ? undefined : tableActions} label={entity === "location_details" && storagePlacesView ? t("storagePlaces") : t(entity)} filterLabel={t("filter")} emptyLabel={t("empty")} actionsLabel={t("actions")}
         canActivate={(row) => !blocked(row.id) && !(parent && blocked(parent.id))}
         language={language}
         onRowActivate={(row) => entity === "purchase_orders" && row.status !== "draft" ? change("purchase_order_items", row) : open("save", row)} /> : entity === "purchase_order_items" && rows.length > 0 ? <div className={styles.itemsScroll}><table className={styles.items}>
@@ -440,7 +460,7 @@ export function OperationsWorkspace(props: Props) {
       <form onSubmit={(e) => { e.preventDefault(); save(); }}>
         <header className={styles.dialogHeader}><h2 id="operations-form-title">{t(form.kind === "save" ? form.entity : form.kind)}</h2><button type="button" title={t("close")} aria-label={t("close")} onClick={() => setForm(null)}><X size={18} /></button></header>
         <div className={styles.fields}>{fields.map((key) => input(key, form.values, (k, v) => setForm({ ...form, values: { ...form.values, [k]: v } }),
-          form.kind === "save" ? (form.entity === "location_details" && key === "name") || required[form.entity]?.includes(key) : ["quantity", "note", "completed_date", "cost", "currency"].includes(key)))}</div>
+          form.kind === "save" ? (form.entity === "location_details" && (key === "name" || (storagePlacesView && key === "parent_location_id"))) || required[form.entity]?.includes(key) : ["quantity", "note", "completed_date", "cost", "currency"].includes(key)))}</div>
         {form.kind === "complete" && <OperationsDocumentUpload language={language} onPending={setDocumentPending} onUploaded={(document) => {
           setUploadedDocument(document);
           setForm((current) => current?.kind === "complete" ? { ...current, values: { ...current.values, document_id: document.id } } : current);

@@ -4,6 +4,12 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.427.16 - 2026-10-10
+
+- Materialstammdaten als gleich gestalteter Reiter innerhalb Lager & Material, ohne separate Seite und Zurueck-Button. Bestehende Materialbearbeitung und Beschaffungsdaten bleiben erhalten.
+- Lagerplaetze als eigener Reiter mit zugehoerigem Lagerort; bestehende Standorte und Lagerplaetze bleiben unveraendert gespeichert. Nachladen des uebergeordneten Lagerorts verwendet die Standortabfrage.
+- Neuanlage und Aktualisierung von Standorten, Lagerplaetzen und Lagerorttypen im jeweiligen Inhaltsblock statt in der Reiterzeile.
+
 ## 1.427.15 - 2026-10-10
 
 - Bestandsuebersicht, Buchungen, Standorte und Lagerorttypen wechseln als Reiter direkt den Inhalt innerhalb Lager & Material, ohne separate Standortseiten.

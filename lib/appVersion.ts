@@ -1,10 +1,15 @@
 export const appVersion = {
-  version: "1.427.15",
+  version: "1.427.16",
   releaseDate: "2026-10-10",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  {
+    version: "1.427.16",
+    date: "2026-10-10",
+    changes: ["Materialstammdaten als gleich gestalteter Reiter ohne separate Seite", "Eigener Lagerplaetze-Reiter mit Lagerortzuordnung und korrigiertem Nachladen des Lagerorts", "Neuanlage von Standorten, Lagerplaetzen und Lagerorttypen im jeweiligen Inhaltsblock"],
+  },
   {
     version: "1.427.15",
     date: "2026-10-10",
