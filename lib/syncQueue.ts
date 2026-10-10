@@ -161,6 +161,15 @@ export function retrySyncMutation(queue: SyncMutation[], mutationId?: string, no
   });
 }
 
+export function retryNetworkFailures(queue: SyncMutation[], attempted: Set<string>, now = new Date().toISOString()) {
+  return queue.map((mutation) => {
+    if (mutation.status !== "failed" || attempted.has(mutation.id)
+      || !/^(Load failed|Failed to fetch|NetworkError(?: when attempting to fetch resource\.)?|The network connection was lost\.?)$/i.test(mutation.error ?? "")) return mutation;
+    attempted.add(mutation.id);
+    return { ...mutation, error: undefined, status: "pending" as const, updatedAt: now };
+  });
+}
+
 export function discardConflictingMutations(queue: SyncMutation[], mutationId?: string | string[]) {
   const selected = mutationId === undefined ? null : new Set(Array.isArray(mutationId) ? mutationId : [mutationId]);
   return queue.filter((mutation) => (

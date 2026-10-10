@@ -13602,7 +13602,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
               <div hidden={materialMasterOpen} style={{ minWidth: 0 }}>
               <OperationsWorkspace language={language} queue={tripSync.queue} enqueue={enqueueSyncMutation}
                 onOpenMasterData={(tab) => { setOperationsMasterDataRequest(`${tab}:${Date.now()}`); if (tab === "materials") setMaterialMasterOpen(true); else setSection("masterData"); }}
-                materials={materials.map((r) => ({ id: r.id, name: r.name, unit: r.unit, minStock: r.minStock }))}
+                materials={materials.map((r) => ({ id: r.id, name: r.name, sku: r.sku, unit: r.unit, minStock: r.minStock }))}
                 locations={inventoryLocations.map((r) => ({ id: r.id, name: r.name }))}
                 resources={resources.map((r) => ({ id: r.id, name: r.name, mileage: r.currentOdometer ? Number(r.currentOdometer) : undefined,
                   documents: (r.media ?? []).filter((m) => m.type === "Dokument").map((m) => ({ id: m.id, name: m.name })) }))}

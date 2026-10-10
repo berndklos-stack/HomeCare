@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { createSyncMutation, enqueueSyncMutation, markMutationSyncing, nextPendingMutation, revisionAfterConfirmation, settleSyncMutation } from "../lib/syncQueue";
+import { createSyncMutation, enqueueSyncMutation, markMutationSyncing, nextPendingMutation, revisionAfterConfirmation, settleSyncMutation, retryNetworkFailures } from "../lib/syncQueue";
 import { prepareProgressMutations } from "../lib/jobOperationsSync";
 import { reviewApprovedResolution, reviewConflictSequence, reviewProgressConflict } from "../lib/conflictReview";
 
@@ -9,6 +9,20 @@ const edit = (revision: number, minutes = "90") => createSyncMutation({
 });
 const row = { id: "JOB:task", tenant_id: "T", job_id: "JOB", revision: 4, deleted_at: null,
   task_id: "task", work_date: null, completed: false, minutes: 90, note: "Arbeit", photos: [], show_work_time_in_report: true };
+
+test("Netzwerkfehler werden pro Verbindungsphase nur einmal mit unveraenderter Identitaet wiederholt", () => {
+  const network = { ...edit(15), status: "failed" as const, error: "Load failed", attempts: 2 };
+  const validation = { ...edit(2), status: "failed" as const, error: "INVALID_PAYLOAD" };
+  const conflict = { ...edit(3), status: "conflict" as const, error: "Load failed" };
+  const attempted = new Set<string>();
+  const retried = retryNetworkFailures([network, validation, conflict], attempted);
+  expect(retried[0]).toMatchObject({ id: network.id, payload: network.payload, expectedRevision: 15, attempts: 2, status: "pending" });
+  expect(retried[1]).toBe(validation);
+  expect(retried[2]).toBe(conflict);
+  expect(retryNetworkFailures([network], attempted)[0]).toBe(network);
+  attempted.clear();
+  expect(retryNetworkFailures([network], attempted)[0].status).toBe("pending");
+});
 
 test("Verspaetete Bestaetigung setzt die Revision einer weiteren lokalen Eingabe nicht zurueck", () => {
   const first = edit(1, "30");

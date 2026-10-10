@@ -149,6 +149,7 @@ export function SyncStatus({ conflicts = [], failures = [], issues = [], languag
             ? copy(language, "Der Serverstand wurde nicht überschrieben. Bitte Daten aktualisieren und die Änderung prüfen.", "Serverdata skrevs inte över. Uppdatera och kontrollera ändringen.", "The server version was not overwritten. Refresh and review the change.")
             : copy(language, "Die lokale Änderung bleibt erhalten.", "Den lokala ändringen finns kvar.", "The local change is retained."))}</span>
           {entries.length > 0 && <div className="sync-conflict-actions">
+            {failures.length > 0 && <button type="button" className="ghost-button compact" disabled={resolving || !online} onClick={() => onRetry()}><RefreshCw size={16} />{copy(language, "Fehlgeschlagene Übertragungen erneut versuchen", "Försök misslyckade överföringar igen", "Retry failed transfers")}</button>}
             <label><input type="checkbox" disabled={resolving} checked={allSelected}
               onChange={(event) => setSelected(event.target.checked ? entries.map((mutation) => mutation.id) : [])} />
               {copy(language, "Alle auswählen", "Välj alla", "Select all")}</label>

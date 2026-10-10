@@ -4,6 +4,13 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.427.4 - 2026-10-10
+
+- Allgemeine Lagerbuchung oben rechts mit separater Materialauswahl nach Artikelnummer und Bezeichnung.
+- Kontextbezogene Buchungen zeigen Material und Einheit im Dialog; Buchungstabelle zeigt das Material ebenfalls.
+- Der Uebersichtsfilter begrenzt auch die Materialtabelle; leer zeigt wieder alle Materialien. Die Buchungsauswahl veraendert den Uebersichtsfilter nicht.
+- Reine Netzwerkfehler werden einmal je Sitzung/Wiederverbindung/Vordergrundwechsel erneut uebertragen, mit identischer Mutations-ID und unveraenderten Daten. Validierungsfehler und Konflikte werden nicht automatisch wiederholt. Gemeinsame Wiederholungsaktion fuer fehlgeschlagene Uebertragungen.
+
 ## 1.427.3 - 2026-10-10
 
 - Zurueck aus den Materialstammdaten erhaelt Lageransicht und Materialfilter ohne Neuaufbau oder alten Zwischenbildschirm.

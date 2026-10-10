@@ -12,6 +12,7 @@ import {
   persistSyncMutationBatch,
   readSyncQueue,
   retrySyncMutation,
+  retryNetworkFailures,
   settleSyncMutation,
   summarizeSyncQueue,
   writeSyncQueue,
@@ -56,6 +57,8 @@ export function useSyncQueue({ disabled = false, onApplied }: UseSyncQueueOption
   const reviewEpoch = useRef(0);
   const reviewRequests = useRef(new Set<AbortController>());
   const automaticReviewSignature = useRef("");
+  const networkRetries = useRef(new Set<string>());
+  const [connectionEpoch, setConnectionEpoch] = useState(0);
   const onAppliedRef = useRef(onApplied);
 
   useEffect(() => {
@@ -69,10 +72,12 @@ export function useSyncQueue({ disabled = false, onApplied }: UseSyncQueueOption
       setOnline(navigator.onLine);
       setHydrated(true);
     }, 0);
-    const handleOnline = () => setOnline(true);
+    const handleOnline = () => { setOnline(true); networkRetries.current.clear(); setConnectionEpoch((epoch) => epoch + 1); };
     const handleOffline = () => setOnline(false);
+    const handleVisible = () => { if (document.visibilityState === "visible" && navigator.onLine) handleOnline(); };
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
+    document.addEventListener("visibilitychange", handleVisible);
     return () => {
       reviewEpoch.current += 1;
       for (const controller of requests) controller.abort();
@@ -80,6 +85,7 @@ export function useSyncQueue({ disabled = false, onApplied }: UseSyncQueueOption
       window.clearTimeout(hydrateId);
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
+      document.removeEventListener("visibilitychange", handleVisible);
     };
   }, [setQueue]);
 
@@ -121,6 +127,17 @@ export function useSyncQueue({ disabled = false, onApplied }: UseSyncQueueOption
     const timeoutId = window.setTimeout(() => void flush(), automaticFlushDelayMs);
     return () => window.clearTimeout(timeoutId);
   }, [disabled, flush, online, queue]);
+
+  useEffect(() => {
+    if (!hydrated || disabled || !online || !queue.some((mutation) => mutation.status === "failed" && !networkRetries.current.has(mutation.id))) return;
+    const timer = window.setTimeout(() => {
+      const next = retryNetworkFailures(queueRef.current, networkRetries.current);
+      if (!next.some((mutation, index) => mutation !== queueRef.current[index])) return;
+      writeSyncQueue(window.localStorage, next);
+      setQueue(next);
+    }, automaticFlushDelayMs);
+    return () => window.clearTimeout(timer);
+  }, [connectionEpoch, disabled, hydrated, online, queue, setQueue]);
 
   const enqueueMany = useCallback((inputs: Parameters<typeof createSyncMutation>[0][]) => {
     const mutations = inputs.map((input) => createSyncMutation(input));

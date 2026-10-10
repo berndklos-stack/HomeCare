@@ -1,10 +1,20 @@
 export const appVersion = {
-  version: "1.427.3",
+  version: "1.427.4",
   releaseDate: "2026-10-10",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  {
+    version: "1.427.4",
+    date: "2026-10-10",
+    changes: [
+      "Allgemeine Lagerbuchung oben rechts mit Materialauswahl nach Nummer und Bezeichnung",
+      "Buchungsdialog und Buchungstabelle zeigen das betroffene Material",
+      "Materialfilter begrenzt auch die Materialtabelle; leerer Filter zeigt alle Materialien",
+      "Reine Netzwerkfehler werden nach erneutem Oeffnen oder Wiederverbindung begrenzt wiederholt, ohne lokale Daten zu verwerfen",
+    ],
+  },
   {
     version: "1.427.3",
     date: "2026-10-10",
