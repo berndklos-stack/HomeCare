@@ -361,6 +361,8 @@ type InventoryLocationRow = {
   name: string;
   note: string | null;
   site: string | null;
+  parent_location_id: string | null;
+  location_type_id: string | null;
   deleted_at: string | null;
   record_data: unknown;
   revision: number;
@@ -1140,6 +1142,8 @@ function rowToInventoryLocation(row: InventoryLocationRow) {
     note: row.note ?? "",
     site: row.site ?? "",
     ...(row.record_data && typeof row.record_data === "object" ? row.record_data as JsonObject : {}),
+    parentLocationId: row.parent_location_id ?? "",
+    locationTypeId: row.location_type_id ?? "",
     revision: row.revision,
     updatedAt: row.updated_at ?? undefined,
   };
@@ -1683,7 +1687,7 @@ async function loadAccountingAccountsSection(supabase: NonNullable<ReturnType<ty
 async function loadInventoryLocationsSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
   const { data, error } = await supabase
     .from("homecare_inventory_locations")
-    .select("id, name, site, note, archived, record_data, revision, deleted_at, updated_at")
+    .select("id, name, site, note, archived, parent_location_id, location_type_id, record_data, revision, deleted_at, updated_at")
     .order("name", { ascending: true });
   if (error) throw new Error(error.message);
   return {

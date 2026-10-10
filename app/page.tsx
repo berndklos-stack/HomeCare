@@ -504,6 +504,7 @@ type MaterialItem = {
   id: string;
   accountingAccount?: string;
   sku?: string;
+  scanCode?: string;
   name: string;
   category: string;
   unit: string;
@@ -551,6 +552,9 @@ type MaterialInventoryEntryChange = {
 type InventoryLocation = {
   id: string;
   name: string;
+  locationCode?: string;
+  parentLocationId?: string;
+  locationTypeId?: string;
   note?: string;
   site?: string;
   archived?: boolean;
@@ -2155,6 +2159,8 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Archivierte Konten", sv: "Arkiverade konton", en: "Archived accounts" },
   { de: "Archiviertes Material", sv: "Arkiverat material", en: "Archived material" },
   { de: "Artikelnummer / SKU", sv: "Artikelnummer / SKU", en: "Item number / SKU" },
+  { de: "EAN / Scancode", sv: "EAN / skanningskod", en: "EAN / scan code" },
+  { de: "Lagercode", sv: "Lagerplatskod", en: "Storage location code" },
   { de: "Auftrag in Abrechnung übernehmen", sv: "Överför uppdrag till fakturering", en: "Move job to billing" },
   { de: "Auftrag auswählen", sv: "Välj uppdrag", en: "Select job" },
   { de: "Auftrag schließen", sv: "Stäng uppdrag", en: "Close job" },
@@ -9042,7 +9048,13 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
         }));
       }
       if (mutation.payload.entity === "material_details") setMaterials((current) => current.map((r) => r.id === mutation.entityId ? { ...r, revision: Number(serverRecord.revision) } : r));
-      if (mutation.payload.entity === "location_details") setInventoryLocations((current) => current.map((r) => r.id === mutation.entityId ? { ...r, revision: Number(serverRecord.revision) } : r));
+      if (mutation.payload.entity === "location_details") setInventoryLocations((current) => {
+        const previous = current.find((r) => r.id === mutation.entityId);
+        const location = { ...previous, id: mutation.entityId, name: String(serverRecord.name ?? previous?.name ?? ""),
+          note: String(serverRecord.note ?? ""), locationCode: String(serverRecord.location_code ?? ""),
+          parentLocationId: String(serverRecord.parent_location_id ?? ""), locationTypeId: String(serverRecord.location_type_id ?? ""), revision: Number(serverRecord.revision) };
+        return previous ? current.map((r) => r.id === mutation.entityId ? location : r) : [...current, location];
+      });
       return;
     }
     const revision = revisionAfterConfirmation(mutation, Number(serverRecord.revision ?? serverRecord.settings_revision), remainingQueue);
@@ -13610,8 +13622,8 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
               <div hidden={materialMasterOpen} style={{ minWidth: 0 }}>
               <OperationsWorkspace language={language} queue={tripSync.queue} enqueue={enqueueSyncMutation}
                 onOpenMasterData={(tab) => { setOperationsMasterDataRequest(`${tab}:${Date.now()}`); if (tab === "materials") setMaterialMasterOpen(true); else setSection("masterData"); }}
-                materials={materials.map((r) => ({ id: r.id, name: r.name, sku: r.sku, unit: r.unit, minStock: r.minStock }))}
-                locations={inventoryLocations.map((r) => ({ id: r.id, name: r.name }))}
+                materials={materials.map((r) => ({ id: r.id, name: r.name, sku: r.sku, unit: r.unit, minStock: r.minStock, archived: r.archived }))}
+                locations={inventoryLocations.filter((r) => !r.archived).map((r) => ({ id: r.id, parentLocationId: r.parentLocationId, name: r.parentLocationId ? `${inventoryLocations.find((parent) => parent.id === r.parentLocationId)?.name ?? ""} / ${r.name}` : r.name }))}
                 resources={resources.map((r) => ({ id: r.id, name: r.name, mileage: r.currentOdometer ? Number(r.currentOdometer) : undefined,
                   documents: (r.media ?? []).filter((m) => m.type === "Dokument").map((m) => ({ id: m.id, name: m.name })) }))}
                 employees={personnel.map((r) => ({ id: r.id, name: `${r.firstName} ${r.lastName}`.trim() }))}
@@ -18985,7 +18997,7 @@ function InventoryView({
   const [inventoryFilter, setInventoryFilter] = useState("");
   const [notice, setNotice] = useState("");
   const [reservationDrafts, setReservationDrafts] = useState<Record<string, string>>({});
-  const [locationForm, setLocationForm] = useState({ name: "", note: "", site: "" });
+  const [locationForm, setLocationForm] = useState({ name: "", locationCode: "", note: "", site: "" });
   const locationSiteOptions = uniqueSortedValues([
     ...objects.map((object) => object.name),
     ...objects.map((object) => object.address),
@@ -19316,14 +19328,14 @@ function InventoryView({
 
   function openCreateInventoryLocation() {
     setEditingLocationId(null);
-    setLocationForm({ name: "", note: "", site: "" });
+    setLocationForm({ name: "", locationCode: "", note: "", site: "" });
     setNotice("");
     setLocationEditorOpen(true);
   }
 
   function editInventoryLocation(location: InventoryLocation) {
     setEditingLocationId(location.id);
-    setLocationForm({ name: location.name, note: location.note ?? "", site: location.site ?? "" });
+    setLocationForm({ name: location.name, locationCode: location.locationCode ?? "", note: location.note ?? "", site: location.site ?? "" });
     setNotice("");
     setLocationEditorOpen(true);
   }
@@ -19341,11 +19353,11 @@ function InventoryView({
     const nextLocations = editingLocationId
       ? inventoryLocations.map((location) => (
         location.id === editingLocationId
-          ? { ...location, name, note: locationForm.note.trim(), site: locationForm.site.trim() }
+          ? { ...location, name, locationCode: locationForm.locationCode.trim(), note: locationForm.note.trim(), site: locationForm.site.trim() }
           : location
       ))
       : [
-        { id: createEntityId("LOC"), name, note: locationForm.note.trim(), site: locationForm.site.trim() },
+        { id: createEntityId("LOC"), name, locationCode: locationForm.locationCode.trim(), note: locationForm.note.trim(), site: locationForm.site.trim() },
         ...inventoryLocations,
       ];
     setInventoryLocations(nextLocations);
@@ -19680,6 +19692,7 @@ function InventoryView({
             </header>
             <div className="form-grid compact-form">
               <label><span>{tt("Lagerort")}</span><input autoFocus value={locationForm.name} onChange={(event) => setLocationForm({ ...locationForm, name: event.target.value })} placeholder="z.B. Auto Bernd" /></label>
+              <label><span>{tt("Lagercode")}</span><input type="text" maxLength={128} value={locationForm.locationCode} onChange={(event) => setLocationForm({ ...locationForm, locationCode: event.target.value })} /></label>
               <label><span>{tt("Standort")}</span><input list="inventory-location-sites" value={locationForm.site} onChange={(event) => setLocationForm({ ...locationForm, site: event.target.value })} placeholder="z.B. Kolaretorp 106" /></label>
               <datalist id="inventory-location-sites">
                 {locationSiteOptions.map((site) => <option key={site} value={site} />)}
@@ -20825,6 +20838,7 @@ function MasterDataView({
     price: "",
     purchasePrice: "",
     sku: "",
+    scanCode: "",
     supplier: "",
     taxRate: "25",
     unit: "Stück",
@@ -22061,12 +22075,12 @@ function MasterDataView({
   function resetMaterialForm() {
     setEditingMaterialId(null);
     setMaterialEditorOpen(false);
-    setMaterialForm({ accountingAccount: "3058", category: "", currency: "SEK", description: "", inventoryEntries: [], maxStock: "", minStock: "", name: "", primaryLocation: "Hauptlager", price: "", purchasePrice: "", sku: "", supplier: "", taxRate: "25", unit: "Stück" });
+    setMaterialForm({ accountingAccount: "3058", category: "", currency: "SEK", description: "", inventoryEntries: [], maxStock: "", minStock: "", name: "", primaryLocation: "Hauptlager", price: "", purchasePrice: "", sku: "", scanCode: "", supplier: "", taxRate: "25", unit: "Stück" });
   }
 
   function openCreateMaterial() {
     setEditingMaterialId(null);
-    setMaterialForm({ accountingAccount: "3058", category: "", currency: "SEK", description: "", inventoryEntries: [], maxStock: "", minStock: "", name: "", primaryLocation: "Hauptlager", price: "", purchasePrice: "", sku: "", supplier: "", taxRate: "25", unit: "Stück" });
+    setMaterialForm({ accountingAccount: "3058", category: "", currency: "SEK", description: "", inventoryEntries: [], maxStock: "", minStock: "", name: "", primaryLocation: "Hauptlager", price: "", purchasePrice: "", sku: "", scanCode: "", supplier: "", taxRate: "25", unit: "Stück" });
     setMaterialEditorOpen(true);
   }
 
@@ -22086,6 +22100,7 @@ function MasterDataView({
       price: material.price,
       purchasePrice: material.purchasePrice ?? "",
       sku: material.sku ?? "",
+      scanCode: material.scanCode ?? "",
       supplier: material.supplier ?? "",
       taxRate: material.taxRate || "25",
       unit: material.unit,
@@ -22117,6 +22132,7 @@ function MasterDataView({
       price: materialForm.price.trim() || "0",
       purchasePrice: materialForm.purchasePrice.trim(),
       sku: materialForm.sku.trim(),
+      scanCode: materialForm.scanCode.trim(),
       supplier: materialForm.supplier.trim(),
       taxRate: materialForm.taxRate.trim() || "25",
       unit: materialForm.unit.trim() || "Stück",
@@ -23888,6 +23904,7 @@ function MasterDataView({
             <div className="form-grid compact-form material-editor-form">
               <label><span>{tt("Bezeichnung")}</span><input required value={materialForm.name} onChange={(event) => setMaterialForm({ ...materialForm, name: event.target.value })} /></label>
               <label><span>{tt("Artikelnummer / SKU")}</span><input value={materialForm.sku} onChange={(event) => setMaterialForm({ ...materialForm, sku: event.target.value })} placeholder="z.B. REIN-001" /></label>
+              <label><span>{tt("EAN / Scancode")}</span><input type="text" maxLength={128} value={materialForm.scanCode} onChange={(event) => setMaterialForm({ ...materialForm, scanCode: event.target.value })} /></label>
               <label><span>{tt("Kategorie")}</span><input list="material-categories" value={materialForm.category} onChange={(event) => setMaterialForm({ ...materialForm, category: event.target.value })} /></label>
               <datalist id="material-categories">
                 {materialCategories.map((category) => <option key={category} value={category} />)}

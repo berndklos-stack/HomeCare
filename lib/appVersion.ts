@@ -1,10 +1,15 @@
 export const appVersion = {
-  version: "1.427.10",
+  version: "1.427.11",
   releaseDate: "2026-10-10",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  {
+    version: "1.427.11",
+    date: "2026-10-10",
+    changes: ["Beschaffung alphabetisch nach Bezeichnung sortiert, auch bei Filterung und Seitenwechsel", "Gesamtbestand mit Nullbestand- und Archivoption, Excel- und PDF-Ausgabe", "Inventur je Lagerort mit Differenzbuchung und nachvollziehbarer Historie", "EAN / Scancode in Materialstammdaten und Lagercode bei Lagerorten", "Lagerplaetze, eigene Lagerorttypen und Auftragszuordnung; Standort-Neuanlage und Bearbeitung per Zeile"],
+  },
   {
     version: "1.427.10",
     date: "2026-10-10",

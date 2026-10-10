@@ -7,9 +7,10 @@ import { operationLabel } from "@/lib/operationsUi";
 import { validateOperationsMutation, type OperationsRow } from "@/lib/operationsCommands";
 import { OperationsDataTable, type DataColumn } from "./OperationsDataTable";
 import { TripDialog } from "./TripDialog";
+import { StockOverview } from "./StockOverview";
 import styles from "./OperationsWorkspace.module.css";
 
-type Ref = { id: string; name: string; sku?: string; unit?: string; minStock?: string };
+type Ref = { id: string; name: string; sku?: string; unit?: string; minStock?: string; archived?: boolean };
 export function OperationsStock({ language, materials, locations, jobs, projects, queue, enqueue, onMaterialSelected }: {
   language: "de" | "sv" | "en"; materials: Ref[]; locations: Ref[]; jobs: Ref[]; projects: Ref[]; queue: SyncMutation[];
   enqueue: (input: Parameters<typeof import("@/lib/syncQueue").createSyncMutation>[0]) => unknown;
@@ -37,7 +38,7 @@ export function OperationsStock({ language, materials, locations, jobs, projects
   const bookingMaterial = materials.find((m) => m.id === bookingMaterialId);
   const materialLabel = (material: Ref) => `${material.sku ? `${material.sku} · ` : ""}${material.name}`;
   const openBooking = () => {
-    setBookingMaterialId(materialId);
+    setBookingMaterialId(selected?.archived ? "" : materialId);
     setError(""); setOpen(true);
   };
   const quantity = (value: unknown) => new Intl.NumberFormat(language, { maximumFractionDigits: 3 }).format(Number(value));
@@ -82,9 +83,12 @@ export function OperationsStock({ language, materials, locations, jobs, projects
     return () => controller.abort();
   }, [materialId, page, settled, refresh]);
   return <div className={`stack ${styles.stockOverview}`}>
+    {!materialId && <StockOverview language={language} materials={materials} locations={locations} settled={settled}
+      pending={queue.some((mutation) => mutation.entityType === "operations" && mutation.status !== "synced" && ["stock", "receive", "receive_batch", "complete"].includes(String(mutation.payload.kind)))}
+      onBooked={() => setRefresh((value) => value + 1)} onSelect={(id) => { setMaterialId(id); onMaterialSelected?.(id); setPage(0); }} />}
     <section className="panel">
     <header className={`panel-title ${styles.stockHeading}`}><div><p>{t("inventorySection")}</p><h2>{t("stockOverview")}</h2></div><button className={styles.primaryAction} disabled={!materials.length} aria-label={t("globalStockBooking")} onClick={openBooking}><Plus size={18} />{t("stock")}</button></header>
-    <div className={styles.toolbar}><label>{t("material_id")} <span className={styles.stockFilter}><select aria-label={t("material_id")} value={materialId} onChange={(e) => { setMaterialId(e.target.value); onMaterialSelected?.(e.target.value); setPage(0); setBalances([]); setHistory([]); setCount(0); setLoading(false); setError(""); }}><option value="">—</option>{materials.map((m) => <option key={m.id} value={m.id}>{materialLabel(m)}</option>)}</select><ChevronsUpDown size={18} aria-hidden="true" /></span></label>
+    <div className={styles.toolbar}><label>{t("material_id")} <span className={styles.stockFilter}><select aria-label={t("material_id")} value={materialId} onChange={(e) => { setMaterialId(e.target.value); onMaterialSelected?.(e.target.value); setPage(0); setBalances([]); setHistory([]); setCount(0); setLoading(false); setError(""); }}><option value="">{t("allMaterials")}</option>{materials.map((m) => <option key={m.id} value={m.id}>{materialLabel(m)}</option>)}</select><ChevronsUpDown size={18} aria-hidden="true" /></span></label>
       <button disabled={!materialId} title={t("refresh")} aria-label={t("refresh")} onClick={() => setRefresh((n) => n + 1)}><RefreshCw size={18} /></button>
     </div>
     {error && <p role="alert">{t(error)}</p>}
@@ -116,7 +120,7 @@ export function OperationsStock({ language, materials, locations, jobs, projects
     {open && <TripDialog labelledBy="stock-title" onClose={() => setOpen(false)} className={styles.dialog}><form onSubmit={(e) => {
       e.preventDefault();
       try {
-        if (!bookingMaterial) throw new Error("INVALID_MATERIAL");
+        if (!bookingMaterial || bookingMaterial.archived) throw new Error("INVALID_MATERIAL");
         const input = { entityId: createStableId(), entityType: "operations" as const, operation: "create" as const, resourceId: bookingMaterialId,
           payload: { kind: "stock", material_id: bookingMaterialId, source_id: draft.source_id || null, destination_id: draft.destination_id || null,
             quantity: Number(draft.quantity), note: draft.note, job_id: draft.job_id || null, project_id: draft.project_id || null } };
@@ -124,7 +128,7 @@ export function OperationsStock({ language, materials, locations, jobs, projects
         setDraft({ source_id: "", destination_id: "", quantity: "1", note: "", job_id: "", project_id: "" });
       } catch { setError("INVALID_OPERATIONS_COMMAND"); }
     }}><header className={styles.dialogHeader}><div><h2 id="stock-title">{t("stock")}</h2>{bookingMaterial && <p>{materialLabel(bookingMaterial)}{bookingMaterial.unit ? ` (${bookingMaterial.unit})` : ""}</p>}</div><button type="button" aria-label={t("close")} onClick={() => setOpen(false)}><X size={18} /></button></header><div className={styles.fields}>
-      <label className={styles.field}><span>{t("designation")}</span><select required aria-label={t("designation")} value={bookingMaterialId} onChange={(event) => setBookingMaterialId(event.target.value)}><option value="">—</option>{materials.map((material) => <option key={material.id} value={material.id}>{materialLabel(material)}</option>)}</select></label>
+      <label className={styles.field}><span>{t("designation")}</span><select required aria-label={t("designation")} value={bookingMaterialId} onChange={(event) => setBookingMaterialId(event.target.value)}><option value="">—</option>{materials.filter((material) => !material.archived).map((material) => <option key={material.id} value={material.id}>{materialLabel(material)}</option>)}</select></label>
       {(["source_id", "destination_id", "job_id", "project_id"] as const).map((key) => <label className={styles.field} key={key}><span>{t(key)}</span><select aria-label={t(key)} value={draft[key]} onChange={(e) => setDraft({ ...draft, [key]: e.target.value })}><option value="">—</option>{(key === "job_id" ? jobs : key === "project_id" ? projects : locations).map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}</select></label>)}
       <label className={styles.field}>{t("quantity")}<input required type="number" min="0.001" step="0.001" value={draft.quantity} onChange={(e) => setDraft({ ...draft, quantity: e.target.value })} /></label><label className={styles.field}>{t("note")}<input required value={draft.note} onChange={(e) => setDraft({ ...draft, note: e.target.value })} /></label>
     </div>{error && <p role="alert">{t(error)}</p>}<footer className={styles.actions}><button type="button" onClick={() => setOpen(false)}>{t("cancel")}</button><button disabled={!bookingMaterial} type="submit">{t("save")}</button></footer></form></TripDialog>}

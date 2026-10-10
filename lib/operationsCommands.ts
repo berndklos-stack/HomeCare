@@ -9,7 +9,8 @@ export const operationsFields = {
   maintenance_plans: ["resource_id", "name", "maintenance_type", "due_date", "due_mileage", "due_hours", "interval_days", "interval_mileage", "interval_hours", "responsible_person_id", "supplier_id", "notes"],
   resource_details: ["equipment_kind", "availability", "purchase_date", "purchase_price", "warranty_until", "warranty_notes", "operating_hours"],
   material_details: ["preferred_supplier_id", "reorder_quantity", "notes"],
-  location_details: ["location_kind", "resource_id", "project_id"],
+  location_details: ["name", "location_code", "location_kind", "location_type_id", "parent_location_id", "job_id", "resource_id", "project_id", "note"],
+  location_types: ["name", "notes"],
 } as const;
 export type OperationsEntity = keyof typeof operationsFields;
 export type OperationsRow = { id: string; revision?: number; deleted_at?: string | null; [key: string]: unknown };
@@ -57,11 +58,13 @@ export function validateOperationsMutation(mutation: Pick<SyncMutation, "id" | "
           if (key === "interval_days" && !Number.isInteger(value)) fail();
         } else if (key === "archived") { if (typeof value !== "boolean") fail(); }
         else if (!text(value)) fail();
+        if (key === "location_code" && String(value).length > 128) fail();
         if (key.endsWith("_date") || ["due_date", "expected_delivery", "warranty_until"].includes(key)) { if (!date(value)) fail(); }
       }
       if (!Object.keys(p.values as object).length) fail();
       if (!["create", "update"].includes(mutation.operation)) fail();
-      if (String(p.entity).endsWith("_details") && mutation.operation !== "update") fail();
+      if (String(p.entity).endsWith("_details") && p.entity !== "location_details" && mutation.operation !== "update") fail();
+      if (p.entity === "location_details" && mutation.operation === "create" && !text((p.values as Record<string, unknown>).name)) fail();
       break;
     }
     case "archive":

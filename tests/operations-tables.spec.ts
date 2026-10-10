@@ -1,5 +1,90 @@
 import { expect, test } from "@playwright/test";
 
+for (const mobile of [false, true]) test(`Scancodes bleiben Text ${mobile ? "mobil" : "desktop"}`, async ({ page }) => {
+  await page.setViewportSize(mobile ? { width: 390, height: 844 } : { width: 1440, height: 1000 });
+  await page.route("**/api/operations?**", (route) => {
+    const entity = new URL(route.request().url()).searchParams.get("entity");
+    const parent = new URL(route.request().url()).searchParams.get("parent");
+    return route.fulfill({ json: entity === "stock_status" ? { active: true } : { rows: entity === "location_details" && !parent ? [{ id: "scan-location", name: "Testlager", location_code: "001-LAGER", location_kind: "warehouse", revision: 1 }]
+      : entity === "location_types" ? [{ id: "scan-type", name: "Kommissionierwagen", revision: 1 }] : [], count: (entity === "location_details" && !parent) || entity === "location_types" ? 1 : 0 } });
+  });
+  await page.goto("/");
+  await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true", { timeout: 30000 });
+  await page.getByRole("button", { name: "Lager & Material", exact: true }).click();
+  await page.getByRole("button", { name: "Materialstammdaten", exact: true }).click();
+  await page.getByRole("button", { name: "Neues Material anlegen", exact: true }).click();
+  const material = page.getByRole("dialog", { name: "Neues Material anlegen", exact: true });
+  await material.getByLabel("Bezeichnung", { exact: true }).fill("Scan Testmaterial");
+  await material.getByLabel("EAN / Scancode", { exact: true }).fill("0012345678905");
+  await page.screenshot({ path: `test-results/material-scan-${mobile}-${test.info().project.name}.png` });
+  await material.getByRole("button", { name: "Material anlegen", exact: true }).click();
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("kolaretorp-materials") ?? "[]").find((row: { name: string }) => row.name === "Scan Testmaterial"));
+  expect(saved.scanCode).toBe("0012345678905");
+  await page.getByRole("button", { name: "Material Scan Testmaterial bearbeiten", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Material bearbeiten", exact: true }).getByLabel("EAN / Scancode", { exact: true })).toHaveValue("0012345678905");
+  await page.getByRole("button", { name: "Material-Dialog schließen", exact: true }).click();
+  await page.getByRole("button", { name: "Zurück", exact: true }).click();
+  await page.getByRole("button", { name: "Standorte", exact: true }).click();
+  const locations = page.getByRole("table", { name: "Standorte", exact: true });
+  await expect(locations).toContainText("001-LAGER");
+  await locations.locator("tbody tr").first().click();
+  const location = page.getByRole("dialog", { name: "Standorte", exact: true });
+  await expect(location.getByLabel("Lagercode", { exact: true })).toHaveValue("001-LAGER");
+  await location.getByRole("button", { name: "Lagerplätze", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Lagerplätze: Testlager", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Neuer Lagerplatz", exact: true }).click();
+  await location.getByLabel("Bezeichnung", { exact: true }).fill("Wagen 1");
+  await location.getByLabel("Lagerorttyp", { exact: true }).selectOption("scan-type");
+  await location.getByRole("button", { name: "Speichern", exact: true }).click();
+  const place = await page.evaluate(() => JSON.parse(localStorage.getItem("workcore-sync-mutations-v1") ?? "[]").find((row: { payload: { values?: { name?: string } } }) => row.payload.values?.name === "Wagen 1"));
+  expect(place.payload.values).toMatchObject({ parent_location_id: "scan-location", location_type_id: "scan-type" });
+  await page.getByRole("button", { name: "Standorte", exact: true }).click();
+  await locations.locator("tbody tr").first().click();
+  await location.getByLabel("Lagercode", { exact: true }).fill("002-LAGER");
+  await location.getByRole("button", { name: "Speichern", exact: true }).click();
+  const queued = await page.evaluate(() => JSON.parse(localStorage.getItem("workcore-sync-mutations-v1") ?? "[]").find((row: { operation: string; payload: { entity?: string } }) => row.operation === "update" && row.payload.entity === "location_details"));
+  expect(queued.payload.values.location_code).toBe("002-LAGER");
+  await expect(locations.getByRole("columnheader", { name: "Aktionen", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Neuer Lagerort", exact: true }).click();
+  await location.getByLabel("Bezeichnung", { exact: true }).fill("Neuer Testlagerort");
+  await location.getByLabel("Lagercode", { exact: true }).fill("003-LAGER");
+  await location.getByLabel("Notizen", { exact: true }).fill("Standortnotiz");
+  await page.screenshot({ path: `test-results/location-create-${mobile}-${test.info().project.name}.png` });
+  await location.getByRole("button", { name: "Speichern", exact: true }).click();
+  const created = await page.evaluate(() => JSON.parse(localStorage.getItem("workcore-sync-mutations-v1") ?? "[]").find((row: { operation: string; payload: { values?: { name?: string } } }) => row.operation === "create" && row.payload.values?.name === "Neuer Testlagerort"));
+  expect(created.payload.values).toMatchObject({ name: "Neuer Testlagerort", location_code: "003-LAGER", location_kind: "warehouse", note: "Standortnotiz" });
+  await page.getByRole("button", { name: "Lagerorttypen", exact: true }).click();
+  await page.getByRole("button", { name: "Neu", exact: true }).click();
+  const type = page.getByRole("dialog", { name: "Lagerorttypen", exact: true });
+  await type.getByLabel("Bezeichnung", { exact: true }).fill("Eigener Lagertyp");
+  await type.getByRole("button", { name: "Speichern", exact: true }).click();
+  const newType = await page.evaluate(() => JSON.parse(localStorage.getItem("workcore-sync-mutations-v1") ?? "[]").find((row: { payload: { entity?: string } }) => row.payload.entity === "location_types"));
+  expect(newType.payload.values.name).toBe("Eigener Lagertyp");
+});
+
+test("Beschaffung sortiert alle Seiten alphabetisch nach Bezeichnung", async ({ page }) => {
+  const rows = Array.from({ length: 55 }, (_, index) => ({ id: `sort-${54 - index}`, name: `Material ${54 - index}`, revision: 1 }));
+  await page.route("**/api/operations?**", (route) => {
+    const params = new URL(route.request().url()).searchParams;
+    const entity = params.get("entity");
+    const start = Number(params.get("page") ?? 0) * 50;
+    return route.fulfill({ json: entity === "stock_status" ? { active: true } : { rows: entity === "material_details" ? rows.slice(start, start + 50) : [], count: entity === "material_details" ? rows.length : 0 } });
+  });
+  await page.goto("/");
+  await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true", { timeout: 30000 });
+  await page.getByRole("button", { name: "Lager & Material", exact: true }).click();
+  const table = page.getByRole("table", { name: "Beschaffung", exact: true });
+  await expect(table.locator("tbody tr")).toHaveCount(50);
+  expect(await table.locator("tbody tr td:first-child").allTextContents()).toEqual(Array.from({ length: 50 }, (_, index) => `Material ${index}`));
+  const panel = table.locator("xpath=ancestor::div[contains(@class, 'panel')][1]");
+  await panel.getByRole("button", { name: "Next", exact: true }).click();
+  expect(await table.locator("tbody tr td:first-child").allTextContents()).toEqual(["Material 50", "Material 51", "Material 52", "Material 53", "Material 54"]);
+  await table.getByRole("searchbox", { name: "Filter: Bezeichnung", exact: true }).fill("Material 5");
+  expect(await table.locator("tbody tr td:first-child").allTextContents()).toEqual(["Material 5", "Material 50", "Material 51", "Material 52", "Material 53", "Material 54"]);
+  await table.locator("tbody tr").first().click();
+  await expect(page.getByRole("dialog", { name: "Beschaffung", exact: true })).toBeVisible();
+});
+
 test("Lageroeffnung zeigt Beschaffung nicht vor der Lageruebersicht", async ({ page }) => {
   let releaseStatus!: () => void;
   const status = new Promise<void>((resolve) => { releaseStatus = resolve; });

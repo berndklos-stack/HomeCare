@@ -4,6 +4,15 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.427.11 - 2026-10-10
+
+- Beschaffung standardmaessig alphabetisch nach der angezeigten Bezeichnung sortiert. Sprachabhaengige Sortierung mit natuerlicher Zahlenreihenfolge, vor der Seiteneinteilung.
+- Gesamtbestandsuebersicht mit optionalen Nullbestaenden und archivierten Materialien; Excel/PDF beruecksichtigen die gesetzten Spaltenfilter.
+- Inventur je Lagerort mit expliziten Zaehlmengen, atomaren Differenzbuchungen, Wiederholungsschutz und Historie mit Benutzer und Zeitpunkt. Bestehende Bewegungen bleiben unveraendert.
+- Optionaler EAN / Scancode als Text in den Materialstammdaten und Lagercode bei Lagerorten. Fuehrende Nullen bleiben erhalten; Kamera-Scanning folgt separat.
+- Auswahl Alle Materialien fuehrt zur Gesamtuebersicht. Standorte ohne Aktionsspalte, mit Zeilenbearbeitung und direkter Neuanlage samt Lagercode und Notizen.
+- Lagerplaetze innerhalb von Lagerorten, frei anlegbare Lagerorttypen und optionale Auftragszuordnung. Mandantengebundene Beziehungen, Schutz gegen zyklische Zuordnung und Sicherung der Typen vor den zugehoerigen Lagerorten.
+
 ## 1.427.10 - 2026-10-10
 
 - Lagerbuchungen zeigen Gebucht von und Gebucht am mit Datum, Uhrzeit und Sekunden in Stockholm-Zeit; identische Angaben in Buchungsdetails und Korrekturbewegungen.

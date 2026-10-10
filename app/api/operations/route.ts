@@ -10,12 +10,14 @@ const tables = {
   maintenance_plans: "homecare_maintenance_plans", maintenance_events: "homecare_maintenance_events",
   stock_movements: "homecare_stock_movements", resource_details: "homecare_resources",
   material_details: "homecare_materials", location_details: "homecare_inventory_locations",
+  location_types: "homecare_storage_location_types",
+  stock_inventories: "homecare_stock_inventories", stock_inventory_items: "homecare_stock_inventory_items",
 } as const;
-const immutable = new Set(["purchase_receipts", "maintenance_events", "stock_movements"]);
+const immutable = new Set(["purchase_receipts", "maintenance_events", "stock_movements", "stock_inventories", "stock_inventory_items"]);
 const projections: Record<string, string> = {
   resource_details: "id,revision,equipment_kind,availability,purchase_date,purchase_price,warranty_until,warranty_notes,operating_hours",
   material_details: "id,revision,preferred_supplier_id,reorder_quantity,notes",
-  location_details: "id,revision,location_kind,resource_id,project_id",
+  location_details: "id,name,note,revision,location_code,location_kind,location_type_id,parent_location_id,job_id,resource_id,project_id",
 };
 
 export async function GET(request: Request) {
@@ -30,6 +32,16 @@ export async function GET(request: Request) {
   }
   const params = new URL(request.url).searchParams;
   const entity = params.get("entity") ?? "suppliers";
+  if (entity === "stock_summary") {
+    const rows: Record<string, unknown>[] = [];
+    for (let offset = 0; ; offset += 500) {
+      const { data, error } = await client.rpc("homecare_stock_summary").range(offset, offset + 499);
+      if (error) return NextResponse.json({ error: "OPERATIONS_UNAVAILABLE" }, { status: 503 });
+      rows.push(...(data ?? []));
+      if (!data || data.length < 500) break;
+    }
+    return NextResponse.json({ rows, capturedAt: new Date().toISOString() }, { headers: { "Cache-Control": "no-store" } });
+  }
   if (entity === "overview") {
     const today = params.get("date") ?? new Date().toISOString().slice(0, 10);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(today) || Number.isNaN(Date.parse(today))) return NextResponse.json({ error: "INVALID_DATE" }, { status: 400 });
@@ -89,14 +101,17 @@ export async function GET(request: Request) {
   let query = auth.client.from(tables[entity as keyof typeof tables]).select(order ? "*,purchase_item:homecare_purchase_order_items!inner(order_id,tenant_id)" : projections[entity] ?? "*", { count: "exact" })
     .eq("tenant_id", auth.tenantId);
   if (order) query = query.eq("purchase_item.order_id", order).eq("purchase_item.tenant_id", auth.tenantId);
-  if (immutable.has(entity)) query = query.order(entity === "maintenance_events" ? "created_at" : "occurred_at", { ascending: false });
-  query = query.order("id").range(page * 50, page * 50 + 49);
+  if (immutable.has(entity) && entity !== "stock_inventory_items") query = query.order(["maintenance_events", "stock_inventories"].includes(entity) ? "created_at" : "occurred_at", { ascending: false });
+  if (entity === "stock_inventory_items") query = query.order("material_id");
+  else query = query.order("id");
+  query = query.range(page * 50, page * 50 + 49);
   if (!immutable.has(entity)) query = query.is("deleted_at", null);
+  if (entity === "location_details" && !params.get("parent") && !params.get("id")) query = query.is("parent_location_id", null);
   const search = params.get("search")?.trim();
   if (search) {
     if (search.length > 100) return NextResponse.json({ error: "INVALID_SEARCH" }, { status: 400 });
     const column = entity === "suppliers" ? "company" : entity === "purchase_orders" ? "order_number"
-      : ["supplier_contacts", "maintenance_plans", "resource_details", "material_details", "location_details"].includes(entity) ? "name" : null;
+      : ["supplier_contacts", "maintenance_plans", "resource_details", "material_details", "location_details", "location_types"].includes(entity) ? "name" : null;
     if (column) query = query.ilike(column, `%${search.replace(/[\\%_]/g, "\\$&")}%`);
   }
   const parent = params.get("parent");
@@ -105,7 +120,7 @@ export async function GET(request: Request) {
   if (parent) {
     const column = entity === "purchase_order_items" ? "order_id" : entity === "purchase_receipts" ? "item_id"
       : entity === "maintenance_events" ? "plan_id" : entity === "resource_assignments" ? "resource_id"
-      : entity === "stock_movements" ? "material_id" : entity === "supplier_contacts" ? "supplier_id" : null;
+      : entity === "location_details" ? "parent_location_id" : entity === "stock_inventory_items" ? "inventory_id" : entity === "stock_movements" ? "material_id" : entity === "supplier_contacts" ? "supplier_id" : null;
     if (!column) return NextResponse.json({ error: "INVALID_PARENT" }, { status: 400 });
     query = query.eq(column, parent);
   }

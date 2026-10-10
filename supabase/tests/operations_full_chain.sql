@@ -14,6 +14,16 @@ insert into public.homecare_resources(tenant_id,id,name,type) values('00000000-0
 update public.homecare_resources set resource_type_id='00000000-0000-4000-8000-000000000001',serial_number='BACKUP-SN',operating_hours=123,
  operating_hours_date='2026-10-08',maintenance_interval_value=200,maintenance_interval_unit='hours' where id='resource';
 update public.homecare_inventory_locations set resource_id='resource' where id='warehouse';
+update public.homecare_inventory_locations set record_data=record_data||'{"locationCode":"001-LAGER"}'::jsonb where id='warehouse';
+do $$ begin
+  if (select location_code from public.homecare_inventory_locations where id='warehouse') <> '001-LAGER' then raise exception 'LOCATION_CODE_MASTER_DATA_FAILED'; end if;
+end $$;
+update public.homecare_inventory_locations set location_code='002-LAGER' where id='warehouse';
+update public.homecare_materials set record_data=record_data||'{"scanCode":"0012345678905"}'::jsonb where id='material';
+do $$ begin
+  if (select record_data->>'locationCode' from public.homecare_inventory_locations where id='warehouse') <> '002-LAGER' then raise exception 'LOCATION_CODE_OPERATIONS_FAILED'; end if;
+  if (select record_data->>'scanCode' from public.homecare_materials where id='material') <> '0012345678905' then raise exception 'EAN_LEADING_ZERO_LOST'; end if;
+end $$;
 insert into public.homecare_suppliers(tenant_id,id,supplier_number,company) values
   ('00000000-0000-0000-0000-000000000001','33333333-3333-4333-8333-333333333333','S-1','Supplier A'),
   ('00000000-0000-0000-0000-000000000002','44444444-4444-4444-8444-444444444444','S-2','Supplier B');
@@ -30,6 +40,28 @@ do $$ begin
 end $$;
 reset role;
 select set_config('request.jwt.claim.role','service_role',true);
+do $$ declare result jsonb; revision bigint;
+begin
+  result:=public.homecare_apply_operations_mutation(gen_random_uuid(),'operations','abababab-abab-4bab-8bab-abababababab','create','abababab-abab-4bab-8bab-abababababab',
+    '00000000-0000-0000-0000-000000000001','{"kind":"save","entity":"location_details","values":{"name":"New warehouse","location_code":"003-LAGER","location_kind":"warehouse","note":"New location"}}',null,'11111111-1111-4111-8111-111111111111');
+  if result->>'status'<>'synced' or result#>>'{record,record_data,locationCode}' <> '003-LAGER' then raise exception 'LOCATION_CREATE_FAILED: %',result; end if;
+  revision:=(result#>>'{record,revision}')::bigint;
+  result:=public.homecare_apply_operations_mutation(gen_random_uuid(),'operations','abababab-abab-4bab-8bab-abababababab','update','abababab-abab-4bab-8bab-abababababab',
+    '00000000-0000-0000-0000-000000000001','{"kind":"save","entity":"location_details","values":{"name":"Renamed warehouse","location_code":null,"note":"Edited"}}',revision,'11111111-1111-4111-8111-111111111111');
+  if result->>'status'<>'synced' or result#>>'{record,record_data,name}' <> 'Renamed warehouse' or result#>>'{record,record_data,locationCode}' <> '' then raise exception 'LOCATION_EDIT_FAILED: %',result; end if;
+  result:=public.homecare_apply_operations_mutation(gen_random_uuid(),'operations','cdcdcdcd-cdcd-4dcd-8dcd-cdcdcdcdcdcd','create','cdcdcdcd-cdcd-4dcd-8dcd-cdcdcdcdcdcd',
+    '00000000-0000-0000-0000-000000000001','{"kind":"save","entity":"location_types","values":{"name":"Custom location type"}}',null,'11111111-1111-4111-8111-111111111111');
+  if result->>'status'<>'synced' then raise exception 'LOCATION_TYPE_CREATE_FAILED: %',result; end if;
+  result:=public.homecare_apply_operations_mutation(gen_random_uuid(),'operations','dededede-dede-4ede-8ede-dededededede','create','dededede-dede-4ede-8ede-dededededede',
+    '00000000-0000-0000-0000-000000000001','{"kind":"save","entity":"location_details","values":{"name":"Bin 1","parent_location_id":"warehouse","location_type_id":"cdcdcdcd-cdcd-4dcd-8dcd-cdcdcdcdcdcd"}}',null,'11111111-1111-4111-8111-111111111111');
+  if result->>'status'<>'synced' then raise exception 'STORAGE_PLACE_CREATE_FAILED: %',result; end if;
+  set constraints storage_place_check immediate;
+  begin
+    update public.homecare_inventory_locations set parent_location_id='dededede-dede-4ede-8ede-dededededede' where id='warehouse';
+    raise exception 'STORAGE_PLACE_CYCLE_ALLOWED';
+  exception when check_violation then null; end;
+  set constraints storage_place_check deferred;
+end $$;
 do $$ declare
   mutation uuid:='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'; result jsonb; repeated jsonb;
   command jsonb:='{"kind":"save","entity":"suppliers","values":{"company":"Updated supplier"}}';
@@ -54,6 +86,8 @@ select public.homecare_purchase_receive('00000000-0000-0000-0000-000000000001','
 insert into public.homecare_maintenance_plans(tenant_id,id,resource_id,name,maintenance_type,due_date) values
   ('00000000-0000-0000-0000-000000000001','88888888-8888-4888-8888-888888888888','resource','Inspection','inspection','2026-10-08');
 select public.homecare_maintenance_complete('00000000-0000-0000-0000-000000000001','99999999-9999-4999-8999-999999999999','88888888-8888-4888-8888-888888888888',1,'2026-10-08',100,10,50,'SEK',null,null,'11111111-1111-4111-8111-111111111111','Complete');
+select public.homecare_post_inventory('00000000-0000-0000-0000-000000000001','12345678-1234-4234-8234-123456789012','warehouse','11111111-1111-4111-8111-111111111111','Verified unchanged stock',
+  '[{"material_id":"material","expected":5,"counted":5}]');
 do $$ declare
   tenant uuid:='00000000-0000-0000-0000-000000000001'; backup_id uuid; table_name text; names text; original jsonb; restored jsonb;
 begin

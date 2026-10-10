@@ -15,9 +15,9 @@ import { OperationsHistory } from "./OperationsHistory";
 import { PurchaseOrderSend } from "./PurchaseOrderSend";
 import { OperationsDataTable, type DataColumn } from "./OperationsDataTable";
 
-const tableEntities = new Set(["suppliers", "supplier_contacts", "purchase_orders", "material_details", "location_details", "resource_details"]);
+const tableEntities = new Set(["suppliers", "supplier_contacts", "purchase_orders", "material_details", "location_details", "location_types", "resource_details"]);
 
-type Reference = { id: string; name: string; sku?: string; unit?: string; minStock?: string; revision?: number; hours?: number; mileage?: number; availability?: string; documents?: { id: string; name: string }[] };
+type Reference = { id: string; name: string; parentLocationId?: string; sku?: string; unit?: string; minStock?: string; archived?: boolean; revision?: number; hours?: number; mileage?: number; availability?: string; documents?: { id: string; name: string }[] };
 type Props = {
   children?: ReactNode; language: OperationsLanguage; queue: SyncMutation[];
   enqueue: (input: Parameters<typeof import("@/lib/syncQueue").createSyncMutation>[0]) => unknown;
@@ -32,9 +32,10 @@ const required: Partial<Record<OperationsEntity, string[]>> = {
   purchase_orders: ["order_number", "supplier_id", "order_date", "location_id", "currency"],
   purchase_order_items: ["order_id", "material_id", "quantity", "unit_price"],
   resource_assignments: ["resource_id", "starts_at"], maintenance_plans: ["resource_id", "name", "maintenance_type"],
+  location_types: ["name"],
 };
 const groups: Record<string, OperationsEntity[]> = {
-  inventory: ["material_details", "location_details"], purchasing: ["suppliers", "purchase_orders"],
+  inventory: ["material_details", "location_details", "location_types"], purchasing: ["suppliers", "purchase_orders"],
   resources: ["resource_details", "resource_assignments"], maintenance: ["maintenance_plans"],
 };
 const enums: Record<string, string[]> = {
@@ -46,11 +47,12 @@ const enums: Record<string, string[]> = {
 export function OperationsWorkspace(props: Props) {
   const { language, queue, enqueue } = props;
   const t = (key: string) => operationLabel(key, language);
-  const fieldLabel = (key: string, target: OperationsEntity = entity) => t(key === "name" && target !== "supplier_contacts" ? "designation" : key);
+  const fieldLabel = (key: string, target: OperationsEntity = entity) => t(key === "name" && target !== "supplier_contacts" ? "designation" : key === "note" && target === "location_details" ? "notes" : key);
   const [tab, setTab] = useState(props.resourcesOnly ? "resources" : "inventory");
   const [entity, setEntity] = useState<OperationsEntity>(props.resourcesOnly ? "resource_assignments" : "material_details");
   const [parent, setParent] = useState<OperationsRow | null>(null);
   const [rows, setRows] = useState<OperationsRow[]>([]);
+  const [locationTypes, setLocationTypes] = useState<Reference[]>([]);
   const [count, setCount] = useState(0);
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState("");
@@ -159,6 +161,7 @@ export function OperationsWorkspace(props: Props) {
       if (!controller.signal.aborted) setter(result);
     }
     void references("suppliers", "company", setSuppliers).catch(() => {});
+    if (tab === "inventory") void references("location_types", "name", setLocationTypes).catch(() => {});
     if (tab !== "inventory") {
       void references("purchase_orders", "order_number", setOrders).catch(() => {});
       void references("resource_details", "id", setResourceDetails).catch(() => {});
@@ -192,9 +195,12 @@ export function OperationsWorkspace(props: Props) {
     supplier_id: suppliers, preferred_supplier_id: suppliers, order_id: orders,
     resource_id: props.resources, employee_id: props.employees, responsible_person_id: props.employees,
     material_id: props.materials, location_id: props.locations, job_id: props.jobs, project_id: props.projects,
+    location_type_id: locationTypes, parent_location_id: [...props.locations.filter((location) => !location.parentLocationId && location.id !== form?.row?.id),
+      ...(parent && entity === "location_details" && !props.locations.some((location) => location.id === parent.id) ? [{ id: parent.id, name: String(parent.name ?? parent.id) }] : [])],
     document_id: [...(props.resources.find((r) => r.id === form?.row?.resource_id)?.documents ?? []), ...(uploadedDocument ? [uploadedDocument] : [])],
-  }), [suppliers, orders, props.resources, props.employees, props.materials, props.locations, props.jobs, props.projects, form?.row?.resource_id, uploadedDocument]);
+  }), [suppliers, orders, locationTypes, props.resources, props.employees, props.materials, props.locations, props.jobs, props.projects, form?.row?.resource_id, form?.row?.id, parent, entity, uploadedDocument]);
   function title(row: OperationsRow) {
+    if (entity === "location_details" && row.name) return String(row.name);
     const existing = entity === "resource_details" ? props.resources : entity === "material_details" ? props.materials : entity === "location_details" ? props.locations : [];
     return existing.find((r) => r.id === row.id)?.name ?? String(row.company ?? row.name ?? row.order_number ??
       props.materials.find((r) => r.id === row.material_id)?.name ?? props.resources.find((r) => r.id === row.resource_id)?.name ?? row.id);
@@ -209,6 +215,7 @@ export function OperationsWorkspace(props: Props) {
     if (kind === "save") {
       for (const key of operationsFields[entity]) values[key] = row?.[key] == null ? "" : String(row[key]);
       if (!row) {
+        if (entity === "location_details") { values.location_kind = "warehouse"; if (parent) values.parent_location_id = parent.id; }
         if (parent && entity === "purchase_order_items") values.order_id = parent.id;
         if (parent && entity === "supplier_contacts") values.supplier_id = parent.id;
         if (entity === "purchase_orders") { values.order_date = new Date().toLocaleDateString("sv-SE"); values.currency = "SEK"; }
@@ -228,6 +235,7 @@ export function OperationsWorkspace(props: Props) {
     try {
       const v = form.values;
       if (form.kind === "save") {
+        if (form.entity === "location_details" && !v.name?.trim()) throw new Error("INVALID_OPERATIONS_COMMAND");
         if (form.entity === "maintenance_plans" && !["due_date", "due_mileage", "due_hours"].some((key) => v[key]?.trim())) {
           throw new Error("maintenanceDueRequired");
         }
@@ -260,14 +268,14 @@ export function OperationsWorkspace(props: Props) {
       {key === "archived" ? <input type="checkbox" checked={value === "true"} onChange={(e) => update(key, String(e.target.checked))} />
         : references || choices ? <select aria-label={fieldLabel(key, form?.entity)} required={mandatory} value={value} onChange={(e) => update(key, e.target.value)}>
           <option value="">—</option>{references ? references.map((r) => <option key={r.id} value={r.id}>{r.name}</option>) : choices?.map((c) => <option key={c} value={c}>{t(c)}</option>)}
-        </select> : key === "notes" || key === "warranty_notes" || key === "address" ? <textarea value={value} onChange={(e) => update(key, e.target.value)} />
+        </select> : key === "notes" || key === "note" || key === "warranty_notes" || key === "address" ? <textarea value={value} onChange={(e) => update(key, e.target.value)} />
           : <input required={mandatory} type={numeric.has(key) ? "number" : key.endsWith("_date") || ["due_date", "expected_delivery", "warranty_until"].includes(key) ? "date" : "text"}
             min={numeric.has(key) ? 0 : undefined} step={numeric.has(key) ? "any" : undefined} value={value} onChange={(e) => update(key, e.target.value)} />}
     </label>;
   }
-  const editable = !entity.endsWith("_details");
+  const editable = !entity.endsWith("_details") || entity === "location_details";
   const fields = form?.kind === "receive" ? ["quantity", "note"] : form?.kind === "complete"
-    ? ["completed_date", "mileage", "operating_hours", "cost", "currency", "supplier_id", "document_id", "notes"] : form ? operationsFields[form.entity] : [];
+    ? ["completed_date", "mileage", "operating_hours", "cost", "currency", "supplier_id", "document_id", "notes"] : form ? operationsFields[form.entity].filter((key) => form.entity !== "location_details" || key !== "location_kind") : [];
   const detail = itemDetails ? rows.find((row) => row.id === itemDetails.id) ?? itemDetails : null;
   const outstanding = (row: OperationsRow) => Math.max(0, Number(row.quantity) - Number(row.received_quantity ?? 0));
   const receivable = entity === "purchase_order_items" && parent && ["ordered", "partially_received"].includes(String(parent.status));
@@ -294,10 +302,12 @@ export function OperationsWorkspace(props: Props) {
     : entity === "supplier_contacts" ? ["name", "role", "phone", "email"]
     : entity === "purchase_orders" ? ["order_number", "supplier_id", "status", "order_date", "expected_delivery", "openItems"]
     : entity === "material_details" ? ["name", "preferred_supplier_id", "reorder_quantity", "notes"]
-    : entity === "location_details" ? ["name", "location_kind", "notes"] : ["name", "availability", "notes"];
+    : entity === "location_details" ? ["name", "location_code", "location_type_id", "job_id", "note"] : entity === "location_types" ? ["name", "notes"] : ["name", "availability", "notes"];
   const columns: DataColumn[] = tableKeys.map((key) => ({ key, label: fieldLabel(key), value: (row) => {
     if (key === "name") return title(row);
     if (key === "supplier_id" || key === "preferred_supplier_id") return suppliers.find((supplier) => supplier.id === row[key])?.name ?? "";
+    if (key === "location_type_id") return locationTypes.find((type) => type.id === row[key])?.name ?? (row.location_kind ? t(String(row.location_kind)) : "");
+    if (key === "job_id") return props.jobs.find((job) => job.id === row[key])?.name ?? "";
     if (key === "status") return operationsLabels[row.status as keyof typeof operationsLabels]?.[language] ?? String(row.status ?? "");
     if (key === "order_date" || key === "expected_delivery") return row[key] ? date(row[key]) : "";
     if (key === "openItems") return `${number(row.open_item_count)} / ${number(row.item_count)}`;
@@ -321,19 +331,20 @@ export function OperationsWorkspace(props: Props) {
     <div className={styles.toolbar}>
       {(tab === "inventory" || tab === "resources") && <button onClick={() => props.onOpenMasterData(tab === "inventory" ? "materials" : "resources")}><Pencil size={18} />{tab === "inventory" ? (language === "de" ? "Materialstammdaten" : language === "sv" ? "Materialregister" : "Material master data") : (language === "de" ? "Ressourcen bearbeiten" : language === "sv" ? "Redigera resurser" : "Edit resources")}</button>}
       {groups[tab].filter((key) => key !== "material_details").map((key) => <button key={key} aria-pressed={entity === key} onClick={() => change(key)}>{t(key)}</button>)}
-      {parent && <button onClick={() => change(entity === "supplier_contacts" ? "suppliers" : "purchase_orders")}>{String(parent.company ?? parent.order_number)} <ChevronLeft size={16} /></button>}
+      {parent && <button onClick={() => change(entity === "location_details" ? "location_details" : entity === "supplier_contacts" ? "suppliers" : "purchase_orders")}>{String(parent.name ?? parent.company ?? parent.order_number)} <ChevronLeft size={16} /></button>}
       {entity === "maintenance_plans" && <input aria-label={language === "de" ? "Einträge suchen" : language === "sv" ? "Sök poster" : "Search records"} type="search" value={search} onChange={(e) => setSearch(e.target.value)} />}
       <button title={t("refresh")} aria-label={t("refresh")} onClick={() => setRefresh((n) => n + 1)}><RefreshCw size={18} /></button>
-      {editable && !error && <button onClick={() => open("save")} disabled={entity === "purchase_order_items" && (!parent || parent.status !== "draft" || blocked(parent.id))}><Plus size={18} />{t("create")}</button>}
+      {editable && !error && <button onClick={() => open("save")} disabled={entity === "purchase_order_items" && (!parent || parent.status !== "draft" || blocked(parent.id))}><Plus size={18} />{t(entity === "location_details" ? parent ? "createStoragePlace" : "createLocation" : "create")}</button>}
     </div>
     {tab === "inventory" && (stockActive === true ? <OperationsStock {...props} onMaterialSelected={setStockMaterialId} /> : stockActive === false ? props.children : <div role="status" aria-busy={!stockError}>{t(stockError ? "OPERATIONS_UNAVAILABLE" : "loading")}</div>)}
     {error && <p role="status">{t(error)}</p>}
     {active.length > 0 && <div role="status" className={styles.pending}>{active.map((m) => <p key={m.id}>{t(m.status === "failed" || m.status === "conflict" ? "failed" : "waiting")}: {String((m.payload.values as Record<string, unknown> | undefined)?.company ?? (m.payload.values as Record<string, unknown> | undefined)?.name ?? m.entityId)}</p>)}</div>}
     {(tab !== "inventory" || stockActive !== null) && <div className={`panel ${styles.list}`} aria-busy={loading}>
-      <div className="panel-title"><div><p>{tab === "inventory" ? t("inventorySection") : operationsLabels[tab as keyof typeof operationsLabels][language]}</p><h2>{t(entity)}</h2></div></div>
+      <div className="panel-title"><div><p>{tab === "inventory" ? t("inventorySection") : operationsLabels[tab as keyof typeof operationsLabels][language]}</p><h2>{entity === "location_details" && parent ? `${t("storagePlaces")}: ${String(parent.name ?? "")}` : t(entity)}</h2></div></div>
       {!tableEntities.has(entity) && !rows.length && !loading && !error && <p>{t("empty")}</p>}
-      {tableEntities.has(entity) ? <OperationsDataTable key={`${entity}:${parent?.id ?? ""}`} rows={entity === "material_details" && stockActive && stockMaterialId ? rows.filter((row) => row.id === stockMaterialId) : rows} columns={columns} actions={["material_details", "suppliers"].includes(entity) ? undefined : tableActions} label={t(entity)} filterLabel={t("filter")} emptyLabel={t("empty")} actionsLabel={t("actions")}
+      {tableEntities.has(entity) ? <OperationsDataTable key={`${entity}:${parent?.id ?? ""}`} rows={entity === "material_details" && stockActive && stockMaterialId ? rows.filter((row) => row.id === stockMaterialId) : rows} columns={columns} actions={["material_details", "suppliers", "location_details", "location_types"].includes(entity) ? undefined : tableActions} label={t(entity)} filterLabel={t("filter")} emptyLabel={t("empty")} actionsLabel={t("actions")}
         canActivate={(row) => !blocked(row.id) && !(parent && blocked(parent.id))}
+        sortBy={entity === "material_details" ? "name" : undefined} language={language}
         onRowActivate={(row) => entity === "purchase_orders" && row.status !== "draft" ? change("purchase_order_items", row) : open("save", row)} /> : entity === "purchase_order_items" && rows.length > 0 ? <div className={styles.itemsScroll}><table className={styles.items}>
         <thead><tr><th scope="col">{receivable && <input type="checkbox" aria-label={t(count > 50 ? "selectOpenPage" : "selectOpen")} title={t(count > 50 ? "selectOpenPage" : "selectOpen")} disabled={receiptDisabled || !openRows.length}
           checked={openRows.length > 0 && openRows.every((row) => receiptSelection[row.id] !== undefined)}
@@ -423,7 +434,7 @@ export function OperationsWorkspace(props: Props) {
       <form onSubmit={(e) => { e.preventDefault(); save(); }}>
         <header className={styles.dialogHeader}><h2 id="operations-form-title">{t(form.kind === "save" ? form.entity : form.kind)}</h2><button type="button" title={t("close")} aria-label={t("close")} onClick={() => setForm(null)}><X size={18} /></button></header>
         <div className={styles.fields}>{fields.map((key) => input(key, form.values, (k, v) => setForm({ ...form, values: { ...form.values, [k]: v } }),
-          form.kind === "save" ? required[form.entity]?.includes(key) : ["quantity", "note", "completed_date", "cost", "currency"].includes(key)))}</div>
+          form.kind === "save" ? (form.entity === "location_details" && key === "name") || required[form.entity]?.includes(key) : ["quantity", "note", "completed_date", "cost", "currency"].includes(key)))}</div>
         {form.kind === "complete" && <OperationsDocumentUpload language={language} onPending={setDocumentPending} onUploaded={(document) => {
           setUploadedDocument(document);
           setForm((current) => current?.kind === "complete" ? { ...current, values: { ...current.values, document_id: document.id } } : current);
@@ -434,6 +445,7 @@ export function OperationsWorkspace(props: Props) {
         </div>)}<button type="button" onClick={() => setConsumption((old) => [...old, { material_id: "", location_id: "", quantity: "1" }])}><Plus size={18} />{t("addMaterial")}</button></section>}
         {formError && <p role="alert">{t(formError)}</p>}
         <footer className={styles.actions}>
+          {form.entity === "location_details" && form.row && !form.row.parent_location_id && <button type="button" onClick={() => change("location_details", form.row!)}>{t("storagePlaces")}</button>}
           {form.entity === "suppliers" && form.row && <>
             <button type="button" onClick={() => change("supplier_contacts", form.row!)}>{t("supplier_contacts")}</button>
             <button type="button" disabled={blocked(form.row.id)} onClick={() => { setArchive(form.row!); setForm(null); }}><Archive size={18} />{t("archive")}</button>

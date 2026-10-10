@@ -7,19 +7,26 @@ import styles from "./OperationsWorkspace.module.css";
 
 export type DataColumn = { key: string; label: string; value: (row: OperationsRow) => string; render?: (row: OperationsRow) => ReactNode };
 
-export function OperationsDataTable({ rows, columns, actions, label, filterLabel, emptyLabel, actionsLabel, onRowActivate, canActivate }: {
+export function OperationsDataTable({ rows, columns, actions, label, filterLabel, emptyLabel, actionsLabel, onRowActivate, canActivate, sortBy, language, onFiltersChange }: {
   rows: OperationsRow[]; columns: DataColumn[]; actions?: (row: OperationsRow) => ReactNode;
   label: string; filterLabel: string; emptyLabel: string; actionsLabel: string;
   onRowActivate?: (row: OperationsRow) => void; canActivate?: (row: OperationsRow) => boolean;
+  sortBy?: string; language?: string;
+  onFiltersChange?: (filters: Record<string, string>) => void;
 }) {
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [page, setPage] = useState(0);
   const filtered = rows.filter((row) => columns.every((column) => column.value(row).toLocaleLowerCase().includes((filters[column.key] ?? "").trim().toLocaleLowerCase())));
+  const sortColumn = columns.find((column) => column.key === sortBy);
+  if (sortColumn) {
+    const collator = new Intl.Collator(language, { sensitivity: "base", numeric: true });
+    filtered.sort((left, right) => collator.compare(sortColumn.value(left), sortColumn.value(right)));
+  }
   const current = Math.min(page, Math.max(0, Math.ceil(filtered.length / 50) - 1));
   return <>
     <div className={`${styles.itemsScroll} ${styles.tableFrame}`}><table className={styles.dataTable} aria-label={label}>
       <thead><tr>{columns.map((column) => <th scope="col" key={column.key}>{column.label}</th>)}{actions && <th scope="col">{actionsLabel}</th>}</tr>
-        <tr>{columns.map((column) => <td key={column.key}><input type="search" aria-label={`${filterLabel}: ${column.label}`} value={filters[column.key] ?? ""} onChange={(event) => { setFilters((old) => ({ ...old, [column.key]: event.target.value })); setPage(0); }} /></td>)}{actions && <td />}</tr>
+        <tr>{columns.map((column) => <td key={column.key}><input type="search" aria-label={`${filterLabel}: ${column.label}`} value={filters[column.key] ?? ""} onChange={(event) => { const next = { ...filters, [column.key]: event.target.value }; setFilters(next); onFiltersChange?.(next); setPage(0); }} /></td>)}{actions && <td />}</tr>
       </thead>
       <tbody>{filtered.slice(current * 50, current * 50 + 50).map((row) => {
         const enabled = Boolean(onRowActivate && (canActivate?.(row) ?? true));
