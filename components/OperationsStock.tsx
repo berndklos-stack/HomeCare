@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, ChevronLeft, ChevronRight, ChevronsUpDown, Plus, RefreshCw, X } from "lucide-react";
+import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, ChevronLeft, ChevronRight, ChevronsUpDown, Plus, RefreshCw, ScanLine, X } from "lucide-react";
 import { apiFetch } from "@/lib/apiClient";
 import { createStableId, type SyncMutation } from "@/lib/syncQueue";
 import { operationLabel } from "@/lib/operationsUi";
@@ -8,9 +8,10 @@ import { validateOperationsMutation, type OperationsRow } from "@/lib/operations
 import { OperationsDataTable, type DataColumn } from "./OperationsDataTable";
 import { TripDialog } from "./TripDialog";
 import { StockOverview } from "./StockOverview";
+import { StockScan } from "./StockScan";
 import styles from "./OperationsWorkspace.module.css";
 
-type Ref = { id: string; name: string; sku?: string; unit?: string; minStock?: string; archived?: boolean };
+type Ref = { id: string; name: string; sku?: string; scanCode?: string; unit?: string; minStock?: string; archived?: boolean };
 export function OperationsStock({ language, materials, locations, jobs, projects, queue, enqueue, onMaterialSelected, view = "overview" }: {
   language: "de" | "sv" | "en"; materials: Ref[]; locations: Ref[]; jobs: Ref[]; projects: Ref[]; queue: SyncMutation[];
   enqueue: (input: Parameters<typeof import("@/lib/syncQueue").createSyncMutation>[0]) => unknown;
@@ -19,6 +20,7 @@ export function OperationsStock({ language, materials, locations, jobs, projects
 }) {
   const t = (key: string) => operationLabel(key, language);
   const [materialId, setMaterialId] = useState("");
+  const [scanOpen, setScanOpen] = useState(false), [scanQueued, setScanQueued] = useState(false);
   const [details, setDetails] = useState<{ kind: "balance" | "movement"; row: OperationsRow } | null>(null);
   const [correction, setCorrection] = useState<OperationsRow | null>(null);
   const [correctionQuantity, setCorrectionQuantity] = useState("");
@@ -95,7 +97,8 @@ export function OperationsStock({ language, materials, locations, jobs, projects
       onBooked={() => setRefresh((value) => value + 1)} onSelect={() => {}} />}
     {view !== "inventory" && <>
     <section className="panel">
-    <header className={`panel-title ${styles.stockHeading}`}><div><p>{t("inventorySection")}</p><h2>{view === "bookings" ? t("bookings") : t("stockOverview")}</h2></div><button className={styles.primaryAction} disabled={!materials.length} aria-label={t("globalStockBooking")} onClick={openBooking}><Plus size={18} />{t("stock")}</button></header>
+    <header className={`panel-title ${styles.stockHeading}`}><div><p>{t("inventorySection")}</p><h2>{view === "bookings" ? t("bookings") : t("stockOverview")}</h2></div><div className={styles.actions}><button disabled={!materials.length} onClick={() => { setScanQueued(false); setScanOpen(true); }}><ScanLine size={18} />{t("scanTransfer")}</button><button className={styles.primaryAction} disabled={!materials.length} aria-label={t("globalStockBooking")} onClick={openBooking}><Plus size={18} />{t("stock")}</button></div></header>
+    {scanQueued && <p role="status">{t("scanQueued")}</p>}
     <div className={styles.toolbar}><label>{t("material_id")} <span className={styles.stockFilter}><select aria-label={t("material_id")} value={materialId} onChange={(e) => { setMaterialId(e.target.value); onMaterialSelected?.(e.target.value); setPage(0); setBalances([]); setHistory([]); setCount(0); setLoading(false); setError(""); }}><option value="">{t("allMaterials")}</option>{materials.map((m) => <option key={m.id} value={m.id}>{materialLabel(m)}</option>)}</select><ChevronsUpDown size={18} aria-hidden="true" /></span></label>
       <button title={t("refresh")} aria-label={t("refresh")} onClick={() => setRefresh((n) => n + 1)}><RefreshCw size={18} /></button>
     </div>
@@ -177,5 +180,6 @@ export function OperationsStock({ language, materials, locations, jobs, projects
         <footer className={styles.actions}><button type="button" onClick={() => setCorrection(null)}>{t("cancel")}</button><button type="submit" className={styles.primaryAction} disabled={!correctionReason.trim() || correctionPending(correction)}>{t("bookCorrection")}</button></footer>
       </form>
     </TripDialog>}
+    {scanOpen && <StockScan materials={materials} language={language} queue={queue} enqueue={enqueue} onClose={() => setScanOpen(false)} onQueued={() => { setScanOpen(false); setScanQueued(true); }} />}
   </div>;
 }

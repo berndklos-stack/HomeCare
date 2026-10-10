@@ -18,7 +18,7 @@ import { locationLabelPdf } from "@/lib/locationLabel";
 
 const tableEntities = new Set(["suppliers", "supplier_contacts", "purchase_orders", "material_details", "location_details", "location_types", "resource_details"]);
 
-type Reference = { id: string; name: string; parentLocationId?: string; sku?: string; unit?: string; minStock?: string; archived?: boolean; revision?: number; hours?: number; mileage?: number; availability?: string; documents?: { id: string; name: string }[] };
+type Reference = { id: string; name: string; parentLocationId?: string; sku?: string; scanCode?: string; unit?: string; minStock?: string; archived?: boolean; revision?: number; hours?: number; mileage?: number; availability?: string; documents?: { id: string; name: string }[] };
 type Props = {
   children?: ReactNode; language: OperationsLanguage; queue: SyncMutation[];
   enqueue: (input: Parameters<typeof import("@/lib/syncQueue").createSyncMutation>[0]) => unknown;

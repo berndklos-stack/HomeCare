@@ -147,6 +147,7 @@ type ObjectCustomFields = {
 
 type ObjectRecord = {
   id: string;
+  scanCode?: string;
   name: string;
   ownerCustomerId: string;
   owner: string;
@@ -275,6 +276,7 @@ type JobConsulting = {
 
 type JobRecord = {
   id: string;
+  scanCode?: string;
   seriesMasterId?: string;
   seriesOccurrenceDate?: string;
   seriesExcludedDates?: string[];
@@ -1168,6 +1170,7 @@ type ServicePackage = {
 
 type NewObjectFormState = {
   name: string;
+  scanCode: string;
   ownerCustomerId: string;
   owner: string;
   ownerEmail: string;
@@ -1208,6 +1211,7 @@ type NewObjectFormState = {
 
 type NewJobFormState = {
   title: string;
+  scanCode: string;
   type: string;
   priority: JobRecord["priority"];
   status: JobRecord["status"];
@@ -4425,6 +4429,7 @@ async function loadLiveAppVersion() {
 function emptyObjectForm(): NewObjectFormState {
   return {
     name: "",
+    scanCode: "",
     ownerCustomerId: "",
     owner: "",
     ownerEmail: "",
@@ -4468,6 +4473,7 @@ function emptyJobForm(): NewJobFormState {
   const today = currentLocalDateValue();
   return {
     title: "",
+    scanCode: "",
     type: "Hauskontrolle",
     priority: "normal",
     status: "geplant",
@@ -4526,6 +4532,7 @@ function emptyJobForm(): NewJobFormState {
 function objectToForm(object: ObjectRecord): NewObjectFormState {
   return {
     name: object.name,
+    scanCode: object.scanCode ?? "",
     ownerCustomerId: object.ownerCustomerId,
     owner: object.owner,
     ownerEmail: object.ownerEmail,
@@ -4888,6 +4895,7 @@ function jobToForm(job: JobRecord): NewJobFormState {
   return {
     ...emptyJobForm(),
     title: job.title,
+    scanCode: job.scanCode ?? "",
     type: job.type,
     priority: job.priority,
     status: job.status,
@@ -7280,6 +7288,7 @@ function formToObject(form: NewObjectFormState, id: string): ObjectRecord {
   return {
     id,
     name: form.name.trim() || "Neues Projekt / Objekt",
+    scanCode: form.scanCode.trim(),
     ownerCustomerId: form.ownerCustomerId,
     owner: form.owner.trim() || "Kunde / Eigentümer offen",
     ownerEmail: form.ownerEmail.trim(),
@@ -11301,6 +11310,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
       seriesOccurrenceDate: existingJob?.seriesOccurrenceDate,
       seriesExcludedDates: existingJob?.seriesExcludedDates,
       title: newJob.title.trim() || "Neuer Auftrag",
+      scanCode: newJob.scanCode.trim(),
       objectId: jobObject.id,
       customerId: jobObject.ownerCustomerId || customers.find((customer) => customer.name === jobObject.owner)?.id || "CUS-1",
       type: newJob.type.trim() || customService?.name || "Hauskontrolle",
@@ -13674,7 +13684,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
               <OperationsWorkspace language={language} queue={tripSync.queue} enqueue={enqueueSyncMutation}
                 materialMasterData={masterDataView}
                 onOpenMasterData={(tab) => { setOperationsMasterDataRequest(`${tab}:${Date.now()}`); setSection("masterData"); }}
-                materials={materials.map((r) => ({ id: r.id, name: r.name, sku: r.sku, unit: r.unit, minStock: r.minStock, archived: r.archived }))}
+                materials={materials.map((r) => ({ id: r.id, name: r.name, sku: r.sku, scanCode: r.scanCode, unit: r.unit, minStock: r.minStock, archived: r.archived }))}
                 locations={inventoryLocations.filter((r) => !r.archived).map((r) => ({ id: r.id, parentLocationId: r.parentLocationId, name: r.parentLocationId ? `${inventoryLocations.find((parent) => parent.id === r.parentLocationId)?.name ?? ""} / ${r.name}` : r.name }))}
                 resources={resources.map((r) => ({ id: r.id, name: r.name, mileage: r.currentOdometer ? Number(r.currentOdometer) : undefined,
                   documents: (r.media ?? []).filter((m) => m.type === "Dokument").map((m) => ({ id: m.id, name: m.name })) }))}
@@ -24788,6 +24798,7 @@ function ObjectForm({
         </select>
       </label>
       <label><span>{entityName}</span><input placeholder={`${entityName} ${language === "de" ? "benennen" : language === "sv" ? "namn" : "name"}`} value={newObject.name} onChange={(event) => update("name", event.target.value)} /></label>
+      <label><span>{language === "de" ? "Objektcode" : language === "sv" ? "Objektkod" : "Object code"}</span><input type="text" maxLength={128} value={newObject.scanCode} onChange={(event) => update("scanCode", event.target.value)} /></label>
       <label><span>{tt("Status")}</span>
         <select value={newObject.status} onChange={(event) => update("status", event.target.value)}>
           <option value="">{tt("Status auswählen")}</option>
@@ -25861,6 +25872,7 @@ function JobForm({
             <span>Titel</span>
             <input value={newJob.title} onChange={(event) => update("title", event.target.value)} />
           </label>
+          <label><span>{language === "de" ? "Auftragscode" : language === "sv" ? "Uppdragskod" : "Job code"}</span><input type="text" maxLength={128} value={newJob.scanCode} onChange={(event) => update("scanCode", event.target.value)} /></label>
           <label>
             <span>{selectedEntityName}</span>
             <select value={selectedObjectId} onChange={(event) => setSelectedObjectId(event.target.value)}>

@@ -1,4 +1,97 @@
 import { expect, test } from "@playwright/test";
+import QRCode from "qrcode";
+
+for (const mobile of [false, true]) test(`Scan-Umlagerung mit Teilmenge und Bestandspruefung ${mobile ? "mobil" : "desktop"}`, async ({ page }) => {
+  await page.setViewportSize(mobile ? { width: 390, height: 844 } : { width: 1440, height: 1000 });
+  await page.addInitScript(() => {
+    localStorage.setItem("kolaretorp-updated-at", "2026-10-10T10:00:00Z");
+    localStorage.setItem("kolaretorp-field-progress", JSON.stringify({ "synthetic-scan-test": {} }));
+    localStorage.setItem("kolaretorp-materials", JSON.stringify([
+      { id: "scan-material", name: "Scanmaterial", sku: "SM-001", scanCode: "0012345678905", unit: "Meter", inventory: [] },
+      { id: "scan-archived", name: "Archiviert", scanCode: "ARCHIVE", archived: true, inventory: [] },
+      { id: "scan-duplicate-a", name: "Doppelt A", scanCode: "DUPLICATE", inventory: [] },
+      { id: "scan-duplicate-b", name: "Doppelt B", scanCode: "DUPLICATE", inventory: [] },
+    ]));
+    Object.defineProperty(navigator.mediaDevices, "getUserMedia", { value: async () => { throw new DOMException("Denied", "NotAllowedError"); } });
+  });
+  let balance = 20;
+  await page.route("**/api/operations?**", (route) => {
+    const params = new URL(route.request().url()).searchParams;
+    if (params.get("entity") === "stock_status") return route.fulfill({ json: { active: true } });
+    const rows = params.get("entity") === "stock_balances" ? [{ location_id: "scan-root", quantity: balance }]
+      : params.get("entity") === "location_details" ? params.get("storage_places") === "1" ? [{ id: "scan-bin", name: "Regal A", parent_location_id: "scan-root", location_code: "REG-A" }]
+        : [{ id: "scan-root", name: "Hauptlager", location_code: "LAGER-01" }, { id: "scan-deleted", name: "Archivlager", location_code: "ARCHIVE-LOC", archived: true }]
+      : [];
+    return route.fulfill({ json: { rows, count: rows.length } });
+  });
+  await page.goto("/");
+  await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true", { timeout: 30000 });
+  await page.getByRole("button", { name: "Lager & Material", exact: true }).click();
+  await page.getByRole("button", { name: "Umlagerung scannen", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Umlagerung scannen", exact: true });
+  const code = dialog.getByRole("textbox", { name: "Code", exact: true });
+  await expect(code).toBeVisible();
+  await dialog.getByRole("button", { name: "Mit Kamera scannen", exact: true }).click();
+  await expect(dialog.getByRole("alert")).toContainText("Kamera nicht verfügbar");
+  for (const invalid of ["UNKNOWN", "ARCHIVE", "LAGER-01", "DUPLICATE"]) {
+    await code.fill(invalid); await code.press("Enter");
+    await expect(dialog.getByRole("alert")).toContainText(invalid === "DUPLICATE" ? "mehrfach vergeben" : "nicht gefunden");
+  }
+  await code.fill("0012345678905"); await code.press("Enter");
+  await expect(dialog).toContainText("SM-001 · Scanmaterial");
+  await code.fill("ARCHIVE-LOC"); await code.press("Enter");
+  await expect(dialog.getByRole("alert")).toContainText("nicht gefunden");
+  await code.fill("LAGER-01"); await code.press("Enter");
+  await code.fill("LAGER-01"); await code.press("Enter");
+  await expect(dialog.getByRole("alert")).toContainText("unterschiedlich");
+  await code.fill("REG-A"); await code.press("Enter");
+  await expect(dialog).toContainText("Hauptlager / Regal A");
+  await expect(dialog.getByRole("status")).toContainText("20 Meter");
+  const quantity = dialog.getByRole("spinbutton", { name: "Menge", exact: true });
+  await quantity.fill("21");
+  await expect(dialog.getByRole("button", { name: "Umlagerung buchen", exact: true })).toBeDisabled();
+  await quantity.fill("2.5");
+  await page.screenshot({ path: `test-results/scan-transfer-${mobile}-${test.info().project.name}.png` });
+  expect(await dialog.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+  balance = 1;
+  await dialog.getByRole("button", { name: "Umlagerung buchen", exact: true }).click();
+  await expect(dialog.getByRole("alert")).toContainText("Bestand");
+  await expect(dialog).toBeVisible();
+  await quantity.fill("0.5");
+  await dialog.getByRole("button", { name: "Umlagerung buchen", exact: true }).click();
+  await expect(dialog).not.toBeVisible();
+  const queued = await page.evaluate(() => JSON.parse(localStorage.getItem("workcore-sync-mutations-v1") ?? "[]").filter((mutation: { payload: { kind?: string } }) => mutation.payload.kind === "stock"));
+  expect(queued).toHaveLength(1);
+  expect(queued[0].payload).toMatchObject({ material_id: "scan-material", source_id: "scan-root", destination_id: "scan-bin", quantity: 0.5 });
+});
+
+test("Kamera liest echten QR-Code und beendet den Videostream", async ({ page, browserName }) => {
+  test.skip(browserName !== "chromium", "Canvas-Videostream nur in Chromium verfügbar");
+  const qr = await QRCode.toDataURL("0012345678905", { width: 600, margin: 4 });
+  await page.addInitScript(({ qr }) => {
+    localStorage.setItem("kolaretorp-updated-at", "2026-10-10T10:00:00Z");
+    localStorage.setItem("kolaretorp-field-progress", JSON.stringify({ "synthetic-camera-test": {} }));
+    localStorage.setItem("kolaretorp-materials", JSON.stringify([{ id: "camera-material", name: "Kameramaterial", scanCode: "0012345678905", unit: "Stück", inventory: [] }]));
+    Object.defineProperty(navigator.mediaDevices, "getUserMedia", { value: async () => {
+      const image = new Image(); image.src = qr; await image.decode();
+      const canvas = document.createElement("canvas"); canvas.width = 600; canvas.height = 600;
+      canvas.getContext("2d")!.drawImage(image, 0, 0);
+      const stream = canvas.captureStream(15);
+      (window as unknown as { scanTestStream: MediaStream }).scanTestStream = stream;
+      return stream;
+    } });
+  }, { qr });
+  await page.route("**/api/operations?**", (route) => route.fulfill({ json: new URL(route.request().url()).searchParams.get("entity") === "stock_status" ? { active: true } : { rows: [], count: 0 } }));
+  await page.goto("/");
+  await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true", { timeout: 30000 });
+  await page.getByRole("button", { name: "Lager & Material", exact: true }).click();
+  await page.getByRole("button", { name: "Umlagerung scannen", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Umlagerung scannen", exact: true });
+  await dialog.getByRole("button", { name: "Mit Kamera scannen", exact: true }).click();
+  await expect(dialog).toContainText("Kameramaterial");
+  await expect.poll(() => page.evaluate(() => (window as unknown as { scanTestStream: MediaStream }).scanTestStream.getTracks().map((track) => track.readyState))).toEqual(["ended"]);
+  await dialog.getByRole("button", { name: "Schließen", exact: true }).click();
+});
 
 for (const mobile of [false, true]) test(`Materialstammdaten und Lagerplaetze bleiben in der Reiteransicht ${mobile ? "mobil" : "desktop"}`, async ({ page }) => {
   await page.setViewportSize(mobile ? { width: 390, height: 844 } : { width: 1440, height: 1000 });

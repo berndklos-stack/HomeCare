@@ -1,5 +1,29 @@
 import { expect, test } from "@playwright/test";
 
+test("Auftrags- und Objektcodes bleiben beim Speichern und Wiedereroeffnen erhalten", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true");
+  const row = page.locator(".dashboard-work-list > button").first();
+  await row.click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Auftragscode", { exact: true }).fill("001-JOB");
+  await dialog.getByRole("button", { name: "Auftrag speichern", exact: true }).click();
+  await expect(dialog).not.toBeVisible();
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem("kolaretorp-jobs") ?? "[]").some((job: { scanCode?: string }) => job.scanCode === "001-JOB"))).toBe(true);
+  await page.getByRole("button", { name: "Projekte & Objekte", exact: true }).click();
+  const objectRow = page.locator(".object-list article").first();
+  await objectRow.click();
+  await page.getByLabel("Objektcode", { exact: true }).fill("001-OBJ");
+  await page.getByRole("heading", { name: "Basisdaten", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem("kolaretorp-objects") ?? "[]").some((object: { scanCode?: string }) => object.scanCode === "001-OBJ"))).toBe(true);
+  await page.getByRole("button", { name: "Zurück zu Projekte & Objekte", exact: true }).click();
+  await objectRow.click();
+  await expect(page.getByLabel("Objektcode", { exact: true })).toHaveValue("001-OBJ");
+  const mutations = await page.evaluate(() => JSON.parse(localStorage.getItem("workcore-sync-mutations-v1") ?? "[]"));
+  expect(mutations.some((mutation: { entityType: string; payload: { scanCode?: string } }) => mutation.entityType === "job" && mutation.payload.scanCode === "001-JOB")).toBe(true);
+  expect(mutations.some((mutation: { entityType: string; payload: { scanCode?: string } }) => mutation.entityType === "object" && mutation.payload.scanCode === "001-OBJ")).toBe(true);
+});
+
 for (const width of [1440, 390]) test(`Dashboard-Einsatz öffnet ohne Datenänderung bei ${width}px`, async ({ page }) => {
   await page.setViewportSize({ width, height: 900 });
   await page.goto("/");

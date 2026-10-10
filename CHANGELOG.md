@@ -4,6 +4,13 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.427.19 - 2026-10-10
+
+- Scan-Umlagerung in Bestandsuebersicht und Buchungen: Material, Ausgangslagerort/-platz, Ziellagerort/-platz scannen, gewuenschte Teilmenge erfassen und bewusst buchen.
+- QR-/EAN-Lesen per Kamera mit ZXing, alternativ Handscanner oder Codeeingabe. Kamera endet nach Erkennung, Schliessen oder Wechsel in den Hintergrund. Unbekannte, archivierte, doppelte Codes und identische Lagerorte werden abgewiesen.
+- Verfuegbaren Ausgangsbestand anzeigen und unmittelbar vor Buchung erneut pruefen. Vorhandene relationale, mandantengeschuetzte Lagerbuchung und Synchronisierung bleiben unveraendert; keine Buchung allein durch Scannen.
+- Auftragscode und Objektcode als Textfelder mit maximal 128 Zeichen; fuehrende Nullen bleiben erhalten. Speicherung ueber die vorhandenen relationalen Datensaetze und Revisionsschutz, ohne app_state.
+
 ## 1.427.18 - 2026-10-10
 
 - Materialdialog mit PDF-Etikett (100 x 60 mm), Firmenlogo, Materialnummer, Bezeichnung und QR-Code des gespeicherten EAN-/Scancodes. Fuehrende Nullen bleiben erhalten; fehlende Codes und ungespeicherte Etikettenaenderungen verhindern den Druck.

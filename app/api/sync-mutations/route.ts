@@ -39,6 +39,10 @@ export async function POST(request: Request) {
   if (!validMutation(mutation)) {
     return NextResponse.json({ error: "Ungültige Synchronisierungsanfrage." }, { status: 400 });
   }
+  if (["job", "object"].includes(mutation.entityType) && mutation.payload?.scanCode !== undefined
+    && (typeof mutation.payload.scanCode !== "string" || mutation.payload.scanCode.length > 128)) {
+    return NextResponse.json({ error: "INVALID_SCAN_CODE" }, { status: 400 });
+  }
   if (mutation.entityType === "operations") {
     if (process.env.NODE_ENV !== "production" && process.env.WORKCORE_E2E_AUTH_BYPASS === "1") {
       return NextResponse.json({ error: "OPERATIONS_E2E_MOCK_REQUIRED" }, { status: 503 });

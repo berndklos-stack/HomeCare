@@ -1,10 +1,15 @@
 export const appVersion = {
-  version: "1.427.18",
+  version: "1.427.19",
   releaseDate: "2026-10-10",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  {
+    version: "1.427.19",
+    date: "2026-10-10",
+    changes: ["Umlagerungen per Kamera oder Handscanner: Material, Ausgangslagerort, Ziellagerort, Teilmenge und Kontrolle", "Lagerplaetze, Codepruefung und erneute Bestandspruefung vor der Buchung", "Speicherbare Auftrags- und Objektcodes in den Bearbeitungsmasken"],
+  },
   {
     version: "1.427.18",
     date: "2026-10-10",
