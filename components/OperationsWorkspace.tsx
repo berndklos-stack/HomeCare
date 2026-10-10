@@ -49,6 +49,7 @@ export function OperationsWorkspace(props: Props) {
   const t = (key: string) => operationLabel(key, language);
   const fieldLabel = (key: string, target: OperationsEntity = entity) => t(key === "name" && target !== "supplier_contacts" ? "designation" : key === "note" && target === "location_details" ? "notes" : key);
   const [tab, setTab] = useState(props.resourcesOnly ? "resources" : "inventory");
+  const [stockView, setStockView] = useState<"overview" | "bookings">("overview");
   const [entity, setEntity] = useState<OperationsEntity>(props.resourcesOnly ? "resource_assignments" : "material_details");
   const [parent, setParent] = useState<OperationsRow | null>(null);
   const [rows, setRows] = useState<OperationsRow[]>([]);
@@ -327,21 +328,24 @@ export function OperationsWorkspace(props: Props) {
   </>;
   const inventoryMaster = tab === "inventory" && entity !== "material_details";
   return <div className={styles.workspace}>
-    {inventoryMaster && <header className={styles.stockHeading}><h2>{t("inventorySection")}</h2><button onClick={() => change(parent ? "location_details" : "material_details")}><ChevronLeft size={18} />{language === "de" ? "Zurück" : language === "sv" ? "Tillbaka" : "Back"}</button></header>}
-    <nav hidden={inventoryMaster} className={styles.tabs} aria-label="Operations">{Object.keys(groups).filter((key) => props.resourcesOnly ? ["resources", "maintenance"].includes(key) : ["inventory", "purchasing"].includes(key)).map((key) => <button key={key} className={tab === key ? styles.selected : ""}
+    <nav className={styles.tabs} aria-label="Operations">{Object.keys(groups).filter((key) => props.resourcesOnly ? ["resources", "maintenance"].includes(key) : ["inventory", "purchasing"].includes(key)).map((key) => <button key={key} className={tab === key ? styles.selected : ""}
       onClick={() => { setTab(key); change(groups[key][0]); }}>{operationsLabels[key as keyof typeof operationsLabels][language]}</button>)}</nav>
     <div className={styles.toolbar}>
-      {!inventoryMaster && (tab === "inventory" || tab === "resources") && <button onClick={() => props.onOpenMasterData(tab === "inventory" ? "materials" : "resources")}><Pencil size={18} />{tab === "inventory" ? (language === "de" ? "Materialstammdaten" : language === "sv" ? "Materialregister" : "Material master data") : (language === "de" ? "Ressourcen bearbeiten" : language === "sv" ? "Redigera resurser" : "Edit resources")}</button>}
-      {!inventoryMaster && groups[tab].filter((key) => key !== "material_details").map((key) => <button key={key} aria-pressed={entity === key} onClick={() => change(key)}>{t(key)}</button>)}
-      {parent && !inventoryMaster && <button onClick={() => change(entity === "supplier_contacts" ? "suppliers" : "purchase_orders")}>{String(parent.name ?? parent.company ?? parent.order_number)} <ChevronLeft size={16} /></button>}
+      {tab === "inventory" && <div className={styles.tabs} role="tablist" aria-label={t("inventorySection")}>
+        {(["overview", "bookings"] as const).map((view) => <button key={view} role="tab" aria-selected={!inventoryMaster && stockView === view} aria-controls="inventory-stock-panel" className={!inventoryMaster && stockView === view ? styles.selected : ""} onClick={() => { setStockView(view); change("material_details"); }}>{view === "bookings" ? t("bookings") : language === "de" ? "Bestandsübersicht" : language === "sv" ? "Lageröversikt" : "Stock overview"}</button>)}
+        {groups.inventory.filter((key) => key !== "material_details").map((key) => <button key={key} role="tab" aria-selected={entity === key} aria-controls="inventory-master-panel" className={entity === key ? styles.selected : ""} onClick={() => change(key)}>{t(key)}</button>)}
+      </div>}
+      {(tab === "inventory" || tab === "resources") && <button onClick={() => props.onOpenMasterData(tab === "inventory" ? "materials" : "resources")}><Pencil size={18} />{tab === "inventory" ? (language === "de" ? "Materialstammdaten" : language === "sv" ? "Materialregister" : "Material master data") : (language === "de" ? "Ressourcen bearbeiten" : language === "sv" ? "Redigera resurser" : "Edit resources")}</button>}
+      {tab !== "inventory" && groups[tab].filter((key) => key !== "material_details").map((key) => <button key={key} aria-pressed={entity === key} onClick={() => change(key)}>{t(key)}</button>)}
+      {parent && <button onClick={() => change(entity === "location_details" ? "location_details" : entity === "supplier_contacts" ? "suppliers" : "purchase_orders")}>{String(parent.name ?? parent.company ?? parent.order_number)} <ChevronLeft size={16} /></button>}
       {entity === "maintenance_plans" && <input aria-label={language === "de" ? "Einträge suchen" : language === "sv" ? "Sök poster" : "Search records"} type="search" value={search} onChange={(e) => setSearch(e.target.value)} />}
       <button title={t("refresh")} aria-label={t("refresh")} onClick={() => setRefresh((n) => n + 1)}><RefreshCw size={18} /></button>
       {editable && !error && <button onClick={() => open("save")} disabled={entity === "purchase_order_items" && (!parent || parent.status !== "draft" || blocked(parent.id))}><Plus size={18} />{t(entity === "location_details" ? parent ? "createStoragePlace" : "createLocation" : "create")}</button>}
     </div>
-    <div hidden={inventoryMaster}>{tab === "inventory" && (stockActive === true ? <OperationsStock {...props} /> : stockActive === false ? props.children : <div role="status" aria-busy={!stockError}>{t(stockError ? "OPERATIONS_UNAVAILABLE" : "loading")}</div>)}</div>
+    <div id="inventory-stock-panel" role="tabpanel" aria-label={stockView === "bookings" ? t("bookings") : language === "de" ? "Bestandsübersicht" : language === "sv" ? "Lageröversikt" : "Stock overview"} hidden={inventoryMaster || tab !== "inventory"}>{tab === "inventory" && (stockActive === true ? <OperationsStock {...props} view={stockView} /> : stockActive === false ? props.children : <div role="status" aria-busy={!stockError}>{t(stockError ? "OPERATIONS_UNAVAILABLE" : "loading")}</div>)}</div>
     {error && <p role="status">{t(error)}</p>}
     {active.length > 0 && <div role="status" className={styles.pending}>{active.map((m) => <p key={m.id}>{t(m.status === "failed" || m.status === "conflict" ? "failed" : "waiting")}: {String((m.payload.values as Record<string, unknown> | undefined)?.company ?? (m.payload.values as Record<string, unknown> | undefined)?.name ?? m.entityId)}</p>)}</div>}
-    {entity !== "material_details" && (tab !== "inventory" || stockActive !== null) && <div className={`panel ${styles.list}`} aria-busy={loading}>
+    {entity !== "material_details" && (tab !== "inventory" || stockActive !== null) && <div id="inventory-master-panel" role={inventoryMaster ? "tabpanel" : undefined} aria-label={inventoryMaster ? t(entity) : undefined} className={`panel ${styles.list}`} aria-busy={loading}>
       <div className="panel-title"><div><p>{tab === "inventory" ? t("inventorySection") : operationsLabels[tab as keyof typeof operationsLabels][language]}</p><h2>{entity === "location_details" && parent ? `${t("storagePlaces")}: ${String(parent.name ?? "")}` : t(entity)}</h2></div></div>
       {!tableEntities.has(entity) && !rows.length && !loading && !error && <p>{t("empty")}</p>}
       {tableEntities.has(entity) ? <OperationsDataTable key={`${entity}:${parent?.id ?? ""}`} rows={rows} columns={columns} actions={["suppliers", "location_details", "location_types"].includes(entity) ? undefined : tableActions} label={t(entity)} filterLabel={t("filter")} emptyLabel={t("empty")} actionsLabel={t("actions")}

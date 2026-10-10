@@ -1,10 +1,15 @@
 export const appVersion = {
-  version: "1.427.14",
+  version: "1.427.15",
   releaseDate: "2026-10-10",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  {
+    version: "1.427.15",
+    date: "2026-10-10",
+    changes: ["Bestandsuebersicht, Buchungen, Standorte und Lagerorttypen als Reiter innerhalb Lager & Material", "Nur die gewaehlte Ansicht sichtbar; Buchungen auch ohne Materialfilter mit Materialdetails und Korrekturbuchung"],
+  },
   {
     version: "1.427.14",
     date: "2026-10-10",

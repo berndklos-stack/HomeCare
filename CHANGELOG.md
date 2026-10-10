@@ -4,6 +4,12 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.427.15 - 2026-10-10
+
+- Bestandsuebersicht, Buchungen, Standorte und Lagerorttypen wechseln als Reiter direkt den Inhalt innerhalb Lager & Material, ohne separate Standortseiten.
+- Buchungen lassen sich fuer alle Materialien oder ein ausgewaehltes Material anzeigen. Details und Korrekturen verwenden das Material der jeweiligen Buchung.
+- Materialauswahl bleibt beim Reiterwechsel erhalten. Ueberschriften bleiben linksbuendig.
+
 ## 1.427.14 - 2026-10-10
 
 - Aktive und archivierte Materialien per Zeilenklick, Enter oder Leertaste bearbeiten. Bearbeitungsstifte entfernt; Archivierungs- und Wiederherstellungsaktionen bleiben unabhaengig bedienbar.

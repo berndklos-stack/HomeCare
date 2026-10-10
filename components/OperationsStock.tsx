@@ -11,10 +11,11 @@ import { StockOverview } from "./StockOverview";
 import styles from "./OperationsWorkspace.module.css";
 
 type Ref = { id: string; name: string; sku?: string; unit?: string; minStock?: string; archived?: boolean };
-export function OperationsStock({ language, materials, locations, jobs, projects, queue, enqueue, onMaterialSelected }: {
+export function OperationsStock({ language, materials, locations, jobs, projects, queue, enqueue, onMaterialSelected, view = "overview" }: {
   language: "de" | "sv" | "en"; materials: Ref[]; locations: Ref[]; jobs: Ref[]; projects: Ref[]; queue: SyncMutation[];
   enqueue: (input: Parameters<typeof import("@/lib/syncQueue").createSyncMutation>[0]) => unknown;
   onMaterialSelected?: (id: string) => void;
+  view?: "overview" | "bookings";
 }) {
   const t = (key: string) => operationLabel(key, language);
   const [materialId, setMaterialId] = useState("");
@@ -35,6 +36,8 @@ export function OperationsStock({ language, materials, locations, jobs, projects
   const settled = queue.filter((m) => m.entityType === "operations" && m.status === "synced").map((m) => m.id).join(":");
   const total = balances.reduce((sum, row) => sum + Number(row.quantity), 0);
   const selected = materials.find((m) => m.id === materialId);
+  const rowMaterial = (row: OperationsRow) => materials.find((material) => material.id === row.material_id) ?? selected;
+  const correctionMaterial = correction ? rowMaterial(correction) : undefined;
   const bookingMaterial = materials.find((m) => m.id === bookingMaterialId);
   const materialLabel = (material: Ref) => `${material.sku ? `${material.sku} · ` : ""}${material.name}`;
   const openBooking = () => {
@@ -44,12 +47,13 @@ export function OperationsStock({ language, materials, locations, jobs, projects
   const quantity = (value: unknown) => new Intl.NumberFormat(language, { maximumFractionDigits: 3 }).format(Number(value));
   const location = (id: unknown) => locations.find((row) => row.id === id)?.name ?? (id ? t("unknownLocation") : "—");
   const columns: DataColumn[] = [
-    { key: "material_id", label: t("material_id"), value: () => selected ? materialLabel(selected) : "", render: (row) => {
+    { key: "material_id", label: t("material_id"), value: (row) => { const material = rowMaterial(row); return material ? materialLabel(material) : t("unknownMaterial"); }, render: (row) => {
+      const material = rowMaterial(row);
       const direction = row.source_id && row.destination_id ? "stockTransfer" : row.destination_id ? "stockIn" : row.source_id ? "stockOut" : "bookings";
       const Icon = direction === "stockIn" ? ArrowDownLeft : direction === "stockOut" ? ArrowUpRight : ArrowLeftRight;
       return <div className={styles.movementDesignation}>
         <span className={`${styles.movementIndicator} ${direction === "stockIn" ? styles.movementIn : direction === "stockOut" ? styles.movementOut : direction === "stockTransfer" ? styles.movementTransfer : ""}`} title={t(direction)}><Icon size={18} aria-hidden="true" /></span>
-        <div><strong>{selected?.name ?? ""}</strong><small>{selected?.sku ? `${selected.sku} · ` : ""}{t(direction)}</small></div>
+        <div><strong>{material?.name ?? t("unknownMaterial")}</strong><small>{material?.sku ? `${material.sku} · ` : ""}{t(direction)}</small></div>
       </div>;
     } },
     { key: "occurred_at", label: t("bookedAt"), value: (row) => {
@@ -64,16 +68,19 @@ export function OperationsStock({ language, materials, locations, jobs, projects
     { key: "job_id", label: t("job_id"), value: (row) => jobs.find((job) => job.id === row.job_id)?.name ?? "" },
   ];
   useEffect(() => {
-    if (!materialId) return;
+    if (!materialId && view !== "bookings") return;
     const controller = new AbortController();
     async function load() {
       await Promise.resolve();
       if (controller.signal.aborted) return;
       setError(""); setLoading(true); setBalances([]); setHistory([]); setCount(0);
-      const balanceResponse = await apiFetch(`/api/operations?entity=stock_balances&parent=${encodeURIComponent(materialId)}`, { signal: controller.signal });
-      if (!balanceResponse.ok) throw new Error("unavailable");
-      const balance = await balanceResponse.json();
-      const historyResponse = await apiFetch(`/api/operations?entity=stock_movements&parent=${encodeURIComponent(materialId)}&page=${page}`, { signal: controller.signal });
+      let balance = { rows: [] };
+      if (materialId) {
+        const balanceResponse = await apiFetch(`/api/operations?entity=stock_balances&parent=${encodeURIComponent(materialId)}`, { signal: controller.signal });
+        if (!balanceResponse.ok) throw new Error("unavailable");
+        balance = await balanceResponse.json();
+      }
+      const historyResponse = await apiFetch(`/api/operations?entity=stock_movements${materialId ? `&parent=${encodeURIComponent(materialId)}` : ""}&page=${page}`, { signal: controller.signal });
       if (!historyResponse.ok) throw new Error("unavailable");
       const history = await historyResponse.json();
       if (!controller.signal.aborted) { setBalances(balance.rows); setHistory(history.rows); setCount(history.count); }
@@ -81,18 +88,15 @@ export function OperationsStock({ language, materials, locations, jobs, projects
     void load().catch(() => { if (!controller.signal.aborted) setError("unavailable"); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [materialId, page, settled, refresh]);
+  }, [materialId, page, settled, refresh, view]);
   return <div className={`stack ${styles.stockOverview}`}>
-    {!materialId && <StockOverview language={language} materials={materials} locations={locations} settled={settled}
-      pending={queue.some((mutation) => mutation.entityType === "operations" && mutation.status !== "synced" && ["stock", "receive", "receive_batch", "complete"].includes(String(mutation.payload.kind)))}
-      onBooked={() => setRefresh((value) => value + 1)} onSelect={(id) => { setMaterialId(id); onMaterialSelected?.(id); setPage(0); }} />}
     <section className="panel">
-    <header className={`panel-title ${styles.stockHeading}`}><div><p>{t("inventorySection")}</p><h2>{t("stockOverview")}</h2></div><button className={styles.primaryAction} disabled={!materials.length} aria-label={t("globalStockBooking")} onClick={openBooking}><Plus size={18} />{t("stock")}</button></header>
+    <header className={`panel-title ${styles.stockHeading}`}><div><p>{t("inventorySection")}</p><h2>{view === "bookings" ? t("bookings") : t("stockOverview")}</h2></div><button className={styles.primaryAction} disabled={!materials.length} aria-label={t("globalStockBooking")} onClick={openBooking}><Plus size={18} />{t("stock")}</button></header>
     <div className={styles.toolbar}><label>{t("material_id")} <span className={styles.stockFilter}><select aria-label={t("material_id")} value={materialId} onChange={(e) => { setMaterialId(e.target.value); onMaterialSelected?.(e.target.value); setPage(0); setBalances([]); setHistory([]); setCount(0); setLoading(false); setError(""); }}><option value="">{t("allMaterials")}</option>{materials.map((m) => <option key={m.id} value={m.id}>{materialLabel(m)}</option>)}</select><ChevronsUpDown size={18} aria-hidden="true" /></span></label>
-      <button disabled={!materialId} title={t("refresh")} aria-label={t("refresh")} onClick={() => setRefresh((n) => n + 1)}><RefreshCw size={18} /></button>
+      <button title={t("refresh")} aria-label={t("refresh")} onClick={() => setRefresh((n) => n + 1)}><RefreshCw size={18} /></button>
     </div>
     {error && <p role="alert">{t(error)}</p>}
-    {materialId && <>
+    {materialId && view === "overview" && <>
       <div className={`analytics-summary-grid ${styles.stockSummary}`}>
         <div><span>{t("stockTotal")}{selected?.unit ? ` (${selected.unit})` : ""}</span><strong>{loading || error ? "—" : quantity(total)}</strong></div>
         <div><span>{t("locations")}</span><strong>{loading || error ? "—" : balances.filter((row) => Number(row.quantity) !== 0).length}</strong></div>
@@ -101,7 +105,10 @@ export function OperationsStock({ language, materials, locations, jobs, projects
       {selected?.minStock && !loading && !error && total < Number(selected.minStock) && <p role="status">{language === "de" ? "Mindestbestand unterschritten" : language === "sv" ? "Under minimilager" : "Below minimum stock"}</p>}
     </>}
     </section>
-    {materialId && <>
+    {!materialId && view === "overview" && <StockOverview language={language} materials={materials} locations={locations} settled={`${settled}:${refresh}`}
+      pending={queue.some((mutation) => mutation.entityType === "operations" && mutation.status !== "synced" && ["stock", "receive", "receive_batch", "complete"].includes(String(mutation.payload.kind)))}
+      onBooked={() => setRefresh((value) => value + 1)} onSelect={(id) => { setMaterialId(id); onMaterialSelected?.(id); setPage(0); }} />}
+    {materialId && view === "overview" && <>
       <section className="panel">
       <div className="panel-title"><div><p>{t("inventorySection")}</p><h2>{t("stockByLocation")}</h2></div></div>
       <div className="analytics-table">
@@ -111,12 +118,12 @@ export function OperationsStock({ language, materials, locations, jobs, projects
         {!balances.length && <tr><td colSpan={2}>{t(loading ? "loading" : error ? "unavailable" : "empty")}</td></tr>}
       </tbody></table>
       </div></section>
-      <section className="panel">
-      <div className="panel-title"><div><p>{t("inventorySection")}</p><h2>{t("bookings")}</h2></div></div>
+    </>}
+    {view === "bookings" && <section className="panel">
       <OperationsDataTable className={styles.movementTable} key={`${materialId}:${page}`} rows={history} columns={columns} label={t("bookings")} filterLabel={t("filter")} emptyLabel={t(loading ? "loading" : error ? "unavailable" : "empty")} actionsLabel={t("actions")} onRowActivate={(row) => setDetails({ kind: "movement", row })} />
     {count > 50 && <div className={styles.toolbar}><button disabled={!page} aria-label={t("previous")} onClick={() => setPage((p) => p - 1)}><ChevronLeft size={18} /></button><span>{page + 1} / {Math.ceil(count / 50)}</span><button disabled={(page + 1) * 50 >= count} aria-label={t("next")} onClick={() => setPage((p) => p + 1)}><ChevronRight size={18} /></button></div>}
       </section>
-    </>}
+    }
     {open && <TripDialog labelledBy="stock-title" onClose={() => setOpen(false)} className={styles.dialog}><form onSubmit={(e) => {
       e.preventDefault();
       try {
@@ -133,7 +140,7 @@ export function OperationsStock({ language, materials, locations, jobs, projects
       <label className={styles.field}>{t("quantity")}<input required type="number" min="0.001" step="0.001" value={draft.quantity} onChange={(e) => setDraft({ ...draft, quantity: e.target.value })} /></label><label className={styles.field}>{t("note")}<input required value={draft.note} onChange={(e) => setDraft({ ...draft, note: e.target.value })} /></label>
     </div>{error && <p role="alert">{t(error)}</p>}<footer className={styles.actions}><button type="button" onClick={() => setOpen(false)}>{t("cancel")}</button><button disabled={!bookingMaterial} type="submit">{t("save")}</button></footer></form></TripDialog>}
     {details && <TripDialog labelledBy="stock-details-title" onClose={() => setDetails(null)} className={`${styles.dialog} ${styles.itemDialog}`}>
-      <header className={styles.dialogHeader}><div><p>{t(details.kind === "balance" ? "stockByLocation" : "bookingDetails")}</p><h2 id="stock-details-title">{selected ? materialLabel(selected) : ""}</h2></div><button type="button" aria-label={t("close")} onClick={() => setDetails(null)}><X size={18} /></button></header>
+      <header className={styles.dialogHeader}><div><p>{t(details.kind === "balance" ? "stockByLocation" : "bookingDetails")}</p><h2 id="stock-details-title">{rowMaterial(details.row) ? materialLabel(rowMaterial(details.row)!) : ""}</h2></div><button type="button" aria-label={t("close")} onClick={() => setDetails(null)}><X size={18} /></button></header>
       <dl className={styles.itemFacts}>{(details.kind === "balance" ? [
         { label: t("location"), value: location(details.row.location_id) },
         { label: t("quantity"), value: `${quantity(details.row.quantity)}${selected?.unit ? ` ${selected.unit}` : ""}` },
@@ -148,16 +155,16 @@ export function OperationsStock({ language, materials, locations, jobs, projects
         if (correctionLock.current || correctionPending(correction)) return;
         try {
           const amount = Number(correctionQuantity);
-          if (!selected || !Number.isFinite(amount) || amount <= 0 || amount > Number(correction.quantity) || !correctionReason.trim()) throw new Error("INVALID_CORRECTION");
-          const input = { entityId: createStableId(), entityType: "operations" as const, operation: "create" as const, resourceId: selected.id,
-            payload: { kind: "stock", material_id: selected.id, source_id: correction.destination_id || null, destination_id: correction.source_id || null,
+          if (!correctionMaterial || !Number.isFinite(amount) || amount <= 0 || amount > Number(correction.quantity) || !correctionReason.trim()) throw new Error("INVALID_CORRECTION");
+          const input = { entityId: createStableId(), entityType: "operations" as const, operation: "create" as const, resourceId: correctionMaterial.id,
+            payload: { kind: "stock", material_id: correctionMaterial.id, source_id: correction.destination_id || null, destination_id: correction.source_id || null,
               quantity: amount, note: `${t("correction")} [${correction.id}]: ${correctionReason.trim()}`, job_id: correction.job_id || null, project_id: correction.project_id || null } };
           validateOperationsMutation({ ...input, id: createStableId() });
           correctionLock.current = true;
           enqueue(input); setCorrection(null);
         } catch { correctionLock.current = false; setCorrectionError(true); }
       }}>
-        <header className={styles.dialogHeader}><div><p>{selected ? materialLabel(selected) : ""}</p><h2 id="stock-correction-title">{t("correction")}</h2></div><button type="button" aria-label={t("close")} onClick={() => setCorrection(null)}><X size={18} /></button></header>
+        <header className={styles.dialogHeader}><div><p>{correctionMaterial ? materialLabel(correctionMaterial) : ""}</p><h2 id="stock-correction-title">{t("correction")}</h2></div><button type="button" aria-label={t("close")} onClick={() => setCorrection(null)}><X size={18} /></button></header>
         <dl className={styles.itemFacts}><div><dt>{t("source_id")}</dt><dd>{location(correction.destination_id)}</dd></div><div><dt>{t("destination_id")}</dt><dd>{location(correction.source_id)}</dd></div></dl>
         <div className={styles.fields}><label className={styles.field}>{t("quantity")}<input required aria-label={t("quantity")} type="number" min="0.001" step="0.001" max={Number(correction.quantity)} value={correctionQuantity} onChange={(event) => setCorrectionQuantity(event.target.value)} /></label>
           <label className={styles.field}>{t("correctionReason")}<input required aria-label={t("correctionReason")} maxLength={9000} value={correctionReason} onChange={(event) => setCorrectionReason(event.target.value)} /></label></div>
