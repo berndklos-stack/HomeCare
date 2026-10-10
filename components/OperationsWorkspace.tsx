@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Archive, ChevronLeft, ChevronRight, History, Mail, MapPin, Pencil, Phone, Plus, RefreshCw, X } from "lucide-react";
+import { Archive, ChevronLeft, ChevronRight, History, Mail, MapPin, Pencil, Phone, Plus, Printer, RefreshCw, X } from "lucide-react";
 import { apiFetch, tenantScopedStorageKey } from "@/lib/apiClient";
 import { createStableId, type SyncMutation } from "@/lib/syncQueue";
 import { operationsLabels, maintenanceStatus, type OperationsLanguage } from "@/lib/operations";
@@ -14,6 +14,7 @@ import { OperationsDocumentUpload } from "./OperationsDocumentUpload";
 import { OperationsHistory } from "./OperationsHistory";
 import { PurchaseOrderSend } from "./PurchaseOrderSend";
 import { OperationsDataTable, type DataColumn } from "./OperationsDataTable";
+import { locationLabelPdf } from "@/lib/locationLabel";
 
 const tableEntities = new Set(["suppliers", "supplier_contacts", "purchase_orders", "material_details", "location_details", "location_types", "resource_details"]);
 
@@ -50,7 +51,7 @@ export function OperationsWorkspace(props: Props) {
   const t = (key: string) => operationLabel(key, language);
   const fieldLabel = (key: string, target: OperationsEntity = entity) => t(key === "name" && target !== "supplier_contacts" ? "designation" : key === "note" && target === "location_details" ? "notes" : key);
   const [tab, setTab] = useState(props.resourcesOnly ? "resources" : "inventory");
-  const [stockView, setStockView] = useState<"overview" | "bookings">("overview");
+  const [stockView, setStockView] = useState<"overview" | "bookings" | "inventory">("overview");
   const [materialMasterSelected, setMaterialMasterSelected] = useState(false);
   const [materialMasterMounted, setMaterialMasterMounted] = useState(false);
   const [storagePlacesView, setStoragePlacesView] = useState(false);
@@ -75,6 +76,7 @@ export function OperationsWorkspace(props: Props) {
   const [itemDetails, setItemDetails] = useState<OperationsRow | null>(null);
   const [archive, setArchive] = useState<OperationsRow | null>(null);
   const [formError, setFormError] = useState("");
+  const [labelBusy, setLabelBusy] = useState(false);
   const [consumption, setConsumption] = useState<{ material_id: string; location_id: string; quantity: string }[]>([]);
   const [documentPending, setDocumentPending] = useState(false);
   const [uploadedDocument, setUploadedDocument] = useState<{ id: string; name: string } | null>(null);
@@ -347,7 +349,7 @@ export function OperationsWorkspace(props: Props) {
       onClick={() => { setTab(key); change(groups[key][0]); }}>{operationsLabels[key as keyof typeof operationsLabels][language]}</button>)}</nav>
     <div className={styles.toolbar}>
       {tab === "inventory" && <div className={styles.tabs} role="tablist" aria-label={t("inventorySection")}>
-        {(["overview", "bookings"] as const).map((view) => <button key={view} role="tab" aria-selected={!inventoryMaster && stockView === view} aria-controls="inventory-stock-panel" className={!inventoryMaster && stockView === view ? styles.selected : ""} onClick={() => { setStockView(view); change("material_details"); }}>{view === "bookings" ? t("bookings") : language === "de" ? "Bestandsübersicht" : language === "sv" ? "Lageröversikt" : "Stock overview"}</button>)}
+        {(["overview", "bookings", "inventory"] as const).map((view) => <button key={view} role="tab" aria-selected={!inventoryMaster && stockView === view} aria-controls="inventory-stock-panel" className={!inventoryMaster && stockView === view ? styles.selected : ""} onClick={() => { setStockView(view); change("material_details"); }}>{view === "inventory" ? language === "de" ? "Inventur" : language === "sv" ? "Inventering" : "Stocktake" : view === "bookings" ? t("bookings") : language === "de" ? "Bestandsübersicht" : language === "sv" ? "Lageröversikt" : "Stock overview"}</button>)}
         <button role="tab" aria-selected={materialMasterSelected} aria-controls="inventory-material-panel" className={materialMasterSelected ? styles.selected : ""} onClick={() => { change("material_details"); setMaterialMasterMounted(true); setMaterialMasterSelected(true); }}>{language === "de" ? "Materialstammdaten" : language === "sv" ? "Materialregister" : "Material master data"}</button>
         {groups.inventory.filter((key) => key !== "material_details").map((key) => <button key={key} role="tab" aria-selected={entity === key && !storagePlacesView} aria-controls="inventory-master-panel" className={entity === key && !storagePlacesView ? styles.selected : ""} onClick={() => change(key)}>{t(key)}</button>)}
         <button role="tab" aria-selected={entity === "location_details" && storagePlacesView} aria-controls="inventory-master-panel" className={entity === "location_details" && storagePlacesView ? styles.selected : ""} onClick={() => change("location_details", null, true)}>{t("storagePlaces")}</button>
@@ -359,7 +361,7 @@ export function OperationsWorkspace(props: Props) {
       {tab !== "inventory" && <button title={t("refresh")} aria-label={t("refresh")} onClick={() => setRefresh((n) => n + 1)}><RefreshCw size={18} /></button>}
       {tab !== "inventory" && editable && !error && <button onClick={() => open("save")} disabled={entity === "purchase_order_items" && (!parent || parent.status !== "draft" || blocked(parent.id))}><Plus size={18} />{t("create")}</button>}
     </div>
-    <div id="inventory-stock-panel" role="tabpanel" aria-label={stockView === "bookings" ? t("bookings") : language === "de" ? "Bestandsübersicht" : language === "sv" ? "Lageröversikt" : "Stock overview"} hidden={inventoryMaster || tab !== "inventory"}>{tab === "inventory" && (stockActive === true ? <OperationsStock {...props} view={stockView} /> : stockActive === false ? props.children : <div role="status" aria-busy={!stockError}>{t(stockError ? "OPERATIONS_UNAVAILABLE" : "loading")}</div>)}</div>
+    <div id="inventory-stock-panel" role="tabpanel" aria-label={stockView === "inventory" ? language === "de" ? "Inventur" : language === "sv" ? "Inventering" : "Stocktake" : stockView === "bookings" ? t("bookings") : language === "de" ? "Bestandsübersicht" : language === "sv" ? "Lageröversikt" : "Stock overview"} hidden={inventoryMaster || tab !== "inventory"}>{tab === "inventory" && (stockActive === true ? <OperationsStock {...props} view={stockView} /> : stockActive === false ? props.children : <div role="status" aria-busy={!stockError}>{t(stockError ? "OPERATIONS_UNAVAILABLE" : "loading")}</div>)}</div>
     {materialMasterMounted && <div id="inventory-material-panel" role="tabpanel" aria-label={language === "de" ? "Materialstammdaten" : language === "sv" ? "Materialregister" : "Material master data"} hidden={tab !== "inventory" || !materialMasterSelected}>{props.materialMasterData}</div>}
     {error && <p role="status">{t(error)}</p>}
     {active.length > 0 && <div role="status" className={styles.pending}>{active.map((m) => <p key={m.id}>{t(m.status === "failed" || m.status === "conflict" ? "failed" : "waiting")}: {String((m.payload.values as Record<string, unknown> | undefined)?.company ?? (m.payload.values as Record<string, unknown> | undefined)?.name ?? m.entityId)}</p>)}</div>}
@@ -471,6 +473,19 @@ export function OperationsWorkspace(props: Props) {
         </div>)}<button type="button" onClick={() => setConsumption((old) => [...old, { material_id: "", location_id: "", quantity: "1" }])}><Plus size={18} />{t("addMaterial")}</button></section>}
         {formError && <p role="alert">{t(formError)}</p>}
         <footer className={styles.actions}>
+          {form.entity === "location_details" && form.row && <button type="button" disabled={labelBusy || blocked(form.row.id)} onClick={async () => {
+            const code = String(form.row!.location_code ?? "").trim();
+            if (!code || code !== form.values.location_code?.trim() || String(form.row!.name) !== form.values.name || String(form.row!.parent_location_id ?? "") !== (form.values.parent_location_id ?? "")) {
+              setFormError(language === "de" ? "Bitte Bezeichnung, Lagercode und Lagerort zuerst speichern. Danach den Lagerplatz erneut öffnen." : language === "sv" ? "Spara namn, lagerkod och lager först. Öppna sedan lagerplatsen igen." : "Save the designation, location code and location first, then reopen the bin."); return;
+            }
+            setLabelBusy(true); setFormError("");
+            try {
+              const blob = await locationLabelPdf({ name: String(form.row!.name), code, parent: refs.parent_location_id.find((location) => location.id === form.row!.parent_location_id)?.name, storagePlace: Boolean(form.row!.parent_location_id) }, language);
+              const url = URL.createObjectURL(blob), link = document.createElement("a");
+              link.href = url; link.download = `Lagerplatz-${code.replace(/[^a-zA-Z0-9_-]/g, "_")}.pdf`; link.click(); setTimeout(() => URL.revokeObjectURL(url), 60000);
+            } catch { setFormError(language === "de" ? "Etikett konnte nicht erstellt werden. Bitte kurze Bezeichnung und Lagercode prüfen und erneut versuchen." : language === "sv" ? "Etiketten kunde inte skapas. Kontrollera namn och lagerkod." : "Label could not be created. Check designation and location code."); }
+            finally { setLabelBusy(false); }
+          }}><Printer size={18} />{language === "de" ? "Etikett als PDF" : language === "sv" ? "Etikett som PDF" : "PDF label"}</button>}
           {form.entity === "location_details" && form.row && !form.row.parent_location_id && <button type="button" onClick={() => change("location_details", form.row!)}>{t("storagePlaces")}</button>}
           {form.entity === "suppliers" && form.row && <>
             <button type="button" onClick={() => change("supplier_contacts", form.row!)}>{t("supplier_contacts")}</button>

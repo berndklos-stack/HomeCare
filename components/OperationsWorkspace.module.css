@@ -133,3 +133,11 @@ dialog.itemDialog:global(.trip-dialog) { width: min(560px, calc(100vw - 32px)); 
 .stockOptions { display: flex; gap: 12px 24px; flex-wrap: wrap; margin: 16px 0; }
 .stockOptions label { display: flex; align-items: flex-start; gap: 8px; }
 .stockOptions input { flex: 0 0 auto; margin-top: 3px; }
+.inventoryMobile { display: none; }
+.inventoryCountRow { padding: 16px 0; border-bottom: 1px solid var(--line, #d1d5db); overflow-wrap: anywhere; }
+.inventoryCountRow > p { margin: 0 0 8px; color: var(--muted); }
+.inventoryCountRow .fields { margin-top: 12px; }
+@media (max-width: 640px) {
+  .inventoryDesktop { display: none; }
+  .inventoryMobile { display: block; }
+}

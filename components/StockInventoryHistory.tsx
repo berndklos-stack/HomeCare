@@ -8,8 +8,9 @@ import { OperationsDataTable } from "./OperationsDataTable";
 import { TripDialog } from "./TripDialog";
 import styles from "./OperationsWorkspace.module.css";
 
-export function StockInventoryHistory({ language, materials, locations, onClose }: {
+export function StockInventoryHistory({ language, materials, locations, onClose, inline = false, refreshKey = "" }: {
   language: "de" | "sv" | "en"; materials: { id: string; name: string; unit?: string }[]; locations: { id: string; name: string }[]; onClose: () => void;
+  inline?: boolean; refreshKey?: string;
 }) {
   const t = (key: string) => operationLabel(key, language);
   const title = language === "de" ? "Inventuren" : language === "sv" ? "Inventeringar" : "Stocktakes";
@@ -34,7 +35,7 @@ export function StockInventoryHistory({ language, materials, locations, onClose 
     }
     void load().catch(() => { if (!controller.signal.aborted) setError(true); }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [selected, page]);
+  }, [selected, page, refreshKey]);
   const columns = selected ? [
     { key: "material_id", label: t("designation"), value: (row: OperationsRow) => materials.find((material) => material.id === row.material_id)?.name ?? String(row.material_id) },
     ...["expected_quantity", "counted_quantity", "difference"].map((key, index) => ({ key, label: countLabels[index], value: (row: OperationsRow) => `${Number(key === "difference" ? Number(row.counted_quantity) - Number(row.expected_quantity) : row[key]).toLocaleString(language, { maximumFractionDigits: 3 })} ${materials.find((material) => material.id === row.material_id)?.unit ?? ""}` })),
@@ -44,11 +45,13 @@ export function StockInventoryHistory({ language, materials, locations, onClose 
     { key: "actor_name", label: t("bookedBy"), value: (row: OperationsRow) => String(row.actor_name || t("unknownActor")) },
     { key: "note", label: t("note"), value: (row: OperationsRow) => String(row.note ?? "") },
   ];
-  return <TripDialog labelledBy="inventory-history-title" onClose={onClose} className={styles.dialog}>
-    <header className={styles.dialogHeader}><div><h2 id="inventory-history-title">{title}</h2>{selected && <p>{String(selected.note)} · {String(selected.actor_name || t("unknownActor"))} · {new Date(String(selected.created_at)).toLocaleString(language, { timeZone: "Europe/Stockholm" })}</p>}</div><button aria-label={t("close")} onClick={onClose}><X size={18} /></button></header>
+  const content = <>
+    {!inline && <header className={styles.dialogHeader}><div><h2 id="inventory-history-title">{title}</h2></div><button aria-label={t("close")} onClick={onClose}><X size={18} /></button></header>}
+    {selected && <p>{String(selected.note)} · {String(selected.actor_name || t("unknownActor"))} · {new Date(String(selected.created_at)).toLocaleString(language, { timeZone: "Europe/Stockholm" })}</p>}
     {error && <p role="alert">{t("unavailable")}</p>}
     <OperationsDataTable rows={rows} columns={columns} label={title} filterLabel={t("filter")} emptyLabel={t(loading ? "loading" : "empty")} actionsLabel={t("actions")} onRowActivate={selected ? undefined : (row) => setSelected(row)} />
     {!selected && count > 50 && <div className={styles.toolbar}><button disabled={!page || loading} aria-label={t("previous")} onClick={() => setPage((value) => value - 1)}><ChevronLeft size={18} /></button><span>{page + 1} / {Math.ceil(count / 50)}</span><button disabled={loading || (page + 1) * 50 >= count} aria-label={t("next")} onClick={() => setPage((value) => value + 1)}><ChevronRight size={18} /></button></div>}
-    <footer className={styles.actions}>{selected && <button onClick={() => setSelected(null)}><ChevronLeft size={18} />{title}</button>}<button onClick={onClose}>{t("close")}</button></footer>
-  </TripDialog>;
+    {(!inline || selected) && <footer className={styles.actions}>{selected && <button onClick={() => setSelected(null)}><ChevronLeft size={18} />{title}</button>}{!inline && <button onClick={onClose}>{t("close")}</button>}</footer>}
+  </>;
+  return inline ? content : <TripDialog labelledBy="inventory-history-title" onClose={onClose} className={styles.dialog}>{content}</TripDialog>;
 }

@@ -45,6 +45,9 @@ try {
   sql("supabase/migrations/20261010130000_stock_inventory.sql");
   sql("supabase/migrations/20261010130000_stock_inventory.sql");
   sql("supabase/tests/stock_inventory.sql");
+  sql("supabase/migrations/20261010180000_inventory_plans.sql");
+  sql("supabase/migrations/20261010180000_inventory_plans.sql");
+  sql("supabase/tests/inventory_plans.sql");
   console.log("Operations SQL tests passed (isolated cluster, migration applied twice).");
   }
 } finally {

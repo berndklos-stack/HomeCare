@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 for (const mobile of [false, true]) test(`Materialstammdaten und Lagerplaetze bleiben in der Reiteransicht ${mobile ? "mobil" : "desktop"}`, async ({ page }) => {
   await page.setViewportSize(mobile ? { width: 390, height: 844 } : { width: 1440, height: 1000 });
-  const roots = [{ id: "inline-root", name: "Testlager", revision: 1, parent_location_id: null, location_kind: "warehouse" }];
+  const roots = [{ id: "inline-root", name: "Testlager", revision: 1, parent_location_id: null, location_code: "LAGER-01", location_kind: "warehouse" }];
   const bins = [{ id: "inline-bin", name: "Regal A", revision: 1, parent_location_id: "inline-root", location_code: "REG-A", location_kind: "warehouse" }];
   const parentReads: string[] = [];
   await page.route("**/api/operations?**", (route) => {
@@ -34,6 +34,9 @@ for (const mobile of [false, true]) test(`Materialstammdaten und Lagerplaetze bl
   const createLocation = page.getByRole("button", { name: "Neuer Lagerort", exact: true });
   await expect(createLocation.locator("xpath=ancestor::*[@id='inventory-master-panel']")).toHaveCount(1);
   await sites.getByText("Testlager", { exact: true }).click();
+  const rootDownload = page.waitForEvent("download");
+  await page.getByRole("dialog").getByRole("button", { name: "Etikett als PDF", exact: true }).click();
+  await (await rootDownload).saveAs(`test-results/location-label-${mobile}-${test.info().project.name}.pdf`);
   await page.getByRole("dialog").getByRole("button", { name: "Lagerplätze", exact: true }).click();
   const places = page.getByRole("table", { name: "Lagerplätze", exact: true });
   await expect(places).toContainText("Regal A");
@@ -45,6 +48,12 @@ for (const mobile of [false, true]) test(`Materialstammdaten und Lagerplaetze bl
   const dialog = page.getByRole("dialog", { name: "Standorte", exact: true });
   await expect(dialog.getByLabel("Bezeichnung", { exact: true })).toHaveValue("Regal A");
   await expect(dialog.getByLabel("Übergeordneter Lagerort", { exact: true })).toHaveValue("inline-root");
+  const binDownload = page.waitForEvent("download");
+  await dialog.getByRole("button", { name: "Etikett als PDF", exact: true }).click();
+  await (await binDownload).saveAs(`test-results/bin-label-${mobile}-${test.info().project.name}.pdf`);
+  await dialog.getByLabel("Lagercode", { exact: true }).fill("CHANGED");
+  await dialog.getByRole("button", { name: "Etikett als PDF", exact: true }).click();
+  await expect(dialog.getByRole("alert")).toContainText("zuerst speichern");
   await dialog.getByRole("button", { name: "Schließen", exact: true }).click();
   await page.screenshot({ path: `test-results/storage-places-inline-${mobile}-${test.info().project.name}.png`, fullPage: true });
   await page.getByRole("button", { name: "Neuer Lagerplatz", exact: true }).click();

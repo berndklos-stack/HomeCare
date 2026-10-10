@@ -4,6 +4,14 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.427.17 - 2026-10-10
+
+- Inventur als eigener Reiter und Inhaltsblock. Inventurplanung vor Beginn speichern, mit dauerhafter ID, Auswahl einzelner oder aller Lagerorte/Lagerplaetze und optionalen Nullbestaenden.
+- PDF-Zaehlliste mit Logo, Inventur-ID, Lagerort/Lagerplatz, Materialnummer, Bezeichnung, Einheit und Zaehleingabe. Bestehende Planungen geraeteuebergreifend aufrufen und Zaehlergebnisse zwischenspeichern; am Handy ohne seitliches Suchen nach Eingabefeldern.
+- Laufreihenfolge gruppiert nach Lagerort/Lagerplatz und natuerlich sortierten Lagercodes. Keine geometrische Wegoptimierung ohne Gang-/Wegeinformationen.
+- Relationale Planung und Positionen mit Mandanten-RLS, Revisionsschutz, Wiederholungsschutz und atomarem Abschluss aller Lagerorte. Geaenderte Bestaende verhindern den Abschluss ohne Teilbuchung; bisherige Inventuren bleiben erhalten. Neue Tabellen im Sicherungsumfang.
+- Lagerort- und Lagerplatzdialoge bieten ein 100 x 60 mm PDF-Etikett mit Firmenlogo, Bezeichnung und QR-Code des gespeicherten Lagercodes. Ungespeicherte Code-/Bezeichnungsaenderungen werden nicht als Etikett ausgegeben.
+
 ## 1.427.16 - 2026-10-10
 
 - Materialstammdaten als gleich gestalteter Reiter innerhalb Lager & Material, ohne separate Seite und Zurueck-Button. Bestehende Materialbearbeitung und Beschaffungsdaten bleiben erhalten.

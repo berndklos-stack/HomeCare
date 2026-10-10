@@ -17,7 +17,7 @@ const immutable = new Set(["purchase_receipts", "maintenance_events", "stock_mov
 const projections: Record<string, string> = {
   resource_details: "id,revision,equipment_kind,availability,purchase_date,purchase_price,warranty_until,warranty_notes,operating_hours",
   material_details: "id,revision,preferred_supplier_id,reorder_quantity,notes",
-  location_details: "id,name,note,revision,location_code,location_kind,location_type_id,parent_location_id,job_id,resource_id,project_id",
+  location_details: "id,name,note,revision,archived,location_code,location_kind,location_type_id,parent_location_id,job_id,resource_id,project_id",
 };
 
 export async function GET(request: Request) {

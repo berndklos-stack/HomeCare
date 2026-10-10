@@ -15,7 +15,7 @@ export function OperationsStock({ language, materials, locations, jobs, projects
   language: "de" | "sv" | "en"; materials: Ref[]; locations: Ref[]; jobs: Ref[]; projects: Ref[]; queue: SyncMutation[];
   enqueue: (input: Parameters<typeof import("@/lib/syncQueue").createSyncMutation>[0]) => unknown;
   onMaterialSelected?: (id: string) => void;
-  view?: "overview" | "bookings";
+  view?: "overview" | "bookings" | "inventory";
 }) {
   const t = (key: string) => operationLabel(key, language);
   const [materialId, setMaterialId] = useState("");
@@ -68,7 +68,7 @@ export function OperationsStock({ language, materials, locations, jobs, projects
     { key: "job_id", label: t("job_id"), value: (row) => jobs.find((job) => job.id === row.job_id)?.name ?? "" },
   ];
   useEffect(() => {
-    if (!materialId && view !== "bookings") return;
+    if (view === "inventory" || (!materialId && view !== "bookings")) return;
     const controller = new AbortController();
     async function load() {
       await Promise.resolve();
@@ -90,6 +90,10 @@ export function OperationsStock({ language, materials, locations, jobs, projects
     return () => controller.abort();
   }, [materialId, page, settled, refresh, view]);
   return <div className={`stack ${styles.stockOverview}`}>
+    {view === "inventory" && <StockOverview mode="inventory" language={language} materials={materials} locations={locations} settled={`${settled}:${refresh}`}
+      pending={queue.some((mutation) => mutation.entityType === "operations" && mutation.status !== "synced" && ["stock", "receive", "receive_batch", "complete"].includes(String(mutation.payload.kind)))}
+      onBooked={() => setRefresh((value) => value + 1)} onSelect={() => {}} />}
+    {view !== "inventory" && <>
     <section className="panel">
     <header className={`panel-title ${styles.stockHeading}`}><div><p>{t("inventorySection")}</p><h2>{view === "bookings" ? t("bookings") : t("stockOverview")}</h2></div><button className={styles.primaryAction} disabled={!materials.length} aria-label={t("globalStockBooking")} onClick={openBooking}><Plus size={18} />{t("stock")}</button></header>
     <div className={styles.toolbar}><label>{t("material_id")} <span className={styles.stockFilter}><select aria-label={t("material_id")} value={materialId} onChange={(e) => { setMaterialId(e.target.value); onMaterialSelected?.(e.target.value); setPage(0); setBalances([]); setHistory([]); setCount(0); setLoading(false); setError(""); }}><option value="">{t("allMaterials")}</option>{materials.map((m) => <option key={m.id} value={m.id}>{materialLabel(m)}</option>)}</select><ChevronsUpDown size={18} aria-hidden="true" /></span></label>
@@ -124,6 +128,7 @@ export function OperationsStock({ language, materials, locations, jobs, projects
     {count > 50 && <div className={styles.toolbar}><button disabled={!page} aria-label={t("previous")} onClick={() => setPage((p) => p - 1)}><ChevronLeft size={18} /></button><span>{page + 1} / {Math.ceil(count / 50)}</span><button disabled={(page + 1) * 50 >= count} aria-label={t("next")} onClick={() => setPage((p) => p + 1)}><ChevronRight size={18} /></button></div>}
       </section>
     }
+    </>}
     {open && <TripDialog labelledBy="stock-title" onClose={() => setOpen(false)} className={styles.dialog}><form onSubmit={(e) => {
       e.preventDefault();
       try {

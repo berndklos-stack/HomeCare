@@ -1,10 +1,15 @@
 export const appVersion = {
-  version: "1.427.16",
+  version: "1.427.17",
   releaseDate: "2026-10-10",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  {
+    version: "1.427.17",
+    date: "2026-10-10",
+    changes: ["Inventur als eigener Reiter mit gespeicherter Planung, ID, PDF-Zaehlliste und mobiler Zaehlerfassung", "Inventurpositionen nach Lagerort und Lagerplatz gruppiert; parallele Aenderungen und Doppelbuchungen abgesichert", "PDF-Etiketten mit Firmenlogo und scanbarem QR-Lagercode fuer Lagerorte und Lagerplaetze"],
+  },
   {
     version: "1.427.16",
     date: "2026-10-10",

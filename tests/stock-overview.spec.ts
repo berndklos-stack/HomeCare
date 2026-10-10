@@ -1,6 +1,13 @@
 import { expect, test } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 import { stockOverviewRows } from "../lib/stockOverview";
+import { inventoryLocationPath, orderInventoryItems } from "../lib/inventoryPlan";
+
+test("Inventur-Laufreihenfolge gruppiert Lagerplaetze und sortiert Codes natuerlich", () => {
+  const locations = [{ id: "root", name: "Lager", location_code: "01" }, { id: "a", name: "Regal", location_code: "R2", parent_location_id: "root" }, { id: "b", name: "Regal", location_code: "R10", parent_location_id: "root" }];
+  expect(inventoryLocationPath("a", locations)).toBe("01 · Lager / R2 · Regal");
+  expect(orderInventoryItems([{ location_id: "b", material_id: "m", expected: 1, counted: null }, { location_id: "a", material_id: "m", expected: 1, counted: null }], locations, [{ id: "m", name: "Material" }], "de").map((item) => item.location_id)).toEqual(["a", "b"]);
+});
 
 test("Bestandszeilen behalten Einheiten, Nullbestaende und Archivstatus", () => {
   const materials = [{ id: "b", name: "Material 10", unit: "Liter", archived: true }, { id: "a", name: "Material 2", unit: "Meter" }, { id: "c", name: "Leer" }];
@@ -28,11 +35,17 @@ for (const mobile of [false, true]) test(`Gesamtbestand Export und Inventur ${mo
     ], capturedAt: "2026-10-10T10:00:00Z" } : entity === "stock_inventories" ? { rows: [{ id: "inventory-test", created_at: "2026-10-10T10:00:00Z", location_id: "stock-location", actor_name: "Bernd Klos", note: "Jahresinventur" }], count: 1 }
     : entity === "stock_inventory_items" ? { rows: [{ material_id: "stock-a", expected_quantity: 10, counted_quantity: 8 }], count: 1 } : { rows: [], count: 0 } });
   });
-  const requests: unknown[] = [];
+  const requests: Record<string, unknown>[] = [];
+  let savedPlan: Record<string, unknown> | null = null;
   let failure = true;
-  await page.route("**/api/stock-inventory", (route) => {
-    requests.push(route.request().postDataJSON());
-    return route.fulfill({ status: failure ? 503 : 200, json: failure ? { error: "INVENTORY_FAILED" } : { id: "saved" } });
+  await page.route("**/api/inventory-plans**", (route) => {
+    if (route.request().method() === "GET") return route.fulfill({ json: {
+      rows: savedPlan ? [savedPlan] : [], items: savedPlan ? (savedPlan.items as { material_id: string; location_id: string; expected: number; counted: number | null }[]).map((item) => ({ ...item, expected_quantity: item.expected, counted_quantity: item.counted })) : [],
+    } });
+    const input = route.request().postDataJSON(); requests.push(input);
+    if (input.revision && failure) return route.fulfill({ status: 503, json: { error: "PLAN_FAILED" } });
+    savedPlan = { ...input, revision: input.revision + 1, created_at: "2026-10-10T10:00:00Z", completed_at: input.complete ? "2026-10-10T11:00:00Z" : null };
+    return route.fulfill({ json: { id: input.id, revision: input.revision + 1 } });
   });
   await page.goto("/");
   await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true", { timeout: 30000 });
@@ -52,32 +65,47 @@ for (const mobile of [false, true]) test(`Gesamtbestand Export und Inventur ${mo
     if (format === "PDF") expect((await readFile((await file.path())!)).toString("latin1")).toMatch(/\/Subtype\s*\/Image/);
   }
   await page.screenshot({ path: `test-results/stock-overview-${mobile}-${testInfo.project.name}.png` });
-  await page.getByRole("button", { name: "Inventur", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "Inventur", exact: true });
-  await dialog.getByRole("combobox", { name: "Lagerort", exact: true }).selectOption("stock-location");
+  await expect(page.getByRole("button", { name: "Neue Inventur", exact: true })).toHaveCount(0);
+  await page.getByRole("tab", { name: "Inventur", exact: true }).click();
+  await expect(table).toHaveCount(0);
+  await page.getByRole("button", { name: "Neue Inventur", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Inventurplanung", exact: true });
+  await dialog.getByRole("checkbox", { name: "Testlager", exact: true }).check();
+  await dialog.getByRole("checkbox", { name: "Materialien ohne Bestand einbeziehen", exact: true }).check();
   await expect(dialog).not.toContainText("Archiviertes Material");
   await dialog.getByRole("textbox", { name: "Inventurgrund" }).fill("Jahresinventur");
-  await dialog.getByRole("spinbutton", { name: "Gezählt: Aktives Material" }).fill("8");
-  await dialog.getByRole("spinbutton", { name: "Gezählt: Ohne Bestand" }).fill("0");
+  await dialog.getByRole("button", { name: "Inventur anlegen", exact: true }).click();
+  await expect(dialog).toContainText("Inventur-ID");
+  const download = page.waitForEvent("download");
+  await dialog.getByRole("button", { name: "PDF", exact: true }).click();
+  const pdf = await download;
+  await pdf.saveAs(`test-results/inventory-plan-${mobile}-${testInfo.project.name}.pdf`);
+  expect((await readFile((await pdf.path())!)).toString("latin1")).toMatch(/\/Subtype\s*\/Image/);
+  await dialog.getByRole("spinbutton", { name: "Gezählt: Aktives Material · Testlager", exact: true }).fill("8");
+  await dialog.getByRole("spinbutton", { name: "Gezählt: Ohne Bestand · Testlager", exact: true }).fill("0");
   await expect(dialog).toContainText("-2");
   await page.screenshot({ path: `test-results/stock-inventory-${mobile}-${testInfo.project.name}.png` });
-  await dialog.getByRole("button", { name: "Inventur abschließen" }).click();
+  await dialog.getByRole("button", { name: "Zählstände speichern" }).click();
   await expect(dialog.getByRole("alert")).toContainText("Nicht gespeichert");
-  await expect(dialog.getByRole("spinbutton", { name: "Gezählt: Aktives Material" })).toBeDisabled();
   failure = false;
-  await dialog.getByRole("button", { name: "Übertragung erneut versuchen" }).click();
-  await expect(dialog).toHaveCount(0);
-  expect(requests).toHaveLength(2); expect(requests[0]).toEqual(requests[1]);
-  expect(requests[0]).toMatchObject({ location_id: "stock-location", note: "Jahresinventur", items: [
-    { material_id: "stock-a", expected: 10, counted: 8 }, { material_id: "stock-zero", expected: 0, counted: 0 },
+  await dialog.getByRole("button", { name: "Zählstände speichern" }).click();
+  expect(requests).toHaveLength(3); expect(requests[1]).toEqual(requests[2]);
+  expect(requests[1]).toMatchObject({ note: "Jahresinventur", items: [
+    { material_id: "stock-a", location_id: "stock-location", expected: 10, counted: 8 }, { material_id: "stock-zero", location_id: "stock-location", expected: 0, counted: 0 },
   ] });
-  await expect(page.getByRole("status")).toContainText("Inventur gespeichert");
-  await page.getByRole("button", { name: "Inventuren", exact: true }).click();
-  const history = page.getByRole("dialog", { name: "Inventuren", exact: true });
+  await dialog.getByRole("button", { name: "Schließen", exact: true }).click();
+  await page.getByRole("table", { name: "Inventurplanung", exact: true }).getByRole("row").filter({ hasText: "Jahresinventur" }).click();
+  await expect(dialog.getByRole("spinbutton", { name: "Gezählt: Aktives Material · Testlager", exact: true })).toHaveValue("8");
+  await dialog.getByRole("button", { name: "Inventur abschließen" }).click();
+  await expect(dialog.getByRole("spinbutton", { name: "Gezählt: Aktives Material · Testlager", exact: true })).toBeDisabled();
+  await dialog.getByRole("button", { name: "Schließen", exact: true }).click();
+  const history = page.getByRole("table", { name: "Inventuren", exact: true });
   await expect(history).toContainText("Bernd Klos");
   await history.getByRole("row").filter({ hasText: "Jahresinventur" }).click();
   await expect(history).toContainText("Aktives Material"); await expect(history).toContainText("-2 Meter");
-  await history.getByRole("button", { name: "Schließen", exact: true }).last().click();
+  await page.getByRole("button", { name: "Inventuren", exact: true }).click();
+  await page.screenshot({ path: `test-results/inventory-block-${mobile}-${testInfo.project.name}.png` });
+  await page.getByRole("tab", { name: "Bestandsübersicht", exact: true }).click();
   await table.locator("tbody tr").filter({ hasText: "Aktives Material" }).click();
   await expect(page.getByRole("combobox", { name: "Bezeichnung", exact: true })).toHaveValue("stock-a");
   await expect(table).toHaveCount(0);
