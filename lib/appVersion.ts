@@ -1,10 +1,19 @@
 export const appVersion = {
-  version: "1.427.4",
+  version: "1.427.5",
   releaseDate: "2026-10-10",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  {
+    version: "1.427.5",
+    date: "2026-10-10",
+    changes: [
+      "Unfertige Foto-Uploads bleiben lokal und ueberschreiben keine gespeicherten Fortschrittsfotos",
+      "Text und Zeiten bleiben waehrend Foto-Uploads unabhaengig speicherbar",
+      "Vier Gunnabo-Fotos nach Sicherung erhalten und Upload-Konflikte zusammengefuehrt",
+    ],
+  },
   {
     version: "1.427.4",
     date: "2026-10-10",

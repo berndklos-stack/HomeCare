@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { createSyncMutation, enqueueSyncMutation, markMutationSyncing, nextPendingMutation, revisionAfterConfirmation, settleSyncMutation, retryNetworkFailures } from "../lib/syncQueue";
-import { prepareProgressMutations } from "../lib/jobOperationsSync";
+import { prepareProgressMutations, hasUnfinishedProgressPhotos } from "../lib/jobOperationsSync";
 import { reviewApprovedResolution, reviewConflictSequence, reviewProgressConflict } from "../lib/conflictReview";
 
 const edit = (revision: number, minutes = "90") => createSyncMutation({
@@ -22,6 +22,27 @@ test("Netzwerkfehler werden pro Verbindungsphase nur einmal mit unveraenderter I
   expect(retryNetworkFailures([network], attempted)[0]).toBe(network);
   attempted.clear();
   expect(retryNetworkFailures([network], attempted)[0].status).toBe("pending");
+});
+
+test("Foto-Upload-Zwischenstaende bleiben lokal und ersetzen keine gespeicherte Fotoliste", () => {
+  const uploaded = { id: "saved", uploadStatus: "uploaded", storagePath: "tenant/saved.jpg" };
+  const current = { JOB: { task: { revision: 33, note: "Arbeit", minutes: "165", photos: [uploaded] } } };
+  for (const uploadStatus of ["uploading", "queued", "failed"]) {
+    const pending = { id: "new", uploadStatus };
+    const next = { JOB: { task: { ...current.JOB.task, photos: [uploaded, pending] } } };
+    const prepared = prepareProgressMutations(current, next);
+    expect(prepared.mutations).toHaveLength(0);
+    expect(prepared.progress.JOB.task.photos).toEqual([uploaded, pending]);
+    expect(prepared.progress.JOB.task.revision).toBe(33);
+    const text = prepareProgressMutations(current, { JOB: { task: { ...next.JOB.task, note: "Neuer Text" } } });
+    expect(text.mutations).toHaveLength(1);
+    expect(text.mutations[0].payload).not.toHaveProperty("photos");
+    expect(hasUnfinishedProgressPhotos(next.JOB.task)).toBe(true);
+    const finished = { JOB: { task: { ...next.JOB.task, photos: [uploaded, { ...pending, uploadStatus: "uploaded", storagePath: "tenant/new.jpg" }] } } };
+    expect(prepareProgressMutations(next, finished).mutations[0].payload.photos).toEqual(finished.JOB.task.photos);
+  }
+  const removed = prepareProgressMutations(current, { JOB: { task: { ...current.JOB.task, photos: [] } } });
+  expect(removed.mutations[0].payload.photos).toEqual([]);
 });
 
 test("Verspaetete Bestaetigung setzt die Revision einer weiteren lokalen Eingabe nicht zurueck", () => {

@@ -5,6 +5,7 @@ import { membershipAllows } from "@/lib/authModel";
 import { normalizeObjectDatePayload } from "@/lib/objectSync";
 import { requiredOperationsPermission, validateOperationsMutation } from "@/lib/operationsCommands";
 import { validateResourceType } from "@/lib/resourceTypes";
+import { hasUnfinishedProgressPhotos } from "@/lib/jobOperationsSync";
 import { isAuthError, requireApiAuth } from "@/lib/server/apiAuth";
 
 export const runtime = "nodejs";
@@ -91,6 +92,16 @@ export async function POST(request: Request) {
   if (["accounting_export", "invoice", "invoice_line", "payment"].includes(mutation.entityType)
     && !membershipAllows(auth.membership, "invoices.manage")) {
     return NextResponse.json({ error: "PERMISSION_DENIED" }, { status: 403 });
+  }
+
+  if (mutation.entityType === "field_progress" && ["create", "update"].includes(mutation.operation)
+    && hasUnfinishedProgressPhotos(mutation.payload)) {
+    // Attempted identities remain immutable: existing requests still return
+    // their journalled result, but new upload placeholders cannot replace photos.
+    const { data: previous, error: lookupError } = await supabase.from("homecare_sync_mutations")
+      .select("mutation_id").eq("tenant_id", auth.tenantId).eq("mutation_id", mutation.id).maybeSingle();
+    if (lookupError) return NextResponse.json({ error: "Foto-Upload konnte nicht geprüft werden." }, { status: 503 });
+    if (!previous) return NextResponse.json({ error: "Unfertige Foto-Uploads bleiben lokal erhalten. Bitte Foto-Upload abschließen; gespeicherte Fotos wurden nicht ersetzt." }, { status: 422 });
   }
 
   const rpcName = mutation.entityType === "resource_type" ? "homecare_apply_resource_type_mutation" : mutation.entityType === "operations"

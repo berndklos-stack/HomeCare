@@ -102,7 +102,7 @@ test("Speicherfehler bleibt offline sichtbar und lokale Vorschauen sind nach Rec
     Object.defineProperty(navigator, "onLine", { configurable: true, get: () => false });
     const original = Storage.prototype.setItem;
     Storage.prototype.setItem = function (key, value) {
-      if (key.startsWith("workcore-sync-mutations") && value.includes("data:image/")) throw new DOMException("Photo queue full", "QuotaExceededError");
+      if (key === "kolaretorp-field-progress" && value.includes("data:image/")) throw new DOMException("Photo draft full", "QuotaExceededError");
       return original.call(this, key, value);
     };
   });

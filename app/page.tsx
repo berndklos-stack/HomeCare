@@ -10130,6 +10130,14 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
   }
 
   function persistFieldProgressRelational(nextProgress: Record<string, Record<string, FieldTaskProgress>>) {
+    // Unfinished photos are local drafts, not server mutations. Persist their
+    // image data durably before accepting them so quota errors remain visible.
+    const hasLocalPhotoData = Object.values(nextProgress).some((tasks) => Object.values(tasks).some((task) => (
+      task.photos?.some((photo) => photo.uploadStatus !== "uploaded" && photo.previewUrl?.startsWith("data:image/"))
+    )));
+    if (hasLocalPhotoData) {
+      window.localStorage.setItem(storageKeys.fieldProgress, JSON.stringify(nextProgress));
+    }
     const prepared = prepareProgressMutations(fieldProgressRef.current, nextProgress);
     prepared.mutations.forEach((mutation) => enqueueSyncMutation(mutation));
     const optimistic = overlayPendingJobOperations([], prepared.progress, {}, {}, readSyncQueue(window.localStorage)).progress as Record<string, Record<string, FieldTaskProgress>>;

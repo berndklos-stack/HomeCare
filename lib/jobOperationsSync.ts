@@ -22,6 +22,18 @@ const transient = new Set(["deletedAt", "id", "revision", "updatedAt"]);
 const payload = (value: Record<string, unknown>) => Object.fromEntries(Object.entries(value).filter(([key]) => !transient.has(key)));
 const fingerprint = (value: Record<string, unknown>) => JSON.stringify(payload(value));
 
+export function hasUnfinishedProgressPhotos(value: Record<string, unknown>) {
+  return Array.isArray(value.photos) && value.photos.some((photo) => photo && typeof photo === "object"
+    && ["pending", "queued", "uploading", "failed"].includes(String((photo as Record<string, unknown>).uploadStatus)));
+}
+
+function progressPayload(task: RevisionedProgress) {
+  const result = payload(task);
+  // Upload placeholders are local state, not a replacement for stored photos.
+  if (hasUnfinishedProgressPhotos(result)) delete result.photos;
+  return result;
+}
+
 function jobPayload(job: RevisionedJob) {
   const result = payload(job);
   const consulting = job.consulting;
@@ -77,7 +89,7 @@ function flattenProgress(progress: Record<string, Record<string, RevisionedProgr
     const [jobId, workDate] = progressKey.split("::", 2);
     Object.entries(tasks).forEach(([taskId, task]) => rows.set(`${progressKey}:${taskId}`, {
       jobId,
-      payload: { ...payload(task), taskId, workDate: workDate || null },
+      payload: { ...progressPayload(task), taskId, workDate: workDate || null },
       progressKey,
       task,
       taskId,
@@ -97,10 +109,12 @@ export function prepareProgressMutations(
   const progress = structuredClone(next);
   nextRows.forEach((row, id) => {
     const previous = currentRows.get(id);
+    const previousPayload = { ...previous?.payload };
+    if (!Object.hasOwn(row.payload, "photos")) delete previousPayload.photos;
     if (!previous) {
       mutations.push({ entityId: id, entityType: "field_progress", operation: "create", payload: row.payload, resourceId: row.jobId });
       progress[row.progressKey][row.taskId] = { ...row.task, revision: 1, updatedAt: now };
-    } else if (JSON.stringify(previous.payload) !== JSON.stringify(row.payload)) {
+    } else if (JSON.stringify(previousPayload) !== JSON.stringify(row.payload)) {
       const expectedRevision = previous.task.revision ?? 1;
       mutations.push({ entityId: id, entityType: "field_progress", expectedRevision, operation: "update", payload: row.payload, resourceId: row.jobId });
       progress[row.progressKey][row.taskId] = { ...row.task, revision: expectedRevision + 1, updatedAt: now };

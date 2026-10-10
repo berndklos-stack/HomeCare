@@ -4,6 +4,13 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.427.5 - 2026-10-10
+
+- Foto-Upload-Zwischenstaende (wartend, laufend, fehlgeschlagen) bleiben lokal; sie erzeugen keine Fotolisten-Ersetzungen oder unnoetigen Revisionen.
+- Text und Zeiten koennen weiterhin gespeichert werden; die Fotoliste wird erst nach abgeschlossenen Uploads uebertragen. Bewusstes Loeschen fertig gespeicherter Fotos bleibt moeglich.
+- Neue unvollstaendige Foto-Mutationen werden serverseitig geschuetzt; bereits journalisierte Identitaeten behalten ihre urspruenglichen Ergebnisse.
+- Verbliebene Gunnabo-Upload-Konflikte nach gezielter Sicherung zusammengefuehrt; alle vier privaten Bilddateien erhalten und zugeordnet.
+
 ## 1.427.4 - 2026-10-10
 
 - Allgemeine Lagerbuchung oben rechts mit separater Materialauswahl nach Artikelnummer und Bezeichnung.
