@@ -7,9 +7,10 @@ import styles from "./OperationsWorkspace.module.css";
 
 export type DataColumn = { key: string; label: string; value: (row: OperationsRow) => string; render?: (row: OperationsRow) => ReactNode };
 
-export function OperationsDataTable({ rows, columns, actions, label, filterLabel, emptyLabel, actionsLabel }: {
+export function OperationsDataTable({ rows, columns, actions, label, filterLabel, emptyLabel, actionsLabel, onRowActivate, canActivate }: {
   rows: OperationsRow[]; columns: DataColumn[]; actions: (row: OperationsRow) => ReactNode;
   label: string; filterLabel: string; emptyLabel: string; actionsLabel: string;
+  onRowActivate?: (row: OperationsRow) => void; canActivate?: (row: OperationsRow) => boolean;
 }) {
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [page, setPage] = useState(0);
@@ -20,7 +21,16 @@ export function OperationsDataTable({ rows, columns, actions, label, filterLabel
       <thead><tr>{columns.map((column) => <th scope="col" key={column.key}>{column.label}</th>)}<th scope="col">{actionsLabel}</th></tr>
         <tr>{columns.map((column) => <td key={column.key}><input type="search" aria-label={`${filterLabel}: ${column.label}`} value={filters[column.key] ?? ""} onChange={(event) => { setFilters((old) => ({ ...old, [column.key]: event.target.value })); setPage(0); }} /></td>)}<td /></tr>
       </thead>
-      <tbody>{filtered.slice(current * 50, current * 50 + 50).map((row) => <tr key={row.id}>{columns.map((column) => <td key={column.key}>{column.render?.(row) ?? (column.value(row) || "—")}</td>)}<td><div className={styles.actions}>{actions(row)}</div></td></tr>)}
+      <tbody>{filtered.slice(current * 50, current * 50 + 50).map((row) => {
+        const enabled = Boolean(onRowActivate && (canActivate?.(row) ?? true));
+        return <tr key={row.id} tabIndex={enabled ? 0 : undefined} className={enabled ? styles.clickableRow : undefined}
+          onClick={(event) => {
+            if (enabled && !(event.target as HTMLElement).closest("button, a, input, select, textarea, [role=button]")) onRowActivate?.(row);
+          }}
+          onKeyDown={(event) => {
+            if (enabled && event.target === event.currentTarget && ["Enter", " "].includes(event.key)) { event.preventDefault(); onRowActivate?.(row); }
+          }}>{columns.map((column) => <td key={column.key}>{column.render?.(row) ?? (column.value(row) || "—")}</td>)}<td><div className={styles.actions}>{actions(row)}</div></td></tr>;
+      })}
         {!filtered.length && <tr><td colSpan={columns.length + 1}>{emptyLabel}</td></tr>}
       </tbody>
     </table></div>

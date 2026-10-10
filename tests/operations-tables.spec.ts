@@ -21,6 +21,14 @@ for (const mobile of [false, true]) test(`Spaltenfilter kombinieren alle Liefera
   await table.getByRole("searchbox", { name: "Filter: E-Mail", exact: true }).fill("target");
   await expect(table.locator("tbody tr")).toHaveCount(1);
   await expect(table.locator("tbody")).toContainText("Supplier 54");
+  await table.locator("tbody tr td").nth(1).click();
+  await expect(page.getByRole("dialog", { name: "Lieferanten", exact: true })).toBeVisible();
+  await expect(page.getByRole("dialog").getByLabel("Unternehmen", { exact: true })).toHaveValue("Supplier 54");
+  await page.getByRole("dialog").getByRole("button", { name: "Schließen", exact: true }).click();
+  await table.locator("tbody tr").focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("dialog", { name: "Lieferanten", exact: true })).toBeVisible();
+  await page.getByRole("dialog").getByRole("button", { name: "Schließen", exact: true }).click();
   await table.getByRole("searchbox", { name: "Filter: Unternehmen", exact: true }).fill("missing");
   await expect(table.locator("tbody")).toContainText("Keine Einträge");
   await table.getByRole("searchbox", { name: "Filter: Unternehmen", exact: true }).fill("");

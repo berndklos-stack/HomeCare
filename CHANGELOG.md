@@ -4,6 +4,13 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.427.1 - 2026-10-10
+
+- Verspaetete Speicherbestaetigungen setzen die Revision neuerer lokaler Eingaben nicht zurueck.
+- Folgeaenderungen desselben Datensatzes warten bei Fehlern oder Konflikten; andere Datensaetze synchronisieren weiter.
+- Fortschrittskonflikte werden mandantengebunden mit Zeiten, Texten und Fotos verglichen. Nur vollstaendig bestaetigte letzte lokale Staende und ihre abgedeckten Vorlaeufer werden automatisch bereinigt.
+- Stammdatentabellen oeffnen die Bearbeitung per Zeilenklick, Enter oder Leertaste; Aktionsbuttons und Kontaktlinks bleiben separat bedienbar.
+
 ## 1.427.0 - 2026-10-10
 
 - Bestellungen, Lieferanten und Kontakte als Tabellen mit leeren Spaltenfiltern.

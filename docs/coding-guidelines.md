@@ -24,3 +24,7 @@ Stammdatenlisten als Tabellen mit Spaltenkoepfen und direkt darunter einer leere
 Filterzeile je Datenspalte gestalten. Filter kombinieren, vor der Pagination anwenden
 und einzeln loeschen koennen. Aktionsspalten bleiben filterfrei. Auf schmalen Geraeten
 nur den Tabellenbereich horizontal scrollen. Siehe `master-data-tables.md`.
+
+Ein Klick auf die Datenzeile oeffnet die Bearbeitung, ebenso Enter/Leertaste auf
+der fokussierten Zeile. Links und Aktionsbuttons ausnehmen. Gesperrte Datensaetze
+bleiben gesperrt; festgeschriebene Bestellungen oeffnen ihre Positionsansicht.

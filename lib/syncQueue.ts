@@ -180,12 +180,20 @@ export function summarizeSyncQueue(queue: SyncMutation[]): SyncQueueSummary {
 export function nextPendingMutation(queue: SyncMutation[]) {
   return queue.find((mutation, index) => {
     if (mutation.status !== "pending") return false;
-    if (mutation.entityType === "resource_type" && queue.some((previous, position) => position < index && previous.entityType === "resource_type"
+    if (queue.some((previous, position) => position < index && previous.entityType === mutation.entityType
       && previous.entityId === mutation.entityId && previous.status !== "synced")) return false;
     if (mutation.entityType === "resource" && typeof mutation.payload.resourceTypeId === "string" && queue.some((previous, position) =>
       position < index && previous.entityType === "resource_type" && previous.entityId === mutation.payload.resourceTypeId && previous.status !== "synced")) return false;
     return true;
   });
+}
+
+// Acknowledgements may arrive after another local edit. Its queued revision
+// must survive so the next edit cannot reuse an already submitted revision.
+export function revisionAfterConfirmation(mutation: SyncMutation, serverRevision: number, queue: SyncMutation[]) {
+  return queue.reduce((revision, item) => item.entityType === mutation.entityType && item.entityId === mutation.entityId
+    && ["pending", "syncing", "failed"].includes(item.status) && item.expectedRevision !== undefined
+    ? Math.max(revision, item.expectedRevision + 1) : revision, serverRevision);
 }
 
 export function markMutationSyncing(queue: SyncMutation[], mutationId: string, now = new Date().toISOString()) {

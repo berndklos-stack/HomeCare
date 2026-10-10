@@ -178,7 +178,9 @@ export function SyncStatus({ conflicts = [], failures = [], issues = [], languag
             </details>
             <div className="sync-conflict-actions">
               <button type="button" className="ghost-button compact" disabled={resolving} onClick={() => void accept([mutation.id])}>Serverstand übernehmen</button>
-              <button type="button" className="ghost-button compact" disabled={resolving || !online} onClick={() => onRetry(mutation.id)}>Erneut versuchen</button>
+              {mutation.status === "conflict" && onReviewConflicts
+                ? <button type="button" className="ghost-button compact" disabled={resolving || !online} onClick={() => void review(true, conflicts.filter((item) => item.entityType === mutation.entityType && item.entityId === mutation.entityId).map((item) => item.id))}>Mit Server vergleichen</button>
+                : <button type="button" className="ghost-button compact" disabled={resolving || !online} onClick={() => onRetry(mutation.id)}>Erneut versuchen</button>}
             </div>
           </section>)}
           {resolutionError && <p role="alert">{resolutionError}</p>}

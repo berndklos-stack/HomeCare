@@ -1,10 +1,20 @@
 export const appVersion = {
-  version: "1.427.0",
+  version: "1.427.1",
   releaseDate: "2026-10-10",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  {
+    version: "1.427.1",
+    date: "2026-10-10",
+    changes: [
+      "Speicherbestaetigungen erhalten Revisionen weiterer lokaler Aenderungen",
+      "Konflikte blockieren Folgeaenderungen desselben Datensatzes statt neue Konfliktketten auszulösen",
+      "Bereits gespeicherte Fortschrittsstaende werden sicher mit alten Konflikten abgeglichen",
+      "Stammdatentabellen oeffnen die Bearbeitung per Zeilenklick und Tastatur",
+    ],
+  },
   {
     version: "1.427.0",
     date: "2026-10-10",

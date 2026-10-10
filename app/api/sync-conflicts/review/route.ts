@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { membershipAllows } from "@/lib/authModel";
 import { isAuthError, requireApiAuth } from "@/lib/server/apiAuth";
-import { reviewMediaConflict } from "@/lib/conflictReview";
+import { reviewMediaConflict, reviewProgressConflict } from "@/lib/conflictReview";
 import type { SyncMutation } from "@/lib/syncQueue";
 
 export async function POST(request: Request) {
@@ -22,8 +22,14 @@ export async function POST(request: Request) {
     .select("id,tenant_id,owner_type,owner_id,revision,deleted_at,name,storage_path,preview_url,metadata")
     .eq("tenant_id", auth.tenantId).in("id", ids) : { data: [], error: null };
   if (error) return NextResponse.json({ error: "CONFLICT_REVIEW_FAILED" }, { status: 503 });
-  return NextResponse.json({ reviews: mutations.map((m) => reviewMediaConflict(m,
-    data?.find((row) => row.id === m.entityId) ?? null, auth.tenantId)) }, {
+  const progressIds = mutations.filter((m) => m.entityType === "field_progress").map((m) => m.entityId);
+  const progress = progressIds.length ? await auth.serviceClient.from("homecare_field_progress")
+    .select("id,tenant_id,job_id,revision,deleted_at,task_id,work_date,completed,minutes,show_work_time_in_report,note,photos")
+    .eq("tenant_id", auth.tenantId).in("id", progressIds) : { data: [], error: null };
+  if (progress.error) return NextResponse.json({ error: "CONFLICT_REVIEW_FAILED" }, { status: 503 });
+  return NextResponse.json({ reviews: mutations.map((m) => m.entityType === "field_progress"
+    ? reviewProgressConflict(m, progress.data?.find((row) => row.id === m.entityId) ?? null, auth.tenantId)
+    : reviewMediaConflict(m, data?.find((row) => row.id === m.entityId) ?? null, auth.tenantId)) }, {
     headers: { "Cache-Control": "no-store" },
   });
 }

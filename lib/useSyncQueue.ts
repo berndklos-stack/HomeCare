@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { apiFetch } from "@/lib/apiClient";
-import type { ConflictReview } from "@/lib/conflictReview";
+import { reviewConflictSequence, type ConflictReview } from "@/lib/conflictReview";
 import {
   createSyncMutation,
   discardConflictingMutations,
@@ -21,7 +21,7 @@ import {
 
 type UseSyncQueueOptions = {
   disabled?: boolean;
-  onApplied?: (mutation: SyncMutation, result: SyncMutationResult) => void;
+  onApplied?: (mutation: SyncMutation, result: SyncMutationResult, remainingQueue: SyncMutation[]) => void;
 };
 
 const automaticFlushBatchSize = 8;
@@ -55,6 +55,7 @@ export function useSyncQueue({ disabled = false, onApplied }: UseSyncQueueOption
   const processingRef = useRef(false);
   const reviewEpoch = useRef(0);
   const reviewRequests = useRef(new Set<AbortController>());
+  const automaticReviewSignature = useRef("");
   const onAppliedRef = useRef(onApplied);
 
   useEffect(() => {
@@ -62,6 +63,7 @@ export function useSyncQueue({ disabled = false, onApplied }: UseSyncQueueOption
   }, [onApplied]);
 
   useEffect(() => {
+    const requests = reviewRequests.current;
     const hydrateId = window.setTimeout(() => {
       setQueue(readSyncQueue(window.localStorage));
       setOnline(navigator.onLine);
@@ -73,13 +75,13 @@ export function useSyncQueue({ disabled = false, onApplied }: UseSyncQueueOption
     window.addEventListener("offline", handleOffline);
     return () => {
       reviewEpoch.current += 1;
-      for (const controller of reviewRequests.current) controller.abort();
-      reviewRequests.current.clear();
+      for (const controller of requests) controller.abort();
+      requests.clear();
       window.clearTimeout(hydrateId);
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
     };
-  }, []);
+  }, [setQueue]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -99,7 +101,8 @@ export function useSyncQueue({ disabled = false, onApplied }: UseSyncQueueOption
         try {
           const result = await sendMutation(pending);
           setQueue((current) => settleSyncMutation(current, pendingId, result));
-          if (result.status === "synced") onAppliedRef.current?.(pending, result);
+          writeSyncQueue(window.localStorage, queueRef.current);
+          if (result.status === "synced") onAppliedRef.current?.(pending, result, queueRef.current);
           if (result.status === "conflict") break;
         } catch (error) {
           const message = error instanceof Error ? error.message : "Synchronisierung fehlgeschlagen.";
@@ -111,7 +114,7 @@ export function useSyncQueue({ disabled = false, onApplied }: UseSyncQueueOption
     } finally {
       processingRef.current = false;
     }
-  }, [disabled, online, queue]);
+  }, [disabled, online, setQueue]);
 
   useEffect(() => {
     if (!online || disabled || !nextPendingMutation(queue)) return;
@@ -124,7 +127,7 @@ export function useSyncQueue({ disabled = false, onApplied }: UseSyncQueueOption
     // Commit all related local mutations before exposing any state change.
     setQueue((current) => persistSyncMutationBatch(window.localStorage, current, mutations));
     return mutations;
-  }, []);
+  }, [setQueue]);
   const enqueue = useCallback((input: Parameters<typeof createSyncMutation>[0]) => enqueueMany([input])[0], [enqueueMany]);
 
   const retry = useCallback((mutationId?: string) => {
@@ -133,7 +136,7 @@ export function useSyncQueue({ disabled = false, onApplied }: UseSyncQueueOption
       writeSyncQueue(window.localStorage, next);
       return next;
     });
-  }, []);
+  }, [setQueue]);
 
   const discardConflicts = useCallback((mutationId?: string | string[]) => {
     setQueue((current) => {
@@ -143,7 +146,7 @@ export function useSyncQueue({ disabled = false, onApplied }: UseSyncQueueOption
       writeSyncQueue(window.localStorage, next);
       return next;
     });
-  }, []);
+  }, [setQueue]);
 
   const reviewConflicts = useCallback(async (ids: string[], resolve = false): Promise<ConflictReview[]> => {
     const epoch = reviewEpoch.current;
@@ -170,29 +173,33 @@ export function useSyncQueue({ disabled = false, onApplied }: UseSyncQueueOption
         if (!response.ok) throw new Error("Serververgleich nicht verfügbar. Keine Konflikte entfernt.");
         const result = await response.json() as { reviews: ConflictReview[] };
         assertContext();
-        for (const mutation of batch) {
-          const current = queueRef.current.find((m) => m.id === mutation.id);
-          const dependent = queueRef.current.some((m) => m.id !== mutation.id && m.entityType === mutation.entityType
-            && m.entityId === mutation.entityId && m.status !== "synced");
-          const review = result.reviews.find((r) => r.id === mutation.id);
-          reviews.push(current !== mutation || dependent || !review
-            ? { id: mutation.id, redundant: false, reason: "Weitere oder inzwischen geänderte lokale Mutation. Manuell prüfen." }
-            : review);
-        }
+        reviews.push(...result.reviews);
       } finally { window.clearTimeout(timeout); reviewRequests.current.delete(controller); }
     }
+    const checked = reviewConflictSequence(snapshot, queueRef.current, reviews);
     if (resolve) {
       assertContext();
-      const safe = reviews.filter((r) => r.redundant).filter((r) => {
-        const original = snapshot.find((m) => m.id === r.id);
-        return queueRef.current.find((m) => m.id === r.id) === original
-          && !queueRef.current.some((m) => m.id !== r.id && m.entityType === original?.entityType
-            && m.entityId === original.entityId && m.status !== "synced");
-      }).map((r) => r.id);
+      const safe = checked.filter((r) => r.redundant).map((r) => r.id);
       discardConflicts(safe);
     }
-    return reviews;
+    return checked;
   }, [discardConflicts]);
+
+  useEffect(() => {
+    if (!hydrated || disabled || !online || nextPendingMutation(queue)) return;
+    const conflicts = queue.filter((mutation) => mutation.entityType === "field_progress" && mutation.status === "conflict");
+    if (!conflicts.length) return;
+    const signature = queue.filter((mutation) => mutation.status !== "synced").map((mutation) => `${mutation.id}:${mutation.status}`).join("|");
+    if (automaticReviewSignature.current === signature) return;
+    const timer = window.setTimeout(() => {
+      automaticReviewSignature.current = signature;
+      void reviewConflicts(conflicts.map((mutation) => mutation.id), true).catch(() => {
+        // The queue remains intact if the server comparison is unavailable.
+        automaticReviewSignature.current = "";
+      });
+    }, automaticFlushDelayMs);
+    return () => window.clearTimeout(timer);
+  }, [disabled, hydrated, online, queue, reviewConflicts]);
 
   return {
     discardConflicts,

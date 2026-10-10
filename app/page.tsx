@@ -67,7 +67,7 @@ import { appVersion, versionHistory } from "@/lib/appVersion";
 import { apiFetch, apiRequestHeaders, tenantScopedStorageKey } from "@/lib/apiClient";
 import { useAuthenticatedMedia } from "@/lib/useAuthenticatedMedia";
 import { defaultAppBranding, resolveAppBranding } from "@/lib/branding";
-import { createStableId, readSyncQueue, type SyncMutation, type SyncMutationOperation, type SyncMutationResult } from "@/lib/syncQueue";
+import { createStableId, readSyncQueue, revisionAfterConfirmation, type SyncMutation, type SyncMutationOperation, type SyncMutationResult } from "@/lib/syncQueue";
 import { overlayPendingMasterData, prepareMasterDataMutations, type RevisionedMasterRecord } from "@/lib/masterDataSync";
 import {
   overlayPendingResourceMutations,
@@ -9023,7 +9023,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
   const lastForegroundSyncAtRef = useRef(0);
   const lastUserInteractionAtRef = useRef(0);
 
-  const handleMutationApplied = useCallback((mutation: SyncMutation, result: SyncMutationResult) => {
+  const handleMutationApplied = useCallback((mutation: SyncMutation, result: SyncMutationResult, remainingQueue: SyncMutation[]) => {
     const serverRecord = result.record;
     if (!serverRecord) return;
     if (mutation.entityType === "operations") {
@@ -9045,7 +9045,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
       if (mutation.payload.entity === "location_details") setInventoryLocations((current) => current.map((r) => r.id === mutation.entityId ? { ...r, revision: Number(serverRecord.revision) } : r));
       return;
     }
-    const revision = Number(serverRecord.revision ?? serverRecord.settings_revision);
+    const revision = revisionAfterConfirmation(mutation, Number(serverRecord.revision ?? serverRecord.settings_revision), remainingQueue);
     const deletedAt = typeof serverRecord.deleted_at === "string" ? serverRecord.deleted_at : undefined;
     const updatedAt = typeof serverRecord.updated_at === "string" ? serverRecord.updated_at : new Date().toISOString();
     if (mutation.entityType === "customer") {
