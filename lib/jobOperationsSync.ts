@@ -36,6 +36,8 @@ function progressPayload(task: RevisionedProgress) {
 
 function jobPayload(job: RevisionedJob) {
   const result = payload(job);
+  delete result.stockMaterialItems;
+  delete result.createPicking;
   const consulting = job.consulting;
   if (consulting) result.consulting = Object.fromEntries(Object.entries(consulting).filter(([key]) => key !== "entries"));
   return result;
@@ -51,11 +53,11 @@ export function prepareJobMutations<T extends RevisionedJob>(currentJobs: T[], n
     let updatedAt = current?.updatedAt;
     if (!current) {
       revision = 1; updatedAt = now;
-      mutations.push({ entityId: job.id, entityType: "job", operation: "create", payload: jobPayload(job), resourceId: job.id });
-    } else if (JSON.stringify(jobPayload(current)) !== JSON.stringify(jobPayload(job))) {
+      mutations.push({ entityId: job.id, entityType: "job", operation: "create", payload: { ...jobPayload(job), ...(job.createPicking ? { createPicking: true } : {}) }, resourceId: job.id });
+    } else if (job.createPicking || JSON.stringify(jobPayload(current)) !== JSON.stringify(jobPayload(job))) {
       const expectedRevision = current.revision ?? 1;
       revision = expectedRevision + 1; updatedAt = now;
-      mutations.push({ entityId: job.id, entityType: "job", expectedRevision, operation: "update", payload: jobPayload(job), resourceId: job.id });
+      mutations.push({ entityId: job.id, entityType: "job", expectedRevision, operation: "update", payload: { ...jobPayload(job), ...(job.createPicking ? { createPicking: true } : {}) }, resourceId: job.id });
     }
     const currentEntries = new Map(((current?.consulting?.entries ?? []) as RevisionedTimeEntry[]).map((entry) => [entry.id, entry]));
     const nextEntries = (job.consulting?.entries ?? []) as RevisionedTimeEntry[];

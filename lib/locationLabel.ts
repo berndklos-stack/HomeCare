@@ -1,3 +1,16 @@
+export function storageLocationPath(id: string, locations: readonly { id: string; name: string; parentLocationId?: string }[]): string {
+  const byId = new Map(locations.map((location) => [location.id, location]));
+  const parts: string[] = [];
+  const visited = new Set<string>();
+  let current = byId.get(id);
+  while (current && !visited.has(current.id)) {
+    visited.add(current.id);
+    parts.unshift(current.name);
+    current = current.parentLocationId ? byId.get(current.parentLocationId) : undefined;
+  }
+  return parts.join(" / ");
+}
+
 export async function locationLabelPdf(location: { name: string; code: string; parent?: string; storagePlace?: boolean }, language: "de" | "sv" | "en") {
   if (!location.code.trim() || location.code.length > 128) throw new Error("LOCATION_CODE_REQUIRED");
   return codeLabelPdf({ ...location, heading: location.storagePlace ? language === "de" ? "Lagerplatz" : language === "sv" ? "Lagerplats" : "Storage bin" : language === "de" ? "Lagerort" : language === "sv" ? "Lager" : "Storage location", footer: location.parent });
@@ -8,7 +21,12 @@ export async function materialLabelPdf(material: { name: string; code: string; s
   return codeLabelPdf({ ...material, heading: "Material", footer: material.sku ? `${language === "de" ? "Materialnummer" : language === "sv" ? "Artikelnummer" : "Item number"}: ${material.sku}` : undefined });
 }
 
-async function codeLabelPdf(label: { heading: string; name: string; code: string; footer?: string }) {
+export async function entityCodeLabelPdf(entity: { name: string; code: string; kind: "job" | "object" }, language: "de" | "sv" | "en") {
+  if (!entity.code.trim() || entity.code.length > 128) throw new Error("CODE_REQUIRED");
+  return codeLabelPdf({ ...entity, heading: entity.kind === "job" ? language === "de" ? "Auftrag" : language === "sv" ? "Uppdrag" : "Job" : language === "de" ? "Objekt" : language === "sv" ? "Objekt" : "Object" });
+}
+
+export async function codeLabelPdf(label: { heading: string; name: string; code: string; footer?: string }) {
   const [{ jsPDF }, { default: QRCode }] = await Promise.all([import("jspdf"), import("qrcode")]);
   const pdf = new jsPDF({ orientation: "landscape", format: [100, 60] });
   const response = await fetch("/kolaretorp-logo.png");

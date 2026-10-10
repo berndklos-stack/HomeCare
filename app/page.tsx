@@ -8,8 +8,12 @@ import { SyncStatus } from "@/components/SyncStatus";
 import { AppleRemindersBridge } from "@/components/AppleRemindersBridge";
 import { TripDialog } from "@/components/TripDialog";
 import { OperationsWorkspace } from "@/components/OperationsWorkspace";
+import { storageLocationPath } from "@/lib/locationLabel";
 import { MaterialPurchasing } from "@/components/MaterialPurchasing";
 import { MaterialLabel } from "@/components/MaterialLabel";
+import { EntityCodeLabel } from "@/components/EntityCodeLabel";
+import { PickingOrders } from "@/components/PickingOrders";
+import { billableJobMaterials, type StockMaterialLine } from "@/lib/jobStock";
 import { OperationsWarnings } from "@/components/OperationsWarnings";
 import { DynamicResourceFields, ResourceTypesPanel, useResourceTypes } from "@/components/ResourceTypes";
 import { legacyResourceType, missingResourceFields, resourceIsVehicle, resourceLanguageIndex, resourceTypesText } from "@/lib/resourceTypes";
@@ -276,6 +280,7 @@ type JobConsulting = {
 
 type JobRecord = {
   id: string;
+  createPicking?: boolean;
   scanCode?: string;
   seriesMasterId?: string;
   seriesOccurrenceDate?: string;
@@ -296,6 +301,7 @@ type JobRecord = {
   assignedTo: string;
   resourceIds?: string[];
   materialItems?: JobMaterialItem[];
+  stockMaterialItems?: StockMaterialLine[];
   discountType?: "amount" | "percent";
   discountValue?: string;
   discountReason?: string;
@@ -1211,6 +1217,7 @@ type NewObjectFormState = {
 
 type NewJobFormState = {
   title: string;
+  createPicking: boolean;
   scanCode: string;
   type: string;
   priority: JobRecord["priority"];
@@ -2166,7 +2173,7 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Archiviertes Material", sv: "Arkiverat material", en: "Archived material" },
   { de: "Artikelnummer / SKU", sv: "Artikelnummer / SKU", en: "Item number / SKU" },
   { de: "EAN / Scancode", sv: "EAN / skanningskod", en: "EAN / scan code" },
-  { de: "Lagercode", sv: "Lagerplatskod", en: "Storage location code" },
+  { de: "Lagerkennung", sv: "Lagerplatskod", en: "Storage location code" },
   { de: "Auftrag in Abrechnung übernehmen", sv: "Överför uppdrag till fakturering", en: "Move job to billing" },
   { de: "Auftrag auswählen", sv: "Välj uppdrag", en: "Select job" },
   { de: "Auftrag schließen", sv: "Stäng uppdrag", en: "Close job" },
@@ -4473,6 +4480,7 @@ function emptyJobForm(): NewJobFormState {
   const today = currentLocalDateValue();
   return {
     title: "",
+    createPicking: false,
     scanCode: "",
     type: "Hauskontrolle",
     priority: "normal",
@@ -4828,7 +4836,7 @@ function jobBillingLines(job: JobRecord, services: ServiceItem[]): BillingLineIt
     const discountLine = discountLineFor(line, job.serviceDiscounts?.[service.id], `${line.id}-DISCOUNT`, `Rabatt ${service.name}`);
     return discountLine ? [line, discountLine] : [line];
   });
-  const materialLines = (job.materialItems ?? []).flatMap((item) => {
+  const materialLines = billableJobMaterials(job.materialItems ?? [], job.stockMaterialItems ?? []).flatMap((item) => {
     const line: BillingLineItem = {
       accountingAccount: item.accountingAccount || defaultAccountingAccount("Material", item.name),
       currency: item.currency || "SEK",
@@ -4840,7 +4848,7 @@ function jobBillingLines(job: JobRecord, services: ServiceItem[]): BillingLineIt
       unit: item.unit,
       unitPrice: item.price,
     };
-    const discountLine = discountLineFor(line, item.discount, `${line.id}-DISCOUNT`, `Rabatt ${item.name}`);
+    const discountLine = discountLineFor(line, "discount" in item ? item.discount as LineDiscount : undefined, `${line.id}-DISCOUNT`, `Rabatt ${item.name}`);
     return discountLine ? [line, discountLine] : [line];
   });
 
@@ -9039,10 +9047,25 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
   const lastForegroundSyncAtRef = useRef(0);
   const lastUserInteractionAtRef = useRef(0);
 
+  const refreshStockAllocation = useCallback(() => {
+    void loadSyncSections(["jobs", "materials"]).then((sections) => {
+      const incoming = sections.jobs?.value as JobRecord[] | undefined;
+      if (incoming) setJobs((current) => current.map((job) => ({ ...job, stockMaterialItems: incoming.find((row) => row.id === job.id)?.stockMaterialItems ?? job.stockMaterialItems })));
+      const incomingMaterials = sections.materials?.value as MaterialItem[] | undefined;
+      if (incomingMaterials) setMaterials((current) => current.map((material) => { const next = incomingMaterials.find((row) => row.id === material.id); return next ? { ...material, stockTotal: next.stockTotal, stockByLocation: next.stockByLocation } : material; }));
+    }).catch(() => setRecordNotice("Bitte Daten vor der Abrechnung aktualisieren."));
+  }, []);
   const handleMutationApplied = useCallback((mutation: SyncMutation, result: SyncMutationResult, remainingQueue: SyncMutation[]) => {
     const serverRecord = result.record;
     if (!serverRecord) return;
     if (mutation.entityType === "operations") {
+      if (serverRecord.job_id && serverRecord.billing_data) {
+        // Reload authoritative consumption, including returns; never sum an acknowledged retry twice.
+        void loadSyncSections(["jobs"]).then((sections) => {
+          const incoming = sections.jobs?.value as JobRecord[] | undefined;
+          if (incoming) setJobs((current) => current.map((job) => ({ ...job, stockMaterialItems: incoming.find((row) => row.id === job.id)?.stockMaterialItems ?? job.stockMaterialItems })));
+        }).catch(() => { setRecordNotice("Die Lagerbuchung wurde gespeichert. Auftragsmaterial konnte noch nicht aktualisiert werden. Bitte vor der Abrechnung aktualisieren."); });
+      }
       const resourceId = mutation.payload.entity === "resource_details" ? mutation.entityId : String(serverRecord.resource_id ?? "");
       const resourceRevision = Number(mutation.payload.entity === "resource_details" ? serverRecord.revision : serverRecord.resource_revision);
       if (resourceId && Number.isFinite(resourceRevision)) setResources((current) => current.map((r) => r.id === resourceId ? { ...r, revision: Math.max(r.revision ?? 1, resourceRevision) } : r));
@@ -9135,10 +9158,11 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
       return;
     }
     if (mutation.entityType === "job") {
+      if ((result as SyncMutationResult & { picking_order_id?: string }).picking_order_id) setRecordNotice("Auftrag und Kommissionierauftrag wurden gespeichert. Die Liste ist unter Lager & Material → Kommissionierung verfügbar.");
       setJobs((current) => deletedAt
         ? current.filter((job) => job.id !== mutation.entityId)
         : current.map((job) => job.id === mutation.entityId
-          ? { ...job, revision: Number.isFinite(revision) ? revision : job.revision, updatedAt }
+          ? { ...job, createPicking: false, revision: Number.isFinite(revision) ? revision : job.revision, updatedAt }
           : job));
       setAppUpdatedAt(updatedAt);
       return;
@@ -11306,6 +11330,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
       : existingJob.statusUpdatedAt;
     const saved: JobRecord = {
       id,
+      createPicking: newJob.createPicking && newJob.billable && ["geplant", "in Arbeit", "pausiert"].includes(newJob.status),
       seriesMasterId: existingJob?.seriesMasterId,
       seriesOccurrenceDate: existingJob?.seriesOccurrenceDate,
       seriesExcludedDates: existingJob?.seriesExcludedDates,
@@ -11325,6 +11350,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
       assignedTo: newJob.assignedTo.trim() || "nicht zugewiesen",
       resourceIds: existingJob?.resourceIds ?? [],
       materialItems,
+      stockMaterialItems: existingJob?.stockMaterialItems,
       discountType: newJob.discountType,
       discountValue: hasDiscount ? newJob.discountValue.trim() : "",
       discountReason: hasDiscount ? newJob.discountReason.trim() : "",
@@ -13682,14 +13708,15 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
             )}
             {section === "inventory" && (
               <OperationsWorkspace language={language} queue={tripSync.queue} enqueue={enqueueSyncMutation}
+                onPickingBooked={refreshStockAllocation}
                 materialMasterData={masterDataView}
                 onOpenMasterData={(tab) => { setOperationsMasterDataRequest(`${tab}:${Date.now()}`); setSection("masterData"); }}
                 materials={materials.map((r) => ({ id: r.id, name: r.name, sku: r.sku, scanCode: r.scanCode, unit: r.unit, minStock: r.minStock, archived: r.archived }))}
-                locations={inventoryLocations.filter((r) => !r.archived).map((r) => ({ id: r.id, parentLocationId: r.parentLocationId, name: r.parentLocationId ? `${inventoryLocations.find((parent) => parent.id === r.parentLocationId)?.name ?? ""} / ${r.name}` : r.name }))}
+                locations={inventoryLocations.map((r) => ({ id: r.id, parentLocationId: r.parentLocationId, archived: r.archived, name: storageLocationPath(r.id, inventoryLocations) }))}
                 resources={resources.map((r) => ({ id: r.id, name: r.name, mileage: r.currentOdometer ? Number(r.currentOdometer) : undefined,
                   documents: (r.media ?? []).filter((m) => m.type === "Dokument").map((m) => ({ id: m.id, name: m.name })) }))}
                 employees={personnel.map((r) => ({ id: r.id, name: `${r.firstName} ${r.lastName}`.trim() }))}
-                jobs={jobs.map((r) => ({ id: r.id, name: r.title }))}
+                jobs={jobs.map((r) => ({ id: r.id, name: r.title, status: r.status, billable: r.billable }))}
                 projects={objects.map((r) => ({ id: r.id, name: r.name }))}>
               <InventoryView
                 customers={activeCustomers}
@@ -14396,6 +14423,9 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
             </header>
             {modal === "job" && (
               <JobForm
+                queue={tripSync.queue}
+                savedJob={jobs.find((job) => job.id === editingJobId)}
+                onStockBooked={refreshStockAllocation}
                 customers={activeCustomers}
                 language={language}
                 newJob={newJob}
@@ -19703,7 +19733,7 @@ function InventoryView({
             </header>
             <div className="form-grid compact-form">
               <label><span>{tt("Lagerort")}</span><input autoFocus value={locationForm.name} onChange={(event) => setLocationForm({ ...locationForm, name: event.target.value })} placeholder="z.B. Auto Bernd" /></label>
-              <label><span>{tt("Lagercode")}</span><input type="text" maxLength={128} value={locationForm.locationCode} onChange={(event) => setLocationForm({ ...locationForm, locationCode: event.target.value })} /></label>
+              <label><span>{tt("Lagerkennung")}</span><input type="text" maxLength={128} value={locationForm.locationCode} onChange={(event) => setLocationForm({ ...locationForm, locationCode: event.target.value })} /></label>
               <label><span>{tt("Standort")}</span><input list="inventory-location-sites" value={locationForm.site} onChange={(event) => setLocationForm({ ...locationForm, site: event.target.value })} placeholder="z.B. Kolaretorp 106" /></label>
               <datalist id="inventory-location-sites">
                 {locationSiteOptions.map((site) => <option key={site} value={site} />)}
@@ -24283,6 +24313,7 @@ function ObjectEditorPage({
           </div>
         )}
         <ObjectForm
+          savedObject={object}
           customers={customers}
           language={language}
           newObject={newObject}
@@ -24560,6 +24591,7 @@ function ObjectPhotoImage({ item, language, expanded = false }: { item: MediaIte
 }
 
 function ObjectForm({
+  savedObject,
   customers,
   language,
   newObject,
@@ -24571,6 +24603,7 @@ function ObjectForm({
   onSubmit,
   submitLabel,
 }: {
+  savedObject?: ObjectRecord;
   customers: CustomerRecord[];
   language: Language;
   newObject: NewObjectFormState;
@@ -24799,6 +24832,7 @@ function ObjectForm({
       </label>
       <label><span>{entityName}</span><input placeholder={`${entityName} ${language === "de" ? "benennen" : language === "sv" ? "namn" : "name"}`} value={newObject.name} onChange={(event) => update("name", event.target.value)} /></label>
       <label><span>{language === "de" ? "Objektcode" : language === "sv" ? "Objektkod" : "Object code"}</span><input type="text" maxLength={128} value={newObject.scanCode} onChange={(event) => update("scanCode", event.target.value)} /></label>
+      <EntityCodeLabel kind="object" language={language} saved={savedObject} current={{ name: newObject.name, scanCode: newObject.scanCode }} />
       <label><span>{tt("Status")}</span>
         <select value={newObject.status} onChange={(event) => update("status", event.target.value)}>
           <option value="">{tt("Status auswählen")}</option>
@@ -25457,6 +25491,9 @@ function CustomerForm({
 }
 
 function JobForm({
+  savedJob,
+  onStockBooked,
+  queue,
   customers,
   customerMode = false,
   jobs,
@@ -25475,6 +25512,9 @@ function JobForm({
   onSubmit,
   submitLabel,
 }: {
+  savedJob?: JobRecord;
+  onStockBooked?: () => void;
+  queue?: SyncMutation[];
   customers: CustomerRecord[];
   customerMode?: boolean;
   jobs: JobRecord[];
@@ -25873,6 +25913,7 @@ function JobForm({
             <input value={newJob.title} onChange={(event) => update("title", event.target.value)} />
           </label>
           <label><span>{language === "de" ? "Auftragscode" : language === "sv" ? "Uppdragskod" : "Job code"}</span><input type="text" maxLength={128} value={newJob.scanCode} onChange={(event) => update("scanCode", event.target.value)} /></label>
+          <EntityCodeLabel kind="job" language={language} saved={savedJob ? { name: savedJob.title, scanCode: savedJob.scanCode } : undefined} current={{ name: newJob.title, scanCode: newJob.scanCode }} />
           <label>
             <span>{selectedEntityName}</span>
             <select value={selectedObjectId} onChange={(event) => setSelectedObjectId(event.target.value)}>
@@ -26185,6 +26226,12 @@ function JobForm({
             </button>
           </div>
         )}
+        {savedJob && <PickingOrders job={savedJob} language={language} queue={queue} onBooked={onStockBooked} />}
+        {newJob.materialItems.length > 0 && <label className="checkbox-label"><input type="checkbox" disabled={!newJob.billable || !["geplant", "in Arbeit", "pausiert"].includes(newJob.status)} checked={newJob.createPicking} onChange={(event) => setNewJob({ ...newJob, createPicking: event.target.checked })} /><span>{language === "de" ? "Kommissionierauftrag beim Speichern erstellen" : language === "sv" ? "Skapa plockorder vid sparande" : "Create picking order when saving"}</span></label>}
+        {!!savedJob?.stockMaterialItems?.length && <div className="table-list compact-list material-position-list">
+          <h3>{language === "de" ? "Gebuchtes Material aus dem Lager" : language === "sv" ? "Bokat lagermaterial" : "Booked stock material"}</h3>
+          {savedJob.stockMaterialItems.map((item) => <article key={item.id}><div><strong>{item.name}</strong><span>{formatInventoryQuantity(Number(item.quantity))} {item.unit} · {materialRate(item)}</span></div></article>)}
+        </div>}
         {newJob.materialItems.length > 0 && (
           <div className="table-list compact-list material-position-list">
             {newJob.materialItems.map((item) => (

@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { stockMaterialLines } from "@/lib/jobStock";
 import { NextResponse } from "next/server";
 import { isAuthError, requireApiAuth } from "@/lib/server/apiAuth";
 import {
@@ -1046,6 +1047,7 @@ function rowToJob(row: JobRow, timeRows: JobTimeEntryRow[] = []) {
   return {
     ...recordData,
     assignedTo: row.assigned_to ?? "",
+    createPicking: false,
     billable: row.billable !== false,
     checklist: Array.isArray(row.checklist) ? row.checklist : [],
     customService: row.custom_service && typeof row.custom_service === "object" ? row.custom_service : null,
@@ -1665,10 +1667,18 @@ async function loadJobsSection(supabase: NonNullable<ReturnType<typeof getSupaba
   if (timeError) throw new Error(timeError.message);
   const rows = (data ?? []) as JobRow[];
   const timeRows = (timeData ?? []) as JobTimeEntryRow[];
+  const stockRows: { id: string; job_id: string; quantity: number; source_id: string | null; billing_data: Record<string, unknown>; billing_source_id: string | null; occurred_at: string }[] = [];
+  for (let offset = 0; ; offset += 500) {
+    const { data: stock, error: stockError } = await supabase.from("homecare_stock_movements")
+      .select("id,job_id,quantity,source_id,billing_data,billing_source_id,occurred_at").not("billing_data", "is", null).order("id").range(offset, offset + 499);
+    if (stockError) throw new Error(stockError.message);
+    stockRows.push(...(stock ?? []));
+    if (!stock || stock.length < 500) break;
+  }
   return {
     deletedJobIds: rows.filter((row) => row.deleted_at).map((row) => row.id),
-    updatedAt: maxUpdatedAt([...rows.map((row) => row.updated_at), ...timeRows.map((row) => row.updated_at)]),
-    value: rows.filter((row) => !row.deleted_at).map((row) => rowToJob(row, timeRows)),
+    updatedAt: maxUpdatedAt([...rows.map((row) => row.updated_at), ...timeRows.map((row) => row.updated_at), ...stockRows.map((row) => row.occurred_at)]),
+    value: rows.filter((row) => !row.deleted_at).map((row) => ({ ...rowToJob(row, timeRows), stockMaterialItems: stockMaterialLines(stockRows.filter((movement) => movement.job_id === row.id)) })),
   };
 }
 

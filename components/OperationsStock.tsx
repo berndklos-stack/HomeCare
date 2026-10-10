@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, ChevronLeft, ChevronRight, ChevronsUpDown, Plus, RefreshCw, ScanLine, X } from "lucide-react";
+import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, ChevronLeft, ChevronRight, ChevronsUpDown, Plus, RefreshCw, X } from "lucide-react";
 import { apiFetch } from "@/lib/apiClient";
 import { createStableId, type SyncMutation } from "@/lib/syncQueue";
 import { operationLabel } from "@/lib/operationsUi";
@@ -8,11 +8,10 @@ import { validateOperationsMutation, type OperationsRow } from "@/lib/operations
 import { OperationsDataTable, type DataColumn } from "./OperationsDataTable";
 import { TripDialog } from "./TripDialog";
 import { StockOverview } from "./StockOverview";
-import { StockScan } from "./StockScan";
 import styles from "./OperationsWorkspace.module.css";
 
-type Ref = { id: string; name: string; sku?: string; scanCode?: string; unit?: string; minStock?: string; archived?: boolean };
-export function OperationsStock({ language, materials, locations, jobs, projects, queue, enqueue, onMaterialSelected, view = "overview" }: {
+type Ref = { id: string; name: string; status?: string; billable?: boolean; sku?: string; scanCode?: string; unit?: string; minStock?: string; archived?: boolean };
+export function OperationsStock({ language, materials, locations, jobs, queue, enqueue, onMaterialSelected, view = "overview" }: {
   language: "de" | "sv" | "en"; materials: Ref[]; locations: Ref[]; jobs: Ref[]; projects: Ref[]; queue: SyncMutation[];
   enqueue: (input: Parameters<typeof import("@/lib/syncQueue").createSyncMutation>[0]) => unknown;
   onMaterialSelected?: (id: string) => void;
@@ -20,7 +19,6 @@ export function OperationsStock({ language, materials, locations, jobs, projects
 }) {
   const t = (key: string) => operationLabel(key, language);
   const [materialId, setMaterialId] = useState("");
-  const [scanOpen, setScanOpen] = useState(false), [scanQueued, setScanQueued] = useState(false);
   const [details, setDetails] = useState<{ kind: "balance" | "movement"; row: OperationsRow } | null>(null);
   const [correction, setCorrection] = useState<OperationsRow | null>(null);
   const [correctionQuantity, setCorrectionQuantity] = useState("");
@@ -97,8 +95,7 @@ export function OperationsStock({ language, materials, locations, jobs, projects
       onBooked={() => setRefresh((value) => value + 1)} onSelect={() => {}} />}
     {view !== "inventory" && <>
     <section className="panel">
-    <header className={`panel-title ${styles.stockHeading}`}><div><p>{t("inventorySection")}</p><h2>{view === "bookings" ? t("bookings") : t("stockOverview")}</h2></div><div className={styles.actions}><button disabled={!materials.length} onClick={() => { setScanQueued(false); setScanOpen(true); }}><ScanLine size={18} />{t("scanTransfer")}</button><button className={styles.primaryAction} disabled={!materials.length} aria-label={t("globalStockBooking")} onClick={openBooking}><Plus size={18} />{t("stock")}</button></div></header>
-    {scanQueued && <p role="status">{t("scanQueued")}</p>}
+    <header className={`panel-title ${styles.stockHeading}`}><div><p>{t("inventorySection")}</p><h2>{view === "bookings" ? t("bookings") : t("stockOverview")}</h2></div><div className={styles.actions}><button className={styles.primaryAction} disabled={!materials.length} aria-label={t("globalStockBooking")} onClick={openBooking}><Plus size={18} />{t("stock")}</button></div></header>
     <div className={styles.toolbar}><label>{t("material_id")} <span className={styles.stockFilter}><select aria-label={t("material_id")} value={materialId} onChange={(e) => { setMaterialId(e.target.value); onMaterialSelected?.(e.target.value); setPage(0); setBalances([]); setHistory([]); setCount(0); setLoading(false); setError(""); }}><option value="">{t("allMaterials")}</option>{materials.map((m) => <option key={m.id} value={m.id}>{materialLabel(m)}</option>)}</select><ChevronsUpDown size={18} aria-hidden="true" /></span></label>
       <button title={t("refresh")} aria-label={t("refresh")} onClick={() => setRefresh((n) => n + 1)}><RefreshCw size={18} /></button>
     </div>
@@ -136,15 +133,16 @@ export function OperationsStock({ language, materials, locations, jobs, projects
       e.preventDefault();
       try {
         if (!bookingMaterial || bookingMaterial.archived) throw new Error("INVALID_MATERIAL");
+        if (draft.job_id && (!draft.source_id || draft.destination_id || !jobs.some((job) => job.id === draft.job_id && ["geplant", "in Arbeit", "pausiert"].includes(job.status ?? "") && job.billable !== false))) throw new Error("JOB_NOT_OPEN");
         const input = { entityId: createStableId(), entityType: "operations" as const, operation: "create" as const, resourceId: bookingMaterialId,
           payload: { kind: "stock", material_id: bookingMaterialId, source_id: draft.source_id || null, destination_id: draft.destination_id || null,
-            quantity: Number(draft.quantity), note: draft.note, job_id: draft.job_id || null, project_id: draft.project_id || null } };
+            quantity: Number(draft.quantity), note: draft.note, job_id: draft.job_id || null, project_id: null } };
         validateOperationsMutation({ ...input, id: createStableId() }); enqueue(input); setOpen(false);
         setDraft({ source_id: "", destination_id: "", quantity: "1", note: "", job_id: "", project_id: "" });
       } catch { setError("INVALID_OPERATIONS_COMMAND"); }
     }}><header className={styles.dialogHeader}><div><h2 id="stock-title">{t("stock")}</h2>{bookingMaterial && <p>{materialLabel(bookingMaterial)}{bookingMaterial.unit ? ` (${bookingMaterial.unit})` : ""}</p>}</div><button type="button" aria-label={t("close")} onClick={() => setOpen(false)}><X size={18} /></button></header><div className={styles.fields}>
       <label className={styles.field}><span>{t("designation")}</span><select required aria-label={t("designation")} value={bookingMaterialId} onChange={(event) => setBookingMaterialId(event.target.value)}><option value="">—</option>{materials.filter((material) => !material.archived).map((material) => <option key={material.id} value={material.id}>{materialLabel(material)}</option>)}</select></label>
-      {(["source_id", "destination_id", "job_id", "project_id"] as const).map((key) => <label className={styles.field} key={key}><span>{t(key)}</span><select aria-label={t(key)} value={draft[key]} onChange={(e) => setDraft({ ...draft, [key]: e.target.value })}><option value="">—</option>{(key === "job_id" ? jobs : key === "project_id" ? projects : locations).map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}</select></label>)}
+      {(["source_id", "destination_id", "job_id"] as const).map((key) => <label className={styles.field} key={key}><span>{t(key)}</span><select aria-label={t(key)} value={draft[key]} onChange={(e) => setDraft({ ...draft, [key]: e.target.value, ...(key === "job_id" && e.target.value ? { destination_id: "" } : key === "destination_id" && e.target.value ? { job_id: "" } : {}) })}><option value="">—</option>{(key === "job_id" ? jobs.filter((job) => ["geplant", "in Arbeit", "pausiert"].includes(job.status ?? "") && job.billable !== false) : locations.filter((location) => !location.archived)).map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}</select></label>)}
       <label className={styles.field}>{t("quantity")}<input required type="number" min="0.001" step="0.001" value={draft.quantity} onChange={(e) => setDraft({ ...draft, quantity: e.target.value })} /></label><label className={styles.field}>{t("note")}<input required value={draft.note} onChange={(e) => setDraft({ ...draft, note: e.target.value })} /></label>
     </div>{error && <p role="alert">{t(error)}</p>}<footer className={styles.actions}><button type="button" onClick={() => setOpen(false)}>{t("cancel")}</button><button disabled={!bookingMaterial} type="submit">{t("save")}</button></footer></form></TripDialog>}
     {details && <TripDialog labelledBy="stock-details-title" onClose={() => setDetails(null)} className={`${styles.dialog} ${styles.itemDialog}`}>
@@ -180,6 +178,5 @@ export function OperationsStock({ language, materials, locations, jobs, projects
         <footer className={styles.actions}><button type="button" onClick={() => setCorrection(null)}>{t("cancel")}</button><button type="submit" className={styles.primaryAction} disabled={!correctionReason.trim() || correctionPending(correction)}>{t("bookCorrection")}</button></footer>
       </form>
     </TripDialog>}
-    {scanOpen && <StockScan materials={materials} language={language} queue={queue} enqueue={enqueue} onClose={() => setScanOpen(false)} onQueued={() => { setScanOpen(false); setScanQueued(true); }} />}
   </div>;
 }

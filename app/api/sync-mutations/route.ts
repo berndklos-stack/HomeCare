@@ -49,6 +49,8 @@ export async function POST(request: Request) {
     }
     try {
       const command = validateOperationsMutation(mutation);
+      if (command.kind === "stock" && command.project_id) return NextResponse.json({ error: "OBJECT_NOT_BOOKABLE" }, { status: 400 });
+      if (command.kind === "stock" && command.job_id && command.source_id && command.destination_id) return NextResponse.json({ error: "JOB_REQUIRES_STOCK_OUT" }, { status: 400 });
       const fieldStock = command.kind === "stock" && !membershipAllows(auth.membership, "data.write");
       if (fieldStock && (!command.job_id || Boolean(command.source_id) === Boolean(command.destination_id))) {
         return NextResponse.json({ error: "PERMISSION_DENIED" }, { status: 403 });
@@ -127,7 +129,7 @@ export async function POST(request: Request) {
       ? "homecare_apply_resource_mutation"
       : "homecare_apply_sync_mutation";
   const { data, error } = await supabase.rpc(rpcName, {
-    ...(mutation.entityType === "operations" ? { p_actor_id: auth.user.id } : {}),
+    ...(["operations", "job", "job_time_entry", "job_note", "field_progress"].includes(mutation.entityType) ? { p_actor_id: auth.user.id } : {}),
     p_entity_id: mutation.entityId,
     p_entity_type: mutation.entityType,
     p_expected_revision: mutation.expectedRevision ?? null,

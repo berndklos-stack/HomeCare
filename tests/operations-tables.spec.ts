@@ -1,5 +1,105 @@
 import { expect, test } from "@playwright/test";
 import QRCode from "qrcode";
+import { storageLocationPath } from "../lib/locationLabel";
+
+test("Lagerweg enthaelt Standort und alle zugehoerigen Lagerplaetze", () => {
+  const locations = [
+    { id: "site", name: "KOLARETORP" },
+    { id: "warehouse", name: "Hauptlager", parentLocationId: "site" },
+    { id: "bin", name: "A1", parentLocationId: "warehouse" },
+  ];
+  expect(storageLocationPath("site", locations)).toBe("KOLARETORP");
+  expect(storageLocationPath("bin", locations)).toBe("KOLARETORP / Hauptlager / A1");
+  expect(storageLocationPath("missing", locations)).toBe("");
+  expect(storageLocationPath("a", [{ id: "a", name: "A", parentLocationId: "b" }, { id: "b", name: "B", parentLocationId: "a" }])).toBe("B / A");
+});
+
+for (const mobile of [false, true]) test(`Kommissionierplatz Abholcode und Auftrag ${mobile ? "mobil" : "desktop"}`, async ({ page }, testInfo) => {
+ await page.setViewportSize(mobile ? { width: 390, height: 844 } : { width: 1440, height: 1000 });
+ await page.addInitScript(() => { localStorage.setItem("kolaretorp-updated-at", "2026-10-11T10:00:00Z"); localStorage.setItem("kolaretorp-field-progress", JSON.stringify({ "synthetic-pick": {} })); });
+ const order = { id: "55555555-5555-4555-8555-555555555555", job_id: "pick-job", title: "Gartenhaus", revision: 1, status: "open", created_at: "2026-10-11T10:00:00Z", staging_id: null as string | null, pickup_code: null as string | null };
+ const pickup = "66666666-6666-4666-8666-666666666666";
+ const items = [{ material_id: "pick-material", quantity: 2.5, picked: 0, material: { name: "Kantholz", sku: "KH001", unit: "Meter", record_data: { scanCode: "PICK-MAT" } } }];
+ const posts: Record<string, unknown>[] = [];
+ await page.route("**/api/picking-orders**", (route) => {
+  if (route.request().method() === "GET") return route.fulfill({ json: { rows: [order], items, count: 1 } });
+  const input = route.request().postDataJSON(); posts.push(input);
+  if (input.action === "pick") { expect(input).toMatchObject({ material: "pick-material", source: "pick-source", destination: "pick-place", quantity: 2.5 }); order.status = "completed"; order.revision = 2; order.staging_id = "pick-place"; order.pickup_code = pickup; items[0].picked = 2.5; }
+  else { expect(input).toMatchObject({ action: "dispatch", destination: null, pickup, revision: 2 }); order.status = "dispatched"; order.revision = 3; }
+  return route.fulfill({ json: { id: order.id, revision: order.revision } });
+ });
+ await page.route("**/api/operations?**", (route) => {
+  const params = new URL(route.request().url()).searchParams, entity = params.get("entity");
+  if (entity === "stock_status") return route.fulfill({ json: { active: true } });
+  if (entity === "scan_targets") return route.fulfill({ json: { jobs: [{ id: "pick-job", name: "Gartenhaus", code: "JOB-PICK", status: "in Arbeit", billable: true }], objects: [{ code: "OBJECT-NO-BOOK" }] } });
+  const rows = entity === "location_details" && params.get("storage_places") !== "1" ? [{ id: "pick-source", name: "Hauptlager", location_code: "SOURCE" }, { id: "pick-place", name: "Kommissionierplatz 1", location_code: "STAGING" }]
+   : entity === "stock_balances" ? [{ location_id: "pick-source", quantity: 10 }] : [];
+  return route.fulfill({ json: { rows, count: rows.length } });
+ });
+ await page.goto("/"); await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true", { timeout: 30000 });
+ await page.getByRole("button", { name: "Lager & Material", exact: true }).click(); await page.getByRole("tab", { name: "Scanabläufe", exact: true }).click();
+ await page.getByRole("dialog", { name: "Scanabläufe", exact: true }).getByRole("button", { name: "Kommissionierung", exact: true }).click();
+ await page.getByRole("textbox", { name: "Kommissioniercode", exact: true }).fill(`PICK:${order.id}`); await page.getByRole("textbox", { name: "Kommissioniercode", exact: true }).press("Enter");
+ await page.getByRole("button", { name: "Kommissionierung scannen", exact: true }).click();
+ const scan = page.getByRole("dialog", { name: "Kommissionierung scannen", exact: true }), code = scan.getByRole("textbox", { name: "Code", exact: true });
+ for (const value of ["PICK-MAT", "SOURCE", "STAGING"]) { await code.fill(value); await code.press("Enter"); }
+ await scan.getByRole("spinbutton", { name: "Menge", exact: true }).fill("2.5"); await scan.getByRole("button", { name: "Umlagerung buchen", exact: true }).click();
+ await expect(page.getByText(`Abholcode: PICKUP:${pickup}`, { exact: true })).toBeVisible();
+ const download = page.waitForEvent("download"); await page.getByRole("button", { name: "Abholcode als PDF", exact: true }).click(); await (await download).saveAs(`test-results/pickup-label-${mobile}-${testInfo.project.name}.pdf`);
+ const listDownload = page.waitForEvent("download"); await page.getByRole("button", { name: "Kommissionierliste als PDF", exact: true }).click(); await (await listDownload).saveAs(`test-results/picking-list-${mobile}-${testInfo.project.name}.pdf`);
+ await page.getByRole("button", { name: "Abholung scannen", exact: true }).click();
+ const dispatch = page.getByRole("dialog", { name: "Abholung scannen", exact: true });
+ const pickupInput = dispatch.getByRole("textbox", { name: "Abholcode", exact: true }); await pickupInput.fill("WRONG"); await pickupInput.press("Enter"); await expect(dispatch.getByRole("alert")).toContainText("Abholcode");
+ await pickupInput.fill(`PICKUP:${pickup}`); await pickupInput.press("Enter");
+ const target = dispatch.getByRole("textbox", { name: "Auftragscode / Fahrzeugcode", exact: true }); await target.fill("OBJECT-NO-BOOK"); await target.press("Enter"); await expect(dispatch.getByRole("alert")).toContainText("nicht bebucht");
+ await target.fill("JOB-PICK"); await target.press("Enter");
+ await page.screenshot({ path: `test-results/pickup-review-${mobile}-${testInfo.project.name}.png`, fullPage: true });
+ expect(await dispatch.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+ await dispatch.getByRole("button", { name: "Gesamte Ware buchen", exact: true }).click(); await expect(dispatch).not.toBeVisible(); expect(posts).toHaveLength(2);
+});
+
+for (const withOrder of [false, true]) test(`Scan-Auswahl und gemeinsamer Wareneingang ${withOrder ? "mit" : "ohne"} Bestellung`, async ({ page }, testInfo) => {
+ await page.setViewportSize(withOrder ? { width: 390, height: 844 } : { width: 1440, height: 1000 });
+ await page.addInitScript(() => {
+  localStorage.setItem("kolaretorp-updated-at", "2026-10-11T10:00:00Z"); localStorage.setItem("kolaretorp-field-progress", JSON.stringify({ "synthetic-receipt": {} }));
+  localStorage.setItem("kolaretorp-materials", JSON.stringify([{ id: "receipt-material", name: "Scanmaterial", scanCode: "MAT-RECEIPT", unit: "Meter", inventory: [] }]));
+ });
+ await page.route("**/api/operations?**", (route) => {
+  const params = new URL(route.request().url()).searchParams, entity = params.get("entity");
+  if (entity === "stock_status") return route.fulfill({ json: { active: true } });
+  const rows = entity === "suppliers" ? [{ id: "22222222-2222-4222-8222-222222222222", company: "Testlieferant" }]
+   : entity === "purchase_orders" ? [{ id: "33333333-3333-4333-8333-333333333333", supplier_id: "22222222-2222-4222-8222-222222222222", order_number: "BEST-001", status: "ordered", revision: 3 }]
+   : entity === "purchase_order_items" ? [{ id: "44444444-4444-4444-8444-444444444444", material_id: "receipt-material", quantity: 10, received_quantity: 2 }]
+   : entity === "location_details" ? params.get("storage_places") === "1" ? [{ id: "receipt-bin", name: "Regal 1", parent_location_id: "receipt-root" }] : [{ id: "receipt-root", name: "Wareneingang" }] : [];
+  return route.fulfill({ json: { rows, count: rows.length } });
+ });
+ const posts: Record<string, unknown>[] = [];
+ await page.route("**/api/goods-receipts", (route) => { posts.push(route.request().postDataJSON()); return route.fulfill({ json: { id: "receipt-success" } }); });
+ await page.goto("/"); await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true", { timeout: 30000 });
+ await page.getByRole("button", { name: "Lager & Material", exact: true }).click();
+ await page.getByRole("tab", { name: "Scanabläufe", exact: true }).click();
+ const chooser = page.getByRole("dialog", { name: "Scanabläufe", exact: true });
+ for (const name of ["Wareneingang scannen", "Kommissionierung", "Warenausgang & Abholung", "Umlagerung scannen"]) await expect(chooser.getByRole("button", { name, exact: true })).toBeVisible();
+ await page.screenshot({ path: `test-results/scan-chooser-${withOrder}-${testInfo.project.name}.png` });
+ await chooser.getByRole("button", { name: "Wareneingang scannen", exact: true }).click();
+ await page.getByRole("combobox", { name: "Lieferant", exact: true }).selectOption("22222222-2222-4222-8222-222222222222");
+ await page.getByRole("textbox", { name: "Lieferscheinnummer", exact: true }).fill("LS-TEST");
+ if (withOrder) await page.getByRole("combobox", { name: "Bestellungen", exact: true }).selectOption("33333333-3333-4333-8333-333333333333");
+ await page.getByRole("combobox", { name: "Nach Standort / Lagerort", exact: true }).selectOption("receipt-bin");
+ await page.getByRole("button", { name: "Materialien scannen", exact: true }).click();
+ await page.getByRole("textbox", { name: "Code", exact: true }).fill("MAT-RECEIPT"); await page.getByRole("textbox", { name: "Code", exact: true }).press("Enter");
+ await page.getByRole("spinbutton", { name: "Menge", exact: true }).fill("2.5");
+ await page.getByRole("button", { name: "Position übernehmen", exact: true }).click();
+ expect(posts).toHaveLength(0);
+ await page.getByRole("button", { name: "Scanablauf auswählen", exact: true }).click();
+ await chooser.getByRole("button", { name: "Kommissionierung", exact: true }).click();
+ await page.getByRole("button", { name: "Scanablauf auswählen", exact: true }).click(); await chooser.getByRole("button", { name: "Wareneingang scannen", exact: true }).click();
+ await expect(page.getByRole("table", { name: "Wareneingang scannen", exact: true })).toContainText("2.5 Meter");
+ await page.screenshot({ path: `test-results/scan-receipt-${withOrder}-${testInfo.project.name}.png` });
+ await page.getByRole("button", { name: "Wareneingang abschließen", exact: true }).click();
+ await expect(page.getByRole("status")).toContainText("Wareneingang gebucht");
+ expect(posts).toHaveLength(1); expect(posts[0]).toMatchObject({ payload: { delivery_number: "LS-TEST", location_id: "receipt-bin", order_id: withOrder ? "33333333-3333-4333-8333-333333333333" : null, items: [{ material_id: "receipt-material", quantity: 2.5 }] } });
+});
 
 for (const mobile of [false, true]) test(`Scan-Umlagerung mit Teilmenge und Bestandspruefung ${mobile ? "mobil" : "desktop"}`, async ({ page }) => {
   await page.setViewportSize(mobile ? { width: 390, height: 844 } : { width: 1440, height: 1000 });
@@ -27,7 +127,8 @@ for (const mobile of [false, true]) test(`Scan-Umlagerung mit Teilmenge und Best
   await page.goto("/");
   await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true", { timeout: 30000 });
   await page.getByRole("button", { name: "Lager & Material", exact: true }).click();
-  await page.getByRole("button", { name: "Umlagerung scannen", exact: true }).click();
+  await page.getByRole("tab", { name: "Scanabläufe", exact: true }).click();
+  await page.getByRole("dialog", { name: "Scanabläufe", exact: true }).getByRole("button", { name: "Umlagerung scannen", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Umlagerung scannen", exact: true });
   const code = dialog.getByRole("textbox", { name: "Code", exact: true });
   await expect(code).toBeVisible();
@@ -85,7 +186,8 @@ test("Kamera liest echten QR-Code und beendet den Videostream", async ({ page, b
   await page.goto("/");
   await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true", { timeout: 30000 });
   await page.getByRole("button", { name: "Lager & Material", exact: true }).click();
-  await page.getByRole("button", { name: "Umlagerung scannen", exact: true }).click();
+  await page.getByRole("tab", { name: "Scanabläufe", exact: true }).click();
+  await page.getByRole("dialog", { name: "Scanabläufe", exact: true }).getByRole("button", { name: "Umlagerung scannen", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Umlagerung scannen", exact: true });
   await dialog.getByRole("button", { name: "Mit Kamera scannen", exact: true }).click();
   await expect(dialog).toContainText("Kameramaterial");
@@ -127,6 +229,8 @@ for (const mobile of [false, true]) test(`Materialstammdaten und Lagerplaetze bl
   const createLocation = page.getByRole("button", { name: "Neuer Lagerort", exact: true });
   await expect(createLocation.locator("xpath=ancestor::*[@id='inventory-master-panel']")).toHaveCount(1);
   await sites.getByText("Testlager", { exact: true }).click();
+  await expect(page.getByRole("dialog").getByLabel("Zugehöriger Standort", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("dialog").getByLabel("Übergeordneter Lagerort", { exact: true })).toHaveCount(0);
   const rootDownload = page.waitForEvent("download");
   await page.getByRole("dialog").getByRole("button", { name: "Etikett als PDF", exact: true }).click();
   await (await rootDownload).saveAs(`test-results/location-label-${mobile}-${test.info().project.name}.pdf`);
@@ -140,19 +244,19 @@ for (const mobile of [false, true]) test(`Materialstammdaten und Lagerplaetze bl
   await places.locator("tbody tr").first().press("Enter");
   const dialog = page.getByRole("dialog", { name: "Standorte", exact: true });
   await expect(dialog.getByLabel("Bezeichnung", { exact: true })).toHaveValue("Regal A");
-  await expect(dialog.getByLabel("Übergeordneter Lagerort", { exact: true })).toHaveValue("inline-root");
+  await expect(dialog.getByLabel("Zugehöriger Standort", { exact: true })).toHaveValue("inline-root");
   const binDownload = page.waitForEvent("download");
   await dialog.getByRole("button", { name: "Etikett als PDF", exact: true }).click();
   await (await binDownload).saveAs(`test-results/bin-label-${mobile}-${test.info().project.name}.pdf`);
-  await dialog.getByLabel("Lagercode", { exact: true }).fill("CHANGED");
+  await dialog.getByLabel("Lagerkennung", { exact: true }).fill("CHANGED");
   await dialog.getByRole("button", { name: "Etikett als PDF", exact: true }).click();
   await expect(dialog.getByRole("alert")).toContainText("zuerst speichern");
   await dialog.getByRole("button", { name: "Schließen", exact: true }).click();
   await page.screenshot({ path: `test-results/storage-places-inline-${mobile}-${test.info().project.name}.png`, fullPage: true });
   await page.getByRole("button", { name: "Neuer Lagerplatz", exact: true }).click();
   await dialog.getByLabel("Bezeichnung", { exact: true }).fill("Regal B");
-  await expect(dialog.getByLabel("Übergeordneter Lagerort", { exact: true })).toHaveAttribute("required", "");
-  await dialog.getByLabel("Übergeordneter Lagerort", { exact: true }).selectOption("inline-root");
+  await expect(dialog.getByLabel("Zugehöriger Standort", { exact: true })).toHaveAttribute("required", "");
+  await dialog.getByLabel("Zugehöriger Standort", { exact: true }).selectOption("inline-root");
   await dialog.getByRole("button", { name: "Speichern", exact: true }).click();
   const queued = await page.evaluate(() => JSON.parse(localStorage.getItem("workcore-sync-mutations-v1") ?? "[]").find((mutation: { payload: { values?: { name?: string } } }) => mutation.payload.values?.name === "Regal B"));
   expect(queued.payload.values.parent_location_id).toBe("inline-root");
@@ -258,7 +362,10 @@ for (const mobile of [false, true]) test(`Scancodes bleiben Text ${mobile ? "mob
   await expect(locations).toContainText("001-LAGER");
   await locations.locator("tbody tr").first().click();
   const location = page.getByRole("dialog", { name: "Standorte", exact: true });
-  await expect(location.getByLabel("Lagercode", { exact: true })).toHaveValue("001-LAGER");
+  await expect(location.getByLabel("Lagerkennung", { exact: true })).toHaveValue("001-LAGER");
+  for (const label of ["Lagerorttyp", "Auftrag", "Ressource", "Projekt / Objekt"]) {
+    await expect(location.getByLabel(label, { exact: true })).toHaveCount(0);
+  }
   await location.getByRole("button", { name: "Lagerplätze", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Lagerplätze: Testlager", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Neuer Lagerplatz", exact: true }).click();
@@ -269,14 +376,14 @@ for (const mobile of [false, true]) test(`Scancodes bleiben Text ${mobile ? "mob
   expect(place.payload.values).toMatchObject({ parent_location_id: "scan-location", location_type_id: "scan-type" });
   await page.getByRole("tab", { name: "Standorte", exact: true }).click();
   await locations.locator("tbody tr").first().click();
-  await location.getByLabel("Lagercode", { exact: true }).fill("002-LAGER");
+  await location.getByLabel("Lagerkennung", { exact: true }).fill("002-LAGER");
   await location.getByRole("button", { name: "Speichern", exact: true }).click();
   const queued = await page.evaluate(() => JSON.parse(localStorage.getItem("workcore-sync-mutations-v1") ?? "[]").find((row: { operation: string; payload: { entity?: string } }) => row.operation === "update" && row.payload.entity === "location_details"));
   expect(queued.payload.values.location_code).toBe("002-LAGER");
   await expect(locations.getByRole("columnheader", { name: "Aktionen", exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "Neuer Lagerort", exact: true }).click();
   await location.getByLabel("Bezeichnung", { exact: true }).fill("Neuer Testlagerort");
-  await location.getByLabel("Lagercode", { exact: true }).fill("003-LAGER");
+  await location.getByLabel("Lagerkennung", { exact: true }).fill("003-LAGER");
   await location.getByLabel("Notizen", { exact: true }).fill("Standortnotiz");
   await page.screenshot({ path: `test-results/location-create-${mobile}-${test.info().project.name}.png` });
   await location.getByRole("button", { name: "Speichern", exact: true }).click();

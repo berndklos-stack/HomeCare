@@ -32,6 +32,23 @@ export async function GET(request: Request) {
   }
   const params = new URL(request.url).searchParams;
   const entity = params.get("entity") ?? "suppliers";
+  if (entity === "scan_targets") {
+    const jobs: Record<string, unknown>[] = [], objects: Record<string, unknown>[] = [];
+    for (const table of ["homecare_jobs", "homecare_objects"]) {
+      for (let offset = 0; ; offset += 500) {
+        const { data, error } = await client.from(table).select(table === "homecare_jobs" ? "id,title,status,billable,record_data" : "id,name,record_data")
+          .eq("tenant_id", tenantId).is("deleted_at", null).order("id").range(offset, offset + 499);
+        if (error) return NextResponse.json({ error: "OPERATIONS_UNAVAILABLE" }, { status: 503 });
+        for (const row of data ?? []) {
+          const record = row as unknown as Record<string, unknown>;
+          const code = (record.record_data as Record<string, unknown> | null)?.scanCode;
+          if (typeof code === "string" && code.trim()) (table === "homecare_jobs" ? jobs : objects).push({ id: record.id, name: record.title ?? record.name, code, status: record.status, billable: record.billable });
+        }
+        if (!data || data.length < 500) break;
+      }
+    }
+    return NextResponse.json({ jobs, objects }, { headers: { "Cache-Control": "no-store" } });
+  }
   if (entity === "stock_summary") {
     const rows: Record<string, unknown>[] = [];
     for (let offset = 0; ; offset += 500) {

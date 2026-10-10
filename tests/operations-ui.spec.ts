@@ -177,7 +177,7 @@ test("Materialbuchung hat Quelle, Ziel und separate idempotente Queue-Aktion", a
   await page.getByRole("button", { name: "Allgemeine Lagerbuchung", exact: true }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("Bezeichnung", { exact: true }).selectOption({ index: 1 });
-  await dialog.getByLabel("Nach Standort", { exact: true }).selectOption({ index: 1 });
+  await dialog.getByLabel("Nach Standort / Lagerort", { exact: true }).selectOption({ index: 1 });
   await dialog.getByLabel("Menge", { exact: true }).fill("5");
   await dialog.getByLabel("Buchungsgrund", { exact: true }).fill("Delivery test");
   await dialog.getByRole("button", { name: "Speichern", exact: true }).click();

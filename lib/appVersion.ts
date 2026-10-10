@@ -1,10 +1,15 @@
 export const appVersion = {
-  version: "1.427.19",
-  releaseDate: "2026-10-10",
+  version: "1.427.20",
+  releaseDate: "2026-10-11",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  {
+    version: "1.427.20",
+    date: "2026-10-11",
+    changes: ["Scanablaeufe gemeinsam per Auswahlfenster: Wareneingang, Kommissionierung, Abholung und Umlagerung", "Kommissionierung auf Lagerplatz mit Abholcode und anschliessender Fahrzeug- oder Auftragsbuchung", "Gesammelter Scan-Wareneingang mit und ohne Bestellung; wiederholbare Buchung ohne Duplikate", "Auftrags- und Objektetiketten als PDF; Materialverbrauch bei offenen abrechenbaren Auftraegen", "Standorte mit Bezeichnung, Lagerkennung und Notizen; vollstaendige Lagerwege in Buchungen"],
+  },
   {
     version: "1.427.19",
     date: "2026-10-10",
