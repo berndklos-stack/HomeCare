@@ -832,7 +832,9 @@ for (const mobile of [false, true]) test(`Materialstammdaten kehren ohne alten L
       { id: "movement-1", quantity: 55, source_id: null, destination_id: "test-location", occurred_at: "2026-10-09T07:37:26Z", note: "Anlieferung", actor_user_id: "1924d8ca-0781-42e3-98cf-3aa69fcc1f90", actor_name: "Bernd Klos" },
       { id: "movement-2", quantity: 5, source_id: "test-location", destination_id: null, occurred_at: "2026-10-09T08:37:26Z", note: "Inventur [525ebe5c-92e5-40d2-a5b8-28892576d623]: INV 001" },
       { id: "movement-3", quantity: 2, source_id: "test-location", destination_id: "other-location", occurred_at: "2026-10-09T09:37:26Z", note: "Transport mit einer sehr langen Buchungsbeschreibung zur Kontrolle der kompakten zweizeiligen Darstellung ohne Verlust der vollstaendigen Angaben" },
-    ], count: 3 } });
+      { id: "movement-4", quantity: 3, source_id: "test-location", destination_id: "other-location", occurred_at: "2026-10-09T10:37:26Z", note: "Kommissionierung verladen de707594-031f-4ab3-bb90-8283c808513a", display_note: "Kommissionierung verladen · 2026-10-11-00002", damage_case: { id: "damage-1", description: "3 Latten gebrochen", status: "open" } },
+      { id: "movement-5", quantity: 60, source_id: "test-location", destination_id: null, occurred_at: "2026-10-11T20:21:26Z", note: "Korrekturbuchung [12dc83db-1a3e-f839-cebc-3924bb119753]: komplett zurück" },
+    ], count: 5 } });
     return route.fulfill({ json: { rows: [], count: 0 } });
   });
   await page.goto("/");
@@ -852,6 +854,18 @@ for (const mobile of [false, true]) test(`Materialstammdaten kehren ohne alten L
   await expect(page.getByRole("tab", { name: "Buchungen", exact: true })).toHaveAttribute("aria-selected", "true");
   const bookings = page.getByRole("table", { name: "Buchungen", exact: true });
   await expect(bookings).toContainText("Anlieferung");
+  await expect(bookings.getByRole("columnheader", { name: "Schadensakten", exact: true })).toHaveCount(0);
+  await expect(bookings).not.toContainText("3 Latten gebrochen");
+  await expect(bookings).not.toContainText("de707594-031f");
+  await bookings.getByText("Kommissionierung verladen · 2026-10-11-00002", { exact: true }).click();
+  await expect(page.getByRole("dialog")).toContainText("3 Latten gebrochen");
+  await expect(page.getByRole("dialog")).toContainText("Kommissionierung verladen · 2026-10-11-00002");
+  await expect(page.getByRole("dialog")).not.toContainText("de707594-031f");
+  await page.getByRole("dialog").getByRole("button", { name: "Schließen", exact: true }).first().click();
+  await bookings.getByText("Korrekturbuchung · komplett zurück", { exact: true }).click();
+  await expect(page.getByRole("dialog")).toContainText("Korrekturbuchung · komplett zurück");
+  await expect(page.getByRole("dialog")).not.toContainText("12dc83db");
+  await page.getByRole("dialog").getByRole("button", { name: "Schließen", exact: true }).first().click();
   const longNote = bookings.getByText("Transport mit einer sehr langen Buchungsbeschreibung", { exact: false });
   await expect(longNote).toHaveCSS("-webkit-line-clamp", "2");
   expect((await longNote.boundingBox())!.height).toBeLessThanOrEqual(40);
@@ -866,15 +880,15 @@ for (const mobile of [false, true]) test(`Materialstammdaten kehren ohne alten L
   await expect(bookings).toContainText("Inventur · INV 001");
   await expect(bookings).not.toContainText("525ebe5c-92e5-40d2-a5b8-28892576d623");
   await bookings.getByText("Inventur · INV 001", { exact: true }).click();
-  await expect(page.getByRole("dialog")).toContainText("Inventur [525ebe5c-92e5-40d2-a5b8-28892576d623]: INV 001");
+  await expect(page.getByRole("dialog")).toContainText("Inventur · INV 001");
   await page.getByRole("dialog").getByRole("button", { name: "Schließen", exact: true }).first().click();
   const filterBounds = await material.boundingBox();
   expect(filterBounds!.height).toBeGreaterThanOrEqual(48);
   if (!mobile) expect(filterBounds!.width).toBeGreaterThanOrEqual(400);
   const directionColors = [];
   for (const direction of ["Eingang", "Ausgang", "Umbuchung"]) {
-    await expect(bookings.getByText(direction, { exact: true })).toBeVisible();
-    const indicator = bookings.locator(`span[title="${direction}"]`);
+    await expect(bookings.getByText(direction, { exact: true }).first()).toBeVisible();
+    const indicator = bookings.locator(`span[title="${direction}"]`).first();
     await expect(indicator.locator("svg")).toHaveCount(1);
     directionColors.push(await indicator.evaluate((node) => getComputedStyle(node).color));
   }

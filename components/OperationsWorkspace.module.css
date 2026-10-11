@@ -77,9 +77,8 @@
 .movementTable th:nth-child(3) { width: 10%; }
 .movementTable th:nth-child(4) { width: 6%; white-space: nowrap; }
 .movementTable th:nth-child(5), .movementTable th:nth-child(6) { width: 12.5%; }
-.movementTable th:nth-child(7) { width: 15%; }
-.movementTable th:nth-child(8) { width: 8%; }
-.movementTable th:nth-child(9) { width: 6%; }
+.movementTable th:nth-child(7) { width: 19%; }
+.movementTable th:nth-child(8) { width: 10%; }
 .movementTable th:nth-child(4), .movementTable td:nth-child(4) { text-align: right; font-variant-numeric: tabular-nums; }
 .historyEntry { padding: 16px 0; border-bottom: 1px solid var(--line); }
 .historyHeading { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }

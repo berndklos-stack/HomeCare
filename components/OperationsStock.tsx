@@ -4,6 +4,7 @@ import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, ChevronLeft, ChevronRight,
 import { apiFetch } from "@/lib/apiClient";
 import { createStableId, type SyncMutation } from "@/lib/syncQueue";
 import { operationLabel } from "@/lib/operationsUi";
+import { stockMovementNote } from "@/lib/stockMovementNote";
 import { validateOperationsMutation, type OperationsRow } from "@/lib/operationsCommands";
 import { OperationsDataTable, type DataColumn } from "./OperationsDataTable";
 import { TripDialog } from "./TripDialog";
@@ -68,11 +69,11 @@ export function OperationsStock({ language, materials, locations, jobs, queue, e
     { key: "quantity", label: t("quantity"), value: (row) => quantity(row.quantity) },
     { key: "source_id", label: t("source_id"), value: (row) => location(row.source_id) },
     { key: "destination_id", label: t("destination_id"), value: (row) => location(row.destination_id) },
-    { key: "note", label: t("note"), value: (row) => String(row.note ?? ""), render: (row) => String(row.note ?? "").replace(/^(Inventur|Korrekturbuchung|Korrigeringsbokning|Correction booking) \[[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\]:\s*/i, "$1 · ") },
+    { key: "note", label: t("note"), value: (row) => String(row.display_note ?? stockMovementNote(row.note)) },
     { key: "job_id", label: t("job_id"), value: (row) => jobs.find((job) => job.id === row.job_id)?.name ?? "" },
     { key: "damage_case", label: t("damageCases"), value: (row) => { const damage = damageCase(row); return damage ? `${t(`damage_${damage.status}`)} · ${damage.description}` : ""; } },
   ];
-  const movementColumns = columns.map((column) => column.key === "material_id" ? column : {
+  const movementColumns = columns.filter((column) => column.key !== "damage_case").map((column) => column.key === "material_id" ? column : {
     ...column,
     render: (row: OperationsRow) => <span className={styles.movementText} title={column.value(row)}>{column.render ? column.render(row) : column.value(row) || "—"}</span>,
   });

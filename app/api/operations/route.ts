@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { isAuthError, requireApiAuth } from "@/lib/server/apiAuth";
 import { maintenanceStatus } from "@/lib/operations";
 import { attachOperationsActors } from "@/lib/server/operationsActors";
+import { pickingIdFromMovementNote, stockMovementNote } from "@/lib/stockMovementNote";
 
 const tables = {
   suppliers: "homecare_suppliers", supplier_contacts: "homecare_supplier_contacts",
@@ -185,6 +186,15 @@ export async function GET(request: Request) {
   }
   if (entity === "stock_movements" && data?.length) {
     const rows = data as unknown as Record<string, unknown>[];
+    const pickingIds = [...new Set(rows.map((row) => pickingIdFromMovementNote(row.note)).filter((id): id is string => id !== null))];
+    const pickingCodes = new Map<string, string>();
+    if (pickingIds.length) {
+      const { data: orders, error: ordersError } = await client.from("homecare_picking_orders")
+        .select("id,picking_code").eq("tenant_id", tenantId).in("id", pickingIds);
+      if (ordersError) return NextResponse.json({ error: "OPERATIONS_UNAVAILABLE" }, { status: 503 });
+      for (const order of orders ?? []) pickingCodes.set(order.id, order.picking_code);
+    }
+    for (const row of rows) row.display_note = stockMovementNote(row.note, pickingCodes.get(pickingIdFromMovementNote(row.note) ?? ""));
     const { data: items, error: itemError } = await client.from("homecare_goods_receipt_items")
       .select("movement_id,receipt_id").eq("tenant_id", tenantId).in("movement_id", rows.map((row) => row.id));
     if (itemError) return NextResponse.json({ error: "OPERATIONS_UNAVAILABLE" }, { status: 503 });
