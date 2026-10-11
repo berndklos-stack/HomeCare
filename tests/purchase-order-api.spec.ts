@@ -12,9 +12,10 @@ function harness(file: string) {
     homecare_purchase_order_items: [{ id: "item-1", tenant_id: tenant, order_id: "order-1", material_id: "material-1", quantity: 600, unit_price: 2, revision: 1 }],
     homecare_materials: [{ id: "material-1", tenant_id: tenant, name: "Test material" }],
     homecare_purchase_receipts: Array.from({ length: 501 }, (_, index) => ({ id: String(index).padStart(4, "0"), tenant_id: tenant, item_id: "item-1", quantity: 1 })),
+    homecare_purchase_order_emails: [],
   };
   const calls: { url: string; init: RequestInit }[] = [];
-  let allowed = true, mailOk = true;
+  let allowed = true, mailOk = true, saveOk = true;
   const client = { from: (table: string) => {
     const filters: Record<string, unknown> = {};
     let start = 0, end = Infinity;
@@ -26,6 +27,8 @@ function harness(file: string) {
       in: (key: string, value: unknown[]) => { filters[key] = value; return query; },
       range: (first: number, last: number) => { start = first; end = last; return query; },
       single: async () => ({ data: rows()[0] ?? null, error: null }),
+      maybeSingle: async () => ({ data: rows()[0] ?? null, error: null }),
+      upsert: async (row: Record<string, unknown>) => { if (saveOk) tables[table].push(row); return { error: saveOk ? null : new Error("unavailable") }; },
       then: (done: (value: unknown) => unknown) => Promise.resolve(done({ data: rows().map((row) => ({ ...row })), error: null, count: rows().length })),
     };
     return query;
@@ -38,11 +41,12 @@ function harness(file: string) {
     if (name === "node:crypto") return require("node:crypto");
     if (name === "@/lib/authModel") return { membershipAllows: () => allowed };
     if (name === "@/lib/operations") return { maintenanceStatus: () => "ok" };
-    if (name === "@/lib/server/apiAuth") return { isAuthError: (value: unknown) => value instanceof NextResponse, requireApiAuth: async () => allowed ? { client, tenantId: tenant, membership: { tenantName: "Test company" } } : NextResponse.json({}, { status: 403 }) };
+    if (name === "@/lib/server/operationsActors") return { attachOperationsActors: async () => {} };
+    if (name === "@/lib/server/apiAuth") return { isAuthError: (value: unknown) => value instanceof NextResponse, requireApiAuth: async () => allowed ? { client, serviceClient: client, user: { id: "actor" }, tenantId: tenant, membership: { tenantName: "Test company" } } : NextResponse.json({}, { status: 403 }) };
     throw new Error(name);
   };
-  new Function("require", "exports", "process", "fetch", compiled)(load, exports, { env: { NODE_ENV: "production", RESEND_API_KEY: "test-key", REPORT_SENDER_EMAIL: "sender@example.se" } }, async (url: string, init: RequestInit) => { calls.push({ url, init }); return new Response("{}", { status: mailOk ? 200 : 502 }); });
-  return { exports, tables, calls, deny: () => { allowed = false; }, failMail: () => { mailOk = false; } };
+  new Function("require", "exports", "process", "fetch", compiled)(load, exports, { env: { NODE_ENV: "production", RESEND_API_KEY: "test-key", REPORT_SENDER_EMAIL: "sender@example.se" } }, async (url: string, init: RequestInit) => { calls.push({ url, init }); return Response.json({ id: "mail-id" }, { status: mailOk ? 200 : 502 }); });
+  return { exports, tables, calls, deny: () => { allowed = false; }, failMail: () => { mailOk = false; }, failSave: () => { saveOk = false; } };
 }
 
 test("Bestellmengen berücksichtigen alle Teillieferungen und isolieren Mandanten", async () => {
@@ -68,10 +72,37 @@ test("Bestellmail verwendet gespeicherte Adresse, bestätigt Vorschau und schüt
   expect(JSON.parse(String(h.calls[0].init.body)).to).toEqual(["supplier@example.se"]);
   expect((h.calls[0].init.headers as Record<string, string>)["Idempotency-Key"]).toBe("purchase-tenant-test-order-1-4");
   h.failMail();
-  expect((await h.exports.POST(request("send", preview.token))).status).toBe(502);
+  expect((await h.exports.POST(request("send", preview.token))).status).toBe(200);
+  expect(h.calls).toHaveLength(1);
+  expect(h.tables.homecare_purchase_order_emails[0]).toMatchObject({ recipient: "supplier@example.se", subject: preview.subject.trim(), body: preview.body.trim(), order_revision: 4, provider_message_id: "mail-id" });
+  expect(h.tables.homecare_purchase_orders[0].revision).toBe(4);
   h.tables.homecare_suppliers[0].email = "";
   const missing = await (await h.exports.POST(request("preview"))).json();
   expect((await h.exports.POST(request("send", missing.token))).status).toBe(400);
   h.deny();
   expect((await h.exports.POST(request("preview"))).status).toBe(403);
+});
+
+test("Bearbeitete Bestellvorschau wird validiert, versendet und unveraendert protokolliert", async () => {
+  const h = harness("purchase-orders/send");
+  const request = (action: string, token?: string, emailSubject = "Bitte Lieferung bestätigen", emailBody = "Unsere Bestellung mit zusätzlichen Hinweisen.") => new Request("https://test/api/purchase-orders/send", { method: "POST", body: JSON.stringify({ action, orderId: "order-1", revision: 4, token, emailSubject, emailBody }) });
+  const preview = await (await h.exports.POST(request("preview"))).json();
+  expect((await h.exports.POST(request("send", preview.token, "", "Text"))).status).toBe(400);
+  expect((await h.exports.POST(request("send", preview.token, "Betreff\nBcc: other@example.se", "Text"))).status).toBe(400);
+  expect((await h.exports.POST(request("send", preview.token, "Betreff", " "))).status).toBe(400);
+  expect(h.calls).toHaveLength(0);
+  expect((await h.exports.POST(request("send", preview.token))).status).toBe(200);
+  expect(JSON.parse(String(h.calls[0].init.body))).toMatchObject({ subject: "Bitte Lieferung bestätigen", text: "Unsere Bestellung mit zusätzlichen Hinweisen." });
+  expect(h.tables.homecare_purchase_order_emails[0]).toMatchObject({ subject: "Bitte Lieferung bestätigen", body: "Unsere Bestellung mit zusätzlichen Hinweisen." });
+});
+
+test("Bestellmail zeigt Versand- und Protokollfehler ohne falschen Erfolg", async () => {
+  for (const failSave of [false, true]) {
+    const h = harness("purchase-orders/send");
+    const request = (action: string, token?: string) => new Request("https://test/api/purchase-orders/send", { method: "POST", body: JSON.stringify({ action, orderId: "order-1", revision: 4, token }) });
+    const preview = await (await h.exports.POST(request("preview"))).json();
+    if (failSave) h.failSave(); else h.failMail();
+    expect(await (await h.exports.POST(request("send", preview.token))).json()).toMatchObject({ error: failSave ? "ORDER_MAIL_STATUS_PENDING" : "MAIL_FAILED" });
+    expect(h.tables.homecare_purchase_order_emails).toHaveLength(0);
+  }
 });

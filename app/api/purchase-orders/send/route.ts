@@ -43,14 +43,24 @@ export async function POST(request: Request) {
     const token = createHash("sha256").update(JSON.stringify({ tenant: auth.tenantId, order, items, names: [...names].sort(([first], [second]) => first.localeCompare(second)), subject, body, to })).digest("hex");
     if (input.action === "preview") return NextResponse.json({ to, subject, body, token }, { headers: { "Cache-Control": "no-store" } });
     if (input.token !== token) return NextResponse.json({ error: "ORDER_CHANGED" }, { status: 409 });
+    const emailSubject = input.emailSubject === undefined ? subject : input.emailSubject;
+    const emailBody = input.emailBody === undefined ? body : input.emailBody;
+    if (typeof emailSubject !== "string" || !emailSubject.trim() || emailSubject.length > 200 || /[\r\n]/.test(emailSubject) || typeof emailBody !== "string" || !emailBody.trim() || emailBody.length > 12000) return NextResponse.json({ error: "MAIL_TEXT_INVALID" }, { status: 400 });
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) return NextResponse.json({ error: "SUPPLIER_EMAIL_MISSING" }, { status: 400 });
+    const previous = await auth.client.from("homecare_purchase_order_emails").select("recipient").eq("tenant_id", auth.tenantId).eq("order_id", order.id).eq("order_revision", order.revision).maybeSingle();
+    if (previous.error) return NextResponse.json({ error: "MAIL_UNAVAILABLE" }, { status: 503 });
+    if (previous.data) return NextResponse.json({ sent: true, to: previous.data.recipient }, { headers: { "Cache-Control": "no-store" } });
     if (!process.env.RESEND_API_KEY) return NextResponse.json({ error: "MAIL_UNAVAILABLE" }, { status: 503 });
     const response = await fetch("https://api.resend.com/emails", {
       method: "POST", signal: AbortSignal.timeout(30000),
       headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json", "Idempotency-Key": `purchase-${auth.tenantId}-${order.id}-${order.revision}` },
-      body: JSON.stringify({ from: process.env.REPORT_SENDER_EMAIL || "info@kolaretorp.se", to: [to], subject, text: body }),
+      body: JSON.stringify({ from: process.env.REPORT_SENDER_EMAIL || "info@kolaretorp.se", to: [to], subject: emailSubject.trim(), text: emailBody.trim() }),
     });
     if (!response.ok) return NextResponse.json({ error: "MAIL_FAILED" }, { status: 502 });
+    const delivery = await response.json();
+    if (typeof delivery.id !== "string" || !delivery.id) return NextResponse.json({ error: "ORDER_MAIL_STATUS_PENDING" }, { status: 503 });
+    const saved = await auth.serviceClient.from("homecare_purchase_order_emails").upsert({ tenant_id: auth.tenantId, order_id: order.id, order_revision: order.revision, recipient: to, subject: emailSubject.trim(), body: emailBody.trim(), provider_message_id: delivery.id, actor_user_id: auth.user.id }, { onConflict: "tenant_id,order_id,order_revision", ignoreDuplicates: true });
+    if (saved.error) return NextResponse.json({ error: "ORDER_MAIL_STATUS_PENDING" }, { status: 503 });
     return NextResponse.json({ sent: true, to }, { headers: { "Cache-Control": "no-store" } });
   } catch { return NextResponse.json({ error: "MAIL_FAILED" }, { status: 503 }); }
 }

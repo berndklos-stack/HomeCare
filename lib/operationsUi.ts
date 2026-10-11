@@ -19,6 +19,8 @@ export const operationText = {
   complaintPreview: ["Reklamation an Lieferanten", "Reklamation till leverantör", "Supplier complaint"],
   complaintSubject: ["Betreff", "Ämne", "Subject"],
   complaintMessage: ["Nachricht", "Meddelande", "Message"],
+  MAIL_TEXT_INVALID: ["Bitte einen Betreff (maximal 200 Zeichen) und eine Nachricht (maximal 12.000 Zeichen) eingeben.", "Ange ett ämne (max 200 tecken) och ett meddelande (max 12 000 tecken).", "Enter a subject (up to 200 characters) and a message (up to 12,000 characters)."],
+  ORDER_MAIL_STATUS_PENDING: ["Die E-Mail wurde versendet, der Versandvermerk konnte noch nicht gespeichert werden. Bitte mit unverändertem Text erneut versuchen.", "E-post skickades men loggen kunde inte sparas. Försök igen med oförändrad text.", "The email was sent but its record could not be saved. Retry with the same text."],
   COMPLAINT_TEXT_INVALID: ["Bitte einen Betreff (maximal 200 Zeichen) und eine Nachricht (maximal 12.000 Zeichen) eingeben.", "Ange ett ämne (max 200 tecken) och ett meddelande (max 12 000 tecken).", "Enter a subject (up to 200 characters) and a message (up to 12,000 characters)."],
   complaintSent: ["Reklamation versendet", "Reklamation skickad", "Complaint sent"],
   COMPLAINT_CHANGED: ["Die Schadensakte oder die Belege wurden geändert. Bitte die Reklamation erneut öffnen und prüfen.", "Ärendet har ändrats. Öppna reklamationen igen.", "The case or documents changed. Please reopen and review the complaint."],

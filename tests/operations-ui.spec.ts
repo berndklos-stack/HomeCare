@@ -191,9 +191,11 @@ test("Bestellung absenden verwendet die aktuelle Revision und sperrt doppelte Ak
   const order = { id: "22222222-2222-4222-8222-222222222222", order_number: "PO-1", supplier_id: supplier.id, status: "draft", revision: 4 };
   await page.route("**/api/operations?entity=purchase_orders**", (route) => route.fulfill({ json: { rows: [order], count: 1 } }));
   const actions: string[] = [];
+  let sentMessage: Record<string, unknown> | undefined;
   await page.route("**/api/purchase-orders/send", (route) => {
     const request = route.request().postDataJSON();
     actions.push(request.action);
+    if (request.action === "send") sentMessage = request;
     expect(request).toMatchObject({ orderId: order.id, revision: 4 });
     return route.fulfill({ json: request.action === "preview" ? { to: "supplier@example.se", subject: "Bestellung PO-1", body: "Test order", token: "snapshot-token" } : { sent: true } });
   });
@@ -213,7 +215,10 @@ test("Bestellung absenden verwendet die aktuelle Revision und sperrt doppelte Ak
   await page.screenshot({ path: `test-results/order-compact-actions-${test.info().project.name}.png` });
   await page.getByRole("button", { name: "Bestellung absenden", exact: true }).click();
   await expect(page.getByRole("dialog")).toContainText("supplier@example.se");
-  await dialogLayout(page, 480);
+  await dialogLayout(page);
+  await expect(page.getByRole("dialog").getByLabel("Betreff", { exact: true })).toHaveValue("Bestellung PO-1");
+  await page.getByRole("dialog").getByLabel("Betreff", { exact: true }).fill("Bestellung PO-1 mit Lieferhinweis");
+  await page.getByRole("dialog").getByLabel("Nachricht", { exact: true }).fill("Bitte bis Freitag liefern.");
   await page.screenshot({ path: `test-results/order-preview-${test.info().project.name}.png` });
   expect(actions).toEqual(["preview"]);
   await page.getByRole("dialog").getByRole("button", { name: "Bestellung per E-Mail senden", exact: true }).click();
@@ -222,6 +227,31 @@ test("Bestellung absenden verwendet die aktuelle Revision und sperrt doppelte Ak
   const queue = await page.evaluate(() => JSON.parse(localStorage.getItem("workcore-sync-mutations-v1") ?? "[]"));
   expect(queue.filter((m: { payload: { kind?: string } }) => m.payload.kind === "order")).toMatchObject([{ expectedRevision: 4, entityId: order.id, payload: { kind: "order" } }]);
   expect(actions).toEqual(["preview", "send"]);
+  expect(sentMessage).toMatchObject({ emailSubject: "Bestellung PO-1 mit Lieferhinweis", emailBody: "Bitte bis Freitag liefern.", token: "snapshot-token" });
+});
+
+for (const mobile of [false, true]) test(`Bestellvorschau wie Schadensakte bearbeitbar ${mobile ? "mobil" : "desktop"}`, async ({ page }, info) => {
+  await page.setViewportSize(mobile ? { width: 390, height: 844 } : { width: 1440, height: 1000 });
+  await mock(page);
+  const order = { id: "22222222-2222-4222-8222-222222222222", order_number: "PO-EDITOR", status: "draft", revision: 4 };
+  await page.route("**/api/operations?entity=purchase_orders**", (route) => route.fulfill({ json: { rows: [order], count: 1 } }));
+  await page.route("**/api/purchase-orders/send", (route) => route.fulfill({ json: { to: "supplier@example.se", subject: "Bestellung PO-EDITOR", body: "Bestelldatum: 2026-10-11\nLatten 28 x 38\nMenge: 30\nGesamt: 300 SEK", token: "token" } }));
+  await page.goto("/"); await ready(page); await purchasing(page);
+  await page.getByRole("tab", { name: "Bestellungen/Lieferungen", exact: true }).click();
+  await page.getByRole("button", { name: "Bestellung absenden", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await dialogLayout(page);
+  if (!mobile) expect(await dialog.evaluate((element) => element.clientWidth)).toBeGreaterThan(1000);
+  const body = dialog.getByLabel("Nachricht", { exact: true });
+  expect((await body.boundingBox())!.height).toBeGreaterThanOrEqual(260);
+  await body.fill("Bitte bis Freitag liefern."); await expect(body).toHaveValue("Bitte bis Freitag liefern.");
+  await dialog.getByLabel("Betreff", { exact: true }).fill("");
+  await expect(dialog.getByRole("button", { name: "Bestellung per E-Mail senden", exact: true })).toBeDisabled();
+  await dialog.getByLabel("Betreff", { exact: true }).fill("Bestellung mit Lieferhinweis");
+  await expect(dialog.getByRole("button", { name: "Bestellung per E-Mail senden", exact: true })).toBeEnabled();
+  expect(await dialog.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+  await expect(page.locator("dialog[open]")).toHaveCount(1);
+  await page.screenshot({ path: info.outputPath(`order-editor-${mobile}.png`), fullPage: true });
 });
 
 test("Bestellvorschau: Abbruch und fehlgeschlagener Versand ändern keinen Bestellstatus", async ({ page }) => {
