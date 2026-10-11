@@ -135,6 +135,7 @@ export const operationText = {
   actions: ["Aktionen", "Åtgärder", "Actions"],
   deliveryDocuments: ["Lieferscheine", "Följesedlar", "Delivery notes"],
   pdfPreview: ["PDF-Vorschau", "PDF-förhandsvisning", "PDF preview"],
+  download: ["Herunterladen", "Ladda ner", "Download"],
   backToHistory: ["Zurück zum Lieferverlauf", "Tillbaka till leveranshistoriken", "Back to delivery history"],
   orderPreview: ["Bestellvorschau", "Förhandsvisning av beställning", "Purchase order preview"],
   recipient: ["Empfänger", "Mottagare", "Recipient"],

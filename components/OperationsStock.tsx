@@ -8,6 +8,7 @@ import { validateOperationsMutation, type OperationsRow } from "@/lib/operations
 import { OperationsDataTable, type DataColumn } from "./OperationsDataTable";
 import { TripDialog } from "./TripDialog";
 import { StockOverview } from "./StockOverview";
+import { SupplierDamageCases } from "./SupplierDamageCases";
 import styles from "./OperationsWorkspace.module.css";
 
 type Ref = { id: string; name: string; status?: string; billable?: boolean; sku?: string; scanCode?: string; unit?: string; minStock?: string; archived?: boolean };
@@ -20,6 +21,8 @@ export function OperationsStock({ language, materials, locations, jobs, queue, e
   const t = (key: string) => operationLabel(key, language);
   const [materialId, setMaterialId] = useState("");
   const [details, setDetails] = useState<{ kind: "balance" | "movement"; row: OperationsRow } | null>(null);
+  const [damageCaseId, setDamageCaseId] = useState<string | null>(null);
+  const damageCase = (row: OperationsRow) => row.damage_case as { id: string; description: string; status: string } | null | undefined;
   const [correction, setCorrection] = useState<OperationsRow | null>(null);
   const [correctionQuantity, setCorrectionQuantity] = useState("");
   const [correctionReason, setCorrectionReason] = useState("");
@@ -66,6 +69,7 @@ export function OperationsStock({ language, materials, locations, jobs, queue, e
     { key: "destination_id", label: t("destination_id"), value: (row) => location(row.destination_id) },
     { key: "note", label: t("note"), value: (row) => String(row.note ?? ""), render: (row) => String(row.note ?? "").replace(/^(Inventur|Korrekturbuchung|Korrigeringsbokning|Correction booking) \[[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\]:\s*/i, "$1 · ") },
     { key: "job_id", label: t("job_id"), value: (row) => jobs.find((job) => job.id === row.job_id)?.name ?? "" },
+    { key: "damage_case", label: t("damageCases"), value: (row) => { const damage = damageCase(row); return damage ? `${t(`damage_${damage.status}`)} · ${damage.description}` : ""; } },
   ];
   useEffect(() => {
     if (view === "inventory" || (!materialId && view !== "bookings")) return;
@@ -151,7 +155,7 @@ export function OperationsStock({ language, materials, locations, jobs, queue, e
         { label: t("location"), value: location(details.row.location_id) },
         { label: t("quantity"), value: `${quantity(details.row.quantity)}${selected?.unit ? ` ${selected.unit}` : ""}` },
       ] : columns.map((column) => ({ label: column.label, value: column.value(details.row) || "—" }))).map((fact) => <div key={fact.label}><dt>{fact.label}</dt><dd>{fact.value}</dd></div>)}</dl>
-      <footer className={styles.actions}><button type="button" onClick={() => setDetails(null)}>{t("close")}</button>{details.kind === "movement" && Boolean(details.row.source_id || details.row.destination_id) && <button className={styles.primaryAction} disabled={correctionPending(details.row)} onClick={() => {
+      <footer className={styles.actions}><button type="button" onClick={() => setDetails(null)}>{t("close")}</button>{details.kind === "movement" && damageCase(details.row) && <button type="button" onClick={() => { setDamageCaseId(damageCase(details.row)!.id); setDetails(null); }}>{t("damageCases")}</button>}{details.kind === "movement" && Boolean(details.row.source_id || details.row.destination_id) && <button className={styles.primaryAction} disabled={correctionPending(details.row)} onClick={() => {
         setCorrection(details.row); setCorrectionQuantity(String(details.row.quantity)); setCorrectionReason(""); setCorrectionError(false); correctionLock.current = false; setDetails(null);
       }}><ArrowLeftRight size={18} />{t("correction")}</button>}</footer>
     </TripDialog>}
@@ -178,5 +182,6 @@ export function OperationsStock({ language, materials, locations, jobs, queue, e
         <footer className={styles.actions}><button type="button" onClick={() => setCorrection(null)}>{t("cancel")}</button><button type="submit" className={styles.primaryAction} disabled={!correctionReason.trim() || correctionPending(correction)}>{t("bookCorrection")}</button></footer>
       </form>
     </TripDialog>}
+    {damageCaseId && <SupplierDamageCases caseId={damageCaseId} language={language} onClose={() => { setDamageCaseId(null); setRefresh((value) => value + 1); }} />}
   </div>;
 }

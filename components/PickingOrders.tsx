@@ -4,7 +4,7 @@ import { Camera, ChevronLeft, ChevronRight, Plus, Printer, RefreshCw, ScanLine, 
 import { apiFetch } from "@/lib/apiClient";
 import { createStableId, type SyncMutation } from "@/lib/syncQueue";
 import { operationLabel } from "@/lib/operationsUi";
-import { pickingPdf, type PickingItem, type PickingOrder } from "@/lib/picking";
+import { pickingPdf, pickupLabel, type PickingItem, type PickingOrder } from "@/lib/picking";
 import { OperationsDataTable } from "./OperationsDataTable";
 import { TripDialog } from "./TripDialog";
 import { StockScan } from "./StockScan";
@@ -82,9 +82,9 @@ export function PickingOrders({ job, language, queue = [], onBooked, pickupOnly 
   function accept(value: string) {
     if (lock.current) return;
     setCamera(false); setError("");
-    if (value.trim().startsWith("PICKUP:")) {
-      const pickup = value.trim().slice(7);
-      if (!/^[0-9a-f-]{36}$/i.test(pickup)) { setError("scanUnknown"); return; }
+    if (value.trim().startsWith("PICKUP:") || value.trim().startsWith("AB-")) {
+      const pickup = value.trim().replace(/^PICKUP:/, "");
+      if (!/^[0-9a-f-]{36}$/i.test(pickup) && !/^AB-\d{4}-\d{2}-\d{2}-\d{5}$/.test(pickup)) { setError("scanUnknown"); return; }
       void apiFetch(`/api/picking-orders?${!job ? "active=1&" : ""}pickup=${encodeURIComponent(pickup)}`).then(async (response) => {
         if (!response.ok) throw new Error("OPERATIONS_UNAVAILABLE");
         const data = await response.json(); const ready = data.rows?.[0] as PickingOrder | undefined;
@@ -133,8 +133,8 @@ export function PickingOrders({ job, language, queue = [], onBooked, pickupOnly 
     </>}
     {order && !loading && order.title && <>
       <p>{t("pickingCode")}: {order.picking_code ?? "—"} · {t(`picking_${order.status}`)}</p>
-      {order.pickup_code && <div className={styles.actions}><span>{t("pickingPickupCode")}: PICKUP:{order.pickup_code}</span><button type="button" disabled={busy} onClick={async () => {
-        setBusy(true); try { const blob = await codeLabelPdf({ heading: t("pickingPickupCode"), name: order.title, code: `PICKUP:${order.pickup_code}` }); const url = URL.createObjectURL(blob), link = document.createElement("a"); link.href = url; link.download = `Abholung-${order.id}.pdf`; link.click(); setTimeout(() => URL.revokeObjectURL(url), 60000); } catch { setError("OPERATIONS_UNAVAILABLE"); } finally { setBusy(false); }
+      {order.pickup_code && <div className={styles.actions}><span>{t("pickingPickupCode")}: {pickupLabel(order)}</span><button type="button" disabled={busy} onClick={async () => {
+        setBusy(true); try { const blob = await codeLabelPdf({ heading: t("pickingPickupCode"), name: order.title, code: pickupLabel(order) }); const url = URL.createObjectURL(blob), link = document.createElement("a"); link.href = url; link.download = `Abholung-${order.picking_code ?? "Etikett"}.pdf`; link.click(); setTimeout(() => URL.revokeObjectURL(url), 60000); } catch { setError("OPERATIONS_UNAVAILABLE"); } finally { setBusy(false); }
       }}><Printer size={18} />{t("pickingPickupPrint")}</button></div>}
       <OperationsDataTable rows={items.map((item) => ({ ...item, id: item.material_id }))} columns={[
         { key: "name", label: t("designation"), value: (row) => (row.material as PickingItem["material"]).name },

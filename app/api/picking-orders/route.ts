@@ -8,10 +8,10 @@ export async function GET(request: Request) {
   if (isAuthError(auth)) return auth;
   if (process.env.NODE_ENV !== "production" && process.env.WORKCORE_E2E_AUTH_BYPASS === "1") return NextResponse.json({ error: "E2E_MOCK_REQUIRED" }, { status: 503 });
   const params = new URL(request.url).searchParams, id = params.get("id"), pickup = params.get("pickup"), code = params.get("code"), job = params.get("job"), page = Number(params.get("page") ?? 0);
-  if ((id && !uuid.test(id)) || (pickup && !uuid.test(pickup)) || (code && !/^\d{4}-\d{2}-\d{2}-\d{5}$/.test(code)) || !Number.isSafeInteger(page) || page < 0 || page > 100000) return NextResponse.json({ error: "PICKING_CHANGED" }, { status: 400 });
+  if ((id && !uuid.test(id)) || (pickup && !uuid.test(pickup) && !/^AB-\d{4}-\d{2}-\d{2}-\d{5}$/.test(pickup)) || (code && !/^\d{4}-\d{2}-\d{2}-\d{5}$/.test(code)) || !Number.isSafeInteger(page) || page < 0 || page > 100000) return NextResponse.json({ error: "PICKING_CHANGED" }, { status: 400 });
   let query = auth.client.from("homecare_picking_orders").select("*", { count: "exact" }).eq("tenant_id", auth.tenantId).order("created_at", { ascending: false }).order("id").range(page * 50, page * 50 + 49);
   if (id) query = query.eq("id", id);
-  if (pickup) query = query.eq("pickup_code", pickup);
+  if (pickup) query = pickup.startsWith("AB-") ? query.eq("picking_code", pickup.slice(3)).not("pickup_code", "is", null) : query.eq("pickup_code", pickup);
   if (code) query = query.eq("picking_code", code);
   if (params.get("active") === "1") query = query.neq("status", "cancelled");
   if (params.get("ready") === "1") query = query.in("status", ["completed", "loaded"]);

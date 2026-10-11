@@ -142,8 +142,9 @@ export async function POST(request: Request) {
 
   if (error) {
     const migrationMissing = error.message.includes(rpcName);
+    const retiredStockWrite = error.message.includes("LEGACY_STOCK_WRITES_RETIRED");
     return NextResponse.json(
-      { error: migrationMissing ? "Die Sync-Datenbankmigration wurde noch nicht angewendet." : "Die Änderung konnte nicht synchronisiert werden." },
+      { error: retiredStockWrite ? "Alte Lagerbuchungen können nicht erneut übertragen werden. Die Materialänderung bleibt lokal erhalten. Bitte die App aktualisieren und erneut versuchen." : migrationMissing ? "Die Sync-Datenbankmigration wurde noch nicht angewendet." : "Die Änderung konnte nicht synchronisiert werden." },
       { status: migrationMissing ? 503 : 500 },
     );
   }

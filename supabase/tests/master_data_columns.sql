@@ -22,6 +22,17 @@ do $$ declare tenant uuid:='00000000-0000-0000-0000-000000000001'; response json
   if not exists(select 1 from public.homecare_inventory_locations where id='column-location' and site='Filiale' and location_code='001') then raise exception 'LOCATION_COLUMNS_FAILED'; end if;
   response:=public.homecare_apply_master_data_mutation(gen_random_uuid(),'material','column-location-material','create',null,tenant,'{"name":"Lagertest","primaryLocation":"Hauptlager"}',null);
   if response->>'status'<>'synced' or not exists(select 1 from public.homecare_materials where id='column-location-material' and primary_location_name='Hauptlager' and primary_location_id is null) then raise exception 'LOCATION_LABEL_TREATED_AS_FOREIGN_KEY'; end if;
+  insert into public.homecare_stock_cutovers(tenant_id,imported_entries) values(tenant,0) on conflict(tenant_id) do nothing;
+  mutation:=gen_random_uuid();
+  response:=public.homecare_apply_master_data_mutation(mutation,'material','column-location-material','update',null,tenant,'{"name":"Muellsack 60 L","sku":"MS-60","scanCode":"MS-60","inventoryEntries":[{"id":"OLD-ENTRY","quantity":28}]}',1);
+  if response->>'status'<>'synced' or not exists(select 1 from public.homecare_materials where id='column-location-material' and name='Muellsack 60 L' and sku='MS-60' and scan_code='MS-60' and not(record_data ? 'inventoryEntries')) then raise exception 'MASTER_EDIT_REPLAYED_LEGACY_STOCK'; end if;
+  if not exists(select 1 from public.homecare_sync_mutations where mutation_id=mutation and request_payload ? 'inventoryEntries') then raise exception 'ORIGINAL_REQUEST_NOT_PRESERVED'; end if;
+  begin
+    update public.homecare_materials set record_data=record_data||'{"inventoryEntries":[{"quantity":99}]}' where id='column-location-material';
+    raise exception 'DIRECT_LEGACY_STOCK_WRITE_ACCEPTED';
+  exception when check_violation then null; end;
+  response:=public.homecare_apply_master_data_mutation(gen_random_uuid(),'material','column-location-material','update',null,tenant,'{"name":"Stale","inventoryEntries":[{"quantity":99}]}',1);
+  if response->>'status'<>'conflict' then raise exception 'LEGACY_PAYLOAD_BYPASSED_REVISION_CHECK'; end if;
   response:=public.homecare_apply_object_mutation(gen_random_uuid(),'object','column-object','create',null,tenant,'{"name":"Testobjekt","scanCode":"OBJ-001"}',null);
   if response->>'status'<>'synced' or (select scan_code from public.homecare_objects where id='column-object')<>'OBJ-001' then raise exception 'OBJECT_CODE_CREATE_FAILED: %',response; end if;
   response:=public.homecare_apply_object_mutation(gen_random_uuid(),'object','column-object','update',null,tenant,'{"scanCode":"OBJ-002"}',1);

@@ -1,10 +1,15 @@
 export const appVersion = {
-  version: "1.427.22",
+  version: "1.427.23",
   releaseDate: "2026-10-11",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  {
+    version: "1.427.23",
+    date: "2026-10-11",
+    changes: ["Material-Stammdaten synchronisieren ohne erneute Uebertragung alter Lagerbuchungen; Bestands- und Konfliktschutz bleiben erhalten", "Schadensakte mit Status und Beschreibung direkt an der Lagerbuchung", "Bild- und PDF-Vorschau in Lieferanten-Schadensakten", "Lesbarer Abholcode AB-Jahr-Monat-Tag-Nummer; bisherige QR-Codes bleiben gueltig"],
+  },
   {
     version: "1.427.22",
     date: "2026-10-11",

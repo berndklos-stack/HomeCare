@@ -183,6 +183,21 @@ export async function GET(request: Request) {
       }
     }
   }
+  if (entity === "stock_movements" && data?.length) {
+    const rows = data as unknown as Record<string, unknown>[];
+    const { data: items, error: itemError } = await client.from("homecare_goods_receipt_items")
+      .select("movement_id,receipt_id").eq("tenant_id", tenantId).in("movement_id", rows.map((row) => row.id));
+    if (itemError) return NextResponse.json({ error: "OPERATIONS_UNAVAILABLE" }, { status: 503 });
+    const receiptIds = [...new Set((items ?? []).map((item) => item.receipt_id))];
+    if (receiptIds.length) {
+      const { data: cases, error: caseError } = await client.from("homecare_supplier_damage_cases")
+        .select("id,receipt_id,description,status").eq("tenant_id", tenantId).in("receipt_id", receiptIds);
+      if (caseError) return NextResponse.json({ error: "OPERATIONS_UNAVAILABLE" }, { status: 503 });
+      const byReceipt = new Map((cases ?? []).map((item) => [item.receipt_id, item]));
+      const byMovement = new Map((items ?? []).map((item) => [item.movement_id, byReceipt.get(item.receipt_id) ?? null]));
+      for (const row of rows) row.damage_case = byMovement.get(row.id as string) ?? null;
+    }
+  }
   if (["maintenance_events", "purchase_receipts"].includes(entity) && data?.length) {
     const rows = data as unknown as Record<string, unknown>[];
     if (entity === "purchase_receipts") {

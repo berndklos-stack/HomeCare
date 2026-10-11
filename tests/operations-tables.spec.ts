@@ -96,7 +96,7 @@ for (const mobile of [false, true]) test(`Kommissionierplatz Abholcode und Auftr
  const scan = page.getByRole("dialog", { name: "Kommissionierung scannen", exact: true }), code = scan.getByRole("textbox", { name: "Code", exact: true });
  for (const value of ["PICK-MAT", "SOURCE", "STAGING"]) { await code.fill(value); await code.press("Enter"); }
  await scan.getByRole("spinbutton", { name: "Menge", exact: true }).fill("2.5"); await scan.getByRole("button", { name: "Umlagerung buchen", exact: true }).click();
- await expect(page.getByText(`Abholcode: PICKUP:${pickup}`, { exact: true })).toBeVisible();
+ await expect(page.getByText(`Abholcode: AB-${order.picking_code}`, { exact: true })).toBeVisible();
  const download = page.waitForEvent("download"); await page.getByRole("button", { name: "Abholcode als PDF", exact: true }).click(); await (await download).saveAs(`test-results/pickup-label-${mobile}-${testInfo.project.name}.pdf`);
  const listDownload = page.waitForEvent("download"); await page.getByRole("button", { name: "Kommissionierliste als PDF", exact: true }).click();
  const pdfDownload = await listDownload;
@@ -109,7 +109,7 @@ for (const mobile of [false, true]) test(`Kommissionierplatz Abholcode und Auftr
  await page.getByRole("button", { name: "Abholung scannen", exact: true }).click();
  const dispatch = page.getByRole("dialog", { name: "Abholung scannen", exact: true });
  const pickupInput = dispatch.getByRole("textbox", { name: "Abholcode", exact: true }); await pickupInput.fill("WRONG"); await pickupInput.press("Enter"); await expect(dispatch.getByRole("alert")).toContainText("Abholcode");
- await pickupInput.fill(`PICKUP:${pickup}`); await pickupInput.press("Enter");
+ await pickupInput.fill(mobile ? `AB-${order.picking_code}` : `PICKUP:${pickup}`); await pickupInput.press("Enter");
  const target = dispatch.getByRole("textbox", { name: "Auftragscode / Fahrzeugcode", exact: true }); await target.fill("OBJECT-NO-BOOK"); await target.press("Enter"); await expect(dispatch.getByRole("alert")).toContainText("nicht bebucht");
  await target.fill("JOB-PICK"); await target.press("Enter");
  await page.screenshot({ path: `test-results/pickup-review-${mobile}-${testInfo.project.name}.png`, fullPage: true });

@@ -4,7 +4,7 @@ import { Camera, ScanLine, X } from "lucide-react";
 import { apiFetch } from "@/lib/apiClient";
 import { createStableId } from "@/lib/syncQueue";
 import { operationLabel } from "@/lib/operationsUi";
-import type { PickingItem, PickingOrder } from "@/lib/picking";
+import { pickupLabel, type PickingItem, type PickingOrder } from "@/lib/picking";
 import { TripDialog } from "./TripDialog";
 import { CodeCamera } from "./CodeCamera";
 import styles from "./OperationsWorkspace.module.css";
@@ -41,7 +41,7 @@ export function PickingDispatch({ order, items, language, onClose, onBook }: {
     setCamera(false); setError("");
     const scan = value.trim();
     if (!pickup) {
-      if (!order.pickup_code || scan !== `PICKUP:${order.pickup_code}`) { setError("PICKING_INVALID_PICKUP"); return; }
+      if (!order.pickup_code || (scan !== `PICKUP:${order.pickup_code}` && scan !== pickupLabel(order))) { setError("PICKING_INVALID_PICKUP"); return; }
       setPickup(true); setCode(""); return;
     }
     if (objects.some((object) => object.code === scan)) { setError("OBJECT_NOT_BOOKABLE"); return; }

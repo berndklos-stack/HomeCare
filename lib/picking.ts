@@ -1,6 +1,10 @@
 export type PickingItem = { material_id: string; quantity: number; picked: number; material: { name: string; sku?: string; scan_code?: string | null; unit?: string; record_data?: { scanCode?: string } } };
 export type PickingOrder = { id: string; picking_code?: string; job_id: string; title: string; revision: number; status: "open" | "completed" | "loaded" | "dispatched" | "cancelled"; created_at: string; staging_id?: string | null; destination_id?: string | null; dispatched_at?: string | null; pickup_code?: string | null };
 
+export function pickupLabel(order: PickingOrder) {
+  return order.picking_code ? `AB-${order.picking_code}` : `PICKUP:${order.pickup_code ?? ""}`;
+}
+
 export async function pickingPdf(order: PickingOrder, items: PickingItem[], language: "de" | "sv" | "en") {
   const [{ jsPDF }, { default: QRCode }] = await Promise.all([import("jspdf"), import("qrcode")]);
   const pdf = new jsPDF();
