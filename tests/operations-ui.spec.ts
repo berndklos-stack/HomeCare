@@ -416,7 +416,7 @@ test("Materialbeschaffung lädt bevorzugte Lieferanten auch ohne Wechsel zum Ein
   await page.goto("/"); await ready(page);
   await page.getByRole("button", { name: "Lager & Material", exact: true }).click();
   await page.getByRole("tab", { name: "Stammdaten", exact: true }).click();
-  await page.getByRole("tab", { name: "Materialstammdaten", exact: true }).click();
+  await page.getByRole("tab", { name: "Material", exact: true }).click();
   await page.getByRole("button", { name: "Material Testmaterial bearbeiten", exact: true }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByLabel("Bevorzugter Lieferant").locator("option").filter({ hasText: "Test Supplier" })).toHaveCount(1);

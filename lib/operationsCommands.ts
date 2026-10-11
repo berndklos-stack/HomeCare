@@ -69,7 +69,7 @@ export function validateOperationsMutation(mutation: Pick<SyncMutation, "id" | "
     }
     case "archive":
       keys = ["kind", "entity"];
-      if (!["suppliers", "supplier_contacts", "maintenance_plans", "purchase_order_items"].includes(String(p.entity)) || mutation.operation !== "delete") fail();
+      if (!["suppliers", "supplier_contacts", "maintenance_plans", "purchase_order_items", "location_types"].includes(String(p.entity)) || mutation.operation !== "delete") fail();
       break;
     case "order": case "cancel": keys = ["kind"]; if (mutation.operation !== "update") fail(); break;
     case "start":

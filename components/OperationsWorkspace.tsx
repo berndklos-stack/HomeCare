@@ -175,11 +175,11 @@ export function OperationsWorkspace(props: Props) {
       const result: Reference[] = [];
       let page = 0, count = 1;
       while (result.length < count && !controller.signal.aborted) {
-        const response = await apiFetch(`/api/operations?entity=${kind}&page=${page++}`, { signal: controller.signal });
+        const response = await apiFetch(`/api/operations?entity=${kind}&page=${page++}${kind === "location_types" ? "&include_archived=1" : ""}`, { signal: controller.signal });
         if (!response.ok) return;
         const data = await response.json(); count = data.count;
         result.push(...data.rows.map((r: OperationsRow) => ({ id: r.id, name: String(r[label] ?? r.id), revision: r.revision,
-          hours: r.operating_hours == null ? undefined : Number(r.operating_hours), availability: r.availability == null ? undefined : String(r.availability) })));
+          hours: r.operating_hours == null ? undefined : Number(r.operating_hours), availability: r.availability == null ? undefined : String(r.availability), archived: Boolean(r.deleted_at) })));
         if (!data.rows.length) break;
       }
       if (!controller.signal.aborted) setter(result);
@@ -294,14 +294,14 @@ export function OperationsWorkspace(props: Props) {
     } catch (e) { setFormError(e instanceof Error ? e.message : "INVALID_OPERATIONS_COMMAND"); }
   }
   function input(key: string, values: Record<string, string>, update: (key: string, value: string) => void, mandatory = false) {
-    const references = refs[key as keyof typeof refs];
+    const references: Reference[] | undefined = refs[key as keyof typeof refs];
     const choices = key === "location_kind" ? ["warehouse", "vehicle"] : enums[key];
     const value = key === "availability" && values[key] === "unavailable" ? "unavailableStatus" : values[key] ?? "";
     if (key === "location_kind" && !storagePlacesView && !form?.row?.parent_location_id) return <label key={key} className={styles.field}><span>{t("vehicleStockLocation")}</span><input type="checkbox" checked={value === "vehicle"} onChange={(e) => update(key, e.target.checked ? "vehicle" : "warehouse")} /></label>;
     return <label key={key} className={styles.field}><span>{fieldLabel(key, form?.entity)}</span>
       {key === "archived" ? <input type="checkbox" checked={value === "true"} onChange={(e) => update(key, String(e.target.checked))} />
         : references || choices ? <select aria-label={fieldLabel(key, form?.entity)} required={mandatory} value={value} onChange={(e) => update(key, e.target.value)}>
-          <option value="">—</option>{references ? references.map((r) => <option key={r.id} value={r.id}>{r.name}</option>) : choices?.map((c) => <option key={c} value={c}>{t(c)}</option>)}
+          <option value="">—</option>{references ? references.filter((r) => key !== "location_type_id" || !r.archived || r.id === value).map((r) => <option key={r.id} value={r.id}>{r.name}{key === "location_type_id" && r.archived ? ` (${t("archived")})` : ""}</option>) : choices?.map((c) => <option key={c} value={c}>{t(c)}</option>)}
         </select> : key === "notes" || key === "note" || key === "warranty_notes" || key === "address" ? <textarea value={value} onChange={(e) => update(key, e.target.value)} />
           : <input required={mandatory} type={numeric.has(key) ? "number" : key.endsWith("_date") || ["due_date", "expected_delivery", "warranty_until"].includes(key) ? "date" : "text"}
             min={numeric.has(key) ? 0 : undefined} step={numeric.has(key) ? "any" : undefined} value={value} onChange={(e) => update(key, e.target.value)} />}
@@ -388,7 +388,7 @@ export function OperationsWorkspace(props: Props) {
     </div>
     {inventoryMaster && <div id="inventory-master-navigation" role="tabpanel" aria-label={t("masterData")}>
       <div className={styles.tabs} role="tablist" aria-label={t("masterData")}>
-        <button role="tab" aria-selected={materialMasterSelected} aria-controls="inventory-material-panel" className={materialMasterSelected ? styles.selected : ""} onClick={() => { change("material_details"); setMaterialMasterMounted(true); setMaterialMasterSelected(true); }}>{language === "de" ? "Materialstammdaten" : language === "sv" ? "Materialregister" : "Material master data"}</button>
+        <button role="tab" aria-selected={materialMasterSelected} aria-controls="inventory-material-panel" className={materialMasterSelected ? styles.selected : ""} onClick={() => { change("material_details"); setMaterialMasterMounted(true); setMaterialMasterSelected(true); }}>{language === "en" ? "Materials" : "Material"}</button>
         {groups.inventory.filter((key) => key !== "material_details").map((key) => <button key={key} role="tab" aria-selected={entity === key && !storagePlacesView} aria-controls="inventory-master-panel" className={entity === key && !storagePlacesView ? styles.selected : ""} onClick={() => change(key)}>{t(key)}</button>)}
         <button role="tab" aria-selected={entity === "location_details" && storagePlacesView} aria-controls="inventory-master-panel" className={entity === "location_details" && storagePlacesView ? styles.selected : ""} onClick={() => change("location_details", null, true)}>{t("storagePlaces")}</button>
       </div>
@@ -528,6 +528,7 @@ export function OperationsWorkspace(props: Props) {
             <button type="button" onClick={() => setDamageSupplier({ id: form.row!.id, name: String(form.row!.company) })}>{t("damageCases")}</button>
             <button type="button" disabled={blocked(form.row.id)} onClick={() => { setArchive(form.row!); setForm(null); }}><Archive size={18} />{t("archive")}</button>
           </>}
+          {form.entity === "location_types" && form.row && <button type="button" disabled={blocked(form.row.id)} onClick={() => { setArchive(form.row!); setForm(null); }}><Archive size={18} />{t("archive")}</button>}
           <button type="button" onClick={() => setForm(null)}>{t("cancel")}</button><button type="submit" disabled={documentPending} className={styles.selected}>{t("save")}</button></footer>
       </form>
     </TripDialog>}

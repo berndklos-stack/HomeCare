@@ -3,6 +3,54 @@ import QRCode from "qrcode";
 import { readFileSync } from "node:fs";
 import { storageLocationPath } from "../lib/locationLabel";
 
+for (const mobile of [false, true]) test(`Lagerorttypen archivieren mit Bestaetigung und erhaltenen Zuordnungen ${mobile ? "mobil" : "desktop"}`, async ({ page }) => {
+  await page.setViewportSize(mobile ? { width: 390, height: 844 } : { width: 1440, height: 1000 });
+  const types = [
+    { id: "11111111-1111-4111-8111-111111111111", name: "Aktiver Typ", revision: 3, deleted_at: null },
+    { id: "22222222-2222-4222-8222-222222222222", name: "Alter Typ", revision: 2, deleted_at: "2026-10-11T10:00:00Z" },
+  ];
+  await page.route("**/api/operations?**", (route) => {
+    const params = new URL(route.request().url()).searchParams;
+    const entity = params.get("entity");
+    if (entity === "stock_status") return route.fulfill({ json: { active: true } });
+    const rows = entity === "location_types" ? types.filter((row) => params.get("include_archived") === "1" || !row.deleted_at)
+      : entity === "location_details" ? params.get("storage_places") === "1" ? [{ id: "archive-bin", name: "Regal Alt", parent_location_id: "archive-root", location_type_id: types[1].id, revision: 1 }]
+        : [{ id: "archive-root", name: "Hauptlager", revision: 1 }] : [];
+    return route.fulfill({ json: { rows, count: rows.length } });
+  });
+  await page.route("**/api/sync-mutations", (route) => route.fulfill({ status: 503, json: { error: "OFFLINE_TEST" } }));
+  await page.goto("/");
+  await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true", { timeout: 30000 });
+  await page.getByRole("button", { name: "Lager & Material", exact: true }).click();
+  await page.getByRole("tab", { name: "Stammdaten", exact: true }).click();
+  await page.getByRole("tab", { name: "Lagerorttypen", exact: true }).click();
+  const table = page.getByRole("table", { name: "Lagerorttypen", exact: true });
+  await expect(table).not.toContainText("Alter Typ");
+  await table.getByText("Aktiver Typ", { exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Archivieren", exact: true }).click();
+  const confirmation = page.getByRole("dialog", { name: "Diesen Eintrag archivieren?", exact: true });
+  await expect(page.locator("dialog[open]")).toHaveCount(1);
+  await confirmation.getByRole("button", { name: "Abbrechen", exact: true }).click();
+  await table.getByText("Aktiver Typ", { exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Archivieren", exact: true }).click();
+  await confirmation.getByRole("button", { name: "Archivieren", exact: true }).click();
+  await expect(page.locator("dialog[open]")).toHaveCount(0);
+  const queue = await page.evaluate(() => JSON.parse(localStorage.getItem("workcore-sync-mutations-v1") ?? "[]").filter((row: { payload: { kind?: string } }) => row.payload.kind === "archive"));
+  expect(queue).toHaveLength(1);
+  expect(queue[0]).toMatchObject({ entityId: types[0].id, expectedRevision: 3, operation: "delete", payload: { kind: "archive", entity: "location_types" } });
+  await page.getByRole("tab", { name: "Lagerplätze", exact: true }).click();
+  const bins = page.getByRole("table", { name: "Lagerplätze", exact: true });
+  await expect(bins).toContainText("Alter Typ");
+  await bins.getByText("Regal Alt", { exact: true }).click();
+  const select = page.getByRole("dialog").getByLabel("Lagerorttyp", { exact: true });
+  await expect(select).toHaveValue(types[1].id);
+  await expect(select.locator("option:checked")).toContainText("Alter Typ (Archiviert)");
+  await page.screenshot({ path: test.info().outputPath(`archived-location-type-${mobile}.png`) });
+  await page.getByRole("dialog").getByRole("button", { name: "Abbrechen", exact: true }).click();
+  await page.getByRole("button", { name: "Neuer Lagerplatz", exact: true }).click();
+  await expect(page.getByRole("dialog").getByLabel("Lagerorttyp", { exact: true }).locator("option").filter({ hasText: "Alter Typ" })).toHaveCount(0);
+});
+
 test("Kommissionierung storniert nur nach Bestaetigung mit Grund und verschwindet aus Scanablauf", async ({ page }) => {
  await page.addInitScript(() => { localStorage.setItem("kolaretorp-updated-at", "2026-10-11T10:00:00Z"); });
  const order = { id: "55555555-5555-4555-8555-555555555555", picking_code: "2026-10-11-00001", job_id: "cancel-job", title: "Stornoprüfung", revision: 1, status: "open", created_at: "2026-10-11T10:00:00Z" };
@@ -354,11 +402,11 @@ for (const mobile of [false, true]) test(`Materialstammdaten und Lagerplaetze bl
   await page.getByRole("button", { name: "Lager & Material", exact: true }).click();
   const tabs = page.getByRole("tablist", { name: "Lager & Material", exact: true });
   await expect(tabs.getByRole("tab")).toHaveCount(5);
-  await expect(page.getByRole("tab", { name: "Materialstammdaten", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("tab", { name: "Material", exact: true })).toHaveCount(0);
   await tabs.getByRole("tab", { name: "Stammdaten", exact: true }).click();
   const masterTabs = page.getByRole("tablist", { name: "Stammdaten", exact: true });
   await expect(masterTabs.getByRole("tab")).toHaveCount(4);
-  const materialsTab = masterTabs.getByRole("tab", { name: "Materialstammdaten", exact: true });
+  const materialsTab = masterTabs.getByRole("tab", { name: "Material", exact: true });
   await expect(materialsTab.locator("svg")).toHaveCount(0);
   await materialsTab.click();
   await expect(materialsTab).toHaveAttribute("aria-selected", "true");
@@ -484,7 +532,7 @@ for (const mobile of [false, true]) test(`Scancodes bleiben Text ${mobile ? "mob
   await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true", { timeout: 30000 });
   await page.getByRole("button", { name: "Lager & Material", exact: true }).click();
   await page.getByRole("tab", { name: "Stammdaten", exact: true }).click();
-  await page.getByRole("tab", { name: "Materialstammdaten", exact: true }).click();
+  await page.getByRole("tab", { name: "Material", exact: true }).click();
   await page.getByRole("button", { name: "Neues Material anlegen", exact: true }).click();
   const material = page.getByRole("dialog", { name: "Neues Material anlegen", exact: true });
   await material.getByLabel("Bezeichnung", { exact: true }).fill("Scan Testmaterial");
@@ -574,7 +622,7 @@ test("Materialaktionen nur im Editor und archivierte Materialzeilen sind bearbei
   await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true", { timeout: 30000 });
   await page.getByRole("button", { name: "Lager & Material", exact: true }).click();
   await page.getByRole("tab", { name: "Stammdaten", exact: true }).click();
-  await page.getByRole("tab", { name: "Materialstammdaten", exact: true }).click();
+  await page.getByRole("tab", { name: "Material", exact: true }).click();
   const row = page.locator("article.clickable-record-row").first();
   const name = await row.locator("strong").first().textContent();
   await expect(row.locator("button")).toHaveCount(0);
@@ -586,7 +634,7 @@ test("Materialaktionen nur im Editor und archivierte Materialzeilen sind bearbei
   await expect(page.getByRole("dialog", { name: "Material bearbeiten", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Material-Dialog schließen", exact: true }).click();
   await expect(page.getByRole("button", { name: "Zurück", exact: true })).toHaveCount(0);
-  await expect(page.getByRole("tab", { name: "Materialstammdaten", exact: true })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tab", { name: "Material", exact: true })).toHaveAttribute("aria-selected", "true");
 });
 
 for (const mobile of [false, true]) test(`Beschaffung ist direkt am Material bearbeitbar statt in der Lageruebersicht ${mobile ? "mobil" : "desktop"}`, async ({ page }) => {
@@ -607,7 +655,7 @@ for (const mobile of [false, true]) test(`Beschaffung ist direkt am Material bea
   await page.getByRole("button", { name: "Lager & Material", exact: true }).click();
   await expect(page.getByRole("table", { name: "Beschaffung", exact: true })).toHaveCount(0);
   await page.getByRole("tab", { name: "Stammdaten", exact: true }).click();
-  await page.getByRole("tab", { name: "Materialstammdaten", exact: true }).click();
+  await page.getByRole("tab", { name: "Material", exact: true }).click();
   await page.getByRole("button", { name: "Material Testmaterial bearbeiten", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Material bearbeiten", exact: true });
   await expect(dialog.getByLabel("Bevorzugter Lieferant", { exact: true })).toHaveValue(supplierId);
@@ -795,7 +843,7 @@ for (const mobile of [false, true]) test(`Materialstammdaten kehren ohne alten L
   await bookings.getByRole("searchbox", { name: "Filter: Buchungsgrund", exact: true }).fill("Anlieferung");
   const reads = statusReads;
   await page.getByRole("tab", { name: "Stammdaten", exact: true }).click();
-  await page.getByRole("tab", { name: "Materialstammdaten", exact: true }).click();
+  await page.getByRole("tab", { name: "Material", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Materialstammdaten", exact: true })).toBeVisible();
   await page.getByRole("tab", { name: "Buchungen", exact: true }).click();
   await expect(material).toBeVisible();

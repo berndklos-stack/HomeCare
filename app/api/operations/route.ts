@@ -122,7 +122,7 @@ export async function GET(request: Request) {
   if (entity === "stock_inventory_items") query = query.order("material_id");
   else query = query.order("id");
   query = query.range(page * 50, page * 50 + 49);
-  if (!immutable.has(entity)) query = query.is("deleted_at", null);
+  if (!immutable.has(entity) && !(entity === "location_types" && params.get("include_archived") === "1")) query = query.is("deleted_at", null);
   if (entity === "location_details" && !params.get("parent") && !params.get("id")) {
     query = params.get("storage_places") === "1" ? query.not("parent_location_id", "is", null) : query.is("parent_location_id", null);
   }

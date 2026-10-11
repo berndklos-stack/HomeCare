@@ -3,6 +3,14 @@ import { requiredOperationsPermission, validateOperationsMutation } from "../lib
 import { createSyncMutation, normalizeSyncQueue, persistSyncMutationBatch, readSyncQueue } from "../lib/syncQueue";
 import { prepareMasterDataMutations } from "../lib/masterDataSync";
 
+test("Lagerorttypen archivieren mit Revision und Stammdatenrechten", () => {
+  const mutation = createSyncMutation({ entityType: "operations", entityId: "11111111-1111-4111-8111-111111111111", operation: "delete", expectedRevision: 2, payload: { kind: "archive", entity: "location_types" } });
+  expect(validateOperationsMutation(mutation)).toEqual({ kind: "archive", entity: "location_types" });
+  expect(requiredOperationsPermission({ kind: "archive", entity: "location_types" }, true)).toBe("data.write");
+  expect(() => validateOperationsMutation({ ...mutation, expectedRevision: undefined })).toThrow();
+  expect(() => validateOperationsMutation({ ...mutation, operation: "update" })).toThrow();
+});
+
 test("Auch das Archivieren von Wartungsplänen erfordert Ressourcenrechte", () => {
   expect(requiredOperationsPermission({ kind: "archive", entity: "maintenance_plans" }, true)).toBe("resources.manage");
   expect(requiredOperationsPermission({ kind: "archive", entity: "suppliers" }, true)).toBe("data.write");

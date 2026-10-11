@@ -1,10 +1,11 @@
 export const appVersion = {
-  version: "1.427.31",
+  version: "1.427.32",
   releaseDate: "2026-10-11",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  { version: "1.427.32", date: "2026-10-11", changes: ["Lagerorttypen in der Einzelansicht mit Bestaetigung archivieren; vorhandene Lagerplatz-Zuordnungen bleiben erhalten", "Archivierte Lagerorttypen aus der aktiven Liste und neuen Zuordnungen entfernen", "Material-Reiter unter Stammdaten kurz als Material beschriften"] },
   { version: "1.427.31", date: "2026-10-11", changes: ["Materialstammdaten, Standorte, Lagerorttypen und Lagerplaetze unter dem gemeinsamen Reiter Stammdaten zusammenfassen", "Vier einzeln aufrufbare Unterreiter mit einheitlicher Darstellung auf Desktop und Handy; Lieferanten bleiben separat"] },
   { version: "1.427.30", date: "2026-10-11", changes: ["Bestellvorschau im Stil der Schadensakte mit bearbeitbarem Betreff und grossem Nachrichtenfeld", "Breites Fenster und einheitliche Buttons auf Desktop und Handy", "Bestaetigte Bestellmails in eigenen Datenbankfeldern protokollieren ohne die Bestellrevision zu veraendern"] },
   { version: "1.427.29", date: "2026-10-11", changes: ["Schadensakten mit eigener Beschreibungsueberschrift, geordneten Belegen und kompakten Vorschau- und Downloadbuttons", "Reklamation mit bearbeitbarem Betreff und Nachricht an Lieferanten senden, inklusive Lieferschein und Schadensfotos", "Versandvermerk und versendeten Text in eigenen Datenbankfeldern speichern"] },
