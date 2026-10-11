@@ -18655,7 +18655,7 @@ function BillingView({
           <h2>Rechnungsprozess</h2>
           <span>{brandName} erstellt Rechnung und Ausgangsbuch; Spiris / Visma erhält die vollständigen Buchhaltungsdaten.</span>
         </div>
-        <button className="primary-button" onClick={onCollectBillable} type="button">
+        <button className="ghost-button outline-button" onClick={onCollectBillable} type="button">
           <Euro size={16} />
           Erledigte Aufträge übernehmen
         </button>

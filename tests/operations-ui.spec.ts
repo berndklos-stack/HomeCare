@@ -106,6 +106,23 @@ for (const mobile of [false, true]) test(`Einheitliche Anlagebuttons und Auswahl
   await expect(status).toHaveCSS("background-color", "rgb(0, 113, 227)");
   await expect(status).toHaveCSS("color", "rgb(255, 255, 255)");
 });
+for (const mobile of [false, true]) test(`Abrechnungsuebernahme im einheitlichen Rahmenstil ${mobile ? "mobil" : "desktop"}`, async ({ page }) => {
+  await page.setViewportSize(mobile ? { width: 390, height: 844 } : { width: 1440, height: 1000 });
+  await mock(page); await page.goto("/"); await ready(page);
+  await page.getByRole("button", { name: "Abrechnung", exact: true }).click();
+  const button = page.getByRole("button", { name: "Erledigte Aufträge übernehmen", exact: true });
+  await expect(button).toBeVisible();
+  await expect(button.locator("svg")).toHaveCount(1);
+  await expect(button).toHaveCSS("background-color", "rgb(255, 255, 255)");
+  await expect(button).toHaveCSS("color", "rgb(0, 113, 227)");
+  await expect(button).toHaveCSS("border-top-color", "rgb(210, 210, 215)");
+  await expect(button).toHaveCSS("border-radius", "8px");
+  const bounds = await button.boundingBox();
+  expect(bounds!.x).toBeGreaterThanOrEqual(0);
+  expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(mobile ? 390 : 1440);
+  await page.screenshot({ path: test.info().outputPath(`billing-outline-${mobile}.png`), fullPage: true });
+});
+
 async function ready(page: Page) {
   await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true", { timeout: 30000 });
 }

@@ -389,7 +389,8 @@ button {
   padding: 9px 12px;
 }
 
-:root button.create-button {
+:root button.create-button,
+:root button.outline-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -410,10 +411,14 @@ button {
   cursor: pointer;
 }
 
-:root button.create-button svg { flex-shrink: 0; }
-:root button.create-button:hover:not(:disabled) { background: var(--paper-soft); }
-:root button.create-button:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
-:root button.create-button:disabled { opacity: .5; cursor: default; }
+:root button.create-button svg,
+:root button.outline-button svg { flex-shrink: 0; }
+:root button.create-button:hover:not(:disabled),
+:root button.outline-button:hover:not(:disabled) { background: var(--paper-soft); }
+:root button.create-button:focus-visible,
+:root button.outline-button:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+:root button.create-button:disabled,
+:root button.outline-button:disabled { opacity: .5; cursor: default; }
 
 .refresh-button.running svg {
   animation: refresh-spin 0.8s linear infinite;
