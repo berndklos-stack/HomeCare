@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { ClipboardList, FileText, Save, X } from "lucide-react";
+import { Plus, FileText, Save, X } from "lucide-react";
 import { apiFetch } from "@/lib/apiClient";
 import { createStableId } from "@/lib/syncQueue";
 import { inventoryLocationPath, inventoryPlanPdf, orderInventoryItems, type InventoryLocation, type InventoryPlan } from "@/lib/inventoryPlan";
@@ -96,7 +96,7 @@ export function InventoryPlanner({ language, materials, locations, balances, pen
     setPlan({ ...plan, items: plan.items.map((entry) => key(entry.location_id, entry.material_id) === key(locationId, materialId) ? { ...entry, counted: value === "" ? null : Number(value) } : entry) });
   };
   return <>
-    <div className={styles.toolbar}><button className={styles.primaryAction} disabled={blocked || busy || !ready} onClick={() => { setPlan({ id: createStableId(), revision: 0, note: "", items: [] }); setSelected([]); setZero(false); setError(""); setSaved(false); setDirty(false); setClosing(false); }}><ClipboardList size={18} />{t.new}</button></div>
+    <div className={styles.toolbar}><button className={styles.primaryAction + " create-button"} disabled={blocked || busy || !ready} onClick={() => { setPlan({ id: createStableId(), revision: 0, note: "", items: [] }); setSelected([]); setZero(false); setError(""); setSaved(false); setDirty(false); setClosing(false); }}><Plus size={18} />{t.new}</button></div>
     {!plan && error && <p role="alert">{error}</p>}
     <OperationsDataTable rows={plans.map((entry) => ({ ...entry }))} label={t.plans} filterLabel={t.filter} emptyLabel={t.empty} actionsLabel="" columns={[
       { key: "id", label: t.id, value: (row) => String(row.id) },

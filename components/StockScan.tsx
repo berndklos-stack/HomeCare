@@ -6,7 +6,7 @@ import { apiFetch } from "@/lib/apiClient";
 import { createStableId, type SyncMutation } from "@/lib/syncQueue";
 import { validateOperationsMutation } from "@/lib/operationsCommands";
 import { operationLabel } from "@/lib/operationsUi";
-import { TripDialog } from "./TripDialog";
+import { ScanSurface } from "./ScanSurface";
 import { CodeCamera } from "./CodeCamera";
 import styles from "./OperationsWorkspace.module.css";
 import type { PickingItem, PickingOrder } from "@/lib/picking";
@@ -16,11 +16,11 @@ type Location = { id: string; name: string; location_code: string; parent_locati
 type Balance = { rows: { location_id: string; quantity: number }[] };
 type TargetJob = { id: string; name: string; code: string; status: string; billable?: boolean };
 
-export function StockScan({ materials, language, queue, enqueue, onClose, onQueued, picking, issue }: {
+export function StockScan({ materials, language, queue, enqueue, onClose, onQueued, picking, issue, inline }: {
   materials: Material[]; language: "de" | "sv" | "en"; queue: SyncMutation[];
   enqueue: (input: Parameters<typeof import("@/lib/syncQueue").createSyncMutation>[0]) => unknown;
   onClose: () => void; onQueued: () => void;
-  issue?: boolean;
+  issue?: boolean; inline?: boolean;
   picking?: { order: PickingOrder; items: PickingItem[]; onBook: (input: { id: string; material: string; source: string; destination: string; quantity: number }) => Promise<void> };
 }) {
   const t = (key: string) => operationLabel(key, language);
@@ -148,8 +148,8 @@ export function StockScan({ materials, language, queue, enqueue, onClose, onQueu
     finally { locked.current = false; if (alive.current) setBusy(false); }
   }
 
-  return <TripDialog labelledBy="stock-scan-title" onClose={() => { if (!busy) onClose(); }} className={styles.dialog}>
-    <header className={styles.dialogHeader}><div><p>{t("inventorySection")}</p><h2 id="stock-scan-title">{t(issue ? "goodsIssueDirect" : picking ? "pickingScan" : "scanTransfer")}</h2></div><button type="button" disabled={busy} aria-label={t("close")} onClick={onClose}><X size={18} /></button></header>
+  return <ScanSurface inline={inline} labelledBy="stock-scan-title" onClose={() => { if (!busy) onClose(); }} className={styles.dialog}>
+    <header className={styles.dialogHeader}><div><p>{t("inventorySection")}</p><h2 id="stock-scan-title">{t(issue ? "goodsIssueDirect" : picking ? "pickingScan" : "scanTransfer")}</h2></div><button type="button" disabled={busy} aria-label={t(inline ? "scanBack" : "close")} title={t(inline ? "scanBack" : "close")} onClick={onClose}>{inline ? <ArrowLeft size={18} /> : <X size={18} />}</button></header>
     <ol className={styles.scanSteps}>{steps.map((label, index) => <li key={label} aria-current={step === index ? "step" : undefined}><span>{index < step ? <Check size={14} /> : index + 1}</span>{label}</li>)}</ol>
     {!loaded && <p role={loadError ? "alert" : "status"}>{t(loadError ? "OPERATIONS_UNAVAILABLE" : "loading")}{loadError && <button type="button" onClick={() => setReload((value) => value + 1)}>{t("retry")}</button>}</p>}
     <dl className={styles.itemFacts}>
@@ -174,5 +174,5 @@ export function StockScan({ materials, language, queue, enqueue, onClose, onQueu
     </form>}
     {error && <p role="alert">{t(error)}</p>}
     {step < 3 && <footer className={styles.actions}>{step > 0 && <button type="button" onClick={() => { setCamera(false); setCode(""); setError(""); if (step === 1) { setMaterial(null); setSource(null); setDestination(null); } else { setSource(null); setDestination(null); } setStep(step - 1); }}><ArrowLeft size={18} />{t("scanBack")}</button>}<button type="button" onClick={onClose}>{t("cancel")}</button></footer>}
-  </TripDialog>;
+  </ScanSurface>;
 }

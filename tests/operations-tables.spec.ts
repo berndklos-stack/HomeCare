@@ -3,6 +3,53 @@ import QRCode from "qrcode";
 import { readFileSync } from "node:fs";
 import { storageLocationPath } from "../lib/locationLabel";
 
+for (const mobile of [false, true]) test(`Standort archivieren erhaelt Lagerplaetze und Kennung ${mobile ? "mobil" : "desktop"}`, async ({ page }) => {
+  await page.setViewportSize(mobile ? { width: 390, height: 844 } : { width: 1440, height: 1000 });
+  await page.addInitScript(() => {
+    localStorage.setItem("kolaretorp-updated-at", "2026-10-11T12:00:00Z");
+    localStorage.setItem("kolaretorp-field-progress", JSON.stringify({ "archive-site-test": {} }));
+    localStorage.setItem("kolaretorp-inventory-locations", JSON.stringify([
+      { id: "archive-site", name: "Archivtest Standort", locationCode: "SITE-01", note: "Erhalten", revision: 7 },
+      { id: "archive-child", name: "Regal 1", parentLocationId: "archive-site", locationCode: "REG-01", revision: 2 },
+    ]));
+  });
+  await page.route("**/api/operations?**", (route) => {
+    const params = new URL(route.request().url()).searchParams;
+    if (params.get("entity") === "stock_status") return route.fulfill({ json: { active: true } });
+    const rows = params.get("entity") === "location_details" ? params.get("storage_places") === "1"
+      ? [{ id: "archive-child", name: "Regal 1", parent_location_id: "archive-site", revision: 2 }]
+      : [{ id: "archive-site", name: "Archivtest Standort", location_code: "SITE-01", note: "Erhalten", revision: 7 }] : [];
+    return route.fulfill({ json: { rows, count: rows.length } });
+  });
+  await page.route("**/api/sync-mutations", (route) => route.fulfill({ status: 503, json: { error: "OFFLINE_TEST" } }));
+  await page.goto("/"); await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true", { timeout: 30000 });
+  async function openLocations() {
+    await page.getByRole("button", { name: "Lager & Material", exact: true }).click();
+    await page.getByRole("tab", { name: "Stammdaten", exact: true }).click();
+    await page.getByRole("tab", { name: "Standorte", exact: true }).click();
+  }
+  await openLocations();
+  const table = page.getByRole("table", { name: "Standorte", exact: true });
+  const confirmation = page.getByRole("dialog", { name: "Diesen Eintrag archivieren?", exact: true });
+  await table.getByText("Archivtest Standort", { exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Archivieren", exact: true }).click();
+  await confirmation.getByRole("button", { name: "Abbrechen", exact: true }).click();
+  await expect(table).toContainText("Archivtest Standort");
+  await table.getByText("Archivtest Standort", { exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Archivieren", exact: true }).click();
+  await expect(page.locator("dialog[open]")).toHaveCount(1);
+  await confirmation.getByRole("button", { name: "Archivieren", exact: true }).click();
+  const queue = await page.evaluate(() => JSON.parse(localStorage.getItem("workcore-sync-mutations-v1") ?? "[]").filter((row: { entityType: string }) => row.entityType === "inventory_location"));
+  expect(queue).toHaveLength(1);
+  expect(queue[0]).toMatchObject({ entityId: "archive-site", operation: "update", expectedRevision: 7, payload: { archived: true, locationCode: "SITE-01", note: "Erhalten" } });
+  await expect(table).not.toContainText("Archivtest Standort");
+  await page.reload(); await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true"); await openLocations();
+  await expect(table).not.toContainText("Archivtest Standort");
+  await page.getByRole("tab", { name: "Lagerplätze", exact: true }).click();
+  await expect(page.getByRole("table", { name: "Lagerplätze", exact: true })).toContainText("Regal 1");
+  await page.screenshot({ path: test.info().outputPath(`archived-site-${mobile}.png`), fullPage: true });
+});
+
 for (const mobile of [false, true]) test(`Lagerorttypen archivieren mit Bestaetigung und erhaltenen Zuordnungen ${mobile ? "mobil" : "desktop"}`, async ({ page }) => {
   await page.setViewportSize(mobile ? { width: 390, height: 844 } : { width: 1440, height: 1000 });
   const types = [
@@ -65,10 +112,10 @@ test("Kommissionierung storniert nur nach Bestaetigung mit Grund und verschwinde
  });
  await page.goto("/"); await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true", { timeout: 30000 });
  await page.getByRole("button", { name: "Lager & Material", exact: true }).click(); await page.getByRole("tab", { name: "Scanabläufe", exact: true }).click();
- await page.getByRole("dialog", { name: "Scanabläufe", exact: true }).getByRole("button", { name: "Kommissionierung", exact: true }).click();
+ await page.getByRole("region", { name: "Scanabläufe", exact: true }).getByRole("button", { name: "Kommissionierung", exact: true }).click();
  await page.getByRole("combobox", { name: "Kommissionierauftrag auswählen", exact: true }).selectOption(order.id);
  await page.getByRole("button", { name: "Kommissionierung stornieren", exact: true }).click();
- const confirm = page.getByRole("dialog", { name: "Kommissionierung wirklich stornieren?", exact: true });
+ const confirm = page.getByRole("region", { name: "Kommissionierung wirklich stornieren?", exact: true });
  await expect(confirm.getByRole("button", { name: "Kommissionierung wirklich stornieren?", exact: true })).toBeDisabled();
  await confirm.getByRole("button", { name: "Abbrechen", exact: true }).click(); expect(posts).toHaveLength(0);
  await page.getByRole("button", { name: "Kommissionierung stornieren", exact: true }).click();
@@ -123,7 +170,7 @@ for (const mobile of [false, true]) test(`Kommissionierplatz Abholcode und Auftr
  });
  await page.goto("/"); await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true", { timeout: 30000 });
  await page.getByRole("button", { name: "Lager & Material", exact: true }).click(); await page.getByRole("tab", { name: "Scanabläufe", exact: true }).click();
- await page.getByRole("dialog", { name: "Scanabläufe", exact: true }).getByRole("button", { name: "Kommissionierung", exact: true }).click();
+ await page.getByRole("region", { name: "Scanabläufe", exact: true }).getByRole("button", { name: "Kommissionierung", exact: true }).click();
  if (mobile) {
   const choice = page.getByRole("combobox", { name: "Kommissionierauftrag auswählen", exact: true });
   await expect(choice.getByRole("option")).toHaveCount(52);
@@ -141,7 +188,7 @@ for (const mobile of [false, true]) test(`Kommissionierplatz Abholcode und Auftr
  await expect(page.getByText(`Kommissioniercode: ${order.picking_code} · Offen`, { exact: true })).toBeVisible();
  await expect(page.getByText(`ID: ${order.id}`, { exact: false })).toHaveCount(0);
  await page.getByRole("button", { name: "Kommissionierung scannen", exact: true }).click();
- const scan = page.getByRole("dialog", { name: "Kommissionierung scannen", exact: true }), code = scan.getByRole("textbox", { name: "Code", exact: true });
+ const scan = page.getByRole("region", { name: "Kommissionierung scannen", exact: true }), code = scan.getByRole("textbox", { name: "Code", exact: true });
  for (const value of ["PICK-MAT", "SOURCE", "STAGING"]) { await code.fill(value); await code.press("Enter"); }
  await scan.getByRole("spinbutton", { name: "Menge", exact: true }).fill("2.5"); await scan.getByRole("button", { name: "Umlagerung buchen", exact: true }).click();
  await expect(page.getByText(`Abholcode: AB-${order.picking_code}`, { exact: true })).toBeVisible();
@@ -155,7 +202,7 @@ for (const mobile of [false, true]) test(`Kommissionierplatz Abholcode und Auftr
  expect(pdfContents).toContain(`Kommissioniercode: ${order.picking_code}`);
  expect(pdfContents).not.toContain(order.id);
  await page.getByRole("button", { name: "Abholung scannen", exact: true }).click();
- const dispatch = page.getByRole("dialog", { name: "Abholung scannen", exact: true });
+ const dispatch = page.getByRole("region", { name: "Abholung scannen", exact: true });
  const pickupInput = dispatch.getByRole("textbox", { name: "Abholcode", exact: true }); await pickupInput.fill("WRONG"); await pickupInput.press("Enter"); await expect(dispatch.getByRole("alert")).toContainText("Abholcode");
  await pickupInput.fill(mobile ? `AB-${order.picking_code}` : `PICKUP:${pickup}`); await pickupInput.press("Enter");
  const target = dispatch.getByRole("textbox", { name: "Auftragscode / Fahrzeugcode", exact: true }); await target.fill("OBJECT-NO-BOOK"); await target.press("Enter"); await expect(dispatch.getByRole("alert")).toContainText("nicht bebucht");
@@ -200,13 +247,13 @@ for (const mode of ["alias", "legacy", "scanner", "camera", "vehicle"]) test(`Ab
  });
  await page.goto("/"); await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true", { timeout: 30000 });
  await page.getByRole("button", { name: "Lager & Material", exact: true }).click(); await page.getByRole("tab", { name: "Scanabläufe", exact: true }).click();
- await page.getByRole("dialog", { name: "Scanabläufe", exact: true }).getByRole("button", { name: "Warenausgang & Abholung", exact: true }).click();
+ await page.getByRole("region", { name: "Scanabläufe", exact: true }).getByRole("button", { name: "Warenausgang & Abholung", exact: true }).click();
  if (mode === "camera") await page.getByRole("button", { name: "Mit Kamera scannen", exact: true }).click();
  else {
   const input = page.getByRole("textbox", { name: "Abholcode", exact: true });
   await input.fill(mode === "legacy" ? `PICKUP:${pickup}` : mode === "scanner" ? `]Q3${alias.toLowerCase()}` : alias); await input.press("Enter");
  }
- const dispatch = page.getByRole("dialog", { name: "Abholung scannen", exact: true });
+ const dispatch = page.getByRole("region", { name: "Abholung scannen", exact: true });
  await expect(dispatch.getByRole("status").filter({ hasText: "Abholcode erkannt" })).toBeVisible();
  const target = dispatch.getByRole("textbox", { name: "Auftragscode / Fahrzeugcode", exact: true }); await expect(target).toBeVisible();
  await expect(dispatch.getByRole("textbox", { name: "Abholcode", exact: true })).toHaveCount(0);
@@ -237,9 +284,10 @@ for (const mobile of [false, true]) test(`Lieferungen ohne Bestellung in Einkauf
  const table = page.getByRole("table", { name: "Lieferungen ohne Bestellung", exact: true });
  await expect(table).toContainText("4321"); await expect(table).toContainText("Bernd Klos");
  await table.getByText("4321", { exact: true }).click();
- const dialog = page.getByRole("dialog", { name: "Lieferscheinnummer: 4321", exact: true });
+ const dialog = page.getByRole("region", { name: "Lieferscheinnummer: 4321", exact: true });
  await expect(dialog).toContainText("L2838"); await expect(dialog).toContainText("60 Meter"); await expect(dialog).toContainText("SCAN-L2838");
- await expect(page.locator("dialog[open]")).toHaveCount(1);
+ await expect(page.locator("dialog[open]")).toHaveCount(0);
+ await expect(page.getByRole("table", { name: "Bestellungen", exact: true })).not.toBeVisible();
  expect(reads.some((url) => new URL(url).searchParams.get("id") === receipt.id)).toBe(true);
  await page.screenshot({ path: testInfo.outputPath(`delivery-without-order-${mobile}.png`), fullPage: true });
  await dialog.getByRole("button", { name: "Zurück", exact: true }).click(); await expect(table).toBeVisible();
@@ -266,7 +314,8 @@ for (const withOrder of [false, true]) test(`Scan-Auswahl und gemeinsamer Warene
  await page.goto("/"); await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true", { timeout: 30000 });
  await page.getByRole("button", { name: "Lager & Material", exact: true }).click();
  await page.getByRole("tab", { name: "Scanabläufe", exact: true }).click();
- const chooser = page.getByRole("dialog", { name: "Scanabläufe", exact: true });
+ const chooser = page.getByRole("region", { name: "Scanabläufe", exact: true });
+ await expect(page.getByRole("dialog")).toHaveCount(0);
  for (const name of ["Wareneingang scannen", "Kommissionierung", "Warenausgang & Abholung", "Umlagerung scannen"]) await expect(chooser.getByRole("button", { name, exact: true })).toBeVisible();
  await page.screenshot({ path: `test-results/scan-chooser-${withOrder}-${testInfo.project.name}.png` });
  await chooser.getByRole("button", { name: "Wareneingang scannen", exact: true }).click();
@@ -316,8 +365,9 @@ for (const mobile of [false, true]) test(`Scan-Umlagerung mit Teilmenge und Best
   await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true", { timeout: 30000 });
   await page.getByRole("button", { name: "Lager & Material", exact: true }).click();
   await page.getByRole("tab", { name: "Scanabläufe", exact: true }).click();
-  await page.getByRole("dialog", { name: "Scanabläufe", exact: true }).getByRole("button", { name: "Umlagerung scannen", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "Umlagerung scannen", exact: true });
+  await page.getByRole("region", { name: "Scanabläufe", exact: true }).getByRole("button", { name: "Umlagerung scannen", exact: true }).click();
+  const dialog = page.getByRole("region", { name: "Umlagerung scannen", exact: true });
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   const code = dialog.getByRole("textbox", { name: "Code", exact: true });
   await expect(code).toBeVisible();
   await dialog.getByRole("button", { name: "Mit Kamera scannen", exact: true }).click();
@@ -375,12 +425,12 @@ test("Kamera liest echten QR-Code und beendet den Videostream", async ({ page, b
   await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true", { timeout: 30000 });
   await page.getByRole("button", { name: "Lager & Material", exact: true }).click();
   await page.getByRole("tab", { name: "Scanabläufe", exact: true }).click();
-  await page.getByRole("dialog", { name: "Scanabläufe", exact: true }).getByRole("button", { name: "Umlagerung scannen", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "Umlagerung scannen", exact: true });
+  await page.getByRole("region", { name: "Scanabläufe", exact: true }).getByRole("button", { name: "Umlagerung scannen", exact: true }).click();
+  const dialog = page.getByRole("region", { name: "Umlagerung scannen", exact: true });
   await dialog.getByRole("button", { name: "Mit Kamera scannen", exact: true }).click();
   await expect(dialog).toContainText("Kameramaterial");
   await expect.poll(() => page.evaluate(() => (window as unknown as { scanTestStream: MediaStream }).scanTestStream.getTracks().map((track) => track.readyState))).toEqual(["ended"]);
-  await dialog.getByRole("button", { name: "Schließen", exact: true }).click();
+  await dialog.getByRole("button", { name: "Zurück", exact: true }).first().click();
 });
 
 for (const mobile of [false, true]) test(`Materialstammdaten und Lagerplaetze bleiben in der Reiteransicht ${mobile ? "mobil" : "desktop"}`, async ({ page }) => {
@@ -781,7 +831,7 @@ for (const mobile of [false, true]) test(`Materialstammdaten kehren ohne alten L
     if (entity === "stock_movements") return route.fulfill({ json: { rows: [
       { id: "movement-1", quantity: 55, source_id: null, destination_id: "test-location", occurred_at: "2026-10-09T07:37:26Z", note: "Anlieferung", actor_user_id: "1924d8ca-0781-42e3-98cf-3aa69fcc1f90", actor_name: "Bernd Klos" },
       { id: "movement-2", quantity: 5, source_id: "test-location", destination_id: null, occurred_at: "2026-10-09T08:37:26Z", note: "Inventur [525ebe5c-92e5-40d2-a5b8-28892576d623]: INV 001" },
-      { id: "movement-3", quantity: 2, source_id: "test-location", destination_id: "other-location", occurred_at: "2026-10-09T09:37:26Z", note: "Transport" },
+      { id: "movement-3", quantity: 2, source_id: "test-location", destination_id: "other-location", occurred_at: "2026-10-09T09:37:26Z", note: "Transport mit einer sehr langen Buchungsbeschreibung zur Kontrolle der kompakten zweizeiligen Darstellung ohne Verlust der vollstaendigen Angaben" },
     ], count: 3 } });
     return route.fulfill({ json: { rows: [], count: 0 } });
   });
@@ -797,9 +847,18 @@ for (const mobile of [false, true]) test(`Materialstammdaten kehren ohne alten L
   expect(value).toBeTruthy();
   await material.selectOption(value!);
   await expect(page.getByRole("table", { name: "Buchungen", exact: true })).toHaveCount(0);
-  await page.getByRole("tab", { name: "Buchungen", exact: true }).click();
+  await page.getByRole("button", { name: "Buchungen", exact: true }).click();
+  await expect(material).toHaveValue(value!);
+  await expect(page.getByRole("tab", { name: "Buchungen", exact: true })).toHaveAttribute("aria-selected", "true");
   const bookings = page.getByRole("table", { name: "Buchungen", exact: true });
   await expect(bookings).toContainText("Anlieferung");
+  const longNote = bookings.getByText("Transport mit einer sehr langen Buchungsbeschreibung", { exact: false });
+  await expect(longNote).toHaveCSS("-webkit-line-clamp", "2");
+  expect((await longNote.boundingBox())!.height).toBeLessThanOrEqual(40);
+  for (const row of await bookings.locator("tbody tr").all()) {
+    expect((await row.boundingBox())!.height).toBeLessThanOrEqual(80);
+  }
+  await page.screenshot({ path: `test-results/compact-bookings-${mobile ? "mobile" : "desktop"}-${test.info().project.name}.png` });
   await expect(bookings.getByRole("columnheader", { name: "Gebucht von", exact: true })).toBeVisible();
   await expect(bookings.getByRole("columnheader", { name: "Gebucht am", exact: true })).toBeVisible();
   await expect(bookings).toContainText("Bernd Klos");
@@ -815,7 +874,7 @@ for (const mobile of [false, true]) test(`Materialstammdaten kehren ohne alten L
   const directionColors = [];
   for (const direction of ["Eingang", "Ausgang", "Umbuchung"]) {
     await expect(bookings.getByText(direction, { exact: true })).toBeVisible();
-    const indicator = bookings.locator(`[title="${direction}"]`);
+    const indicator = bookings.locator(`span[title="${direction}"]`);
     await expect(indicator.locator("svg")).toHaveCount(1);
     directionColors.push(await indicator.evaluate((node) => getComputedStyle(node).color));
   }
@@ -903,13 +962,13 @@ for (const mobile of [false, true]) test(`Spaltenfilter kombinieren alle Liefera
   await expect(table.locator("tbody tr")).toHaveCount(1);
   await expect(table.locator("tbody")).toContainText("Supplier 54");
   await table.locator("tbody tr td").nth(1).click();
-  await expect(page.getByRole("dialog", { name: "Lieferanten", exact: true })).toBeVisible();
-  await expect(page.getByRole("dialog").getByLabel("Unternehmen", { exact: true })).toHaveValue("Supplier 54");
-  await page.getByRole("dialog").getByRole("button", { name: "Schließen", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Lieferanten", exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Lieferanten", exact: true }).getByLabel("Unternehmen", { exact: true })).toHaveValue("Supplier 54");
+  await page.getByRole("region", { name: "Lieferanten", exact: true }).getByRole("button", { name: "Zurück", exact: true }).click();
   await table.locator("tbody tr").focus();
   await page.keyboard.press("Enter");
-  await expect(page.getByRole("dialog", { name: "Lieferanten", exact: true })).toBeVisible();
-  await page.getByRole("dialog").getByRole("button", { name: "Schließen", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Lieferanten", exact: true })).toBeVisible();
+  await page.getByRole("region", { name: "Lieferanten", exact: true }).getByRole("button", { name: "Zurück", exact: true }).click();
   await table.getByRole("searchbox", { name: "Filter: Unternehmen", exact: true }).fill("missing");
   await expect(table.locator("tbody")).toContainText("Keine Einträge");
   await table.getByRole("searchbox", { name: "Filter: Unternehmen", exact: true }).fill("");

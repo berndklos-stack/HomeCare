@@ -43,6 +43,69 @@ for (const mobile of [false, true]) {
 }
 
 const supplier = { id: "11111111-1111-4111-8111-111111111111", supplier_number: "S-1", company: "Test Supplier", revision: 1, archived: false };
+
+for (const mobile of [false, true]) test(`Scanablaeufe und Folgeschritte ohne Popup ${mobile ? "mobil" : "desktop"}`, async ({ page }) => {
+  await page.setViewportSize(mobile ? { width: 390, height: 844 } : { width: 1440, height: 1000 });
+  await mock(page);
+  await page.route("**/api/picking-orders**", (route) => route.fulfill({ json: { rows: [], count: 0 } }));
+  await page.goto("/"); await ready(page);
+  await page.getByRole("button", { name: "Lager & Material", exact: true }).click();
+  await page.getByRole("tab", { name: "Scanabläufe", exact: true }).click();
+  const chooser = page.getByRole("region", { name: "Scanabläufe", exact: true });
+  for (const flow of ["Wareneingang scannen", "Kommissionierung", "Warenausgang & Abholung", "Umlagerung scannen"]) {
+    await expect(chooser).toBeVisible(); await expect(page.getByRole("dialog")).toHaveCount(0);
+    await chooser.getByRole("button", { name: flow, exact: true }).click();
+    await expect(page.getByRole("heading", { name: flow, exact: true }).first()).toBeVisible();
+    await expect(chooser).toHaveCount(0); await expect(page.getByRole("dialog")).toHaveCount(0);
+    if (flow === "Warenausgang & Abholung") {
+      await page.getByRole("button", { name: "Warenausgang ohne Kommissionierung", exact: true }).click();
+      await expect(page.getByRole("region", { name: "Warenausgang ohne Kommissionierung", exact: true })).toBeVisible();
+      await expect(page.getByRole("dialog")).toHaveCount(0);
+    }
+    const overflow = await page.locator("main.app").evaluate((element) => element.scrollWidth > innerWidth);
+    expect(overflow).toBe(false);
+    await page.screenshot({ path: test.info().outputPath(`inline-scan-${flow}-${mobile}.png`), fullPage: true });
+    await page.getByRole("button", { name: "Scanablauf auswählen", exact: true }).click();
+  }
+});
+
+for (const mobile of [false, true]) test(`Einheitliche Anlagebuttons und Auswahlfarben ${mobile ? "mobil" : "desktop"}`, async ({ page }) => {
+  await page.setViewportSize(mobile ? { width: 390, height: 844 } : { width: 1440, height: 1000 });
+  await mock(page); await page.goto("/"); await ready(page);
+  async function checkCreate(name: string) {
+    const button = page.getByRole("button", { name, exact: true });
+    await expect(button).toBeVisible();
+    await expect(button).toHaveClass(/create-button/);
+    await expect(button.locator("svg.lucide-plus")).toHaveCount(1);
+    const colors = await button.evaluate((element) => {
+      const css = getComputedStyle(element), box = element.getBoundingClientRect();
+      return { background: css.backgroundColor, color: css.color, border: css.borderTopColor, radius: css.borderRadius, left: box.left, right: box.right };
+    });
+    expect(colors).toMatchObject({ background: "rgb(255, 255, 255)", color: "rgb(0, 113, 227)", border: "rgb(210, 210, 215)", radius: "8px" });
+    expect(colors.left).toBeGreaterThanOrEqual(0); expect(colors.right).toBeLessThanOrEqual(mobile ? 390 : 1440);
+  }
+  for (const [section, label] of [["Projekte & Objekte", "Neues Projekt / Objekt"], ["Kunden", "Neuer Kunde"], ["Aufträge", "Neuer Auftrag"]]) {
+    await page.getByRole("button", { name: section, exact: true }).click(); await checkCreate(label);
+  }
+  await page.getByRole("button", { name: "Stammdaten", exact: true }).click();
+  for (const [section, label] of [["Personal", "Neues Personal anlegen"], ["Ressourcen", "Neue Ressource anlegen"], ["Leistungen", "Neue Leistung anlegen"]]) {
+    await page.getByRole("button", { name: section, exact: true }).click(); await checkCreate(label);
+  }
+  await checkCreate("Neues Paket anlegen");
+  await page.getByRole("button", { name: "Lager & Material", exact: true }).click();
+  const tabs = page.getByRole("tablist", { name: "Lager & Material", exact: true });
+  await expect(tabs.getByRole("tab", { name: "Buchungen", exact: true })).toHaveCSS("color", "rgb(110, 110, 115)");
+  await expect(tabs.getByRole("tab", { name: "Bestandsübersicht", exact: true })).toHaveCSS("background-color", "rgb(0, 113, 227)");
+  await expect(tabs.getByRole("tab", { name: "Bestandsübersicht", exact: true })).toHaveCSS("color", "rgb(255, 255, 255)");
+  await tabs.getByRole("tab", { name: "Stammdaten", exact: true }).click(); await checkCreate("Neues Material anlegen");
+  await page.getByRole("tab", { name: "Standorte", exact: true }).click(); await checkCreate("Neuer Lagerort");
+  await page.screenshot({ path: test.info().outputPath(`create-buttons-${mobile}.png`), fullPage: true });
+  await page.getByRole("button", { name: "Lieferanten & Einkauf", exact: true }).click(); await checkCreate("Neu");
+  await page.getByRole("button", { name: "Aufträge", exact: true }).click();
+  const status = page.locator(".status-filter-bar button.active").first();
+  await expect(status).toHaveCSS("background-color", "rgb(0, 113, 227)");
+  await expect(status).toHaveCSS("color", "rgb(255, 255, 255)");
+});
 async function ready(page: Page) {
   await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true", { timeout: 30000 });
 }
@@ -112,7 +175,7 @@ for (const mobile of [false, true]) {
     await page.screenshot({ path: `test-results/supplier-contacts-${mobile ? "mobile" : "desktop"}-${test.info().project.name}.png` });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await row.locator("td").first().click();
-    await page.getByRole("dialog").getByRole("button", { name: "Kontakte", exact: true }).click();
+    await page.getByRole("region", { name: "Lieferanten", exact: true }).getByRole("button", { name: "Kontakte", exact: true }).click();
     const contact = page.getByRole("row").filter({ hasText: "Test Contact" });
     await expect(contact.getByRole("link", { name: "Telefon: +46 70 999 88 77", exact: true })).toHaveAttribute("href", "tel:+46709998877");
     await expect(contact.getByRole("link", { name: "E-Mail: contact@example.se", exact: true })).toHaveAttribute("href", "mailto:contact%40example.se");
@@ -124,14 +187,14 @@ for (const mobile of [false, true]) {
   });
 }
 for (const mobile of [false, true]) {
-  test(`Lieferantenformular, Abbruch, durable Queue und Modal ${mobile ? "mobil" : "desktop"}`, async ({ page }) => {
+  test(`Lieferantenformular auf der Seite, Abbruch und dauerhafte Queue ${mobile ? "mobil" : "desktop"}`, async ({ page }) => {
     await page.setViewportSize(mobile ? { width: 390, height: 844 } : { width: 1440, height: 1000 });
     await mock(page); await page.goto("/"); await ready(page); await purchasing(page);
     await page.getByRole("row").filter({ hasText: "Test Supplier" }).locator("td").first().click();
-    const dialog = page.getByRole("dialog");
+    const dialog = page.getByRole("region", { name: "Lieferanten", exact: true });
     await expect(dialog).toBeVisible();
-    expect(await dialog.evaluate((e) => e.matches(":modal"))).toBe(true);
-    await dialogLayout(page);
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(page.getByRole("table", { name: "Lieferanten", exact: true })).not.toBeVisible();
     await page.screenshot({ path: `test-results/supplier-form-${mobile ? "mobile" : "desktop"}-${test.info().project.name}.png` });
     await dialog.getByLabel("Unternehmen", { exact: true }).fill("Cancelled change");
     await dialog.getByRole("button", { name: "Abbrechen", exact: true }).click();
@@ -303,7 +366,7 @@ test("Offline-Lieferant wird nach Wiederverbindung genau einmal bestätigt und b
   });
   await page.goto("/"); await ready(page); await purchasing(page);
   await page.getByRole("button", { name: "Neu", exact: true }).click();
-  const dialog = page.getByRole("dialog");
+  const dialog = page.getByRole("region", { name: "Lieferanten", exact: true });
   await dialog.getByLabel("Lieferantennummer", { exact: true }).fill("S-OFFLINE");
   await dialog.getByLabel("Unternehmen", { exact: true }).fill("Reconnect Supplier");
   await page.context().setOffline(true);
@@ -445,9 +508,9 @@ for (const mobile of [false, true]) {
   await expect(summary).toContainText("15.10.2026");
   await expect(summary).toContainText("1 / 2");
   await summary.getByRole("button", { name: "Positionen", exact: true }).click();
-  const orderDialog = page.getByRole("dialog", { name: "Bestellungen PO-DETAIL", exact: true });
+  const orderDialog = page.getByRole("region", { name: "Bestellungen PO-DETAIL", exact: true });
   await expect(orderDialog).toBeVisible();
-  await expect(page.locator("dialog[open]")).toHaveCount(1);
+  await expect(page.locator("dialog[open]")).toHaveCount(0);
   expect(await orderDialog.locator("table").evaluate((table) => table.scrollWidth <= table.parentElement!.clientWidth)).toBe(true);
   await page.screenshot({ path: `test-results/purchase-order-${mobile ? "mobile" : "desktop"}-${test.info().project.name}.png` });
   const table = page.getByRole("table");
@@ -471,7 +534,7 @@ for (const mobile of [false, true]) {
   await page.getByRole("dialog").getByRole("button", { name: "Abbrechen", exact: true }).click();
   await expect(table).toBeVisible();
   await expect(orderDialog).toBeVisible();
-  await orderDialog.getByRole("button", { name: "Schließen", exact: true }).click();
+  await orderDialog.getByRole("button", { name: "Zurück", exact: true }).click();
   await expect(page.getByRole("table", { name: "Bestellungen", exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
  });
@@ -512,7 +575,7 @@ for (const mobile of [false, true]) {
     await page.setViewportSize(mobile ? { width: 390, height: 844 } : { width: 1440, height: 1000 });
     await mock(page); await page.goto("/"); await ready(page); await purchasing(page);
     await page.getByRole("row").filter({ hasText: "Test Supplier" }).locator("td").first().click();
-    await page.getByRole("dialog").getByRole("button", { name: "Archivieren", exact: true }).click();
+    await page.getByRole("region", { name: "Lieferanten", exact: true }).getByRole("button", { name: "Archivieren", exact: true }).click();
     await dialogLayout(page, 300);
     await page.getByRole("dialog").getByRole("button", { name: "Schließen", exact: true }).click();
     await expect(page.getByRole("dialog")).toHaveCount(0);

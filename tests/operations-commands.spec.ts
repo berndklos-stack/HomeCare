@@ -4,7 +4,7 @@ import { createSyncMutation, normalizeSyncQueue, persistSyncMutationBatch, readS
 import { prepareMasterDataMutations } from "../lib/masterDataSync";
 
 test("Lagerorttypen archivieren mit Revision und Stammdatenrechten", () => {
-  const mutation = createSyncMutation({ entityType: "operations", entityId: "11111111-1111-4111-8111-111111111111", operation: "delete", expectedRevision: 2, payload: { kind: "archive", entity: "location_types" } });
+  const mutation = createSyncMutation({ entityType: "operations", entityId: "11111111-1111-4111-8111-111111111111", resourceId: "11111111-1111-4111-8111-111111111111", operation: "delete", expectedRevision: 2, payload: { kind: "archive", entity: "location_types" } });
   expect(validateOperationsMutation(mutation)).toEqual({ kind: "archive", entity: "location_types" });
   expect(requiredOperationsPermission({ kind: "archive", entity: "location_types" }, true)).toBe("data.write");
   expect(() => validateOperationsMutation({ ...mutation, expectedRevision: undefined })).toThrow();

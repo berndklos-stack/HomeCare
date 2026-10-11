@@ -1,9 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
-import { ArrowDownToLine, ArrowUpFromLine, ArrowLeftRight, PackageCheck, ScanLine, X } from "lucide-react";
+import { ArrowDownToLine, ArrowUpFromLine, ArrowLeftRight, PackageCheck, ArrowLeft } from "lucide-react";
 import type { SyncMutation, createSyncMutation } from "@/lib/syncQueue";
 import { operationLabel } from "@/lib/operationsUi";
-import { TripDialog } from "./TripDialog";
 import { GoodsReceiptScan } from "./GoodsReceiptScan";
 import { GoodsIssue } from "./GoodsIssue";
 import { PickingOrders } from "./PickingOrders";
@@ -22,16 +21,15 @@ export function ScanWorkflows({ selectionRequest, language, queue, materials, en
  useEffect(() => { let alive = true; void Promise.resolve().then(() => { if (alive) setChooser(true); }); return () => { alive = false; }; }, [selectionRequest]);
  const choices = [{ id: "receipt", label: "goodsReceiptScan", Icon: ArrowDownToLine }, { id: "picking", label: "pickingOrders", Icon: PackageCheck }, { id: "issue", label: "goodsIssue", Icon: ArrowUpFromLine }, { id: "transfer", label: "scanTransfer", Icon: ArrowLeftRight }] as const;
  return <>
-  <div className={styles.actions}><button type="button" onClick={() => setChooser(true)}><ScanLine size={18} />{t("chooseScanFlow")}</button></div>
+  {!chooser && <div className={styles.actions}><button type="button" onClick={() => { setChooser(true); setTransfer(false); }}><ArrowLeft size={18} />{t("chooseScanFlow")}</button></div>}
   {queued && <p role="status">{t("scanQueued")}</p>}
-  {chooser && <TripDialog labelledBy="scan-flow-title" onClose={() => setChooser(false)} className={styles.dialog}>
-   <header className={styles.dialogHeader}><h2 id="scan-flow-title">{t("scanFlows")}</h2><button aria-label={t("close")} onClick={() => setChooser(false)}><X size={18} /></button></header>
+  {chooser && <section className={`panel ${styles.scanSurface}`} aria-labelledby="scan-flow-title">
+   <header className={styles.dialogHeader}><h2 id="scan-flow-title">{t("scanFlows")}</h2></header>
    <div className={styles.fields}>{choices.map(({ id, label, Icon }) => <button key={id} type="button" onClick={() => { setFlow(id); setVisited((current) => current.includes(id) ? current : [...current, id]); setChooser(false); if (id === "transfer") setTransfer(true); }}><Icon size={20} />{t(label)}</button>)}</div>
-  </TripDialog>}
-  {visited.includes("receipt") && <div hidden={flow !== "receipt"}><GoodsReceiptScan materials={materials} language={language} queue={queue} onBooked={onBooked} /></div>}
-  {visited.includes("picking") && <div hidden={flow !== "picking"}><PickingOrders language={language} queue={queue} onBooked={onBooked} /></div>}
-  {visited.includes("issue") && <div hidden={flow !== "issue"}><GoodsIssue materials={materials} language={language} queue={queue} enqueue={enqueue} onBooked={onBooked} /></div>}
-  {flow === "transfer" && <section className="panel"><h2>{t("scanTransfer")}</h2><button onClick={() => setTransfer(true)}><ScanLine size={18} />{t("scanTransfer")}</button></section>}
-  {transfer && <StockScan materials={materials} language={language} queue={queue} enqueue={enqueue} onClose={() => setTransfer(false)} onQueued={() => { setTransfer(false); setQueued(true); }} />}
+  </section>}
+  {visited.includes("receipt") && <div hidden={chooser || flow !== "receipt"}><GoodsReceiptScan active={!chooser && flow === "receipt"} materials={materials} language={language} queue={queue} onBooked={onBooked} /></div>}
+  {!chooser && flow === "picking" && <PickingOrders inline language={language} queue={queue} onBooked={onBooked} />}
+  {!chooser && flow === "issue" && <GoodsIssue materials={materials} language={language} queue={queue} enqueue={enqueue} onBooked={onBooked} />}
+  {!chooser && transfer && <StockScan inline materials={materials} language={language} queue={queue} enqueue={enqueue} onClose={() => { setTransfer(false); setChooser(true); }} onQueued={() => { setTransfer(false); setChooser(true); setQueued(true); }} />}
  </>;
 }

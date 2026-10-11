@@ -1,8 +1,30 @@
 .workspace { min-width: 0; }
+.fieldMaterialReview { min-width: 0; margin: 20px 0; padding: 20px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.fieldMaterialReview h3 { margin: 0 0 16px; }
+.fieldMaterialReview fieldset { min-width: 0; border: 0; padding: 0; margin: 20px 0 12px; }
+.fieldMaterialReview legend { margin-bottom: 10px; font-weight: 600; }
+.fieldMaterialReview fieldset label { display: inline-flex; align-items: center; gap: 8px; margin-right: 20px; }
+.fieldMaterialReview input[type="radio"] { width: 18px; height: 18px; }
+.materialReviewLine { display: grid; grid-template-columns: minmax(0, 1fr) 120px; gap: 16px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.materialReviewLine strong, .materialReviewLine small { display: block; overflow-wrap: anywhere; }
+.materialReviewLine small { margin-top: 4px; color: var(--muted); }
+.materialReviewLine label, .materialReviewExtra label { display: grid; gap: 6px; min-width: 0; }
+.materialReviewExtra { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) 100px 40px; gap: 12px; align-items: end; margin: 12px 0; }
+.fieldMaterialReview input[type="number"], .fieldMaterialReview select { box-sizing: border-box; width: 100%; min-width: 0; min-height: 40px; padding: 8px; border: 1px solid var(--line); border-radius: 6px; color: var(--foreground); background: var(--paper); font: inherit; }
+.fieldMaterialReview footer { margin-top: 20px; }
+.fieldMaterialReview button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; max-width: 100%; box-sizing: border-box; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; color: var(--brand); background: var(--paper); font: inherit; white-space: normal; overflow-wrap: anywhere; cursor: pointer; }
+.fieldMaterialReview button svg { flex-shrink: 0; }
+.fieldMaterialReview button:disabled { opacity: .5; cursor: default; }
+.fieldMaterialReview button:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.fieldMaterialReview :global(.primary-button) { background: var(--brand); color: white; border-color: var(--brand); }
+.materialReviewExtra > button { width: 40px; height: 40px; padding: 8px; }
+@media (max-width: 640px) { .materialReviewExtra { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .materialReviewLine { grid-template-columns: minmax(0, 1fr) 100px; } }
 .stockOverview { min-width: 0; margin-bottom: 16px; }
 .stockHeading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 20px; }
 .stockOverview .stockSummary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .stockSummary span, .stockSummary strong { overflow-wrap: anywhere; }
+.workspace .stockSummary .summaryAction { display: grid; align-content: center; justify-items: center; gap: 6px; min-height: 62px; padding: 10px 12px; background: var(--paper-soft); border: 1px solid var(--line); border-radius: 8px; color: var(--foreground); font: inherit; cursor: pointer; }
+.workspace .stockSummary .summaryAction:hover { border-color: var(--brand); background: var(--paper); }
 .stockSummary strong { font-variant-numeric: tabular-nums; }
 .balanceTable { width: 100%; border-collapse: collapse; font-size: 14px; }
 .balanceTable th, .balanceTable td { padding: 10px 12px; border-bottom: 1px solid var(--line); text-align: left; }
@@ -44,16 +66,20 @@
 .orderTable td > .actions { flex-wrap: nowrap; gap: 6px; min-width: 224px; }
 .workspace .orderTable td > .actions > button { flex: 0 0 40px; width: 40px; height: 40px; min-height: 40px; padding: 8px; }
 .orderTable th:last-child, .orderTable td:last-child { width: 248px; min-width: 0; box-sizing: border-box; }
-.movementTable { table-layout: fixed; min-width: 1080px; }
+.movementTable { table-layout: fixed; min-width: 1200px; }
+.movementTable th { white-space: normal; overflow-wrap: anywhere; line-height: 1.35; }
 .movementTable td { min-width: 0; max-width: none; overflow-wrap: break-word; }
+.movementText { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 20px; max-height: 40px; overflow-wrap: anywhere; }
+.movementTable .movementDesignation strong, .movementTable .movementDesignation small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .movementTable thead input { min-width: 0; }
-.movementTable th:nth-child(1) { width: 20%; }
-.movementTable th:nth-child(2) { width: 14%; }
-.movementTable th:nth-child(3) { width: 12%; }
-.movementTable th:nth-child(4) { width: 6%; }
-.movementTable th:nth-child(5), .movementTable th:nth-child(6) { width: 10%; }
-.movementTable th:nth-child(7) { width: 16%; }
-.movementTable th:nth-child(8) { width: 12%; }
+.movementTable th:nth-child(1) { width: 18%; }
+.movementTable th:nth-child(2) { width: 12%; }
+.movementTable th:nth-child(3) { width: 10%; }
+.movementTable th:nth-child(4) { width: 6%; white-space: nowrap; }
+.movementTable th:nth-child(5), .movementTable th:nth-child(6) { width: 12.5%; }
+.movementTable th:nth-child(7) { width: 15%; }
+.movementTable th:nth-child(8) { width: 8%; }
+.movementTable th:nth-child(9) { width: 6%; }
 .movementTable th:nth-child(4), .movementTable td:nth-child(4) { text-align: right; font-variant-numeric: tabular-nums; }
 .historyEntry { padding: 16px 0; border-bottom: 1px solid var(--line); }
 .historyHeading { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
@@ -112,7 +138,8 @@
 .workspace button:focus-visible { outline: 2px solid var(--brand, #0878d9); outline-offset: 2px; }
 .workspace .primaryAction { margin-left: auto; background: var(--brand); border-color: var(--brand); color: white; font-weight: 650; }
 .workspace .selected { background: #0878d9; color: #fff; }
-.workspace .tabs button { border-radius: 999px; font-size: 13px; font-weight: 800; min-height: 34px; min-width: 118px; padding: 7px 14px; }
+.workspace .tabs button { border-radius: 999px; font-size: 13px; font-weight: 800; min-height: 34px; min-width: 118px; padding: 7px 14px; background: var(--paper); color: var(--muted); border-color: var(--line); }
+.workspace .tabs button.selected { background: var(--brand); border-color: var(--brand); color: #fff; }
 .toolbar { margin: 12px 0; }
 .toolbar > input { width: min(240px, 100%); min-height: 42px; box-sizing: border-box; padding: 8px; border: 1px solid var(--line, #d1d5db); border-radius: 6px; background: var(--paper-soft, #f5f6f8); color: var(--foreground); font: inherit; }
 .toolbar h2 { flex: 1; font-size: 20px; margin: 0; }
@@ -156,11 +183,12 @@
 dialog.dialog:global(.trip-dialog) { display: block; width: min(720px, calc(100vw - 32px)); height: fit-content; min-height: 0; max-width: calc(100vw - 32px); max-height: calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); padding: 20px; box-sizing: border-box; overflow-y: auto; border-radius: 8px; }
 dialog.itemDialog:global(.trip-dialog) { width: min(560px, calc(100vw - 32px)); }
 dialog.wideDialog:global(.trip-dialog) { width: min(1120px, calc(100vw - 32px)); }
-.dialog .dialogHeader { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: nowrap; gap: 16px; margin: 0; padding: 0 0 16px; border-bottom: 1px solid var(--line, #d1d5db); position: static; }
+.scanSurface { min-width: 0; }
+.dialog .dialogHeader, .scanSurface .dialogHeader { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: nowrap; gap: 16px; margin: 0; padding: 0 0 16px; border-bottom: 1px solid var(--line, #d1d5db); position: static; }
 .dialogHeader > :first-child { flex: 1; min-width: 0; }
 .dialogHeader h2 { margin: 0; font-size: 20px; line-height: 1.3; overflow-wrap: anywhere; }
 .dialogHeader p { margin: 0 0 6px; font-size: 12px; line-height: 1.4; }
-.dialog .dialogHeader > button { flex: 0 0 40px; width: 40px; height: 40px; min-height: 40px; padding: 8px; }
+.dialog .dialogHeader > button, .scanSurface .dialogHeader > button { flex: 0 0 40px; width: 40px; height: 40px; min-height: 40px; padding: 8px; }
 .dialog > p { margin: 16px 0; }
 .dialog > h3 { margin: 16px 0 8px; font-size: 16px; overflow-wrap: anywhere; }
 .dialog footer { justify-content: flex-end; padding-top: 16px; border-top: 1px solid var(--border, #d1d5db); }

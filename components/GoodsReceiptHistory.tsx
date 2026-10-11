@@ -1,15 +1,14 @@
 "use client";
 import { useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { apiFetch } from "@/lib/apiClient";
 import { operationLabel } from "@/lib/operationsUi";
 import { OperationsDataTable } from "./OperationsDataTable";
-import { TripDialog } from "./TripDialog";
 import styles from "./OperationsWorkspace.module.css";
 
 type Receipt = { id: string; delivery_number: string; created_at: string; actor_name?: string; supplier?: { company: string }; location?: { name: string } };
 type Item = { material_id: string; quantity: number; material: { name: string; sku?: string; scan_code?: string; unit?: string } };
-export function GoodsReceiptHistory({ language, refresh }: { language: "de" | "sv" | "en"; refresh: number }) {
+export function GoodsReceiptHistory({ language, refresh, onSelectionChange }: { language: "de" | "sv" | "en"; refresh: number; onSelectionChange?: (selected: boolean) => void }) {
  const t = (key: string) => operationLabel(key, language);
  const [rows, setRows] = useState<Receipt[]>([]), [selected, setSelected] = useState<Receipt | null>(null), [items, setItems] = useState<Item[]>([]);
  const [page, setPage] = useState(0), [count, setCount] = useState(0), [loading, setLoading] = useState(false), [error, setError] = useState("");
@@ -25,7 +24,9 @@ export function GoodsReceiptHistory({ language, refresh }: { language: "de" | "s
   return () => controller.abort();
  }, [id, page, refresh]);
  const date = (value: string) => new Date(value).toLocaleString(language, { timeZone: "Europe/Stockholm" });
- return <section className="panel" aria-busy={loading}>
+ function close() { setSelected(null); onSelectionChange?.(false); }
+ return <section className={`panel ${styles.scanSurface}`} aria-labelledby={selected ? "goods-history-title" : undefined} aria-busy={loading}>
+  {!selected && <>
   <div className="panel-title"><div><p>{t("purchasingSection")}</p><h2>{t("receiptsWithoutOrder")}</h2></div></div>
   {loading && <p role="status">{t("loading")}</p>}{error && <p role="alert">{t(error)}</p>}
   <OperationsDataTable rows={rows} columns={[
@@ -34,10 +35,11 @@ export function GoodsReceiptHistory({ language, refresh }: { language: "de" | "s
    { key: "created_at", label: t("bookedAt"), value: (row) => date(String(row.created_at)) },
    { key: "actor_name", label: t("bookedBy"), value: (row) => String(row.actor_name ?? "") },
    { key: "location", label: t("destination_id"), value: (row) => (row as Receipt).location?.name ?? "" },
-  ]} label={t("receiptsWithoutOrder")} filterLabel={t("filter")} emptyLabel={t("empty")} actionsLabel={t("actions")} onRowActivate={(row) => setSelected(row as Receipt)} />
+  ]} label={t("receiptsWithoutOrder")} filterLabel={t("filter")} emptyLabel={t("empty")} actionsLabel={t("actions")} onRowActivate={(row) => { setSelected(row as Receipt); onSelectionChange?.(true); }} />
   {count > 50 && <footer className={styles.actions}><button aria-label={t("previous")} disabled={!page} onClick={() => setPage((value) => value - 1)}><ChevronLeft size={18} /></button><span>{page + 1} / {Math.ceil(count / 50)}</span><button aria-label={t("next")} disabled={(page + 1) * 50 >= count} onClick={() => setPage((value) => value + 1)}><ChevronRight size={18} /></button></footer>}
-  {selected && <TripDialog labelledBy="goods-history-title" className={`${styles.dialog} ${styles.wideDialog}`} onClose={() => setSelected(null)}>
-   <header className={styles.dialogHeader}><div><h2 id="goods-history-title">{t("deliveryNumber")}: {selected.delivery_number}</h2><p>{selected.supplier?.company}</p></div><button aria-label={t("close")} onClick={() => setSelected(null)}><X size={18} /></button></header>
+  </>}
+  {selected && <>
+   <header className={styles.dialogHeader}><div><h2 id="goods-history-title">{t("deliveryNumber")}: {selected.delivery_number}</h2><p>{selected.supplier?.company}</p></div><button aria-label={t("scanBack")} title={t("scanBack")} onClick={close}><ChevronLeft size={18} /></button></header>
    <p>{t("bookedAt")}: {date(selected.created_at)} · {t("bookedBy")}: {selected.actor_name || "—"}</p><p>{t("destination_id")}: {selected.location?.name}</p>
    {loading && <p role="status">{t("loading")}</p>}{error && <p role="alert">{t(error)}</p>}
    <OperationsDataTable rows={items.map((item) => ({ ...item, id: item.material_id }))} columns={[
@@ -46,7 +48,6 @@ export function GoodsReceiptHistory({ language, refresh }: { language: "de" | "s
     { key: "scan_code", label: t("materialScanCode"), value: (row) => (row as unknown as Item).material.scan_code ?? "" },
     { key: "quantity", label: t("quantity"), value: (row) => `${row.quantity} ${(row as unknown as Item).material.unit ?? ""}` },
    ]} label={t("purchase_order_items")} filterLabel={t("filter")} emptyLabel={t("empty")} actionsLabel={t("actions")} />
-   <footer className={styles.actions}><button onClick={() => setSelected(null)}><ChevronLeft size={18} />{t("scanBack")}</button></footer>
-  </TripDialog>}
+  </>}
  </section>;
 }

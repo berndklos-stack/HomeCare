@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { stockMaterialLines } from "@/lib/jobStock";
+import { reviewedStockMaterials, type ReviewedMaterial } from "@/lib/fieldMaterialReview";
 import { NextResponse } from "next/server";
 import { isAuthError, requireApiAuth } from "@/lib/server/apiAuth";
 import {
@@ -1684,10 +1685,19 @@ async function loadJobsSection(supabase: NonNullable<ReturnType<typeof getSupaba
     stockRows.push(...(stock ?? []));
     if (!stock || stock.length < 500) break;
   }
+  const reviewed: (ReviewedMaterial & { review: { job_id: string; created_at: string } })[] = [];
+  for (let offset = 0; ; offset += 500) {
+    const result = await supabase.from("homecare_field_material_review_items")
+      .select("material_id,review:homecare_field_material_reviews!inner(job_id,created_at),material:homecare_materials(name,category,unit,sales_price,currency,tax_rate,accounting_account)")
+      .order("review_id").order("material_id").order("source_id").order("additional").range(offset, offset + 499);
+    if (result.error) throw new Error(result.error.message);
+    reviewed.push(...(result.data ?? []) as unknown as typeof reviewed);
+    if (!result.data || result.data.length < 500) break;
+  }
   return {
     deletedJobIds: rows.filter((row) => row.deleted_at).map((row) => row.id),
-    updatedAt: maxUpdatedAt([...rows.map((row) => row.updated_at), ...timeRows.map((row) => row.updated_at), ...stockRows.map((row) => row.occurred_at)]),
-    value: rows.filter((row) => !row.deleted_at).map((row) => ({ ...rowToJob(row, timeRows), stockMaterialItems: stockMaterialLines(stockRows.filter((movement) => movement.job_id === row.id)) })),
+    updatedAt: maxUpdatedAt([...rows.map((row) => row.updated_at), ...timeRows.map((row) => row.updated_at), ...stockRows.map((row) => row.occurred_at), ...reviewed.map((row) => row.review.created_at)]),
+    value: rows.filter((row) => !row.deleted_at).map((row) => ({ ...rowToJob(row, timeRows), stockMaterialItems: reviewedStockMaterials(stockMaterialLines(stockRows.filter((movement) => movement.job_id === row.id)), reviewed.filter((item) => item.review.job_id === row.id)) })),
   };
 }
 

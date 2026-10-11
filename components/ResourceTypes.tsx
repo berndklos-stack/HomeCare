@@ -61,7 +61,7 @@ export function ResourceTypesPanel({ types, language, save, error, ready, retry 
   }
   return <section className={styles.panel}>
     <header className={styles.toolbar}><h2>{resourceTypesText.title[index]}</h2>
-      <button className="primary-button" disabled={!ready} onClick={() => { setNotice(""); setDraft({ ...defaultResourceTypes[6], id: crypto.randomUUID(), name: "", fields: defaultResourceTypes[6].fields.map((field) => ({ ...field })) }); }}><Plus size={16}/>{resourceTypesText.new[index]}</button></header>
+      <button className="primary-button create-button" disabled={!ready} onClick={() => { setNotice(""); setDraft({ ...defaultResourceTypes[6], id: crypto.randomUUID(), name: "", fields: defaultResourceTypes[6].fields.map((field) => ({ ...field })) }); }}><Plus size={16}/>{resourceTypesText.new[index]}</button></header>
     {error && <p role="alert">{resourceTypesText.unavailable[index]} <button className="ghost-button" aria-label={word("Erneut versuchen", "Försök igen", "Retry")} onClick={retry}><RefreshCw size={16}/></button></p>}
     {types.map((type) => <div className={styles.typeRow} key={type.id}><strong>{type.name}</strong><span>{resourceTypesText[type.category][index]}</span>
       {type.archived && <span>{word("Archiviert", "Arkiverad", "Archived")}</span>}

@@ -7,15 +7,16 @@ import { operationLabel } from "@/lib/operationsUi";
 import { pickingPdf, pickupLabel, normalizePickupScan, type PickingItem, type PickingOrder } from "@/lib/picking";
 import { OperationsDataTable } from "./OperationsDataTable";
 import { TripDialog } from "./TripDialog";
+import { ScanSurface } from "./ScanSurface";
 import { StockScan } from "./StockScan";
 import { CodeCamera } from "./CodeCamera";
 import { PickingDispatch } from "./PickingDispatch";
 import { codeLabelPdf } from "@/lib/locationLabel";
 import styles from "./OperationsWorkspace.module.css";
 
-export function PickingOrders({ job, language, queue = [], onBooked, pickupOnly }: {
+export function PickingOrders({ job, language, queue = [], onBooked, pickupOnly, inline }: {
   job?: { id: string; revision?: number; status: string; materialItems?: unknown[] }; language: "de" | "sv" | "en";
-  queue?: SyncMutation[]; onBooked?: () => void; pickupOnly?: boolean;
+  queue?: SyncMutation[]; onBooked?: () => void; pickupOnly?: boolean; inline?: boolean;
 }) {
   const t = (key: string) => operationLabel(key, language);
   const [open, setOpen] = useState(!job), [rows, setRows] = useState<PickingOrder[]>([]), [page, setPage] = useState(0), [count, setCount] = useState(0);
@@ -119,7 +120,7 @@ export function PickingOrders({ job, language, queue = [], onBooked, pickupOnly 
     {loading && <p role="status">{t("loading")}</p>}
     {error && <p role="alert">{t(error)}</p>}
     {pending && <p role="status">{t("waiting")}</p>}
-    {job && !order && <div className={styles.toolbar}><button type="button" className={styles.primaryAction} disabled={busy || pending || !["geplant", "in Arbeit", "pausiert"].includes(job.status)} onClick={() => void create()}><Plus size={18} />{t("createPicking")}</button></div>}
+    {job && !order && <div className={styles.toolbar}><button type="button" className={styles.primaryAction + " create-button"} disabled={busy || pending || !["geplant", "in Arbeit", "pausiert"].includes(job.status)} onClick={() => void create()}><Plus size={18} />{t("createPicking")}</button></div>}
     {!order && <>
       <label className={styles.field}><span>{t("selectPicking")}</span><select aria-label={t("selectPicking")} value="" disabled={loading || busy || Boolean(error) || !choices.length} onChange={(event) => { const selected = choices.find((row) => row.id === event.target.value); if (selected) { setCamera(false); setCode(""); setError(""); setOrder(selected); setItems([]); } }}>
         <option value="">{t("selectPicking")}</option>
@@ -158,7 +159,7 @@ export function PickingOrders({ job, language, queue = [], onBooked, pickupOnly 
     </>}
   </div>;
   return <>
-    {cancelDialog && order && <TripDialog labelledBy="picking-cancel-title" className={styles.itemDialog} onClose={() => { if (!busy) setCancelDialog(false); }}>
+    {cancelDialog && order && <ScanSurface inline={inline} labelledBy="picking-cancel-title" className={styles.itemDialog} onClose={() => { if (!busy) setCancelDialog(false); }}>
       <header className={styles.dialogHeader}><h2 id="picking-cancel-title">{t("pickingCancelConfirm")}</h2><button type="button" disabled={busy} aria-label={t("close")} onClick={() => setCancelDialog(false)}><X size={18} /></button></header>
       <p>{order.title}{order.picking_code ? ` · ${order.picking_code}` : ""}</p>
       <p>{t("pickingCancelWarning")}</p>
@@ -170,11 +171,11 @@ export function PickingOrders({ job, language, queue = [], onBooked, pickupOnly 
         {error && <p role="alert">{t(error)}</p>}
         <footer className={styles.actions}><button type="button" disabled={busy} onClick={() => setCancelDialog(false)}>{t("cancel")}</button><button type="submit" disabled={busy || pending || !cancelReason.trim()}>{t("pickingCancelConfirm")}</button></footer>
       </form>
-    </TripDialog>}
-    {dispatch && order && <PickingDispatch order={order} items={items} language={language} pickupConfirmed={pickupConfirmed} onClose={() => setDispatch(false)} onBook={async (input) => { await command({ action: "dispatch", order: order.id, revision: order.revision, ...input }); setDispatch(false); setRefresh((value) => value + 1); onBooked?.(); }} />}
+    </ScanSurface>}
+    {dispatch && order && <PickingDispatch inline={inline} order={order} items={items} language={language} pickupConfirmed={pickupConfirmed} onClose={() => setDispatch(false)} onBook={async (input) => { await command({ action: "dispatch", order: order.id, revision: order.revision, ...input }); setDispatch(false); setRefresh((value) => value + 1); onBooked?.(); }} />}
     {job && <button className="ghost-button" type="button" onClick={() => setOpen(true)}><ScanLine size={16} />{t("pickingOrders")}</button>}
-    {open && (job ? <TripDialog labelledBy="picking-title" onClose={() => { if (!busy) setOpen(false); }} className={`${styles.dialog} ${styles.wideDialog}`}>{contents}</TripDialog> : <section className="panel">{contents}</section>)}
-    {open && scan && order && <StockScan language={language} queue={queue} enqueue={() => {}} materials={items.filter((item) => Number(item.picked) < Number(item.quantity)).map((item) => ({ id: item.material_id, name: item.material.name, unit: item.material.unit, sku: item.material.sku, scanCode: item.material.scan_code ?? undefined }))}
+    {open && (!inline || !(scan || dispatch || cancelDialog)) && (job ? <TripDialog labelledBy="picking-title" onClose={() => { if (!busy) setOpen(false); }} className={`${styles.dialog} ${styles.wideDialog}`}>{contents}</TripDialog> : <section className="panel">{contents}</section>)}
+    {open && scan && order && <StockScan inline={inline} language={language} queue={queue} enqueue={() => {}} materials={items.filter((item) => Number(item.picked) < Number(item.quantity)).map((item) => ({ id: item.material_id, name: item.material.name, unit: item.material.unit, sku: item.material.sku, scanCode: item.material.scan_code ?? undefined }))}
       picking={{ order, items, onBook: async (input) => { await command({ action: "pick", order: order.id, revision: order.revision, ...input }); } }}
       onClose={() => setScan(false)} onQueued={() => { setScan(false); setRefresh((value) => value + 1); onBooked?.(); }} />}
   </>;

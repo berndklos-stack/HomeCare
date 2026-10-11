@@ -13,6 +13,7 @@ import { MaterialPurchasing } from "@/components/MaterialPurchasing";
 import { MaterialLabel } from "@/components/MaterialLabel";
 import { EntityCodeLabel } from "@/components/EntityCodeLabel";
 import { PickingOrders } from "@/components/PickingOrders";
+import { FieldMaterialReview } from "@/components/FieldMaterialReview";
 import { billableJobMaterials, type StockMaterialLine } from "@/lib/jobStock";
 import { OperationsWarnings } from "@/components/OperationsWarnings";
 import { DynamicResourceFields, ResourceTypesPanel, useResourceTypes } from "@/components/ResourceTypes";
@@ -368,6 +369,7 @@ type ReportRecord = {
 
 type CompleteJobOptions = {
   markSentAgain?: boolean;
+  stockMaterialItems?: StockMaterialLine[];
 };
 
 type ReportAttachment = {
@@ -11583,6 +11585,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
             ...item,
             dueDate: nextDueDate ?? item.dueDate,
             material: savedMaterial,
+            ...(options.stockMaterialItems ? { stockMaterialItems: options.stockMaterialItems } : {}),
             schedule: nextSchedule,
             status: nextJobStatus,
             statusUpdatedAt: isReportEdit || item.status === nextJobStatus ? item.statusUpdatedAt : new Date().toISOString(),
@@ -13648,6 +13651,8 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
                 photoDevicePolicy={companySettings.jobPhotoDeviceSave ?? "never"}
                 activeJobId={activeJobId}
                 allJobs={jobs}
+                materials={materials}
+                locations={inventoryLocations}
                 customers={customers}
                 language={language}
                 objects={activeObjects}
@@ -13708,6 +13713,10 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
             )}
             {section === "inventory" && (
               <OperationsWorkspace language={language} queue={tripSync.queue} enqueue={enqueueSyncMutation}
+                onArchiveLocation={(id) => {
+                  if (!inventoryLocations.some((location) => location.id === id)) throw new Error(uiText("Bitte zuerst aktualisieren und erneut versuchen.", language));
+                  persistInventoryLocationsRelational(inventoryLocations.map((location) => location.id === id ? { ...location, archived: true } : location));
+                }}
                 onPickingBooked={refreshStockAllocation}
                 materialMasterData={masterDataView}
                 onOpenMasterData={(tab) => { setOperationsMasterDataRequest(`${tab}:${Date.now()}`); setSection("masterData"); }}
@@ -13903,7 +13912,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
                   <div className="waypoint-editor-head">
                     <span>{qtx("Zwischenziele")}</span>
                     <button
-                      className="ghost-button"
+                      className="ghost-button create-button"
                       onClick={() => setQuickTripForm({
                         ...quickTripForm,
                         waypoints: [
@@ -16092,7 +16101,7 @@ function ObjectsView({
           <p>{tt("Stammdaten")}</p>
           <h2>{tt("Projekte & Objekte")}</h2>
         </div>
-        <button className="primary-button" onClick={onCreate} type="button">
+        <button className="primary-button create-button" onClick={onCreate} type="button">
           <Plus size={16} />
           {tt("Neues Projekt / Objekt")}
         </button>
@@ -16257,7 +16266,7 @@ function CustomersView({
             <p>{tt("Eigentümer")}</p>
             <h2>{tt("Kundenübersicht")}</h2>
           </div>
-          <button className="primary-button" onClick={onCreate} type="button">
+          <button className="primary-button create-button" onClick={onCreate} type="button">
             <Plus size={16} />
             {tt("Neuer Kunde")}
           </button>
@@ -16686,7 +16695,7 @@ function JobsView({
               </button>
               {!isRecurring && !["storniert", "abgerechnet"].includes(job.status) && (
                 <>
-                  <button className="ghost-button compact consulting-entry-button" onClick={() => openConsultingEntry(job)} type="button">
+                  <button className="ghost-button compact consulting-entry-button create-button" onClick={() => openConsultingEntry(job)} type="button">
                     <Plus size={15} />
                     {tt("Leistung erfassen")}
                   </button>
@@ -16860,7 +16869,7 @@ function JobsView({
           <p>{tt("Auftragsabwicklung")}</p>
           <h2>{tt("Auftragsübersicht")}</h2>
         </div>
-        <button className="primary-button" onClick={onCreate} type="button">
+        <button className="primary-button create-button" onClick={onCreate} type="button">
           <Plus size={16} />
           {tt("Neuer Auftrag")}
         </button>
@@ -17441,6 +17450,8 @@ function FieldView({
   photoDevicePolicy,
   activeJobId,
   allJobs,
+  materials,
+  locations,
   customers,
   editingReportId,
   language,
@@ -17466,6 +17477,8 @@ function FieldView({
   photoDevicePolicy: DevicePhotoPolicy;
   activeJobId: string | null;
   allJobs: JobRecord[];
+  materials: MaterialItem[];
+  locations: InventoryLocation[];
   customers: CustomerRecord[];
   editingReportId: string | null;
   language: Language;
@@ -17496,6 +17509,7 @@ function FieldView({
   const [pendingReportAttachments, setPendingReportAttachments] = useState<ReportAttachment[]>([]);
   const [pendingAttachmentNotice, setPendingAttachmentNotice] = useState("");
   const [completionNotice, setCompletionNotice] = useState("");
+  const [materialReviewOpen, setMaterialReviewOpen] = useState(false);
   const [photoNoteDraft, setPhotoNoteDraft] = useState("");
   const [photoNoteEditor, setPhotoNoteEditor] = useState<{ photoId: string; taskId: string } | null>(null);
   const [localPhotoPreviewUrls, setLocalPhotoPreviewUrls] = useState<Record<string, string>>({});
@@ -17510,7 +17524,7 @@ function FieldView({
   const photoControllersRef = useRef(new Set<AbortController>());
   const retryPhotosRef = useRef<(() => void) | null>(null);
   retryPhotosRef.current = null;
-  useEffect(() => { setDevicePhotoFiles([]); }, [activeJobId, selectedWorkDate]);
+  useEffect(() => { setDevicePhotoFiles([]); setMaterialReviewOpen(false); }, [activeJobId, selectedWorkDate]);
   const progressRef = useRef(progress);
 
   useEffect(() => {
@@ -17910,6 +17924,10 @@ function FieldView({
         setCompletionNotice(language === "sv" ? "Vänta tills fotona har laddats upp innan du avslutar." : language === "en" ? "Wait until the photos finish uploading before completing the job." : "Bitte warten, bis die Fotos hochgeladen sind. Sie sind noch nicht offline gesichert.");
         return;
       }
+      if (!editingReportId && (workDates.length <= 1 || isLastOpenWorkDate) && activeJob.billable && activeJob.materialItems?.length && options.stockMaterialItems === undefined) {
+        setMaterialReviewOpen(true);
+        return;
+      }
       const results = fieldTasks.map((task) => {
         const currentTask = valueForTask(task);
         return {
@@ -17927,6 +17945,7 @@ function FieldView({
       });
 
       onComplete(activeJob, results, fieldNote, activeWorkDate, pendingReportAttachments, materialDraft, options);
+      setMaterialReviewOpen(false);
       setPendingReportAttachments([]);
       setPendingAttachmentNotice("");
     } catch (error) {
@@ -18391,7 +18410,9 @@ function FieldView({
           </button>
         )}
         {completionNotice && <p role="alert">{completionNotice}</p>}
-        <button className="primary-button" disabled={reportLocked || preparingFieldPhotos > 0} onClick={() => completeActiveJob()} type="button">
+        {materialReviewOpen && <FieldMaterialReview job={activeJob} date={activeWorkDate} materials={materials} locations={locations} language={language}
+          onCancel={() => setMaterialReviewOpen(false)} onComplete={(stockMaterialItems) => completeActiveJob({ stockMaterialItems: stockMaterialItems.length ? stockMaterialItems : activeJob.stockMaterialItems ?? [] })} />}
+        <button className="primary-button" disabled={reportLocked || preparingFieldPhotos > 0 || materialReviewOpen} onClick={() => completeActiveJob()} type="button">
           {preparingFieldPhotos > 0 ? tt("Fotos werden vorbereitet...") : editingReportId ? tt("Bericht speichern") : workDates.length > 1 ? (isLastOpenWorkDate ? tt("Letzten Tag speichern und Auftrag abschließen") : tt("Tagesbericht zwischenspeichern")) : tt("Einsatz abschließen")}
         </button>
           </section>
@@ -19423,7 +19444,7 @@ function InventoryView({
             <List size={16} />
             {tt("Alle Buchungen ansehen")}
           </button>
-          <button className="primary-button" disabled={!selectedMaterial} onClick={() => openBooking(selectedMaterial ?? undefined)} type="button">
+          <button className="primary-button create-button" disabled={!selectedMaterial} onClick={() => openBooking(selectedMaterial ?? undefined)} type="button">
             <Plus size={16} />
             {tt("Neue Buchung")}
           </button>
@@ -19695,7 +19716,7 @@ function InventoryView({
                 <h2 id="inventory-locations-title">{tt("Lagerorte anzeigen")}</h2>
               </div>
               <div className="modal-header-actions">
-                <button className="primary-button" onClick={openCreateInventoryLocation} type="button">
+                <button className="primary-button create-button" onClick={openCreateInventoryLocation} type="button">
                   <Plus size={16} />
                   {tt("Lagerort anlegen")}
                 </button>
@@ -22594,7 +22615,7 @@ function MasterDataView({
               <h2>{tt("Projekt-/Objekttypen")}</h2>
               <span>{tt("Bezeichnungen und sichtbare Feldgruppen je Typ zentral festlegen.")}</span>
             </div>
-            <button className="ghost-button" onClick={addObjectTypeDefinition} type="button">
+            <button className="ghost-button create-button" onClick={addObjectTypeDefinition} type="button">
               <Plus size={16} />
               {tt("Typ hinzufügen")}
             </button>
@@ -22646,7 +22667,7 @@ function MasterDataView({
                           <section className="object-type-block" key={group.id}>
                             <div className="object-type-block-head">
                               <strong>{tt(group.label)}</strong>
-                              <button className="ghost-button compact-action" onClick={() => addObjectTypeCustomField(definition.id, group.id)} type="button">
+                              <button className="ghost-button compact-action create-button" onClick={() => addObjectTypeCustomField(definition.id, group.id)} type="button">
                                 <Plus size={15} />
                                 {tt("Feld hinzufügen")}
                               </button>
@@ -22748,7 +22769,7 @@ function MasterDataView({
                   </button>
                 </div>
               ))}
-              <button className="ghost-button compact-action" onClick={addMailSendTime} type="button">
+              <button className="ghost-button compact-action create-button" onClick={addMailSendTime} type="button">
                 <Plus size={16} />
                 {tt("Versandzeit hinzufügen")}
               </button>
@@ -22856,7 +22877,7 @@ function MasterDataView({
               <p>{tt("Stammdaten")}</p>
               <h2>{tt("Personal verwalten")}</h2>
             </div>
-            <button className="primary-button" onClick={openCreatePerson} type="button">
+            <button className="primary-button create-button" onClick={openCreatePerson} type="button">
               <Plus size={16} />
               {tt("Neues Personal anlegen")}
             </button>
@@ -22965,7 +22986,7 @@ function MasterDataView({
               <p>{tt("Stammdaten")}</p>
               <h2>{tt("Ressourcen verwalten")}</h2>
             </div>
-            <button className="primary-button" onClick={openCreateResource} type="button">
+            <button className="primary-button create-button" onClick={openCreateResource} type="button">
               <Plus size={16} />
               {tt("Neue Ressource anlegen")}
             </button>
@@ -22983,7 +23004,7 @@ function MasterDataView({
                   <div className="modal-header-actions">
                     {resourceIsVehicle(selectedResource) && resourceModalView === "logbook" && (
                       <>
-                        <button className="primary-button" onClick={openCreateLogbookEntry} type="button">
+                        <button className="primary-button create-button" onClick={openCreateLogbookEntry} type="button">
                           <Plus size={16} />
                           {lt("Neue Fahrt")}
                         </button>
@@ -23132,7 +23153,7 @@ function MasterDataView({
                       <h3>{tt("Termine / Wartung")}</h3>
                       <span>{resourceForm.maintenanceItems.filter((item) => item.status !== "erledigt").length} {tt("offen")}</span>
                     </div>
-                    <button className="ghost-button" onClick={saveMaintenanceItem} type="button">
+                    <button className="ghost-button create-button" onClick={saveMaintenanceItem} type="button">
                       <Plus size={16} />
                       {tt("Termin hinzufügen")}
                     </button>
@@ -23269,7 +23290,7 @@ function MasterDataView({
                     <div className="waypoint-editor-head">
                       <span>{lt("Zwischenziele")}</span>
                       <button
-                        className="ghost-button"
+                        className="ghost-button create-button"
                         onClick={() => setLogbookForm({
                           ...logbookForm,
                           waypoints: [
@@ -23542,7 +23563,7 @@ function MasterDataView({
                   <div className="waypoint-editor-head">
                     <span>Zwischenziele</span>
                     <button
-                      className="ghost-button"
+                      className="ghost-button create-button"
                       onClick={() => setLogbookForm({
                         ...logbookForm,
                         waypoints: [
@@ -23720,7 +23741,7 @@ function MasterDataView({
               <h2>{tt("Materialstammdaten")}</h2>
               <span>{tt("Materialpositionen erhalten hier ihr Erlöskonto für die spätere Spiris / Visma-Übergabe.")}</span>
             </div>
-            <button className="primary-button" onClick={openCreateMaterial} type="button">
+            <button className="primary-button create-button" onClick={openCreateMaterial} type="button">
               <Plus size={16} />
               {tt("Neues Material anlegen")}
             </button>
@@ -23769,7 +23790,7 @@ function MasterDataView({
                 <h2>{tt("Kontenplan für Spiris / Visma")}</h2>
                 <span>{tt("Konten können ergänzt und anschließend bei Leistungen oder Material ausgewählt werden.")}</span>
               </div>
-              <button className="primary-button" onClick={openCreateAccountingAccount} type="button">
+              <button className="primary-button create-button" onClick={openCreateAccountingAccount} type="button">
                 <Plus size={16} />
                 {tt("Neues Konto anlegen")}
               </button>
@@ -23820,7 +23841,7 @@ function MasterDataView({
             <p>{tt("Stammdaten")}</p>
             <h2>{tt("Leistungen einzeln erfassen")}</h2>
           </div>
-          <button className="primary-button" onClick={openCreateService} type="button">
+          <button className="primary-button create-button" onClick={openCreateService} type="button">
             <Plus size={16} />
             {tt("Neue Leistung anlegen")}
           </button>
@@ -23874,7 +23895,7 @@ function MasterDataView({
             <p>{tt("Pakete")}</p>
             <h2>{tt("Mehrere Leistungen bündeln")}</h2>
           </div>
-          <button className="primary-button" onClick={openCreatePackage} type="button">
+          <button className="primary-button create-button" onClick={openCreatePackage} type="button">
             <Plus size={16} />
             {tt("Neues Paket anlegen")}
           </button>
@@ -24043,7 +24064,7 @@ function MasterDataView({
                   <label><span>{tt("Punkt")}</span><input value={serviceChecklistForm.title} onChange={(event) => setServiceChecklistForm({ ...serviceChecklistForm, title: event.target.value })} placeholder={tt("z.B. Zugang prüfen")} /></label>
                   <label><span>{tt("Standardzeit min.")}</span><input inputMode="numeric" min="0" type="number" value={serviceChecklistForm.defaultMinutes} onChange={(event) => setServiceChecklistForm({ ...serviceChecklistForm, defaultMinutes: event.target.value })} /></label>
                   <label className="wide"><span>{tt("Hinweis / Info")}</span><textarea value={serviceChecklistForm.note} onChange={(event) => setServiceChecklistForm({ ...serviceChecklistForm, note: event.target.value })} placeholder={tt("Was soll vor Ort geprüft oder dokumentiert werden?")} /></label>
-                  <button className="ghost-button wide" onClick={addServiceChecklistItem} type="button">
+                  <button className="ghost-button wide create-button" onClick={addServiceChecklistItem} type="button">
                     {editingServiceChecklistItemId ? <Check size={16} /> : <Plus size={16} />}
                     {editingServiceChecklistItemId ? tt("Checklistenpunkt übernehmen") : tt("Checklistenpunkt hinzufügen")}
                   </button>
@@ -25921,7 +25942,7 @@ function JobForm({
             </select>
           </label>
           {!customerMode && onCreateMasterData && (
-            <button className="ghost-button job-inline-create-button" onClick={() => {
+            <button className="ghost-button job-inline-create-button create-button" onClick={() => {
               setQuickMasterOpen((current) => !current);
               if (!quickMasterOpen && selectedJobObject?.type) setQuickMaster((current) => ({ ...current, objectType: selectedJobObject.type ?? "Objekt" }));
             }} type="button">
@@ -26056,11 +26077,11 @@ function JobForm({
           <strong>{newJob.serviceIds.length + (newJob.customServiceName.trim() ? 1 : 0)} Positionen</strong>
         </div>
         <div className="position-action-row">
-          <button className="ghost-button" onClick={() => { setServiceSearch(""); setServiceEntryMode("catalog"); }} type="button">
+          <button className="ghost-button create-button" onClick={() => { setServiceSearch(""); setServiceEntryMode("catalog"); }} type="button">
             <Plus size={16} />
             {tt("Leistung hinzufügen")}
           </button>
-          <button className="ghost-button" onClick={() => setServiceEntryMode(serviceEntryMode === "manual" ? "" : "manual")} type="button">
+          <button className="ghost-button create-button" onClick={() => setServiceEntryMode(serviceEntryMode === "manual" ? "" : "manual")} type="button">
             <Plus size={16} />
             {tt("Leistung manuell")}
           </button>
@@ -26148,7 +26169,7 @@ function JobForm({
               <label><span>Checkpunkt</span><input value={newJob.customChecklistTitle} onChange={(event) => update("customChecklistTitle", event.target.value)} /></label>
               <label className="checklist-minutes-field"><span>Standardzeit min.</span><input min="0" type="number" value={newJob.customChecklistMinutes} onChange={(event) => update("customChecklistMinutes", event.target.value)} /></label>
               <label className="wide"><span>Hinweis / Info</span><textarea value={newJob.customChecklistNote} onChange={(event) => update("customChecklistNote", event.target.value)} /></label>
-              <button className="ghost-button wide" onClick={addCustomChecklistItem} type="button"><Plus size={16} /> Checklistenpunkt hinzufügen</button>
+              <button className="ghost-button wide create-button" onClick={addCustomChecklistItem} type="button"><Plus size={16} /> Checklistenpunkt hinzufügen</button>
             </div>
             {newJob.customServiceChecklist.length > 0 && (
               <div className="checklist-preview">
@@ -26172,11 +26193,11 @@ function JobForm({
           <strong>{newJob.materialItems.length} Positionen</strong>
         </div>
         <div className="position-action-row">
-          <button className="ghost-button" onClick={() => { setMaterialSearch(""); setMaterialEntryMode("catalog"); }} type="button">
+          <button className="ghost-button create-button" onClick={() => { setMaterialSearch(""); setMaterialEntryMode("catalog"); }} type="button">
             <Plus size={16} />
             {tt("Material hinzufügen")}
           </button>
-          <button className="ghost-button" onClick={() => setMaterialEntryMode(materialEntryMode === "manual" ? "" : "manual")} type="button">
+          <button className="ghost-button create-button" onClick={() => setMaterialEntryMode(materialEntryMode === "manual" ? "" : "manual")} type="button">
             <Plus size={16} />
             {tt("Material manuell")}
           </button>
@@ -26219,7 +26240,7 @@ function JobForm({
               <input checked={newJob.materialSaveToMaster} onChange={(event) => setNewJob({ ...newJob, materialSaveToMaster: event.target.checked })} type="checkbox" />
               <span>{tt("Freies Material beim Speichern in Stammdaten übernehmen")}</span>
             </label>
-            <button className="ghost-button wide" disabled={!newJob.materialName.trim()} onClick={() => { addFreeMaterial(); setMaterialEntryMode(""); }} type="button">
+            <button className="ghost-button wide create-button" disabled={!newJob.materialName.trim()} onClick={() => { addFreeMaterial(); setMaterialEntryMode(""); }} type="button">
               <Plus size={16} />
               {tt("Materialposition hinzufügen")}
             </button>
@@ -26457,7 +26478,7 @@ function JobForm({
           </div>
         </section>
       ) : (
-        <button className="ghost-button wide" onClick={() => setNewJob({ ...newJob, discountReason: "Rabatt", discountType: "amount", discountValue: "0" })} type="button">
+        <button className="ghost-button wide create-button" onClick={() => setNewJob({ ...newJob, discountReason: "Rabatt", discountType: "amount", discountValue: "0" })} type="button">
           <Plus size={16} />
           Pauschalen Rabatt hinzufügen
         </button>

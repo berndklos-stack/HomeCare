@@ -8,6 +8,7 @@ import { operationsLabels, maintenanceStatus, type OperationsLanguage } from "@/
 import { operationsFields, validateOperationsMutation, type OperationsCommand, type OperationsEntity, type OperationsRow } from "@/lib/operationsCommands";
 import { operationLabel } from "@/lib/operationsUi";
 import { TripDialog } from "./TripDialog";
+import { ScanSurface } from "./ScanSurface";
 import styles from "./OperationsWorkspace.module.css";
 import { OperationsStock } from "./OperationsStock";
 import { ScanWorkflows } from "./ScanWorkflows";
@@ -21,12 +22,12 @@ import { GoodsReceiptHistory } from "./GoodsReceiptHistory";
 
 const tableEntities = new Set(["suppliers", "supplier_contacts", "purchase_orders", "material_details", "location_details", "location_types", "resource_details"]);
 
-function OrderPopup({ order, title, closeLabel, onClose, children, active }: { order: OperationsRow | null; title: string; closeLabel: string; onClose: () => void; children: ReactNode; active: boolean }) {
+function OrderView({ order, title, closeLabel, onClose, children, active }: { order: OperationsRow | null; title: string; closeLabel: string; onClose: () => void; children: ReactNode; active: boolean }) {
   if (!order) return <>{children}</>;
-  return <TripDialog active={active} labelledBy="purchase-order-title" className={`${styles.dialog} ${styles.wideDialog} ${styles.purchaseOrderPopup}`} onClose={onClose}>
-    <header className={styles.dialogHeader}><div><h2 id="purchase-order-title">{title} {String(order.order_number ?? "")}</h2></div><button type="button" title={closeLabel} aria-label={closeLabel} onClick={onClose}><X size={18} /></button></header>
+  return <section hidden={!active} aria-labelledby="purchase-order-title" className={`panel ${styles.scanSurface} ${styles.purchaseOrderPopup}`}>
+    <header className={styles.dialogHeader}><div><h2 id="purchase-order-title">{title} {String(order.order_number ?? "")}</h2></div><button type="button" title={closeLabel} aria-label={closeLabel} onClick={onClose}><ChevronLeft size={18} /></button></header>
     {children}
-  </TripDialog>;
+  </section>;
 }
 
 type Reference = { id: string; name: string; status?: string; billable?: boolean; parentLocationId?: string; sku?: string; scanCode?: string; unit?: string; minStock?: string; archived?: boolean; revision?: number; hours?: number; mileage?: number; availability?: string; documents?: { id: string; name: string }[] };
@@ -38,6 +39,7 @@ type Props = {
   resourcesOnly?: boolean;
   materialMasterData?: ReactNode;
   onPickingBooked?: () => void;
+  onArchiveLocation?: (id: string) => void;
 };
 type Form = { entity: OperationsEntity; row?: OperationsRow; kind: "save" | "receive" | "complete"; values: Record<string, string>; target?: OperationsRow };
 const numeric = new Set(["quantity", "unit_price", "due_mileage", "due_hours", "interval_days", "interval_mileage", "interval_hours", "purchase_price", "operating_hours", "reorder_quantity", "mileage", "cost"]);
@@ -64,6 +66,7 @@ export function OperationsWorkspace(props: Props) {
   const fieldLabel = (key: string, target: OperationsEntity = entity) => t(key === "name" && target !== "supplier_contacts" ? "designation" : key === "note" && target === "location_details" ? "notes" : key);
   const [tab, setTab] = useState(props.resourcesOnly ? "resources" : "inventory");
   const [purchasingDamage, setPurchasingDamage] = useState(false);
+  const [deliverySelected, setDeliverySelected] = useState(false);
   const [stockView, setStockView] = useState<"overview" | "bookings" | "inventory" | "scan">("overview");
   const [scanRequest, setScanRequest] = useState(0);
   const [materialMasterSelected, setMaterialMasterSelected] = useState(false);
@@ -104,8 +107,8 @@ export function OperationsWorkspace(props: Props) {
   const [receiptDocument, setReceiptDocument] = useState<{ id: string; name: string } | null>(null);
   const [receiptDocumentPending, setReceiptDocumentPending] = useState(false);
   const receiptLock = useRef(false);
-  const settled = queue.filter((m) => m.entityType === "operations" && m.status === "synced").map((m) => m.id).join(":");
-  const active = queue.filter((m) => m.entityType === "operations" && m.status !== "synced");
+  const settled = queue.filter((m) => ["operations", "inventory_location"].includes(m.entityType) && m.status === "synced").map((m) => m.id).join(":");
+  const active = queue.filter((m) => ["operations", "inventory_location"].includes(m.entityType) && m.status !== "synced");
   const blocked = (id: string) => active.some((m) => m.entityId === id || m.resourceId === id);
   const cacheKey = tenantScopedStorageKey("workcore-operations-read-page");
 
@@ -223,11 +226,12 @@ export function OperationsWorkspace(props: Props) {
     resource_id: props.resources, employee_id: props.employees, responsible_person_id: props.employees,
     material_id: props.materials, location_id: props.locations.filter((location) => !location.archived), job_id: props.jobs, project_id: props.projects,
     location_type_id: locationTypes, parent_location_id: [...new Map([
-      ...props.locations.filter((location) => !location.archived && !location.parentLocationId), ...locationRoots,
+      ...props.locations.filter((location) => !location.parentLocationId && (!location.archived || location.id === form?.values.parent_location_id)),
+      ...locationRoots.filter((location) => location.id === form?.values.parent_location_id || (!location.archived && !props.locations.some((local) => local.id === location.id && local.archived))),
       ...(parent && entity === "location_details" ? [{ id: parent.id, name: String(parent.name ?? parent.id) }] : []),
     ].map((location) => [location.id, location])).values()].filter((location) => location.id !== form?.row?.id),
     document_id: [...(props.resources.find((r) => r.id === form?.row?.resource_id)?.documents ?? []), ...(uploadedDocument ? [uploadedDocument] : [])],
-  }), [suppliers, orders, locationTypes, locationRoots, props.resources, props.employees, props.materials, props.locations, props.jobs, props.projects, form?.row?.resource_id, form?.row?.id, parent, entity, uploadedDocument]);
+  }), [suppliers, orders, locationTypes, locationRoots, props.resources, props.employees, props.materials, props.locations, props.jobs, props.projects, form?.row?.resource_id, form?.row?.id, form?.values.parent_location_id, parent, entity, uploadedDocument]);
   function title(row: OperationsRow) {
     if (entity === "location_details" && row.name) return String(row.name);
     const existing = entity === "resource_details" ? props.resources : entity === "material_details" ? props.materials : entity === "location_details" ? props.locations : [];
@@ -235,6 +239,7 @@ export function OperationsWorkspace(props: Props) {
       props.materials.find((r) => r.id === row.material_id)?.name ?? props.resources.find((r) => r.id === row.resource_id)?.name ?? row.id);
   }
   function change(next: OperationsEntity, owner: OperationsRow | null = null, places = false) {
+    setDeliverySelected(false);
     setPurchasingDamage(false);
     setMaterialMasterSelected(false);
     setStoragePlacesView(next === "location_details" && (places || Boolean(owner)));
@@ -384,7 +389,7 @@ export function OperationsWorkspace(props: Props) {
       {parent && entity !== "purchase_order_items" && !purchasingDamage && <button onClick={() => change(entity === "location_details" ? "location_details" : entity === "supplier_contacts" ? "suppliers" : "purchase_orders")}>{String(parent.name ?? parent.company ?? parent.order_number)} <ChevronLeft size={16} /></button>}
       {entity === "maintenance_plans" && <input aria-label={language === "de" ? "Einträge suchen" : language === "sv" ? "Sök poster" : "Search records"} type="search" value={search} onChange={(e) => setSearch(e.target.value)} />}
       {tab !== "inventory" && tab !== "purchasing" && <button title={t("refresh")} aria-label={t("refresh")} onClick={() => setRefresh((n) => n + 1)}><RefreshCw size={18} /></button>}
-      {tab !== "inventory" && tab !== "purchasing" && editable && !error && <button onClick={() => open("save")} disabled={entity === "purchase_order_items" && (!parent || parent.status !== "draft" || blocked(parent.id))}><Plus size={18} />{t("create")}</button>}
+      {tab !== "inventory" && tab !== "purchasing" && editable && !error && <button className="create-button" onClick={() => open("save")} disabled={entity === "purchase_order_items" && (!parent || parent.status !== "draft" || blocked(parent.id))}><Plus size={18} />{t("create")}</button>}
     </div>
     {inventoryMaster && <div id="inventory-master-navigation" role="tabpanel" aria-label={t("masterData")}>
       <div className={styles.tabs} role="tablist" aria-label={t("masterData")}>
@@ -393,18 +398,18 @@ export function OperationsWorkspace(props: Props) {
         <button role="tab" aria-selected={entity === "location_details" && storagePlacesView} aria-controls="inventory-master-panel" className={entity === "location_details" && storagePlacesView ? styles.selected : ""} onClick={() => change("location_details", null, true)}>{t("storagePlaces")}</button>
       </div>
     </div>}
-    <div id="inventory-stock-panel" role="tabpanel" aria-label={stockView === "scan" ? t("scanFlows") : stockView === "inventory" ? language === "de" ? "Inventur" : language === "sv" ? "Inventering" : "Stocktake" : stockView === "bookings" ? t("bookings") : language === "de" ? "Bestandsübersicht" : language === "sv" ? "Lageröversikt" : "Stock overview"} hidden={inventoryMaster || tab !== "inventory"}>{tab === "inventory" && (stockActive === true ? stockView === "scan" ? <ScanWorkflows {...props} selectionRequest={scanRequest} onBooked={props.onPickingBooked} /> : <OperationsStock {...props} view={stockView} /> : stockActive === false ? props.children : <div role="status" aria-busy={!stockError}>{t(stockError ? "OPERATIONS_UNAVAILABLE" : "loading")}</div>)}</div>
+    <div id="inventory-stock-panel" role="tabpanel" aria-label={stockView === "scan" ? t("scanFlows") : stockView === "inventory" ? language === "de" ? "Inventur" : language === "sv" ? "Inventering" : "Stocktake" : stockView === "bookings" ? t("bookings") : language === "de" ? "Bestandsübersicht" : language === "sv" ? "Lageröversikt" : "Stock overview"} hidden={inventoryMaster || tab !== "inventory"}>{tab === "inventory" && (stockActive === true ? stockView === "scan" ? <ScanWorkflows {...props} selectionRequest={scanRequest} onBooked={props.onPickingBooked} /> : <OperationsStock {...props} view={stockView} onShowBookings={() => setStockView("bookings")} /> : stockActive === false ? props.children : <div role="status" aria-busy={!stockError}>{t(stockError ? "OPERATIONS_UNAVAILABLE" : "loading")}</div>)}</div>
     {materialMasterMounted && <div id="inventory-material-panel" role="tabpanel" aria-label={language === "de" ? "Materialstammdaten" : language === "sv" ? "Materialregister" : "Material master data"} hidden={tab !== "inventory" || !materialMasterSelected}>{props.materialMasterData}</div>}
     {error && <p role="status">{t(error)}</p>}
     {active.length > 0 && <div role="status" className={styles.pending}>{active.map((m) => <p key={m.id}>{t(m.status === "failed" || m.status === "conflict" ? "failed" : "waiting")}: {String((m.payload.values as Record<string, unknown> | undefined)?.company ?? (m.payload.values as Record<string, unknown> | undefined)?.name ?? m.entityId)}</p>)}</div>}
     {tab === "purchasing" && purchasingDamage && <div id="purchasing-damage-panel" role="tabpanel" aria-label={t("damageCases")}><SupplierDamageCases inline language={language} onClose={() => change("suppliers")} /></div>}
-    <OrderPopup active={!detail && !form && !history && !archive} order={entity === "purchase_order_items" ? parent : null} title={t("purchase_orders")} closeLabel={t("close")} onClose={() => change("purchase_orders")}>
-    {entity !== "material_details" && !purchasingDamage && (tab !== "inventory" || stockActive !== null) && <div id={tab === "purchasing" ? "purchasing-panel" : "inventory-master-panel"} role={inventoryMaster || tab === "purchasing" ? "tabpanel" : undefined} aria-label={inventoryMaster || tab === "purchasing" ? t(entity) : undefined} className={`${entity === "purchase_order_items" ? "" : "panel"} ${styles.list}`} aria-busy={loading}>
+    <OrderView active={!detail && !form && !history && !archive} order={entity === "purchase_order_items" ? parent : null} title={t("purchase_orders")} closeLabel={t("scanBack")} onClose={() => change("purchase_orders")}>
+    {entity !== "material_details" && !purchasingDamage && (tab !== "inventory" || stockActive !== null) && <div hidden={deliverySelected || form?.entity === "suppliers"} id={tab === "purchasing" ? "purchasing-panel" : "inventory-master-panel"} role={inventoryMaster || tab === "purchasing" ? "tabpanel" : undefined} aria-label={inventoryMaster || tab === "purchasing" ? t(entity) : undefined} className={`${entity === "purchase_order_items" ? "" : "panel"} ${styles.list}`} aria-busy={loading}>
       <div className="panel-title"><div><p>{tab === "inventory" ? t("inventorySection") : operationsLabels[tab as keyof typeof operationsLabels][language]}</p><h2>{entity === "location_details" && storagePlacesView ? `${t("storagePlaces")}${parent ? `: ${String(parent.name ?? "")}` : ""}` : t(entity)}</h2></div>
-        {(inventoryMaster || tab === "purchasing") && <div className={styles.actions}><button title={t("refresh")} aria-label={t("refresh")} onClick={() => setRefresh((n) => n + 1)}><RefreshCw size={18} /></button>{editable && !error && <button className={styles.primaryAction} disabled={entity === "purchase_order_items" && (!parent || parent.status !== "draft" || blocked(parent.id))} onClick={() => open("save")}><Plus size={18} />{t(entity === "location_details" ? storagePlacesView ? "createStoragePlace" : "createLocation" : "create")}</button>}</div>}
+        {(inventoryMaster || tab === "purchasing") && <div className={styles.actions}><button title={t("refresh")} aria-label={t("refresh")} onClick={() => setRefresh((n) => n + 1)}><RefreshCw size={18} /></button>{editable && !error && <button className={styles.primaryAction + " create-button"} disabled={entity === "purchase_order_items" && (!parent || parent.status !== "draft" || blocked(parent.id))} onClick={() => open("save")}><Plus size={18} />{t(entity === "location_details" ? storagePlacesView ? "createStoragePlace" : "createLocation" : "create")}</button>}</div>}
       </div>
       {!tableEntities.has(entity) && !rows.length && !loading && !error && <p>{t("empty")}</p>}
-      {tableEntities.has(entity) ? <OperationsDataTable className={entity === "purchase_orders" ? styles.orderTable : undefined} key={`${entity}:${storagePlacesView}:${parent?.id ?? ""}`} rows={rows} columns={columns} actions={["suppliers", "location_details", "location_types"].includes(entity) ? undefined : tableActions} label={entity === "location_details" && storagePlacesView ? t("storagePlaces") : t(entity)} filterLabel={t("filter")} emptyLabel={t("empty")} actionsLabel={t("actions")}
+      {tableEntities.has(entity) ? <OperationsDataTable className={entity === "purchase_orders" ? styles.orderTable : undefined} key={`${entity}:${storagePlacesView}:${parent?.id ?? ""}`} rows={entity === "location_details" ? rows.filter((row) => !row.archived && !props.locations.some((location) => location.id === row.id && location.archived)) : rows} columns={columns} actions={["suppliers", "location_details", "location_types"].includes(entity) ? undefined : tableActions} label={entity === "location_details" && storagePlacesView ? t("storagePlaces") : t(entity)} filterLabel={t("filter")} emptyLabel={t("empty")} actionsLabel={t("actions")}
         canActivate={(row) => !blocked(row.id) && !(parent && blocked(parent.id))}
         language={language}
         onRowActivate={(row) => entity === "purchase_orders" && row.status !== "draft" ? change("purchase_order_items", row) : open("save", row)} /> : entity === "purchase_order_items" && rows.length > 0 ? <div className={styles.itemsScroll}><table className={styles.items}>
@@ -464,7 +469,7 @@ export function OperationsWorkspace(props: Props) {
       </article>)}
     </div>}
     {count > 50 && !purchasingDamage && <div className={styles.toolbar}><button aria-label={t("previous")} disabled={page === 0} onClick={() => setPage((p) => p - 1)}><ChevronLeft size={18} /></button><span>{page + 1} / {Math.ceil(count / 50)}</span><button aria-label={t("next")} disabled={(page + 1) * 50 >= count} onClick={() => setPage((p) => p + 1)}><ChevronRight size={18} /></button></div>}
-    {tab === "purchasing" && !purchasingDamage && entity === "purchase_orders" && !parent && <GoodsReceiptHistory language={language} refresh={refresh} />}
+    {tab === "purchasing" && !purchasingDamage && entity === "purchase_orders" && !parent && <GoodsReceiptHistory language={language} refresh={refresh} onSelectionChange={setDeliverySelected} />}
     {receivable && <section className={styles.receiptBooking}>
       <div className={styles.fields}>
         {input("location_id", { location_id: receiptLocation }, (_key, value) => setReceiptLocation(value), true)}
@@ -476,7 +481,7 @@ export function OperationsWorkspace(props: Props) {
       <div className={styles.actions}><button className={styles.selected} disabled={receiptDisabled || receiptDocumentPending || !Object.keys(receiptSelection).length || !receiptLocation}
         onClick={bookReceipts}><Plus size={18} />{t("bookSelected")} ({Object.keys(receiptSelection).length})</button></div>
     </section>}
-    </OrderPopup>
+    </OrderView>
     {detail && <TripDialog labelledBy="purchase-item-title" onClose={() => setItemDetails(null)} className={`${styles.dialog} ${styles.itemDialog}`}>
       <header className={styles.dialogHeader}><div><p>{t("itemDetails")} · {String(parent?.order_number ?? "")}</p><h2 id="purchase-item-title">{title(detail)}</h2></div><button aria-label={t("close")} title={t("close")} onClick={() => setItemDetails(null)}><X size={18} /></button></header>
       <dl className={styles.itemFacts}>
@@ -494,9 +499,9 @@ export function OperationsWorkspace(props: Props) {
         </>}
       </footer>
     </TripDialog>}
-    {form && damageSupplier === undefined && <TripDialog labelledBy="operations-form-title" onClose={() => setForm(null)} className={`${styles.dialog} ${form.entity === "suppliers" ? styles.wideDialog : ""}`}>
+    {form && damageSupplier === undefined && <ScanSurface inline={form.entity === "suppliers"} labelledBy="operations-form-title" onClose={() => setForm(null)} className={styles.dialog}>
       <form onSubmit={(e) => { e.preventDefault(); save(); }}>
-        <header className={styles.dialogHeader}><h2 id="operations-form-title">{t(form.kind === "save" ? form.entity === "location_details" && (storagePlacesView || form.row?.parent_location_id) ? "storagePlaces" : form.entity : form.kind)}</h2><button type="button" title={t("close")} aria-label={t("close")} onClick={() => setForm(null)}><X size={18} /></button></header>
+        <header className={styles.dialogHeader}><h2 id="operations-form-title">{t(form.kind === "save" ? form.entity === "location_details" && (storagePlacesView || form.row?.parent_location_id) ? "storagePlaces" : form.entity : form.kind)}</h2><button type="button" title={t(form.entity === "suppliers" ? "scanBack" : "close")} aria-label={t(form.entity === "suppliers" ? "scanBack" : "close")} onClick={() => setForm(null)}>{form.entity === "suppliers" ? <ChevronLeft size={18} /> : <X size={18} />}</button></header>
         <div className={styles.fields}>{fields.map((key) => input(key, form.values, (k, v) => setForm({ ...form, values: { ...form.values, [k]: v } }),
           form.kind === "save" ? (form.entity === "location_details" && (key === "name" || (storagePlacesView && key === "parent_location_id"))) || required[form.entity]?.includes(key) : ["quantity", "note", "completed_date", "cost", "currency"].includes(key)))}</div>
         {form.kind === "complete" && <OperationsDocumentUpload language={language} onPending={setDocumentPending} onUploaded={(document) => {
@@ -506,7 +511,7 @@ export function OperationsWorkspace(props: Props) {
         {form.kind === "complete" && <section><h3>{t("consumption")}</h3>{consumption.map((m, index) => <div className={styles.fields} key={index}>
           {(["material_id", "location_id", "quantity"] as const).map((key) => input(key, m, (k, v) => setConsumption((old) => old.map((r, i) => i === index ? { ...r, [k]: v } : r)), true))}
           <button type="button" aria-label={t("archive")} onClick={() => setConsumption((old) => old.filter((_, i) => i !== index))}><X size={18} /></button>
-        </div>)}<button type="button" onClick={() => setConsumption((old) => [...old, { material_id: "", location_id: "", quantity: "1" }])}><Plus size={18} />{t("addMaterial")}</button></section>}
+        </div>)}<button className="create-button" type="button" onClick={() => setConsumption((old) => [...old, { material_id: "", location_id: "", quantity: "1" }])}><Plus size={18} />{t("addMaterial")}</button></section>}
         {formError && <p role="alert">{t(formError)}</p>}
         <footer className={styles.actions}>
           {form.entity === "location_details" && form.row && <button type="button" disabled={labelBusy || blocked(form.row.id)} onClick={async () => {
@@ -529,10 +534,11 @@ export function OperationsWorkspace(props: Props) {
             <button type="button" disabled={blocked(form.row.id)} onClick={() => { setArchive(form.row!); setForm(null); }}><Archive size={18} />{t("archive")}</button>
           </>}
           {form.entity === "location_types" && form.row && <button type="button" disabled={blocked(form.row.id)} onClick={() => { setArchive(form.row!); setForm(null); }}><Archive size={18} />{t("archive")}</button>}
+          {form.entity === "location_details" && form.row && props.onArchiveLocation && <button type="button" disabled={blocked(form.row.id)} onClick={() => { setArchive(form.row!); setForm(null); }}><Archive size={18} />{t("archive")}</button>}
           <button type="button" onClick={() => setForm(null)}>{t("cancel")}</button><button type="submit" disabled={documentPending} className={styles.selected}>{t("save")}</button></footer>
       </form>
-    </TripDialog>}
-    {archive && <TripDialog labelledBy="operations-archive-title" onClose={() => setArchive(null)} className={`${styles.dialog} ${styles.itemDialog}`}><header className={styles.dialogHeader}><h2 id="operations-archive-title">{t("confirmArchive")}</h2><button aria-label={t("close")} title={t("close")} onClick={() => setArchive(null)}><X size={18} /></button></header><p>{title(archive)}</p><footer className={styles.actions}><button onClick={() => setArchive(null)}>{t("cancel")}</button><button onClick={() => { try { submitCommand(archive.id, { kind: "archive", entity }, "delete", archive.revision, parent?.id); setArchive(null); } catch (e) { setFormError(String(e)); } }}>{t("archive")}</button></footer></TripDialog>}
+    </ScanSurface>}
+    {archive && <TripDialog labelledBy="operations-archive-title" onClose={() => setArchive(null)} className={`${styles.dialog} ${styles.itemDialog}`}><header className={styles.dialogHeader}><h2 id="operations-archive-title">{t("confirmArchive")}</h2><button aria-label={t("close")} title={t("close")} onClick={() => setArchive(null)}><X size={18} /></button></header><p>{title(archive)}</p><footer className={styles.actions}><button onClick={() => setArchive(null)}>{t("cancel")}</button><button disabled={blocked(archive.id)} onClick={() => { try { if (entity === "location_details" && props.onArchiveLocation) props.onArchiveLocation(archive.id); else submitCommand(archive.id, { kind: "archive", entity }, "delete", archive.revision, parent?.id); setArchive(null); } catch (e) { setFormError(String(e)); } }}>{t("archive")}</button></footer></TripDialog>}
     {history && <OperationsHistory entity={history.entity} parent={history.row.id} order={history.order} title={history.title} language={language} onClose={() => setHistory(null)} />}
     {damageSupplier !== undefined && <SupplierDamageCases supplier={damageSupplier ?? undefined} language={language} returnToSupplier={Boolean(form?.entity === "suppliers")} onClose={() => setDamageSupplier(undefined)} />}
   </div>;

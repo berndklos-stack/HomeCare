@@ -1,19 +1,19 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { Camera, ScanLine, X } from "lucide-react";
+import { ArrowLeft, Camera, ScanLine, X } from "lucide-react";
 import { apiFetch } from "@/lib/apiClient";
 import { createStableId } from "@/lib/syncQueue";
 import { operationLabel } from "@/lib/operationsUi";
 import { matchesPickupScan, normalizeTargetScan, type PickingItem, type PickingOrder } from "@/lib/picking";
-import { TripDialog } from "./TripDialog";
+import { ScanSurface } from "./ScanSurface";
 import { CodeCamera } from "./CodeCamera";
 import styles from "./OperationsWorkspace.module.css";
 
 type Place = { id: string; name: string; location_code: string; location_kind: string; archived?: boolean };
 type Job = { id: string; name: string; code: string; status: string; billable?: boolean };
-export function PickingDispatch({ order, items, language, pickupConfirmed = false, onClose, onBook }: {
+export function PickingDispatch({ order, items, language, pickupConfirmed = false, onClose, onBook, inline }: {
   order: PickingOrder; items: PickingItem[]; language: "de" | "sv" | "en";
-  pickupConfirmed?: boolean;
+  pickupConfirmed?: boolean; inline?: boolean;
   onClose: () => void; onBook: (input: { id: string; destination: string | null; pickup: string }) => Promise<void>;
 }) {
   const t = (key: string) => operationLabel(key, language);
@@ -79,8 +79,8 @@ export function PickingDispatch({ order, items, language, pickupConfirmed = fals
     catch (cause) { setError(cause instanceof Error ? cause.message : "OPERATIONS_UNAVAILABLE"); }
     finally { lock.current = false; setBusy(false); }
   }
-  return <TripDialog labelledBy="picking-dispatch-title" onClose={() => { if (!busy) onClose(); }} className={styles.dialog}>
-    <header className={styles.dialogHeader}><div><h2 id="picking-dispatch-title">{t("pickingDispatch")}</h2><p>{order.title}</p></div><button aria-label={t("close")} disabled={busy} onClick={onClose}><X size={18} /></button></header>
+  return <ScanSurface inline={inline} labelledBy="picking-dispatch-title" onClose={() => { if (!busy) onClose(); }} className={styles.dialog}>
+    <header className={styles.dialogHeader}><div><h2 id="picking-dispatch-title">{t("pickingDispatch")}</h2><p>{order.title}</p></div><button aria-label={t(inline ? "scanBack" : "close")} title={t(inline ? "scanBack" : "close")} disabled={busy} onClick={onClose}>{inline ? <ArrowLeft size={18} /> : <X size={18} />}</button></header>
     {!loaded && !error && <p role="status">{t("loading")}</p>}
     {pickup && <p role="status">{t("pickupRecognized")}</p>}
     {loaded && !target && <form onSubmit={(event) => { event.preventDefault(); void accept(code); }}>
@@ -91,5 +91,5 @@ export function PickingDispatch({ order, items, language, pickupConfirmed = fals
     {target && <><h3>{target.name}</h3><dl className={styles.itemFacts}>{items.map((item) => <div key={item.material_id}><dt>{item.material.sku ? `${item.material.sku} · ` : ""}{item.material.name}{item.material.scan_code ? ` · ${item.material.scan_code}` : ""}</dt><dd>{item.picked} {item.material.unit}</dd></div>)}</dl>
       <footer className={styles.actions}><button disabled={busy} onClick={() => { setTarget(null); setCode(""); }}>{t("scanBack")}</button><button className={styles.primaryAction} disabled={busy} onClick={() => void book()}>{t("pickingDispatchAll")}</button></footer></>}
     {error && <p role="alert">{lastScan && <><strong>{lastScan}</strong>: </>}{t(error)}</p>}
-  </TripDialog>;
+  </ScanSurface>;
 }

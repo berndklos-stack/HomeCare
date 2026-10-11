@@ -389,6 +389,32 @@ button {
   padding: 9px 12px;
 }
 
+:root button.create-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-sizing: border-box;
+  min-height: 40px;
+  max-width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--brand);
+  font: inherit;
+  font-weight: 600;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: center;
+  cursor: pointer;
+}
+
+:root button.create-button svg { flex-shrink: 0; }
+:root button.create-button:hover:not(:disabled) { background: var(--paper-soft); }
+:root button.create-button:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+:root button.create-button:disabled { opacity: .5; cursor: default; }
+
 .refresh-button.running svg {
   animation: refresh-spin 0.8s linear infinite;
 }
@@ -1714,8 +1740,8 @@ button {
 }
 
 .status-filter-bar button.active {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: var(--brand);
+  border-color: var(--brand);
   color: white;
 }
 

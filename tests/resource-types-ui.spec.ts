@@ -94,7 +94,8 @@ test("Materialstammdaten bleiben ausschließlich im Lagermodul", async ({ page }
   await page.getByRole("button", { name: "Lager & Material", exact: true }).click();
   await expect(page.getByRole("button", { name: "Ressourcen", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Wartung & Prüfungen", exact: true })).toHaveCount(0);
-  await page.getByRole("button", { name: "Materialstammdaten", exact: true }).click();
+  await page.getByRole("tab", { name: "Stammdaten", exact: true }).click();
+  await expect(page.getByRole("tab", { name: "Material", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Ressourcentypen", exact: true })).toHaveCount(0);
 });
 

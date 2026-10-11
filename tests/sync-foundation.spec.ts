@@ -27,8 +27,8 @@ import {
 } from "../lib/vehicleSync";
 
 test("Material und Beschaffung teilen Schreibreihenfolge und bestaetigte Revision", () => {
-  const material = createSyncMutation({ entityType: "material", entityId: "MAT-1", operation: "update", expectedRevision: 2, payload: { sku: "NEW" } });
-  const purchasing = createSyncMutation({ entityType: "operations", entityId: "MAT-1", operation: "update", expectedRevision: 3, payload: { kind: "save", entity: "material_details", values: { notes: "Test" } } });
+  const material = createSyncMutation({ entityType: "material", entityId: "MAT-1", resourceId: "MAT-1", operation: "update", expectedRevision: 2, payload: { sku: "NEW" } });
+  const purchasing = createSyncMutation({ entityType: "operations", entityId: "MAT-1", resourceId: "MAT-1", operation: "update", expectedRevision: 3, payload: { kind: "save", entity: "material_details", values: { notes: "Test" } } });
   expect(nextPendingMutation([{ ...material, status: "syncing" }, purchasing])).toBeUndefined();
   expect(nextPendingMutation([{ ...material, status: "conflict" }, purchasing])).toBeUndefined();
   expect(nextPendingMutation([{ ...material, status: "synced" }, purchasing])?.id).toBe(purchasing.id);

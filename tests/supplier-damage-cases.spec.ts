@@ -84,7 +84,7 @@ for (const mobile of [false, true]) test(`Lieferant und Schadensakten ohne gesta
   await page.getByRole("button", { name: "Lager & Material", exact: true }).click();
   await page.getByRole("button", { name: "Lieferanten & Einkauf", exact: true }).click();
   await page.getByRole("table", { name: "Lieferanten", exact: true }).getByText(supplier.company, { exact: true }).click();
-  const form = page.locator('dialog[open][aria-labelledby="operations-form-title"]');
+  const form = page.getByRole("region", { name: "Lieferanten", exact: true });
   await form.getByLabel("Unternehmen", { exact: true }).fill("Snickare Jocke Entwurf");
   if (!mobile) expect(await form.evaluate((element) => element.clientWidth)).toBeGreaterThan(1000);
   await form.getByRole("button", { name: "Schadensakten", exact: true }).click();
@@ -97,7 +97,7 @@ for (const mobile of [false, true]) test(`Lieferant und Schadensakten ohne gesta
   }
   await page.screenshot({ path: info.outputPath(`supplier-damage-${mobile}.png`), fullPage: true });
   await dialog.getByRole("button", { name: "Zurück zum Lieferanten", exact: true }).click();
-  await expect(page.locator("dialog[open]")).toHaveCount(1);
+  await expect(page.locator("dialog[open]")).toHaveCount(0);
   await expect(form.getByLabel("Unternehmen", { exact: true })).toHaveValue("Snickare Jocke Entwurf");
 });
 
