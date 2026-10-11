@@ -3,6 +3,14 @@ import { expect, test, type Page } from "@playwright/test";
 const pixel = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=", "base64");
 const photos = (count: number) => Array.from({ length: count }, (_, i) => ({ name: `auswahl-${i + 1}.png`, mimeType: "image/png", buffer: pixel }));
 
+async function confirmCompletion(page: Page) {
+  const check = page.getByRole("region", { name: "Abschluss prüfen" });
+  await check.getByRole("checkbox", { name: "Material vollständig und korrekt erfasst" }).check();
+  await check.getByRole("checkbox", { name: "Arbeitszeiten vollständig und korrekt erfasst" }).check();
+  await check.getByRole("radio", { name: (await storedPhotos(page)).length ? "Ja, Fotos hinzugefügt" : "Fotos nicht erforderlich" }).check();
+  await check.getByRole("button", { name: "Angaben bestätigen und fortfahren" }).click();
+}
+
 test("Mehrfachauswahl rendert keine unskalierten Originale parallel zur Bildverarbeitung", async ({ page }) => {
   await page.addInitScript(() => {
     Object.defineProperty(navigator, "onLine", { configurable: true, get: () => false });
@@ -138,6 +146,7 @@ test("Voller Berichtscache zeigt Warnung ohne Reload und erhält den Bericht in 
   await openJob(page);
   const url = page.url();
   await page.getByRole("button", { name: "Einsatz abschließen", exact: true }).click();
+  await confirmCompletion(page);
   await expect(page.getByRole("alert").filter({ hasText: "Lokaler Browserspeicher ist voll" })).toBeVisible();
   expect(page.url()).toBe(url);
   await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true");
@@ -155,6 +164,7 @@ test("Abschließen zeigt einen Queue-Speicherfehler statt still abzubrechen und 
   });
   await openJob(page);
   await page.getByRole("button", { name: "Einsatz abschließen", exact: true }).click();
+  await confirmCompletion(page);
   await expect(page.getByRole("alert").filter({ hasText: "Bericht konnte nicht gespeichert werden" })).toBeVisible();
   await expect(page.locator(".service-task-list")).toBeVisible();
   const queue = await page.evaluate(() => JSON.parse(localStorage.getItem("workcore-sync-mutations-v1") || "[]"));
@@ -170,6 +180,7 @@ for (const status of ["Geplant", "In Arbeit"]) test(`Statuswahl ${status} beim S
   await page.locator('input[aria-label^="Bilder zu"]').first().setInputFiles(photos(1));
   await expect.poll(async () => (await storedPhotos(page)).filter((photo) => photo.uploadStatus === "uploaded").length).toBe(1);
   await page.getByRole("button", { name: "Einsatz abschließen", exact: true }).click();
+  await confirmCompletion(page);
   const report = await page.evaluate(() => JSON.parse(localStorage.getItem("kolaretorp-reports") || "[]").find((item: { title: string }) => item.title === "Gartenpflege und Sichtprüfung"));
   await page.getByRole("button", { name: "Später", exact: true }).click();
   await page.getByTestId("nav-field").click();
@@ -220,6 +231,7 @@ for (const count of [1, 5]) test(`${count} Bibliotheksfotos erscheinen sofort un
   await expect.poll(async () => (await storedPhotos(page)).filter((photo) => photo.uploadStatus === "uploaded").length).toBe(count);
   expect(mediaIds.size).toBe(count);
   await page.getByRole("button", { name: "Einsatz abschließen", exact: true }).click();
+  await confirmCompletion(page);
   const reportPhotos = () => page.evaluate(() => {
     const report = JSON.parse(localStorage.getItem("kolaretorp-reports") || "[]").find((item: { title: string }) => item.title === "Gartenpflege und Sichtprüfung");
     return report?.checklistResults.flatMap((task: { photos: { id: string; storagePath?: string }[] }) => task.photos) ?? [];

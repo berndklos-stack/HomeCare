@@ -4,7 +4,7 @@
 .fieldMaterialReview fieldset { min-width: 0; border: 0; padding: 0; margin: 20px 0 12px; }
 .fieldMaterialReview legend { margin-bottom: 10px; font-weight: 600; }
 .fieldMaterialReview fieldset label { display: inline-flex; align-items: center; gap: 8px; margin-right: 20px; }
-.fieldMaterialReview input[type="radio"] { width: 18px; height: 18px; }
+.fieldMaterialReview input[type="radio"], .fieldMaterialReview input[type="checkbox"] { width: 18px; height: 18px; flex-shrink: 0; }
 .materialReviewLine { display: grid; grid-template-columns: minmax(0, 1fr) 120px; gap: 16px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--line); }
 .materialReviewLine strong, .materialReviewLine small { display: block; overflow-wrap: anywhere; }
 .materialReviewLine small { margin-top: 4px; color: var(--muted); }

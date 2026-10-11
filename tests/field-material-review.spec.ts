@@ -9,7 +9,7 @@ test("Nicht verbrauchtes Material ersetzt die Planmenge mit null statt abgerechn
   expect(billableJobMaterials([{ ...reviewed[0], quantity: "5" }], reviewed)).toEqual([]);
 });
 
-async function open(page: Page) {
+async function open(page: Page, finish = true) {
   await page.addInitScript(() => {
     localStorage.setItem("kolaretorp-jobs", JSON.stringify([{
       id: "REVIEW-JOB", title: "Material-Abschlusstest", objectId: "OBJ-1001", customerId: "CUST-1", status: "in Arbeit", priority: "normal", revision: 4,
@@ -28,8 +28,38 @@ async function open(page: Page) {
   await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true");
   await page.getByTestId("nav-field").click();
   await page.getByRole("button", { name: /Material-Abschlusstest/ }).first().click();
+  await expect(page.getByRole("region", { name: "Material auf dem Fahrzeug", exact: true })).toBeVisible();
+  if (!finish) return;
   await page.getByRole("button", { name: "Einsatz abschließen", exact: true }).click();
+  const check = page.getByRole("region", { name: "Abschluss prüfen", exact: true });
+  await expect(check.getByRole("button", { name: "Angaben bestätigen und fortfahren" })).toBeDisabled();
+  await check.getByRole("checkbox", { name: "Material vollständig und korrekt erfasst" }).check();
+  await check.getByRole("checkbox", { name: "Arbeitszeiten vollständig und korrekt erfasst" }).check();
+  await check.getByRole("radio", { name: "Fotos nicht erforderlich" }).check();
+  await check.getByRole("button", { name: "Angaben bestätigen und fortfahren" }).click();
 }
+
+for (const width of [1440, 390]) test(`Fahrzeugmaterial vor Abschluss sichtbar und Abschlusspruefung abbrechbar ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 1000 });
+  await page.route("**/api/field-material-review?**", (route) => route.fulfill({ json: { lines: [{ material_id: "MAT-R", source_id: "CAR", allocated_quantity: 5, material: { name: "Latten", sku: "L2838", unit: "Meter" } }] } }));
+  await open(page, false);
+  const assigned = page.getByRole("region", { name: "Material auf dem Fahrzeug", exact: true });
+  await expect(assigned).toContainText("L2838 · Latten");
+  await expect(assigned).toContainText("BLB549"); await expect(assigned).toContainText("5 Meter");
+  await expect(page.getByRole("region", { name: "Materialverbrauch beim Abschluss" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Einsatz abschließen", exact: true }).click();
+  const check = page.getByRole("region", { name: "Abschluss prüfen" });
+  await check.getByRole("checkbox", { name: "Material vollständig und korrekt erfasst" }).check();
+  await check.getByRole("checkbox", { name: "Arbeitszeiten vollständig und korrekt erfasst" }).check();
+  await expect(check.getByRole("button", { name: "Angaben bestätigen und fortfahren" })).toBeDisabled();
+  await check.getByRole("radio", { name: "Fotos nicht erforderlich" }).check();
+  await expect(check.getByRole("button", { name: "Angaben bestätigen und fortfahren" })).toBeEnabled();
+  await page.screenshot({ path: `test-results/field-completion-check-${width}.png`, fullPage: true });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await check.getByRole("button", { name: "Zurück zur Bearbeitung" }).click();
+  await expect(check).toHaveCount(0);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("kolaretorp-jobs") ?? "[]")[0].status)).toBe("in Arbeit");
+});
 
 for (const width of [1440, 390]) test(`Teilverbrauch, Zusatzmaterial und Wiederholung beim Auftragsabschluss ${width}px`, async ({ page }) => {
   await page.setViewportSize({ width, height: 1000 });

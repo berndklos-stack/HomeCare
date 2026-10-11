@@ -14,6 +14,7 @@ import { MaterialLabel } from "@/components/MaterialLabel";
 import { EntityCodeLabel } from "@/components/EntityCodeLabel";
 import { PickingOrders } from "@/components/PickingOrders";
 import { FieldMaterialReview } from "@/components/FieldMaterialReview";
+import { FieldAssignedMaterials, FieldCompletionCheck } from "@/components/FieldCompletionCheck";
 import { billableJobMaterials, type StockMaterialLine } from "@/lib/jobStock";
 import { OperationsWarnings } from "@/components/OperationsWarnings";
 import { DynamicResourceFields, ResourceTypesPanel, useResourceTypes } from "@/components/ResourceTypes";
@@ -17510,6 +17511,8 @@ function FieldView({
   const [pendingAttachmentNotice, setPendingAttachmentNotice] = useState("");
   const [completionNotice, setCompletionNotice] = useState("");
   const [materialReviewOpen, setMaterialReviewOpen] = useState(false);
+  const [completionCheckOpen, setCompletionCheckOpen] = useState(false);
+  const [hasAssignedVehicleMaterial, setHasAssignedVehicleMaterial] = useState<boolean | null>(null);
   const [photoNoteDraft, setPhotoNoteDraft] = useState("");
   const [photoNoteEditor, setPhotoNoteEditor] = useState<{ photoId: string; taskId: string } | null>(null);
   const [localPhotoPreviewUrls, setLocalPhotoPreviewUrls] = useState<Record<string, string>>({});
@@ -17524,7 +17527,7 @@ function FieldView({
   const photoControllersRef = useRef(new Set<AbortController>());
   const retryPhotosRef = useRef<(() => void) | null>(null);
   retryPhotosRef.current = null;
-  useEffect(() => { setDevicePhotoFiles([]); setMaterialReviewOpen(false); }, [activeJobId, selectedWorkDate]);
+  useEffect(() => { setDevicePhotoFiles([]); setMaterialReviewOpen(false); setCompletionCheckOpen(false); setHasAssignedVehicleMaterial(null); }, [activeJobId, selectedWorkDate, editingReportId]);
   const progressRef = useRef(progress);
 
   useEffect(() => {
@@ -17912,8 +17915,12 @@ function FieldView({
     }
   }
 
-  function completeActiveJob(options: CompleteJobOptions = {}) {
+  function completeActiveJob(options: CompleteJobOptions = {}, completionChecked = false) {
     setCompletionNotice("");
+    if (!editingReportId && hasAssignedVehicleMaterial === null) {
+      setCompletionNotice(language === "sv" ? "Material laddas fortfarande." : language === "en" ? "Materials are still loading." : "Material wird noch geladen.");
+      return;
+    }
     if (preparingFieldPhotos > 0) {
       setCompletionNotice(tt("Fotos werden vorbereitet..."));
       return;
@@ -17924,7 +17931,12 @@ function FieldView({
         setCompletionNotice(language === "sv" ? "Vänta tills fotona har laddats upp innan du avslutar." : language === "en" ? "Wait until the photos finish uploading before completing the job." : "Bitte warten, bis die Fotos hochgeladen sind. Sie sind noch nicht offline gesichert.");
         return;
       }
-      if (!editingReportId && (workDates.length <= 1 || isLastOpenWorkDate) && activeJob.billable && activeJob.materialItems?.length && options.stockMaterialItems === undefined) {
+      if (!editingReportId && (workDates.length <= 1 || isLastOpenWorkDate) && !completionChecked) {
+        setCompletionCheckOpen(true);
+        return;
+      }
+      setCompletionCheckOpen(false);
+      if (!editingReportId && (workDates.length <= 1 || isLastOpenWorkDate) && activeJob.billable && (activeJob.materialItems?.length || hasAssignedVehicleMaterial) && options.stockMaterialItems === undefined) {
         setMaterialReviewOpen(true);
         return;
       }
@@ -18346,6 +18358,7 @@ function FieldView({
             </article>
           </div>
         )}
+        {!editingReportId && <FieldAssignedMaterials key={`${activeJob.id}:${activeWorkDate}`} job={activeJob.id} date={activeWorkDate} locations={locations} language={language} onLoaded={setHasAssignedVehicleMaterial} />}
         <label className="report-comment-editor">
           <span>Material</span>
           <textarea
@@ -18410,9 +18423,10 @@ function FieldView({
           </button>
         )}
         {completionNotice && <p role="alert">{completionNotice}</p>}
+        {completionCheckOpen && <FieldCompletionCheck language={language} onCancel={() => setCompletionCheckOpen(false)} onConfirm={() => completeActiveJob({}, true)} />}
         {materialReviewOpen && <FieldMaterialReview job={activeJob} date={activeWorkDate} materials={materials} locations={locations} language={language}
-          onCancel={() => setMaterialReviewOpen(false)} onComplete={(stockMaterialItems) => completeActiveJob({ stockMaterialItems: stockMaterialItems.length ? stockMaterialItems : activeJob.stockMaterialItems ?? [] })} />}
-        <button className="primary-button" disabled={reportLocked || preparingFieldPhotos > 0 || materialReviewOpen} onClick={() => completeActiveJob()} type="button">
+          onCancel={() => setMaterialReviewOpen(false)} onComplete={(stockMaterialItems) => completeActiveJob({ stockMaterialItems: stockMaterialItems.length ? stockMaterialItems : activeJob.stockMaterialItems ?? [] }, true)} />}
+        <button className="primary-button" disabled={reportLocked || preparingFieldPhotos > 0 || materialReviewOpen || completionCheckOpen} onClick={() => completeActiveJob()} type="button">
           {preparingFieldPhotos > 0 ? tt("Fotos werden vorbereitet...") : editingReportId ? tt("Bericht speichern") : workDates.length > 1 ? (isLastOpenWorkDate ? tt("Letzten Tag speichern und Auftrag abschließen") : tt("Tagesbericht zwischenspeichern")) : tt("Einsatz abschließen")}
         </button>
           </section>

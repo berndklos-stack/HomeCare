@@ -1,10 +1,11 @@
 export const appVersion = {
-  version: "1.427.33",
+  version: "1.427.34",
   releaseDate: "2026-10-11",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  { version: "1.427.34", date: "2026-10-11", changes: ["Mobil vor Ort: kommissioniertes Fahrzeugmaterial mit Materialcode und Menge bereits waehrend des Einsatzes anzeigen", "Vor Auftragsabschluss Material, Arbeitszeiten und Fotodokumentation ausdruecklich pruefen", "Buchungsgruende ohne technische Nummern und Schadensakten nur in den Buchungsdetails", "Abrechnungsuebernahme im einheitlichen hellen Rahmenstil"] },
   { version: "1.427.33", date: "2026-10-11", changes: ["Einheitliche Anlagebuttons mit blauem Plus, heller Flaeche und grauem Rahmen in der gesamten App", "Auswahlreiter mit aktiver blauer Flaeche und inaktiver grauer Schrift", "Scanablauf-Auswahl und nachfolgende Arbeitsschritte direkt auf der Seite statt als Popup", "Bestellpositionen, Lieferungsdetails und Lieferanten als normale Seitenansicht mit Zurueck-Navigation", "Standorte in der Einzelansicht mit Bestaetigung archivieren; Kennungen, Lagerplaetze und Buchungen bleiben erhalten", "Buchungskennzahl oeffnet die gefilterte Liste; kompakte Buchungen mit maximal zwei Textzeilen und vollstaendigen Angaben in der Einzelansicht", "Mobil vor Ort: Fahrzeugmaterial beim Abschluss mit Teilverbrauch und Zusatzmaterial bestaetigen; nur tatsaechliche Mengen abrechnen, Restbestand erhalten und Wiederholungen ohne Doppelbuchung"] },
   { version: "1.427.32", date: "2026-10-11", changes: ["Lagerorttypen in der Einzelansicht mit Bestaetigung archivieren; vorhandene Lagerplatz-Zuordnungen bleiben erhalten", "Archivierte Lagerorttypen aus der aktiven Liste und neuen Zuordnungen entfernen", "Material-Reiter unter Stammdaten kurz als Material beschriften"] },
   { version: "1.427.31", date: "2026-10-11", changes: ["Materialstammdaten, Standorte, Lagerorttypen und Lagerplaetze unter dem gemeinsamen Reiter Stammdaten zusammenfassen", "Vier einzeln aufrufbare Unterreiter mit einheitlicher Darstellung auf Desktop und Handy; Lieferanten bleiben separat"] },
