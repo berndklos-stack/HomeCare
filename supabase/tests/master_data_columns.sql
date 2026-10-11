@@ -20,6 +20,8 @@ do $$ declare tenant uuid:='00000000-0000-0000-0000-000000000001'; response json
   if not exists(select 1 from public.homecare_service_packages where id='column-package' and price=99 and service_ids='["column-service"]') then raise exception 'PACKAGE_COLUMNS_FAILED'; end if;
   perform public.homecare_apply_master_data_mutation(gen_random_uuid(),'inventory_location','column-location','create',null,tenant,'{"name":"Standort","site":"Filiale","locationCode":"001"}',null);
   if not exists(select 1 from public.homecare_inventory_locations where id='column-location' and site='Filiale' and location_code='001') then raise exception 'LOCATION_COLUMNS_FAILED'; end if;
+  response:=public.homecare_apply_master_data_mutation(gen_random_uuid(),'material','column-location-material','create',null,tenant,'{"name":"Lagertest","primaryLocation":"Hauptlager"}',null);
+  if response->>'status'<>'synced' or not exists(select 1 from public.homecare_materials where id='column-location-material' and primary_location_name='Hauptlager' and primary_location_id is null) then raise exception 'LOCATION_LABEL_TREATED_AS_FOREIGN_KEY'; end if;
   response:=public.homecare_apply_object_mutation(gen_random_uuid(),'object','column-object','create',null,tenant,'{"name":"Testobjekt","scanCode":"OBJ-001"}',null);
   if response->>'status'<>'synced' or (select scan_code from public.homecare_objects where id='column-object')<>'OBJ-001' then raise exception 'OBJECT_CODE_CREATE_FAILED: %',response; end if;
   response:=public.homecare_apply_object_mutation(gen_random_uuid(),'object','column-object','update',null,tenant,'{"scanCode":"OBJ-002"}',1);

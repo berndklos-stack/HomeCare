@@ -385,6 +385,7 @@ type MaterialRow = {
   min_stock: number | null;
   name: string;
   primary_location_id: string | null;
+  primary_location_name: string | null;
   purchase_price: number | null;
   sales_price: number | null;
   sku: string | null;
@@ -1169,7 +1170,7 @@ function materialToRow(material: JsonObject) {
     max_stock: numberOrNull(material.maxStock),
     min_stock: numberOrNull(material.minStock),
     name: stringOrEmpty(material.name) || "Material",
-    primary_location_id: nullableString(material.primaryLocation),
+    primary_location_name: nullableString(material.primaryLocation),
     purchase_price: numberOrNull(material.purchasePrice),
     sales_price: numberOrNull(material.price),
     sku: stringOrEmpty(material.sku),
@@ -1241,7 +1242,7 @@ function rowToMaterial(row: MaterialRow, movements: InventoryMovementRow[]) {
     minStock: row.min_stock === null ? "" : String(row.min_stock),
     name: row.name,
     price: row.sales_price === null ? "" : String(row.sales_price),
-    primaryLocation: row.primary_location_id ?? "",
+    primaryLocation: row.primary_location_name ?? "",
     purchasePrice: row.purchase_price === null ? "" : String(row.purchase_price),
     sku: row.sku ?? "",
     supplier: row.supplier ?? "",
@@ -1717,7 +1718,7 @@ async function loadInventoryLocationsSection(supabase: NonNullable<ReturnType<ty
 async function loadMaterialsSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
   const { data: materialRows, error } = await supabase
     .from("homecare_materials")
-    .select("id, accounting_account, sku, scan_code, name, category, unit, sales_price, purchase_price, currency, tax_rate, supplier, primary_location_id, min_stock, max_stock, description, archived, record_data, revision, deleted_at, updated_at")
+    .select("id, accounting_account, sku, scan_code, name, category, unit, sales_price, purchase_price, currency, tax_rate, supplier, primary_location_id, primary_location_name, min_stock, max_stock, description, archived, record_data, revision, deleted_at, updated_at")
     .order("name", { ascending: true });
   if (error) throw new Error(error.message);
 

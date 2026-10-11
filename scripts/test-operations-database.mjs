@@ -18,8 +18,10 @@ try {
     sql("supabase/tests/operations_full_chain_bootstrap.sql");
     for (const migration of readdirSync("supabase/migrations").filter((file) => file.endsWith(".sql")).sort()) {
       if (migration === "20261008100000_resource_types.sql") sql("supabase/tests/resource_types_migration_fixture.sql");
+      if (migration === "20261011070000_master_data_columns.sql") sql("supabase/tests/master_data_columns_fixture.sql");
       console.log(`Applying ${migration}`);
       execFileSync("psql", [...args, "-q", "-f", resolve("supabase/migrations", migration)], { stdio: "inherit" });
+      if (migration === "20261011070000_master_data_columns.sql") sql("supabase/tests/master_data_columns_backfill.sql");
     }
     sql("supabase/tests/operations_full_chain.sql");
     sql("supabase/tests/job_stock_billing.sql");

@@ -1,13 +1,15 @@
 begin;
 
 alter table public.homecare_materials add column if not exists scan_code text;
+-- The legacy material form accepts a location label, not a foreign-key ID.
+alter table public.homecare_materials add column if not exists primary_location_name text;
 alter table public.homecare_jobs add column if not exists scan_code text;
 alter table public.homecare_objects add column if not exists scan_code text;
 
 create or replace function public.homecare_master_column_map(table_name text) returns jsonb
 language sql immutable set search_path=public as $$
 select case table_name
-  when 'homecare_materials' then '{"name":"name","sku":"sku","scanCode":"scan_code","unit":"unit","category":"category","description":"description","currency":"currency","price":"sales_price","purchasePrice":"purchase_price","taxRate":"tax_rate","accountingAccount":"accounting_account","minStock":"min_stock","maxStock":"max_stock","primaryLocation":"primary_location_id","supplier":"supplier","archived":"archived"}'::jsonb
+  when 'homecare_materials' then '{"name":"name","sku":"sku","scanCode":"scan_code","unit":"unit","category":"category","description":"description","currency":"currency","price":"sales_price","purchasePrice":"purchase_price","taxRate":"tax_rate","accountingAccount":"accounting_account","minStock":"min_stock","maxStock":"max_stock","primaryLocation":"primary_location_name","supplier":"supplier","archived":"archived"}'::jsonb
   when 'homecare_personnel' then '{"firstName":"first_name","lastName":"last_name","personnelNumber":"personnel_number","email":"email","phone":"phone","role":"role","language":"language","status":"status","notes":"notes","archived":"archived"}'::jsonb
   when 'homecare_services' then '{"name":"name","unit":"unit","category":"category","description":"description","currency":"currency","price":"price","taxRate":"tax_rate","accountingAccount":"accounting_account","checklist":"checklist","showWorkTimeInReports":"show_work_time_in_reports","archived":"archived"}'::jsonb
   when 'homecare_service_packages' then '{"name":"name","description":"description","price":"price","serviceIds":"service_ids","archived":"archived"}'::jsonb

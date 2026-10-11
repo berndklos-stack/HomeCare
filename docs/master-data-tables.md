@@ -13,6 +13,9 @@ Standorten. Datenbankspalten sind beim Lesen massgeblich. Direkte Spaltenupdates
 und kompatible Stammdatenmutationen werden im selben Schreibvorgang abgeglichen.
 
 Vor der Uebernahme wird je Mandant eine relationale Sicherung angelegt. Vorhandene
+Hauptlager-Namen stehen in `homecare_materials.primary_location_name`, nicht im
+Fremdschluessel `primary_location_id`. Das bisherige Namensfeld bleibt dadurch
+verlustfrei nutzbar; bestehende technische Lager-Verweise bleiben unveraendert.
 Codes werden ohne Aenderung von Revision oder Zeitstempel uebernommen. Bereits
 belegte, widerspruechliche Spalten werden nicht automatisch ueberschrieben.
 Echte Synchronisierungskonflikte bleiben bis zur ausdruecklichen Entscheidung
