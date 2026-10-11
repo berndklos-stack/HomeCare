@@ -4,6 +4,8 @@ import path from "node:path";
 import { writeLocalCache } from "../lib/localCache";
 import {
   createSyncMutation,
+  nextPendingMutation,
+  revisionAfterConfirmation,
   discardConflictingMutations,
   enqueueSyncMutation,
   failSyncMutation,
@@ -23,6 +25,17 @@ import {
   type VehicleMutationState,
   type VersionedVehicleTrip,
 } from "../lib/vehicleSync";
+
+test("Material und Beschaffung teilen Schreibreihenfolge und bestaetigte Revision", () => {
+  const material = createSyncMutation({ entityType: "material", entityId: "MAT-1", operation: "update", expectedRevision: 2, payload: { sku: "NEW" } });
+  const purchasing = createSyncMutation({ entityType: "operations", entityId: "MAT-1", operation: "update", expectedRevision: 3, payload: { kind: "save", entity: "material_details", values: { notes: "Test" } } });
+  expect(nextPendingMutation([{ ...material, status: "syncing" }, purchasing])).toBeUndefined();
+  expect(nextPendingMutation([{ ...material, status: "conflict" }, purchasing])).toBeUndefined();
+  expect(nextPendingMutation([{ ...material, status: "synced" }, purchasing])?.id).toBe(purchasing.id);
+  expect(revisionAfterConfirmation(material, 3, [purchasing])).toBe(4);
+  expect(revisionAfterConfirmation(purchasing, 4, [{ ...material, expectedRevision: 4 }])).toBe(5);
+  expect(revisionAfterConfirmation(material, 3, [{ ...purchasing, entityId: "OTHER" }])).toBe(3);
+});
 
 test("Bestätigter Foto-Verlauf bleibt klein, Offline-Änderungen und Konflikte bleiben vollständig", () => {
   const storage = memoryStorage();

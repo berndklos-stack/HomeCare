@@ -16,6 +16,7 @@ import { OperationsHistory } from "./OperationsHistory";
 import { PurchaseOrderSend } from "./PurchaseOrderSend";
 import { OperationsDataTable, type DataColumn } from "./OperationsDataTable";
 import { locationLabelPdf } from "@/lib/locationLabel";
+import { SupplierDamageCases } from "./SupplierDamageCases";
 
 const tableEntities = new Set(["suppliers", "supplier_contacts", "purchase_orders", "material_details", "location_details", "location_types", "resource_details"]);
 
@@ -73,6 +74,7 @@ export function OperationsWorkspace(props: Props) {
   const [stockError, setStockError] = useState(false);
   const [error, setError] = useState("");
   const [suppliers, setSuppliers] = useState<Reference[]>([]);
+  const [damageSupplier, setDamageSupplier] = useState<{ id: string; name: string } | null | undefined>(undefined);
   const [orders, setOrders] = useState<Reference[]>([]);
   const [resourceDetails, setResourceDetails] = useState<Reference[]>([]);
   const [form, setForm] = useState<Form | null>(null);
@@ -364,6 +366,7 @@ export function OperationsWorkspace(props: Props) {
       </div>}
       {tab === "resources" && <button onClick={() => props.onOpenMasterData("resources")}><Pencil size={18} />{language === "de" ? "Ressourcen bearbeiten" : language === "sv" ? "Redigera resurser" : "Edit resources"}</button>}
       {tab !== "inventory" && groups[tab].filter((key) => key !== "material_details").map((key) => <button key={key} aria-pressed={entity === key} onClick={() => change(key)}>{t(key)}</button>)}
+      {tab === "purchasing" && <button onClick={() => setDamageSupplier(null)}>{t("damageCases")}</button>}
       {parent && <button onClick={() => change(entity === "location_details" ? "location_details" : entity === "supplier_contacts" ? "suppliers" : "purchase_orders")}>{String(parent.name ?? parent.company ?? parent.order_number)} <ChevronLeft size={16} /></button>}
       {entity === "maintenance_plans" && <input aria-label={language === "de" ? "Einträge suchen" : language === "sv" ? "Sök poster" : "Search records"} type="search" value={search} onChange={(e) => setSearch(e.target.value)} />}
       {tab !== "inventory" && <button title={t("refresh")} aria-label={t("refresh")} onClick={() => setRefresh((n) => n + 1)}><RefreshCw size={18} /></button>}
@@ -497,6 +500,7 @@ export function OperationsWorkspace(props: Props) {
           {form.entity === "location_details" && form.row && !form.row.parent_location_id && <button type="button" onClick={() => change("location_details", form.row!)}>{t("storagePlaces")}</button>}
           {form.entity === "suppliers" && form.row && <>
             <button type="button" onClick={() => change("supplier_contacts", form.row!)}>{t("supplier_contacts")}</button>
+            <button type="button" onClick={() => setDamageSupplier({ id: form.row!.id, name: String(form.row!.company) })}>{t("damageCases")}</button>
             <button type="button" disabled={blocked(form.row.id)} onClick={() => { setArchive(form.row!); setForm(null); }}><Archive size={18} />{t("archive")}</button>
           </>}
           <button type="button" onClick={() => setForm(null)}>{t("cancel")}</button><button type="submit" disabled={documentPending} className={styles.selected}>{t("save")}</button></footer>
@@ -504,5 +508,6 @@ export function OperationsWorkspace(props: Props) {
     </TripDialog>}
     {archive && <TripDialog labelledBy="operations-archive-title" onClose={() => setArchive(null)} className={`${styles.dialog} ${styles.itemDialog}`}><header className={styles.dialogHeader}><h2 id="operations-archive-title">{t("confirmArchive")}</h2><button aria-label={t("close")} title={t("close")} onClick={() => setArchive(null)}><X size={18} /></button></header><p>{title(archive)}</p><footer className={styles.actions}><button onClick={() => setArchive(null)}>{t("cancel")}</button><button onClick={() => { try { submitCommand(archive.id, { kind: "archive", entity }, "delete", archive.revision, parent?.id); setArchive(null); } catch (e) { setFormError(String(e)); } }}>{t("archive")}</button></footer></TripDialog>}
     {history && <OperationsHistory entity={history.entity} parent={history.row.id} order={history.order} title={history.title} language={language} onClose={() => setHistory(null)} />}
+    {damageSupplier !== undefined && <SupplierDamageCases supplier={damageSupplier ?? undefined} language={language} onClose={() => setDamageSupplier(undefined)} />}
   </div>;
 }

@@ -1,10 +1,15 @@
 export const appVersion = {
-  version: "1.427.21",
+  version: "1.427.22",
   releaseDate: "2026-10-11",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  {
+    version: "1.427.22",
+    date: "2026-10-11",
+    changes: ["Eigene Scancode-Spalten fuer Material, Auftrag und Objekt; Stammdatenspalten werden konsistent aktualisiert", "Stornierte Kommissionierauftraege aus der Scanauswahl entfernt; Materialnummer und Scancode in Liste und PDF", "Materialaktionen in die Einzelansicht verlegt", "Lieferanten-Schadensakten mit Belegen, Fotos, Status und Bearbeitungsverlauf; Dashboard-Hinweis", "Gemeinsame Synchronisierungsreihenfolge fuer Material- und Beschaffungsdaten"],
+  },
   {
     version: "1.427.21",
     date: "2026-10-11",

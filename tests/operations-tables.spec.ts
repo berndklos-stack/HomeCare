@@ -3,7 +3,7 @@ import QRCode from "qrcode";
 import { readFileSync } from "node:fs";
 import { storageLocationPath } from "../lib/locationLabel";
 
-test("Kommissionierung storniert nur nach Bestaetigung mit Grund und zeigt Benutzerverlauf", async ({ page }) => {
+test("Kommissionierung storniert nur nach Bestaetigung mit Grund und verschwindet aus Scanablauf", async ({ page }) => {
  await page.addInitScript(() => { localStorage.setItem("kolaretorp-updated-at", "2026-10-11T10:00:00Z"); });
  const order = { id: "55555555-5555-4555-8555-555555555555", picking_code: "2026-10-11-00001", job_id: "cancel-job", title: "Stornoprüfung", revision: 1, status: "open", created_at: "2026-10-11T10:00:00Z" };
  const items = [{ material_id: "cancel-material", quantity: 1, picked: 0, material: { name: "Material", unit: "Stück" } }];
@@ -26,8 +26,9 @@ test("Kommissionierung storniert nur nach Bestaetigung mit Grund und zeigt Benut
  await page.getByRole("button", { name: "Kommissionierung stornieren", exact: true }).click();
  await confirm.getByLabel("Stornogrund", { exact: true }).fill("Material wird nicht mehr benötigt");
  await confirm.getByRole("button", { name: "Kommissionierung wirklich stornieren?", exact: true }).click();
- await expect(confirm).toHaveCount(0); await expect(page.getByText("Material wird nicht mehr benötigt", { exact: true })).toBeVisible();
- await expect(page.getByText(/Bernd Klos.*Storniert/)).toBeVisible();
+  await expect(confirm).toHaveCount(0);
+  await expect(page.getByRole("combobox", { name: "Kommissionierauftrag auswählen", exact: true }).locator("option", { hasText: "Stornoprüfung" })).toHaveCount(0);
+  await expect(page.getByText("Stornoprüfung", { exact: true })).toHaveCount(0);
  expect(posts).toEqual([{ action: "cancel", id: order.id, revision: 1, reason: "Material wird nicht mehr benötigt" }]);
 });
 
@@ -48,7 +49,7 @@ for (const mobile of [false, true]) test(`Kommissionierplatz Abholcode und Auftr
  await page.addInitScript(() => { localStorage.setItem("kolaretorp-updated-at", "2026-10-11T10:00:00Z"); localStorage.setItem("kolaretorp-field-progress", JSON.stringify({ "synthetic-pick": {} })); });
  const order = { id: "55555555-5555-4555-8555-555555555555", picking_code: "2026-10-11-00001", job_id: "pick-job", title: "Gartenhaus", revision: 1, status: "open", created_at: "2026-10-11T10:00:00Z", staging_id: null as string | null, pickup_code: null as string | null };
  const pickup = "66666666-6666-4666-8666-666666666666";
- const items = [{ material_id: "pick-material", quantity: 2.5, picked: 0, material: { name: "Kantholz", sku: "KH001", unit: "Meter", record_data: { scanCode: "PICK-MAT" } } }];
+ const items = [{ material_id: "pick-material", quantity: 2.5, picked: 0, material: { name: "Kantholz", sku: "KH001", unit: "Meter", scan_code: "PICK-MAT" } }];
  const posts: Record<string, unknown>[] = [];
  await page.route("**/api/picking-orders**", (route) => {
   if (route.request().method() === "GET") {
@@ -399,7 +400,7 @@ for (const mobile of [false, true]) test(`Scancodes bleiben Text ${mobile ? "mob
   expect(saved.scanCode).toBe("0012345678905");
   const materialRow = page.getByRole("button", { name: "Material Scan Testmaterial bearbeiten", exact: true });
   expect(await materialRow.evaluate((element) => element.tagName)).toBe("ARTICLE");
-  await expect(materialRow.locator("button")).toHaveCount(1);
+  await expect(materialRow.locator("button")).toHaveCount(0);
   await materialRow.press("Enter");
   await expect(page.getByRole("dialog", { name: "Material bearbeiten", exact: true }).getByLabel("EAN / Scancode", { exact: true })).toHaveValue("0012345678905");
   const editMaterial = page.getByRole("dialog", { name: "Material bearbeiten", exact: true });
@@ -466,7 +467,7 @@ for (const mobile of [false, true]) test(`Scancodes bleiben Text ${mobile ? "mob
   await expect(page.getByRole("heading", { name: "Bestandsübersicht", exact: true })).toBeVisible();
 });
 
-test("Archivierungsaktionen oeffnen keinen Editor und archivierte Materialzeilen sind bearbeitbar", async ({ page }) => {
+test("Materialaktionen nur im Editor und archivierte Materialzeilen sind bearbeitbar", async ({ page }) => {
   await page.route("**/api/operations?**", (route) => route.fulfill({ json: new URL(route.request().url()).searchParams.get("entity") === "stock_status" ? { active: true } : { rows: [], count: 0 } }));
   await page.goto("/");
   await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true", { timeout: 30000 });
@@ -474,7 +475,9 @@ test("Archivierungsaktionen oeffnen keinen Editor und archivierte Materialzeilen
   await page.getByRole("tab", { name: "Materialstammdaten", exact: true }).click();
   const row = page.locator("article.clickable-record-row").first();
   const name = await row.locator("strong").first().textContent();
-  await row.getByRole("button", { name: `Material ${name} archivieren`, exact: true }).click();
+  await expect(row.locator("button")).toHaveCount(0);
+  await row.click();
+  await page.getByRole("dialog", { name: "Material bearbeiten", exact: true }).getByRole("button", { name: "Archivieren", exact: true }).click();
   await expect(page.getByRole("dialog", { name: "Material bearbeiten", exact: true })).toHaveCount(0);
   const archived = page.getByRole("button", { name: `Archiviertes Material ${name} bearbeiten`, exact: true });
   await archived.press(" ");

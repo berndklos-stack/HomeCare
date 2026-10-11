@@ -189,7 +189,7 @@ export function summarizeSyncQueue(queue: SyncMutation[]): SyncQueueSummary {
 export function nextPendingMutation(queue: SyncMutation[]) {
   return queue.find((mutation, index) => {
     if (mutation.status !== "pending") return false;
-    if (queue.some((previous, position) => position < index && previous.entityType === mutation.entityType
+    if (queue.some((previous, position) => position < index && mutationRecordType(previous) === mutationRecordType(mutation)
       && previous.entityId === mutation.entityId && previous.status !== "synced")) return false;
     if (mutation.entityType === "resource" && typeof mutation.payload.resourceTypeId === "string" && queue.some((previous, position) =>
       position < index && previous.entityType === "resource_type" && previous.entityId === mutation.payload.resourceTypeId && previous.status !== "synced")) return false;
@@ -199,8 +199,13 @@ export function nextPendingMutation(queue: SyncMutation[]) {
 
 // Acknowledgements may arrive after another local edit. Its queued revision
 // must survive so the next edit cannot reuse an already submitted revision.
+function mutationRecordType(mutation: SyncMutation) {
+  if (mutation.entityType !== "operations") return mutation.entityType;
+  return mutation.payload.entity === "material_details" ? "material" : mutation.payload.entity === "location_details" ? "inventory_location" : mutation.payload.entity === "resource_details" ? "resource" : "operations";
+}
+
 export function revisionAfterConfirmation(mutation: SyncMutation, serverRevision: number, queue: SyncMutation[]) {
-  return queue.reduce((revision, item) => item.entityType === mutation.entityType && item.entityId === mutation.entityId
+  return queue.reduce((revision, item) => mutationRecordType(item) === mutationRecordType(mutation) && item.entityId === mutation.entityId
     && ["pending", "syncing", "failed"].includes(item.status) && item.expectedRevision !== undefined
     ? Math.max(revision, item.expectedRevision + 1) : revision, serverRevision);
 }

@@ -73,7 +73,7 @@ export function PickingDispatch({ order, items, language, onClose, onBook }: {
       <div className={styles.actions}><button type="submit" disabled={!code.trim()}><ScanLine size={18} />{t("scanAccept")}</button><button type="button" onClick={() => setCamera(true)}><Camera size={18} />{t("scanCamera")}</button></div>
       {camera && <CodeCamera label={t("scanCamera")} onCode={accept} onError={() => { setCamera(false); setError("scanCameraError"); }} />}
     </form>}
-    {target && <><h3>{target.name}</h3><dl className={styles.itemFacts}>{items.map((item) => <div key={item.material_id}><dt>{item.material.name}</dt><dd>{item.picked} {item.material.unit}</dd></div>)}</dl>
+    {target && <><h3>{target.name}</h3><dl className={styles.itemFacts}>{items.map((item) => <div key={item.material_id}><dt>{item.material.sku ? `${item.material.sku} · ` : ""}{item.material.name}{item.material.scan_code ? ` · ${item.material.scan_code}` : ""}</dt><dd>{item.picked} {item.material.unit}</dd></div>)}</dl>
       <footer className={styles.actions}><button disabled={busy} onClick={() => { setTarget(null); setCode(""); }}>{t("scanBack")}</button><button className={styles.primaryAction} disabled={busy} onClick={() => void book()}>{t("pickingDispatchAll")}</button></footer></>}
     {error && <p role="alert">{t(error)}</p>}
   </TripDialog>;

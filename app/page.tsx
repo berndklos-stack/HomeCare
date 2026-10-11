@@ -9076,11 +9076,11 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
         const byId = new Map(changedMaterials.map((material) => [material.id, material]));
         setMaterials((current) => current.map((r) => {
           const material = byId.get(r.id);
-          return material ? { ...r, revision: material.revision, stockTotal: material.stockTotal, stockByLocation: material.stockByLocation,
+          return material ? { ...r, revision: revisionAfterConfirmation({ ...mutation, entityType: "material", entityId: material.id }, material.revision, remainingQueue), stockTotal: material.stockTotal, stockByLocation: material.stockByLocation,
             ...(material.purchase_price != null ? { purchasePrice: String(material.purchase_price) } : {}) } : r;
         }));
       }
-      if (mutation.payload.entity === "material_details") setMaterials((current) => current.map((r) => r.id === mutation.entityId ? { ...r, revision: Number(serverRecord.revision) } : r));
+      if (mutation.payload.entity === "material_details") setMaterials((current) => current.map((r) => r.id === mutation.entityId ? { ...r, revision: revisionAfterConfirmation(mutation, Number(serverRecord.revision), remainingQueue) } : r));
       if (mutation.payload.entity === "location_details") setInventoryLocations((current) => {
         const previous = current.find((r) => r.id === mutation.entityId);
         const location = { ...previous, id: mutation.entityId, name: String(serverRecord.name ?? previous?.name ?? ""),
@@ -23736,9 +23736,6 @@ function MasterDataView({
                   <span>{tt("Bestand")}: {formatInventoryQuantity(materialInventoryTotal(material))} {material.unit} · {(material.inventoryEntries ?? []).length} {tt("Buchungen")}</span>
                 </div>
                 <span>{material.description}</span>
-                <div className="row-actions">
-                  <IconAction danger label={`Material ${material.name} archivieren`} onClick={() => archiveMaterial(material)}><Archive size={16} /></IconAction>
-                </div>
               </article>
             ))}
             {activeMaterials.length === 0 && <p>{tt("Noch kein Material erfasst.")}</p>}
@@ -23756,10 +23753,6 @@ function MasterDataView({
                       <span>{material.category} · {materialRate(material)}</span>
                     </div>
                     <Badge value="archiviert" />
-                    <div className="row-actions">
-                      <IconAction label={`Archiviertes Material ${material.name} reaktivieren`} onClick={() => restoreMaterial(material)}><RotateCcw size={16} /></IconAction>
-                      <IconAction danger label={`Archiviertes Material ${material.name} löschen`} onClick={() => deleteArchivedMaterial(material)}><Trash2 size={16} /></IconAction>
-                    </div>
                   </article>
                 ))}
               </div>
@@ -23983,6 +23976,10 @@ function MasterDataView({
             {editingMaterialId && <MaterialPurchasing key={editingMaterialId} materialId={editingMaterialId} language={language} queue={queue} enqueue={enqueue} />}
             <div className="message-actions">
               {editingMaterialId && materials.find((item) => item.id === editingMaterialId) && <MaterialLabel saved={materials.find((item) => item.id === editingMaterialId)!} current={materialForm} language={language} />}
+              {editingMaterialId && materials.filter((item) => item.id === editingMaterialId).map((material) => material.archived ? <span className="row-actions" key={material.id}>
+                <button className="ghost-button" type="button" onClick={() => { restoreMaterial(material); resetMaterialForm(); }}><RotateCcw size={16} />{tt("Reaktivieren")}</button>
+                <button className="ghost-button" type="button" onClick={() => deleteArchivedMaterial(material)}><Trash2 size={16} />{tt("Löschen")}</button>
+              </span> : <button key={material.id} className="ghost-button" type="button" onClick={() => archiveMaterial(material)}><Archive size={16} />{tt("Archivieren")}</button>)}
               <button className="ghost-button" onClick={resetMaterialForm} type="button">{tt("Abbrechen")}</button>
               <button className="primary-button" disabled={queue.some((mutation) => mutation.entityType === "operations" && mutation.entityId === editingMaterialId && mutation.status !== "synced")} onClick={saveMaterial} type="button">
                 <Check size={16} />

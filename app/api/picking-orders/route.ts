@@ -13,13 +13,14 @@ export async function GET(request: Request) {
   if (id) query = query.eq("id", id);
   if (pickup) query = query.eq("pickup_code", pickup);
   if (code) query = query.eq("picking_code", code);
+  if (params.get("active") === "1") query = query.neq("status", "cancelled");
   if (params.get("ready") === "1") query = query.in("status", ["completed", "loaded"]);
   if (job) query = query.eq("job_id", job);
   const { data: rows, error, count } = await query;
   if (error) return NextResponse.json({ error: "OPERATIONS_UNAVAILABLE" }, { status: 503 });
   const items: Record<string, unknown>[] = [];
   if ((id || pickup || code) && rows?.[0]) for (let offset = 0; ; offset += 500) {
-    const result = await auth.client.from("homecare_picking_items").select("*,material:homecare_materials(name,sku,unit,record_data)").eq("tenant_id", auth.tenantId).eq("order_id", rows[0].id).order("material_id").range(offset, offset + 499);
+    const result = await auth.client.from("homecare_picking_items").select("*,material:homecare_materials(name,sku,scan_code,unit)").eq("tenant_id", auth.tenantId).eq("order_id", rows[0].id).order("material_id").range(offset, offset + 499);
     if (result.error) return NextResponse.json({ error: "OPERATIONS_UNAVAILABLE" }, { status: 503 });
     items.push(...(result.data ?? []));
     if (!result.data || result.data.length < 500) break;

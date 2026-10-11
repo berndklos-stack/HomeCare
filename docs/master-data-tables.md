@@ -1,5 +1,25 @@
 # Stammdatentabellen
 
+## Datenbankvorgabe ab 2026-10-11
+
+Neue fachliche Felder erhalten eigene typisierte Datenbankspalten samt Migration,
+Validierung, Lesemapping und Synchronisierungstest. Sammelfelder dienen nur noch
+der Kompatibilitaet, nicht als Ersatz fuer neue Spalten.
+
+Die Migration `20261011070000_master_data_columns.sql` ergaenzt `scan_code` bei
+Material, Auftrag und Objekt. Sie korrigiert die Aktualisierung der bereits
+vorhandenen Spalten bei Material, Personal, Leistungen, Paketen, Konten und
+Standorten. Datenbankspalten sind beim Lesen massgeblich. Direkte Spaltenupdates
+und kompatible Stammdatenmutationen werden im selben Schreibvorgang abgeglichen.
+
+Vor der Uebernahme wird je Mandant eine relationale Sicherung angelegt. Vorhandene
+Codes werden ohne Aenderung von Revision oder Zeitstempel uebernommen. Bereits
+belegte, widerspruechliche Spalten werden nicht automatisch ueberschrieben.
+Echte Synchronisierungskonflikte bleiben bis zur ausdruecklichen Entscheidung
+erhalten. Ein bislang ignorierter Objektcode kann aus der letzten erfolgreich
+bestaetigten Objektmutation wiederhergestellt werden; gescheiterte oder
+konfliktbehaftete Mutationen werden dafuer nicht verwendet.
+
 ## Standard
 
 Stammdaten und vergleichbare Uebersichten werden als semantische Tabelle dargestellt.

@@ -34,25 +34,25 @@ export function PickingOrders({ job, language, queue = [], onBooked, pickupOnly 
     const controller = new AbortController();
     async function load() {
       setLoading(true); setError("");
-      const response = await apiFetch(`/api/picking-orders?${orderId ? `id=${orderId}` : `page=${page}${jobId ? `&job=${encodeURIComponent(jobId)}` : ""}${pickupOnly ? "&ready=1" : ""}`}`, { signal: controller.signal });
+      const response = await apiFetch(`/api/picking-orders?${!job ? "active=1&" : ""}${orderId ? `id=${orderId}` : `page=${page}${jobId ? `&job=${encodeURIComponent(jobId)}` : ""}${pickupOnly ? "&ready=1" : ""}`}`, { signal: controller.signal });
       if (!response.ok) throw new Error("OPERATIONS_UNAVAILABLE");
       const data = await response.json() as { rows: PickingOrder[]; items: PickingItem[]; count: number; events?: Record<string, unknown>[] };
       if (controller.signal.aborted) return;
-      if (orderId) { if (!data.rows[0]) throw new Error("scanUnknown"); setOrder(data.rows[0]); setItems(data.items); setEvents(data.events ?? []); }
+      if (orderId) { if (!data.rows[0] || !job && data.rows[0].status === "cancelled") { setOrder(null); setItems([]); throw new Error("scanUnknown"); } setOrder(data.rows[0]); setItems(data.items); setEvents(data.events ?? []); }
       else {
-        setRows(data.rows); setCount(data.count);
+        setRows(job ? data.rows : data.rows.filter((row) => row.status !== "cancelled")); setCount(data.count);
         const all: PickingOrder[] = [];
         for (let choicePage = 0; ; choicePage++) {
-          const choiceResponse = choicePage === page ? null : await apiFetch(`/api/picking-orders?page=${choicePage}${jobId ? `&job=${encodeURIComponent(jobId)}` : ""}${pickupOnly ? "&ready=1" : ""}`, { signal: controller.signal });
+          const choiceResponse = choicePage === page ? null : await apiFetch(`/api/picking-orders?${!job ? "active=1&" : ""}page=${choicePage}${jobId ? `&job=${encodeURIComponent(jobId)}` : ""}${pickupOnly ? "&ready=1" : ""}`, { signal: controller.signal });
           if (choiceResponse && !choiceResponse.ok) throw new Error("OPERATIONS_UNAVAILABLE");
           const choiceData = choiceResponse ? await choiceResponse.json() as { rows: PickingOrder[]; count: number } : data;
-          all.push(...choiceData.rows);
+          all.push(...(job ? choiceData.rows : choiceData.rows.filter((row) => row.status !== "cancelled")));
           if (choiceData.rows.length < 50 || (choicePage + 1) * 50 >= choiceData.count) break;
         }
         if (!controller.signal.aborted) setChoices(all);
       }
     }
-    void load().catch(() => { if (!controller.signal.aborted) setError("OPERATIONS_UNAVAILABLE"); }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    void load().catch((cause) => { if (!controller.signal.aborted) setError(cause instanceof Error && cause.message === "scanUnknown" ? "scanUnknown" : "OPERATIONS_UNAVAILABLE"); }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
   }, [open, orderId, page, refresh, jobId, pickupOnly]);
 
@@ -85,7 +85,7 @@ export function PickingOrders({ job, language, queue = [], onBooked, pickupOnly 
     if (value.trim().startsWith("PICKUP:")) {
       const pickup = value.trim().slice(7);
       if (!/^[0-9a-f-]{36}$/i.test(pickup)) { setError("scanUnknown"); return; }
-      void apiFetch(`/api/picking-orders?pickup=${encodeURIComponent(pickup)}`).then(async (response) => {
+      void apiFetch(`/api/picking-orders?${!job ? "active=1&" : ""}pickup=${encodeURIComponent(pickup)}`).then(async (response) => {
         if (!response.ok) throw new Error("OPERATIONS_UNAVAILABLE");
         const data = await response.json(); const ready = data.rows?.[0] as PickingOrder | undefined;
         if (!ready || !["completed", "loaded"].includes(ready.status)) throw new Error("PICKING_INVALID_PICKUP");
@@ -97,10 +97,10 @@ export function PickingOrders({ job, language, queue = [], onBooked, pickupOnly 
     if (/^\d{4}-\d{2}-\d{2}-\d{5}$/.test(id)) {
       if (lock.current) return;
       lock.current = true; setBusy(true);
-      void apiFetch(`/api/picking-orders?code=${encodeURIComponent(id)}`).then(async (response) => {
+      void apiFetch(`/api/picking-orders?${!job ? "active=1&" : ""}code=${encodeURIComponent(id)}`).then(async (response) => {
         if (!response.ok) throw new Error("OPERATIONS_UNAVAILABLE");
         const data = await response.json();
-        if (data.rows?.length !== 1) throw new Error("scanUnknown");
+        if (data.rows?.length !== 1 || !job && data.rows[0].status === "cancelled") throw new Error("scanUnknown");
         setOrder(data.rows[0]); setItems(data.items ?? []); setCode("");
       }).catch((cause) => setError(cause instanceof Error && cause.message === "scanUnknown" ? "scanUnknown" : "OPERATIONS_UNAVAILABLE"))
         .finally(() => { lock.current = false; setBusy(false); });
@@ -138,6 +138,8 @@ export function PickingOrders({ job, language, queue = [], onBooked, pickupOnly 
       }}><Printer size={18} />{t("pickingPickupPrint")}</button></div>}
       <OperationsDataTable rows={items.map((item) => ({ ...item, id: item.material_id }))} columns={[
         { key: "name", label: t("designation"), value: (row) => (row.material as PickingItem["material"]).name },
+        { key: "sku", label: t("materialSkuColumn"), value: (row) => (row.material as PickingItem["material"]).sku ?? "" },
+        { key: "scan_code", label: t("materialScanCode"), value: (row) => (row.material as PickingItem["material"]).scan_code ?? "" },
         { key: "quantity", label: t("pickingRequired"), value: (row) => `${row.quantity} ${(row.material as PickingItem["material"]).unit ?? ""}` },
         { key: "picked", label: t("pickingPicked"), value: (row) => String(row.picked) },
         { key: "remaining", label: t("pickingRemaining"), value: (row) => String(Number(row.quantity) - Number(row.picked)) },
@@ -158,7 +160,7 @@ export function PickingOrders({ job, language, queue = [], onBooked, pickupOnly 
       <p>{order.title}{order.picking_code ? ` · ${order.picking_code}` : ""}</p>
       <p>{t("pickingCancelWarning")}</p>
       <form onSubmit={async (event) => { event.preventDefault(); if (lock.current || !cancelReason.trim() || pending) return; lock.current = true; setBusy(true); setError("");
-        try { await command({ action: "cancel", id: order.id, revision: order.revision, reason: cancelReason.trim() }); setCancelDialog(false); setRefresh((value) => value + 1); }
+        try { await command({ action: "cancel", id: order.id, revision: order.revision, reason: cancelReason.trim() }); setCancelDialog(false); if (!job) { setOrder(null); setItems([]); } setRefresh((value) => value + 1); }
         catch (cause) { setError(cause instanceof Error && t(cause.message) !== cause.message ? cause.message : "OPERATIONS_UNAVAILABLE"); }
         finally { lock.current = false; setBusy(false); }
       }}><label className={styles.field}><span>{t("pickingCancelReason")}</span><textarea required maxLength={2000} disabled={busy} value={cancelReason} onChange={(event) => setCancelReason(event.target.value)} /></label>
@@ -169,7 +171,7 @@ export function PickingOrders({ job, language, queue = [], onBooked, pickupOnly 
     {dispatch && order && <PickingDispatch order={order} items={items} language={language} onClose={() => setDispatch(false)} onBook={async (input) => { await command({ action: "dispatch", order: order.id, revision: order.revision, ...input }); setDispatch(false); setRefresh((value) => value + 1); onBooked?.(); }} />}
     {job && <button className="ghost-button" type="button" onClick={() => setOpen(true)}><ScanLine size={16} />{t("pickingOrders")}</button>}
     {open && (job ? <TripDialog labelledBy="picking-title" onClose={() => { if (!busy) setOpen(false); }} className={styles.dialog}>{contents}</TripDialog> : <section className="panel">{contents}</section>)}
-    {open && scan && order && <StockScan language={language} queue={queue} enqueue={() => {}} materials={items.filter((item) => Number(item.picked) < Number(item.quantity)).map((item) => ({ id: item.material_id, name: item.material.name, unit: item.material.unit, sku: item.material.sku, scanCode: item.material.record_data?.scanCode }))}
+    {open && scan && order && <StockScan language={language} queue={queue} enqueue={() => {}} materials={items.filter((item) => Number(item.picked) < Number(item.quantity)).map((item) => ({ id: item.material_id, name: item.material.name, unit: item.material.unit, sku: item.material.sku, scanCode: item.material.scan_code ?? undefined }))}
       picking={{ order, items, onBook: async (input) => { await command({ action: "pick", order: order.id, revision: order.revision, ...input }); } }}
       onClose={() => setScan(false)} onQueued={() => { setScan(false); setRefresh((value) => value + 1); onBooked?.(); }} />}
   </>;

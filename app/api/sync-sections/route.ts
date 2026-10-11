@@ -203,6 +203,7 @@ type CustomerContactRow = {
 };
 
 type ObjectRow = {
+  scan_code: string | null;
   access_notes: string | null;
   address: string | null;
   alarm: string | null;
@@ -277,6 +278,7 @@ type PersonnelRow = {
 };
 
 type JobRow = {
+  scan_code: string | null;
   assigned_to: string | null;
   billable: boolean | null;
   checklist: unknown;
@@ -357,6 +359,7 @@ type AccountingAccountRow = {
 };
 
 type InventoryLocationRow = {
+  location_code: string | null;
   archived: boolean | null;
   id: string;
   name: string;
@@ -371,6 +374,7 @@ type InventoryLocationRow = {
 };
 
 type MaterialRow = {
+  scan_code: string | null;
   accounting_account: string | null;
   archived: boolean | null;
   category: string | null;
@@ -971,6 +975,7 @@ function rowToObject(row: ObjectRow, mediaRows: MediaRow[]) {
     customFields: row.custom_fields && typeof row.custom_fields === "object" && !Array.isArray(row.custom_fields) ? row.custom_fields : {},
     equipment: Array.isArray(row.equipment) ? row.equipment : [],
     id: row.id,
+    scanCode: row.scan_code ?? "",
     lastVisit: row.last_visit ?? "",
     media: {
       documents: items.filter((item) => item.type === "Dokument").length,
@@ -1022,6 +1027,7 @@ function personnelToRow(person: JsonObject) {
 
 function rowToPersonnel(row: PersonnelRow) {
   return {
+    ...(row.record_data && typeof row.record_data === "object" ? row.record_data as JsonObject : {}),
     archived: Boolean(row.archived),
     createdAt: row.created_at ?? undefined,
     email: row.email ?? "",
@@ -1034,7 +1040,6 @@ function rowToPersonnel(row: PersonnelRow) {
     phone: row.phone ?? "",
     role: row.role ?? "",
     status: row.status ?? "aktiv",
-    ...(row.record_data && typeof row.record_data === "object" ? row.record_data as JsonObject : {}),
     revision: row.revision,
     updatedAt: row.updated_at ?? undefined,
   };
@@ -1061,6 +1066,7 @@ function rowToJob(row: JobRow, timeRows: JobTimeEntryRow[] = []) {
     executionDate: row.execution_date ?? undefined,
     executionLog: Array.isArray(row.execution_log) ? row.execution_log : [],
     id: row.id,
+    scanCode: row.scan_code ?? "",
     internalNotes: row.internal_notes ?? "",
     material: row.material ?? "",
     materialItems: Array.isArray(row.material_items) ? row.material_items : [],
@@ -1116,11 +1122,11 @@ function accountingAccountToRow(account: JsonObject) {
 
 function rowToAccountingAccount(row: AccountingAccountRow) {
   return {
+    ...(row.record_data && typeof row.record_data === "object" ? row.record_data as JsonObject : {}),
     account: row.account,
     archived: Boolean(row.archived),
     category: row.category,
     label: row.label,
-    ...(row.record_data && typeof row.record_data === "object" ? row.record_data as JsonObject : {}),
     revision: row.revision,
     updatedAt: row.updated_at ?? undefined,
   };
@@ -1138,12 +1144,13 @@ function inventoryLocationToRow(location: JsonObject) {
 
 function rowToInventoryLocation(row: InventoryLocationRow) {
   return {
+    ...(row.record_data && typeof row.record_data === "object" ? row.record_data as JsonObject : {}),
     archived: Boolean(row.archived),
     id: row.id,
     name: row.name,
     note: row.note ?? "",
     site: row.site ?? "",
-    ...(row.record_data && typeof row.record_data === "object" ? row.record_data as JsonObject : {}),
+    locationCode: row.location_code ?? "",
     parentLocationId: row.parent_location_id ?? "",
     locationTypeId: row.location_type_id ?? "",
     revision: row.revision,
@@ -1198,12 +1205,14 @@ function movementToRow(materialId: string, movement: JsonObject) {
 
 function rowToMaterial(row: MaterialRow, movements: InventoryMovementRow[]) {
   return {
+    ...(row.record_data && typeof row.record_data === "object" ? row.record_data as JsonObject : {}),
     accountingAccount: row.accounting_account ?? "",
     archived: Boolean(row.archived),
     category: row.category ?? "",
     currency: row.currency ?? "SEK",
     description: row.description ?? "",
     id: row.id,
+    scanCode: row.scan_code ?? "",
     inventoryEntries: movements
       .filter((movement) => movement.material_id === row.id)
       .map((movement) => ({
@@ -1238,7 +1247,6 @@ function rowToMaterial(row: MaterialRow, movements: InventoryMovementRow[]) {
     supplier: row.supplier ?? "",
     taxRate: row.tax_rate === null ? "" : String(row.tax_rate),
     unit: row.unit ?? "",
-    ...(row.record_data && typeof row.record_data === "object" ? row.record_data as JsonObject : {}),
     revision: row.revision,
     updatedAt: row.updated_at ?? undefined,
   };
@@ -1263,6 +1271,7 @@ function serviceToRow(service: JsonObject) {
 
 function rowToService(row: ServiceRow) {
   return {
+    ...(row.record_data && typeof row.record_data === "object" ? row.record_data as JsonObject : {}),
     accountingAccount: row.accounting_account ?? "",
     archived: Boolean(row.archived),
     category: row.category ?? "",
@@ -1275,7 +1284,6 @@ function rowToService(row: ServiceRow) {
     showWorkTimeInReports: Boolean(row.show_work_time_in_reports),
     taxRate: row.tax_rate === null ? "" : String(row.tax_rate),
     unit: row.unit ?? "",
-    ...(row.record_data && typeof row.record_data === "object" ? row.record_data as JsonObject : {}),
     revision: row.revision,
     updatedAt: row.updated_at ?? undefined,
   };
@@ -1294,13 +1302,13 @@ function packageToRow(servicePackage: JsonObject) {
 
 function rowToPackage(row: ServicePackageRow) {
   return {
+    ...(row.record_data && typeof row.record_data === "object" ? row.record_data as JsonObject : {}),
     archived: Boolean(row.archived),
     description: row.description ?? "",
     id: row.id,
     name: row.name,
     price: row.price === null ? "" : String(row.price),
     serviceIds: Array.isArray(row.service_ids) ? row.service_ids : [],
-    ...(row.record_data && typeof row.record_data === "object" ? row.record_data as JsonObject : {}),
     revision: row.revision,
     updatedAt: row.updated_at ?? undefined,
   };
@@ -1562,7 +1570,7 @@ async function loadJobNotesSections(supabase: NonNullable<ReturnType<typeof getS
 async function loadObjectsRows(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
   const { data, error } = await supabase
     .from("homecare_objects")
-    .select("id, owner_customer_id, name, owner_name, owner_email, owner_phone, owner_address, address, billing_address_mode, billing_address, region, size_sqm, plot_sqm, rooms, beds, bathrooms, build_year, care_package, status, key_safe, alarm, parking, access_notes, heating, water, septic, internet, equipment, risks, next_visit, last_visit, archived, object_type, custom_fields, revision, deleted_at, updated_at")
+    .select("id, owner_customer_id, name, owner_name, owner_email, owner_phone, owner_address, address, billing_address_mode, billing_address, region, size_sqm, plot_sqm, rooms, beds, bathrooms, build_year, care_package, status, key_safe, alarm, parking, access_notes, heating, water, septic, internet, equipment, risks, next_visit, last_visit, archived, object_type, custom_fields, scan_code, revision, deleted_at, updated_at")
     .order("name", { ascending: true });
   if (error) throw new Error(error.message);
   return (data ?? []) as ObjectRow[];
@@ -1657,7 +1665,7 @@ async function loadPersonnelSection(supabase: NonNullable<ReturnType<typeof getS
 async function loadJobsSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
   const [{ data, error }, { data: timeData, error: timeError }] = await Promise.all([
     supabase.from("homecare_jobs")
-      .select("id, series_master_id, series_occurrence_date, title, object_id, customer_id, type, status, status_updated_at, priority, due_date, start_date, end_date, execution_date, assigned_to, description, internal_notes, billable, material, work_minutes, resource_ids, material_items, checklist, service_ids, service_quantities, service_discounts, custom_service, discount, schedule, execution_log, offer_number, offer_sent_at, order_confirmation_number, order_confirmation_sent_at, series_excluded_dates, record_data, consulting, revision, deleted_at, updated_at")
+      .select("id, series_master_id, series_occurrence_date, title, object_id, customer_id, type, status, status_updated_at, priority, due_date, start_date, end_date, execution_date, assigned_to, description, internal_notes, billable, material, work_minutes, resource_ids, material_items, checklist, service_ids, service_quantities, service_discounts, custom_service, discount, schedule, execution_log, offer_number, offer_sent_at, order_confirmation_number, order_confirmation_sent_at, series_excluded_dates, record_data, scan_code, consulting, revision, deleted_at, updated_at")
       .order("due_date", { ascending: true }),
     supabase.from("homecare_job_time_entries")
       .select("id,job_id,entry_date,start_time,end_time,minutes,description,billing_status,billed_at,billing_record_id,revision,deleted_at,updated_at")
@@ -1697,7 +1705,7 @@ async function loadAccountingAccountsSection(supabase: NonNullable<ReturnType<ty
 async function loadInventoryLocationsSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
   const { data, error } = await supabase
     .from("homecare_inventory_locations")
-    .select("id, name, site, note, archived, parent_location_id, location_type_id, record_data, revision, deleted_at, updated_at")
+    .select("id, name, site, note, archived, parent_location_id, location_type_id, location_code, record_data, revision, deleted_at, updated_at")
     .order("name", { ascending: true });
   if (error) throw new Error(error.message);
   return {
@@ -1709,7 +1717,7 @@ async function loadInventoryLocationsSection(supabase: NonNullable<ReturnType<ty
 async function loadMaterialsSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
   const { data: materialRows, error } = await supabase
     .from("homecare_materials")
-    .select("id, accounting_account, sku, name, category, unit, sales_price, purchase_price, currency, tax_rate, supplier, primary_location_id, min_stock, max_stock, description, archived, record_data, revision, deleted_at, updated_at")
+    .select("id, accounting_account, sku, scan_code, name, category, unit, sales_price, purchase_price, currency, tax_rate, supplier, primary_location_id, min_stock, max_stock, description, archived, record_data, revision, deleted_at, updated_at")
     .order("name", { ascending: true });
   if (error) throw new Error(error.message);
 

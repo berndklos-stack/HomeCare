@@ -1,0 +1,34 @@
+begin;
+do $$ declare tenant uuid:='00000000-0000-0000-0000-000000000001'; response jsonb; mutation uuid:=gen_random_uuid(); begin
+  response:=public.homecare_apply_master_data_mutation(mutation,'material','column-test','create',null,tenant,'{"name":"Testmaterial","sku":"SKU-001","scanCode":"0012345678905","price":"12.5","purchasePrice":"7","taxRate":"25","minStock":"2","unit":"Meter"}',null);
+  if response->>'status'<>'synced' or not exists(select 1 from public.homecare_materials where tenant_id=tenant and id='column-test' and sku='SKU-001' and scan_code='0012345678905' and sales_price=12.5 and purchase_price=7 and tax_rate=25 and min_stock=2) then raise exception 'MATERIAL_COLUMNS_NOT_WRITTEN'; end if;
+  perform public.homecare_apply_master_data_mutation(mutation,'material','column-test','create',null,tenant,'{}',null);
+  if (select revision from public.homecare_materials where id='column-test')<>1 then raise exception 'CREATE_RETRY_CHANGED_REVISION'; end if;
+  response:=public.homecare_apply_master_data_mutation(gen_random_uuid(),'material','column-test','update',null,tenant,'{"name":"Neuer Name","sku":"SKU-002","scanCode":"0000000000001","price":"20","archived":true}',1);
+  if response->>'status'<>'synced' or not exists(select 1 from public.homecare_materials where id='column-test' and name='Neuer Name' and sku='SKU-002' and scan_code='0000000000001' and sales_price=20 and archived and revision=2) then raise exception 'MATERIAL_UPDATE_COLUMNS_NOT_WRITTEN'; end if;
+  response:=public.homecare_apply_master_data_mutation(gen_random_uuid(),'material','column-test','update',null,tenant,'{"sku":"STALE"}',1);
+  if response->>'status'<>'conflict' or (select sku from public.homecare_materials where id='column-test')<>'SKU-002' then raise exception 'STALE_UPDATE_ACCEPTED'; end if;
+  update public.homecare_materials set sku='DIRECT' where id='column-test';
+  if (select record_data->>'sku' from public.homecare_materials where id='column-test')<>'DIRECT' then raise exception 'COLUMN_WRITE_NOT_MIRRORED'; end if;
+  perform public.homecare_apply_master_data_mutation(gen_random_uuid(),'material','column-test','update',null,tenant,'{"price":"8,5","scanCode":""}',3);
+  if not exists(select 1 from public.homecare_materials where id='column-test' and sales_price=8.5 and scan_code is null) then raise exception 'DECIMAL_OR_CLEAR_FAILED'; end if;
+  response:=public.homecare_apply_master_data_mutation(gen_random_uuid(),'personnel','column-person','create',null,tenant,'{"firstName":"Bernd","lastName":"Test","email":"test@example.invalid"}',null);
+  if not exists(select 1 from public.homecare_personnel where id='column-person' and first_name='Bernd' and last_name='Test' and email='test@example.invalid') then raise exception 'PERSON_COLUMNS_FAILED'; end if;
+  perform public.homecare_apply_master_data_mutation(gen_random_uuid(),'service','column-service','create',null,tenant,'{"name":"Testservice","price":"125","taxRate":"25","showWorkTimeInReports":true}',null);
+  if not exists(select 1 from public.homecare_services where id='column-service' and price=125 and tax_rate=25 and show_work_time_in_reports) then raise exception 'SERVICE_COLUMNS_FAILED'; end if;
+  perform public.homecare_apply_master_data_mutation(gen_random_uuid(),'service_package','column-package','create',null,tenant,'{"name":"Paket","price":"99","serviceIds":["column-service"]}',null);
+  if not exists(select 1 from public.homecare_service_packages where id='column-package' and price=99 and service_ids='["column-service"]') then raise exception 'PACKAGE_COLUMNS_FAILED'; end if;
+  perform public.homecare_apply_master_data_mutation(gen_random_uuid(),'inventory_location','column-location','create',null,tenant,'{"name":"Standort","site":"Filiale","locationCode":"001"}',null);
+  if not exists(select 1 from public.homecare_inventory_locations where id='column-location' and site='Filiale' and location_code='001') then raise exception 'LOCATION_COLUMNS_FAILED'; end if;
+  response:=public.homecare_apply_object_mutation(gen_random_uuid(),'object','column-object','create',null,tenant,'{"name":"Testobjekt","scanCode":"OBJ-001"}',null);
+  if response->>'status'<>'synced' or (select scan_code from public.homecare_objects where id='column-object')<>'OBJ-001' then raise exception 'OBJECT_CODE_CREATE_FAILED: %',response; end if;
+  response:=public.homecare_apply_object_mutation(gen_random_uuid(),'object','column-object','update',null,tenant,'{"scanCode":"OBJ-002"}',1);
+  if response->>'status'<>'synced' or (select scan_code from public.homecare_objects where id='column-object')<>'OBJ-002' then raise exception 'OBJECT_CODE_UPDATE_FAILED'; end if;
+  insert into public.homecare_jobs(id,tenant_id,title,record_data) values('column-job',tenant,'Job','{"scanCode":"JOB-001"}');
+  if (select scan_code from public.homecare_jobs where id='column-job')<>'JOB-001' then raise exception 'JOB_CODE_FAILED'; end if;
+  begin
+    update public.homecare_materials set scan_code=repeat('X',129) where id='column-test';
+    raise exception 'SCAN_LENGTH_ACCEPTED';
+  exception when check_violation then null; end;
+end $$;
+rollback;

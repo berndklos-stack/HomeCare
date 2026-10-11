@@ -154,6 +154,7 @@ export function StockScan({ materials, language, queue, enqueue, onClose, onQueu
     {!loaded && <p role={loadError ? "alert" : "status"}>{t(loadError ? "OPERATIONS_UNAVAILABLE" : "loading")}{loadError && <button type="button" onClick={() => setReload((value) => value + 1)}>{t("retry")}</button>}</p>}
     <dl className={styles.itemFacts}>
       {material && <div><dt>{t("designation")}</dt><dd>{material.sku ? `${material.sku} · ` : ""}{material.name}</dd></div>}
+      {material?.scanCode && <div><dt>{t("materialScanCode")}</dt><dd>{material.scanCode}</dd></div>}
       {source && <div><dt>{t("source_id")}</dt><dd>{placeLabel(source)}</dd></div>}
       {destination && <div><dt>{t("destination_id")}</dt><dd>{placeLabel(destination)}</dd></div>}
       {targetJob && <div><dt>{t("job_id")}</dt><dd>{targetJob.name} · {targetJob.code}</dd></div>}

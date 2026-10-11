@@ -1,4 +1,4 @@
-export type PickingItem = { material_id: string; quantity: number; picked: number; material: { name: string; sku?: string; unit?: string; record_data?: { scanCode?: string } } };
+export type PickingItem = { material_id: string; quantity: number; picked: number; material: { name: string; sku?: string; scan_code?: string | null; unit?: string; record_data?: { scanCode?: string } } };
 export type PickingOrder = { id: string; picking_code?: string; job_id: string; title: string; revision: number; status: "open" | "completed" | "loaded" | "dispatched" | "cancelled"; created_at: string; staging_id?: string | null; destination_id?: string | null; dispatched_at?: string | null; pickup_code?: string | null };
 
 export async function pickingPdf(order: PickingOrder, items: PickingItem[], language: "de" | "sv" | "en") {
@@ -24,6 +24,7 @@ export async function pickingPdf(order: PickingOrder, items: PickingItem[], lang
   header();
   for (const item of [...items].sort((a, b) => a.material.name.localeCompare(b.material.name, language))) {
     const name = pdf.splitTextToSize([item.material.sku, item.material.name].filter(Boolean).join(" · "), 112) as string[];
+    if (item.material.scan_code) name.push(...pdf.splitTextToSize(`EAN / Scan: ${item.material.scan_code}`, 112) as string[]);
     const height = Math.max(16, name.length * 4 + 7);
     if (y + height > 268) { pdf.addPage(); header(); }
     pdf.setFont("helvetica", "normal"); pdf.text(name, 18, y);

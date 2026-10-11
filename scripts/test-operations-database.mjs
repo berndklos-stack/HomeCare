@@ -25,6 +25,7 @@ try {
     sql("supabase/tests/job_stock_billing.sql");
     sql("supabase/tests/scan_target_projections.sql");
     sql("supabase/tests/picking_codes.sql");
+    sql("supabase/tests/master_data_columns.sql");
     sql("supabase/migrations/20261008100000_resource_types.sql");
     sql("supabase/tests/resource_types.sql");
     console.log("Complete migration chain and Operations backup round trip passed (local Auth shim, not live Supabase).");
