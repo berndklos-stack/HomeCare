@@ -57,11 +57,14 @@ for (const mobile of [false, true]) test(`Einkauf verwendet gemeinsame Reiter ${
     if (name !== "Schadensakten") await expect(panel.getByRole("button", { name: "Neu", exact: true })).toBeVisible();
   }
   await page.screenshot({ path: info.outputPath(`purchasing-tabs-${mobile}.png`), fullPage: true });
-  await page.getByRole("button", { name: "Material & Lager", exact: true }).click(); await page.getByRole("tab", { name: "Lagerplätze", exact: true }).click();
+  await page.getByRole("button", { name: "Material & Lager", exact: true }).click();
+  await page.getByRole("tab", { name: "Stammdaten", exact: true }).click();
+  await page.getByRole("tab", { name: "Lagerplätze", exact: true }).click();
   await page.getByRole("button", { name: "Neuer Lagerplatz", exact: true }).click();
   const form = page.getByRole("dialog"); await form.getByLabel("Lagerplatzart", { exact: true }).selectOption("vehicle");
   await expect(form.getByLabel("Lagerplatzart", { exact: true })).toHaveValue("vehicle");
   await form.getByRole("button", { name: "Abbrechen", exact: true }).click();
+  await page.getByRole("tab", { name: "Stammdaten", exact: true }).click();
   await page.getByRole("tab", { name: "Standorte", exact: true }).click();
   await page.getByRole("button", { name: "Neuer Lagerort", exact: true }).click();
   await form.getByLabel("Als Fahrzeuglager verwenden", { exact: true }).check();

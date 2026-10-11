@@ -226,6 +226,7 @@ export const operationText = {
   location_type_id: ["Lagerorttyp", "Lagerplatstyp", "Storage location type"],
   parent_location_id: ["Zugehöriger Standort", "Tillhörande lager", "Assigned location"],
   storagePlaces: ["Lagerplätze", "Lagerpositioner", "Storage bins"],
+  masterData: ["Stammdaten", "Grunddata", "Master data"],
   createStoragePlace: ["Neuer Lagerplatz", "Ny lagerposition", "New storage bin"],
   completed_date: ["Abschlussdatum", "Slutförandedatum", "Completion date"], mileage: ["Kilometerstand", "Mätarställning", "Mileage"], cost: ["Kosten", "Kostnad", "Cost"],
   document_id: ["Dokumentreferenz", "Dokumentreferens", "Document reference"], note: ["Buchungsgrund", "Orsak", "Reason"],
