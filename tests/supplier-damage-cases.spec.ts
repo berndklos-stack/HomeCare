@@ -11,7 +11,8 @@ for (const mobile of [false, true]) test(`Einkauf verwendet gemeinsame Reiter ${
   const tabs = page.getByRole("tablist", { name: "Lieferanten & Einkauf", exact: true });
   await expect(tabs.getByRole("tab")).toHaveCount(3);
   for (const name of ["Lieferanten", "Bestellungen", "Schadensakten", "Lieferanten"]) {
-    await tabs.getByRole("tab", { name, exact: true }).click(); await expect(tabs.getByRole("tab", { name, exact: true })).toHaveAttribute("aria-selected", "true");
+    const tabName = name === "Bestellungen" ? "Bestellungen/Lieferungen" : name;
+    await tabs.getByRole("tab", { name: tabName, exact: true }).click(); await expect(tabs.getByRole("tab", { name: tabName, exact: true })).toHaveAttribute("aria-selected", "true");
     const panel = page.getByRole("tabpanel", { name, exact: true }); await expect(panel).toBeVisible();
     await expect(panel.getByRole("heading", { name, exact: true })).toBeVisible(); await expect(page.locator("dialog[open]")).toHaveCount(0);
     if (name !== "Schadensakten") await expect(panel.getByRole("button", { name: "Neu", exact: true })).toBeVisible();

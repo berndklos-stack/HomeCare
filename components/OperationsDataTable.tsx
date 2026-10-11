@@ -27,7 +27,7 @@ export function OperationsDataTable({ rows, columns, actions, label, filterLabel
   return <>
     <div className={`${styles.itemsScroll} ${styles.tableFrame}`}><table className={`${styles.dataTable} ${className ?? ""}`} aria-label={label}>
       <thead><tr>{columns.map((column) => <th scope="col" key={column.key}>{column.label}</th>)}{actions && <th scope="col">{actionsLabel}</th>}</tr>
-        <tr>{columns.map((column) => <td key={column.key}><input type="search" aria-label={`${filterLabel}: ${column.label}`} value={filters[column.key] ?? ""} onChange={(event) => { const next = { ...filters, [column.key]: event.target.value }; setFilters(next); onFiltersChange?.(next); setPage(0); }} /></td>)}{actions && <td />}</tr>
+        <tr>{columns.map((column) => <td key={column.key} data-label={column.label}><input type="search" aria-label={`${filterLabel}: ${column.label}`} value={filters[column.key] ?? ""} onChange={(event) => { const next = { ...filters, [column.key]: event.target.value }; setFilters(next); onFiltersChange?.(next); setPage(0); }} /></td>)}{actions && <td />}</tr>
       </thead>
       <tbody>{filtered.slice(current * 50, current * 50 + 50).map((row) => {
         const enabled = Boolean(onRowActivate && (canActivate?.(row) ?? true));
@@ -37,7 +37,7 @@ export function OperationsDataTable({ rows, columns, actions, label, filterLabel
           }}
           onKeyDown={(event) => {
             if (enabled && event.target === event.currentTarget && ["Enter", " "].includes(event.key)) { event.preventDefault(); onRowActivate?.(row); }
-          }}>{columns.map((column) => <td key={column.key}>{column.render?.(row) ?? (column.value(row) || "—")}</td>)}{actions && <td><div className={styles.actions}>{actions(row)}</div></td>}</tr>;
+          }}>{columns.map((column) => <td key={column.key} data-label={column.label}>{column.render?.(row) ?? (column.value(row) || "—")}</td>)}{actions && <td><div className={styles.actions}>{actions(row)}</div></td>}</tr>;
       })}
         {!filtered.length && <tr><td colSpan={columns.length + (actions ? 1 : 0)}>{emptyLabel}</td></tr>}
       </tbody>

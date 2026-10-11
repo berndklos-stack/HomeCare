@@ -184,6 +184,7 @@ export const operationText = {
   maintenanceDueRequired: ["Bitte mindestens ein Fälligkeitsdatum, einen Kilometerstand oder Betriebsstunden angeben.", "Ange minst ett förfallodatum, en mätarställning eller drifttimmar.", "Enter at least one due date, mileage or operating-hours threshold."],
   suppliers: ["Lieferanten", "Leverantörer", "Suppliers"], supplier_contacts: ["Kontakte", "Kontakter", "Contacts"],
   purchase_orders: ["Bestellungen", "Beställningar", "Purchase orders"], purchase_order_items: ["Positionen", "Orderrader", "Order items"],
+  ordersDeliveries: ["Bestellungen/Lieferungen", "Beställningar/Leveranser", "Orders/Deliveries"],
   resource_assignments: ["Zuordnungen", "Tilldelningar", "Assignments"], maintenance_plans: ["Wartungspläne", "Underhållsplaner", "Maintenance plans"],
   resource_details: ["Ausstattung", "Utrustning", "Equipment"], material_details: ["Beschaffung", "Inköpsuppgifter", "Purchasing details"], location_details: ["Standorte", "Lagerplatser", "Locations"],
   supplier_number: ["Lieferantennummer", "Leverantörsnummer", "Supplier number"], company: ["Unternehmen", "Företag", "Company"],

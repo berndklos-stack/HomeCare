@@ -112,14 +112,14 @@ export function PickingOrders({ job, language, queue = [], onBooked, pickupOnly 
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) { setError("scanUnknown"); return; }
     setOrder({ id } as PickingOrder); setItems([]); setCode("");
   }
-  const contents = <>
+  const contents = <div className={styles.pickingWorkspace}>
     <header className={styles.dialogHeader}><div><p>{t("inventorySection")}</p><h2 id="picking-title">{t("pickingOrders")}</h2>{order?.title && <p>{order.title}</p>}</div>
-      <div className={styles.actions}>{job && !order && <button type="button" className={styles.primaryAction} disabled={busy || pending || !["geplant", "in Arbeit", "pausiert"].includes(job.status)} onClick={() => void create()}><Plus size={18} />{t("createPicking")}</button>}
-      <button type="button" aria-label={t("refresh")} disabled={busy} onClick={() => setRefresh((value) => value + 1)}><RefreshCw size={18} /></button>
+      <div className={styles.actions}><button type="button" title={t("refresh")} aria-label={t("refresh")} disabled={busy} onClick={() => setRefresh((value) => value + 1)}><RefreshCw size={18} /></button>
       {job && <button type="button" disabled={busy} aria-label={t("close")} onClick={() => setOpen(false)}><X size={18} /></button>}</div></header>
     {loading && <p role="status">{t("loading")}</p>}
     {error && <p role="alert">{t(error)}</p>}
     {pending && <p role="status">{t("waiting")}</p>}
+    {job && !order && <div className={styles.toolbar}><button type="button" className={styles.primaryAction} disabled={busy || pending || !["geplant", "in Arbeit", "pausiert"].includes(job.status)} onClick={() => void create()}><Plus size={18} />{t("createPicking")}</button></div>}
     {!order && <>
       <label className={styles.field}><span>{t("selectPicking")}</span><select aria-label={t("selectPicking")} value="" disabled={loading || busy || Boolean(error) || !choices.length} onChange={(event) => { const selected = choices.find((row) => row.id === event.target.value); if (selected) { setCamera(false); setCode(""); setError(""); setOrder(selected); setItems([]); } }}>
         <option value="">{t("selectPicking")}</option>
@@ -156,7 +156,7 @@ export function PickingOrders({ job, language, queue = [], onBooked, pickupOnly 
       {!events.length && <p>{t("pickingHistoryUnavailable")}</p>}
       {events.map((event) => <div key={String(event.id)}><p><strong>{t(`pickingEvent_${event.action}`)}</strong> · {new Date(String(event.occurred_at)).toLocaleString(language, { timeZone: "Europe/Stockholm" })} · {String(event.actor_name ?? t("pickingActorUnknown"))} · {t(`picking_${event.status}`)}</p>{event.note ? <p>{String(event.note)}</p> : null}</div>)}
     </>}
-  </>;
+  </div>;
   return <>
     {cancelDialog && order && <TripDialog labelledBy="picking-cancel-title" className={styles.itemDialog} onClose={() => { if (!busy) setCancelDialog(false); }}>
       <header className={styles.dialogHeader}><h2 id="picking-cancel-title">{t("pickingCancelConfirm")}</h2><button type="button" disabled={busy} aria-label={t("close")} onClick={() => setCancelDialog(false)}><X size={18} /></button></header>
@@ -173,7 +173,7 @@ export function PickingOrders({ job, language, queue = [], onBooked, pickupOnly 
     </TripDialog>}
     {dispatch && order && <PickingDispatch order={order} items={items} language={language} pickupConfirmed={pickupConfirmed} onClose={() => setDispatch(false)} onBook={async (input) => { await command({ action: "dispatch", order: order.id, revision: order.revision, ...input }); setDispatch(false); setRefresh((value) => value + 1); onBooked?.(); }} />}
     {job && <button className="ghost-button" type="button" onClick={() => setOpen(true)}><ScanLine size={16} />{t("pickingOrders")}</button>}
-    {open && (job ? <TripDialog labelledBy="picking-title" onClose={() => { if (!busy) setOpen(false); }} className={styles.dialog}>{contents}</TripDialog> : <section className="panel">{contents}</section>)}
+    {open && (job ? <TripDialog labelledBy="picking-title" onClose={() => { if (!busy) setOpen(false); }} className={`${styles.dialog} ${styles.wideDialog}`}>{contents}</TripDialog> : <section className="panel">{contents}</section>)}
     {open && scan && order && <StockScan language={language} queue={queue} enqueue={() => {}} materials={items.filter((item) => Number(item.picked) < Number(item.quantity)).map((item) => ({ id: item.material_id, name: item.material.name, unit: item.material.unit, sku: item.material.sku, scanCode: item.material.scan_code ?? undefined }))}
       picking={{ order, items, onBook: async (input) => { await command({ action: "pick", order: order.id, revision: order.revision, ...input }); } }}
       onClose={() => setScan(false)} onQueued={() => { setScan(false); setRefresh((value) => value + 1); onBooked?.(); }} />}

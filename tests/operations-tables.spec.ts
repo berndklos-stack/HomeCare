@@ -185,7 +185,7 @@ for (const mobile of [false, true]) test(`Lieferungen ohne Bestellung in Einkauf
  await page.route("**/api/goods-receipts?**", (route) => { reads.push(route.request().url()); return route.fulfill({ json: { rows: [receipt], count: 1, items: new URL(route.request().url()).searchParams.has("id") ? items : [] } }); });
  await page.goto("/"); await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true", { timeout: 30000 });
  await page.getByRole("button", { name: "Lager & Material", exact: true }).click(); await page.getByRole("button", { name: "Lieferanten & Einkauf", exact: true }).click();
- await page.getByRole("tab", { name: "Bestellungen", exact: true }).click();
+ await page.getByRole("tab", { name: "Bestellungen/Lieferungen", exact: true }).click();
  const table = page.getByRole("table", { name: "Lieferungen ohne Bestellung", exact: true });
  await expect(table).toContainText("4321"); await expect(table).toContainText("Bernd Klos");
  await table.getByText("4321", { exact: true }).click();
@@ -382,7 +382,7 @@ for (const mobile of [false, true]) test(`Materialstammdaten und Lagerplaetze bl
   await expect(places).toContainText("Regal A");
   await expect(places).toContainText("Testlager");
   await places.locator("tbody tr").first().press("Enter");
-  const dialog = page.getByRole("dialog", { name: "Standorte", exact: true });
+  const dialog = page.getByRole("dialog", { name: "Lagerplätze", exact: true });
   await expect(dialog.getByLabel("Bezeichnung", { exact: true })).toHaveValue("Regal A");
   await expect(dialog.getByLabel("Zugehöriger Standort", { exact: true })).toHaveValue("inline-root");
   const binDownload = page.waitForEvent("download");
@@ -509,9 +509,11 @@ for (const mobile of [false, true]) test(`Scancodes bleiben Text ${mobile ? "mob
   await location.getByRole("button", { name: "Lagerplätze", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Lagerplätze: Testlager", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Neuer Lagerplatz", exact: true }).click();
-  await location.getByLabel("Bezeichnung", { exact: true }).fill("Wagen 1");
-  await location.getByLabel("Lagerorttyp", { exact: true }).selectOption("scan-type");
-  await location.getByRole("button", { name: "Speichern", exact: true }).click();
+  const storagePlace = page.getByRole("dialog", { name: "Lagerplätze", exact: true });
+  for (const label of ["Auftrag", "Projekt / Objekt"]) await expect(storagePlace.getByLabel(label, { exact: true })).toHaveCount(0);
+  await storagePlace.getByLabel("Bezeichnung", { exact: true }).fill("Wagen 1");
+  await storagePlace.getByLabel("Lagerorttyp", { exact: true }).selectOption("scan-type");
+  await storagePlace.getByRole("button", { name: "Speichern", exact: true }).click();
   const place = await page.evaluate(() => JSON.parse(localStorage.getItem("workcore-sync-mutations-v1") ?? "[]").find((row: { payload: { values?: { name?: string } } }) => row.payload.values?.name === "Wagen 1"));
   expect(place.payload.values).toMatchObject({ parent_location_id: "scan-location", location_type_id: "scan-type" });
   await page.getByRole("tab", { name: "Standorte", exact: true }).click();
@@ -849,7 +851,7 @@ for (const mobile of [false, true]) test(`Spaltenfilter kombinieren alle Liefera
     { id: "order-1", order_number: "B-100", supplier_id: "supplier-54", status: "received", order_date: "2026-10-08", expected_delivery: "2026-10-10", open_item_count: 0, item_count: 3 },
     { id: "order-2", order_number: "B-200", supplier_id: "supplier-1", status: "draft", order_date: "2026-10-09", open_item_count: 2, item_count: 2 },
   ], count: 2 } }));
-  await page.getByRole("tab", { name: "Bestellungen", exact: true }).click();
+  await page.getByRole("tab", { name: "Bestellungen/Lieferungen", exact: true }).click();
   table = page.getByRole("table", { name: "Bestellungen", exact: true });
   await expect(table.getByRole("searchbox")).toHaveCount(6);
   await table.getByRole("searchbox", { name: "Filter: Lieferant", exact: true }).fill("Supplier 54");

@@ -19,7 +19,7 @@ for (const mobile of [false, true]) {
     let fail = true;
     await page.route("**/api/private-media?**", (route) => fail ? route.fulfill({ status: 503 }) : route.fulfill({ contentType: "application/pdf", body: Buffer.from(pdf.output("arraybuffer")) }));
     await page.goto("/"); await ready(page); await purchasing(page);
-    await page.getByRole("tab", { name: "Bestellungen", exact: true }).click();
+    await page.getByRole("tab", { name: "Bestellungen/Lieferungen", exact: true }).click();
     await page.getByRole("row").filter({ has: page.getByText("PO-PDF", { exact: true }) }).getByRole("button", { name: "Lieferscheine", exact: true }).click();
     const dialog = page.getByRole("dialog");
     await expect(dialog.getByRole("button", { name: "note.pdf", exact: true })).toHaveCount(1);
@@ -198,7 +198,7 @@ test("Bestellung absenden verwendet die aktuelle Revision und sperrt doppelte Ak
     return route.fulfill({ json: request.action === "preview" ? { to: "supplier@example.se", subject: "Bestellung PO-1", body: "Test order", token: "snapshot-token" } : { sent: true } });
   });
   await page.goto("/"); await ready(page); await purchasing(page);
-  await page.getByRole("tab", { name: "Bestellungen", exact: true }).click();
+  await page.getByRole("tab", { name: "Bestellungen/Lieferungen", exact: true }).click();
   await page.getByRole("button", { name: "Bestellung absenden", exact: true }).click();
   await expect(page.getByRole("dialog")).toContainText("supplier@example.se");
   await dialogLayout(page, 480);
@@ -223,7 +223,7 @@ test("Bestellvorschau: Abbruch und fehlgeschlagener Versand ändern keinen Beste
     return route.fulfill({ status: 502, json: { error: "MAIL_FAILED" } });
   });
   await page.goto("/"); await ready(page); await purchasing(page);
-  await page.getByRole("tab", { name: "Bestellungen", exact: true }).click();
+  await page.getByRole("tab", { name: "Bestellungen/Lieferungen", exact: true }).click();
   await page.getByRole("button", { name: "Bestellung absenden", exact: true }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Schließen", exact: true }).last().click();
   expect(sends).toBe(0);
@@ -395,7 +395,7 @@ for (const mobile of [false, true]) {
   await page.route("**/api/operations?entity=purchase_orders**", (route) => route.fulfill({ json: { rows: [order], count: 1 } }));
   await page.route("**/api/operations?entity=purchase_order_items**", (route) => route.fulfill({ json: { rows: items, count: 2 } }));
   await page.goto("/"); await ready(page); await purchasing(page);
-  await page.getByRole("tab", { name: "Bestellungen", exact: true }).click();
+  await page.getByRole("tab", { name: "Bestellungen/Lieferungen", exact: true }).click();
   const summary = page.getByRole("row").filter({ hasText: "PO-DETAIL" });
   await expect(summary).toContainText("Test Supplier");
   await expect(summary).toContainText("8.10.2026");
@@ -441,7 +441,7 @@ test("Wareneingangshistorie zeigt Teillieferungen nur der ausgewählten Position
     return route.fulfill({ contentType: "application/pdf", body: "private delivery note" });
   });
   await page.goto("/"); await ready(page); await purchasing(page);
-  await page.getByRole("tab", { name: "Bestellungen", exact: true }).click();
+  await page.getByRole("tab", { name: "Bestellungen/Lieferungen", exact: true }).click();
   await page.getByRole("row").filter({ has: page.getByText("PO-1", { exact: true }) })
     .getByRole("button", { name: "Positionen", exact: true }).click();
   await page.getByRole("table").getByRole("button").first().click();
@@ -504,7 +504,7 @@ for (const mobile of [false, true]) {
       await route.fulfill({ json: { id: documentId, path: `tenant/purchase-documents/${documentId}.pdf` } });
     });
     await page.goto("/"); await ready(page); await purchasing(page);
-    await page.getByRole("tab", { name: "Bestellungen", exact: true }).click();
+    await page.getByRole("tab", { name: "Bestellungen/Lieferungen", exact: true }).click();
     await page.getByRole("row").filter({ hasText: "PO-BATCH" }).getByRole("button", { name: "Positionen", exact: true }).click();
     const table = page.getByRole("table");
     const checkboxes = table.getByRole("checkbox");

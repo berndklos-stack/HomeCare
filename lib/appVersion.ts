@@ -1,10 +1,11 @@
 export const appVersion = {
-  version: "1.427.25",
+  version: "1.427.26",
   releaseDate: "2026-10-11",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  { version: "1.427.26", date: "2026-10-11", changes: ["Lagerplaetze: passende Dialogueberschrift, Auftrag und Projekt / Objekt aus Formular und Auftrag aus der Liste entfernt", "Kommissionierung: breiteres Auftragsfenster, einheitliche Buttons, getrennte Erstellaktion und vollstaendige mobile Listen ohne horizontales Scrollen", "Einkauf: Reiter Bestellungen/Lieferungen fuer Bestellungen und Lieferungen ohne Bestellung"] },
   { version: "1.427.25", date: "2026-10-11", changes: ["Abholung: Auftragscodes werden frisch geladen und Scanner-Praefixe sowie Gross-/Kleinschreibung abgeglichen; erkannter Code wird bei Fehlern angezeigt", "Fahrzeuglagerplaetze sind anlegbar und werden bei der Abholung als Bestandsziel geladen", "Lieferanten und Einkauf nutzen das gleiche Reiterkonzept wie Material und Lager; Schadensakten direkt im Inhaltsbereich, Aktionen im jeweiligen Block"] },
   {
     version: "1.427.24",

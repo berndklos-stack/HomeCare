@@ -303,6 +303,7 @@ export function OperationsWorkspace(props: Props) {
   const fields = form?.kind === "receive" ? ["quantity", "note"] : form?.kind === "complete"
     ? ["completed_date", "mileage", "operating_hours", "cost", "currency", "supplier_id", "document_id", "notes"] : form ? operationsFields[form.entity].filter((key) => {
       if (form.entity !== "location_details") return true;
+      if (key === "job_id" || key === "project_id") return false;
       if (key === "location_kind") return true;
       if (storagePlacesView || form.row?.parent_location_id) return true;
       return ["name", "location_code", "note"].includes(key);
@@ -333,7 +334,7 @@ export function OperationsWorkspace(props: Props) {
     : entity === "supplier_contacts" ? ["name", "role", "phone", "email"]
     : entity === "purchase_orders" ? ["order_number", "supplier_id", "status", "order_date", "expected_delivery", "openItems"]
     : entity === "material_details" ? ["name", "preferred_supplier_id", "reorder_quantity", "notes"]
-    : entity === "location_details" ? ["name", "location_code", ...(storagePlacesView ? ["parent_location_id", "location_type_id", "job_id"] : []), "note"] : entity === "location_types" ? ["name", "notes"] : ["name", "availability", "notes"];
+    : entity === "location_details" ? ["name", "location_code", ...(storagePlacesView ? ["parent_location_id", "location_type_id"] : []), "note"] : entity === "location_types" ? ["name", "notes"] : ["name", "availability", "notes"];
   const columns: DataColumn[] = tableKeys.map((key) => ({ key, label: fieldLabel(key), value: (row) => {
     if (key === "name") return title(row);
     if (key === "supplier_id" || key === "preferred_supplier_id") return suppliers.find((supplier) => supplier.id === row[key])?.name ?? "";
@@ -370,7 +371,7 @@ export function OperationsWorkspace(props: Props) {
       </div>}
       {tab === "resources" && <button onClick={() => props.onOpenMasterData("resources")}><Pencil size={18} />{language === "de" ? "Ressourcen bearbeiten" : language === "sv" ? "Redigera resurser" : "Edit resources"}</button>}
       {tab === "purchasing" && <div className={styles.tabs} role="tablist" aria-label={t("purchasingSection")}>
-        {groups.purchasing.map((key) => { const selected = !purchasingDamage && (entity === key || key === "suppliers" && entity === "supplier_contacts" || key === "purchase_orders" && entity === "purchase_order_items"); return <button key={key} role="tab" aria-selected={selected} aria-controls="purchasing-panel" className={selected ? styles.selected : ""} onClick={() => change(key)}>{t(key)}</button>; })}
+        {groups.purchasing.map((key) => { const selected = !purchasingDamage && (entity === key || key === "suppliers" && entity === "supplier_contacts" || key === "purchase_orders" && entity === "purchase_order_items"); return <button key={key} role="tab" aria-selected={selected} aria-controls="purchasing-panel" className={selected ? styles.selected : ""} onClick={() => change(key)}>{t(key === "purchase_orders" ? "ordersDeliveries" : key)}</button>; })}
         <button role="tab" aria-selected={purchasingDamage} aria-controls="purchasing-damage-panel" className={purchasingDamage ? styles.selected : ""} onClick={() => { setForm(null); setPurchasingDamage(true); }}>{t("damageCases")}</button>
       </div>}
       {tab !== "inventory" && tab !== "purchasing" && groups[tab].filter((key) => key !== "material_details").map((key) => <button key={key} aria-pressed={entity === key} onClick={() => change(key)}>{t(key)}</button>)}
@@ -480,7 +481,7 @@ export function OperationsWorkspace(props: Props) {
     </TripDialog>}
     {form && damageSupplier === undefined && <TripDialog labelledBy="operations-form-title" onClose={() => setForm(null)} className={`${styles.dialog} ${form.entity === "suppliers" ? styles.wideDialog : ""}`}>
       <form onSubmit={(e) => { e.preventDefault(); save(); }}>
-        <header className={styles.dialogHeader}><h2 id="operations-form-title">{t(form.kind === "save" ? form.entity : form.kind)}</h2><button type="button" title={t("close")} aria-label={t("close")} onClick={() => setForm(null)}><X size={18} /></button></header>
+        <header className={styles.dialogHeader}><h2 id="operations-form-title">{t(form.kind === "save" ? form.entity === "location_details" && (storagePlacesView || form.row?.parent_location_id) ? "storagePlaces" : form.entity : form.kind)}</h2><button type="button" title={t("close")} aria-label={t("close")} onClick={() => setForm(null)}><X size={18} /></button></header>
         <div className={styles.fields}>{fields.map((key) => input(key, form.values, (k, v) => setForm({ ...form, values: { ...form.values, [k]: v } }),
           form.kind === "save" ? (form.entity === "location_details" && (key === "name" || (storagePlacesView && key === "parent_location_id"))) || required[form.entity]?.includes(key) : ["quantity", "note", "completed_date", "cost", "currency"].includes(key)))}</div>
         {form.kind === "complete" && <OperationsDocumentUpload language={language} onPending={setDocumentPending} onUploaded={(document) => {
