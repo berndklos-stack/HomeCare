@@ -38,6 +38,12 @@
 .clickableRow:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
 .dataTable a { color: var(--brand); }
 .dataTable .actions { min-width: 160px; }
+.orderTable { table-layout: fixed; min-width: 900px; }
+.orderTable th { white-space: normal; overflow-wrap: anywhere; }
+.orderTable td, .orderTable thead input { min-width: 0; }
+.orderTable td > .actions { flex-wrap: nowrap; gap: 6px; min-width: 224px; }
+.workspace .orderTable td > .actions > button { flex: 0 0 40px; width: 40px; height: 40px; min-height: 40px; padding: 8px; }
+.orderTable th:last-child, .orderTable td:last-child { width: 248px; min-width: 0; box-sizing: border-box; }
 .movementTable { table-layout: fixed; min-width: 1080px; }
 .movementTable td { min-width: 0; max-width: none; overflow-wrap: break-word; }
 .movementTable thead input { min-width: 0; }

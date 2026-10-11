@@ -199,6 +199,18 @@ test("Bestellung absenden verwendet die aktuelle Revision und sperrt doppelte Ak
   });
   await page.goto("/"); await ready(page); await purchasing(page);
   await page.getByRole("tab", { name: "Bestellungen/Lieferungen", exact: true }).click();
+  const actionRow = page.getByRole("row").filter({ hasText: "PO-1" });
+  const orderTable = page.getByRole("table", { name: "Bestellungen", exact: true });
+  const tableSize = await orderTable.evaluate((table) => ({ width: table.scrollWidth, available: table.parentElement!.clientWidth }));
+  expect(tableSize.width).toBeLessThanOrEqual(tableSize.available);
+  await expect(actionRow.getByRole("button")).toHaveCount(5);
+  const actionBoxes = await actionRow.getByRole("button").evaluateAll((buttons) => buttons.map((button) => {
+    const rect = button.getBoundingClientRect();
+    return { width: rect.width, height: rect.height, top: rect.top, title: button.getAttribute("title") };
+  }));
+  for (const button of actionBoxes) { expect(button.width).toBe(40); expect(button.height).toBe(40); expect(button.title).toBeTruthy(); }
+  expect(new Set(actionBoxes.map((button) => button.top)).size).toBe(1);
+  await page.screenshot({ path: `test-results/order-compact-actions-${test.info().project.name}.png` });
   await page.getByRole("button", { name: "Bestellung absenden", exact: true }).click();
   await expect(page.getByRole("dialog")).toContainText("supplier@example.se");
   await dialogLayout(page, 480);

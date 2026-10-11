@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Archive, ChevronLeft, ChevronRight, History, Mail, MapPin, Pencil, Phone, Plus, Printer, RefreshCw, X } from "lucide-react";
+import { Archive, ChevronLeft, ChevronRight, History, List, Mail, MapPin, Pencil, Phone, Plus, Printer, RefreshCw, X } from "lucide-react";
 import { apiFetch, tenantScopedStorageKey } from "@/lib/apiClient";
 import { createStableId, type SyncMutation } from "@/lib/syncQueue";
 import { operationsLabels, maintenanceStatus, type OperationsLanguage } from "@/lib/operations";
@@ -358,10 +358,10 @@ export function OperationsWorkspace(props: Props) {
   const tableActions = (row: OperationsRow) => <>
     {entity === "suppliers" && <button onClick={() => change("supplier_contacts", row)}>{t("supplier_contacts")}</button>}
     {entity === "purchase_orders" && <>
-      <button onClick={() => change("purchase_order_items", row)}>{t("purchase_order_items")}</button>
+      <button title={t("purchase_order_items")} aria-label={t("purchase_order_items")} onClick={() => change("purchase_order_items", row)}><List size={18} /></button>
       <button title={t("deliveryDocuments")} aria-label={t("deliveryDocuments")} onClick={() => setHistory({ entity: "purchase_receipts", row, title: title(row), order: true })}><History size={18} /></button>
-      {row.status === "draft" && <PurchaseOrderSend orderId={row.id} revision={Number(row.revision)} disabled={blocked(row.id)} language={language} onSent={() => submitCommand(row.id, { kind: "order" }, "update", row.revision)} />}
-      {["draft", "ordered"].includes(String(row.status)) && <button disabled={blocked(row.id)} onClick={() => { try { submitCommand(row.id, { kind: "cancel" }, "update", row.revision); } catch (e) { setFormError(String(e)); } }}>{t("cancelOrder")}</button>}
+      {row.status === "draft" && <PurchaseOrderSend compact orderId={row.id} revision={Number(row.revision)} disabled={blocked(row.id)} language={language} onSent={() => submitCommand(row.id, { kind: "order" }, "update", row.revision)} />}
+      {["draft", "ordered"].includes(String(row.status)) && <button title={t("cancelOrder")} aria-label={t("cancelOrder")} disabled={blocked(row.id)} onClick={() => { try { submitCommand(row.id, { kind: "cancel" }, "update", row.revision); } catch (e) { setFormError(String(e)); } }}><X size={18} /></button>}
     </>}
     {entity !== "material_details" && !(entity === "purchase_orders" && row.status !== "draft") && <button title={t("edit")} aria-label={`${t("edit")}: ${title(row)}`} disabled={blocked(row.id) || Boolean(parent && blocked(parent.id))} onClick={() => open("save", row)}><Pencil size={18} /></button>}
     {["suppliers", "supplier_contacts"].includes(entity) && <button title={t("archive")} aria-label={`${t("archive")}: ${title(row)}`} disabled={blocked(row.id) || Boolean(parent && blocked(parent.id))} onClick={() => setArchive(row)}><Archive size={18} /></button>}
@@ -399,7 +399,7 @@ export function OperationsWorkspace(props: Props) {
         {(inventoryMaster || tab === "purchasing") && <div className={styles.actions}><button title={t("refresh")} aria-label={t("refresh")} onClick={() => setRefresh((n) => n + 1)}><RefreshCw size={18} /></button>{editable && !error && <button className={styles.primaryAction} disabled={entity === "purchase_order_items" && (!parent || parent.status !== "draft" || blocked(parent.id))} onClick={() => open("save")}><Plus size={18} />{t(entity === "location_details" ? storagePlacesView ? "createStoragePlace" : "createLocation" : "create")}</button>}</div>}
       </div>
       {!tableEntities.has(entity) && !rows.length && !loading && !error && <p>{t("empty")}</p>}
-      {tableEntities.has(entity) ? <OperationsDataTable key={`${entity}:${storagePlacesView}:${parent?.id ?? ""}`} rows={rows} columns={columns} actions={["suppliers", "location_details", "location_types"].includes(entity) ? undefined : tableActions} label={entity === "location_details" && storagePlacesView ? t("storagePlaces") : t(entity)} filterLabel={t("filter")} emptyLabel={t("empty")} actionsLabel={t("actions")}
+      {tableEntities.has(entity) ? <OperationsDataTable className={entity === "purchase_orders" ? styles.orderTable : undefined} key={`${entity}:${storagePlacesView}:${parent?.id ?? ""}`} rows={rows} columns={columns} actions={["suppliers", "location_details", "location_types"].includes(entity) ? undefined : tableActions} label={entity === "location_details" && storagePlacesView ? t("storagePlaces") : t(entity)} filterLabel={t("filter")} emptyLabel={t("empty")} actionsLabel={t("actions")}
         canActivate={(row) => !blocked(row.id) && !(parent && blocked(parent.id))}
         language={language}
         onRowActivate={(row) => entity === "purchase_orders" && row.status !== "draft" ? change("purchase_order_items", row) : open("save", row)} /> : entity === "purchase_order_items" && rows.length > 0 ? <div className={styles.itemsScroll}><table className={styles.items}>

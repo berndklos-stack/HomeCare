@@ -7,7 +7,7 @@ import { operationLabel } from "@/lib/operationsUi";
 import { TripDialog } from "./TripDialog";
 import styles from "./OperationsWorkspace.module.css";
 
-export function PurchaseOrderSend({ orderId, revision, disabled, language, onSent }: { orderId: string; revision: number; disabled: boolean; language: "de" | "sv" | "en"; onSent: () => void }) {
+export function PurchaseOrderSend({ orderId, revision, disabled, language, onSent, compact = false }: { orderId: string; revision: number; disabled: boolean; language: "de" | "sv" | "en"; onSent: () => void; compact?: boolean }) {
   const [opened, setOpened] = useState(false);
   const [preview, setPreview] = useState<{ to: string; subject: string; body: string; token: string } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -31,7 +31,7 @@ export function PurchaseOrderSend({ orderId, revision, disabled, language, onSen
   }
   const close = () => { if (!busy) { setOpened(false); setPreview(null); setError(""); } };
   return <>
-    <button disabled={disabled || busy || sent} onClick={() => void execute("preview")}><Send size={18} />{t("order")}</button>
+    <button title={t("order")} aria-label={t("order")} disabled={disabled || busy || sent} onClick={() => void execute("preview")}><Send size={18} />{!compact && t("order")}</button>
     {opened && <TripDialog labelledBy={`purchase-preview-${orderId}`} onClose={close} className={styles.dialog}>
       <header className={styles.dialogHeader}><h2 id={`purchase-preview-${orderId}`}>{t("orderPreview")}</h2><button disabled={busy} title={t("close")} aria-label={t("close")} onClick={close}><X size={18} /></button></header>
       {preview && <><p><strong>{t("recipient")}:</strong> {preview.to || t("SUPPLIER_EMAIL_MISSING")}</p><h3>{preview.subject}</h3><pre className={styles.mailPreview}>{preview.body}</pre></>}
