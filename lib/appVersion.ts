@@ -1,10 +1,11 @@
 export const appVersion = {
-  version: "1.427.28",
+  version: "1.427.29",
   releaseDate: "2026-10-11",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  { version: "1.427.29", date: "2026-10-11", changes: ["Schadensakten mit eigener Beschreibungsueberschrift, geordneten Belegen und kompakten Vorschau- und Downloadbuttons", "Reklamation mit bearbeitbarem Betreff und Nachricht an Lieferanten senden, inklusive Lieferschein und Schadensfotos", "Versandvermerk und versendeten Text in eigenen Datenbankfeldern speichern"] },
   { version: "1.427.28", date: "2026-10-11", changes: ["Kompakte Bestellaktionen als Symbolbuttons in einer Zeile mit klaren Beschriftungen", "Angepasste Spaltenbreiten fuer vollstaendig sichtbare Aktionen und niedrigere Bestellzeilen"] },
   { version: "1.427.27", date: "2026-10-11", changes: ["Bestellpositionen und Wareneingang im breiten Popup wie Lieferungsdetails", "Einzelpositionen ohne gestapelte Bestellfenster; Auswahl und Eingaben bleiben erhalten", "Mobile Bestellpositionen mit allen Mengen untereinander ohne seitliches Scrollen"] },
   { version: "1.427.26", date: "2026-10-11", changes: ["Lagerplaetze: passende Dialogueberschrift, Auftrag und Projekt / Objekt aus Formular und Auftrag aus der Liste entfernt", "Kommissionierung: breiteres Auftragsfenster, einheitliche Buttons, getrennte Erstellaktion und vollstaendige mobile Listen ohne horizontales Scrollen", "Einkauf: Reiter Bestellungen/Lieferungen fuer Bestellungen und Lieferungen ohne Bestellung"] },

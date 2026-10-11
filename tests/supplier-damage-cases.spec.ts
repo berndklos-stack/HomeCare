@@ -1,6 +1,45 @@
 import { expect, test } from "@playwright/test";
 import { jsPDF } from "jspdf";
 
+for (const mobile of [false, true]) test(`Schadensakte geordnet mit Reklamationsvorschau ${mobile ? "mobil" : "desktop"}`, async ({ page }, info) => {
+  await page.setViewportSize(mobile ? { width: 390, height: 844 } : { width: 1440, height: 1100 });
+  const damage = { id: "55555555-5555-4555-8555-555555555555", revision: 1, status: "open", description: "3 Latten gebrochen", created_at: "2026-10-11T09:00:16Z", supplier: { company: "Snickare Jocke" }, receipt: { delivery_number: "4321" }, complaint_sent_at: "", complaint_sent_to: "" };
+  await page.route("**/api/operations?**", (route) => route.fulfill({ json: { active: true, rows: [], count: 0 } }));
+  await page.route("**/api/supplier-damage-cases?**", (route) => route.fulfill({ json: { rows: [damage], count: 1, document: { id: "note", name: "Lieferschein-4321.pdf", storage_path: "test/note.pdf" }, photos: [{ id: "photo", name: "Gebrochene-Latten.jpg", storage_path: "test/photo.jpg" }], events: [] } }));
+  const sends: Record<string, unknown>[] = [];
+  await page.route("**/api/supplier-damage-cases/send", async (route) => {
+    const input = route.request().postDataJSON();
+    if (input.action === "preview") return route.fulfill({ json: { to: "supplier@example.se", subject: "Reklamation · Lieferschein 4321", body: "Schadensbeschreibung:\n3 Latten gebrochen", attachments: ["Lieferschein-4321.pdf", "Gebrochene-Latten.jpg"], token: "preview-token" } });
+    sends.push(input); damage.complaint_sent_at = "2026-10-11T14:00:00Z"; damage.complaint_sent_to = "supplier@example.se";
+    await route.fulfill({ json: { sent: true } });
+  });
+  await page.goto("/"); await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true", { timeout: 30000 });
+  await page.getByRole("button", { name: "Lager & Material", exact: true }).click(); await page.getByRole("button", { name: "Lieferanten & Einkauf", exact: true }).click();
+  await page.getByRole("tab", { name: "Schadensakten", exact: true }).click();
+  await page.getByRole("table", { name: "Schadensakten", exact: true }).getByText("3 Latten gebrochen", { exact: true }).click();
+  const panel = page.getByRole("tabpanel", { name: "Schadensakten", exact: true });
+  await expect(panel.getByRole("heading", { name: "Schadensbeschreibung", exact: true })).toBeVisible();
+  await expect(panel.getByRole("heading", { name: "Belege und Fotos", exact: true })).toBeVisible();
+  const previewButton = panel.getByRole("button", { name: "Schadensfoto 1", exact: true });
+  const downloadButton = panel.getByRole("button", { name: "Herunterladen: Schadensfoto 1", exact: true });
+  const previewBox = await previewButton.boundingBox(), downloadBox = await downloadButton.boundingBox();
+  expect(previewBox!.width).toBe(40); expect(previewBox!.y).toBe(downloadBox!.y); expect(downloadBox!.width).toBe(40);
+  expect(await panel.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+  await page.screenshot({ path: info.outputPath(`damage-organized-${mobile}.png`), fullPage: true });
+  await panel.getByRole("button", { name: "Reklamation senden", exact: true }).click();
+  await expect(panel.getByRole("heading", { name: "Reklamation an Lieferanten", exact: true })).toBeVisible();
+  await expect(panel).toContainText("supplier@example.se"); await expect(panel).toContainText("Gebrochene-Latten.jpg"); expect(sends).toHaveLength(0);
+  await panel.getByLabel("Betreff", { exact: true }).fill("Ersatzlieferung erforderlich");
+  await panel.getByLabel("Nachricht", { exact: true }).fill("Bitte 3 Latten ersetzen.");
+  expect(await panel.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+  await page.screenshot({ path: info.outputPath(`complaint-editor-${mobile}.png`), fullPage: true });
+  await expect(page.locator("dialog[open]")).toHaveCount(0);
+  await panel.getByRole("button", { name: "Reklamation senden", exact: true }).click();
+  await expect(panel.getByRole("status")).toContainText("Reklamation versendet"); expect(sends).toHaveLength(1);
+  expect(sends[0]).toMatchObject({ id: damage.id, revision: 1, token: "preview-token", emailSubject: "Ersatzlieferung erforderlich", emailBody: "Bitte 3 Latten ersetzen." });
+  await expect(panel.getByRole("button", { name: "Reklamation senden", exact: true })).toHaveCount(0);
+});
+
 for (const mobile of [false, true]) test(`Einkauf verwendet gemeinsame Reiter ${mobile ? "mobil" : "desktop"}`, async ({ page }, info) => {
   await page.setViewportSize(mobile ? { width: 390, height: 844 } : { width: 1440, height: 1000 });
   await page.route("**/api/operations?**", (route) => route.fulfill({ json: { active: true, rows: [], count: 0 } }));

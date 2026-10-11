@@ -66,6 +66,35 @@
 .historyPosition > span:first-child { min-width: 0; overflow-wrap: anywhere; }
 .historyPosition > span:last-child { flex-shrink: 0; font-variant-numeric: tabular-nums; }
 .historyEntry > p { font-size: 13px; margin: 8px 0 0; overflow-wrap: anywhere; }
+.damageWorkspace { min-width: 0; }
+.damageWorkspace .dialogHeader { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--line); }
+.damageWorkspace .dialogHeader > button { flex: 0 0 40px; width: 40px; height: 40px; padding: 8px; }
+.damageWorkspace button, .damageWorkspace footer a { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; max-width: 100%; box-sizing: border-box; padding: 8px 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); color: var(--brand); font: inherit; line-height: 1.4; cursor: pointer; }
+.damageWorkspace button svg { flex-shrink: 0; }
+.damageWorkspace button:disabled { opacity: .5; cursor: default; }
+.damageWorkspace button:focus-visible, .damageWorkspace a:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.damageWorkspace .primaryAction { background: var(--brand); border-color: var(--brand); color: white; font-weight: 650; margin-left: auto; }
+.damageReference { margin: 16px 0; overflow-wrap: anywhere; }
+.damageSummary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px; }
+.damageSection { min-width: 0; padding: 20px 0; border-top: 1px solid var(--line); }
+.damageSection h3 { margin: 0 0 12px; font-size: 16px; line-height: 1.4; }
+.damageDescription { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; }
+.damageDocuments { display: grid; gap: 8px; }
+.damageDocument { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.damageDocument > div:first-child { min-width: 0; }
+.damageDocument strong, .damageDocument span { display: block; overflow-wrap: anywhere; }
+.damageDocument strong { font-size: 14px; font-weight: 600; }
+.damageDocument span { margin-top: 4px; font-size: 12px; color: var(--muted); }
+.damageWorkspace .historyActions button { flex: 0 0 40px; width: 40px; height: 40px; padding: 8px; }
+.damageComplaint { padding: 0 0 20px; }
+.damageComplaint p { display: flex; align-items: center; gap: 8px; margin: 0; overflow-wrap: anywhere; }
+.damageForm { border-top: 1px solid var(--line); padding: 20px 0; }
+.damageWorkspace .damageFields { grid-template-columns: minmax(180px, 260px) minmax(0, 1fr); margin: 0; gap: 24px; }
+.damageWorkspace .damageFields textarea { min-height: 100px; resize: vertical; }
+.complaintEditor { display: grid; gap: 16px; margin: 20px 0; }
+.damageWorkspace .complaintEditor textarea { min-height: 260px; resize: vertical; line-height: 1.5; }
+.damageWorkspace .damageFooter { justify-content: space-between; padding-top: 20px; margin-top: 0; border-top: 0; }
+@media (max-width: 640px) { .damageSummary, .damageWorkspace .damageFields { grid-template-columns: minmax(0, 1fr); gap: 0; } .damageWorkspace .damageFields { gap: 16px; } .damageDocument { gap: 8px; } .damageComplaint p { flex-wrap: wrap; } }
 .pdfPreview iframe { display: block; width: 100%; height: 60dvh; border: 1px solid var(--line); background: white; }
 .pdfPreview a { display: inline-flex; align-items: center; gap: 6px; overflow-wrap: anywhere; }
 .tabs, .toolbar, .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }

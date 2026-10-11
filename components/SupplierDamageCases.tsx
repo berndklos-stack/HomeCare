@@ -1,19 +1,20 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { Check, ChevronLeft, ChevronRight, Download, Eye, RefreshCw, X } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Download, Eye, RefreshCw, Send, X } from "lucide-react";
 import { apiFetch } from "@/lib/apiClient";
 import { operationLabel } from "@/lib/operationsUi";
 import { OperationsDataTable } from "./OperationsDataTable";
 import { TripDialog } from "./TripDialog";
 import styles from "./OperationsWorkspace.module.css";
 
-type DamageCase = { id: string; description: string; revision: number; status: string; created_at: string; supplier?: { company: string }; receipt?: { delivery_number: string } };
+type DamageCase = { id: string; description: string; revision: number; status: string; created_at: string; complaint_sent_at?: string; complaint_sent_to?: string; supplier?: { company: string }; receipt?: { delivery_number: string } };
 type Document = { id: string; name: string; storage_path: string };
 type Event = { id: string; status: string; note: string; actor_name?: string; created_at: string };
 export function SupplierDamageCases({ supplier, caseId, language, inline = false, returnToSupplier = false, onClose }: { supplier?: { id: string; name: string }; caseId?: string; language: "de" | "sv" | "en"; inline?: boolean; returnToSupplier?: boolean; onClose: () => void }) {
   const t = (key: string) => operationLabel(key, language);
   const [rows, setRows] = useState<DamageCase[]>([]), [current, setCurrent] = useState<DamageCase | null>(caseId ? { id: caseId, description: "", revision: 0, status: "", created_at: "" } : null);
   const [preview, setPreview] = useState<{ url: string; name: string; image: boolean } | null>(null);
+  const [complaint, setComplaint] = useState<{ to: string; subject: string; body: string; token: string; attachments: string[] } | null>(null);
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview.url); }, [preview]);
   const [photos, setPhotos] = useState<Document[]>([]), [document, setDocument] = useState<Document | null>(null), [events, setEvents] = useState<Event[]>([]);
   const [status, setStatus] = useState(""), [note, setNote] = useState(""), [filter, setFilter] = useState(""), [page, setPage] = useState(0), [count, setCount] = useState(0);
@@ -52,8 +53,26 @@ export function SupplierDamageCases({ supplier, caseId, language, inline = false
       link.href = url; link.download = file.name; link.click(); setTimeout(() => URL.revokeObjectURL(url), 60000);
     } catch { setError("historyFailed"); } finally { lock.current = false; setBusy(false); }
   }
+  async function sendComplaint(action: "preview" | "send") {
+    if (!current || lock.current || loading) return;
+    lock.current = true; setBusy(true); setError("");
+    try {
+      const response = await apiFetch("/api/supplier-damage-cases/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, id: current.id, revision: current.revision, language, token: complaint?.token, emailSubject: complaint?.subject, emailBody: complaint?.body }) });
+      const result = await response.json(); if (!response.ok) throw new Error(result.error || "MAIL_FAILED");
+      if (action === "preview" && !result.sent) setComplaint(result);
+      else { setComplaint(null); setRefresh((value) => value + 1); }
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "MAIL_FAILED"); }
+    finally { lock.current = false; setBusy(false); }
+  }
   const contents = <>
-    {preview ? <>
+    {complaint ? <>
+      <header className={styles.dialogHeader}><h2 id="damage-complaint-title">{t("complaintPreview")}</h2><button title={t("close")} aria-label={t("close")} disabled={busy} onClick={() => { setComplaint(null); setError(""); }}><X size={18} /></button></header>
+      {error && <p role="alert">{t(error)}</p>}
+      <p><strong>{t("recipient")}:</strong> {complaint.to || t("SUPPLIER_EMAIL_MISSING")}</p>
+      <div className={styles.complaintEditor}><label className={styles.field}><span>{t("complaintSubject")}</span><input aria-label={t("complaintSubject")} disabled={busy} maxLength={200} value={complaint.subject} onChange={(event) => setComplaint({ ...complaint, subject: event.target.value })} /></label><label className={styles.field}><span>{t("complaintMessage")}</span><textarea aria-label={t("complaintMessage")} disabled={busy} maxLength={12000} value={complaint.body} onChange={(event) => setComplaint({ ...complaint, body: event.target.value })} /></label></div>
+      <section className={styles.damageSection}><h3>{t("damageDocuments")}</h3><ul>{complaint.attachments.map((name, index) => <li key={`${index}:${name}`}>{name}</li>)}</ul></section>
+      <footer className={`${styles.actions} ${styles.damageFooter}`}><button disabled={busy} onClick={() => { setComplaint(null); setError(""); }}><ChevronLeft size={18} />{t("scanBack")}</button><button className={styles.primaryAction} disabled={busy || !complaint.to || !complaint.subject.trim() || !complaint.body.trim()} onClick={() => void sendComplaint("send")}><Send size={18} />{busy ? t("mailLoading") : t("sendComplaint")}</button></footer>
+    </> : preview ? <>
       <header className={inline ? "panel-title" : styles.dialogHeader}><h2 id="damage-preview-title">{preview.name}</h2><button aria-label={t("close")} onClick={() => setPreview(null)}><X size={18} /></button></header>
       <section className={styles.pdfPreview}>{preview.image ? <img src={preview.url} alt={preview.name} style={{ display: "block", width: "100%", maxHeight: "65vh", objectFit: "contain" }} /> : <iframe title={`${t("pdfPreview")}: ${preview.name}`} src={preview.url} />}</section>
       <footer className={styles.actions}><button onClick={() => setPreview(null)}><ChevronLeft size={18} />{t("scanBack")}</button><a href={preview.url} download={preview.name}><Download size={18} />{t("download")}</a></footer>
@@ -73,16 +92,21 @@ export function SupplierDamageCases({ supplier, caseId, language, inline = false
       ]} label={t("damageCases")} filterLabel={t("filter")} emptyLabel={t("empty")} actionsLabel={t("actions")} onRowActivate={(row) => { setCurrent(row as DamageCase); setStatus(String(row.status)); setNote(""); }} />
       {(returnToSupplier || count > 50) && <footer className={styles.actions}>{returnToSupplier && <button disabled={busy} onClick={onClose}><ChevronLeft size={18} />{t("backToSupplier")}</button>}{count > 50 && <><button aria-label={t("previous")} disabled={!page} onClick={() => setPage((value) => value - 1)}><ChevronLeft size={18} /></button><span>{page + 1}</span><button aria-label={t("next")} disabled={(page + 1) * 50 >= count} onClick={() => setPage((value) => value + 1)}><ChevronRight size={18} /></button></>}</footer>}
     </> : <>
-      <p><strong>{current.supplier?.company}</strong> · {t("deliveryNumber")}: {current.receipt?.delivery_number}</p><p>{current.description}</p>
-      <div className={styles.actions}>{[...(document ? [{ file: document, label: t("deliveryNote") }] : []), ...photos.map((file, index) => ({ file, label: `${t("damagePhoto")} ${index + 1}` }))].map(({ file, label }) => <div key={file.id} className={styles.actions}><button disabled={busy || loading} onClick={() => void download(file, true)}><Eye size={18} />{label}</button><button title={`${t("download")}: ${label}`} aria-label={`${t("download")}: ${label}`} disabled={busy || loading} onClick={() => void download(file)}><Download size={18} /></button></div>)}</div>
-      <form onSubmit={(event) => { event.preventDefault(); void save(); }}><div className={styles.fields}>
+      <p className={styles.damageReference}><strong>{current.supplier?.company}</strong> · {t("deliveryNumber")}: {current.receipt?.delivery_number}</p>
+      <div className={styles.damageSummary}>
+        <section className={styles.damageSection}><h3>{t("damageDescription")}</h3><p className={styles.damageDescription}>{current.description}</p></section>
+        <section className={styles.damageSection}><h3>{t("damageDocuments")}</h3><div className={styles.damageDocuments}>{[...(document ? [{ file: document, label: t("deliveryNote") }] : []), ...photos.map((file, index) => ({ file, label: `${t("damagePhoto")} ${index + 1}` }))].map(({ file, label }) => <div key={file.id} className={styles.damageDocument}><div><strong>{label}</strong><span>{file.name}</span></div><div className={styles.historyActions}><button title={`${t("pdfPreview")}: ${label}`} aria-label={label} disabled={busy || loading} onClick={() => void download(file, true)}><Eye size={18} /></button><button title={`${t("download")}: ${label}`} aria-label={`${t("download")}: ${label}`} disabled={busy || loading} onClick={() => void download(file)}><Download size={18} /></button></div></div>)}</div></section>
+      </div>
+      <div className={styles.damageComplaint}>{current.complaint_sent_at ? <p role="status"><Check size={18} />{t("complaintSent")}: {current.complaint_sent_to} · {new Date(current.complaint_sent_at).toLocaleString(language, { timeZone: "Europe/Stockholm" })}</p> : <button disabled={busy || loading || Boolean(error)} onClick={() => void sendComplaint("preview")}><Send size={18} />{t("sendComplaint")}</button>}</div>
+      <form className={styles.damageForm} onSubmit={(event) => { event.preventDefault(); void save(); }}><div className={`${styles.fields} ${styles.damageFields}`}>
         <label className={styles.field}><span>{t("status")}</span><select aria-label={t("status")} disabled={busy || loading} value={status} onChange={(event) => setStatus(event.target.value)}>{["open", "in_progress", "completed"].map((value) => <option key={value} value={value}>{t(`damage_${value}`)}</option>)}</select></label>
         <label className={styles.field}><span>{t("damageNote")}</span><textarea maxLength={4000} disabled={busy || loading} value={note} onChange={(event) => setNote(event.target.value)} /></label></div>
-        <footer className={styles.actions}><button type="button" disabled={busy} onClick={() => { setCurrent(null); setNote(""); setPhotos([]); setDocument(null); }}><ChevronLeft size={18} />{t("scanBack")}</button><button className={styles.primaryAction} disabled={busy || loading || Boolean(error) || status === current.status && !note.trim()}><Check size={18} />{t("save")}</button></footer>
+        <footer className={`${styles.actions} ${styles.damageFooter}`}><button type="button" disabled={busy} onClick={() => { setCurrent(null); setNote(""); setPhotos([]); setDocument(null); }}><ChevronLeft size={18} />{t("scanBack")}</button><button className={styles.primaryAction} disabled={busy || loading || Boolean(error) || status === current.status && !note.trim()}><Check size={18} />{t("save")}</button></footer>
       </form>
-      <h3>{t("damageHistory")}</h3>{events.map((event) => <div key={event.id}><p><strong>{t(`damage_${event.status}`)}</strong> · {new Date(event.created_at).toLocaleString(language, { timeZone: "Europe/Stockholm" })} · {event.actor_name || t("pickingActorUnknown")}</p>{event.note && <p>{event.note}</p>}</div>)}
+      <section className={styles.damageSection}><h3>{t("damageHistory")}</h3>{events.map((event) => <div className={styles.historyEntry} key={event.id}><p><strong>{t(`damage_${event.status}`)}</strong> · {new Date(event.created_at).toLocaleString(language, { timeZone: "Europe/Stockholm" })} · {event.actor_name || t("pickingActorUnknown")}</p>{event.note && <p>{event.note}</p>}</div>)}</section>
     </>}
     </>}
   </>;
-  return inline ? <section className="panel" aria-labelledby={preview ? "damage-preview-title" : "damage-title"}>{contents}</section> : <TripDialog labelledBy={preview ? "damage-preview-title" : "damage-title"} className={`${styles.dialog} ${styles.wideDialog}`} onClose={() => { if (preview) setPreview(null); else if (!busy) onClose(); }}>{contents}</TripDialog>;
+  const labelledBy = complaint ? "damage-complaint-title" : preview ? "damage-preview-title" : "damage-title";
+  return inline ? <section className={`panel ${styles.damageWorkspace}`} aria-labelledby={labelledBy}>{contents}</section> : <TripDialog labelledBy={labelledBy} className={`${styles.dialog} ${styles.wideDialog} ${styles.damageWorkspace}`} onClose={() => { if (busy) return; if (complaint) { setComplaint(null); setError(""); } else if (preview) setPreview(null); else onClose(); }}>{contents}</TripDialog>;
 }
