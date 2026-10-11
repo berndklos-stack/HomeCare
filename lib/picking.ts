@@ -9,6 +9,10 @@ export function normalizePickupScan(value: string) {
   return value.trim().replace(/^\][A-Za-z][0-9]/, "").trim().replace(/^PICKUP:/i, "").toUpperCase();
 }
 
+export function normalizeTargetScan(value: string) {
+  return value.trim().replace(/^\][A-Za-z][0-9]/, "").trim().normalize("NFC").toUpperCase();
+}
+
 export function matchesPickupScan(value: string, order: PickingOrder) {
   const code = normalizePickupScan(value);
   return Boolean(order.pickup_code) && (code === order.pickup_code!.toUpperCase() || code === normalizePickupScan(pickupLabel(order)));

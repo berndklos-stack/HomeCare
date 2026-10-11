@@ -1,10 +1,11 @@
 export const appVersion = {
-  version: "1.427.24",
+  version: "1.427.25",
   releaseDate: "2026-10-11",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  { version: "1.427.25", date: "2026-10-11", changes: ["Abholung: Auftragscodes werden frisch geladen und Scanner-Praefixe sowie Gross-/Kleinschreibung abgeglichen; erkannter Code wird bei Fehlern angezeigt", "Fahrzeuglagerplaetze sind anlegbar und werden bei der Abholung als Bestandsziel geladen", "Lieferanten und Einkauf nutzen das gleiche Reiterkonzept wie Material und Lager; Schadensakten direkt im Inhaltsbereich, Aktionen im jeweiligen Block"] },
   {
     version: "1.427.24",
     date: "2026-10-11",

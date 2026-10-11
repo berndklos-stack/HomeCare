@@ -10,7 +10,7 @@ import styles from "./OperationsWorkspace.module.css";
 type DamageCase = { id: string; description: string; revision: number; status: string; created_at: string; supplier?: { company: string }; receipt?: { delivery_number: string } };
 type Document = { id: string; name: string; storage_path: string };
 type Event = { id: string; status: string; note: string; actor_name?: string; created_at: string };
-export function SupplierDamageCases({ supplier, caseId, language, returnToSupplier = false, onClose }: { supplier?: { id: string; name: string }; caseId?: string; language: "de" | "sv" | "en"; returnToSupplier?: boolean; onClose: () => void }) {
+export function SupplierDamageCases({ supplier, caseId, language, inline = false, returnToSupplier = false, onClose }: { supplier?: { id: string; name: string }; caseId?: string; language: "de" | "sv" | "en"; inline?: boolean; returnToSupplier?: boolean; onClose: () => void }) {
   const t = (key: string) => operationLabel(key, language);
   const [rows, setRows] = useState<DamageCase[]>([]), [current, setCurrent] = useState<DamageCase | null>(caseId ? { id: caseId, description: "", revision: 0, status: "", created_at: "" } : null);
   const [preview, setPreview] = useState<{ url: string; name: string; image: boolean } | null>(null);
@@ -52,15 +52,15 @@ export function SupplierDamageCases({ supplier, caseId, language, returnToSuppli
       link.href = url; link.download = file.name; link.click(); setTimeout(() => URL.revokeObjectURL(url), 60000);
     } catch { setError("historyFailed"); } finally { lock.current = false; setBusy(false); }
   }
-  return <TripDialog labelledBy={preview ? "damage-preview-title" : "damage-title"} className={`${styles.dialog} ${styles.wideDialog}`} onClose={() => { if (preview) setPreview(null); else if (!busy) onClose(); }}>
+  const contents = <>
     {preview ? <>
-      <header className={styles.dialogHeader}><h2 id="damage-preview-title">{preview.name}</h2><button aria-label={t("close")} onClick={() => setPreview(null)}><X size={18} /></button></header>
+      <header className={inline ? "panel-title" : styles.dialogHeader}><h2 id="damage-preview-title">{preview.name}</h2><button aria-label={t("close")} onClick={() => setPreview(null)}><X size={18} /></button></header>
       <section className={styles.pdfPreview}>{preview.image ? <img src={preview.url} alt={preview.name} style={{ display: "block", width: "100%", maxHeight: "65vh", objectFit: "contain" }} /> : <iframe title={`${t("pdfPreview")}: ${preview.name}`} src={preview.url} />}</section>
       <footer className={styles.actions}><button onClick={() => setPreview(null)}><ChevronLeft size={18} />{t("scanBack")}</button><a href={preview.url} download={preview.name}><Download size={18} />{t("download")}</a></footer>
     </> : <>
-    <header className={styles.dialogHeader}><div><h2 id="damage-title">{t("damageCases")}</h2>{supplier && <p>{supplier.name}</p>}</div><div className={styles.actions}>
+    <header className={inline ? "panel-title" : styles.dialogHeader}><div>{inline && <p>{t("purchasingSection")}</p>}<h2 id="damage-title">{t("damageCases")}</h2>{supplier && <p>{supplier.name}</p>}</div><div className={styles.actions}>
       <button type="button" disabled={busy} aria-label={t("refresh")} onClick={() => setRefresh((value) => value + 1)}><RefreshCw size={18} /></button>
-      <button type="button" disabled={busy} aria-label={t("close")} onClick={onClose}><X size={18} /></button></div></header>
+      {!inline && <button type="button" disabled={busy} aria-label={t("close")} onClick={onClose}><X size={18} /></button>}</div></header>
     {loading && <p role="status">{t("loading")}</p>}{error && <p role="alert">{t(error)}</p>}
     {!current ? <>
       <label className={styles.field}><span>{t("status")}</span><select aria-label={t("status")} value={filter} onChange={(event) => { setFilter(event.target.value); setPage(0); }}><option value="">{t("allDamageCases")}</option>{["open", "in_progress", "completed"].map((value) => <option key={value} value={value}>{t(`damage_${value}`)}</option>)}</select></label>
@@ -83,5 +83,6 @@ export function SupplierDamageCases({ supplier, caseId, language, returnToSuppli
       <h3>{t("damageHistory")}</h3>{events.map((event) => <div key={event.id}><p><strong>{t(`damage_${event.status}`)}</strong> · {new Date(event.created_at).toLocaleString(language, { timeZone: "Europe/Stockholm" })} · {event.actor_name || t("pickingActorUnknown")}</p>{event.note && <p>{event.note}</p>}</div>)}
     </>}
     </>}
-  </TripDialog>;
+  </>;
+  return inline ? <section className="panel" aria-labelledby={preview ? "damage-preview-title" : "damage-title"}>{contents}</section> : <TripDialog labelledBy={preview ? "damage-preview-title" : "damage-title"} className={`${styles.dialog} ${styles.wideDialog}`} onClose={() => { if (preview) setPreview(null); else if (!busy) onClose(); }}>{contents}</TripDialog>;
 }

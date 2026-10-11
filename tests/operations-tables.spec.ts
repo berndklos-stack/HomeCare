@@ -117,21 +117,23 @@ for (const mobile of [false, true]) test(`Kommissionierplatz Abholcode und Auftr
  await dispatch.getByRole("button", { name: "Gesamte Ware buchen", exact: true }).click(); await expect(dispatch).not.toBeVisible(); expect(posts).toHaveLength(2);
 });
 
-for (const mode of ["alias", "legacy", "scanner", "camera"]) test(`Abholcode direkt im Warenausgang ${mode}`, async ({ page, browserName }, testInfo) => {
+for (const mode of ["alias", "legacy", "scanner", "camera", "vehicle"]) test(`Abholcode direkt im Warenausgang ${mode}`, async ({ page, browserName }, testInfo) => {
  test.skip(mode === "camera" && browserName !== "chromium", "Canvas-Videostream nur in Chromium verfügbar");
  await page.setViewportSize(mode === "alias" || mode === "camera" ? { width: 390, height: 844 } : { width: 1440, height: 1000 });
  const pickup = "66666666-6666-4666-8666-666666666666", alias = "AB-2026-10-11-00002";
  const order = { id: "55555555-5555-4555-8555-555555555555", picking_code: "2026-10-11-00002", job_id: "pick-job", title: "Gartenhaus", revision: 2, status: "completed", created_at: "2026-10-11T10:00:00Z", pickup_code: pickup };
  const items = [{ material_id: "pick-material", quantity: 2.5, picked: 2.5, material: { name: "Kantholz", sku: "KH001", unit: "Meter", scan_code: "PICK-MAT" } }];
  const qr = await QRCode.toDataURL(alias, { width: 600, margin: 4 });
- await page.addInitScript(({ qr, camera }) => {
+ const targetQr = await QRCode.toDataURL("GITTA", { width: 600, margin: 4 });
+ await page.addInitScript(({ qr, targetQr, camera }) => {
   localStorage.setItem("kolaretorp-updated-at", "2026-10-11T10:00:00Z"); localStorage.setItem("kolaretorp-field-progress", JSON.stringify({ "synthetic-pickup": {} }));
+  let captures = 0;
   if (camera) Object.defineProperty(navigator.mediaDevices, "getUserMedia", { value: async () => {
-   const image = new Image(); image.src = qr; await image.decode();
+   const image = new Image(); image.src = captures++ === 0 ? qr : targetQr; await image.decode();
    const canvas = document.createElement("canvas"); canvas.width = 600; canvas.height = 600; canvas.getContext("2d")!.drawImage(image, 0, 0);
    const stream = canvas.captureStream(15); (window as unknown as { scanTestStream: MediaStream }).scanTestStream = stream; return stream;
   } });
- }, { qr, camera: mode === "camera" });
+ }, { qr, targetQr, camera: mode === "camera" });
  const lookups: string[] = [], posts: Record<string, unknown>[] = [];
  await page.route("**/api/picking-orders**", (route) => {
   if (route.request().method() === "GET") {
@@ -140,11 +142,13 @@ for (const mode of ["alias", "legacy", "scanner", "camera"]) test(`Abholcode dir
   }
   posts.push(route.request().postDataJSON()); return route.fulfill({ json: { id: order.id, revision: 3 } });
  });
+ let targetReads = 0;
  await page.route("**/api/operations?**", (route) => {
   const entity = new URL(route.request().url()).searchParams.get("entity");
   if (entity === "stock_status") return route.fulfill({ json: { active: true } });
-  if (entity === "scan_targets") return route.fulfill({ json: { jobs: [{ id: "pick-job", name: "Gartenhaus", code: "JOB-PICK", status: "in Arbeit", billable: true }], objects: [] } });
-  return route.fulfill({ json: { rows: [], count: 0 } });
+  if (entity === "scan_targets") return route.fulfill({ json: { jobs: ++targetReads === 1 ? [] : [{ id: "pick-job", name: "Gartenhaus", code: "GITTA", status: "in Arbeit", billable: true }], objects: [] } });
+  const rows = entity === "location_details" && new URL(route.request().url()).searchParams.get("storage_places") === "1" ? [{ id: "vehicle-bin", name: "Transporter 1", location_code: "FZG-01", location_kind: "vehicle", parent_location_id: "main-site" }] : [];
+  return route.fulfill({ json: { rows, count: rows.length } });
  });
  await page.goto("/"); await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true", { timeout: 30000 });
  await page.getByRole("button", { name: "Lager & Material", exact: true }).click(); await page.getByRole("tab", { name: "Scanabläufe", exact: true }).click();
@@ -162,11 +166,14 @@ for (const mode of ["alias", "legacy", "scanner", "camera"]) test(`Abholcode dir
  if (mode === "camera") await expect.poll(() => page.evaluate(() => (window as unknown as { scanTestStream: MediaStream }).scanTestStream.getTracks().map((track) => track.readyState))).toEqual(["ended"]);
  for (const code of [alias, `PICKUP:${pickup}`, `]Q3${alias.toLowerCase()}`]) { await target.fill(code); await target.press("Enter"); await expect(target).toHaveValue(""); await expect(dispatch.getByRole("alert")).toHaveCount(0); }
  expect(posts).toHaveLength(0);
- await target.fill("JOB-PICK"); await target.press("Enter");
+ if (mode === "camera") await dispatch.getByRole("button", { name: "Mit Kamera scannen", exact: true }).click();
+ else { await target.fill(mode === "vehicle" ? "FZG-01" : mode === "scanner" ? "]Q3gitta" : "GITTA"); await target.press("Enter"); }
+ await expect(dispatch.getByRole("button", { name: "Gesamte Ware buchen", exact: true })).toBeVisible();
+ expect(targetReads).toBeGreaterThan(1);
  await page.screenshot({ path: testInfo.outputPath(`pickup-${mode}.png`), fullPage: true });
  expect(await dispatch.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
  await dispatch.getByRole("button", { name: "Gesamte Ware buchen", exact: true }).click(); await expect(dispatch).not.toBeVisible();
- expect(posts).toHaveLength(1); expect(posts[0]).toMatchObject({ action: "dispatch", order: order.id, pickup, destination: null, revision: 2 });
+ expect(posts).toHaveLength(1); expect(posts[0]).toMatchObject({ action: "dispatch", order: order.id, pickup, destination: mode === "vehicle" ? "vehicle-bin" : null, revision: 2 });
 });
 
 for (const mobile of [false, true]) test(`Lieferungen ohne Bestellung in Einkaufsuebersicht ${mobile ? "mobil" : "desktop"}`, async ({ page }, testInfo) => {
@@ -178,7 +185,7 @@ for (const mobile of [false, true]) test(`Lieferungen ohne Bestellung in Einkauf
  await page.route("**/api/goods-receipts?**", (route) => { reads.push(route.request().url()); return route.fulfill({ json: { rows: [receipt], count: 1, items: new URL(route.request().url()).searchParams.has("id") ? items : [] } }); });
  await page.goto("/"); await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true", { timeout: 30000 });
  await page.getByRole("button", { name: "Lager & Material", exact: true }).click(); await page.getByRole("button", { name: "Lieferanten & Einkauf", exact: true }).click();
- await page.getByRole("button", { name: "Bestellungen", exact: true }).click();
+ await page.getByRole("tab", { name: "Bestellungen", exact: true }).click();
  const table = page.getByRole("table", { name: "Lieferungen ohne Bestellung", exact: true });
  await expect(table).toContainText("4321"); await expect(table).toContainText("Bernd Klos");
  await table.getByText("4321", { exact: true }).click();
@@ -842,7 +849,7 @@ for (const mobile of [false, true]) test(`Spaltenfilter kombinieren alle Liefera
     { id: "order-1", order_number: "B-100", supplier_id: "supplier-54", status: "received", order_date: "2026-10-08", expected_delivery: "2026-10-10", open_item_count: 0, item_count: 3 },
     { id: "order-2", order_number: "B-200", supplier_id: "supplier-1", status: "draft", order_date: "2026-10-09", open_item_count: 2, item_count: 2 },
   ], count: 2 } }));
-  await page.getByRole("button", { name: "Bestellungen", exact: true }).click();
+  await page.getByRole("tab", { name: "Bestellungen", exact: true }).click();
   table = page.getByRole("table", { name: "Bestellungen", exact: true });
   await expect(table.getByRole("searchbox")).toHaveCount(6);
   await table.getByRole("searchbox", { name: "Filter: Lieferant", exact: true }).fill("Supplier 54");

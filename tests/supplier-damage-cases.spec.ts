@@ -1,6 +1,33 @@
 import { expect, test } from "@playwright/test";
 import { jsPDF } from "jspdf";
 
+for (const mobile of [false, true]) test(`Einkauf verwendet gemeinsame Reiter ${mobile ? "mobil" : "desktop"}`, async ({ page }, info) => {
+  await page.setViewportSize(mobile ? { width: 390, height: 844 } : { width: 1440, height: 1000 });
+  await page.route("**/api/operations?**", (route) => route.fulfill({ json: { active: true, rows: [], count: 0 } }));
+  await page.route("**/api/goods-receipts?**", (route) => route.fulfill({ json: { rows: [], count: 0 } }));
+  await page.route("**/api/supplier-damage-cases**", (route) => route.fulfill({ json: { rows: [], count: 0 } }));
+  await page.goto("/"); await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true", { timeout: 30000 });
+  await page.getByRole("button", { name: "Lager & Material", exact: true }).click(); await page.getByRole("button", { name: "Lieferanten & Einkauf", exact: true }).click();
+  const tabs = page.getByRole("tablist", { name: "Lieferanten & Einkauf", exact: true });
+  await expect(tabs.getByRole("tab")).toHaveCount(3);
+  for (const name of ["Lieferanten", "Bestellungen", "Schadensakten", "Lieferanten"]) {
+    await tabs.getByRole("tab", { name, exact: true }).click(); await expect(tabs.getByRole("tab", { name, exact: true })).toHaveAttribute("aria-selected", "true");
+    const panel = page.getByRole("tabpanel", { name, exact: true }); await expect(panel).toBeVisible();
+    await expect(panel.getByRole("heading", { name, exact: true })).toBeVisible(); await expect(page.locator("dialog[open]")).toHaveCount(0);
+    if (name !== "Schadensakten") await expect(panel.getByRole("button", { name: "Neu", exact: true })).toBeVisible();
+  }
+  await page.screenshot({ path: info.outputPath(`purchasing-tabs-${mobile}.png`), fullPage: true });
+  await page.getByRole("button", { name: "Material & Lager", exact: true }).click(); await page.getByRole("tab", { name: "Lagerplätze", exact: true }).click();
+  await page.getByRole("button", { name: "Neuer Lagerplatz", exact: true }).click();
+  const form = page.getByRole("dialog"); await form.getByLabel("Lagerplatzart", { exact: true }).selectOption("vehicle");
+  await expect(form.getByLabel("Lagerplatzart", { exact: true })).toHaveValue("vehicle");
+  await form.getByRole("button", { name: "Abbrechen", exact: true }).click();
+  await page.getByRole("tab", { name: "Standorte", exact: true }).click();
+  await page.getByRole("button", { name: "Neuer Lagerort", exact: true }).click();
+  await form.getByLabel("Als Fahrzeuglager verwenden", { exact: true }).check();
+  await expect(form.getByLabel("Als Fahrzeuglager verwenden", { exact: true })).toBeChecked();
+});
+
 for (const mobile of [false, true]) test(`Lieferant und Schadensakten ohne gestapelte Fenster ${mobile ? "mobil" : "desktop"}`, async ({ page }, info) => {
   await page.setViewportSize(mobile ? { width: 390, height: 844 } : { width: 1440, height: 1000 });
   const supplier = { id: "22222222-2222-4222-8222-222222222222", supplier_number: "0001", company: "Snickare Jocke", revision: 1 };

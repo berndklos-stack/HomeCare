@@ -55,6 +55,7 @@ export function OperationsWorkspace(props: Props) {
   const t = (key: string) => operationLabel(key, language);
   const fieldLabel = (key: string, target: OperationsEntity = entity) => t(key === "name" && target !== "supplier_contacts" ? "designation" : key === "note" && target === "location_details" ? "notes" : key);
   const [tab, setTab] = useState(props.resourcesOnly ? "resources" : "inventory");
+  const [purchasingDamage, setPurchasingDamage] = useState(false);
   const [stockView, setStockView] = useState<"overview" | "bookings" | "inventory" | "scan">("overview");
   const [scanRequest, setScanRequest] = useState(0);
   const [materialMasterSelected, setMaterialMasterSelected] = useState(false);
@@ -226,6 +227,7 @@ export function OperationsWorkspace(props: Props) {
       props.materials.find((r) => r.id === row.material_id)?.name ?? props.resources.find((r) => r.id === row.resource_id)?.name ?? row.id);
   }
   function change(next: OperationsEntity, owner: OperationsRow | null = null, places = false) {
+    setPurchasingDamage(false);
     setMaterialMasterSelected(false);
     setStoragePlacesView(next === "location_details" && (places || Boolean(owner)));
     setEntity(next); setParent(owner); setPage(0); setSearch(""); setQuerySearch(""); setForm(null); setItemDetails(null);
@@ -285,8 +287,9 @@ export function OperationsWorkspace(props: Props) {
   }
   function input(key: string, values: Record<string, string>, update: (key: string, value: string) => void, mandatory = false) {
     const references = refs[key as keyof typeof refs];
-    const choices = enums[key];
+    const choices = key === "location_kind" ? ["warehouse", "vehicle"] : enums[key];
     const value = key === "availability" && values[key] === "unavailable" ? "unavailableStatus" : values[key] ?? "";
+    if (key === "location_kind" && !storagePlacesView && !form?.row?.parent_location_id) return <label key={key} className={styles.field}><span>{t("vehicleStockLocation")}</span><input type="checkbox" checked={value === "vehicle"} onChange={(e) => update(key, e.target.checked ? "vehicle" : "warehouse")} /></label>;
     return <label key={key} className={styles.field}><span>{fieldLabel(key, form?.entity)}</span>
       {key === "archived" ? <input type="checkbox" checked={value === "true"} onChange={(e) => update(key, String(e.target.checked))} />
         : references || choices ? <select aria-label={fieldLabel(key, form?.entity)} required={mandatory} value={value} onChange={(e) => update(key, e.target.value)}>
@@ -300,13 +303,13 @@ export function OperationsWorkspace(props: Props) {
   const fields = form?.kind === "receive" ? ["quantity", "note"] : form?.kind === "complete"
     ? ["completed_date", "mileage", "operating_hours", "cost", "currency", "supplier_id", "document_id", "notes"] : form ? operationsFields[form.entity].filter((key) => {
       if (form.entity !== "location_details") return true;
-      if (key === "location_kind") return false;
+      if (key === "location_kind") return true;
       if (storagePlacesView || form.row?.parent_location_id) return true;
       return ["name", "location_code", "note"].includes(key);
     }) : [];
   const detail = itemDetails ? rows.find((row) => row.id === itemDetails.id) ?? itemDetails : null;
   const outstanding = (row: OperationsRow) => Math.max(0, Number(row.quantity) - Number(row.received_quantity ?? 0));
-  const receivable = entity === "purchase_order_items" && parent && ["ordered", "partially_received"].includes(String(parent.status));
+  const receivable = !purchasingDamage && entity === "purchase_order_items" && parent && ["ordered", "partially_received"].includes(String(parent.status));
   const openRows = rows.filter((row) => outstanding(row) > 0);
   const receiptDisabled = !stockActive || loading || Boolean(error) || !parent || blocked(parent.id) || receiptBusy;
   function bookReceipts() {
@@ -366,20 +369,24 @@ export function OperationsWorkspace(props: Props) {
         <button role="tab" aria-selected={entity === "location_details" && storagePlacesView} aria-controls="inventory-master-panel" className={entity === "location_details" && storagePlacesView ? styles.selected : ""} onClick={() => change("location_details", null, true)}>{t("storagePlaces")}</button>
       </div>}
       {tab === "resources" && <button onClick={() => props.onOpenMasterData("resources")}><Pencil size={18} />{language === "de" ? "Ressourcen bearbeiten" : language === "sv" ? "Redigera resurser" : "Edit resources"}</button>}
-      {tab !== "inventory" && groups[tab].filter((key) => key !== "material_details").map((key) => <button key={key} aria-pressed={entity === key} onClick={() => change(key)}>{t(key)}</button>)}
-      {tab === "purchasing" && <button onClick={() => setDamageSupplier(null)}>{t("damageCases")}</button>}
-      {parent && <button onClick={() => change(entity === "location_details" ? "location_details" : entity === "supplier_contacts" ? "suppliers" : "purchase_orders")}>{String(parent.name ?? parent.company ?? parent.order_number)} <ChevronLeft size={16} /></button>}
+      {tab === "purchasing" && <div className={styles.tabs} role="tablist" aria-label={t("purchasingSection")}>
+        {groups.purchasing.map((key) => { const selected = !purchasingDamage && (entity === key || key === "suppliers" && entity === "supplier_contacts" || key === "purchase_orders" && entity === "purchase_order_items"); return <button key={key} role="tab" aria-selected={selected} aria-controls="purchasing-panel" className={selected ? styles.selected : ""} onClick={() => change(key)}>{t(key)}</button>; })}
+        <button role="tab" aria-selected={purchasingDamage} aria-controls="purchasing-damage-panel" className={purchasingDamage ? styles.selected : ""} onClick={() => { setForm(null); setPurchasingDamage(true); }}>{t("damageCases")}</button>
+      </div>}
+      {tab !== "inventory" && tab !== "purchasing" && groups[tab].filter((key) => key !== "material_details").map((key) => <button key={key} aria-pressed={entity === key} onClick={() => change(key)}>{t(key)}</button>)}
+      {parent && !purchasingDamage && <button onClick={() => change(entity === "location_details" ? "location_details" : entity === "supplier_contacts" ? "suppliers" : "purchase_orders")}>{String(parent.name ?? parent.company ?? parent.order_number)} <ChevronLeft size={16} /></button>}
       {entity === "maintenance_plans" && <input aria-label={language === "de" ? "Einträge suchen" : language === "sv" ? "Sök poster" : "Search records"} type="search" value={search} onChange={(e) => setSearch(e.target.value)} />}
-      {tab !== "inventory" && <button title={t("refresh")} aria-label={t("refresh")} onClick={() => setRefresh((n) => n + 1)}><RefreshCw size={18} /></button>}
-      {tab !== "inventory" && editable && !error && <button onClick={() => open("save")} disabled={entity === "purchase_order_items" && (!parent || parent.status !== "draft" || blocked(parent.id))}><Plus size={18} />{t("create")}</button>}
+      {tab !== "inventory" && tab !== "purchasing" && <button title={t("refresh")} aria-label={t("refresh")} onClick={() => setRefresh((n) => n + 1)}><RefreshCw size={18} /></button>}
+      {tab !== "inventory" && tab !== "purchasing" && editable && !error && <button onClick={() => open("save")} disabled={entity === "purchase_order_items" && (!parent || parent.status !== "draft" || blocked(parent.id))}><Plus size={18} />{t("create")}</button>}
     </div>
     <div id="inventory-stock-panel" role="tabpanel" aria-label={stockView === "scan" ? t("scanFlows") : stockView === "inventory" ? language === "de" ? "Inventur" : language === "sv" ? "Inventering" : "Stocktake" : stockView === "bookings" ? t("bookings") : language === "de" ? "Bestandsübersicht" : language === "sv" ? "Lageröversikt" : "Stock overview"} hidden={inventoryMaster || tab !== "inventory"}>{tab === "inventory" && (stockActive === true ? stockView === "scan" ? <ScanWorkflows {...props} selectionRequest={scanRequest} onBooked={props.onPickingBooked} /> : <OperationsStock {...props} view={stockView} /> : stockActive === false ? props.children : <div role="status" aria-busy={!stockError}>{t(stockError ? "OPERATIONS_UNAVAILABLE" : "loading")}</div>)}</div>
     {materialMasterMounted && <div id="inventory-material-panel" role="tabpanel" aria-label={language === "de" ? "Materialstammdaten" : language === "sv" ? "Materialregister" : "Material master data"} hidden={tab !== "inventory" || !materialMasterSelected}>{props.materialMasterData}</div>}
     {error && <p role="status">{t(error)}</p>}
     {active.length > 0 && <div role="status" className={styles.pending}>{active.map((m) => <p key={m.id}>{t(m.status === "failed" || m.status === "conflict" ? "failed" : "waiting")}: {String((m.payload.values as Record<string, unknown> | undefined)?.company ?? (m.payload.values as Record<string, unknown> | undefined)?.name ?? m.entityId)}</p>)}</div>}
-    {entity !== "material_details" && (tab !== "inventory" || stockActive !== null) && <div id="inventory-master-panel" role={inventoryMaster ? "tabpanel" : undefined} aria-label={inventoryMaster ? t(entity) : undefined} className={`panel ${styles.list}`} aria-busy={loading}>
+    {tab === "purchasing" && purchasingDamage && <div id="purchasing-damage-panel" role="tabpanel" aria-label={t("damageCases")}><SupplierDamageCases inline language={language} onClose={() => change("suppliers")} /></div>}
+    {entity !== "material_details" && !purchasingDamage && (tab !== "inventory" || stockActive !== null) && <div id={tab === "purchasing" ? "purchasing-panel" : "inventory-master-panel"} role={inventoryMaster || tab === "purchasing" ? "tabpanel" : undefined} aria-label={inventoryMaster || tab === "purchasing" ? t(entity) : undefined} className={`panel ${styles.list}`} aria-busy={loading}>
       <div className="panel-title"><div><p>{tab === "inventory" ? t("inventorySection") : operationsLabels[tab as keyof typeof operationsLabels][language]}</p><h2>{entity === "location_details" && storagePlacesView ? `${t("storagePlaces")}${parent ? `: ${String(parent.name ?? "")}` : ""}` : t(entity)}</h2></div>
-        {inventoryMaster && <div className={styles.actions}><button title={t("refresh")} aria-label={t("refresh")} onClick={() => setRefresh((n) => n + 1)}><RefreshCw size={18} /></button>{editable && !error && <button className={styles.primaryAction} onClick={() => open("save")}><Plus size={18} />{t(entity === "location_details" ? storagePlacesView ? "createStoragePlace" : "createLocation" : "create")}</button>}</div>}
+        {(inventoryMaster || tab === "purchasing") && <div className={styles.actions}><button title={t("refresh")} aria-label={t("refresh")} onClick={() => setRefresh((n) => n + 1)}><RefreshCw size={18} /></button>{editable && !error && <button className={styles.primaryAction} disabled={entity === "purchase_order_items" && (!parent || parent.status !== "draft" || blocked(parent.id))} onClick={() => open("save")}><Plus size={18} />{t(entity === "location_details" ? storagePlacesView ? "createStoragePlace" : "createLocation" : "create")}</button>}</div>}
       </div>
       {!tableEntities.has(entity) && !rows.length && !loading && !error && <p>{t("empty")}</p>}
       {tableEntities.has(entity) ? <OperationsDataTable key={`${entity}:${storagePlacesView}:${parent?.id ?? ""}`} rows={rows} columns={columns} actions={["suppliers", "location_details", "location_types"].includes(entity) ? undefined : tableActions} label={entity === "location_details" && storagePlacesView ? t("storagePlaces") : t(entity)} filterLabel={t("filter")} emptyLabel={t("empty")} actionsLabel={t("actions")}
@@ -441,8 +448,8 @@ export function OperationsWorkspace(props: Props) {
         </div>
       </article>)}
     </div>}
-    {count > 50 && <div className={styles.toolbar}><button aria-label={t("previous")} disabled={page === 0} onClick={() => setPage((p) => p - 1)}><ChevronLeft size={18} /></button><span>{page + 1} / {Math.ceil(count / 50)}</span><button aria-label={t("next")} disabled={(page + 1) * 50 >= count} onClick={() => setPage((p) => p + 1)}><ChevronRight size={18} /></button></div>}
-    {tab === "purchasing" && entity === "purchase_orders" && !parent && <GoodsReceiptHistory language={language} refresh={refresh} />}
+    {count > 50 && !purchasingDamage && <div className={styles.toolbar}><button aria-label={t("previous")} disabled={page === 0} onClick={() => setPage((p) => p - 1)}><ChevronLeft size={18} /></button><span>{page + 1} / {Math.ceil(count / 50)}</span><button aria-label={t("next")} disabled={(page + 1) * 50 >= count} onClick={() => setPage((p) => p + 1)}><ChevronRight size={18} /></button></div>}
+    {tab === "purchasing" && !purchasingDamage && entity === "purchase_orders" && !parent && <GoodsReceiptHistory language={language} refresh={refresh} />}
     {receivable && <section className={styles.receiptBooking}>
       <div className={styles.fields}>
         {input("location_id", { location_id: receiptLocation }, (_key, value) => setReceiptLocation(value), true)}
