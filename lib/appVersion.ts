@@ -1,10 +1,15 @@
 export const appVersion = {
-  version: "1.427.23",
+  version: "1.427.24",
   releaseDate: "2026-10-11",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  {
+    version: "1.427.24",
+    date: "2026-10-11",
+    changes: ["Abholung: direkt gescannter Abholcode wird im Folgedialog uebernommen; Wiederholungsscans erzeugen keinen falschen Fehler", "Lesbare und bisherige Abholcodes werden einheitlich erkannt, auch mit Scanner-Praefix", "Lieferanten und Schadensakten: breitere Ansichten ohne gestapelte Fenster, Dokumentvorschau innerhalb derselben Ansicht", "Einkauf: Lieferungen ohne Bestellung mit Lieferant, Lieferscheinnummer, Buchungsdaten und Positionsdetails"],
+  },
   {
     version: "1.427.23",
     date: "2026-10-11",

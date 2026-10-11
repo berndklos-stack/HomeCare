@@ -4,7 +4,7 @@ import { Camera, ChevronLeft, ChevronRight, Plus, Printer, RefreshCw, ScanLine, 
 import { apiFetch } from "@/lib/apiClient";
 import { createStableId, type SyncMutation } from "@/lib/syncQueue";
 import { operationLabel } from "@/lib/operationsUi";
-import { pickingPdf, pickupLabel, type PickingItem, type PickingOrder } from "@/lib/picking";
+import { pickingPdf, pickupLabel, normalizePickupScan, type PickingItem, type PickingOrder } from "@/lib/picking";
 import { OperationsDataTable } from "./OperationsDataTable";
 import { TripDialog } from "./TripDialog";
 import { StockScan } from "./StockScan";
@@ -25,6 +25,7 @@ export function PickingOrders({ job, language, queue = [], onBooked, pickupOnly 
   const [refresh, setRefresh] = useState(0), [scan, setScan] = useState(false), [code, setCode] = useState(""), [camera, setCamera] = useState(false);
   const lock = useRef(false), createId = useRef(createStableId());
   const [dispatch, setDispatch] = useState(false);
+  const [pickupConfirmed, setPickupConfirmed] = useState(false);
   const [cancelDialog, setCancelDialog] = useState(false), [cancelReason, setCancelReason] = useState("");
   const [events, setEvents] = useState<Record<string, unknown>[]>([]);
   const orderId = order?.id, jobId = job?.id;
@@ -82,15 +83,17 @@ export function PickingOrders({ job, language, queue = [], onBooked, pickupOnly 
   function accept(value: string) {
     if (lock.current) return;
     setCamera(false); setError("");
-    if (value.trim().startsWith("PICKUP:") || value.trim().startsWith("AB-")) {
-      const pickup = value.trim().replace(/^PICKUP:/, "");
+    const pickup = normalizePickupScan(value);
+    if (/PICKUP:/i.test(value) || pickup.startsWith("AB-")) {
       if (!/^[0-9a-f-]{36}$/i.test(pickup) && !/^AB-\d{4}-\d{2}-\d{2}-\d{5}$/.test(pickup)) { setError("scanUnknown"); return; }
+      lock.current = true; setBusy(true);
       void apiFetch(`/api/picking-orders?${!job ? "active=1&" : ""}pickup=${encodeURIComponent(pickup)}`).then(async (response) => {
         if (!response.ok) throw new Error("OPERATIONS_UNAVAILABLE");
         const data = await response.json(); const ready = data.rows?.[0] as PickingOrder | undefined;
         if (!ready || !["completed", "loaded"].includes(ready.status)) throw new Error("PICKING_INVALID_PICKUP");
-        setOrder(ready); setItems(data.items ?? []); setDispatch(true); setCode("");
-      }).catch((cause) => setError(cause instanceof Error ? cause.message : "OPERATIONS_UNAVAILABLE"));
+        setOrder(ready); setItems(data.items ?? []); setPickupConfirmed(true); setDispatch(true); setCode("");
+      }).catch((cause) => setError(cause instanceof Error ? cause.message : "OPERATIONS_UNAVAILABLE"))
+        .finally(() => { lock.current = false; setBusy(false); });
       return;
     }
     const id = value.trim().replace(/^PICK:/, "");
@@ -122,7 +125,7 @@ export function PickingOrders({ job, language, queue = [], onBooked, pickupOnly 
         <option value="">{t("selectPicking")}</option>
         {(pickupOnly ? choices.filter((row) => ["completed", "loaded"].includes(row.status)) : choices).map((row) => <option key={row.id} value={row.id}>{row.picking_code ? `${row.picking_code} · ` : ""}{row.title} · {t(`picking_${row.status}`)}</option>)}
       </select></label>
-      <form className={styles.scanInput} onSubmit={(event) => { event.preventDefault(); accept(code); }}><label className={styles.field}><span>{t("pickingCode")}</span><input disabled={busy} aria-label={t("pickingCode")} value={code} onChange={(event) => setCode(event.target.value)} /></label><button type="submit" disabled={busy || !code.trim()}><ScanLine size={18} />{t("open")}</button><button disabled={busy} type="button" onClick={() => setCamera(true)}><Camera size={18} />{t("scanCamera")}</button></form>
+      <form className={styles.scanInput} onSubmit={(event) => { event.preventDefault(); accept(code); }}><label className={styles.field}><span>{t(pickupOnly ? "pickingPickupCode" : "pickingCode")}</span><input disabled={busy} aria-label={t(pickupOnly ? "pickingPickupCode" : "pickingCode")} value={code} onChange={(event) => setCode(event.target.value)} /></label><button type="submit" disabled={busy || !code.trim()}><ScanLine size={18} />{t("open")}</button><button disabled={busy} type="button" onClick={() => setCamera(true)}><Camera size={18} />{t("scanCamera")}</button></form>
       {camera && <CodeCamera label={t("scanCamera")} onCode={accept} onError={() => { setCamera(false); setError("scanCameraError"); }} />}
       <OperationsDataTable rows={pickupOnly ? rows.filter((row) => row.status === "completed" || row.status === "loaded") : rows} columns={[
         { key: "picking_code", label: t("pickingCode"), value: (row) => String(row.picking_code ?? "—") }, { key: "title", label: t("job_id"), value: (row) => String(row.title) },
@@ -145,7 +148,7 @@ export function PickingOrders({ job, language, queue = [], onBooked, pickupOnly 
         { key: "remaining", label: t("pickingRemaining"), value: (row) => String(Number(row.quantity) - Number(row.picked)) },
       ]} label={t("pickingOrders")} filterLabel={t("filter")} emptyLabel={t("empty")} actionsLabel={t("actions")} />
       <footer className={styles.actions}><button type="button" disabled={busy} onClick={() => { setOrder(null); setItems([]); setError(""); }}><ChevronLeft size={18} />{t("scanBack")}</button><button type="button" disabled={busy || !items.length} onClick={() => void print()}><Printer size={18} />{t("pickingPdf")}</button>
-        {(order.status === "completed" || order.status === "loaded") && <button className={styles.primaryAction} disabled={busy || pending} onClick={() => setDispatch(true)}><ScanLine size={18} />{t("pickingDispatch")}</button>}
+        {(order.status === "completed" || order.status === "loaded") && <button className={styles.primaryAction} disabled={busy || pending} onClick={() => { setPickupConfirmed(false); setDispatch(true); }}><ScanLine size={18} />{t("pickingDispatch")}</button>}
         {order.status === "open" && <><button type="button" disabled={busy || pending || items.some((item) => Number(item.picked) > 0)} onClick={() => { setCancelReason(""); setError(""); setCancelDialog(true); }}>{t("pickingCancel")}</button>
         <button type="button" className={styles.primaryAction} disabled={busy || pending || !items.length} onClick={() => setScan(true)}><ScanLine size={18} />{t("pickingScan")}</button></>}
       </footer>
@@ -168,7 +171,7 @@ export function PickingOrders({ job, language, queue = [], onBooked, pickupOnly 
         <footer className={styles.actions}><button type="button" disabled={busy} onClick={() => setCancelDialog(false)}>{t("cancel")}</button><button type="submit" disabled={busy || pending || !cancelReason.trim()}>{t("pickingCancelConfirm")}</button></footer>
       </form>
     </TripDialog>}
-    {dispatch && order && <PickingDispatch order={order} items={items} language={language} onClose={() => setDispatch(false)} onBook={async (input) => { await command({ action: "dispatch", order: order.id, revision: order.revision, ...input }); setDispatch(false); setRefresh((value) => value + 1); onBooked?.(); }} />}
+    {dispatch && order && <PickingDispatch order={order} items={items} language={language} pickupConfirmed={pickupConfirmed} onClose={() => setDispatch(false)} onBook={async (input) => { await command({ action: "dispatch", order: order.id, revision: order.revision, ...input }); setDispatch(false); setRefresh((value) => value + 1); onBooked?.(); }} />}
     {job && <button className="ghost-button" type="button" onClick={() => setOpen(true)}><ScanLine size={16} />{t("pickingOrders")}</button>}
     {open && (job ? <TripDialog labelledBy="picking-title" onClose={() => { if (!busy) setOpen(false); }} className={styles.dialog}>{contents}</TripDialog> : <section className="panel">{contents}</section>)}
     {open && scan && order && <StockScan language={language} queue={queue} enqueue={() => {}} materials={items.filter((item) => Number(item.picked) < Number(item.quantity)).map((item) => ({ id: item.material_id, name: item.material.name, unit: item.material.unit, sku: item.material.sku, scanCode: item.material.scan_code ?? undefined }))}

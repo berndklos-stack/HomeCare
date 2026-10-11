@@ -17,6 +17,7 @@ import { PurchaseOrderSend } from "./PurchaseOrderSend";
 import { OperationsDataTable, type DataColumn } from "./OperationsDataTable";
 import { locationLabelPdf } from "@/lib/locationLabel";
 import { SupplierDamageCases } from "./SupplierDamageCases";
+import { GoodsReceiptHistory } from "./GoodsReceiptHistory";
 
 const tableEntities = new Set(["suppliers", "supplier_contacts", "purchase_orders", "material_details", "location_details", "location_types", "resource_details"]);
 
@@ -441,6 +442,7 @@ export function OperationsWorkspace(props: Props) {
       </article>)}
     </div>}
     {count > 50 && <div className={styles.toolbar}><button aria-label={t("previous")} disabled={page === 0} onClick={() => setPage((p) => p - 1)}><ChevronLeft size={18} /></button><span>{page + 1} / {Math.ceil(count / 50)}</span><button aria-label={t("next")} disabled={(page + 1) * 50 >= count} onClick={() => setPage((p) => p + 1)}><ChevronRight size={18} /></button></div>}
+    {tab === "purchasing" && entity === "purchase_orders" && !parent && <GoodsReceiptHistory language={language} refresh={refresh} />}
     {receivable && <section className={styles.receiptBooking}>
       <div className={styles.fields}>
         {input("location_id", { location_id: receiptLocation }, (_key, value) => setReceiptLocation(value), true)}
@@ -469,7 +471,7 @@ export function OperationsWorkspace(props: Props) {
         </>}
       </footer>
     </TripDialog>}
-    {form && <TripDialog labelledBy="operations-form-title" onClose={() => setForm(null)} className={styles.dialog}>
+    {form && damageSupplier === undefined && <TripDialog labelledBy="operations-form-title" onClose={() => setForm(null)} className={`${styles.dialog} ${form.entity === "suppliers" ? styles.wideDialog : ""}`}>
       <form onSubmit={(e) => { e.preventDefault(); save(); }}>
         <header className={styles.dialogHeader}><h2 id="operations-form-title">{t(form.kind === "save" ? form.entity : form.kind)}</h2><button type="button" title={t("close")} aria-label={t("close")} onClick={() => setForm(null)}><X size={18} /></button></header>
         <div className={styles.fields}>{fields.map((key) => input(key, form.values, (k, v) => setForm({ ...form, values: { ...form.values, [k]: v } }),
@@ -508,6 +510,6 @@ export function OperationsWorkspace(props: Props) {
     </TripDialog>}
     {archive && <TripDialog labelledBy="operations-archive-title" onClose={() => setArchive(null)} className={`${styles.dialog} ${styles.itemDialog}`}><header className={styles.dialogHeader}><h2 id="operations-archive-title">{t("confirmArchive")}</h2><button aria-label={t("close")} title={t("close")} onClick={() => setArchive(null)}><X size={18} /></button></header><p>{title(archive)}</p><footer className={styles.actions}><button onClick={() => setArchive(null)}>{t("cancel")}</button><button onClick={() => { try { submitCommand(archive.id, { kind: "archive", entity }, "delete", archive.revision, parent?.id); setArchive(null); } catch (e) { setFormError(String(e)); } }}>{t("archive")}</button></footer></TripDialog>}
     {history && <OperationsHistory entity={history.entity} parent={history.row.id} order={history.order} title={history.title} language={language} onClose={() => setHistory(null)} />}
-    {damageSupplier !== undefined && <SupplierDamageCases supplier={damageSupplier ?? undefined} language={language} onClose={() => setDamageSupplier(undefined)} />}
+    {damageSupplier !== undefined && <SupplierDamageCases supplier={damageSupplier ?? undefined} language={language} returnToSupplier={Boolean(form?.entity === "suppliers")} onClose={() => setDamageSupplier(undefined)} />}
   </div>;
 }

@@ -4,20 +4,21 @@ import { Camera, ScanLine, X } from "lucide-react";
 import { apiFetch } from "@/lib/apiClient";
 import { createStableId } from "@/lib/syncQueue";
 import { operationLabel } from "@/lib/operationsUi";
-import { pickupLabel, type PickingItem, type PickingOrder } from "@/lib/picking";
+import { matchesPickupScan, type PickingItem, type PickingOrder } from "@/lib/picking";
 import { TripDialog } from "./TripDialog";
 import { CodeCamera } from "./CodeCamera";
 import styles from "./OperationsWorkspace.module.css";
 
 type Place = { id: string; name: string; location_code: string; location_kind: string; archived?: boolean };
 type Job = { id: string; name: string; code: string; status: string; billable?: boolean };
-export function PickingDispatch({ order, items, language, onClose, onBook }: {
+export function PickingDispatch({ order, items, language, pickupConfirmed = false, onClose, onBook }: {
   order: PickingOrder; items: PickingItem[]; language: "de" | "sv" | "en";
+  pickupConfirmed?: boolean;
   onClose: () => void; onBook: (input: { id: string; destination: string | null; pickup: string }) => Promise<void>;
 }) {
   const t = (key: string) => operationLabel(key, language);
   const [places, setPlaces] = useState<Place[]>([]), [jobs, setJobs] = useState<Job[]>([]), [objects, setObjects] = useState<{ code: string }[]>([]);
-  const [code, setCode] = useState(""), [camera, setCamera] = useState(false), [pickup, setPickup] = useState(false), [target, setTarget] = useState<{ id: string | null; name: string } | null>(null);
+  const [code, setCode] = useState(""), [camera, setCamera] = useState(false), [pickup, setPickup] = useState(pickupConfirmed), [target, setTarget] = useState<{ id: string | null; name: string } | null>(null);
   const [loaded, setLoaded] = useState(false), [error, setError] = useState(""), [busy, setBusy] = useState(false);
   const id = useRef(createStableId()), lock = useRef(false);
   useEffect(() => {
@@ -41,9 +42,10 @@ export function PickingDispatch({ order, items, language, onClose, onBook }: {
     setCamera(false); setError("");
     const scan = value.trim();
     if (!pickup) {
-      if (!order.pickup_code || (scan !== `PICKUP:${order.pickup_code}` && scan !== pickupLabel(order))) { setError("PICKING_INVALID_PICKUP"); return; }
+      if (!matchesPickupScan(scan, order)) { setError("PICKING_INVALID_PICKUP"); return; }
       setPickup(true); setCode(""); return;
     }
+    if (matchesPickupScan(scan, order)) { setCode(""); return; }
     if (objects.some((object) => object.code === scan)) { setError("OBJECT_NOT_BOOKABLE"); return; }
     const foundJobs = jobs.filter((job) => job.code === scan), foundPlaces = places.filter((place) => place.location_code === scan);
     if (foundJobs.length + foundPlaces.length !== 1) { setError(foundJobs.length + foundPlaces.length ? "scanAmbiguous" : "scanUnknown"); return; }
@@ -68,6 +70,7 @@ export function PickingDispatch({ order, items, language, onClose, onBook }: {
   return <TripDialog labelledBy="picking-dispatch-title" onClose={() => { if (!busy) onClose(); }} className={styles.dialog}>
     <header className={styles.dialogHeader}><div><h2 id="picking-dispatch-title">{t("pickingDispatch")}</h2><p>{order.title}</p></div><button aria-label={t("close")} disabled={busy} onClick={onClose}><X size={18} /></button></header>
     {!loaded && !error && <p role="status">{t("loading")}</p>}
+    {pickup && <p role="status">{t("pickupRecognized")}</p>}
     {loaded && !target && <form onSubmit={(event) => { event.preventDefault(); accept(code); }}>
       <label className={styles.field}><span>{t(pickup ? "pickingDispatchCode" : "pickingPickupCode")}</span><input aria-label={t(pickup ? "pickingDispatchCode" : "pickingPickupCode")} value={code} onChange={(event) => setCode(event.target.value)} autoComplete="off" /></label>
       <div className={styles.actions}><button type="submit" disabled={!code.trim()}><ScanLine size={18} />{t("scanAccept")}</button><button type="button" onClick={() => setCamera(true)}><Camera size={18} />{t("scanCamera")}</button></div>

@@ -1,6 +1,9 @@
 export const operationText = {
   receiptConfirmed: ["Wareneingang erfolgreich gebucht", "Varumottagningen har bokats", "Goods receipt successfully posted"],
   damageCases: ["Schadensakten", "Skadeärenden", "Damage cases"],
+  backToSupplier: ["Zurück zum Lieferanten", "Tillbaka till leverantören", "Back to supplier"],
+  receiptsWithoutOrder: ["Lieferungen ohne Bestellung", "Leveranser utan beställning", "Deliveries without purchase order"],
+  purchasingSection: ["Lieferanten & Einkauf", "Leverantörer & inköp", "Suppliers & purchasing"],
   materialSkuColumn: ["Materialnummer", "Artikelnummer", "Material number"],
   materialScanCode: ["EAN / Scancode", "EAN / skanningskod", "EAN / scan code"],
   allDamageCases: ["Alle Schadensfälle", "Alla skadeärenden", "All damage cases"],
@@ -42,6 +45,7 @@ export const operationText = {
   SUPPLIER_NOT_ACTIVE: ["Der Lieferant ist nicht mehr aktiv.", "Leverantören är inte aktiv.", "The supplier is no longer active."],
   PURCHASE_ITEM_NOT_FOUND: ["Das Material gehört nicht zu einer offenen Position dieser Bestellung.", "Materialet ingår inte i en öppen beställningsrad.", "The material is not part of an open item of this order."],
   pickingPickupCode: ["Abholcode", "Hämtningskod", "Pickup code"],
+  pickupRecognized: ["Abholcode erkannt", "Hämtningskod identifierad", "Pickup code recognized"],
   pickingPickupPrint: ["Abholcode als PDF", "Hämtningskod som PDF", "Pickup code PDF"],
   pickingDispatch: ["Abholung scannen", "Skanna hämtning", "Scan pickup"],
   pickingDispatchCode: ["Auftragscode / Fahrzeugcode", "Uppdragskod / fordonskod", "Job code / vehicle code"],

@@ -120,6 +120,7 @@
 .field select { height: 42px; }
 dialog.dialog:global(.trip-dialog) { display: block; width: min(720px, calc(100vw - 32px)); height: fit-content; min-height: 0; max-width: calc(100vw - 32px); max-height: calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); padding: 20px; box-sizing: border-box; overflow-y: auto; border-radius: 8px; }
 dialog.itemDialog:global(.trip-dialog) { width: min(560px, calc(100vw - 32px)); }
+dialog.wideDialog:global(.trip-dialog) { width: min(1120px, calc(100vw - 32px)); }
 .dialog .dialogHeader { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: nowrap; gap: 16px; margin: 0; padding: 0 0 16px; border-bottom: 1px solid var(--line, #d1d5db); position: static; }
 .dialogHeader > :first-child { flex: 1; min-width: 0; }
 .dialogHeader h2 { margin: 0; font-size: 20px; line-height: 1.3; overflow-wrap: anywhere; }

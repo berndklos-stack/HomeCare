@@ -1,6 +1,27 @@
 import { NextResponse } from "next/server";
 import { isAuthError, requireApiAuth } from "@/lib/server/apiAuth";
+import { attachOperationsActors } from "@/lib/server/operationsActors";
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export async function GET(request: Request) {
+ const auth = await requireApiAuth(request, "data.read");
+ if (isAuthError(auth)) return auth;
+ if (process.env.NODE_ENV !== "production" && process.env.WORKCORE_E2E_AUTH_BYPASS === "1") return NextResponse.json({ error: "E2E_MOCK_REQUIRED" }, { status: 503 });
+ const params = new URL(request.url).searchParams, id = params.get("id"), page = Number(params.get("page") ?? 0);
+ if (id && !uuid.test(id) || !Number.isSafeInteger(page) || page < 0 || page > 100000) return NextResponse.json({ error: "INVALID_OPERATIONS_COMMAND" }, { status: 400 });
+ let query = auth.client.from("homecare_goods_receipts").select("id,delivery_number,created_at,actor_user_id,location_id,supplier:homecare_suppliers(company),location:homecare_inventory_locations(name)", { count: "exact" }).eq("tenant_id", auth.tenantId).is("order_id", null).order("created_at", { ascending: false }).order("id").range(page * 50, page * 50 + 49);
+ if (id) query = query.eq("id", id);
+ const { data: rows, count, error } = await query;
+ if (error) return NextResponse.json({ error: "OPERATIONS_UNAVAILABLE" }, { status: 503 });
+ let items: unknown[] = [];
+ if (id && rows?.length) {
+  const result = await auth.client.from("homecare_goods_receipt_items").select("material_id,quantity,material:homecare_materials(name,sku,scan_code,unit)").eq("tenant_id", auth.tenantId).eq("receipt_id", id).order("material_id");
+  if (result.error) return NextResponse.json({ error: "OPERATIONS_UNAVAILABLE" }, { status: 503 });
+  items = result.data ?? [];
+ }
+ try { await attachOperationsActors(auth.serviceClient, auth.tenantId, rows ?? []); }
+ catch { return NextResponse.json({ error: "OPERATIONS_UNAVAILABLE" }, { status: 503 }); }
+ return NextResponse.json({ rows: rows ?? [], count: count ?? 0, items }, { headers: { "Cache-Control": "no-store" } });
+}
 export async function POST(request: Request) {
  const auth = await requireApiAuth(request, "data.write");
  if (isAuthError(auth)) return auth;

@@ -5,6 +5,15 @@ export function pickupLabel(order: PickingOrder) {
   return order.picking_code ? `AB-${order.picking_code}` : `PICKUP:${order.pickup_code ?? ""}`;
 }
 
+export function normalizePickupScan(value: string) {
+  return value.trim().replace(/^\][A-Za-z][0-9]/, "").trim().replace(/^PICKUP:/i, "").toUpperCase();
+}
+
+export function matchesPickupScan(value: string, order: PickingOrder) {
+  const code = normalizePickupScan(value);
+  return Boolean(order.pickup_code) && (code === order.pickup_code!.toUpperCase() || code === normalizePickupScan(pickupLabel(order)));
+}
+
 export async function pickingPdf(order: PickingOrder, items: PickingItem[], language: "de" | "sv" | "en") {
   const [{ jsPDF }, { default: QRCode }] = await Promise.all([import("jspdf"), import("qrcode")]);
   const pdf = new jsPDF();

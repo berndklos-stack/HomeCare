@@ -1,6 +1,36 @@
 import { expect, test } from "@playwright/test";
 import { jsPDF } from "jspdf";
 
+for (const mobile of [false, true]) test(`Lieferant und Schadensakten ohne gestapelte Fenster ${mobile ? "mobil" : "desktop"}`, async ({ page }, info) => {
+  await page.setViewportSize(mobile ? { width: 390, height: 844 } : { width: 1440, height: 1000 });
+  const supplier = { id: "22222222-2222-4222-8222-222222222222", supplier_number: "0001", company: "Snickare Jocke", revision: 1 };
+  const damage = { id: "55555555-5555-4555-8555-555555555555", revision: 1, status: "completed", description: "3 Latten gebrochen", created_at: "2026-10-11T09:00:16Z", supplier: { company: supplier.company }, receipt: { delivery_number: "4321" } };
+  await page.route("**/api/operations?**", (route) => {
+    const entity = new URL(route.request().url()).searchParams.get("entity");
+    return route.fulfill({ json: { active: true, rows: entity === "suppliers" ? [supplier] : [], count: entity === "suppliers" ? 1 : 0 } });
+  });
+  await page.route("**/api/supplier-damage-cases**", (route) => route.fulfill({ json: { rows: [damage], count: 1, photos: [], events: [] } }));
+  await page.goto("/"); await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true", { timeout: 30000 });
+  await page.getByRole("button", { name: "Lager & Material", exact: true }).click();
+  await page.getByRole("button", { name: "Lieferanten & Einkauf", exact: true }).click();
+  await page.getByRole("table", { name: "Lieferanten", exact: true }).getByText(supplier.company, { exact: true }).click();
+  const form = page.locator('dialog[open][aria-labelledby="operations-form-title"]');
+  await form.getByLabel("Unternehmen", { exact: true }).fill("Snickare Jocke Entwurf");
+  if (!mobile) expect(await form.evaluate((element) => element.clientWidth)).toBeGreaterThan(1000);
+  await form.getByRole("button", { name: "Schadensakten", exact: true }).click();
+  const dialog = page.locator('dialog[open][aria-labelledby="damage-title"]');
+  await expect(page.locator("dialog[open]")).toHaveCount(1);
+  await expect(dialog.getByRole("table")).toContainText("3 Latten gebrochen");
+  if (!mobile) {
+    expect(await dialog.evaluate((element) => element.clientWidth)).toBeGreaterThan(1000);
+    expect(await dialog.getByRole("table").evaluate((element) => element.scrollWidth <= element.parentElement!.clientWidth)).toBe(true);
+  }
+  await page.screenshot({ path: info.outputPath(`supplier-damage-${mobile}.png`), fullPage: true });
+  await dialog.getByRole("button", { name: "Zurück zum Lieferanten", exact: true }).click();
+  await expect(page.locator("dialog[open]")).toHaveCount(1);
+  await expect(form.getByLabel("Unternehmen", { exact: true })).toHaveValue("Snickare Jocke Entwurf");
+});
+
 for (const mobile of [false, true]) test(`Schadensakte direkt aus Lagerbuchung ${mobile ? "mobil" : "desktop"}`, async ({ page }) => {
   await page.setViewportSize(mobile ? { width: 390, height: 844 } : { width: 1440, height: 1000 });
   const damage = { id: "55555555-5555-4555-8555-555555555555", revision: 1, status: "open", description: "3 Latten gebrochen", created_at: "2026-10-11T09:00:16Z", supplier: { company: "Snickare Jocke" }, receipt: { delivery_number: "4321" } };
@@ -53,6 +83,7 @@ for (const mobile of [false, true]) test(`Schadensakte Dashboard Status und Foto
   await dialog.getByRole("button", { name: "Schadensfoto 1", exact: true }).click();
   const preview = page.locator('dialog[open][aria-labelledby="damage-preview-title"]');
   await expect(preview.getByRole("img", { name: "Schaden.jpg" })).toBeVisible();
+  await expect(page.locator("dialog[open]")).toHaveCount(1);
   await expect.poll(() => preview.getByRole("img").evaluate((image) => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
   await preview.getByRole("button", { name: "Schließen", exact: true }).click();
   await dialog.getByRole("button", { name: "Lieferschein (Foto oder PDF)", exact: true }).click();
