@@ -130,6 +130,16 @@ dialog.wideDialog:global(.trip-dialog) { width: min(1120px, calc(100vw - 32px));
 .dialog > h3 { margin: 16px 0 8px; font-size: 16px; overflow-wrap: anywhere; }
 .dialog footer { justify-content: flex-end; padding-top: 16px; border-top: 1px solid var(--border, #d1d5db); }
 .pending { border-left: 3px solid #b78106; padding-left: 12px; }
+@media (max-width: 600px) {
+  .purchaseOrderPopup .items { display: block; min-width: 0; }
+  .purchaseOrderPopup .items thead { display: block; }
+  .purchaseOrderPopup .items thead th:not(:first-child) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .purchaseOrderPopup .items tbody, .purchaseOrderPopup .items tr { display: block; width: 100%; }
+  .purchaseOrderPopup .items tbody tr { border-bottom: 1px solid var(--line); padding-bottom: 12px; }
+  .purchaseOrderPopup .items th:first-child { display: block; width: auto; }
+  .purchaseOrderPopup .items td { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; align-items: center; border-bottom: 0; }
+  .purchaseOrderPopup .items td::before { content: attr(data-label); text-align: left; color: var(--muted); }
+}
 .pickingWorkspace { min-width: 0; }
 .pickingWorkspace button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 42px; max-width: 100%; padding: 10px 14px; border: 1px solid var(--line); border-radius: 6px; color: var(--brand); background: var(--paper); font: inherit; font-weight: 600; line-height: 1.35; cursor: pointer; }
 .pickingWorkspace button svg { flex: 0 0 auto; }

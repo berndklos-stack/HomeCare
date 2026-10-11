@@ -21,6 +21,14 @@ import { GoodsReceiptHistory } from "./GoodsReceiptHistory";
 
 const tableEntities = new Set(["suppliers", "supplier_contacts", "purchase_orders", "material_details", "location_details", "location_types", "resource_details"]);
 
+function OrderPopup({ order, title, closeLabel, onClose, children, active }: { order: OperationsRow | null; title: string; closeLabel: string; onClose: () => void; children: ReactNode; active: boolean }) {
+  if (!order) return <>{children}</>;
+  return <TripDialog active={active} labelledBy="purchase-order-title" className={`${styles.dialog} ${styles.wideDialog} ${styles.purchaseOrderPopup}`} onClose={onClose}>
+    <header className={styles.dialogHeader}><div><h2 id="purchase-order-title">{title} {String(order.order_number ?? "")}</h2></div><button type="button" title={closeLabel} aria-label={closeLabel} onClick={onClose}><X size={18} /></button></header>
+    {children}
+  </TripDialog>;
+}
+
 type Reference = { id: string; name: string; status?: string; billable?: boolean; parentLocationId?: string; sku?: string; scanCode?: string; unit?: string; minStock?: string; archived?: boolean; revision?: number; hours?: number; mileage?: number; availability?: string; documents?: { id: string; name: string }[] };
 type Props = {
   children?: ReactNode; language: OperationsLanguage; queue: SyncMutation[];
@@ -375,7 +383,7 @@ export function OperationsWorkspace(props: Props) {
         <button role="tab" aria-selected={purchasingDamage} aria-controls="purchasing-damage-panel" className={purchasingDamage ? styles.selected : ""} onClick={() => { setForm(null); setPurchasingDamage(true); }}>{t("damageCases")}</button>
       </div>}
       {tab !== "inventory" && tab !== "purchasing" && groups[tab].filter((key) => key !== "material_details").map((key) => <button key={key} aria-pressed={entity === key} onClick={() => change(key)}>{t(key)}</button>)}
-      {parent && !purchasingDamage && <button onClick={() => change(entity === "location_details" ? "location_details" : entity === "supplier_contacts" ? "suppliers" : "purchase_orders")}>{String(parent.name ?? parent.company ?? parent.order_number)} <ChevronLeft size={16} /></button>}
+      {parent && entity !== "purchase_order_items" && !purchasingDamage && <button onClick={() => change(entity === "location_details" ? "location_details" : entity === "supplier_contacts" ? "suppliers" : "purchase_orders")}>{String(parent.name ?? parent.company ?? parent.order_number)} <ChevronLeft size={16} /></button>}
       {entity === "maintenance_plans" && <input aria-label={language === "de" ? "Einträge suchen" : language === "sv" ? "Sök poster" : "Search records"} type="search" value={search} onChange={(e) => setSearch(e.target.value)} />}
       {tab !== "inventory" && tab !== "purchasing" && <button title={t("refresh")} aria-label={t("refresh")} onClick={() => setRefresh((n) => n + 1)}><RefreshCw size={18} /></button>}
       {tab !== "inventory" && tab !== "purchasing" && editable && !error && <button onClick={() => open("save")} disabled={entity === "purchase_order_items" && (!parent || parent.status !== "draft" || blocked(parent.id))}><Plus size={18} />{t("create")}</button>}
@@ -385,7 +393,8 @@ export function OperationsWorkspace(props: Props) {
     {error && <p role="status">{t(error)}</p>}
     {active.length > 0 && <div role="status" className={styles.pending}>{active.map((m) => <p key={m.id}>{t(m.status === "failed" || m.status === "conflict" ? "failed" : "waiting")}: {String((m.payload.values as Record<string, unknown> | undefined)?.company ?? (m.payload.values as Record<string, unknown> | undefined)?.name ?? m.entityId)}</p>)}</div>}
     {tab === "purchasing" && purchasingDamage && <div id="purchasing-damage-panel" role="tabpanel" aria-label={t("damageCases")}><SupplierDamageCases inline language={language} onClose={() => change("suppliers")} /></div>}
-    {entity !== "material_details" && !purchasingDamage && (tab !== "inventory" || stockActive !== null) && <div id={tab === "purchasing" ? "purchasing-panel" : "inventory-master-panel"} role={inventoryMaster || tab === "purchasing" ? "tabpanel" : undefined} aria-label={inventoryMaster || tab === "purchasing" ? t(entity) : undefined} className={`panel ${styles.list}`} aria-busy={loading}>
+    <OrderPopup active={!detail && !form && !history && !archive} order={entity === "purchase_order_items" ? parent : null} title={t("purchase_orders")} closeLabel={t("close")} onClose={() => change("purchase_orders")}>
+    {entity !== "material_details" && !purchasingDamage && (tab !== "inventory" || stockActive !== null) && <div id={tab === "purchasing" ? "purchasing-panel" : "inventory-master-panel"} role={inventoryMaster || tab === "purchasing" ? "tabpanel" : undefined} aria-label={inventoryMaster || tab === "purchasing" ? t(entity) : undefined} className={`${entity === "purchase_order_items" ? "" : "panel"} ${styles.list}`} aria-busy={loading}>
       <div className="panel-title"><div><p>{tab === "inventory" ? t("inventorySection") : operationsLabels[tab as keyof typeof operationsLabels][language]}</p><h2>{entity === "location_details" && storagePlacesView ? `${t("storagePlaces")}${parent ? `: ${String(parent.name ?? "")}` : ""}` : t(entity)}</h2></div>
         {(inventoryMaster || tab === "purchasing") && <div className={styles.actions}><button title={t("refresh")} aria-label={t("refresh")} onClick={() => setRefresh((n) => n + 1)}><RefreshCw size={18} /></button>{editable && !error && <button className={styles.primaryAction} disabled={entity === "purchase_order_items" && (!parent || parent.status !== "draft" || blocked(parent.id))} onClick={() => open("save")}><Plus size={18} />{t(entity === "location_details" ? storagePlacesView ? "createStoragePlace" : "createLocation" : "create")}</button>}</div>}
       </div>
@@ -403,8 +412,8 @@ export function OperationsWorkspace(props: Props) {
             disabled={receiptDisabled || !outstanding(row)} onChange={(event) => setReceiptSelection((current) => {
               const next = { ...current }; if (event.target.checked) next[row.id] = String(outstanding(row)); else delete next[row.id]; return next;
             })} />}<button className={styles.itemName} onClick={() => setItemDetails(row)}>{title(row)}<ChevronRight size={16} aria-hidden="true" /></button></div></th>
-          <td>{number(row.quantity)}</td><td>{number(row.received_quantity)}</td><td>{number(outstanding(row))}</td>
-          {receivable && <td>{outstanding(row) > 0 ? <input className={styles.receiptQuantity} type="number" min="0.001" max={outstanding(row)} step="0.001"
+          <td data-label={t("orderedQuantity")}>{number(row.quantity)}</td><td data-label={t("receivedQuantity")}>{number(row.received_quantity)}</td><td data-label={t("openQuantity")}>{number(outstanding(row))}</td>
+          {receivable && <td data-label={t("receiptQuantity")}>{outstanding(row) > 0 ? <input className={styles.receiptQuantity} type="number" min="0.001" max={outstanding(row)} step="0.001"
             aria-label={`${t("receiptQuantity")}: ${title(row)}`} disabled={receiptDisabled || receiptSelection[row.id] === undefined} value={receiptSelection[row.id] ?? ""}
             onChange={(event) => { setReceiptError(""); setReceiptSelection((current) => ({ ...current, [row.id]: event.target.value })); }} /> : "—"}</td>}
         </tr>)}</tbody>
@@ -462,6 +471,7 @@ export function OperationsWorkspace(props: Props) {
       <div className={styles.actions}><button className={styles.selected} disabled={receiptDisabled || receiptDocumentPending || !Object.keys(receiptSelection).length || !receiptLocation}
         onClick={bookReceipts}><Plus size={18} />{t("bookSelected")} ({Object.keys(receiptSelection).length})</button></div>
     </section>}
+    </OrderPopup>
     {detail && <TripDialog labelledBy="purchase-item-title" onClose={() => setItemDetails(null)} className={`${styles.dialog} ${styles.itemDialog}`}>
       <header className={styles.dialogHeader}><div><p>{t("itemDetails")} · {String(parent?.order_number ?? "")}</p><h2 id="purchase-item-title">{title(detail)}</h2></div><button aria-label={t("close")} title={t("close")} onClick={() => setItemDetails(null)}><X size={18} /></button></header>
       <dl className={styles.itemFacts}>

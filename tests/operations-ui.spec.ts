@@ -402,6 +402,11 @@ for (const mobile of [false, true]) {
   await expect(summary).toContainText("15.10.2026");
   await expect(summary).toContainText("1 / 2");
   await summary.getByRole("button", { name: "Positionen", exact: true }).click();
+  const orderDialog = page.getByRole("dialog", { name: "Bestellungen PO-DETAIL", exact: true });
+  await expect(orderDialog).toBeVisible();
+  await expect(page.locator("dialog[open]")).toHaveCount(1);
+  expect(await orderDialog.locator("table").evaluate((table) => table.scrollWidth <= table.parentElement!.clientWidth)).toBe(true);
+  await page.screenshot({ path: `test-results/purchase-order-${mobile ? "mobile" : "desktop"}-${test.info().project.name}.png` });
   const table = page.getByRole("table");
   await expect(table.getByRole("columnheader")).toHaveText(["Position", "Bestellt", "Geliefert", "Offen", "WE-Menge"]);
   await expect(table.getByRole("row").nth(1).getByRole("cell")).toHaveText(["10", "4", "6", ""]);
@@ -410,6 +415,7 @@ for (const mobile of [false, true]) {
   await page.keyboard.press("Enter");
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
+  await expect(page.locator("dialog[open]")).toHaveCount(1);
   expect(await dialog.evaluate((element) => element.matches(":modal"))).toBe(true);
   await expect(dialog).toContainText("Einzelpreis");
   await expect(dialog).toContainText("50 SEK");
@@ -421,6 +427,9 @@ for (const mobile of [false, true]) {
   await expect(page.getByRole("dialog").getByLabel("Menge", { exact: true })).toBeVisible();
   await page.getByRole("dialog").getByRole("button", { name: "Abbrechen", exact: true }).click();
   await expect(table).toBeVisible();
+  await expect(orderDialog).toBeVisible();
+  await orderDialog.getByRole("button", { name: "Schließen", exact: true }).click();
+  await expect(page.getByRole("table", { name: "Bestellungen", exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
  });
 }
