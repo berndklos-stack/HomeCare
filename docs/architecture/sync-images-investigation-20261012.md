@@ -83,3 +83,8 @@ Der Snapshot sichert Referenzen, ist aber **kein vollstaendiges Datenbank- und D
 - Vollstaendige lokale SQL-Testkette, 21 Chrome-Fahrten-/Konflikttests, 7 Safari-/iPhone-Tests, Typpruefung und Produktionsbuild erfolgreich.
 - Aktuelle Produktionssicherung `d5533b35-121a-4821-9d53-da7e7d4fa096`: 71 Tabellenwerte lokal vollstaendig wiederhergestellt, alle drei ersetzten Funktionen fuer Rueckkehr gesichert und eingespielt. SHA-256 der privaten Kopie: `7718134623fe98df303618a8b7312637789a8d256b5ab32b66f7a4ddaaed2357`.
 - Simulation der konkreten neuen Anfrage `TRIP-45f91b9c-2476-46f2-9ef6-1d1cb418d942` auf dieser Kopie erfolgreich; Transaktion danach zurueckgerollt. Keine produktive Fahrt in dieser Probe angelegt.
+
+## Tagesgrenzen-Nachpruefung (1.427.41)
+
+- Zusaetzlich auch bekannte Uhrzeiten am Folgetag gegen die Endstaende aller vorherigen Tage pruefen. Sonst konnte ein Eintrag ohne Zeit bei der zeitbasierten Nachbarsuche hinter einem aelteren Tagesstand verschwinden.
+- Erneut vollstaendige SQL-Kette und 14 Chronologie-/Konflikttests erfolgreich. Aktive Funktionen separat gesichert, mit derselben unveraenderten Datensicherung lokal wieder eingespielt und neue Korrektur samt konkreter Anfrage geprueft. Private verifizierte Kopie SHA-256 `f5a5fa0587c4c63dbd1494562fe089687a3e674383d606f7b3270a03585e3ba9`.

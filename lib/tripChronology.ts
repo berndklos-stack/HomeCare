@@ -79,10 +79,14 @@ export function tripChronologyWarnings(trips: ChronologicalTrip[], candidate: Ch
       || (tripDate(trip) === tripDate(candidate) && (odometer(trip.startOdometer) ?? -Infinity) > startValue))
       .sort((a, b) => (odometer(a.startOdometer) ?? Infinity) - (odometer(b.startOdometer) ?? Infinity))[0];
   }
-  const previousEnd = odometer(previous?.endOdometer);
+  const previousEnds = [odometer(previous?.endOdometer), ...relevant.filter((trip) => tripDate(trip) < tripDate(candidate)).map((trip) => odometer(trip.endOdometer))]
+    .filter((value): value is number => value !== undefined);
+  const previousEnd = previousEnds.length ? Math.max(...previousEnds) : undefined;
   const start = odometer(candidate.startOdometer);
   const end = odometer(candidate.endOdometer);
-  const nextStart = odometer(next?.startOdometer);
+  const nextStarts = [odometer(next?.startOdometer), ...relevant.filter((trip) => tripDate(trip) > tripDate(candidate)).map((trip) => odometer(trip.startOdometer))]
+    .filter((value): value is number => value !== undefined);
+  const nextStart = nextStarts.length ? Math.min(...nextStarts) : undefined;
   const warnings: string[] = [];
   if (previousEnd !== undefined && start !== undefined && start < previousEnd) warnings.push(`Start-Kilometerstand liegt unter dem Endstand der vorherigen Fahrt (${previousEnd} km).`);
   if (nextStart !== undefined && end !== undefined && end > nextStart) warnings.push(`End-Kilometerstand liegt ueber dem Startstand der naechsten Fahrt (${nextStart} km).`);

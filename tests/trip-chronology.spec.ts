@@ -57,6 +57,7 @@ test("Quickfahrt ohne Uhrzeit wird anhand der Kilometer eingeordnet, ohne Startz
   const synced = applyVehicleMutation(initial, mutation);
   expect(synced.mutationResults[mutation.id].status).toBe("synced");
   expect(synced.trips.find((item) => item.id === untimed.id)?.startedAt).toBeUndefined();
+  expect(tripChronologyWarnings([first, second, untimed], trip("TOMORROW", "2026-10-13", "10:00", "203140", "203151"))).toHaveLength(1);
 });
 test("Luecken getrennt je Fahrzeug, keine laufenden oder geloeschten Fahrten", () => {
   const other = trip("OTHER", "2026-10-02", "08:00", "10", "20", "CAR-2");

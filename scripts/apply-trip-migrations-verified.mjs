@@ -14,8 +14,9 @@ if (!proof.fullRelationalRestoreVerified || !proof.originalFunctionRollbackVerif
 const projects = JSON.parse(execFileSync("supabase", ["projects", "list", "--output", "json"], { encoding: "utf8" }));
 if (!projects.some((project) => project.linked && project.id === "ruzsmxzxeqqcbeycfoma")) throw new Error("Unexpected linked project");
 const missingTime = process.argv.includes("--missing-time");
+const dayBoundaries = process.argv.includes("--day-boundaries");
 if (missingTime && !["homecare_apply_sync_mutation", "homecare_apply_trip_sync_mutation", "homecare_trip_neighbor_error"].every((name) => snapshot.functions.some((fn) => fn.name === name))) throw new Error("All replaced functions must be backed up");
-const migrations = (missingTime ? ["20261012210000_trip_missing_time_order.sql"] : ["20261012120000_vehicle_trip_chronology.sql", "20261012190000_trip_validation_recheck.sql"]).map((name) => {
+const migrations = (dayBoundaries ? ["20261012213000_trip_missing_time_day_boundaries.sql"] : missingTime ? ["20261012210000_trip_missing_time_order.sql"] : ["20261012120000_vehicle_trip_chronology.sql", "20261012190000_trip_validation_recheck.sql"]).map((name) => {
   let sql = readFileSync(`supabase/migrations/${name}`, "utf8");
   if (/^(?:--[^\n]*\n)*begin;\n/.test(sql) && /commit;\s*$/.test(sql)) {
     sql = sql.replace(/^(?:--[^\n]*\n)*begin;\n/, "").replace(/commit;\s*$/, "");

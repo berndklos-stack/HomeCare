@@ -13,16 +13,18 @@ const query = (sql) => {
 };
 // Backup creation is the only remote write: no business record or file is changed.
 const cachedPath = existsSync(`${output}.restore.json`) ? `${output}.restore.json` : output;
-const cached = existsSync(cachedPath) ? JSON.parse(readFileSync(cachedPath, "utf8")) : null;
+const fromSnapshot = process.argv[process.argv.indexOf("--from-snapshot") + 1];
+const cached = existsSync(cachedPath) ? JSON.parse(readFileSync(cachedPath, "utf8"))
+  : process.argv.includes("--from-snapshot") ? JSON.parse(readFileSync(fromSnapshot, "utf8")) : null;
 const created = cached?.backup ?? query(`select public.homecare_create_relational_backup('${tenant}', 'before-trip-chronology-20261012') as backup`)[0].backup;
 const snapshot = cached ? { backup: cached.backup, checksum_valid: true } : query(`select to_jsonb(b) as backup, b.checksum=encode(extensions.digest(b.payload::text,'sha256'),'hex') as checksum_valid from public.homecare_relational_backups b where id='${created.id}'`)[0];
 if (!snapshot.checksum_valid) throw new Error("Server backup checksum invalid");
-const functions = cached?.functions ?? query("select p.proname as name, pg_get_functiondef(p.oid) as definition from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname in ('homecare_apply_sync_mutation','homecare_apply_trip_sync_mutation','homecare_trip_neighbor_error')");
+const functions = (process.argv.includes("--refresh-functions") ? null : cached?.functions) ?? query("select p.proname as name, pg_get_functiondef(p.oid) as definition from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname in ('homecare_apply_sync_mutation','homecare_apply_trip_sync_mutation','homecare_trip_neighbor_error')");
 const tenants = cached?.tenants ?? query(`select to_jsonb(t) as record from public.homecare_tenants t where id='${tenant}'`);
 const users = cached?.users ?? query("select id,email from auth.users");
 const payloadText = cached?.payloadText ?? query(`select payload::text as text from public.homecare_relational_backups where id='${created.id}'`)[0].text;
-const packageData = { ...(cached ?? { capturedAt: new Date().toISOString(), checksumValid: true, mode: "BACKUP_ONLY_NO_BUSINESS_DATA_CHANGE", backup: snapshot.backup, functions, tenants, users }), payloadText };
-if (!cached) writeFileSync(output, JSON.stringify(packageData), { mode: 0o600, flag: "wx" });
+const packageData = { ...(cached ?? { capturedAt: new Date().toISOString(), checksumValid: true, mode: "BACKUP_ONLY_NO_BUSINESS_DATA_CHANGE", backup: snapshot.backup, tenants, users }), functions, payloadText };
+if (!existsSync(output)) writeFileSync(output, JSON.stringify(packageData), { mode: 0o600, flag: "wx" });
 if (cached && !cached.payloadText && !existsSync(`${output}.restore.json`)) writeFileSync(`${output}.restore.json`, JSON.stringify(packageData), { mode: 0o600, flag: "wx" });
 const verifiedOutput = existsSync(`${output}.restore.json`) ? `${output}.restore.json` : output;
 const hash = createHash("sha256").update(readFileSync(verifiedOutput)).digest("hex");
@@ -74,6 +76,7 @@ try {
   sql(rollback);
   file("supabase/migrations/20261012120000_vehicle_trip_chronology.sql");
   file("supabase/migrations/20261012210000_trip_missing_time_order.sql");
+  file("supabase/migrations/20261012213000_trip_missing_time_day_boundaries.sql");
   file("supabase/tests/vehicle_trip_chronology.sql");
   file("supabase/tests/trip_missing_time_order.sql");
   const cars = snapshot.backup.payload.homecare_resources.filter((row) => row.type === "Fahrzeug" && !row.deleted_at);

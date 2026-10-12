@@ -31,5 +31,8 @@ begin
   response := public.homecare_apply_trip_sync_mutation(gen_random_uuid(),'vehicle_trip','UNTIMED-NEXT-DAY','create','untimed-car',tenant,
     body||'{"date":"2026-10-13","startOdometer":"203140","endOdometer":"203151"}');
   if response->>'status'<>'conflict' then raise exception 'CROSS_DAY_OVERLAP_ACCEPTED'; end if;
+  response := public.homecare_apply_trip_sync_mutation(gen_random_uuid(),'vehicle_trip','TIMED-NEXT-DAY','create','untimed-car',tenant,
+    body||'{"date":"2026-10-13","startedAt":"2026-10-13T08:00:00Z","startOdometer":"203140","endOdometer":"203151"}');
+  if response->>'status'<>'conflict' then raise exception 'TIMED_CROSS_DAY_OVERLAP_ACCEPTED'; end if;
 end $$;
 rollback;
