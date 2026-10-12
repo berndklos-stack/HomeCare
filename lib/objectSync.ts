@@ -44,7 +44,13 @@ export function normalizeObjectDatePayload(payload: Record<string, unknown>) {
 }
 
 export function objectMediaMutationPayload(item: RevisionedObjectMedia) {
-  return Object.fromEntries(Object.entries(item).filter(([key]) => !mediaTransientFields.has(key)));
+  const payload = Object.fromEntries(Object.entries(item).filter(([key]) => !mediaTransientFields.has(key)));
+  if (typeof payload.storagePath === "string" && payload.storagePath.startsWith("migrated-app-state/") && !payload.storagePath.includes("..")) {
+    // The legacy path is a read projection, not a new tenant storage assignment.
+    payload.previewUrl = `/api/private-media?path=${encodeURIComponent(payload.storagePath)}`;
+    delete payload.storagePath;
+  }
+  return payload;
 }
 
 function fingerprint(value: Record<string, unknown>) {

@@ -23,11 +23,12 @@ for (const mobile of [false, true]) test(`Historische Fahrt: Zeitwahl, Vorschlag
   await page.getByTestId("nav-masterData").click();
   await page.getByRole("button", { name: "Ressourcen", exact: true }).click();
   await page.locator("article").filter({ hasText: "Servicebil Kolaretorp" }).first().click();
-  const resource = page.locator("dialog.resource-editor-modal");
+  const resource = page.locator(".resource-editor-modal, .resource-editor-workspace");
   await resource.getByRole("button", { name: "Fahrtenbuch", exact: true }).click();
   await expect(resource.getByLabel("Offene Kilometerluecken")).toContainText("185 km");
   await resource.getByRole("button", { name: "Neue Fahrt", exact: true }).click();
-  const editor = page.locator("dialog.logbook-edit-modal");
+  const editor = page.locator("section.logbook-entry-page");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(editor.getByLabel("Startzeit", { exact: true })).toBeVisible();
   await editor.getByLabel("Datum", { exact: true }).fill("2026-10-02");
   await editor.getByLabel("Startzeit", { exact: true }).fill("12:00");
@@ -39,4 +40,11 @@ for (const mobile of [false, true]) test(`Historische Fahrt: Zeitwahl, Vorschlag
   await page.screenshot({ path: `test-results/trip-chronology-${mobile ? "mobile" : "desktop"}.png` });
   const sizes = await editor.evaluate((element) => ({ client: element.clientWidth, scroll: element.scrollWidth }));
   expect(sizes.scroll).toBeLessThanOrEqual(sizes.client + 2);
+  const header = await editor.locator("header").boundingBox();
+  expect(header?.height).toBeLessThanOrEqual(64);
+  if (mobile) {
+    const input = editor.getByLabel("Start-Km", { exact: true });
+    expect(await input.evaluate((element) => parseFloat(getComputedStyle(element).fontSize))).toBeGreaterThanOrEqual(16);
+    expect((await input.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+  }
 });

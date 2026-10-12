@@ -1,9 +1,12 @@
+import { legacyObjectMediaReferencePath } from "@/lib/server/legacyObjectMediaPath";
+
 export const objectMediaSignedUrlTtlSeconds = 15 * 60;
 
 export type ObjectMediaProjectionRow = {
   deleted_at: string | null;
   preview_url: string | null;
   storage_path: string | null;
+  metadata?: unknown;
 };
 
 function safeFallbackPreview(previewUrl: string | null) {
@@ -15,27 +18,17 @@ function safeInlinePreview(previewUrl: string | null) {
   return previewUrl?.startsWith("data:image/") ? previewUrl : null;
 }
 
-function legacyPrivateMediaPath(previewUrl: string | null) {
-  if (!previewUrl?.startsWith("/api/private-media?")) return null;
-  try {
-    const path = new URL(previewUrl, "https://workcore.local").searchParams.get("path");
-    return path?.startsWith("migrated-app-state/") && !path.includes("..") ? path : null;
-  } catch {
-    return null;
-  }
-}
-
-export function objectMediaStoragePath(row: ObjectMediaProjectionRow, tenantId: string) {
+export function objectMediaStoragePath(row: ObjectMediaProjectionRow, tenantId: string, supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL) {
   if (row.storage_path?.startsWith(`${tenantId}/`) && !row.storage_path.includes("..")) {
     return row.storage_path;
   }
-  return row.storage_path ? null : legacyPrivateMediaPath(row.preview_url);
+  return row.storage_path ? null : legacyObjectMediaReferencePath(row, supabaseUrl);
 }
 
-export function objectMediaPathsToSign<T extends ObjectMediaProjectionRow>(rows: T[], tenantId: string) {
+export function objectMediaPathsToSign<T extends ObjectMediaProjectionRow>(rows: T[], tenantId: string, supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL) {
   return Array.from(new Set(rows.flatMap((row) => (
-    !row.deleted_at && objectMediaStoragePath(row, tenantId)
-      ? [objectMediaStoragePath(row, tenantId) as string]
+    !row.deleted_at && objectMediaStoragePath(row, tenantId, supabaseUrl)
+      ? [objectMediaStoragePath(row, tenantId, supabaseUrl) as string]
       : []
   ))));
 }
@@ -44,11 +37,12 @@ export function applyObjectMediaSignedUrls<T extends ObjectMediaProjectionRow>(
   rows: T[],
   tenantId: string,
   signedUrls: ReadonlyMap<string, string>,
+  supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL,
 ) {
   return rows
     .filter((row) => !row.deleted_at)
     .map((row) => {
-      const storagePath = objectMediaStoragePath(row, tenantId);
+      const storagePath = objectMediaStoragePath(row, tenantId, supabaseUrl);
       if (!row.storage_path && !storagePath) {
         return { ...row, preview_url: safeFallbackPreview(row.preview_url) };
       }

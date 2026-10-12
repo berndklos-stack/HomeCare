@@ -88,6 +88,20 @@ test("Veraltete leere Formulare entfernen keine Bilder ohne ausdrueckliche Loesc
   expect(outdatedDeletion.mutations.some((mutation) => mutation.operation === "delete")).toBe(false);
 });
 
+test("Frisch signierte Altbilder erzeugen keine scheinbare Dateiaenderung; Beschreibungen bleiben bearbeitbar", () => {
+  const path = "migrated-app-state/2026-08-30/photo.jpg";
+  const media = { id: "LEGACY-PHOTO", type: "Bild", revision: 2, storagePath: path, previewUrl: "https://storage.local/signed-old", description: "Bolet 4" };
+  const original = object({ revision: 3, media: { images: 1, documents: 0, floorPlans: 0, items: [media] } });
+  const refreshed = { ...original, name: "Bolet 4 bearbeitet", media: { ...original.media, items: [{ ...media, previewUrl: "https://storage.local/signed-new" }] } };
+  const save = prepareObjectMutations([original], [refreshed]);
+  expect(save.mutations.some((mutation) => mutation.entityType === "object_media")).toBe(false);
+  const edited = prepareObjectMutations([original], [{ ...refreshed, media: { ...refreshed.media, items: [{ ...media, description: "Neue Beschreibung" }] } }]);
+  const mutation = edited.mutations.find((mutation) => mutation.entityType === "object_media");
+  expect(mutation).toMatchObject({ expectedRevision: 2, operation: "update", payload: { description: "Neue Beschreibung", previewUrl: `/api/private-media?path=${encodeURIComponent(path)}` } });
+  expect(mutation?.payload).not.toHaveProperty("storagePath");
+  expect(original.media.items[0]).toEqual(media);
+});
+
 test("Bild wartet auf sein neues Objekt, blockiert aber keine unabhaengige Fahrt", () => {
   const parent = { ...createSyncMutation({ entityId: "OBJ", resourceId: "OBJ", entityType: "object", operation: "create" }), status: "conflict" as const };
   const photo = createSyncMutation({ entityId: "PHOTO", resourceId: "OBJ", entityType: "object_media", operation: "create", payload: { previewUrl: "data:image/jpeg;base64,kept" } });

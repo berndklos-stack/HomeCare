@@ -9,7 +9,7 @@ async function ready(page: Page) {
 
 async function openTrip(page: Page) {
   await page.getByRole("button", { name: "Fahrt", exact: true }).click();
-  const dialog = page.locator("dialog.quick-trip-modal");
+  const dialog = page.locator("section.quick-trip-page");
   await expect(dialog).toBeVisible();
   return dialog;
 }
@@ -28,6 +28,26 @@ async function fillTrip(page: Page) {
 async function vehicle(page: Page) {
   return page.evaluate((key) => JSON.parse(localStorage.getItem(key) || "[]").find((item: { id: string }) => item.id === "RES-1"), resourcesKey);
 }
+
+test.describe("iPhone-Bedienung", () => {
+  test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 3 });
+  test("Normale Fahrtenseite ohne Popup, lesbare Felder und erreichbare Aktionen", async ({ page }) => {
+    const trip = await openTrip(page);
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(trip.getByRole("heading", { name: "Fahrt erfassen", exact: true })).toBeInViewport();
+    const start = trip.getByLabel("Start-Km", { exact: true });
+    expect(await start.evaluate((element) => parseFloat(getComputedStyle(element).fontSize))).toBeGreaterThanOrEqual(16);
+    expect((await start.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+    for (const button of await trip.locator(".trip-actions button").all()) {
+      expect((await button.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+    }
+    expect(await trip.evaluate((element) => element.scrollWidth - element.clientWidth)).toBeLessThanOrEqual(2);
+    await page.screenshot({ path: `test-results/trip-iphone-${test.info().project.name}.png` });
+    await trip.getByRole("button", { name: "Fahrt erfassen Schließen", exact: true }).click();
+    await expect(trip).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Fahrt", exact: true })).toBeVisible();
+  });
+});
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
@@ -82,7 +102,8 @@ for (const mobile of [false, true]) {
     await ready(page);
     await openTrip(page);
     await expect(dialog.getByLabel("Zweck / Ärende", { exact: true })).toHaveValue("");
-    expect(await dialog.evaluate((element) => element.matches(":modal"))).toBe(true);
+    expect(await dialog.evaluate((element) => element.matches(":modal"))).toBe(false);
+    await expect(page.getByRole("dialog")).toHaveCount(0);
     await page.screenshot({ path: `test-results/drive-log-${mobile ? "mobile" : "desktop"}-${test.info().project.name}.png` });
   });
 }
@@ -123,7 +144,7 @@ test("Ungespeicherten Entwurf verwerfen und neue Fahrt direkt abschließen", asy
   await ready(page);
   await openTrip(page);
   await expect(dialog.getByLabel("Zweck / Ärende", { exact: true })).toHaveValue("");
-  await page.keyboard.press("Escape");
+  await dialog.getByRole("button", { name: "Fahrt erfassen Schließen", exact: true }).click();
   await expect(dialog).toHaveCount(0);
   await fillTrip(page);
   await dialog.getByRole("button", { name: "Fahrt abschließen & speichern", exact: true }).click();
@@ -149,7 +170,7 @@ test("Verwerfen bestätigt aktive Fahrt und entfernt sie dauerhaft", async ({ pa
   await expect(dialog.getByLabel("End-Km", { exact: true })).toHaveValue("");
 });
 
-test("Bestehende Fahrt im Modal: Abbrechen, Fokus, Live-KM und Speichern ohne Seitensprung", async ({ page }) => {
+test("Bestehende Fahrt auf der Seite: Abbrechen, Fokus, Live-KM und Speichern ohne Popup", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const quick = await openTrip(page);
   await quick.getByRole("button", { name: "Fahrtenbuch öffnen", exact: true }).click();
@@ -161,9 +182,9 @@ test("Bestehende Fahrt im Modal: Abbrechen, Fokus, Live-KM und Speichern ohne Se
   await edit.focus();
   const scroll = await list.evaluate((element) => element.scrollTop);
   await edit.click();
-  const dialog = page.locator("dialog.logbook-edit-modal");
+  const dialog = page.locator("section.logbook-entry-page");
   await expect(dialog).toBeVisible();
-  await expect(row).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   await dialog.getByLabel("Zweck", { exact: true }).fill("Nicht speichern");
   await dialog.getByRole("button", { name: "Bearbeitung abbrechen", exact: true }).last().click();
   await expect(dialog).toHaveCount(0);

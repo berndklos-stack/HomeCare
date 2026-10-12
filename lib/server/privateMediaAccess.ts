@@ -1,3 +1,5 @@
+import { legacyObjectMediaReferencePath } from "@/lib/server/legacyObjectMediaPath";
+
 type MediaReference = { owner_type: string; deleted_at: string | null };
 
 export function hasReadablePrivateMediaReference(rows: MediaReference[] | null) {
@@ -9,9 +11,9 @@ export function hasReadablePrivateMediaReference(rows: MediaReference[] | null) 
 
 export function legacyObjectMediaOwners(rows: Array<MediaReference & {
   owner_id: string; storage_path: string | null; preview_url: string | null;
-}>, path: string) {
+  metadata?: unknown;
+}>, path: string, supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL) {
   if (!path.startsWith("migrated-app-state/") || path.includes("..")) return [];
-  const reference = `/api/private-media?path=${encodeURIComponent(path)}`;
   return [...new Set(rows.filter((row) => row.owner_type === "object" && !row.deleted_at
-    && !row.storage_path && row.preview_url === reference).map((row) => row.owner_id))];
+    && !row.storage_path && legacyObjectMediaReferencePath(row, supabaseUrl) === path).map((row) => row.owner_id))];
 }

@@ -1,10 +1,11 @@
 export const appVersion = {
-  version: "1.427.35",
+  version: "1.427.36",
   releaseDate: "2026-10-12",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  { version: "1.427.36", date: "2026-10-12", changes: ["Bolet-4-Bild: abgelaufenen eigenen Storage-Link anhand der bestaetigten Altzuordnung frisch signieren; Originaldatei und Datenbankreferenz bleiben erhalten", "Fahrtenbuch, Fahrt nachtragen und Quickbutton Fahrt als normale Seitenansicht statt Popup", "Kompakte Fahrten-Kopfzeilen und iPhone-Formulare mit gut lesbaren Feldern, grossen Touch-Flaechen und erreichbaren Speicheraktionen"] },
   { version: "1.427.35", date: "2026-10-12", changes: ["Projektbilder: dauerhaften Zugriff auf vorhandene Altdateien mit gepruefter Objektzuordnung wiederherstellen", "Fehlgeschlagene Medienabfragen und Konflikte duerfen keine vorhandenen Bilder ausblenden", "Bildloeschung nur nach Bestaetigung und mit passender Revision; veraltete leere Formulare erhalten Bilder", "Fahrtenbuch: Startzeit, chronologische Kilometer-Vorschlaege und offene Kilometerluecken anzeigen", "Fahrten-Datenbankkorrektur vorbereitet; produktive Anwendung weiterhin an Sicherungs- und Wiederherstellungspruefung gebunden"] },
   { version: "1.427.34", date: "2026-10-11", changes: ["Mobil vor Ort: kommissioniertes Fahrzeugmaterial mit Materialcode und Menge bereits waehrend des Einsatzes anzeigen", "Vor Auftragsabschluss Material, Arbeitszeiten und Fotodokumentation ausdruecklich pruefen", "Buchungsgruende ohne technische Nummern und Schadensakten nur in den Buchungsdetails", "Abrechnungsuebernahme im einheitlichen hellen Rahmenstil"] },
   { version: "1.427.33", date: "2026-10-11", changes: ["Einheitliche Anlagebuttons mit blauem Plus, heller Flaeche und grauem Rahmen in der gesamten App", "Auswahlreiter mit aktiver blauer Flaeche und inaktiver grauer Schrift", "Scanablauf-Auswahl und nachfolgende Arbeitsschritte direkt auf der Seite statt als Popup", "Bestellpositionen, Lieferungsdetails und Lieferanten als normale Seitenansicht mit Zurueck-Navigation", "Standorte in der Einzelansicht mit Bestaetigung archivieren; Kennungen, Lagerplaetze und Buchungen bleiben erhalten", "Buchungskennzahl oeffnet die gefilterte Liste; kompakte Buchungen mit maximal zwei Textzeilen und vollstaendigen Angaben in der Einzelansicht", "Mobil vor Ort: Fahrzeugmaterial beim Abschluss mit Teilverbrauch und Zusatzmaterial bestaetigen; nur tatsaechliche Mengen abrechnen, Restbestand erhalten und Wiederholungen ohne Doppelbuchung"] },

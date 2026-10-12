@@ -6,7 +6,7 @@ import Image from "next/image";
 import { AuthGate, EmployeeLogoutButton } from "@/components/AuthGate";
 import { SyncStatus } from "@/components/SyncStatus";
 import { AppleRemindersBridge } from "@/components/AppleRemindersBridge";
-import { TripDialog } from "@/components/TripDialog";
+import { TripSurface } from "@/components/TripSurface";
 import { OperationsWorkspace } from "@/components/OperationsWorkspace";
 import { storageLocationPath } from "@/lib/locationLabel";
 import { MaterialPurchasing } from "@/components/MaterialPurchasing";
@@ -13372,7 +13372,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
                 className={section === item.id ? "active" : ""}
                 data-testid={`nav-${item.id}`}
                 key={item.id}
-                onClick={() => setSection(item.id)}
+                onClick={() => { setQuickTripOpen(false); setSection(item.id); }}
                 type="button"
               >
                 <Icon size={17} />
@@ -13472,296 +13472,20 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
         {section === "jobs" && !onboardingState.contextHelpDismissed.consulting && (
           <ContextHelpBanner helpKey="consulting" language={language} onDismiss={dismissContextHelp} />
         )}
-        {quickTripOpen && !onboardingState.contextHelpDismissed.logbook && (
-          <ContextHelpBanner helpKey="logbook" language={language} onDismiss={dismissContextHelp} />
-        )}
-
-        {section === "dashboard" && (
-          <div className="quickbar">
-            {dashboardStats.map((item) => (
-              <button key={item.label} onClick={() => setSection(item.section)} type="button">
-                <strong>{item.value}</strong>
-                <span>{item.label}</span>
-              </button>
-            ))}
-          </div>
-        )}
-
-        <section className="layout full">
-          <div className="main-panel">
-            {section === "dashboard" && (
-              <>
-                {(!onboardingState.firstStepsDismissed || !companySettings.onboarding) && (
-                  <FirstStepsCard
-                    companySettings={companySettings}
-                    dailyMailSettings={dailyMailSettings}
-                    language={language}
-                    onboarding={onboardingState}
-                    onDismiss={() => saveOnboardingProgress({ firstStepsDismissed: true })}
-                    onOpen={startOnboarding}
-                    personnelCount={personnel.filter((person) => !person.archived).length}
-                    pwaStandalone={pwaStandalone}
-                  />
-                )}
-                <Dashboard
-                  allJobs={jobs}
-                  onOpenJob={openEditJob}
-                  language={language}
-                  objects={activeObjects}
-                  reports={reports}
-                  setSection={setSection}
-                />
-                <OperationsWarnings language={language} onOpen={() => setSection("inventory")} />
-              </>
-            )}
-            {section === "objects" && objectEditorOpen && (
-              <ObjectEditorPage
-                customers={activeCustomers}
-                jobs={jobs}
-                language={language}
-                object={editingObject}
-                objectStatusOptions={objectStatusOptions}
-                objectTypeDefinitions={objectTypeDefinitions}
-                onArchive={editingObject ? () => {
-                  if (archiveObject(editingObject)) closeObjectEditor();
-                } : undefined}
-                onBack={closeObjectEditor}
-                onAutoSave={editingObjectId ? autosaveObject : undefined}
-                onDelete={editingObject?.archived ? () => {
-                  if (deleteObject(editingObject)) closeObjectEditor();
-                } : undefined}
-                onRestore={editingObject?.archived ? () => {
-                  if (restoreObject(editingObject)) closeObjectEditor();
-                } : undefined}
-                onSubmit={saveObject}
-                onSendReport={sendReportToCustomer}
-                onUnlockReport={openUnlockReportDialog}
-                onUpdateReport={updateReportRecord}
-                packages={servicePackages}
-                reports={reports}
-                newObject={newObject}
-                setNewObject={setNewObject}
-              />
-            )}
-            {section === "objects" && !objectEditorOpen && (
-              <ObjectsView
-                archivedObjects={archivedObjects}
-                language={language}
-                objects={filteredObjects}
-                objectTypeDefinitions={objectTypeDefinitions}
-                selectedObjectId={selectedObject.id}
-                onCreate={openCreateObject}
-                onEdit={openEditObject}
-                onSelect={(id) => setSelectedObjectId(id)}
-              />
-            )}
-            {section === "customers" && (
-              <CustomersView
-                archivedCustomers={archivedCustomers}
-                customers={activeCustomers}
-                language={language}
-                messages={portalMessages}
-                objects={activeObjects}
-                onCreate={openCreateCustomer}
-                onEdit={openEditCustomer}
-                onMessage={openCustomerMessage}
-              />
-            )}
-            {section === "jobs" && (
-              <JobsView
-                companyName={companySettings.name}
-                customers={customers}
-                jobs={jobs}
-                language={language}
-                objects={activeObjects}
-                onCancel={cancelJob}
-                onConfirmOffer={confirmOffer}
-                onCreate={openCreateJob}
-                onCreateWeekReport={createSeriesWeekReport}
-                onDownloadOffer={downloadJobOffer}
-                onDownloadOrderConfirmation={downloadJobOrderConfirmation}
-                onEdit={openEditJob}
-                onMoveToBilling={moveJobToBilling}
-                onAddConsultingEntry={addConsultingEntry}
-                onUpdateConsultingEntry={updateConsultingEntry}
-                onBillConsultingEntries={billConsultingEntries}
-                onRestore={restoreJob}
-                onSendOrderConfirmation={sendOrderConfirmationToCustomer}
-                onSendOffer={sendOfferToCustomer}
-                onStart={startJob}
-                reports={reports}
-              />
-            )}
-            {section === "planning" && (
-              <PlanningView
-                allJobs={jobs}
-                customers={customers}
-                jobs={jobs}
-                language={language}
-                objects={activeObjects}
-                onAssignPersonnel={assignJobPersonnel}
-                onAssignResources={assignJobResources}
-                onEdit={openEditJob}
-                onMoveJob={moveJobExecution}
-                personnel={personnel}
-                reports={reports}
-                resources={resources}
-              />
-            )}
-            {section === "reports" && <ReportsView customers={customers} jobs={jobs} language={language} objects={objects} onEditInField={editReportInField} onSendReport={sendReportToCustomer} onUnlockReport={openUnlockReportDialog} onUpdateReport={updateReportRecord} reports={reports} />}
-            {section === "communication" && (
-              <CommunicationView
-                customers={customers}
-                language={language}
-                messages={portalMessages}
-                objects={objects}
-                onSendReply={sendPortalMessageReply}
-              />
-            )}
-            {section === "portal" && (
-              <CustomerPortalView
-                billing={billing}
-                customerId={portalCustomerId}
-                customers={customers}
-                jobs={jobs}
-                messages={portalMessages}
-                objects={objects}
-                onRecordLogin={recordPortalLogin}
-                onSendMessage={createPortalMessage}
-                onUpdateCustomer={updatePortalCustomer}
-                reports={reports}
-                setCustomerId={setPortalCustomerId}
-              />
-            )}
-            {section === "field" && (
-              <FieldView
-                photoDevicePolicy={companySettings.jobPhotoDeviceSave ?? "never"}
-                activeJobId={activeJobId}
-                allJobs={jobs}
-                materials={materials}
-                locations={inventoryLocations}
-                customers={customers}
-                language={language}
-                objects={activeObjects}
-                packages={servicePackages}
-                services={services}
-                reports={reports}
-                selectedWorkDate={currentFieldWorkDate}
-                fieldNote={currentFieldProgressKey ? fieldNotes[currentFieldProgressKey] ?? "" : ""}
-                progress={currentFieldProgressKey ? fieldProgress[currentFieldProgressKey] ?? {} : {}}
-                editingReportId={editingFieldReportId}
-                onSelectJob={startJob}
-                onSelectReport={editReportInField}
-                onSendReport={sendReportToCustomer}
-                onUnlockReport={openUnlockReportDialog}
-                onUpdateJobMaterial={updateJobMaterial}
-                onUpdateReport={updateReportRecord}
-                onClearActiveJob={clearActiveJob}
-                onSelectWorkDate={(jobId, date) => setFieldWorkDates((current) => ({ ...current, [jobId]: date }))}
-                onProgressChange={(jobId, update) => {
-                  const latest = fieldProgressRef.current;
-                  const progress = typeof update === "function" ? update(latest[jobId] ?? {}) : update;
-                  persistFieldProgressRelational({ ...latest, [jobId]: progress });
-                }}
-                onFieldNoteChange={(jobId, note) => persistFieldNotesRelational({ ...fieldNotes, [jobId]: note })}
-                onComplete={completeJob}
-              />
-            )}
-            {section === "billing" && (
-              <BillingView
-                brandName={appBranding.brandName}
-                accountingAccounts={accountingAccounts}
-                billing={billing}
-                customers={customers}
-                jobs={jobs}
-                objects={activeObjects}
-                onCollectBillable={collectBillableJobs}
-                onDownloadInvoice={downloadBillingInvoice}
-                onCancelInvoice={cancelInvoice}
-                onMarkExported={markBillingExported}
-                onMarkInvoiced={markBillingInvoiced}
-                onMarkPaid={markInvoicePaid}
-                onMarkSent={markInvoiceSent}
-                onRemoveBillingDraft={removeBillingDraft}
-                onResetExport={resetBillingExport}
-                reports={reports}
-                services={services}
-              />
-            )}
-            {section === "analytics" && (
-              <AnalyticsView
-                customers={customers}
-                jobs={jobs}
-                language={language}
-                objects={objects}
-                personnel={personnel}
-                reports={reports}
-              />
-            )}
-            {section === "inventory" && (
-              <OperationsWorkspace language={language} queue={tripSync.queue} enqueue={enqueueSyncMutation}
-                onArchiveLocation={(id) => {
-                  if (!inventoryLocations.some((location) => location.id === id)) throw new Error(uiText("Bitte zuerst aktualisieren und erneut versuchen.", language));
-                  persistInventoryLocationsRelational(inventoryLocations.map((location) => location.id === id ? { ...location, archived: true } : location));
-                }}
-                onPickingBooked={refreshStockAllocation}
-                materialMasterData={masterDataView}
-                onOpenMasterData={(tab) => { setOperationsMasterDataRequest(`${tab}:${Date.now()}`); setSection("masterData"); }}
-                materials={materials.map((r) => ({ id: r.id, name: r.name, sku: r.sku, scanCode: r.scanCode, unit: r.unit, minStock: r.minStock, archived: r.archived }))}
-                locations={inventoryLocations.map((r) => ({ id: r.id, parentLocationId: r.parentLocationId, archived: r.archived, name: storageLocationPath(r.id, inventoryLocations) }))}
-                resources={resources.map((r) => ({ id: r.id, name: r.name, mileage: r.currentOdometer ? Number(r.currentOdometer) : undefined,
-                  documents: (r.media ?? []).filter((m) => m.type === "Dokument").map((m) => ({ id: m.id, name: m.name })) }))}
-                employees={personnel.map((r) => ({ id: r.id, name: `${r.firstName} ${r.lastName}`.trim() }))}
-                jobs={jobs.map((r) => ({ id: r.id, name: r.title, status: r.status, billable: r.billable }))}
-                projects={objects.map((r) => ({ id: r.id, name: r.name }))}>
-              <InventoryView
-                customers={activeCustomers}
-                inventoryLocations={inventoryLocations}
-                jobs={jobs}
-                language={language}
-                materials={materials}
-                objects={objects}
-                onPersistInventoryLocations={persistInventoryLocationsRelational}
-                onPersistJobs={persistJobsRelational}
-                onPersistMaterials={persistMaterialsRelational}
-                services={services}
-                setJobs={setJobs}
-                setInventoryLocations={setInventoryLocations}
-                setMaterials={setMaterials}
-              />
-              </OperationsWorkspace>
-            )}
-            {section === "tracking" && (
-              <TrackingView
-                language={language}
-                livePositions={liveVehiclePositions}
-                onOpenLogbook={(resourceId) => {
-                  setSection("masterData");
-                  setResourceLogbookOpenRequestId(`${resourceId}:${Date.now()}`);
-                }}
-                personnel={personnel}
-                resources={resources}
-              />
-            )}
-            {section === "masterData" && masterDataView}
-          </div>
-        </section>
-      </section>
-
       {quickTripOpen && (
-          <TripDialog className="quick-trip-modal" labelledBy="quick-trip-title" onClose={closeQuickTripDialog}>
+          <TripSurface inline className="quick-trip-modal quick-trip-page" labelledBy="quick-trip-title" onClose={closeQuickTripDialog}>
             <header>
               <div>
                 <p>{qtx("Fahrtenbuch")}</p>
                 <h2 id="quick-trip-title">{qtx("Fahrt erfassen")}</h2>
               </div>
               <div className="modal-header-actions">
-                <button disabled={quickTripSaving} className="ghost-button compact" onClick={openLogbookFromQuickTrip} type="button">
+                <button disabled={quickTripSaving} aria-label={qtx("Fahrtenbuch öffnen")} title={qtx("Fahrtenbuch öffnen")} data-tooltip={qtx("Fahrtenbuch öffnen")} className="ghost-button compact trip-logbook-link" onClick={openLogbookFromQuickTrip} type="button">
                   <List size={16} />
-                  {qtx("Fahrtenbuch öffnen")}
+                  <span>{qtx("Fahrtenbuch öffnen")}</span>
                 </button>
                 <button disabled={quickTripSaving} aria-label={`${qtx("Fahrt erfassen")} ${qtx("Schließen")}`} onClick={closeQuickTripDialog} type="button">
-                  <X size={18} />
+                  <ArrowLeft size={18} />
                 </button>
               </div>
             </header>
@@ -14105,8 +13829,280 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
                 {qtx("Fahrt abschließen & speichern")}
               </button>
             </div>
-          </TripDialog>
+          </TripSurface>
       )}
+        {section === "dashboard" && !quickTripOpen && (
+          <div className="quickbar">
+            {dashboardStats.map((item) => (
+              <button key={item.label} onClick={() => setSection(item.section)} type="button">
+                <strong>{item.value}</strong>
+                <span>{item.label}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {!quickTripOpen && <section className="layout full">
+          <div className="main-panel">
+            {section === "dashboard" && (
+              <>
+                {(!onboardingState.firstStepsDismissed || !companySettings.onboarding) && (
+                  <FirstStepsCard
+                    companySettings={companySettings}
+                    dailyMailSettings={dailyMailSettings}
+                    language={language}
+                    onboarding={onboardingState}
+                    onDismiss={() => saveOnboardingProgress({ firstStepsDismissed: true })}
+                    onOpen={startOnboarding}
+                    personnelCount={personnel.filter((person) => !person.archived).length}
+                    pwaStandalone={pwaStandalone}
+                  />
+                )}
+                <Dashboard
+                  allJobs={jobs}
+                  onOpenJob={openEditJob}
+                  language={language}
+                  objects={activeObjects}
+                  reports={reports}
+                  setSection={setSection}
+                />
+                <OperationsWarnings language={language} onOpen={() => setSection("inventory")} />
+              </>
+            )}
+            {section === "objects" && objectEditorOpen && (
+              <ObjectEditorPage
+                customers={activeCustomers}
+                jobs={jobs}
+                language={language}
+                object={editingObject}
+                objectStatusOptions={objectStatusOptions}
+                objectTypeDefinitions={objectTypeDefinitions}
+                onArchive={editingObject ? () => {
+                  if (archiveObject(editingObject)) closeObjectEditor();
+                } : undefined}
+                onBack={closeObjectEditor}
+                onAutoSave={editingObjectId ? autosaveObject : undefined}
+                onDelete={editingObject?.archived ? () => {
+                  if (deleteObject(editingObject)) closeObjectEditor();
+                } : undefined}
+                onRestore={editingObject?.archived ? () => {
+                  if (restoreObject(editingObject)) closeObjectEditor();
+                } : undefined}
+                onSubmit={saveObject}
+                onSendReport={sendReportToCustomer}
+                onUnlockReport={openUnlockReportDialog}
+                onUpdateReport={updateReportRecord}
+                packages={servicePackages}
+                reports={reports}
+                newObject={newObject}
+                setNewObject={setNewObject}
+              />
+            )}
+            {section === "objects" && !objectEditorOpen && (
+              <ObjectsView
+                archivedObjects={archivedObjects}
+                language={language}
+                objects={filteredObjects}
+                objectTypeDefinitions={objectTypeDefinitions}
+                selectedObjectId={selectedObject.id}
+                onCreate={openCreateObject}
+                onEdit={openEditObject}
+                onSelect={(id) => setSelectedObjectId(id)}
+              />
+            )}
+            {section === "customers" && (
+              <CustomersView
+                archivedCustomers={archivedCustomers}
+                customers={activeCustomers}
+                language={language}
+                messages={portalMessages}
+                objects={activeObjects}
+                onCreate={openCreateCustomer}
+                onEdit={openEditCustomer}
+                onMessage={openCustomerMessage}
+              />
+            )}
+            {section === "jobs" && (
+              <JobsView
+                companyName={companySettings.name}
+                customers={customers}
+                jobs={jobs}
+                language={language}
+                objects={activeObjects}
+                onCancel={cancelJob}
+                onConfirmOffer={confirmOffer}
+                onCreate={openCreateJob}
+                onCreateWeekReport={createSeriesWeekReport}
+                onDownloadOffer={downloadJobOffer}
+                onDownloadOrderConfirmation={downloadJobOrderConfirmation}
+                onEdit={openEditJob}
+                onMoveToBilling={moveJobToBilling}
+                onAddConsultingEntry={addConsultingEntry}
+                onUpdateConsultingEntry={updateConsultingEntry}
+                onBillConsultingEntries={billConsultingEntries}
+                onRestore={restoreJob}
+                onSendOrderConfirmation={sendOrderConfirmationToCustomer}
+                onSendOffer={sendOfferToCustomer}
+                onStart={startJob}
+                reports={reports}
+              />
+            )}
+            {section === "planning" && (
+              <PlanningView
+                allJobs={jobs}
+                customers={customers}
+                jobs={jobs}
+                language={language}
+                objects={activeObjects}
+                onAssignPersonnel={assignJobPersonnel}
+                onAssignResources={assignJobResources}
+                onEdit={openEditJob}
+                onMoveJob={moveJobExecution}
+                personnel={personnel}
+                reports={reports}
+                resources={resources}
+              />
+            )}
+            {section === "reports" && <ReportsView customers={customers} jobs={jobs} language={language} objects={objects} onEditInField={editReportInField} onSendReport={sendReportToCustomer} onUnlockReport={openUnlockReportDialog} onUpdateReport={updateReportRecord} reports={reports} />}
+            {section === "communication" && (
+              <CommunicationView
+                customers={customers}
+                language={language}
+                messages={portalMessages}
+                objects={objects}
+                onSendReply={sendPortalMessageReply}
+              />
+            )}
+            {section === "portal" && (
+              <CustomerPortalView
+                billing={billing}
+                customerId={portalCustomerId}
+                customers={customers}
+                jobs={jobs}
+                messages={portalMessages}
+                objects={objects}
+                onRecordLogin={recordPortalLogin}
+                onSendMessage={createPortalMessage}
+                onUpdateCustomer={updatePortalCustomer}
+                reports={reports}
+                setCustomerId={setPortalCustomerId}
+              />
+            )}
+            {section === "field" && (
+              <FieldView
+                photoDevicePolicy={companySettings.jobPhotoDeviceSave ?? "never"}
+                activeJobId={activeJobId}
+                allJobs={jobs}
+                materials={materials}
+                locations={inventoryLocations}
+                customers={customers}
+                language={language}
+                objects={activeObjects}
+                packages={servicePackages}
+                services={services}
+                reports={reports}
+                selectedWorkDate={currentFieldWorkDate}
+                fieldNote={currentFieldProgressKey ? fieldNotes[currentFieldProgressKey] ?? "" : ""}
+                progress={currentFieldProgressKey ? fieldProgress[currentFieldProgressKey] ?? {} : {}}
+                editingReportId={editingFieldReportId}
+                onSelectJob={startJob}
+                onSelectReport={editReportInField}
+                onSendReport={sendReportToCustomer}
+                onUnlockReport={openUnlockReportDialog}
+                onUpdateJobMaterial={updateJobMaterial}
+                onUpdateReport={updateReportRecord}
+                onClearActiveJob={clearActiveJob}
+                onSelectWorkDate={(jobId, date) => setFieldWorkDates((current) => ({ ...current, [jobId]: date }))}
+                onProgressChange={(jobId, update) => {
+                  const latest = fieldProgressRef.current;
+                  const progress = typeof update === "function" ? update(latest[jobId] ?? {}) : update;
+                  persistFieldProgressRelational({ ...latest, [jobId]: progress });
+                }}
+                onFieldNoteChange={(jobId, note) => persistFieldNotesRelational({ ...fieldNotes, [jobId]: note })}
+                onComplete={completeJob}
+              />
+            )}
+            {section === "billing" && (
+              <BillingView
+                brandName={appBranding.brandName}
+                accountingAccounts={accountingAccounts}
+                billing={billing}
+                customers={customers}
+                jobs={jobs}
+                objects={activeObjects}
+                onCollectBillable={collectBillableJobs}
+                onDownloadInvoice={downloadBillingInvoice}
+                onCancelInvoice={cancelInvoice}
+                onMarkExported={markBillingExported}
+                onMarkInvoiced={markBillingInvoiced}
+                onMarkPaid={markInvoicePaid}
+                onMarkSent={markInvoiceSent}
+                onRemoveBillingDraft={removeBillingDraft}
+                onResetExport={resetBillingExport}
+                reports={reports}
+                services={services}
+              />
+            )}
+            {section === "analytics" && (
+              <AnalyticsView
+                customers={customers}
+                jobs={jobs}
+                language={language}
+                objects={objects}
+                personnel={personnel}
+                reports={reports}
+              />
+            )}
+            {section === "inventory" && (
+              <OperationsWorkspace language={language} queue={tripSync.queue} enqueue={enqueueSyncMutation}
+                onArchiveLocation={(id) => {
+                  if (!inventoryLocations.some((location) => location.id === id)) throw new Error(uiText("Bitte zuerst aktualisieren und erneut versuchen.", language));
+                  persistInventoryLocationsRelational(inventoryLocations.map((location) => location.id === id ? { ...location, archived: true } : location));
+                }}
+                onPickingBooked={refreshStockAllocation}
+                materialMasterData={masterDataView}
+                onOpenMasterData={(tab) => { setOperationsMasterDataRequest(`${tab}:${Date.now()}`); setSection("masterData"); }}
+                materials={materials.map((r) => ({ id: r.id, name: r.name, sku: r.sku, scanCode: r.scanCode, unit: r.unit, minStock: r.minStock, archived: r.archived }))}
+                locations={inventoryLocations.map((r) => ({ id: r.id, parentLocationId: r.parentLocationId, archived: r.archived, name: storageLocationPath(r.id, inventoryLocations) }))}
+                resources={resources.map((r) => ({ id: r.id, name: r.name, mileage: r.currentOdometer ? Number(r.currentOdometer) : undefined,
+                  documents: (r.media ?? []).filter((m) => m.type === "Dokument").map((m) => ({ id: m.id, name: m.name })) }))}
+                employees={personnel.map((r) => ({ id: r.id, name: `${r.firstName} ${r.lastName}`.trim() }))}
+                jobs={jobs.map((r) => ({ id: r.id, name: r.title, status: r.status, billable: r.billable }))}
+                projects={objects.map((r) => ({ id: r.id, name: r.name }))}>
+              <InventoryView
+                customers={activeCustomers}
+                inventoryLocations={inventoryLocations}
+                jobs={jobs}
+                language={language}
+                materials={materials}
+                objects={objects}
+                onPersistInventoryLocations={persistInventoryLocationsRelational}
+                onPersistJobs={persistJobsRelational}
+                onPersistMaterials={persistMaterialsRelational}
+                services={services}
+                setJobs={setJobs}
+                setInventoryLocations={setInventoryLocations}
+                setMaterials={setMaterials}
+              />
+              </OperationsWorkspace>
+            )}
+            {section === "tracking" && (
+              <TrackingView
+                language={language}
+                livePositions={liveVehiclePositions}
+                onOpenLogbook={(resourceId) => {
+                  setSection("masterData");
+                  setResourceLogbookOpenRequestId(`${resourceId}:${Date.now()}`);
+                }}
+                personnel={personnel}
+                resources={resources}
+              />
+            )}
+            {section === "masterData" && masterDataView}
+          </div>
+        </section>}
+      </section>
+
 
       {completedPromptReport && completedPromptObject && (
         <div className="modal-backdrop">
@@ -22997,6 +22993,7 @@ function MasterDataView({
 
       {masterDataTab === "resources" && (
         <section className="panel">
+          {!(resourceEditorOpen && resourceModalView === "logbook") && <>
           <div className="panel-title">
             <div>
               <p>{tt("Stammdaten")}</p>
@@ -23009,8 +23006,9 @@ function MasterDataView({
           </div>
           <button className="ghost-button" onClick={() => setResourceOperationsOpen((current) => !current)} type="button"><Wrench size={16}/>{language === "de" ? "Zuweisungen, Ausstattung & Wartung" : language === "sv" ? "Tilldelningar, utrustning och underhåll" : "Assignments, equipment & maintenance"}</button>
           {resourceOperationsOpen && resourceOperations}
+          </>}
           {resourceEditorOpen && (
-            <TripDialog onClose={resetResourceForm} labelledBy="resource-editor-title" className={`resource-editor-modal${resourceModalView === "logbook" ? " resource-logbook-modal" : ""}`}>
+            <TripSurface inline={resourceModalView === "logbook"} onClose={resetResourceForm} labelledBy="resource-editor-title" className={resourceModalView === "logbook" ? "resource-editor-workspace resource-logbook-modal" : "resource-editor-modal"}>
                 <header>
                   <div>
                     <p>{resourceModalView === "logbook" ? lt("Fahrtenbuch") : tt("Ressourcen")}</p>
@@ -23045,7 +23043,7 @@ function MasterDataView({
                       </button>
                     )}
                     <button aria-label={resourceModalView === "logbook" ? lt("Ressource schließen") : tt("Ressource schließen")} onClick={resetResourceForm} type="button">
-                      <X size={18} />
+                      {resourceModalView === "logbook" ? <ArrowLeft size={18} /> : <X size={18} />}
                     </button>
                   </div>
                 </header>
@@ -23250,10 +23248,10 @@ function MasterDataView({
                 </div>
               )}
               {logbookEntryEditorOpen && (
-                <TripDialog className="logbook-edit-modal" labelledBy="logbook-edit-title" onClose={() => { resetLogbookForm(); setLogbookEntryEditorOpen(false); }}>
+                <TripSurface inline className="logbook-entry-page" labelledBy="logbook-edit-title" onClose={() => { resetLogbookForm(); setLogbookEntryEditorOpen(false); }}>
                 <header>
                   <h2 id="logbook-edit-title">{editingLogEntryId ? lt("Fahrt bearbeiten") : lt("Fahrt eintragen")}</h2>
-                  <button type="button" aria-label={lt("Bearbeitung abbrechen")} onClick={() => { resetLogbookForm(); setLogbookEntryEditorOpen(false); }}><X size={18} /></button>
+                  <button className="ghost-button icon-button" type="button" aria-label={lt("Bearbeitung abbrechen")} onClick={() => { resetLogbookForm(); setLogbookEntryEditorOpen(false); }}><ArrowLeft size={18} /></button>
                 </header>
                 {archiveNotice && <p role="status">{lt(archiveNotice)}</p>}
                 <div className="form-grid compact-form logbook-entry-editor">
@@ -23383,7 +23381,7 @@ function MasterDataView({
                   <button className="primary-button wide" onClick={saveLogbookEntry} type="button">{editingLogEntryId ? lt("Fahrt speichern") : lt("Fahrt eintragen")}</button>
                   <button className="ghost-button wide" onClick={() => { resetLogbookForm(); setLogbookEntryEditorOpen(false); }} type="button">{lt("Bearbeitung abbrechen")}</button>
                 </div>
-                </TripDialog>
+                </TripSurface>
               )}
               <div className="logbook-summary">
                 <span><strong>{logbookStats.totalKm}</strong> {lt("km gesamt")}</span>
@@ -23471,8 +23469,9 @@ function MasterDataView({
               </div>
             </section>
           ) : null}
-            </TripDialog>
+            </TripSurface>
           )}
+          {!(resourceEditorOpen && resourceModalView === "logbook") && <>
           <div className="master-list-toolbar">
             <div className="segmented-control master-view-toggle">
               <button aria-label={tt("Ressourcen als Kacheln anzeigen")} className={resourceViewMode === "cards" ? "active" : ""} data-tooltip={tt("Kacheln")} onClick={() => setResourceViewMode("cards")} type="button">
@@ -23758,6 +23757,7 @@ function MasterDataView({
               </div>
             </div>
           )}
+          </>}
         </section>
       )}
 

@@ -10904,3 +10904,87 @@ dialog.sync-confirm-dialog { width: min(520px, calc(100vw - 24px)); max-width: c
   .workspace { overflow: visible; }
   .topbar { position: static; }
 }
+
+/* Trip entry is a page workflow, with content-sized headings instead of dialog rows. */
+.trip-page,
+.trip-page.quick-trip-modal {
+  display: block;
+  position: static;
+  width: 100%;
+  max-width: none;
+  height: auto;
+  min-height: 0;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.trip-page > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  position: static;
+  min-height: 44px;
+  margin: 0 0 12px;
+  padding: 0 0 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.trip-page > header h2 { font-size: 22px; line-height: 1.25; margin: 0; }
+.trip-page > header p { color: var(--muted); margin: 0 0 4px; font-size: 12px; }
+.trip-page > header button { min-height: 44px; }
+.trip-page > header button:not(.ghost-button) { min-width: 44px; background: var(--paper); border: 1px solid var(--line); border-radius: 6px; color: var(--brand); }
+.trip-page .modal-header-actions { display: flex; flex-wrap: wrap; width: auto; gap: 8px; }
+.trip-page .logbook-entry-editor { border: 0; border-radius: 0; background: transparent; padding: 0; gap: 10px 16px; }
+.trip-page .logbook-entry-editor textarea { min-height: 72px; }
+.trip-page .trip-step { border: 0; border-radius: 0; border-bottom: 1px solid var(--line); background: transparent; padding: 12px 0; }
+.trip-page .trip-step-head small { display: none; }
+.trip-page > .trip-actions { position: sticky; bottom: 0; display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 12px 0 max(12px, env(safe-area-inset-bottom)); background: var(--paper); border-top: 1px solid var(--line); z-index: 2; }
+.trip-page .trip-actions button { min-height: 44px; }
+.logbook-entry-page > header { flex-wrap: nowrap; }
+.logbook-entry-page > header h2 { flex: 1 1 auto; min-width: 0; width: auto; }
+.logbook-entry-page > header > button { flex: 0 0 44px; width: 44px; min-width: 44px; padding: 8px; }
+.quick-trip-page > header { flex-wrap: nowrap; }
+.quick-trip-page > header > div:first-child { flex: 1 1 auto; min-width: 0; }
+.quick-trip-page .modal-header-actions { flex: 0 0 auto; flex-wrap: nowrap; }
+.quick-trip-page .modal-header-actions .ghost-button { width: auto; }
+.resource-editor-workspace:has(.logbook-entry-page) > header .modal-header-actions,
+.resource-editor-workspace:has(.logbook-entry-page) .resource-modal-logbook > :not(.logbook-entry-page) { display: none; }
+.app:has(.logbook-entry-page) .master-data-tabs { display: none; }
+.resource-editor-workspace:has(.logbook-entry-page) > header { min-height: 0; border: 0; padding: 0; margin-bottom: 8px; }
+.resource-editor-workspace:has(.logbook-entry-page) > header h2,
+.resource-editor-workspace:has(.logbook-entry-page) > header p { display: none; }
+.resource-editor-workspace:has(.logbook-entry-page) > header span { color: var(--muted); font-size: 14px; }
+
+@media (max-width: 780px) {
+  .app:has(.trip-page) .sidebar { padding-top: 8px; padding-bottom: 8px; gap: 8px; }
+  .app:has(.trip-page) .sidebar .brand,
+  .app:has(.trip-page) .topbar > div:first-child,
+  .app:has(.trip-page) .app-toolbar-search,
+  .app:has(.trip-page) .app-toolbar-actions > button:last-child { display: none; }
+  .app:has(.trip-page) .topbar { padding-bottom: 6px; gap: 6px; }
+  .trip-logbook-link > span { display: none; }
+  .trip-page .trip-logbook-link { width: 44px; min-width: 44px; padding: 8px; }
+  .trip-page > header { align-items: flex-start; gap: 8px; }
+  .trip-page > header h2 { font-size: 20px; }
+  .trip-page .form-grid { grid-template-columns: minmax(0, 1fr); }
+  .trip-page .form-grid > label,
+  .trip-page .form-grid > .wide { min-width: 0; grid-column: 1; }
+  .trip-page label > span { font-size: 14px; }
+  .trip-page input:not([type="checkbox"]):not([type="file"]),
+  .trip-page select,
+  .trip-page textarea { min-height: 44px; font-size: 16px; min-width: 0; width: 100%; }
+  .trip-page button { min-height: 44px; }
+  .trip-page .icon-button { min-width: 44px; min-height: 44px; }
+  .trip-page .address-gps-row { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .trip-page .trip-step-head { grid-template-columns: 24px minmax(0, 1fr); }
+  .trip-page > .trip-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .trip-page > .trip-actions button { min-width: 0; font-size: 14px; padding: 10px 8px; }
+  .trip-page > .trip-actions button:last-child { grid-column: 1 / -1; font-size: 16px; }
+}

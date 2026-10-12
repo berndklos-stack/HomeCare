@@ -32,8 +32,18 @@ export async function GET(request: Request) {
     const { data: references, error } = await auth.client.from("homecare_media")
       .select("owner_id,owner_type,storage_path,preview_url,deleted_at").eq("tenant_id", auth.tenantId).eq("owner_type", "object")
       .eq("preview_url", `/api/private-media?path=${encodeURIComponent(path)}`).is("deleted_at", null);
-    const owners = legacyObjectMediaOwners(references ?? [], path);
-    if (error || !owners.length) return NextResponse.json({ error: "Mediendatei ist nicht freigegeben." }, { status: 404 });
+    let owners = legacyObjectMediaOwners(references ?? [], path);
+    if (error) return NextResponse.json({ error: "Mediendatei ist nicht freigegeben." }, { status: 404 });
+    if (!owners.length && process.env.NEXT_PUBLIC_SUPABASE_URL) {
+      // A signed URL may have been saved instead of the permanent reference.
+      const origin = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).origin;
+      const { data: signedReferences, error: signedError } = await auth.client.from("homecare_media")
+        .select("owner_id,owner_type,storage_path,preview_url,deleted_at,metadata").eq("tenant_id", auth.tenantId).eq("owner_type", "object")
+        .like("preview_url", `${origin}/storage/v1/object/sign/homecare-private-media/${path}?%`).is("deleted_at", null);
+      if (signedError) return NextResponse.json({ error: "Mediendatei ist nicht freigegeben." }, { status: 404 });
+      owners = legacyObjectMediaOwners(signedReferences ?? [], path);
+    }
+    if (!owners.length) return NextResponse.json({ error: "Mediendatei ist nicht freigegeben." }, { status: 404 });
     const { data: objects, error: objectError } = await auth.client.from("homecare_objects")
       .select("id").eq("tenant_id", auth.tenantId).in("id", owners).is("deleted_at", null);
     if (objectError || !objects?.length) return NextResponse.json({ error: "Mediendatei ist nicht freigegeben." }, { status: 404 });

@@ -14,7 +14,7 @@ test("Fahrtenbuch verwendet die am Fahrzeug gespeicherte Sprache", async ({ page
   await page.getByRole("button", { name: "Resurser", exact: true }).click();
   await page.locator("article").filter({ hasText: "Servicebil Kolaretorp" }).first().click();
 
-  const resourceDialog = page.getByRole("dialog");
+  const resourceDialog = page.locator(".resource-editor-modal, .resource-editor-workspace");
   await expect(resourceDialog.getByText("Tillverkningsår", { exact: true })).toBeVisible();
   await resourceDialog.getByLabel("Körjournalens språk").selectOption("sv");
   await resourceDialog.getByRole("button", { name: "Spara resurs", exact: true }).click();
@@ -46,7 +46,7 @@ test("Neue Fahrtaktionen werden auf Englisch angezeigt", async ({ page }) => {
   await page.getByTestId("nav-masterData").click();
   await page.getByRole("button", { name: "Resources", exact: true }).click();
   await page.locator("article").filter({ hasText: "Servicebil Kolaretorp" }).first().click();
-  const resourceDialog = page.getByRole("dialog");
+  const resourceDialog = page.locator(".resource-editor-modal, .resource-editor-workspace");
   await resourceDialog.getByLabel("Logbook language").selectOption("en");
   await resourceDialog.getByRole("button", { name: "Save resource", exact: true }).click();
   await resourceDialog.getByRole("button", { name: "Close resource" }).click();
