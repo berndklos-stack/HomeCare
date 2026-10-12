@@ -1,10 +1,11 @@
 export const appVersion = {
-  version: "1.427.36",
+  version: "1.427.37",
   releaseDate: "2026-10-12",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  { version: "1.427.37", date: "2026-10-12", changes: ["Bolet-4-Bild: urspruengliche Altzuordnung in der tatsaechlichen Objekt-Ladeabfrage mitladen; abgelaufenen Link sicher erneuern", "Regressionstest fuer die vollstaendige Ladeabfrage statt nur fuer die Bildpruefung"] },
   { version: "1.427.36", date: "2026-10-12", changes: ["Bolet-4-Bild: abgelaufenen eigenen Storage-Link anhand der bestaetigten Altzuordnung frisch signieren; Originaldatei und Datenbankreferenz bleiben erhalten", "Fahrtenbuch, Fahrt nachtragen und Quickbutton Fahrt als normale Seitenansicht statt Popup", "Kompakte Fahrten-Kopfzeilen und iPhone-Formulare mit gut lesbaren Feldern, grossen Touch-Flaechen und erreichbaren Speicheraktionen"] },
   { version: "1.427.35", date: "2026-10-12", changes: ["Projektbilder: dauerhaften Zugriff auf vorhandene Altdateien mit gepruefter Objektzuordnung wiederherstellen", "Fehlgeschlagene Medienabfragen und Konflikte duerfen keine vorhandenen Bilder ausblenden", "Bildloeschung nur nach Bestaetigung und mit passender Revision; veraltete leere Formulare erhalten Bilder", "Fahrtenbuch: Startzeit, chronologische Kilometer-Vorschlaege und offene Kilometerluecken anzeigen", "Fahrten-Datenbankkorrektur vorbereitet; produktive Anwendung weiterhin an Sicherungs- und Wiederherstellungspruefung gebunden"] },
   { version: "1.427.34", date: "2026-10-11", changes: ["Mobil vor Ort: kommissioniertes Fahrzeugmaterial mit Materialcode und Menge bereits waehrend des Einsatzes anzeigen", "Vor Auftragsabschluss Material, Arbeitszeiten und Fotodokumentation ausdruecklich pruefen", "Buchungsgruende ohne technische Nummern und Schadensakten nur in den Buchungsdetails", "Abrechnungsuebernahme im einheitlichen hellen Rahmenstil"] },

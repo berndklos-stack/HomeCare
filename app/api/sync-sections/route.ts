@@ -6,6 +6,7 @@ import { isAuthError, requireApiAuth } from "@/lib/server/apiAuth";
 import {
   applyObjectMediaSignedUrls,
   objectMediaPathsToSign,
+  objectMediaReadColumns,
   objectMediaSignedUrlTtlSeconds,
 } from "@/lib/server/objectMediaProjection";
 
@@ -245,6 +246,7 @@ type ObjectRow = {
 };
 
 type MediaRow = {
+  metadata?: unknown;
   deleted_at: string | null;
   description: string | null;
   id: string;
@@ -1581,7 +1583,7 @@ async function loadObjectsRows(supabase: NonNullable<ReturnType<typeof getSupaba
 async function loadObjectMediaRows(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
   const { data, error } = await supabase
     .from("homecare_media")
-    .select("id, owner_id, kind, name, description, source, storage_path, preview_url, is_primary, revision, deleted_at, updated_at")
+    .select(objectMediaReadColumns)
     .eq("owner_type", "object")
     .order("name", { ascending: true });
   if (error) throw new Error(error.message);

@@ -1,10 +1,25 @@
 import { expect, test } from "@playwright/test";
-import { applyObjectMediaSignedUrls, objectMediaPathsToSign } from "../lib/server/objectMediaProjection";
+import { applyObjectMediaSignedUrls, objectMediaPathsToSign, objectMediaReadColumns } from "../lib/server/objectMediaProjection";
+import { readFileSync } from "node:fs";
 import { legacyObjectMediaOwners } from "../lib/server/privateMediaAccess";
 import { legacyObjectMediaPath } from "../lib/server/legacyObjectMediaPath";
 
 const path = "migrated-app-state/2026-08-30/existing-project-photo.jpg";
 const reference = { owner_type: "object", owner_id: "OBJECT-1", deleted_at: null, storage_path: "", preview_url: `/api/private-media?path=${encodeURIComponent(path)}` };
+
+test("Objekt-Ladeabfrage erhaelt die Altzuordnung bis zur Signierung", () => {
+  const origin = "https://our-project.supabase.co";
+  const databaseRow = { ...reference, metadata: { previewUrl: reference.preview_url }, preview_url: `${origin}/storage/v1/object/sign/homecare-private-media/${path}?token=expired` };
+  const selected = Object.fromEntries(objectMediaReadColumns.split(",").map((column) => column.trim()).map((column) => [column, databaseRow[column as keyof typeof databaseRow] ?? null]));
+  expect(selected.metadata).toEqual(databaseRow.metadata);
+  const rows = [selected as typeof databaseRow];
+  const paths = objectMediaPathsToSign(rows, "tenant-1", origin);
+  expect(paths).toEqual([path]);
+  expect(applyObjectMediaSignedUrls(rows, "tenant-1", new Map([[path, "https://storage.local/fresh"]]), origin)[0].preview_url).toBe("https://storage.local/fresh");
+  const route = readFileSync("app/api/sync-sections/route.ts", "utf8");
+  const loader = route.slice(route.indexOf("async function loadObjectMediaRows"), route.indexOf("async function loadResourceMediaRows"));
+  expect(loader).toContain(".select(objectMediaReadColumns)");
+});
 
 test("Alte Bildreferenz liefert dauerhaften Pfad fuer den authentifizierten Fallback", () => {
   const projected = applyObjectMediaSignedUrls([reference], "tenant-1", new Map([[path, "https://storage.local/signed-photo"]]));

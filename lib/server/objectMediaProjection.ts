@@ -1,6 +1,7 @@
 import { legacyObjectMediaReferencePath } from "@/lib/server/legacyObjectMediaPath";
 
 export const objectMediaSignedUrlTtlSeconds = 15 * 60;
+export const objectMediaReadColumns = "id, owner_id, kind, name, description, source, storage_path, preview_url, metadata, is_primary, revision, deleted_at, updated_at";
 
 export type ObjectMediaProjectionRow = {
   deleted_at: string | null;
