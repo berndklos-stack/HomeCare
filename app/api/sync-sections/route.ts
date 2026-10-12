@@ -1631,7 +1631,7 @@ async function loadObjectsSection(
   tenantId: string,
 ) {
   const objectRows = await loadObjectsRows(supabase);
-  const mediaRows = await loadObjectMediaRows(supabase).catch(() => []);
+  const mediaRows = await loadObjectMediaRows(supabase);
   const liveObjectIds = new Set(objectRows.filter((row) => !row.deleted_at).map((row) => row.id));
   const ownedMediaRows = mediaRows.filter((row) => liveObjectIds.has(row.owner_id));
   const storagePaths = objectMediaPathsToSign(ownedMediaRows, tenantId);

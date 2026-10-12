@@ -1,6 +1,8 @@
 import type { SyncMutation, SyncMutationResult } from "@/lib/syncQueue";
+import { compareTripChronology, tripChronologyWarnings } from "@/lib/tripChronology";
 
 export type VersionedVehicleTrip = {
+  date?: string;
   deletedAt?: string;
   endOdometer?: string;
   endedAt?: string;
@@ -61,11 +63,10 @@ export function reconcileAuthoritativeMedia(
 export function latestAuthoritativeOdometer(trips: VersionedVehicleTrip[], vehicleOdometer = "") {
   const completed = trips
     .filter((trip) => trip.status === "abgeschlossen" && !trip.deletedAt && String(trip.endOdometer ?? "").trim())
-    .sort((first, second) => {
-      const firstTime = first.endedAt ?? first.updatedAt ?? "";
-      const secondTime = second.endedAt ?? second.updatedAt ?? "";
-      return secondTime.localeCompare(firstTime);
-    });
+    .sort((first, second) => compareTripChronology(
+      { ...second, startedAt: second.startedAt ?? second.endedAt ?? second.updatedAt },
+      { ...first, startedAt: first.startedAt ?? first.endedAt ?? first.updatedAt },
+    ));
   return completed[0]?.endOdometer ?? vehicleOdometer;
 }
 
@@ -107,13 +108,8 @@ export function applyVehicleMutation(state: VehicleMutationState, mutation: Sync
       const conflict = result(mutation, "conflict", active, "Für dieses Fahrzeug läuft bereits eine Fahrt.");
       return { ...state, mutationResults: { ...state.mutationResults, [mutation.id]: conflict } };
     }
-    const authoritativeOdometer = Number(latestAuthoritativeOdometer(state.trips.filter((trip) => trip.resourceId === mutation.resourceId)) || 0);
-    const startOdometer = Number(mutation.payload.startOdometer ?? 0);
-    if (startOdometer < authoritativeOdometer && mutation.payload.allowOdometerCorrection !== true) {
-      const conflict = result(mutation, "conflict", undefined, "Kilometerstand liegt unter dem Serverstand.");
-      return { ...state, mutationResults: { ...state.mutationResults, [mutation.id]: conflict } };
-    }
     const created: VersionedVehicleTrip = {
+      date: String(mutation.payload.date ?? mutation.createdAt.slice(0, 10)),
       endOdometer: String(mutation.payload.endOdometer ?? ""),
       endedAt: String(mutation.payload.endedAt ?? "") || undefined,
       id: mutation.entityId,
@@ -124,6 +120,8 @@ export function applyVehicleMutation(state: VehicleMutationState, mutation: Sync
       status,
       updatedAt: mutation.updatedAt,
     };
+    const warning = vehicleTripValidation(state.trips, created);
+    if (warning) return { ...state, mutationResults: { ...state.mutationResults, [mutation.id]: result(mutation, "conflict", undefined, warning) } };
     return {
       ...state,
       trips: [...state.trips, created],
@@ -140,15 +138,26 @@ export function applyVehicleMutation(state: VehicleMutationState, mutation: Sync
     ? { ...existing, deletedAt: mutation.updatedAt, revision: existing.revision + 1, updatedAt: mutation.updatedAt }
     : {
         ...existing,
+        date: String(mutation.payload.date ?? existing.date ?? ""),
+        startOdometer: String(mutation.payload.startOdometer ?? existing.startOdometer ?? ""),
+        startedAt: String(mutation.payload.startedAt ?? existing.startedAt ?? "") || undefined,
         endOdometer: String(mutation.payload.endOdometer ?? existing.endOdometer ?? ""),
         endedAt: String(mutation.payload.endedAt ?? existing.endedAt ?? "") || undefined,
         revision: existing.revision + 1,
         status: mutation.payload.status === "abgeschlossen" ? "abgeschlossen" : existing.status,
         updatedAt: mutation.updatedAt,
       };
+  const warning = mutation.operation === "update" ? vehicleTripValidation(state.trips, updated) : undefined;
+  if (warning) return { ...state, mutationResults: { ...state.mutationResults, [mutation.id]: result(mutation, "conflict", existing, warning) } };
   return {
     ...state,
     trips: state.trips.map((trip) => trip.id === updated.id ? updated : trip),
     mutationResults: { ...state.mutationResults, [mutation.id]: result(mutation, "synced", updated) },
   };
+}
+
+function vehicleTripValidation(trips: VersionedVehicleTrip[], candidate: VersionedVehicleTrip) {
+  if (!candidate.startOdometer?.trim() || !Number.isFinite(Number(candidate.startOdometer)) || Number(candidate.startOdometer) < 0) return "Start-Kilometerstand fehlt oder ist ungueltig.";
+  if (candidate.endOdometer?.trim() && Number(candidate.endOdometer) < Number(candidate.startOdometer)) return "End-Kilometerstand darf nicht kleiner als Start-Kilometerstand sein.";
+  return tripChronologyWarnings(trips, candidate).find((warning) => warning.includes("liegt"));
 }

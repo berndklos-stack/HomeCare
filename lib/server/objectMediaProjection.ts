@@ -57,6 +57,7 @@ export function applyObjectMediaSignedUrls<T extends ObjectMediaProjectionRow>(
       }
       return {
         ...row,
+        storage_path: storagePath,
         preview_url: signedUrls.get(storagePath) ?? safeInlinePreview(row.preview_url),
       };
     });

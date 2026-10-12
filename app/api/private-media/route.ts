@@ -1,7 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { isAuthError, requireApiAuth } from "@/lib/server/apiAuth";
-import { hasReadablePrivateMediaReference } from "@/lib/server/privateMediaAccess";
+import { hasReadablePrivateMediaReference, legacyObjectMediaOwners } from "@/lib/server/privateMediaAccess";
 
 export const runtime = "nodejs";
 
@@ -26,16 +26,29 @@ export async function GET(request: Request) {
   if (!path || path.includes("..")) {
     return NextResponse.json({ error: "Mediendatei fehlt oder ist ungültig." }, { status: 400 });
   }
-  const { data: mediaRecords, error: referenceError } = await supabase
-    .from("homecare_media")
-    .select("id,owner_type,deleted_at")
-    .eq("tenant_id", auth.tenantId)
-    .eq("storage_path", path);
-  if (referenceError || !hasReadablePrivateMediaReference(mediaRecords)) {
-    return NextResponse.json({ error: "Mediendatei wurde gelöscht." }, { status: 404 });
-  }
-  if (!path.startsWith(`${auth.tenantId}/`)) {
-    return NextResponse.json({ error: "Zugriff auf Mediendatei verweigert." }, { status: 403 });
+  const legacyObjectPath = path.startsWith("migrated-app-state/");
+  if (legacyObjectPath) {
+    // Only exact, existing object references authorize old non-tenant-prefixed paths.
+    const { data: references, error } = await auth.client.from("homecare_media")
+      .select("owner_id,owner_type,storage_path,preview_url,deleted_at").eq("tenant_id", auth.tenantId).eq("owner_type", "object")
+      .eq("preview_url", `/api/private-media?path=${encodeURIComponent(path)}`).is("deleted_at", null);
+    const owners = legacyObjectMediaOwners(references ?? [], path);
+    if (error || !owners.length) return NextResponse.json({ error: "Mediendatei ist nicht freigegeben." }, { status: 404 });
+    const { data: objects, error: objectError } = await auth.client.from("homecare_objects")
+      .select("id").eq("tenant_id", auth.tenantId).in("id", owners).is("deleted_at", null);
+    if (objectError || !objects?.length) return NextResponse.json({ error: "Mediendatei ist nicht freigegeben." }, { status: 404 });
+  } else {
+    const { data: mediaRecords, error: referenceError } = await supabase
+      .from("homecare_media")
+      .select("id,owner_type,deleted_at")
+      .eq("tenant_id", auth.tenantId)
+      .eq("storage_path", path);
+    if (referenceError || !hasReadablePrivateMediaReference(mediaRecords)) {
+      return NextResponse.json({ error: "Mediendatei wurde gelöscht." }, { status: 404 });
+    }
+    if (!path.startsWith(`${auth.tenantId}/`)) {
+      return NextResponse.json({ error: "Zugriff auf Mediendatei verweigert." }, { status: 403 });
+    }
   }
 
   const separator = path.lastIndexOf("/");

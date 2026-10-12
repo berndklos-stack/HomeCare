@@ -55,7 +55,9 @@ export function prepareObjectMutations<T extends RevisionedObject>(
   currentObjects: T[],
   nextObjects: T[],
   now = new Date().toISOString(),
+  explicitlyRemovedMedia: Iterable<{ id: string; revision?: number }> = [],
 ) {
+  const removedMediaRevisions = new Map(Array.from(explicitlyRemovedMedia, (item) => [item.id, item.revision ?? 1]));
   const currentById = new Map(currentObjects.map((object) => [object.id, object]));
   const nextIds = new Set(nextObjects.map((object) => object.id));
   const mutations: PlannedObjectMutation[] = [];
@@ -91,7 +93,7 @@ export function prepareObjectMutations<T extends RevisionedObject>(
 
     const currentItems = new Map((current?.media.items ?? []).map((item) => [item.id, item]));
     const nextItemIds = new Set(object.media.items.map((item) => item.id));
-    const items = object.media.items.map((item) => {
+    const items: RevisionedObjectMedia[] = object.media.items.map((item) => {
       const previous = currentItems.get(item.id);
       if (!previous) {
         mutations.push({
@@ -120,6 +122,10 @@ export function prepareObjectMutations<T extends RevisionedObject>(
 
     currentItems.forEach((item) => {
       if (nextItemIds.has(item.id)) return;
+      if (removedMediaRevisions.get(item.id) !== (item.revision ?? 1)) {
+        items.push(item);
+        return;
+      }
       mutations.push({
         entityId: item.id,
         entityType: "object_media",
@@ -130,7 +136,11 @@ export function prepareObjectMutations<T extends RevisionedObject>(
       });
     });
 
-    return { ...object, media: { ...object.media, items }, revision, updatedAt } as T;
+    return { ...object, media: { ...object.media, items,
+      images: items.filter((item) => item.type === "Bild").length,
+      documents: items.filter((item) => item.type === "Dokument").length,
+      floorPlans: items.filter((item) => item.type === "Grundriss").length,
+    }, revision, updatedAt } as T;
   });
 
   currentObjects.forEach((object) => {
@@ -149,7 +159,8 @@ export function prepareObjectMutations<T extends RevisionedObject>(
 }
 
 function pending(queue: SyncMutation[], type: SyncMutation["entityType"]) {
-  return queue.filter((mutation) => mutation.entityType === type && !["synced", "conflict"].includes(mutation.status));
+  return queue.filter((mutation) => mutation.entityType === type && mutation.status !== "synced"
+    && !(mutation.status === "conflict" && mutation.operation === "delete"));
 }
 
 export function overlayPendingObjectMutations<T extends RevisionedObject>(objects: T[], queue: SyncMutation[]) {

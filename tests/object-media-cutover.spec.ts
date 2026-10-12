@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { normalizeObjectDatePayload, overlayPendingObjectMutations, prepareObjectMutations, type RevisionedObject } from "../lib/objectSync";
-import { createSyncMutation } from "../lib/syncQueue";
+import { createSyncMutation, nextPendingMutation } from "../lib/syncQueue";
 
 function object(overrides: Partial<RevisionedObject> = {}): RevisionedObject {
   return {
@@ -49,7 +49,7 @@ test("Objekte und Medien werden unabhängig und revisioniert mutiert", () => {
     ...created.objects[0],
     name: "Geändertes Objekt",
     media: { documents: 0, floorPlans: 0, images: 0, items: [] },
-  }]);
+  }], undefined, [{ id: "MEDIA-1", revision: 1 }]);
   expect(updated.mutations).toEqual(expect.arrayContaining([
     expect.objectContaining({ entityType: "object", expectedRevision: 1, operation: "update" }),
     expect.objectContaining({ entityType: "object_media", expectedRevision: 1, operation: "delete" }),
@@ -78,6 +78,25 @@ test("Offline-Mutationen überlagern relationale Daten ohne Wiederauferstehung",
   expect(overlayPendingObjectMutations([server], [deletion])).toEqual([]);
 });
 
+test("Veraltete leere Formulare entfernen keine Bilder ohne ausdrueckliche Loeschung", () => {
+  const original = object({ media: { documents: 0, floorPlans: 0, images: 1, items: [{ id: "PHOTO", type: "Bild", storagePath: "tenant/photo.jpg", revision: 2 }] } });
+  const saved = prepareObjectMutations([original], [object({ name: "Neuer Name" })]);
+  expect(saved.objects[0].media).toEqual(original.media);
+  expect(saved.mutations.some((mutation) => mutation.entityType === "object_media")).toBe(false);
+  const outdatedDeletion = prepareObjectMutations([original], [object()], undefined, [{ id: "PHOTO", revision: 1 }]);
+  expect(outdatedDeletion.objects[0].media.items).toEqual(original.media.items);
+  expect(outdatedDeletion.mutations.some((mutation) => mutation.operation === "delete")).toBe(false);
+});
+
+test("Bild wartet auf sein neues Objekt, blockiert aber keine unabhaengige Fahrt", () => {
+  const parent = { ...createSyncMutation({ entityId: "OBJ", resourceId: "OBJ", entityType: "object", operation: "create" }), status: "conflict" as const };
+  const photo = createSyncMutation({ entityId: "PHOTO", resourceId: "OBJ", entityType: "object_media", operation: "create", payload: { previewUrl: "data:image/jpeg;base64,kept" } });
+  const journey = createSyncMutation({ entityId: "TRIP", resourceId: "CAR", entityType: "vehicle_trip", operation: "create" });
+  expect(nextPendingMutation([parent, photo, journey])).toEqual(journey);
+  expect(photo.payload.previewUrl).toContain("kept");
+  expect(nextPendingMutation([{ ...parent, status: "synced" }, photo, journey])).toEqual(photo);
+});
+
 test("Legacy-Endpunkte können Objekte und Medien nicht mehr überschreiben", () => {
   const root = process.cwd();
   const sectionRoute = readFileSync(path.join(root, "app/api/sync-sections/route.ts"), "utf8");
@@ -88,12 +107,24 @@ test("Legacy-Endpunkte können Objekte und Medien nicht mehr überschreiben", ()
   expect(sectionRoute).not.toContain("WORKCORE_OBJECT_LEGACY_READ_FALLBACK");
   expect(sectionRoute).not.toContain("LEGACY_OBJECT_READ_FALLBACK");
   expect(sectionRoute).not.toContain("mergeLegacyObjectsWithoutResurrection");
+  expect(sectionRoute).not.toContain("loadObjectMediaRows(supabase).catch(() => [])");
   expect(appStateRoute).toContain("APP_STATE_RETIRED");
   expect(syncRoute).toContain('membershipAllows(auth.membership, "objects.manage")');
   expect(syncRoute).toContain('membershipAllows(auth.membership, "media.manage")');
   expect(syncRoute).toContain('"homecare_apply_object_mutation"');
   expect(syncRoute).toContain('const privateMediaBucket = "homecare-private-media"');
   expect(syncRoute).toContain("remove(storagePaths)");
+});
+
+test("Konfliktbilder bleiben lokal sichtbar; fehlgeschlagene Loeschung versteckt kein Serverbild", () => {
+  const server = object({ revision: 3, media: { images: 1, documents: 0, floorPlans: 0, items: [{ id: "SERVER-IMAGE", type: "Bild", revision: 2 }] } });
+  const localImage = { ...createSyncMutation({ entityId: "LOCAL-IMAGE", entityType: "object_media", resourceId: server.id, operation: "create", payload: { name: "offline.jpg", type: "Bild", previewUrl: "data:image/jpeg;base64,cached" } }), status: "conflict" as const };
+  const deletion = { ...createSyncMutation({ entityId: "SERVER-IMAGE", entityType: "object_media", resourceId: server.id, operation: "delete", expectedRevision: 1 }), status: "conflict" as const };
+  const projected = overlayPendingObjectMutations([server], [localImage, deletion]);
+  expect(projected[0].media.items.map((item) => item.id)).toEqual(["SERVER-IMAGE", "LOCAL-IMAGE"]);
+  expect(projected[0].media.items[1].previewUrl).toBe("data:image/jpeg;base64,cached");
+  expect(localImage.status).toBe("conflict");
+  expect(server.media.items).toHaveLength(1);
 });
 
 test("Migration schützt Beziehungen, Tombstones und Medienbesitz", () => {

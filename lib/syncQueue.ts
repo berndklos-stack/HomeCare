@@ -193,6 +193,8 @@ export function nextPendingMutation(queue: SyncMutation[]) {
       && previous.entityId === mutation.entityId && previous.status !== "synced")) return false;
     if (mutation.entityType === "resource" && typeof mutation.payload.resourceTypeId === "string" && queue.some((previous, position) =>
       position < index && previous.entityType === "resource_type" && previous.entityId === mutation.payload.resourceTypeId && previous.status !== "synced")) return false;
+    if (mutation.entityType === "object_media" && queue.some((previous) => previous.entityType === "object"
+      && previous.entityId === mutation.resourceId && previous.operation === "create" && previous.status !== "synced")) return false;
     return true;
   });
 }

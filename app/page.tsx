@@ -72,6 +72,7 @@ import {
 } from "lucide-react";
 import { type CSSProperties, type DragEvent, type MouseEvent, type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { appVersion, versionHistory } from "@/lib/appVersion";
+import { compareTripChronology, localTripDate, localTripTime, tripStartAt, tripNeighbors, tripMileageGaps, tripChronologyWarnings } from "@/lib/tripChronology";
 import { apiFetch, apiRequestHeaders, tenantScopedStorageKey } from "@/lib/apiClient";
 import { useAuthenticatedMedia } from "@/lib/useAuthenticatedMedia";
 import { defaultAppBranding, resolveAppBranding } from "@/lib/branding";
@@ -1041,24 +1042,8 @@ function vehicleRuleSnapshot(vehicle?: ResourceRecord) {
   };
 }
 
-function vehicleLogbookSortValue(entry: VehicleLogEntry) {
-  const startOdometer = numericValue(entry.startOdometer);
-  const startedAt = Date.parse(entry.startedAt ?? "");
-  const dateValue = Date.parse(`${entry.date}T00:00:00`);
-  return {
-    date: Number.isFinite(dateValue) ? dateValue : 0,
-    odometer: Number.isFinite(startOdometer) ? startOdometer : Number.POSITIVE_INFINITY,
-    startedAt: Number.isFinite(startedAt) ? startedAt : Number.POSITIVE_INFINITY,
-  };
-}
-
 function compareVehicleLogbookEntries(first: VehicleLogEntry, second: VehicleLogEntry) {
-  const firstSort = vehicleLogbookSortValue(first);
-  const secondSort = vehicleLogbookSortValue(second);
-  if (firstSort.date !== secondSort.date) return firstSort.date - secondSort.date;
-  if (firstSort.odometer !== secondSort.odometer) return firstSort.odometer - secondSort.odometer;
-  if (firstSort.startedAt !== secondSort.startedAt) return firstSort.startedAt - secondSort.startedAt;
-  return first.id.localeCompare(second.id);
+  return compareTripChronology(first, second);
 }
 
 function sortVehicleLogbook(logbook: VehicleLogEntry[] = []) {
@@ -1214,6 +1199,7 @@ type NewObjectFormState = {
   floorPlans: string;
   documentDescription: string;
   mediaItems: MediaItem[];
+  removedMedia?: { id: string; revision?: number }[];
   nextVisit: string;
   lastVisit: string;
 };
@@ -10151,8 +10137,8 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     setAppUpdatedAt(updatedAt);
   }
 
-  function persistObjectsRelational(nextObjects: ObjectRecord[]) {
-    const prepared = prepareObjectMutations(objects, nextObjects);
+  function persistObjectsRelational(nextObjects: ObjectRecord[], removedMedia: { id: string; revision?: number }[] = []) {
+    const prepared = prepareObjectMutations(objects, nextObjects, new Date().toISOString(), removedMedia);
     prepared.mutations.forEach((mutation) => enqueueSyncMutation(mutation));
     setObjects(prepared.objects);
     const updatedAt = new Date().toISOString();
@@ -10428,7 +10414,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
         : { ...customer, objects: withoutObject };
     });
 
-    persistObjectsRelational(nextObjects);
+    persistObjectsRelational(nextObjects, newObject.removedMedia);
     persistCustomersRelational(nextCustomers);
     setSelectedObjectId(id);
     setSection("objects");
@@ -10451,7 +10437,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
         : { ...customer, objects: withoutObject };
     });
 
-    persistObjectsRelational(nextObjects);
+    persistObjectsRelational(nextObjects, form.removedMedia);
     persistCustomersRelational(nextCustomers);
     setSelectedObjectId(editingObjectId);
   }
@@ -20864,7 +20850,8 @@ function MasterDataView({
     unit: "Datum",
   });
   const [logbookForm, setLogbookForm] = useState({
-    date: new Date().toISOString().slice(0, 10),
+    date: localTripDate(),
+    startedAt: new Date().toISOString(),
     driverId: "",
     endAddress: "",
     endCoordinates: undefined as GeoCoordinates | undefined,
@@ -21547,7 +21534,8 @@ function MasterDataView({
     setEditingLogEntryId(null);
     editingLogEntryRevision.current = null;
     setLogbookForm({
-      date: new Date().toISOString().slice(0, 10),
+      date: localTripDate(),
+      startedAt: new Date().toISOString(),
       driverId: "",
       endAddress: "",
       endCoordinates: undefined,
@@ -21570,7 +21558,7 @@ function MasterDataView({
   function editLogbookEntry(entry: VehicleLogEntry) {
     editingLogEntryRevision.current = entry.revision ?? 1;
     setEditingLogEntryId(entry.id);
-    setLogbookForm({ ...entry, endCoordinates: entry.endCoordinates, fuelReceiptPhoto: entry.fuelReceiptPhoto, odometerPhotos: entry.odometerPhotos ?? [], startCoordinates: entry.startCoordinates, waypoints: entry.waypoints ?? [] });
+    setLogbookForm({ ...entry, startedAt: entry.startedAt ?? "", endCoordinates: entry.endCoordinates, fuelReceiptPhoto: entry.fuelReceiptPhoto, odometerPhotos: entry.odometerPhotos ?? [], startCoordinates: entry.startCoordinates, waypoints: entry.waypoints ?? [] });
     setLogbookEntryEditorOpen(true);
     setResourceModalView("logbook");
   }
@@ -21580,6 +21568,15 @@ function MasterDataView({
     setEditingLogEntryId(null);
     setLogbookEntryEditorOpen(true);
     setResourceModalView("logbook");
+  }
+
+  function changeLogbookDateTime(date: string, time: string) {
+    const candidate = { id: editingLogEntryId ?? "~new", date, startedAt: tripStartAt(date, time) };
+    const previous = tripNeighbors(selectedResourceLogbook, candidate).previous;
+    setLogbookForm((current) => ({ ...current, date, startedAt: candidate.startedAt,
+      // Existing entries keep their recorded mileage until explicitly edited.
+      startOdometer: editingLogEntryId ? current.startOdometer : previous?.endOdometer ?? "",
+    }));
   }
 
   async function captureLogbookFuelReceipt(file: File) {
@@ -21644,6 +21641,7 @@ function MasterDataView({
     }
     const requiredFields = [
       logbookForm.date,
+      editingLogEntryId ? "bestehende Fahrt" : logbookForm.startedAt,
       logbookForm.startAddress,
       logbookForm.endAddress,
       logbookForm.startOdometer,
@@ -21672,18 +21670,22 @@ function MasterDataView({
       ruleTitle: existingEntry.ruleTitle ?? "",
       ruleVersion: existingEntry.ruleVersion ?? "",
     } : vehicleRuleSnapshot(selectedResource);
-    const suggestedOdometer = editingLogEntryId ? existingEntry?.startOdometer ?? "" : latestKnownVehicleOdometer(selectedResource);
+    const suggestedOdometer = tripNeighbors(selectedResourceLogbook, { ...logbookForm, id: logbookId }).previous?.endOdometer ?? "";
     const startDifference = odometerDifference(logbookForm.startOdometer, suggestedOdometer);
-    const validationWarnings = Number.isFinite(startDifference) && startDifference !== 0
-      ? [`Der Kilometerstand weicht um ${Math.abs(startDifference)} km vom letzten gespeicherten Kilometerstand ab. Fehlt eine Fahrt oder soll der Wert korrigiert werden?`]
-      : [];
+    const validationWarnings = tripChronologyWarnings(selectedResourceLogbook, { ...logbookForm, id: logbookId });
     const startPhoto = logbookForm.odometerPhotos.find((photo) => photo.source === "start");
     const endPhoto = logbookForm.odometerPhotos.find((photo) => photo.source === "end");
     const saved: VehicleLogEntry = {
       ...logbookForm,
       auditLog: [
         ...(existingEntry?.auditLog ?? []),
-        ...(validationWarnings.length > 0 ? [{
+        ...(existingEntry ? (["date", "startedAt", "startOdometer", "endOdometer"] as const)
+          .filter((field) => (existingEntry[field] ?? "") !== logbookForm[field])
+          .map((field) => ({ id: createStableId("AUD"), changedAt: new Date().toISOString(),
+            changedBy: logbookForm.driverId, field, oldValue: existingEntry[field] ?? "", newValue: logbookForm[field],
+            reason: "Manuelle Bearbeitung der Fahrt.",
+          })) : []),
+        ...(Number.isFinite(startDifference) && startDifference !== 0 ? [{
           changedAt: new Date().toISOString(),
           changedBy: logbookForm.driverId,
           field: "Start-Km",
@@ -23255,7 +23257,9 @@ function MasterDataView({
                 </header>
                 {archiveNotice && <p role="status">{lt(archiveNotice)}</p>}
                 <div className="form-grid compact-form logbook-entry-editor">
-                  <label><span>{lt("Datum")}</span><input type="date" value={logbookForm.date} onChange={(event) => setLogbookForm({ ...logbookForm, date: event.target.value })} /></label>
+                  <label><span>{lt("Datum")}</span><input type="date" value={logbookForm.date} onChange={(event) => changeLogbookDateTime(event.target.value, localTripTime(logbookForm.startedAt))} /></label>
+                  <label><span>{lt("Startzeit")}</span><input type="time" value={localTripTime(logbookForm.startedAt)} onChange={(event) => changeLogbookDateTime(logbookForm.date, event.target.value)} /></label>
+                  {tripChronologyWarnings(selectedResourceLogbook, { ...logbookForm, id: editingLogEntryId ?? "~new" }).map((warning) => <p className="wide" role="status" key={warning}>{lt(warning)}</p>)}
                   <label><span>{lt("Fahrer")}</span>
                     <select value={logbookForm.driverId} onChange={(event) => setLogbookForm({ ...logbookForm, driverId: event.target.value })}>
                       <option value="">{lt("Nicht zugeordnet")}</option>
@@ -23387,6 +23391,15 @@ function MasterDataView({
                 <span><strong>{logbookStats.privateKm}</strong> {lt("km privat")}</span>
                 <span><strong>{logbookStats.privateTrips}</strong> {lt("Privatfahrten")}</span>
               </div>
+              {tripMileageGaps(selectedResourceLogbook).length > 0 && <section className="logbook-warning" aria-label={lt("Offene Kilometerluecken")}>
+                <div className="logbook-warning-copy">
+                  <strong>{lt("Offene Kilometerluecken")}</strong>
+                  {tripMileageGaps(selectedResourceLogbook).map((gap) => <span key={`${gap.previous.id}-${gap.next.id}`}>
+                    {gap.previous.date} {localTripTime(gap.previous.startedAt)} bis {gap.next.date} {localTripTime(gap.next.startedAt)}: {gap.kilometers} km
+                  </span>)}
+                </div>
+                <button className="ghost-button create-button" type="button" onClick={openCreateLogbookEntry}><Plus size={16} />{lt("Fahrt nachtragen")}</button>
+              </section>}
               <div className="logbook-table-wrap">
                 <table className="logbook-table">
                   <thead>
@@ -23552,7 +23565,8 @@ function MasterDataView({
                 <span><strong>{logbookStats.privateTrips}</strong> Privatfahrten</span>
               </div>
               <div className="form-grid compact-form">
-                <label><span>Datum</span><input type="date" value={logbookForm.date} onChange={(event) => setLogbookForm({ ...logbookForm, date: event.target.value })} /></label>
+                <label><span>Datum</span><input type="date" value={logbookForm.date} onChange={(event) => changeLogbookDateTime(event.target.value, localTripTime(logbookForm.startedAt))} /></label>
+                <label><span>Startzeit</span><input type="time" value={localTripTime(logbookForm.startedAt)} onChange={(event) => changeLogbookDateTime(logbookForm.date, event.target.value)} /></label>
                 <label><span>Fahrer</span>
                   <select value={logbookForm.driverId} onChange={(event) => setLogbookForm({ ...logbookForm, driverId: event.target.value })}>
                     <option value="">Nicht zugeordnet</option>
@@ -24820,6 +24834,7 @@ function ObjectForm({
 
   function removeMedia(id: string) {
     const removed = newObject.mediaItems.find((item) => item.id === id);
+    if (!removed || !window.confirm(tt(`Medium "${removed.name}" wirklich entfernen?`))) return;
     const remainingItems = newObject.mediaItems.filter((item) => item.id !== id);
     const nextPrimaryImageId = removed?.isPrimary && !remainingItems.some((item) => item.type === "Bild" && item.isPrimary)
       ? remainingItems.find((item) => item.type === "Bild")?.id
@@ -24830,6 +24845,7 @@ function ObjectForm({
 
     setNewObject({
       ...newObject,
+      removedMedia: [...(newObject.removedMedia ?? []).filter((item) => item.id !== id), { id, revision: removed.revision }],
       mediaItems,
       images: String(mediaItems.filter((item) => item.type === "Bild").length),
       documents: String(mediaItems.filter((item) => item.type === "Dokument").length),

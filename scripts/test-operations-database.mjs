@@ -31,6 +31,7 @@ try {
     sql("supabase/tests/purchase_order_emails.sql");
     sql("supabase/tests/archive_location_types.sql");
     sql("supabase/tests/field_material_review.sql");
+    sql("supabase/tests/vehicle_trip_chronology.sql");
     sql("supabase/tests/master_data_columns.sql");
     sql("supabase/migrations/20261008100000_resource_types.sql");
     sql("supabase/tests/resource_types.sql");
