@@ -28,6 +28,14 @@ test("Nur die alte Kilometerregel wird ohne Payload- oder Identitaetswechsel ern
   expect(nextPendingMutation([mutation, other])).toBe(other);
 });
 
+test("Fehlende Startzeit erlaubt nur die gezielte erneute Kilometerpruefung", () => {
+  const mutation = { ...createSyncMutation({ entityType: "vehicle_trip", entityId: "TRIP-NO-TIME", resourceId: "CAR-1", operation: "create", payload: { date: "2026-10-12", startOdometer: "203132", endOdometer: "203148" } }), status: "conflict" as const, error: "Kilometerstand liegt ueber dem Startstand der naechsten Fahrt (203126.0 km)." };
+  expect(isLegacyTripValidationConflict(mutation)).toBe(true);
+  expect(isLegacyTripValidationConflict({ ...mutation, payload: { ...mutation.payload, startedAt: "2026-10-12T10:00:00Z" } })).toBe(false);
+  expect(isLegacyTripValidationConflict({ ...mutation, error: "Die Kilometerstaende dieser Fahrt ueberschneiden sich mit einer anderen Fahrt am selben Tag." })).toBe(false);
+  expect(retrySyncMutation([mutation], mutation.id)[0].payload).toEqual(mutation.payload);
+});
+
 test("Ueberschneidende Eingaben bleiben erhalten und werden verstaendlich angezeigt", async ({ page }) => {
   const first = { ...createSyncMutation({ entityType: "vehicle_trip", entityId: "TRIP-FIRST", resourceId: "RES-1", operation: "create", payload: { date: "2026-10-05", startOdometer: "202947", endOdometer: "202949" } }), status: "conflict" as const, error: "Start-Kilometerstand 202947 liegt unter dem Serverstand 203132.0." };
   const second = { ...first, id: "00000000-0000-4000-8000-000000000002", entityId: "TRIP-SECOND", payload: { ...first.payload, endOdometer: "202950" } };

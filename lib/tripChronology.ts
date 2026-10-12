@@ -64,7 +64,21 @@ function odometer(value?: string) {
 }
 
 export function tripChronologyWarnings(trips: ChronologicalTrip[], candidate: ChronologicalTrip) {
-  const { previous, next } = tripNeighbors(trips, candidate);
+  let { previous, next } = tripNeighbors(trips, candidate);
+  const relevant = trips.filter((trip) => !trip.deletedAt && trip.id !== candidate.id
+    && (!candidate.resourceId || !trip.resourceId || candidate.resourceId === trip.resourceId));
+  const validTime = (trip: ChronologicalTrip) => Boolean(trip.startedAt
+    && Number.isFinite(Date.parse(trip.startedAt)) && localTripDate(new Date(trip.startedAt)) === tripDate(trip));
+  const startValue = odometer(candidate.startOdometer);
+  if (startValue !== undefined && (!validTime(candidate)
+    || relevant.some((trip) => tripDate(trip) === tripDate(candidate) && !validTime(trip)))) {
+    previous = relevant.filter((trip) => tripDate(trip) < tripDate(candidate)
+      || (tripDate(trip) === tripDate(candidate) && (odometer(trip.startOdometer) ?? Infinity) <= startValue))
+      .sort((a, b) => (odometer(b.endOdometer) ?? -Infinity) - (odometer(a.endOdometer) ?? -Infinity))[0];
+    next = relevant.filter((trip) => tripDate(trip) > tripDate(candidate)
+      || (tripDate(trip) === tripDate(candidate) && (odometer(trip.startOdometer) ?? -Infinity) > startValue))
+      .sort((a, b) => (odometer(a.startOdometer) ?? Infinity) - (odometer(b.startOdometer) ?? Infinity))[0];
+  }
   const previousEnd = odometer(previous?.endOdometer);
   const start = odometer(candidate.startOdometer);
   const end = odometer(candidate.endOdometer);

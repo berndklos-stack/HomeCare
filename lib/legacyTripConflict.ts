@@ -4,7 +4,11 @@ export function isLegacyTripValidationConflict(mutation: SyncMutation) {
   return mutation.entityType === "vehicle_trip" && mutation.operation === "create"
     && mutation.status === "conflict"
     && typeof mutation.payload.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(mutation.payload.date)
-    && /^Start-Kilometerstand [0-9.]+ liegt unter dem Serverstand [0-9.]+\.$/.test(mutation.error ?? "");
+    && (
+      /^Start-Kilometerstand [0-9.]+ liegt unter dem Serverstand [0-9.]+\.$/.test(mutation.error ?? "")
+      || (!mutation.payload.startedAt
+        && /^Kilometerstand liegt ueber dem Startstand der naechsten Fahrt \([0-9.]+ km\)\.$/.test(mutation.error ?? ""))
+    );
 }
 
 export function overlappingLegacyTripConflict(mutation: SyncMutation, queue: SyncMutation[]) {

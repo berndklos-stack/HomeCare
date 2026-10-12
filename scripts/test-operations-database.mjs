@@ -33,6 +33,7 @@ try {
     sql("supabase/tests/field_material_review.sql");
     sql("supabase/tests/vehicle_trip_chronology.sql");
     sql("supabase/tests/trip_validation_recheck.sql");
+    sql("supabase/tests/trip_missing_time_order.sql");
     sql("supabase/tests/master_data_columns.sql");
     sql("supabase/migrations/20261008100000_resource_types.sql");
     sql("supabase/tests/resource_types.sql");

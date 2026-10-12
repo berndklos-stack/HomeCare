@@ -116,7 +116,7 @@ export function applyVehicleMutation(state: VehicleMutationState, mutation: Sync
       resourceId: mutation.resourceId,
       revision: 1,
       startOdometer: String(mutation.payload.startOdometer ?? ""),
-      startedAt: String(mutation.payload.startedAt ?? mutation.createdAt),
+      startedAt: String(mutation.payload.startedAt ?? "") || undefined,
       status,
       updatedAt: mutation.updatedAt,
     };

@@ -17,7 +17,7 @@ const cached = existsSync(cachedPath) ? JSON.parse(readFileSync(cachedPath, "utf
 const created = cached?.backup ?? query(`select public.homecare_create_relational_backup('${tenant}', 'before-trip-chronology-20261012') as backup`)[0].backup;
 const snapshot = cached ? { backup: cached.backup, checksum_valid: true } : query(`select to_jsonb(b) as backup, b.checksum=encode(extensions.digest(b.payload::text,'sha256'),'hex') as checksum_valid from public.homecare_relational_backups b where id='${created.id}'`)[0];
 if (!snapshot.checksum_valid) throw new Error("Server backup checksum invalid");
-const functions = cached?.functions ?? query("select p.proname as name, pg_get_functiondef(p.oid) as definition from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='homecare_apply_sync_mutation'");
+const functions = cached?.functions ?? query("select p.proname as name, pg_get_functiondef(p.oid) as definition from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname in ('homecare_apply_sync_mutation','homecare_apply_trip_sync_mutation','homecare_trip_neighbor_error')");
 const tenants = cached?.tenants ?? query(`select to_jsonb(t) as record from public.homecare_tenants t where id='${tenant}'`);
 const users = cached?.users ?? query("select id,email from auth.users");
 const payloadText = cached?.payloadText ?? query(`select payload::text as text from public.homecare_relational_backups where id='${created.id}'`)[0].text;
@@ -70,10 +70,12 @@ try {
       end loop;
     end $$;
     commit;`);
-  const rollback = functions.map((fn) => fn.definition).join("\n");
+  const rollback = functions.map((fn) => `${fn.definition.trim().replace(/;?$/, ";")}`).join("\n");
   sql(rollback);
   file("supabase/migrations/20261012120000_vehicle_trip_chronology.sql");
+  file("supabase/migrations/20261012210000_trip_missing_time_order.sql");
   file("supabase/tests/vehicle_trip_chronology.sql");
+  file("supabase/tests/trip_missing_time_order.sql");
   const cars = snapshot.backup.payload.homecare_resources.filter((row) => row.type === "Fahrzeug" && !row.deleted_at);
   let conflictSimulation = [];
   if (cars.length === 1) {
@@ -81,7 +83,7 @@ try {
     const output = execFileSync("psql", [...args, "-t", "-A"], { encoding: "utf8", input: `begin;
       select jsonb_agg(jsonb_build_object('trip',entity_id,'status',result->>'status','error',result->>'error')) from (
         select entity_id, public.homecare_apply_trip_sync_mutation(mutation_id,entity_type,entity_id,operation,'${resourceId}',tenant_id,request_payload,expected_revision) as result
-        from public.homecare_sync_mutations where tenant_id='${tenant}' and entity_id in ('TRIP-088b2e22-767f-4d18-93cc-806c34836825','TRIP-dc53675e-06ba-4d21-b7aa-2ce8869d6d48') order by entity_id
+        from public.homecare_sync_mutations where tenant_id='${tenant}' and entity_id in ('TRIP-088b2e22-767f-4d18-93cc-806c34836825','TRIP-dc53675e-06ba-4d21-b7aa-2ce8869d6d48','TRIP-45f91b9c-2476-46f2-9ef6-1d1cb418d942') order by entity_id
       ) evaluated; rollback;` });
     conflictSimulation = JSON.parse(output.trim() || "[]");
   }

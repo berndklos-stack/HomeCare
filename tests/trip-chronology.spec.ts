@@ -45,6 +45,19 @@ test("Plausibilitaetswarnungen erkennen wirkliche Nachbarwidersprueche", () => {
   const candidate = trip("C", "2026-10-02", "12:00", "202900", "203150");
   expect(tripChronologyWarnings([previous, next], candidate)).toHaveLength(2);
 });
+
+test("Quickfahrt ohne Uhrzeit wird anhand der Kilometer eingeordnet, ohne Startzeit zu erfinden", () => {
+  const first = trip("FIRST", "2026-10-12", "12:03", "203126", "203129");
+  const second = trip("SECOND", "2026-10-12", "12:04", "203129", "203132");
+  const untimed = { id: "UNTIMED", date: "2026-10-12", startOdometer: "203132", endOdometer: "203148", resourceId: "CAR-1" };
+  expect(tripChronologyWarnings([first, second], untimed)).toEqual([]);
+  expect(tripChronologyWarnings([first, second], { ...untimed, startOdometer: "203130" })).toHaveLength(1);
+  const initial: VehicleMutationState = { trips: [first, second].map((item) => ({ ...item, revision: 1, status: "abgeschlossen" })) as VersionedVehicleTrip[], media: [], mutationResults: {} };
+  const mutation = createSyncMutation({ entityType: "vehicle_trip", entityId: untimed.id, resourceId: "CAR-1", operation: "create", payload: { ...untimed, status: "abgeschlossen" } });
+  const synced = applyVehicleMutation(initial, mutation);
+  expect(synced.mutationResults[mutation.id].status).toBe("synced");
+  expect(synced.trips.find((item) => item.id === untimed.id)?.startedAt).toBeUndefined();
+});
 test("Luecken getrennt je Fahrzeug, keine laufenden oder geloeschten Fahrten", () => {
   const other = trip("OTHER", "2026-10-02", "08:00", "10", "20", "CAR-2");
   const deleted = { ...trip("D", "2026-10-02", "12:00", "202947", "203132"), deletedAt: "2026-10-12" };
