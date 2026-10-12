@@ -1,10 +1,11 @@
 export const appVersion = {
-  version: "1.427.38",
+  version: "1.427.39",
   releaseDate: "2026-10-12",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  { version: "1.427.39", date: "2026-10-12", changes: ["Fahrten-Synchronisation: historische Eintraege nach zeitlichen Nachbarn statt aktuellem Fahrzeugstand pruefen", "Alte Kilometer-Ablehnungen mit gleicher Uebertragungskennung erneut bewerten und urspruengliche Fehlermeldung gesondert sichern", "Ueberschneidende lokale Fahrten bis zur Klaerung erhalten; Konflikte mit Fahrzeug, Datum und Kilometerstaenden anzeigen", "Historische Bestaetigung darf den aktuellen Fahrzeugstand nicht zuruecksetzen"] },
   { version: "1.427.38", date: "2026-10-12", changes: ["iPhone: Standardfahrt-Option bleibt oberhalb der schwebenden Speicheraktionen erreichbar", "Fahrten-Bedienoberflaeche folgt der App-Sprache; Export-Sprache bleibt separat", "Mobile Fahrtenliste mit vollstaendiger Route und beschrifteten Angaben ohne seitliches Abschneiden"] },
   { version: "1.427.37", date: "2026-10-12", changes: ["Bolet-4-Bild: urspruengliche Altzuordnung in der tatsaechlichen Objekt-Ladeabfrage mitladen; abgelaufenen Link sicher erneuern", "Regressionstest fuer die vollstaendige Ladeabfrage statt nur fuer die Bildpruefung"] },
   { version: "1.427.36", date: "2026-10-12", changes: ["Bolet-4-Bild: abgelaufenen eigenen Storage-Link anhand der bestaetigten Altzuordnung frisch signieren; Originaldatei und Datenbankreferenz bleiben erhalten", "Fahrtenbuch, Fahrt nachtragen und Quickbutton Fahrt als normale Seitenansicht statt Popup", "Kompakte Fahrten-Kopfzeilen und iPhone-Formulare mit gut lesbaren Feldern, grossen Touch-Flaechen und erreichbaren Speicheraktionen"] },

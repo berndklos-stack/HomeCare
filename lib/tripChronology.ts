@@ -9,6 +9,17 @@ export type ChronologicalTrip = {
   deletedAt?: string;
 };
 
+export function tripOdometerAfterAcknowledgement(current: { currentOdometer?: string; currentOdometerDate?: string }, record: Record<string, unknown>) {
+  const end = record.end_odometer == null ? NaN : Number(record.end_odometer);
+  const previous = current.currentOdometer?.trim() ? Number(current.currentOdometer) : NaN;
+  const date = typeof record.trip_date === "string" ? record.trip_date : "";
+  if (record.status !== "abgeschlossen" || record.deleted_at || !Number.isFinite(end) || !date
+    || (Number.isFinite(previous) && end < previous) || (current.currentOdometerDate && date < current.currentOdometerDate)) {
+    return { currentOdometer: current.currentOdometer, currentOdometerDate: current.currentOdometerDate };
+  }
+  return { currentOdometer: String(end), currentOdometerDate: date };
+}
+
 export function localTripDate(value = new Date()) {
   return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
 }

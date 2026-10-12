@@ -72,7 +72,7 @@ import {
 } from "lucide-react";
 import { type CSSProperties, type DragEvent, type MouseEvent, type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { appVersion, versionHistory } from "@/lib/appVersion";
-import { compareTripChronology, localTripDate, localTripTime, tripStartAt, tripNeighbors, tripMileageGaps, tripChronologyWarnings } from "@/lib/tripChronology";
+import { compareTripChronology, localTripDate, localTripTime, tripStartAt, tripNeighbors, tripMileageGaps, tripChronologyWarnings, tripOdometerAfterAcknowledgement } from "@/lib/tripChronology";
 import { apiFetch, apiRequestHeaders, tenantScopedStorageKey } from "@/lib/apiClient";
 import { useAuthenticatedMedia } from "@/lib/useAuthenticatedMedia";
 import { defaultAppBranding, resolveAppBranding } from "@/lib/branding";
@@ -9323,12 +9323,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
           : entry);
       return {
         ...resource,
-        currentOdometer: serverRecord.status === "abgeschlossen" && serverRecord.end_odometer !== null
-          ? String(serverRecord.end_odometer)
-          : resource.currentOdometer,
-        currentOdometerDate: serverRecord.status === "abgeschlossen" && typeof serverRecord.trip_date === "string"
-          ? serverRecord.trip_date
-          : resource.currentOdometerDate,
+        ...tripOdometerAfterAcknowledgement(resource, serverRecord),
         deletedLogbookEntryIds: deletedAt
           ? Array.from(new Set([...(resource.deletedLogbookEntryIds ?? []), mutation.entityId]))
           : (resource.deletedLogbookEntryIds ?? []).filter((id) => id !== mutation.entityId),
@@ -13436,6 +13431,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
               <EmployeeLogoutButton />
             </div>
             <SyncStatus
+              resourceNames={Object.fromEntries(resources.map((resource) => [resource.id, resource.name]))}
               conflicts={tripSync.queue.filter((mutation) => mutation.status === "conflict")}
               failures={tripSync.queue.filter((mutation) => mutation.status === "failed")}
               issues={tripSync.queue.filter((mutation) => mutation.status === "failed" || mutation.status === "conflict").map((mutation) => mutation.error || "")}

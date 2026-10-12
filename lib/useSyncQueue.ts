@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { apiFetch } from "@/lib/apiClient";
+import { isLegacyTripValidationConflict, overlappingLegacyTripConflict } from "@/lib/legacyTripConflict";
 import { reviewConflictSequence, type ConflictReview } from "@/lib/conflictReview";
 import {
   createSyncMutation,
@@ -58,6 +59,7 @@ export function useSyncQueue({ disabled = false, onApplied }: UseSyncQueueOption
   const reviewRequests = useRef(new Set<AbortController>());
   const automaticReviewSignature = useRef("");
   const networkRetries = useRef(new Set<string>());
+  const legacyTripRetries = useRef(new Set<string>());
   const [connectionEpoch, setConnectionEpoch] = useState(0);
   const onAppliedRef = useRef(onApplied);
 
@@ -154,6 +156,15 @@ export function useSyncQueue({ disabled = false, onApplied }: UseSyncQueueOption
       return next;
     });
   }, [setQueue]);
+
+  useEffect(() => {
+    if (!hydrated || disabled || !online) return;
+    const candidate = queue.find((mutation) => isLegacyTripValidationConflict(mutation) && !legacyTripRetries.current.has(mutation.id)
+      && !overlappingLegacyTripConflict(mutation, queue));
+    if (!candidate) return;
+    legacyTripRetries.current.add(candidate.id);
+    retry(candidate.id);
+  }, [disabled, hydrated, online, queue, retry]);
 
   const discardConflicts = useCallback((mutationId?: string | string[]) => {
     setQueue((current) => {

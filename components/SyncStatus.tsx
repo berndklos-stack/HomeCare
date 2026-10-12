@@ -6,6 +6,7 @@ import { TripDialog } from "./TripDialog";
 import type { Language } from "@/lib/uiTypes";
 import type { SyncMutation, SyncQueueSummary } from "@/lib/syncQueue";
 import type { ConflictReview } from "@/lib/conflictReview";
+import { overlappingLegacyTripConflict } from "@/lib/legacyTripConflict";
 
 type SyncStatusProps = {
   language: Language;
@@ -18,6 +19,7 @@ type SyncStatusProps = {
   onRetry: (mutationId?: string) => void;
   onReviewConflicts?: (ids: string[], resolve?: boolean) => Promise<ConflictReview[]>;
   summary: SyncQueueSummary;
+  resourceNames?: Record<string, string>;
 };
 
 function copy(language: Language, de: string, sv: string, en: string) {
@@ -41,7 +43,7 @@ function describeValue(value: unknown, depth = 0): string {
   return Object.entries(value).slice(0, 12).map(([key, item]) => `${key}: ${describeValue(item, depth + 1)}`).join("; ");
 }
 
-export function SyncStatus({ conflicts = [], failures = [], issues = [], language, lastSyncedAt, online, onDiscardConflicts, onRetry, onReviewConflicts, summary }: SyncStatusProps) {
+export function SyncStatus({ conflicts = [], failures = [], issues = [], language, lastSyncedAt, online, onDiscardConflicts, onRetry, onReviewConflicts, summary, resourceNames = {} }: SyncStatusProps) {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [resolving, setResolving] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
@@ -51,6 +53,7 @@ export function SyncStatus({ conflicts = [], failures = [], issues = [], languag
   const [reviews, setReviews] = useState<ConflictReview[]>([]);
   const [confirmation, setConfirmation] = useState<{ ids: string[]; review: boolean } | null>(null);
   const entries = [...conflicts, ...failures];
+  const overlappingTrips = entries.some((mutation) => overlappingLegacyTripConflict(mutation, entries));
   const lastPage = Math.max(0, Math.ceil(entries.length / 25) - 1);
   const currentPage = Math.min(page, lastPage);
   const visible = entries.slice(currentPage * 25, (currentPage + 1) * 25);
@@ -145,7 +148,7 @@ export function SyncStatus({ conflicts = [], failures = [], issues = [], languag
               title={copy(language, "Schließen", "Stäng", "Close")} onClick={() => setDetailsOpen(false)}><X size={20} /></button>
           </header>
           <div className="sync-status-details">
-          <span>{issues[0] || (hasConflict
+          <span>{overlappingTrips ? copy(language, "Die lokalen Fahrteingaben überschneiden sich und müssen abgeglichen werden. Beide Eingaben bleiben erhalten.", "De lokala körningarna överlappar och behöver jämföras. Båda registreringarna finns kvar.", "Local trip entries overlap and need to be compared. Both entries are retained.") : issues[0] || (hasConflict
             ? copy(language, "Der Serverstand wurde nicht überschrieben. Bitte Daten aktualisieren und die Änderung prüfen.", "Serverdata skrevs inte över. Uppdatera och kontrollera ändringen.", "The server version was not overwritten. Refresh and review the change.")
             : copy(language, "Die lokale Änderung bleibt erhalten.", "Den lokala ändringen finns kvar.", "The local change is retained."))}</span>
           {entries.length > 0 && <div className="sync-conflict-actions">
@@ -168,10 +171,16 @@ export function SyncStatus({ conflicts = [], failures = [], issues = [], languag
             <button className="icon-button" type="button" aria-label="Nächste Konfliktseite" title="Nächste Seite" disabled={currentPage === lastPage || resolving} onClick={() => { setPage(currentPage + 1); setExpanded(null); }}><ChevronRight size={18} /></button>
           </nav>}
           {visible.map((mutation) => <section className="sync-conflict-entry" key={mutation.id} aria-label={`Konflikt ${mutation.entityId}`}>
-            <label><input type="checkbox" disabled={resolving} aria-label={`Konflikt ${mutation.entityId} auswählen`} checked={selected.includes(mutation.id)} onChange={(event) => setSelected((current) => event.target.checked ? [...current, mutation.id] : current.filter((id) => id !== mutation.id))} />{mutation.entityType} · {mutation.entityId}</label>
-            <small>{mutation.operation} · lokal Revision {mutation.expectedRevision ?? "neu"} · Server Revision {String(mutation.serverRecord?.revision ?? "unbekannt")}</small>
+            <label><input type="checkbox" disabled={resolving} aria-label={`Konflikt ${mutation.entityId} auswählen`} checked={selected.includes(mutation.id)} onChange={(event) => setSelected((current) => event.target.checked ? [...current, mutation.id] : current.filter((id) => id !== mutation.id))} />{mutation.entityType === "vehicle_trip"
+              ? `${copy(language, "Fahrt", "Körning", "Trip")} · ${resourceNames[mutation.resourceId] || copy(language, "Fahrzeug", "Fordon", "Vehicle")} · ${String(mutation.payload.date ?? "")}`
+              : `${mutation.entityType} · ${mutation.entityId}`}</label>
+            <small>{mutation.entityType === "vehicle_trip"
+              ? `${String(mutation.payload.startOdometer ?? "-")} → ${String(mutation.payload.endOdometer ?? "-")} km · ${copy(language, "Lokale Eingabe bleibt erhalten", "Den lokala registreringen finns kvar", "Local entry is retained")}`
+              : `${mutation.operation} · lokal Revision ${mutation.expectedRevision ?? "neu"} · Server Revision ${String(mutation.serverRecord?.revision ?? "unbekannt")}`}</small>
             {mutation.status === "failed" && <strong>{copy(language, "Synchronisierung fehlgeschlagen", "Synkronisering misslyckades", "Sync failed")}</strong>}
-            <span>{mutation.error}</span>
+            <span>{overlappingLegacyTripConflict(mutation, entries)
+              ? copy(language, "Zwei lokale Fahrteingaben überschneiden sich. Bitte prüfen, ob es zwei Versionen derselben Fahrt sind und welcher Endstand stimmt. Beide Eingaben bleiben erhalten.", "Två lokala körningar överlappar. Kontrollera om de är två versioner av samma körning och vilken slutmätarställning som stämmer. Båda registreringarna finns kvar.", "Two local trip entries overlap. Check whether they are versions of the same trip and which end reading is correct. Both entries are retained.")
+              : mutation.error}</span>
             {reviews.find((r) => r.id === mutation.id)?.reason && <small>{reviews.find((r) => r.id === mutation.id)?.reason}</small>}
             <details open={expanded === mutation.id}><summary onClick={(event) => { event.preventDefault(); setExpanded(expanded === mutation.id ? null : mutation.id); }}>Änderung prüfen</summary>{expanded === mutation.id && <><strong>Lokal</strong><dl>{Object.entries(mutation.payload).map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{describeValue(value)}</dd></div>)}</dl>
               <strong>Server</strong><dl>{Object.entries(mutation.serverRecord ?? {}).map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{describeValue(value)}</dd></div>)}</dl>

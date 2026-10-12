@@ -127,7 +127,7 @@ export async function POST(request: Request) {
     ? "homecare_apply_settings_mutation"
     : ["resource", "vehicle_position"].includes(mutation.entityType)
       ? "homecare_apply_resource_mutation"
-      : "homecare_apply_sync_mutation";
+      : mutation.entityType === "vehicle_trip" ? "homecare_apply_trip_sync_mutation" : "homecare_apply_sync_mutation";
   const { data, error } = await supabase.rpc(rpcName, {
     ...(["operations", "job", "job_time_entry", "job_note", "field_progress"].includes(mutation.entityType) ? { p_actor_id: auth.user.id } : {}),
     p_entity_id: mutation.entityId,
