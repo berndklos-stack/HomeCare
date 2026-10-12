@@ -57,3 +57,11 @@ Der Snapshot sichert Referenzen, ist aber **kein vollstaendiges Datenbank- und D
 - Gemeinsame Spaltenauswahl `objectMediaReadColumns` enthaelt nun die bestehende Altzuordnung. Neuer Regressionstest bildet genau diese Spaltenprojektion vor der Signierung nach und prueft ihre Verwendung im Endpunkt. Keine neuen Geschaeftsfelder und keine Datenbank-/Storage-Schreibzugriffe.
 - Lesender Produktivtest mit derselben Spaltenauswahl und den tatsaechlichen Projektionsfunktionen: Bolet 4, Revision 2, HTTP 200, `image/jpeg`, 92169 Bytes, JPEG-Signatur gueltig. 15 Medien-/Datenerhalt-Tests und TypeScript-Pruefung erfolgreich.
 - Beide konkret gemeldeten Fahrten weiterhin nicht auf dem Server. Die alte produktive Validierung sowie journalisierte Konfliktantworten werden durch einen reinen App-Release nicht korrigiert. Migrationszugang, verifizierte Sicherung/Wiederherstellung und sichere erneute Bewertung bleiben Voraussetzungen; lokale Konflikte nicht verwerfen.
+
+## iPhone-Nachkorrektur (1.427.38)
+
+- Schwebende Quick-Fahrt-Aktionen bleiben erhalten; Formularende und Standardfahrt-Option erhalten ausreichend Scrollreserve, damit Checkbox und Namensfeld oberhalb der Leiste bedient werden koennen.
+- Quick-Fahrt und Fahrtenbuch folgen der globalen App-Sprache statt der gesonderten Fahrzeug-/Export-Sprache. Kilometerluecken, Zeitraum-Verbindung und Tank-/Ladebeispiel sind uebersetzt; deutsche Zweckbezeichnung nicht mehr zweisprachig. Exportfunktion und gespeicherte Sprachwahl bleiben unveraendert.
+- Mobile Fahrtenliste zeigt beschriftete Zweispalten-Angaben mit vollstaendiger Route, Zweck, Belegen und 44-Pixel-Aktionen; Desktop bleibt Tabelle. Keine Fahrtdaten geaendert.
+- Supabase-Verwaltungszugang ist bereits angemeldet. Lesende Pruefung der produktiven Funktionsdefinition bestaetigt weiterhin `chronological_validation_live=false`. Die vorherige Bitte um neuen Zugang war voreilig; Sicherungs-/Wiederherstellungs- und Konflikt-Neubewertungspruefung bleiben offen.
+- Abschliessender Testlauf: 37 Tests erfolgreich, einschliesslich Chrome/Safari, iPhone-Touch-Kontext, erreichbarem Standardfahrt-Namensfeld oberhalb der schwebenden Leiste, vollstaendigen langen Adressen ohne seitlichen Ueberlauf, DE/SV/EN und unveraenderten Offline-/Speicherablaeufen. Screenshots der Standardfahrt-Option und mobilen Liste visuell geprueft.

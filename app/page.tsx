@@ -2536,6 +2536,10 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Neue Fahrt", sv: "Ny körning", en: "New trip" },
   { de: "Standardfahrt", sv: "Standardresa", en: "Standard trip" },
   { de: "Als Standardfahrt speichern", sv: "Spara som standardresa", en: "Save as standard trip" },
+  { de: "Offene Kilometerluecken", sv: "Kilometerluckor", en: "Mileage gaps" },
+  { de: "bis", sv: "till", en: "to" },
+  { de: "Zweck / Anlass", sv: "Syfte / ärende", en: "Purpose / matter" },
+  { de: "z.B. Diesel 42 l, Laden 18 kWh", sv: "t.ex. diesel 42 l, laddning 18 kWh", en: "e.g. diesel 42 l, charging 18 kWh" },
   { de: "Wie soll die Standardfahrt heißen?", sv: "Vad ska standardresan heta?", en: "What should the standard trip be called?" },
   { de: "Standardfahrt wählen", sv: "Välj standardresa", en: "Select standard trip" },
   { de: "Fahrt abschließen & speichern", sv: "Avsluta och spara körning", en: "Finish and save trip" },
@@ -10362,7 +10366,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
   const objectStatusOptions = uniqueSortedValues(objects.map((object) => object.status), ["Saison aktiv", "Kontrolle offen", "Winterruhe"]);
   const activeVehicles = resources.filter((resource) => resourceIsVehicle(resource) && !resource.archived);
   const quickTripVehicle = activeVehicles.find((vehicle) => vehicle.id === quickTripForm.resourceId);
-  const quickTripLanguage = vehicleLogbookLanguage(quickTripVehicle, language);
+  const quickTripLanguage = language;
   const qtx = (value: string) => translateForLanguage(value, quickTripLanguage);
   const quickTripStandardTrips = quickTripVehicle?.standardTrips ?? [];
   const quickTripAddressOptions = uniqueSortedValues(
@@ -13603,7 +13607,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
                       <option value="Arbeitsweg">{qtx("Arbeitsweg")}</option>
                     </select>
                   </label>
-                  <label><span>{qtx("Zweck / Ärende")}</span><input list="quick-trip-purpose-options" value={quickTripForm.purpose} onChange={(event) => setQuickTripForm({ ...quickTripForm, purpose: event.target.value })} /></label>
+                  <label><span>{qtx("Zweck / Anlass")}</span><input list="quick-trip-purpose-options" value={quickTripForm.purpose} onChange={(event) => setQuickTripForm({ ...quickTripForm, purpose: event.target.value })} /></label>
                   <label><span>{qtx("Name / besucht bei")}</span><input disabled={quickTripForm.tripType !== "Dienstfahrt"} value={quickTripForm.visited} onChange={(event) => setQuickTripForm({ ...quickTripForm, visited: event.target.value })} /></label>
                 </div>
               </section>
@@ -13781,7 +13785,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
                   <small>{qtx("Tanken, Laden oder Beleg zur Fahrt ergänzen.")}</small>
                 </div>
                 <div className="form-grid compact-form">
-                  <label className="wide"><span>{qtx("Tanken / Laden")}</span><input placeholder="z.B. Diesel 42 l, laddning 18 kWh" value={quickTripForm.fuelOrCharge} onChange={(event) => setQuickTripForm({ ...quickTripForm, fuelOrCharge: event.target.value })} /></label>
+                  <label className="wide"><span>{qtx("Tanken / Laden")}</span><input placeholder={qtx("z.B. Diesel 42 l, Laden 18 kWh")} value={quickTripForm.fuelOrCharge} onChange={(event) => setQuickTripForm({ ...quickTripForm, fuelOrCharge: event.target.value })} /></label>
                   <div className="wide receipt-photo-field">
                     <label className="ghost-button">
                       <Paperclip size={15} />
@@ -20938,7 +20942,7 @@ function MasterDataView({
   const activeResources = resources.filter((resource) => !resource.archived);
   const archivedResources = resources.filter((resource) => resource.archived);
   const selectedResource = resources.find((resource) => resource.id === editingResourceId);
-  const selectedLogbookLanguage = vehicleLogbookLanguage(selectedResource, language);
+  const selectedLogbookLanguage = language;
   const lt = (value: string) => uiTextWithOverrides(value, selectedLogbookLanguage, translationOverrides);
   const selectedResourceLogbook = resourceIsVehicle(selectedResource) ? sortVehicleLogbook(selectedResource.logbook) : [];
   const selectedResourceRegulation = resourceIsVehicle(selectedResource) ? drivingLogRegulationForCountry(selectedResource.taxCountry) : undefined;
@@ -23393,7 +23397,7 @@ function MasterDataView({
                 <div className="logbook-warning-copy">
                   <strong>{lt("Offene Kilometerluecken")}</strong>
                   {tripMileageGaps(selectedResourceLogbook).map((gap) => <span key={`${gap.previous.id}-${gap.next.id}`}>
-                    {gap.previous.date} {localTripTime(gap.previous.startedAt)} bis {gap.next.date} {localTripTime(gap.next.startedAt)}: {gap.kilometers} km
+                    {gap.previous.date} {localTripTime(gap.previous.startedAt)} {lt("bis")} {gap.next.date} {localTripTime(gap.next.startedAt)}: {gap.kilometers} km
                   </span>)}
                 </div>
                 <button className="ghost-button create-button" type="button" onClick={openCreateLogbookEntry}><Plus size={16} />{lt("Fahrt nachtragen")}</button>
@@ -23431,10 +23435,10 @@ function MasterDataView({
                       ].filter(Boolean);
                       return (
                         <tr key={entry.id}>
-                          <td>{entry.date}</td>
-                          <td>{personName(entry.driverId)}</td>
-                          <td>{lt(entry.tripType)}</td>
-                          <td className="logbook-route-cell">
+                          <td data-label={lt("Datum")}>{entry.date}</td>
+                          <td data-label={lt("Fahrer")}>{personName(entry.driverId)}</td>
+                          <td data-label={lt("Art")}>{lt(entry.tripType)}</td>
+                          <td data-label={lt("Route")} className="logbook-route-cell">
                             <span><strong>{lt("Start")}:</strong> {entry.startAddress || "-"}</span>
                             {waypointRows.map((waypoint, waypointIndex) => (
                               <span key={`${entry.id}-waypoint-${waypointIndex}`}>
@@ -23443,18 +23447,18 @@ function MasterDataView({
                             ))}
                             <span><strong>{lt("Ziel")}:</strong> {entry.endAddress || "-"}</span>
                           </td>
-                          <td>{entry.startOdometer || "-"} → {entry.endOdometer || "-"}</td>
-                          <td className="number-cell">{entry.kilometers || "-"}</td>
-                          <td>
+                          <td data-label={lt("KM-Stand")}>{entry.startOdometer || "-"} → {entry.endOdometer || "-"}</td>
+                          <td data-label={lt("KM")} className="number-cell">{entry.kilometers || "-"}</td>
+                          <td data-label={lt("Zweck / besucht bei")}>
                             <strong>{entry.purpose || "-"}</strong>
                             <span>{entry.visited || ""}</span>
                             {(entry.validationWarnings ?? []).map((warning) => <small className="warning-text" key={warning}>{warning}</small>)}
                           </td>
-                          <td>
+                          <td data-label={lt("Belege / Fotos")} data-empty={!entry.fuelOrCharge && attachmentLabels.length === 0}>
                             <span>{entry.fuelOrCharge || ""}</span>
                             <span>{attachmentLabels.join(" · ") || "-"}</span>
                           </td>
-                          <td>
+                          <td data-label={lt("Aktionen")}>
                             <div className="row-actions">
                               <button className="icon-button" type="button" aria-label={`${lt("Fahrt")} ${entry.date} ${lt("Bearbeiten")}`} data-tooltip={lt("Bearbeiten")}
                                 onClick={(event) => { event.currentTarget.focus({ preventScroll: true }); editLogbookEntry(entry); }}><Pencil size={16} /></button>

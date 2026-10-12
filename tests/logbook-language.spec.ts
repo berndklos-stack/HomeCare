@@ -5,7 +5,7 @@ test.beforeEach(async ({ page }) => {
   await page.route("**/api/resource-types", (route) => route.fulfill({ json: { types: defaultResourceTypes.map((type) => ({ ...type, revision: 1 })) } }));
 });
 
-test("Fahrtenbuch verwendet die am Fahrzeug gespeicherte Sprache", async ({ page }) => {
+test("Bedienoberflaeche folgt der App-Sprache unabhaengig von der Fahrzeugsprache", async ({ page }) => {
   await page.goto("/");
   await expect(page.locator("main")).toHaveAttribute("data-ready", "true", { timeout: 30_000 });
 
@@ -26,17 +26,16 @@ test("Fahrtenbuch verwendet die am Fahrzeug gespeicherte Sprache", async ({ page
   await page.getByRole("button", { name: "Fahrt", exact: true }).click();
 
   const tripDialog = page.locator(".quick-trip-modal");
-  await expect(tripDialog.getByRole("heading", { name: "Registrera körning" })).toBeVisible();
-  await expect(tripDialog.getByText("Start i bilen", { exact: true })).toBeVisible();
-  await expect(tripDialog.getByText("Måladress", { exact: true })).toBeVisible();
-  await expect(tripDialog.getByText("Tankning / laddning", { exact: true })).toBeVisible();
-  await expect(tripDialog.getByRole("option", { name: "Tjänsteresa" })).toHaveCount(1);
-  await expect(tripDialog.getByRole("option", { name: "Privat resa" })).toHaveCount(1);
-  await expect(tripDialog.getByRole("option", { name: "Arbetsresa" })).toHaveCount(1);
-  await expect(tripDialog.getByRole("button", { name: "Avsluta och spara körning", exact: true })).toBeVisible();
-  await expect(tripDialog.getByLabel("Välj standardresa", { exact: true })).toBeVisible();
-  await tripDialog.getByLabel("Spara som standardresa", { exact: true }).check();
-  await expect(tripDialog.getByLabel("Vad ska standardresan heta?", { exact: true })).toBeVisible();
+  await expect(tripDialog.getByRole("heading", { name: "Fahrt erfassen" })).toBeVisible();
+  await expect(tripDialog.getByText("Start im Auto", { exact: true })).toBeVisible();
+  await expect(tripDialog.getByText("Zieladresse", { exact: true })).toBeVisible();
+  await expect(tripDialog.getByText("Tanken / Laden", { exact: true })).toBeVisible();
+  await expect(tripDialog.getByRole("option", { name: "Dienstfahrt" })).toHaveCount(1);
+  await expect(tripDialog.getByRole("option", { name: "Privatfahrt" })).toHaveCount(1);
+  await expect(tripDialog.getByRole("button", { name: "Fahrt abschließen & speichern", exact: true })).toBeVisible();
+  await expect(tripDialog.getByLabel("Standardfahrt wählen", { exact: true })).toBeVisible();
+  await tripDialog.getByLabel("Als Standardfahrt speichern", { exact: true }).check();
+  await expect(tripDialog.getByLabel("Wie soll die Standardfahrt heißen?", { exact: true })).toBeVisible();
 });
 
 test("Neue Fahrtaktionen werden auf Englisch angezeigt", async ({ page }) => {

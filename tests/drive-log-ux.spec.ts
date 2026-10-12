@@ -20,7 +20,7 @@ async function fillTrip(page: Page) {
   await dialog.getByLabel("Zieladresse", { exact: true }).fill("Gunnabo");
   await dialog.getByLabel("Start-Km", { exact: true }).fill("12648");
   await dialog.getByLabel("End-Km", { exact: true }).fill("12680");
-  await dialog.getByLabel("Zweck / Ärende", { exact: true }).fill("UX Testfahrt");
+  await dialog.getByLabel("Zweck / Anlass", { exact: true }).fill("UX Testfahrt");
   await dialog.getByLabel("Name / besucht bei", { exact: true }).fill("Testkunde");
   return dialog;
 }
@@ -42,6 +42,15 @@ test.describe("iPhone-Bedienung", () => {
       expect((await button.boundingBox())?.height).toBeGreaterThanOrEqual(44);
     }
     expect(await trip.evaluate((element) => element.scrollWidth - element.clientWidth)).toBeLessThanOrEqual(2);
+    const standard = trip.getByLabel("Als Standardfahrt speichern", { exact: true });
+    await standard.scrollIntoViewIfNeeded();
+    await standard.check();
+    const name = trip.getByLabel("Wie soll die Standardfahrt heißen?", { exact: true });
+    await name.scrollIntoViewIfNeeded();
+    await name.fill("iPhone Standardfahrt");
+    const nameBox = await name.boundingBox();
+    const footerBox = await trip.locator(".trip-actions").boundingBox();
+    expect(nameBox!.y + nameBox!.height).toBeLessThanOrEqual(footerBox!.y);
     await page.screenshot({ path: `test-results/trip-iphone-${test.info().project.name}.png` });
     await trip.getByRole("button", { name: "Fahrt erfassen Schließen", exact: true }).click();
     await expect(trip).toHaveCount(0);
@@ -90,7 +99,7 @@ for (const mobile of [false, true]) {
     await page.reload();
     await ready(page);
     await openTrip(page);
-    await expect(dialog.getByLabel("Zweck / Ärende", { exact: true })).toHaveValue("UX Testfahrt");
+    await expect(dialog.getByLabel("Zweck / Anlass", { exact: true })).toHaveValue("UX Testfahrt");
     await dialog.getByRole("button", { name: "Fahrt abschließen & speichern", exact: true }).click();
     await expect(dialog).toHaveCount(0);
     await expect.poll(async () => (await vehicle(page))?.logbook.find((trip: { id: string }) => trip.id === entry.id)?.status).toBe("abgeschlossen");
@@ -101,7 +110,7 @@ for (const mobile of [false, true]) {
     await page.reload();
     await ready(page);
     await openTrip(page);
-    await expect(dialog.getByLabel("Zweck / Ärende", { exact: true })).toHaveValue("");
+    await expect(dialog.getByLabel("Zweck / Anlass", { exact: true })).toHaveValue("");
     expect(await dialog.evaluate((element) => element.matches(":modal"))).toBe(false);
     await expect(page.getByRole("dialog")).toHaveCount(0);
     await page.screenshot({ path: `test-results/drive-log-${mobile ? "mobile" : "desktop"}-${test.info().project.name}.png` });
@@ -143,7 +152,7 @@ test("Ungespeicherten Entwurf verwerfen und neue Fahrt direkt abschließen", asy
   await page.reload();
   await ready(page);
   await openTrip(page);
-  await expect(dialog.getByLabel("Zweck / Ärende", { exact: true })).toHaveValue("");
+  await expect(dialog.getByLabel("Zweck / Anlass", { exact: true })).toHaveValue("");
   await dialog.getByRole("button", { name: "Fahrt erfassen Schließen", exact: true }).click();
   await expect(dialog).toHaveCount(0);
   await fillTrip(page);
@@ -166,7 +175,7 @@ test("Verwerfen bestätigt aktive Fahrt und entfernt sie dauerhaft", async ({ pa
   await page.reload();
   await ready(page);
   await openTrip(page);
-  await expect(dialog.getByLabel("Zweck / Ärende", { exact: true })).toHaveValue("");
+  await expect(dialog.getByLabel("Zweck / Anlass", { exact: true })).toHaveValue("");
   await expect(dialog.getByLabel("End-Km", { exact: true })).toHaveValue("");
 });
 
