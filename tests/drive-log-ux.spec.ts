@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { createVehicleStandardTrip } from "./helpers/vehicle-standard-trips";
 
 const resourcesKey = "kolaretorp-resources";
 const queueKey = "workcore-sync-mutations-v1";
@@ -42,15 +43,8 @@ test.describe("iPhone-Bedienung", () => {
       expect((await button.boundingBox())?.height).toBeGreaterThanOrEqual(44);
     }
     expect(await trip.evaluate((element) => element.scrollWidth - element.clientWidth)).toBeLessThanOrEqual(2);
-    const standard = trip.getByLabel("Als Standardfahrt speichern", { exact: true });
-    await standard.scrollIntoViewIfNeeded();
-    await standard.check();
-    const name = trip.getByLabel("Wie soll die Standardfahrt heißen?", { exact: true });
-    await name.scrollIntoViewIfNeeded();
-    await name.fill("iPhone Standardfahrt");
-    const nameBox = await name.boundingBox();
-    const footerBox = await trip.locator(".trip-actions").boundingBox();
-    expect(nameBox!.y + nameBox!.height).toBeLessThanOrEqual(footerBox!.y);
+    await expect(trip.getByLabel("Als Standardfahrt speichern", { exact: true })).toHaveCount(0);
+    await expect(trip.getByLabel("Standardfahrt wählen", { exact: true })).toBeVisible();
     await page.screenshot({ path: `test-results/trip-iphone-${test.info().project.name}.png` });
     await trip.getByRole("button", { name: "Fahrt erfassen Schließen", exact: true }).click();
     await expect(trip).toHaveCount(0);
@@ -117,30 +111,19 @@ for (const mobile of [false, true]) {
   });
 }
 
-test("Benannte Standardfahrt: Pflichtname, keine Duplikate, Auswahl und keine Live-Daten", async ({ page }) => {
-  const dialog = await fillTrip(page);
-  await dialog.getByLabel("Als Standardfahrt speichern", { exact: true }).check();
-  await dialog.getByRole("button", { name: "Zwischenstand speichern", exact: true }).click();
-  await expect(dialog.getByRole("status")).toContainText("Namen");
-  await dialog.getByLabel("Wie soll die Standardfahrt heißen?", { exact: true }).fill("Gunnabo Route");
-  await dialog.getByRole("button", { name: "Zwischenstand speichern", exact: true }).click();
-  await expect.poll(async () => (await vehicle(page))?.standardTrips?.length).toBe(1);
-  await dialog.getByRole("button", { name: "Zwischenstand speichern", exact: true }).click();
-  await dialog.getByRole("button", { name: "Fahrt abschließen & speichern", exact: true }).click();
-  await expect(dialog).toHaveCount(0);
+test("Standardfahrt wird beim Fahrzeug angelegt und in Fahrt nur ausgewaehlt", async ({ page }) => {
+  const { dialog: resourceDialog } = await createVehicleStandardTrip(page);
   await expect.poll(async () => (await vehicle(page))?.standardTrips?.length).toBe(1);
   const standard = (await vehicle(page)).standardTrips[0];
   expect(standard).toMatchObject({ label: "Gunnabo Route", startAddress: "Kolaretorp 106", endAddress: "Gunnabo" });
   for (const key of ["status", "startedAt", "endedAt", "startOdometer", "endOdometer", "date"]) expect(standard).not.toHaveProperty(key);
-  await openTrip(page);
+  await resourceDialog.getByRole("button", { name: "Ressource schließen", exact: true }).click();
+  const dialog = await openTrip(page);
   await dialog.getByLabel("Standardfahrt wählen", { exact: true }).selectOption(standard.id);
   await expect(dialog.getByLabel("Zieladresse", { exact: true })).toHaveValue("Gunnabo");
   await expect(dialog.getByLabel("End-Km", { exact: true })).toHaveValue("");
-  await expect(dialog.getByLabel("Als Standardfahrt speichern", { exact: true })).not.toBeChecked();
-  await dialog.getByLabel("Als Standardfahrt speichern", { exact: true }).check();
+  await expect(dialog.getByLabel("Als Standardfahrt speichern", { exact: true })).toHaveCount(0);
   await dialog.getByLabel("Zieladresse", { exact: true }).fill("Andere Route");
-  await dialog.getByRole("button", { name: "Zwischenstand speichern", exact: true }).click();
-  await expect(dialog.getByRole("status")).toContainText("bereits für eine andere Standardfahrt");
   expect((await vehicle(page)).standardTrips).toEqual([standard]);
 });
 

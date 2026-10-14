@@ -7181,6 +7181,45 @@ dialog.trip-dialog::backdrop { background: rgb(0 0 0 / 45%); }
   padding: 10px;
 }
 
+.resource-standard-trips {
+  border-top: 1px solid var(--line);
+  padding: 16px 0;
+  min-width: 0;
+}
+
+.standard-trips-heading,
+.standard-trips-actions,
+.standard-trip-editor-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.standard-trips-heading { justify-content: space-between; flex-wrap: wrap; margin-bottom: 12px; }
+.standard-trips-heading h3 { font-size: 16px; }
+.standard-trips-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.standard-trips-list li > div:first-child { display: grid; gap: 3px; min-width: 0; overflow-wrap: anywhere; }
+.standard-trips-list span { color: var(--muted); font-size: 14px; }
+.standard-trip-editor { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
+.standard-trip-editor label { display: grid; min-width: 0; gap: 4px; }
+.standard-trip-editor .standard-trip-waypoint { display: grid; grid-column: 1 / -1; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; align-items: end; gap: 8px; }
+.standard-trip-editor .standard-trip-error { grid-column: 1 / -1; color: var(--danger); }
+.standard-trip-editor-actions { grid-column: 1 / -1; justify-content: flex-end; flex-wrap: wrap; }
+.standard-trip-add-stop { justify-self: start; grid-column: 1 / -1; }
+.resource-editor-grid .resource-standard-trips input,
+.resource-editor-grid .resource-standard-trips select { width: 100%; min-height: 44px; height: 44px; font-size: 16px; }
+.resource-standard-trips button { min-height: 44px; white-space: normal; }
+.resource-standard-trips .icon-button { width: 44px; min-width: 44px; height: 44px; }
+
+@media (max-width: 600px) {
+  .standard-trip-editor { grid-template-columns: minmax(0, 1fr); }
+  .standard-trips-heading .create-button { width: 100%; }
+  .standard-trip-editor .standard-trip-waypoint { grid-template-columns: minmax(0, 1fr) 44px; }
+  .standard-trip-waypoint label { grid-column: 1; }
+  .standard-trip-waypoint .icon-button { grid-column: 2; grid-row: 1 / span 2; align-self: center; }
+  .standard-trip-editor-actions > button { flex: 1 1 140px; }
+}
+
 .resource-editor-grid label {
   gap: 3px;
 }

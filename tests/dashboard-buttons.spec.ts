@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { formatGoogleAddress } from "../app/api/geocode/reverse/route";
+import { createVehicleStandardTrip } from "./helpers/vehicle-standard-trips";
 
 test("Reverse Geocoding ergänzt ländliche Ortsnamen ohne normale Straßen zu verändern", () => {
   expect(formatGoogleAddress({
@@ -31,58 +32,30 @@ test("Reverse Geocoding ergänzt ländliche Ortsnamen ohne normale Straßen zu v
   })).toBe("Storgatan 5, 38230 Nybro");
 });
 
-test("Fahrtenentwurf und Standardfahrt bleiben nutzbar", async ({ page }) => {
-  await page.goto("/");
-  await expect(page.locator("main")).toHaveAttribute("data-ready", "true", { timeout: 30_000 });
-  await expect(page.getByRole("heading", { name: "Koll" })).toBeVisible();
-
+test("Fahrtenentwurf und beim Fahrzeug angelegte Standardfahrt bleiben nutzbar", async ({ page }) => {
+  const { dialog: resourceDialog, editor } = await createVehicleStandardTrip(page, "Kolaretorp - Gunnabo");
+  await editor.getByRole("button", { name: "Standardfahrt bearbeiten Kolaretorp - Gunnabo", exact: true }).click();
+  await editor.getByRole("button", { name: "Zwischenstopp hinzufügen", exact: true }).click();
+  await editor.getByLabel("Zwischenstopp 1", { exact: true }).fill("Nybro centrum");
+  await editor.getByLabel("Notiz 1", { exact: true }).fill("Material abholen");
+  await editor.getByRole("button", { name: "Standardfahrt speichern", exact: true }).click();
+  await resourceDialog.getByRole("button", { name: "Ressource schließen", exact: true }).click();
   await page.getByRole("button", { name: "Fahrt", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "Fahrt erfassen" });
-  await expect(dialog).toBeVisible();
-
-  const vehicle = dialog.getByLabel("Fahrzeug");
-  await vehicle.selectOption({ index: 1 });
-  await expect(dialog.getByLabel("Start-Km")).not.toHaveValue("");
-
-  await dialog.getByLabel("Startadresse").fill("Kolaretorp 106, 382 93 Nybro");
-  await dialog.getByLabel("Zieladresse").fill("Gunnabo 126, 382 91 Nybro");
-  await dialog.getByLabel("Zweck / Ärende").fill("Kundenauftrag Gunnabo");
-  await dialog.getByRole("button", { name: "Ziel", exact: true }).click();
-
-  const waypointAddress = dialog.getByLabel("Zwischenziel 1", { exact: true });
-  await waypointAddress.fill("Nybro centrum");
-  await dialog.getByLabel("Notiz zu Zwischenziel 1").fill("Material abholen");
-  await expect(waypointAddress).toHaveCSS("border-top-style", "solid");
-  await expect(waypointAddress).toHaveCSS("border-top-width", "1px");
-
-  await dialog.getByLabel("Als Standardfahrt speichern", { exact: true }).check();
-  await dialog.getByLabel("Wie soll die Standardfahrt heißen?", { exact: true }).fill("Kolaretorp – Gunnabo");
-  await dialog.getByRole("button", { name: "Zwischenstand speichern", exact: true }).click();
-  await expect(dialog.getByLabel("Standardfahrt wählen").locator("option", { hasText: "Kolaretorp – Gunnabo" })).toHaveCount(1);
-
-  await dialog.getByLabel("Zieladresse").fill("");
-  await waypointAddress.fill("");
-  await dialog.getByLabel("Standardfahrt wählen").selectOption("");
-  await dialog.getByLabel("Standardfahrt wählen").selectOption({ label: "Kolaretorp – Gunnabo" });
-  await expect(dialog.getByLabel("Zieladresse")).toHaveValue("Gunnabo 126, 382 91 Nybro");
-  await expect(dialog.getByLabel("Zwischenziel 1", { exact: true })).toHaveValue("Nybro centrum");
-  await expect(dialog.getByLabel("End-Km")).toBeFocused();
-
-  await dialog.getByLabel("End-Km").fill("12680");
-  await dialog.getByRole("button", { name: "Zwischenstand speichern", exact: true }).click();
-  await expect(dialog.getByLabel("Standardfahrt wählen").locator("option", { hasText: "Kolaretorp – Gunnabo" })).toHaveCount(1);
+  const trip = page.locator(".quick-trip-page");
+  await trip.getByLabel("Standardfahrt wählen", { exact: true }).selectOption({ label: "Kolaretorp - Gunnabo" });
+  await expect(trip.getByLabel("Zieladresse", { exact: true })).toHaveValue("Gunnabo");
+  await expect(trip.getByLabel("Zwischenziel 1", { exact: true })).toHaveValue("Nybro centrum");
+  await expect(trip.getByLabel("End-Km", { exact: true })).toBeFocused();
+  await expect(trip.getByLabel("Als Standardfahrt speichern", { exact: true })).toHaveCount(0);
+  await trip.getByLabel("End-Km", { exact: true }).fill("12680");
+  await trip.getByRole("button", { name: "Zwischenstand speichern", exact: true }).click();
   await expect.poll(async () => page.evaluate(() => {
-    const resources = JSON.parse(window.localStorage.getItem("kolaretorp-resources") || "[]");
-    const trip = resources.flatMap((resource: { logbook: { purpose: string; status: string; endOdometer: string }[] }) => resource.logbook)
-      .find((entry: { purpose: string }) => entry.purpose === "Kundenauftrag Gunnabo");
-    return trip ? { status: trip.status, endOdometer: trip.endOdometer } : null;
-  })).toEqual({ status: "laufend", endOdometer: "12680" });
-  await expect.poll(async () => page.evaluate(() => {
-    const draft = window.localStorage.getItem("kolaretorp-quick-trip-draft");
-    return draft ? JSON.parse(draft).endOdometer : "";
-  })).toBe("12680");
-
-  await dialog.getByRole("button", { name: "Fahrt erfassen schließen" }).click();
+    const resources = JSON.parse(localStorage.getItem("kolaretorp-resources") || "[]");
+    return resources.flatMap((resource: { logbook: { purpose: string; status: string; endOdometer: string }[] }) => resource.logbook)
+      .find((entry: { purpose: string }) => entry.purpose === "Kundenauftrag Gunnabo")?.status;
+  })).toBe("laufend");
+  await expect.poll(async () => page.evaluate(() => JSON.parse(localStorage.getItem("kolaretorp-quick-trip-draft") || "{}").endOdometer)).toBe("12680");
+  await trip.getByRole("button", { name: "Fahrt erfassen Schließen", exact: true }).click();
   await page.getByRole("button", { name: "Fahrt", exact: true }).click();
-  await expect(page.getByRole("dialog", { name: "Fahrt erfassen" }).getByLabel("End-Km")).toHaveValue("12680");
+  await expect(trip.getByLabel("End-Km", { exact: true })).toHaveValue("12680");
 });

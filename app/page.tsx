@@ -7,6 +7,8 @@ import { AuthGate, EmployeeLogoutButton } from "@/components/AuthGate";
 import { SyncStatus } from "@/components/SyncStatus";
 import { AppleRemindersBridge } from "@/components/AppleRemindersBridge";
 import { TripSurface } from "@/components/TripSurface";
+import { StandardTripsEditor } from "@/components/StandardTripsEditor";
+import type { StandardTrip } from "@/lib/standardTrips";
 import { OperationsWorkspace } from "@/components/OperationsWorkspace";
 import { storageLocationPath } from "@/lib/locationLabel";
 import { MaterialPurchasing } from "@/components/MaterialPurchasing";
@@ -755,17 +757,6 @@ type VehicleOdometerPhoto = {
   odometerReading?: string;
   previewUrl?: string;
   source: "start" | "end";
-};
-
-type StandardTrip = {
-  endAddress: string;
-  id: string;
-  label: string;
-  purpose: string;
-  startAddress: string;
-  tripType: VehicleLogEntry["tripType"];
-  visited: string;
-  waypoints: VehicleWaypoint[];
 };
 
 type ResourceMaintenanceItem = {
@@ -8982,8 +8973,6 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
   const [manualRefreshRunning, setManualRefreshRunning] = useState(false);
   const [quickTripAddressLoading, setQuickTripAddressLoading] = useState("");
   const [quickTripStandardId, setQuickTripStandardId] = useState("");
-  const [quickTripStandardLabel, setQuickTripStandardLabel] = useState("");
-  const [quickTripSaveStandard, setQuickTripSaveStandard] = useState(false);
   const [quickTripSaving, setQuickTripSaving] = useState(false);
   const quickTripSavingRef = useRef(false);
   const [quickTripForm, setQuickTripForm] = useState({
@@ -12370,10 +12359,8 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     setQuickTripStandardId(standardId);
     const standardTrip = quickTripStandardTrips.find((item) => item.id === standardId);
     if (!standardTrip) {
-      setQuickTripStandardLabel("");
       return;
     }
-    setQuickTripStandardLabel(standardTrip.label);
     setQuickTripForm((current) => ({
       ...current,
       endAddress: standardTrip.endAddress,
@@ -12396,43 +12383,6 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     setRecordNotice(`Standardfahrt „${standardTrip.label}“ wurde übernommen.`);
   }
 
-  function withQuickTripStandard(vehicle: ResourceRecord): ResourceRecord {
-    if (!quickTripSaveStandard) return vehicle;
-    const label = quickTripStandardLabel.trim();
-    if (!label || !quickTripForm.startAddress.trim() || !quickTripForm.endAddress.trim()) {
-      throw new Error("Für eine Standardfahrt bitte Namen, Startadresse und Zieladresse erfassen.");
-    }
-    const existing = vehicle.standardTrips?.find((item) => item.label.trim().toLocaleLowerCase() === label.toLocaleLowerCase());
-    const id = existing?.id ?? createStableId("STANDARD");
-    const standardTrip: StandardTrip = {
-      endAddress: quickTripForm.endAddress.trim(),
-      id,
-      label,
-      purpose: quickTripForm.purpose.trim(),
-      startAddress: quickTripForm.startAddress.trim(),
-      tripType: quickTripForm.tripType,
-      visited: quickTripForm.visited.trim(),
-      waypoints: quickTripForm.waypoints
-        .map((waypoint, index) => ({
-          address: waypoint.address.trim(),
-          id: `${id}-WAY-${index + 1}`,
-          note: waypoint.note.trim(),
-          odometer: "",
-        }))
-        .filter((waypoint) => waypoint.address),
-    };
-    if (existing) {
-      const definition = (trip: StandardTrip) => JSON.stringify([
-        trip.startAddress.trim(), trip.endAddress.trim(), trip.purpose.trim(), trip.tripType, trip.visited.trim(),
-        trip.waypoints.map((waypoint) => [waypoint.address.trim(), waypoint.note.trim()]),
-      ]);
-      if (definition(existing) !== definition(standardTrip)) {
-        throw new Error("Dieser Name wird bereits für eine andere Standardfahrt verwendet. Bitte einen neuen Namen wählen.");
-      }
-      return vehicle;
-    }
-    return { ...vehicle, standardTrips: [...(vehicle.standardTrips ?? []), standardTrip] };
-  }
 
   async function persistQuickTrip(complete: boolean) {
     if (quickTripSavingRef.current) return;
@@ -12441,7 +12391,6 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     try {
       const vehicle = resources.find((resource) => resource.id === quickTripForm.resourceId);
       if (!vehicle) throw new Error("Bitte zuerst ein Fahrzeug auswählen.");
-      withQuickTripStandard(vehicle);
       if (!quickTripForm.startOdometer.trim() || !Number.isFinite(Number(quickTripForm.startOdometer)) || Number(quickTripForm.startOdometer) < 0) {
         throw new Error("Bitte einen gültigen Start-Kilometerstand erfassen.");
       }
@@ -12650,7 +12599,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     }
   }
 
-  function updateActiveQuickTripEntry(form = quickTripForm, saveStandard = false) {
+  function updateActiveQuickTripEntry(form = quickTripForm) {
     if (!form.activeLogbookEntryId) return;
     const vehicle = resources.find((resource) => resource.id === form.resourceId && resourceIsVehicle(resource));
     if (!vehicle) return;
@@ -12665,7 +12614,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     const nextResources = resources.map((resource) => (
       resource.id === vehicle.id
         ? {
-            ...(saveStandard ? withQuickTripStandard(resource) : resource),
+            ...resource,
             logbook: resource.logbook.map((entry) => (
               entry.id === form.activeLogbookEntryId
                 ? {
@@ -12699,8 +12648,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     const updatedEntry = nextResources.find((resource) => resource.id === vehicle.id)?.logbook.find((entry) => entry.id === form.activeLogbookEntryId);
     if (updatedEntry) enqueueTripMutation("update", vehicle.id, updatedEntry, expectedRevision);
     setResources(nextResources);
-    if (saveStandard) persistResourcesRelational(nextResources);
-    else persistResourcesFast(nextResources);
+    persistResourcesFast(nextResources);
     const latestWaypoint = [...form.waypoints].reverse().find((waypoint) => waypoint.coordinates);
     const coordinates = form.endCoordinates ?? latestWaypoint?.coordinates ?? form.startCoordinates;
     const address = form.endAddress.trim() || latestWaypoint?.address.trim() || form.startAddress.trim();
@@ -12730,7 +12678,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
       return;
     }
     if (quickTripForm.activeLogbookEntryId) {
-      if (updateActiveQuickTripEntry(quickTripForm, true)) setRecordNotice("Zwischenstand wurde gespeichert. Die Fahrt bleibt aktiv.");
+      if (updateActiveQuickTripEntry(quickTripForm)) setRecordNotice("Zwischenstand wurde gespeichert. Die Fahrt bleibt aktiv.");
       return;
     }
     if (activeLogbookEntry(vehicle)) {
@@ -12803,7 +12751,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     const nextResources = resources.map((resource) => (
       resource.id === vehicle.id
         ? {
-            ...withQuickTripStandard(resource),
+            ...resource,
             currentOdometer: quickTripForm.startOdometer.trim(),
             currentOdometerDate: quickTripForm.date,
             logbook: sortVehicleLogbook([entry, ...resource.logbook]),
@@ -12858,9 +12806,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     if (meaningful && !window.confirm("Diese Fahrt wirklich verwerfen? Eingegebene Fahrtdaten werden entfernt.")) return;
     if (quickTripDraftSaveTimerRef.current) window.clearTimeout(quickTripDraftSaveTimerRef.current);
     window.localStorage.removeItem(storageKeys.quickTripDraft);
-    setQuickTripSaveStandard(false);
     setQuickTripStandardId("");
-    setQuickTripStandardLabel("");
     setQuickTripForm((current) => ({
       ...current, activeLogbookEntryId: "", date: currentLocalDateValue(), startAddress: "", startCoordinates: undefined,
       startOdometer: latestKnownVehicleOdometer(resources.find((resource) => resource.id === current.resourceId)),
@@ -12998,7 +12944,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     const nextResources = resources.map((resource) => (
       resource.id === vehicle.id
         ? {
-            ...withQuickTripStandard(resource),
+            ...resource,
             currentOdometer: quickTripForm.endOdometer.trim(),
             currentOdometerDate: quickTripForm.date,
             logbook: quickTripForm.activeLogbookEntryId
@@ -13038,9 +12984,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     if (quickTripDraftSaveTimerRef.current) window.clearTimeout(quickTripDraftSaveTimerRef.current);
     window.localStorage.removeItem(storageKeys.quickTripDraft);
     setQuickTripOpen(false);
-    setQuickTripSaveStandard(false);
     setQuickTripStandardId("");
-    setQuickTripStandardLabel("");
     setRecordNotice(`Fahrt vom ${entry.date} wurde im Fahrtenbuch gespeichert.`);
     setQuickTripForm({
       date: currentLocalDateValue(),
@@ -13522,7 +13466,6 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
                     <select disabled={Boolean(quickTripForm.activeLogbookEntryId)} value={quickTripForm.resourceId} onChange={(event) => {
                       const defaults = quickTripDefaultsForVehicle(event.target.value);
                       setQuickTripStandardId("");
-                      setQuickTripStandardLabel("");
                       setQuickTripForm({
                         ...quickTripForm,
                         driverId: activeVehicles.find((vehicle) => vehicle.id === event.target.value)?.defaultDriverId || quickTripForm.driverId,
@@ -13807,14 +13750,6 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
                   </div>
                 </div>
               </section>
-              <label className="trip-standard-toggle">
-                <input type="checkbox" checked={quickTripSaveStandard} onChange={(event) => setQuickTripSaveStandard(event.target.checked)} />
-                <span>{qtx("Als Standardfahrt speichern")}</span>
-              </label>
-              {quickTripSaveStandard && <label>
-                <span>{qtx("Wie soll die Standardfahrt heißen?")}</span>
-                <input required value={quickTripStandardLabel} onChange={(event) => setQuickTripStandardLabel(event.target.value)} />
-              </label>}
             </fieldset>
             <div className="modal-actions trip-actions">
               <button disabled={quickTripSaving} className="ghost-button trip-discard" onClick={cancelQuickTrip} type="button">
@@ -20806,6 +20741,7 @@ function MasterDataView({
     status: "aktiv" as PersonnelRecord["status"],
   });
   const [resourceForm, setResourceForm] = useState({
+    standardTrips: [] as StandardTrip[],
     resourceTypeId: "", serialNumber: "", operatingHours: "", operatingHoursDate: "", purchaseDate: "", purchasePrice: "",
     warrantyUntil: "", warrantyNotes: "", maintenanceIntervalValue: "", maintenanceIntervalUnit: "",
     brand: "",
@@ -20839,6 +20775,7 @@ function MasterDataView({
   });
   const selectedResourceType = resourceTypes.types.find((type) => type.id === resourceForm.resourceTypeId)
     ?? (editingResourceId ? resourceTypes.types.find((type) => type.name === resourceForm.type) : undefined);
+  const [standardTripEditorOpen, setStandardTripEditorOpen] = useState(false);
   const [maintenanceForm, setMaintenanceForm] = useState({
     notes: "",
     target: "",
@@ -21131,6 +21068,7 @@ function MasterDataView({
   }
 
   function resetResourceForm() {
+    setStandardTripEditorOpen(false);
     setEditingResourceId(null);
     setEditingLogEntryId(null);
     setLogbookEntryEditorOpen(false);
@@ -21138,6 +21076,7 @@ function MasterDataView({
     setResourceEditorOpen(false);
     setResourceModalView("details");
     setResourceForm({
+      standardTrips: [],
       resourceTypeId: "", serialNumber: "", operatingHours: "", operatingHoursDate: "", purchaseDate: "", purchasePrice: "",
       warrantyUntil: "", warrantyNotes: "", maintenanceIntervalValue: "", maintenanceIntervalUnit: "",
       brand: "",
@@ -21179,9 +21118,11 @@ function MasterDataView({
   }
 
   function editResource(resource: ResourceRecord) {
+    setStandardTripEditorOpen(false);
     setEditingResourceId(resource.id);
     setResourceEditorOpen(true);
     setResourceForm({
+      standardTrips: resource.standardTrips ?? [],
       resourceTypeId: resource.resourceTypeId ?? resourceTypes.types.find((type) => type.name === resource.type)?.id ?? "",
       serialNumber: resource.serialNumber ?? "", operatingHours: resource.operatingHours ?? "", operatingHoursDate: resource.operatingHoursDate ?? "",
       purchaseDate: resource.purchaseDate ?? "", purchasePrice: resource.purchasePrice ?? "", warrantyUntil: resource.warrantyUntil ?? "",
@@ -21298,7 +21239,16 @@ function MasterDataView({
     if (resource) openResourceLogbook(resource);
   }, [openResourceLogbookRequestId]);
 
+  function changeResourceStandardTrips(standardTrips: StandardTrip[]) {
+    setResourceForm((current) => ({ ...current, standardTrips }));
+    if (!editingResourceId) return;
+    const nextResources = resources.map((resource) => resource.id === editingResourceId ? { ...resource, standardTrips } : resource);
+    setResources(nextResources);
+    onPersistResources(nextResources);
+  }
+
   function saveResource() {
+    if (standardTripEditorOpen) return;
     if (!selectedResourceType || !resourceForm.name.trim() || !resourceTypes.ready) {
       setArchiveNotice("Bitte Ressourcenname und Typ erfassen.");
       return;
@@ -21330,6 +21280,7 @@ function MasterDataView({
       logbook: existingResource?.logbook ?? [],
       logbookYear: resourceForm.logbookYear.trim() || String(new Date().getFullYear()),
       maintenanceItems: resourceForm.maintenanceItems,
+      standardTrips: existingResource?.standardTrips ?? resourceForm.standardTrips,
       media: resourceForm.mediaItems,
       model: resourceForm.model.trim(),
       name: resourceForm.name.trim(),
@@ -23037,7 +22988,7 @@ function MasterDataView({
                       </>
                     )}
                     {resourceIsVehicle(selectedResource) && (
-                      <button className="ghost-button" onClick={() => setResourceModalView(resourceModalView === "logbook" ? "details" : "logbook")} type="button">
+                      <button className="ghost-button" disabled={standardTripEditorOpen} onClick={() => setResourceModalView(resourceModalView === "logbook" ? "details" : "logbook")} type="button">
                         <CarFront size={16} />
                         {resourceModalView === "logbook" ? lt("Stammdaten") : tt("Fahrtenbuch")}
                       </button>
@@ -23083,7 +23034,7 @@ function MasterDataView({
             </aside>
             <div className="resource-main-fields">
               <label className="resource-field"><span>{resourceTypesText.type[resourceLanguageIndex(language)]}</span>
-                <select aria-label={resourceTypesText.type[resourceLanguageIndex(language)]} value={selectedResourceType?.id ?? ""} onChange={(event) => {
+                <select disabled={standardTripEditorOpen} aria-label={resourceTypesText.type[resourceLanguageIndex(language)]} value={selectedResourceType?.id ?? ""} onChange={(event) => {
                   const type = resourceTypes.types.find((item) => item.id === event.target.value);
                   setResourceForm((current) => ({ ...current, resourceTypeId: event.target.value, type: type ? legacyResourceType(type.category) : current.type }));
                 }}>
@@ -23122,6 +23073,13 @@ function MasterDataView({
             )}
             {resourceIsVehicle(resourceForm) && (
               <>
+                {selectedResourceType?.category === "vehicle" && <StandardTripsEditor
+                  key={editingResourceId ?? "new-resource"}
+                  language={language}
+                  trips={selectedResource?.standardTrips ?? resourceForm.standardTrips}
+                  onChange={changeResourceStandardTrips}
+                  onEditingChange={setStandardTripEditorOpen}
+                />}
                 <section className="wide object-attachment-section resource-document-section">
                   <div className="attachment-section-head">
                     <div>
@@ -23203,7 +23161,7 @@ function MasterDataView({
                 </section>
               </>
             )}
-            <button className="primary-button wide" onClick={saveResource} type="button">{editingResourceId ? tt("Ressource speichern") : tt("Ressource anlegen")}</button>
+            <button className="primary-button wide" disabled={standardTripEditorOpen} onClick={saveResource} type="button">{editingResourceId ? tt("Ressource speichern") : tt("Ressource anlegen")}</button>
             <button className="ghost-button wide" onClick={resetResourceForm} type="button">{tt("Bearbeitung abbrechen")}</button>
           </div>
           ) : resourceIsVehicle(selectedResource) ? (

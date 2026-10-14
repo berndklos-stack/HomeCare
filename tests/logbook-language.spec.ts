@@ -15,6 +15,7 @@ test("Bedienoberflaeche folgt der App-Sprache unabhaengig von der Fahrzeugsprach
   await page.locator("article").filter({ hasText: "Servicebil Kolaretorp" }).first().click();
 
   const resourceDialog = page.locator(".resource-editor-modal, .resource-editor-workspace");
+  await expect(resourceDialog.getByRole("button", { name: "Skapa ny standardresa", exact: true })).toBeVisible();
   await expect(resourceDialog.getByText("Tillverkningsår", { exact: true })).toBeVisible();
   await resourceDialog.getByLabel("Körjournalens språk").selectOption("sv");
   await resourceDialog.getByRole("button", { name: "Spara resurs", exact: true }).click();
@@ -34,8 +35,7 @@ test("Bedienoberflaeche folgt der App-Sprache unabhaengig von der Fahrzeugsprach
   await expect(tripDialog.getByRole("option", { name: "Privatfahrt" })).toHaveCount(1);
   await expect(tripDialog.getByRole("button", { name: "Fahrt abschließen & speichern", exact: true })).toBeVisible();
   await expect(tripDialog.getByLabel("Standardfahrt wählen", { exact: true })).toBeVisible();
-  await tripDialog.getByLabel("Als Standardfahrt speichern", { exact: true }).check();
-  await expect(tripDialog.getByLabel("Wie soll die Standardfahrt heißen?", { exact: true })).toBeVisible();
+  await expect(tripDialog.getByLabel("Als Standardfahrt speichern", { exact: true })).toHaveCount(0);
 });
 
 test("Neue Fahrtaktionen werden auf Englisch angezeigt", async ({ page }) => {
@@ -46,6 +46,7 @@ test("Neue Fahrtaktionen werden auf Englisch angezeigt", async ({ page }) => {
   await page.getByRole("button", { name: "Resources", exact: true }).click();
   await page.locator("article").filter({ hasText: "Servicebil Kolaretorp" }).first().click();
   const resourceDialog = page.locator(".resource-editor-modal, .resource-editor-workspace");
+  await expect(resourceDialog.getByRole("button", { name: "Create standard trip", exact: true })).toBeVisible();
   await resourceDialog.getByLabel("Logbook language").selectOption("en");
   await resourceDialog.getByRole("button", { name: "Save resource", exact: true }).click();
   await resourceDialog.getByRole("button", { name: "Close resource" }).click();
@@ -53,6 +54,5 @@ test("Neue Fahrtaktionen werden auf Englisch angezeigt", async ({ page }) => {
   const tripDialog = page.locator(".quick-trip-modal");
   await expect(tripDialog.getByRole("button", { name: "Finish and save trip", exact: true })).toBeVisible();
   await expect(tripDialog.getByLabel("Select standard trip", { exact: true })).toBeVisible();
-  await tripDialog.getByLabel("Save as standard trip", { exact: true }).check();
-  await expect(tripDialog.getByLabel("What should the standard trip be called?", { exact: true })).toBeVisible();
+  await expect(tripDialog.getByLabel("Save as standard trip", { exact: true })).toHaveCount(0);
 });

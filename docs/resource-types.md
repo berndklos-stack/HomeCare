@@ -54,6 +54,18 @@ dann Migration vor dem dazugehoerigen Anwendungscode ausrollen. Der neue
 Leseendpunkt benoetigt die neuen Spalten. Keine automatische Produktivmigration
 oder Datenbereinigung ist Bestandteil der lokalen Umsetzung.
 
+## Standardfahrten am Fahrzeug
+
+Standardfahrten werden unter Ressourcen am jeweiligen Fahrzeug angelegt,
+bearbeitet und geloescht. Im Dialog Fahrt bleibt die Auswahl gespeicherter
+Standardfahrten erhalten; dort werden keine Vorlagen mehr angelegt.
+Vorlagen enthalten nur Routendaten, keine aktuellen Kilometerstaende,
+Fahrtzeiten oder Fotos. Die bestehende Spalte `homecare_resources.standard_trips`
+bleibt die Datenquelle; neue fachliche Felder werden nicht eingefuehrt.
+Bei bestehenden Fahrzeugen werden Vorlagen separat gespeichert, bei neuen
+Fahrzeugen zusammen mit der Fahrzeuganlage. Ein offener Vorlagenentwurf muss
+zuerst gespeichert oder verworfen werden, bevor das Fahrzeug gespeichert wird.
+
 ## Pruefungen
 
 `node scripts/test-operations-database.mjs --full-chain` verwendet ausschliesslich

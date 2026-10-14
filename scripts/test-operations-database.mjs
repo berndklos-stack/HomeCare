@@ -37,6 +37,13 @@ try {
     sql("supabase/tests/master_data_columns.sql");
     sql("supabase/migrations/20261008100000_resource_types.sql");
     sql("supabase/tests/resource_types.sql");
+    sql("supabase/tests/resource_field_catalog_rls.sql");
+    sql("supabase/migrations/20261014100000_resource_field_catalog_rls.sql");
+    sql("supabase/tests/resource_field_catalog_rls.sql");
+    sql("supabase/tests/security_advisor_hardening.sql");
+    sql("supabase/migrations/20261014110000_security_advisor_function_hardening.sql");
+    sql("supabase/migrations/20261014120000_resource_foreign_keys_and_indexes.sql");
+    sql("supabase/tests/security_advisor_hardening.sql");
     console.log("Complete migration chain and Operations backup round trip passed (local Auth shim, not live Supabase).");
   } else {
   sql("supabase/tests/operations_foundation_fixture.sql");

@@ -1,10 +1,11 @@
 export const appVersion = {
-  version: "1.427.41",
-  releaseDate: "2026-10-12",
+  version: "1.427.42",
+  releaseDate: "2026-10-14",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  { version: "1.427.42", date: "2026-10-14", changes: ["Standardfahrten direkt beim Fahrzeug anlegen, bearbeiten und loeschen; Auswahl bleibt im Fahrt-Dialog", "Standardvorlagen ohne aktuelle Kilometerstaende, Fahrtzeiten oder Fotos speichern; gut bedienbar auf dem iPhone", "Globalen Ressourcenfeldkatalog per RLS schreibgeschuetzt absichern; Funktionsrechte, Suchpfade und mandantengebundene Ressourcenverweise haerten"] },
   { version: "1.427.41", date: "2026-10-12", changes: ["Tagesuebergreifende Kilometerpruefung auch nach Fahrten ohne bekannte Startzeit absichern"] },
   { version: "1.427.40", date: "2026-10-12", changes: ["Fahrten ohne Startzeit am selben Tag anhand der Kilometerstaende pruefen statt als Mitternacht einordnen", "Betroffene Ablehnungen ohne Datenverlust erneut synchronisieren; echte Ueberschneidungen weiterhin schuetzen", "Fehlende Startzeiten nicht durch den Speicherzeitpunkt ersetzen"] },
   { version: "1.427.39", date: "2026-10-12", changes: ["Fahrten-Synchronisation: historische Eintraege nach zeitlichen Nachbarn statt aktuellem Fahrzeugstand pruefen", "Alte Kilometer-Ablehnungen mit gleicher Uebertragungskennung erneut bewerten und urspruengliche Fehlermeldung gesondert sichern", "Ueberschneidende lokale Fahrten bis zur Klaerung erhalten; Konflikte mit Fahrzeug, Datum und Kilometerstaenden anzeigen", "Historische Bestaetigung darf den aktuellen Fahrzeugstand nicht zuruecksetzen"] },
