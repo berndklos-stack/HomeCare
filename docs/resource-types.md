@@ -60,8 +60,31 @@ Standardfahrten werden unter Ressourcen am jeweiligen Fahrzeug angelegt,
 bearbeitet und geloescht. Im Dialog Fahrt bleibt die Auswahl gespeicherter
 Standardfahrten erhalten; dort werden keine Vorlagen mehr angelegt.
 Vorlagen enthalten nur Routendaten, keine aktuellen Kilometerstaende,
-Fahrtzeiten oder Fotos. Die bestehende Spalte `homecare_resources.standard_trips`
-bleibt die Datenquelle; neue fachliche Felder werden nicht eingefuehrt.
+Fahrtzeiten oder Fotos. Routendefinitionen bleiben in der bestehenden Spalte
+`homecare_resources.standard_trips`. Die optionale Entfernung steht dagegen
+massgeblich in `homecare_resource_standard_trip_distances.distance_km`
+(`numeric(12,3)`, Migration `20261014130000_standard_trip_distances.sql`).
+Die Zuordnung verwendet Mandant, Fahrzeug und stabile Vorlagen-ID. RLS verlangt
+Request-Mandant und `data.read`; anon und direkte Client-Schreibzugriffe sind
+gesperrt. Vorlagenaenderungen laufen mit der bestehenden Ressourcenmutation
+und deren Revisions-/Wiederholungsschutz atomar ueber einen internen Trigger.
+Das JSON enthaelt einen Transport-/Backupspiegel; der Leseweg verwendet die
+numerische Spalte. Aeltere Clients ohne Entfernungsfeld erhalten bestehende
+Entfernungen, explizites `null` entfernt die Entfernung. Vorlagenloeschung
+entfernt die zugeordnete Entfernung. Relationale Sicherung und Wiederherstellung
+enthalten die neue Tabelle separat und stellen die numerischen Werte nach den
+Fahrzeugen wieder her; der Trigger erzeugt beim geschuetzten Restore keine
+doppelten Zeilen. Bestehende Vorlagen ohne Entfernung bleiben unveraendert nutzbar.
+
+Unter Standardfahrten steht eine aufklappbare Fahrtenuebersicht bereit.
+Abgeschlossene Fahrten koennen als bearbeitbare Vorlage uebernommen werden:
+Route, Zweck, besuchte Person und Entfernung, aber keine Tachostaende,
+Fahrtzeiten, GPS-Koordinaten oder Fotos. In Fahrt wird bei Vorlagenauswahl
+und Aenderung des Startstands der Endstand aus Start plus Entfernung
+vorgeschlagen. Eine manuelle Korrektur bleibt bis zur naechsten Aenderung
+des Startstands erhalten. Ohne Entfernung gibt es keinen Vorschlag.
+Die neue Datenbankmigration muss vor dem Anwendungscode ausgerollt werden,
+da der Ressourcen-Leseweg die mandantengeschuetzte Entfernungstabelle mitliest.
 Bei bestehenden Fahrzeugen werden Vorlagen separat gespeichert, bei neuen
 Fahrzeugen zusammen mit der Fahrzeuganlage. Ein offener Vorlagenentwurf muss
 zuerst gespeichert oder verworfen werden, bevor das Fahrzeug gespeichert wird.
@@ -77,3 +100,24 @@ Playwright: `resource-types.spec.ts`, `resource-types-ui.spec.ts`,
 `resource-cutover.spec.ts`, `operations-ui.spec.ts`, `drive-log-ux.spec.ts`
 und `logbook-language.spec.ts`. Die neuen API-Aufrufe sind in UI-Tests gemockt;
 der E2E-Bypass darf keine produktiven Ressourcentypen lesen oder schreiben.
+`standard-trips.spec.ts` prueft Vorlagenuebernahme, Entfernung, Dezimalwerte,
+Endstandsvorschlag und manuelle Korrektur auf Desktop und iPhone in Chrome
+und Safari. `standard_trip_distances.sql` prueft den numerischen Schreibweg,
+Wiederholungen, Revisionskonflikte, Altclient-Erhalt, Loeschung und RLS;
+`operations_full_chain.sql` enthaelt einen Backup-/Restore-Rundlauf mit Entfernung.
+
+### Entfernungs-Release 1.427.43
+
+Am 14.10.2026 lokal erfolgreich: 39 Chrome-/Safari-Tests, vollstaendige
+SQL-Migrationskette mit Wiederholung, RLS und Backup-/Restore, TypeScript,
+Produktionsbuild und `git diff --check`.
+Migration danach auf Staging und mit identischen Migrations-/Test-Pruefsummen
+im bestaetigten Produktionsprojekt angewendet. Rollen-/RLS-Fixturetests liefen
+nur auf Staging in zurueckgerollten Transaktionen, nicht auf Produktivdaten.
+Ressourcen- und Fahrten-Fingerprints vor/nach Anwendung stimmen ueberein.
+Security Advisor in Produktion unveraendert: 0 Fehler, 7 bestehende Warnungen.
+Private Sicherungen und Nachweise:
+`/private/tmp/workcore-standard-distance-staging-lxyrLt/verification.json` und
+`/private/tmp/workcore-standard-distance-production-GO6sAv/verification.json`.
+Die Produktionssicherung `backup-before.json` liegt im selben geschuetzten
+Verzeichnis und wird nicht ins Repository aufgenommen.

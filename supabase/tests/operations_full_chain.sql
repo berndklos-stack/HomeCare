@@ -88,11 +88,13 @@ insert into public.homecare_maintenance_plans(tenant_id,id,resource_id,name,main
 select public.homecare_maintenance_complete('00000000-0000-0000-0000-000000000001','99999999-9999-4999-8999-999999999999','88888888-8888-4888-8888-888888888888',1,'2026-10-08',100,10,50,'SEK',null,null,'11111111-1111-4111-8111-111111111111','Complete');
 select public.homecare_post_inventory('00000000-0000-0000-0000-000000000001','12345678-1234-4234-8234-123456789012','warehouse','11111111-1111-4111-8111-111111111111','Verified unchanged stock',
   '[{"material_id":"material","expected":5,"counted":5}]');
+update public.homecare_resources set standard_trips='[{"id":"backup-route","label":"Backup route","distanceKm":17.125}]' where id='resource';
 do $$ declare
   tenant uuid:='00000000-0000-0000-0000-000000000001'; backup_id uuid; table_name text; names text; original jsonb; restored jsonb;
 begin
   backup_id:=(public.homecare_create_relational_backup(tenant,'roundtrip')->>'id')::uuid;
   select payload into original from public.homecare_relational_backups where id=backup_id;
+  if (original->'homecare_resource_standard_trip_distances'->0->>'distance_km')::numeric is distinct from 17.125 then raise exception 'BACKUP_DISTANCE_MISSING'; end if;
   set constraints all immediate;
   select string_agg(format('public.%I',tbl),',') into names from unnest(public.homecare_relational_backup_tables()) tbl;
   -- Only this disposable test cluster. TRUNCATE bypasses immutable DELETE guards

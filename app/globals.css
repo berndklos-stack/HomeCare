@@ -7210,6 +7210,13 @@ dialog.trip-dialog::backdrop { background: rgb(0 0 0 / 45%); }
 .resource-editor-grid .resource-standard-trips select { width: 100%; min-height: 44px; height: 44px; font-size: 16px; }
 .resource-standard-trips button { min-height: 44px; white-space: normal; }
 .resource-standard-trips .icon-button { width: 44px; min-width: 44px; height: 44px; }
+.standard-trip-history { margin-top: 20px; border-top: 1px solid var(--line); padding-top: 16px; }
+.standard-trip-history summary { cursor: pointer; font-size: 16px; font-weight: 700; padding: 8px 0; }
+.standard-trip-history .standard-trips-list li { grid-template-columns: minmax(0, 1fr) minmax(140px, 220px); }
+@media (max-width: 600px) {
+  .standard-trip-history .standard-trips-list li { grid-template-columns: minmax(0, 1fr); }
+  .standard-trip-history li > button { width: 100%; }
+}
 
 @media (max-width: 600px) {
   .standard-trip-editor { grid-template-columns: minmax(0, 1fr); }

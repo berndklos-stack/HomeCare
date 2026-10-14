@@ -9,6 +9,7 @@ import { AppleRemindersBridge } from "@/components/AppleRemindersBridge";
 import { TripSurface } from "@/components/TripSurface";
 import { StandardTripsEditor } from "@/components/StandardTripsEditor";
 import type { StandardTrip } from "@/lib/standardTrips";
+import { standardTripOdometers } from "@/lib/standardTrips";
 import { OperationsWorkspace } from "@/components/OperationsWorkspace";
 import { storageLocationPath } from "@/lib/locationLabel";
 import { MaterialPurchasing } from "@/components/MaterialPurchasing";
@@ -10353,6 +10354,11 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
   const quickTripLanguage = language;
   const qtx = (value: string) => translateForLanguage(value, quickTripLanguage);
   const quickTripStandardTrips = quickTripVehicle?.standardTrips ?? [];
+  const quickTripStandardDistance = quickTripStandardTrips.find((trip) => trip.id === quickTripStandardId)?.distanceKm;
+  useEffect(() => {
+    if (quickTripStandardDistance == null) return;
+    setQuickTripForm((current) => ({ ...current, ...standardTripOdometers(current.startOdometer, quickTripStandardDistance) }));
+  }, [quickTripStandardId, quickTripStandardDistance, quickTripForm.startOdometer, quickTripForm.resourceId]);
   const quickTripAddressOptions = uniqueSortedValues(
     resources.flatMap((resource) => resource.logbook.flatMap((entry) => [
       entry.startAddress,
@@ -12365,8 +12371,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
       ...current,
       endAddress: standardTrip.endAddress,
       endCoordinates: undefined,
-      endOdometer: "",
-      kilometers: "",
+      ...standardTripOdometers(current.startOdometer, standardTrip.distanceKm),
       purpose: standardTrip.purpose,
       startAddress: standardTrip.startAddress,
       startCoordinates: undefined,
@@ -23077,6 +23082,7 @@ function MasterDataView({
                   key={editingResourceId ?? "new-resource"}
                   language={language}
                   trips={selectedResource?.standardTrips ?? resourceForm.standardTrips}
+                  drivenTrips={selectedResource?.logbook ?? []}
                   onChange={changeResourceStandardTrips}
                   onEditingChange={setStandardTripEditorOpen}
                 />}

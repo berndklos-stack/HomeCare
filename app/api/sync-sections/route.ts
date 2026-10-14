@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { stockMaterialLines } from "@/lib/jobStock";
+import { projectStandardTripDistances } from "@/lib/standardTrips";
 import { reviewedStockMaterials, type ReviewedMaterial } from "@/lib/fieldMaterialReview";
 import { NextResponse } from "next/server";
 import { isAuthError, requireApiAuth } from "@/lib/server/apiAuth";
@@ -82,6 +83,7 @@ type ResourceRow = {
   responsible_person_id: string | null;
   status: string | null;
   standard_trips: unknown;
+  homecare_resource_standard_trip_distances?: { standard_trip_id: string; distance_km: number | null }[];
   tax_country: string | null;
   tracking: unknown;
   type: string;
@@ -1451,7 +1453,7 @@ function rowToResource(row: ResourceRow, trips: VehicleTripRow[], mediaRows: Med
     revision: row.revision,
     responsiblePersonId: row.responsible_person_id ?? "",
     status: row.status ?? "",
-    standardTrips: Array.isArray(row.standard_trips) ? row.standard_trips : [],
+    standardTrips: projectStandardTripDistances(row.standard_trips, row.homecare_resource_standard_trip_distances),
     taxCountry: row.tax_country ?? "",
     tracking: Object.keys(tracking).length > 0 ? tracking : undefined,
     type: row.type,
@@ -1463,7 +1465,7 @@ function rowToResource(row: ResourceRow, trips: VehicleTripRow[], mediaRows: Med
 async function loadResourceSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
   const { data: resourceRows, error: resourceError } = await supabase
     .from("homecare_resources")
-    .select("id, resource_type_id, serial_number, operating_hours, operating_hours_date, purchase_date, purchase_price, warranty_until, warranty_notes, maintenance_interval_value, maintenance_interval_unit, type, brand, build_year, current_odometer, current_odometer_date, default_driver_id, name, identifier, license_plate, status, responsible_person_id, location, logbook_active, notes, logbook_year, model, odometer_year_start, odometer_year_end, odometer_history, odometer_last_confirmed, odometer_last_confirmed_at, odometer_last_confirmed_by, odometer_last_confirmed_photo, owner_company, private_use_allowed, registration_country, tax_country, tracking, maintenance_items, standard_trips, deleted_logbook_entry_ids, archived, revision, deleted_at, updated_at")
+    .select("id, resource_type_id, serial_number, operating_hours, operating_hours_date, purchase_date, purchase_price, warranty_until, warranty_notes, maintenance_interval_value, maintenance_interval_unit, type, brand, build_year, current_odometer, current_odometer_date, default_driver_id, name, identifier, license_plate, status, responsible_person_id, location, logbook_active, notes, logbook_year, model, odometer_year_start, odometer_year_end, odometer_history, odometer_last_confirmed, odometer_last_confirmed_at, odometer_last_confirmed_by, odometer_last_confirmed_photo, owner_company, private_use_allowed, registration_country, tax_country, tracking, maintenance_items, standard_trips, homecare_resource_standard_trip_distances(standard_trip_id,distance_km), deleted_logbook_entry_ids, archived, revision, deleted_at, updated_at")
     .is("deleted_at", null)
     .order("name", { ascending: true });
 
