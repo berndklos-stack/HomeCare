@@ -8,6 +8,8 @@ import { SyncStatus } from "@/components/SyncStatus";
 import { AppleRemindersBridge } from "@/components/AppleRemindersBridge";
 import { TripSurface } from "@/components/TripSurface";
 import { StandardTripsEditor } from "@/components/StandardTripsEditor";
+import { PersonalNavigation, PersonalVehicleBlocks } from "@/components/PersonalLayout";
+import { useLayoutPreferences, type LayoutPreferencesController } from "@/lib/useLayoutPreferences";
 import type { StandardTrip } from "@/lib/standardTrips";
 import { standardTripOdometers } from "@/lib/standardTrips";
 import { OperationsWorkspace } from "@/components/OperationsWorkspace";
@@ -8974,6 +8976,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
   const [manualRefreshRunning, setManualRefreshRunning] = useState(false);
   const [quickTripAddressLoading, setQuickTripAddressLoading] = useState("");
   const [quickTripStandardId, setQuickTripStandardId] = useState("");
+  const layoutPreferences = useLayoutPreferences(!portalOnly);
   const [quickTripSaving, setQuickTripSaving] = useState(false);
   const quickTripSavingRef = useRef(false);
   const [quickTripForm, setQuickTripForm] = useState({
@@ -13217,6 +13220,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
 
   const masterDataView = (
     <MasterDataView
+      layoutPreferences={layoutPreferences}
       materialsOnly={section === "inventory"}
       queue={tripSync.queue}
       enqueue={enqueueSyncMutation}
@@ -13312,23 +13316,9 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
         <div className="brand">
           <Image alt="Kolaretorp Service AB" height={23} priority src="/brand/kolaretorp-logo-white.png" width={220} />
         </div>
-        <nav aria-label={language === "sv" ? "Huvudnavigation" : "Hauptnavigation"}>
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            return (
-              <button
-                className={section === item.id ? "active" : ""}
-                data-testid={`nav-${item.id}`}
-                key={item.id}
-                onClick={() => { setQuickTripOpen(false); setSection(item.id); }}
-                type="button"
-              >
-                <Icon size={17} />
-                {navLabels[language][item.id]}
-              </button>
-            );
-          })}
-        </nav>
+        <PersonalNavigation controller={layoutPreferences} language={language} selected={section}
+          select={(id) => { setQuickTripOpen(false); setSection(id as Section); }}
+          items={navItems.map((item) => ({ id: item.id, label: navLabels[language][item.id], icon: <item.icon size={17}/> }))}/>
         <button className="version" onClick={() => setModal("version")} type="button">
           <span>{tx("Aktuelle Version")}</span>
           <strong>v{appVersion.version}</strong>
@@ -20626,6 +20616,7 @@ function CustomerPortalView({
 }
 
 function MasterDataView({
+  layoutPreferences,
   resourceOperations,
   materialsOnly = false,
   queue,
@@ -20660,6 +20651,7 @@ function MasterDataView({
   translate,
   translationOverrides,
 }: {
+  layoutPreferences: LayoutPreferencesController;
   resourceOperations: ReactNode;
   materialsOnly?: boolean;
   queue: SyncMutation[];
@@ -23077,21 +23069,18 @@ function MasterDataView({
               </section>
             )}
             {resourceIsVehicle(resourceForm) && (
-              <>
-                {selectedResourceType?.category === "vehicle" && <StandardTripsEditor
+              <PersonalVehicleBlocks key={editingResourceId ?? "new-resource"} controller={layoutPreferences} language={language} locked={standardTripEditorOpen} blocks={[
+                { id: "standardTrips", title: language === "sv" ? "Standardresor" : language === "en" ? "Standard trips" : "Standardfahrten", count: (selectedResource?.standardTrips ?? resourceForm.standardTrips).length, content: <StandardTripsEditor
                   key={editingResourceId ?? "new-resource"}
+                  embedded
                   language={language}
                   trips={selectedResource?.standardTrips ?? resourceForm.standardTrips}
                   drivenTrips={selectedResource?.logbook ?? []}
                   onChange={changeResourceStandardTrips}
                   onEditingChange={setStandardTripEditorOpen}
-                />}
-                <section className="wide object-attachment-section resource-document-section">
+                /> },
+                { id: "documents", title: tt("Fahrzeugdokumente"), count: resourceForm.mediaItems.filter((item) => item.type === "Dokument").length, content: <section className="wide object-attachment-section resource-document-section">
                   <div className="attachment-section-head">
-                    <div>
-                      <h3>{tt("Fahrzeugdokumente")}</h3>
-                      <span>{resourceForm.mediaItems.filter((item) => item.type === "Dokument").length} {tt("Dokumente")}</span>
-                    </div>
                     <label className="ghost-button attachment-upload">
                       <Paperclip size={16} />
                       {tt("Dokument hinzufügen")}
@@ -23124,13 +23113,9 @@ function MasterDataView({
                   ) : (
                     <p className="empty-attachment">{tt("Noch keine Fahrzeugdokumente gespeichert.")}</p>
                   )}
-                </section>
-                <section className="wide object-attachment-section resource-maintenance-section">
+                </section> },
+                { id: "maintenance", title: tt("Termine / Wartung"), count: resourceForm.maintenanceItems.filter((item) => item.status !== "erledigt").length, content: <section className="wide object-attachment-section resource-maintenance-section">
                   <div className="attachment-section-head">
-                    <div>
-                      <h3>{tt("Termine / Wartung")}</h3>
-                      <span>{resourceForm.maintenanceItems.filter((item) => item.status !== "erledigt").length} {tt("offen")}</span>
-                    </div>
                     <button className="ghost-button create-button" onClick={saveMaintenanceItem} type="button">
                       <Plus size={16} />
                       {tt("Termin hinzufügen")}
@@ -23164,8 +23149,8 @@ function MasterDataView({
                   ) : (
                     <p className="empty-attachment">{tt("Noch keine Termine hinterlegt.")}</p>
                   )}
-                </section>
-              </>
+                </section> },
+              ]}/>
             )}
             <button className="primary-button wide" disabled={standardTripEditorOpen} onClick={saveResource} type="button">{editingResourceId ? tt("Ressource speichern") : tt("Ressource anlegen")}</button>
             <button className="ghost-button wide" onClick={resetResourceForm} type="button">{tt("Bearbeitung abbrechen")}</button>

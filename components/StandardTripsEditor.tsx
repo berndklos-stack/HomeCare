@@ -11,12 +11,13 @@ const labels = {
   en: { title: 'Standard trips', add: 'Create standard trip', empty: 'No standard trips', name: 'Standard trip name', start: 'Start address', end: 'Destination address', purpose: 'Purpose', visited: 'Name / visited', type: 'Trip type', business: 'Business trip', private: 'Private trip', commute: 'Commute', waypoint: 'Stop', note: 'Note', addWaypoint: 'Add stop', edit: 'Edit standard trip', remove: 'Delete standard trip', removeWaypoint: 'Remove stop', save: 'Save standard trip', cancel: 'Cancel', required: 'Enter a name, start address and destination address.', duplicate: 'A standard trip with this name already exists.', confirm: 'Delete this standard trip?' },
 };
 
-export function StandardTripsEditor({ trips, drivenTrips = [], language, onChange, onEditingChange }: {
+export function StandardTripsEditor({ trips, drivenTrips = [], language, onChange, onEditingChange, embedded = false }: {
   trips: StandardTrip[];
   drivenTrips?: DrivenTrip[];
   language: 'de' | 'sv' | 'en';
   onChange: (trips: StandardTrip[]) => void;
   onEditingChange: (editing: boolean) => void;
+  embedded?: boolean;
 }) {
   const t = labels[language];
   const [draft, setDraft] = useState<StandardTrip | null>(null);
@@ -42,7 +43,7 @@ export function StandardTripsEditor({ trips, drivenTrips = [], language, onChang
     } catch (problem) { setError(problem instanceof Error && problem.message === 'distance' ? distanceError : problem instanceof Error && problem.message === 'duplicate' ? t.duplicate : t.required); }
   }
   return <section className="wide resource-standard-trips" aria-label={t.title}>
-    <div className="standard-trips-heading"><h3>{t.title}</h3>
+    <div className="standard-trips-heading">{!embedded && <h3>{t.title}</h3>}
       <button className="ghost-button create-button" disabled={Boolean(draft)} onClick={() => edit({ id: createStableId('STANDARD'), label: '', startAddress: '', endAddress: '', purpose: '', visited: '', tripType: 'Dienstfahrt', waypoints: [] })} type="button"><Plus size={16}/>{t.add}</button>
     </div>
     {trips.length ? <ul className="standard-trips-list">{trips.map((trip) => <li key={trip.id}>

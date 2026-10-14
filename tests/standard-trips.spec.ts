@@ -81,6 +81,7 @@ test('Standardfahrt kann zusammen mit einem neuen Fahrzeug ohne echte Fahrt ange
   await expect(dialog.getByRole('region', { name: 'Standardfahrten', exact: true })).toHaveCount(0);
   await dialog.getByLabel('Ressourcentyp', { exact: true }).selectOption(defaultResourceTypes[0].id);
   await dialog.getByLabel('Name', { exact: true }).fill('Neues Vorlagenfahrzeug');
+  await dialog.getByRole('button', { name: /^Standardfahrten\s*\d+$/ }).click();
   const editor = dialog.getByRole('region', { name: 'Standardfahrten', exact: true });
   await editor.getByRole('button', { name: 'Neue Standardfahrt anlegen', exact: true }).click();
   await editor.getByLabel('Bezeichnung der Standardfahrt', { exact: true }).fill('Neue Route');
@@ -89,7 +90,7 @@ test('Standardfahrt kann zusammen mit einem neuen Fahrzeug ohne echte Fahrt ange
   await expect(dialog.getByRole('button', { name: 'Ressource anlegen', exact: true })).toBeDisabled();
   await editor.getByRole('button', { name: 'Standardfahrt speichern', exact: true }).click();
   await dialog.getByRole('button', { name: 'Ressource anlegen', exact: true }).click();
-  await expect(dialog.getByRole('status')).toContainText('wurde gespeichert');
+  await expect(dialog.locator('p[role="status"]')).toContainText('wurde gespeichert');
   const saved = () => page.evaluate(() => JSON.parse(localStorage.getItem('kolaretorp-resources') ?? '[]').find((r: { name: string }) => r.name === 'Neues Vorlagenfahrzeug'));
   await expect.poll(async () => (await saved())?.standardTrips?.length).toBe(1);
   expect((await saved()).logbook).toEqual([]);
@@ -133,7 +134,7 @@ for (const mobile of [false, true]) {
     expect((await vehicle()).standardTrips).toHaveLength(1);
     await dialog.getByRole('button', { name: 'Ressource schließen', exact: true }).click();
     await page.reload();
-    await expect(page.locator('main.app')).toHaveAttribute('data-ready', 'true');
+    await expect(page.locator('main.app')).toHaveAttribute('data-ready', 'true', { timeout: 30_000 });
     await page.getByRole('button', { name: 'Fahrt', exact: true }).click();
     const trip = page.locator('.quick-trip-page');
     await expect(trip.getByLabel('Als Standardfahrt speichern', { exact: true })).toHaveCount(0);

@@ -15,6 +15,7 @@ test("Bedienoberflaeche folgt der App-Sprache unabhaengig von der Fahrzeugsprach
   await page.locator("article").filter({ hasText: "Servicebil Kolaretorp" }).first().click();
 
   const resourceDialog = page.locator(".resource-editor-modal, .resource-editor-workspace");
+  await resourceDialog.getByRole("button", { name: /^Standardresor\s*\d+$/ }).click();
   await expect(resourceDialog.getByRole("button", { name: "Skapa ny standardresa", exact: true })).toBeVisible();
   await expect(resourceDialog.getByText("Tillverkningsår", { exact: true })).toBeVisible();
   await resourceDialog.getByLabel("Körjournalens språk").selectOption("sv");
@@ -46,6 +47,7 @@ test("Neue Fahrtaktionen werden auf Englisch angezeigt", async ({ page }) => {
   await page.getByRole("button", { name: "Resources", exact: true }).click();
   await page.locator("article").filter({ hasText: "Servicebil Kolaretorp" }).first().click();
   const resourceDialog = page.locator(".resource-editor-modal, .resource-editor-workspace");
+  await resourceDialog.getByRole("button", { name: /^Standard trips\s*\d+$/ }).click();
   await expect(resourceDialog.getByRole("button", { name: "Create standard trip", exact: true })).toBeVisible();
   await resourceDialog.getByLabel("Logbook language").selectOption("en");
   await resourceDialog.getByRole("button", { name: "Save resource", exact: true }).click();

@@ -9,6 +9,7 @@ export async function openVehicleStandardTrips(page: Page) {
   await page.getByRole('button', { name: 'Ressourcen', exact: true }).click();
   await page.getByRole('button', { name: 'Ressource Servicebil Kolaretorp bearbeiten', exact: true }).click();
   const dialog = page.getByRole('dialog');
+  await dialog.getByRole('button', { name: /^Standardfahrten\s*\d+$/ }).click();
   const editor = dialog.getByRole('region', { name: 'Standardfahrten', exact: true });
   await expect(editor).toBeVisible();
   return { dialog, editor };

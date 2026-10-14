@@ -1,10 +1,11 @@
 export const appVersion = {
-  version: "1.427.44",
+  version: "1.427.45",
   releaseDate: "2026-10-14",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  { version: "1.427.45", date: "2026-10-14", changes: ["Standardfahrten, Fahrzeugdokumente und Wartung beim Fahrzeug ein- und ausklappen", "Fahrzeugbloecke und Hauptmenue per Drag-and-drop mit Maus, Touch oder Tastatur anordnen", "Reihenfolgen persoenlich je Benutzer und Mandant in eigenen Datenbankspalten speichern; Entwuerfe und bestaetigte Anordnung bei Fehlern erhalten"] },
   { version: "1.427.44", date: "2026-10-14", changes: ["iPad-Hochformat: kompakte horizontal scrollbare Hauptnavigation statt bildschirmhoher Seitenleiste", "Arbeitsbereich, Auswertung und Bearbeitung auch im Hochformat sichtbar; Formulareingaben bleiben beim Drehen erhalten", "Layout-Grenzen, iPad Pro, iPad Air, iPad und iPhone in Safari und Chrome geprueft"] },
   { version: "1.427.43", date: "2026-10-14", changes: ["Standardfahrten mit eigener Entfernung in km; Endkilometerstand aus Startstand plus Vorlagenentfernung vorschlagen", "Gefahrene Routen beim Fahrzeug als bearbeitbare Standardfahrt uebernehmen, ohne Anfangs-/Endkilometerstaende oder Fotos", "Entfernung in eigener numerischer Datenbankspalte mit Mandantenschutz, Revisionsschutz und Backup-/Restore-Unterstuetzung speichern"] },
   { version: "1.427.42", date: "2026-10-14", changes: ["Standardfahrten direkt beim Fahrzeug anlegen, bearbeiten und loeschen; Auswahl bleibt im Fahrt-Dialog", "Standardvorlagen ohne aktuelle Kilometerstaende, Fahrtzeiten oder Fotos speichern; gut bedienbar auf dem iPhone", "Globalen Ressourcenfeldkatalog per RLS schreibgeschuetzt absichern; Funktionsrechte, Suchpfade und mandantengebundene Ressourcenverweise haerten"] },

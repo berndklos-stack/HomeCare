@@ -38,7 +38,7 @@ for (const device of [
     await page.setViewportSize(device.portrait);
     await expect(name).toHaveValue('iPad Bearbeitung');
     await dialog.getByRole('button', { name: 'Ressource speichern', exact: true }).click();
-    await expect(dialog.getByRole('status')).toContainText('wurde gespeichert');
+    await expect(dialog.locator('p[role="status"]')).toContainText('wurde gespeichert');
     await dialog.getByRole('button', { name: 'Ressource schließen', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Ressource iPad Bearbeitung bearbeiten', exact: true })).toBeVisible();
     await workspace.evaluate((element) => { element.scrollTop = element.scrollHeight; });

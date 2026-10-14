@@ -89,6 +89,7 @@ select public.homecare_maintenance_complete('00000000-0000-0000-0000-00000000000
 select public.homecare_post_inventory('00000000-0000-0000-0000-000000000001','12345678-1234-4234-8234-123456789012','warehouse','11111111-1111-4111-8111-111111111111','Verified unchanged stock',
   '[{"material_id":"material","expected":5,"counted":5}]');
 update public.homecare_resources set standard_trips='[{"id":"backup-route","label":"Backup route","distanceKm":17.125}]' where id='resource';
+insert into public.homecare_user_layout_preferences(tenant_id,user_id,navigation_order,vehicle_block_order) values('00000000-0000-0000-0000-000000000001','11111111-1111-4111-8111-111111111111',array['jobs','dashboard'],array['maintenance','documents','standardTrips']);
 do $$ declare
   tenant uuid:='00000000-0000-0000-0000-000000000001'; backup_id uuid; table_name text; names text; original jsonb; restored jsonb;
 begin

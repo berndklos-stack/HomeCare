@@ -140,6 +140,40 @@ button {
   gap: 5px;
 }
 
+.personal-navigation { min-width: 0; display: grid; gap: 4px; }
+.personal-drag-handle { touch-action: none; cursor: grab; flex: 0 0 44px; width: 44px; min-width: 44px; height: 44px; padding: 8px; }
+.personal-drag-handle:active { cursor: grabbing; }
+.personal-dragging { outline: 2px solid var(--accent, #007aff); outline-offset: -2px; background: var(--background, #fff); box-shadow: 0 4px 12px #0002; }
+.sidebar .personal-drag-handle { color: inherit; background: transparent; }
+.sidebar .personal-dragging { background: #292929; }
+.personal-nav-entry { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.sidebar nav .nav-link { flex: 1 1 auto; }
+.personal-order-toolbar { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+.personal-order-toolbar > span { font-size: 12px; color: var(--muted); }
+.personal-order-toolbar > span:empty { display: none; }
+.sidebar .personal-order-toolbar .ghost-button { color: inherit; background: transparent; min-height: 44px; padding: 6px 8px; font-size: 13px; }
+.sidebar .personal-order-toolbar > span { color: #c2c6cc; }
+.personal-order-arrows { display: flex; flex: 0 0 auto; gap: 4px; }
+.personal-order-arrows .icon-button { width: 44px; min-width: 44px; height: 44px; padding: 8px; }
+.sidebar nav .personal-order-arrows button { color: inherit; min-height: 44px; padding: 8px; }
+.personal-vehicle-blocks { min-width: 0; }
+.personal-vehicle-block { border-bottom: 1px solid var(--line); }
+.personal-vehicle-heading { display: flex; align-items: center; gap: 8px; }
+.vehicle-disclosure { display: flex; align-items: center; flex: 1 1 auto; gap: 10px; min-width: 0; min-height: 52px; border: 0; background: transparent; color: var(--foreground); font-size: 16px; font-weight: 700; padding: 8px 0; text-align: left; }
+.personal-vehicle-blocks .vehicle-disclosure span { overflow-wrap: anywhere; font-size: 16px; font-weight: 700; color: var(--foreground); }
+.vehicle-disclosure svg { flex-shrink: 0; }
+.vehicle-disclosure svg.expanded { transform: rotate(90deg); }
+.vehicle-disclosure small { color: var(--muted); font-size: 13px; margin-left: auto; }
+.vehicle-block-content { padding: 8px 0 16px; }
+.vehicle-block-content[hidden] { display: none; }
+.vehicle-block-content .object-attachment-section { border: 0; padding: 0; background: transparent; }
+.vehicle-block-content .attachment-section-head { justify-content: flex-end; }
+.vehicle-block-content .resource-standard-trips { border: 0; margin: 0; padding: 0; }
+@media (max-width: 600px) {
+  .personal-vehicle-heading:has(.personal-drag-handle) { display: grid; grid-template-columns: minmax(0, 1fr) 44px; gap: 4px 8px; padding-bottom: 8px; }
+  .personal-vehicle-heading .personal-order-arrows { grid-column: 1 / -1; justify-self: end; }
+}
+
 .sidebar nav button,
 .version {
   align-items: center;
@@ -8568,6 +8602,7 @@ button.media-thumb {
     -webkit-overflow-scrolling: touch;
   }
   .sidebar nav button { flex: 0 0 auto; min-height: 44px; padding: 0 12px; white-space: nowrap; }
+  .sidebar nav .personal-nav-entry { flex: 0 0 auto; }
   .sidebar .version { display: none; }
 
   .object-file {
