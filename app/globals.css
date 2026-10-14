@@ -8544,13 +8544,31 @@ button.media-thumb {
     grid-template-columns: 1fr;
   }
 
+  .app:has(> .sidebar) {
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
   .sidebar {
+    gap: 8px;
+    height: auto;
+    min-width: 0;
+    overflow: visible;
+    padding: max(10px, env(safe-area-inset-top)) 12px 10px;
     position: static;
   }
 
+  .sidebar .brand { min-height: 32px; }
+  .sidebar .brand img { max-height: 32px; max-width: min(280px, 100%); width: auto; }
   .sidebar nav {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    display: flex;
+    gap: 6px;
+    min-width: 0;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
   }
+  .sidebar nav button { flex: 0 0 auto; min-height: 44px; padding: 0 12px; white-space: nowrap; }
+  .sidebar .version { display: none; }
 
   .object-file {
     position: static;
