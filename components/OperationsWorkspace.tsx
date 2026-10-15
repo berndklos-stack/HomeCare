@@ -19,8 +19,17 @@ import { OperationsDataTable, type DataColumn } from "./OperationsDataTable";
 import { locationLabelPdf } from "@/lib/locationLabel";
 import { SupplierDamageCases } from "./SupplierDamageCases";
 import { GoodsReceiptHistory } from "./GoodsReceiptHistory";
+import { PersonalBlocks, PersonalBlock } from "./PersonalBlocks";
 
 const tableEntities = new Set(["suppliers", "supplier_contacts", "purchase_orders", "material_details", "location_details", "location_types", "resource_details"]);
+
+function OrderListBlocks({ active, language, children, deliveries }: { active: boolean; language: OperationsLanguage; children: ReactNode; deliveries: ReactNode }) {
+  if (!active) return <>{children}{deliveries}</>;
+  return <PersonalBlocks scope="inventory.purchasing.overview" language={language} className="stack">
+    <PersonalBlock id="orders" title={operationLabel("purchase_orders", language)}>{children}</PersonalBlock>
+    <PersonalBlock id="deliveries" title={operationLabel("purchase_receipts", language)}>{deliveries}</PersonalBlock>
+  </PersonalBlocks>;
+}
 
 function OrderView({ order, title, closeLabel, onClose, children, active }: { order: OperationsRow | null; title: string; closeLabel: string; onClose: () => void; children: ReactNode; active: boolean }) {
   if (!order) return <>{children}</>;
@@ -404,6 +413,8 @@ export function OperationsWorkspace(props: Props) {
     {active.length > 0 && <div role="status" className={styles.pending}>{active.map((m) => <p key={m.id}>{t(m.status === "failed" || m.status === "conflict" ? "failed" : "waiting")}: {String((m.payload.values as Record<string, unknown> | undefined)?.company ?? (m.payload.values as Record<string, unknown> | undefined)?.name ?? m.entityId)}</p>)}</div>}
     {tab === "purchasing" && purchasingDamage && <div id="purchasing-damage-panel" role="tabpanel" aria-label={t("damageCases")}><SupplierDamageCases inline language={language} onClose={() => change("suppliers")} /></div>}
     <OrderView active={!detail && !form && !history && !archive} order={entity === "purchase_order_items" ? parent : null} title={t("purchase_orders")} closeLabel={t("scanBack")} onClose={() => change("purchase_orders")}>
+    <OrderListBlocks active={tab === "purchasing" && !purchasingDamage && entity === "purchase_orders" && !parent} language={language}
+      deliveries={tab === "purchasing" && !purchasingDamage && entity === "purchase_orders" && !parent && <GoodsReceiptHistory language={language} refresh={refresh} onSelectionChange={setDeliverySelected} />}>
     {entity !== "material_details" && !purchasingDamage && (tab !== "inventory" || stockActive !== null) && <div hidden={deliverySelected || form?.entity === "suppliers"} id={tab === "purchasing" ? "purchasing-panel" : "inventory-master-panel"} role={inventoryMaster || tab === "purchasing" ? "tabpanel" : undefined} aria-label={inventoryMaster || tab === "purchasing" ? t(entity) : undefined} className={`${entity === "purchase_order_items" ? "" : "panel"} ${styles.list}`} aria-busy={loading}>
       <div className="panel-title"><div><p>{tab === "inventory" ? t("inventorySection") : operationsLabels[tab as keyof typeof operationsLabels][language]}</p><h2>{entity === "location_details" && storagePlacesView ? `${t("storagePlaces")}${parent ? `: ${String(parent.name ?? "")}` : ""}` : t(entity)}</h2></div>
         {(inventoryMaster || tab === "purchasing") && <div className={styles.actions}><button title={t("refresh")} aria-label={t("refresh")} onClick={() => setRefresh((n) => n + 1)}><RefreshCw size={18} /></button>{editable && !error && <button className={styles.primaryAction + " create-button"} disabled={entity === "purchase_order_items" && (!parent || parent.status !== "draft" || blocked(parent.id))} onClick={() => open("save")}><Plus size={18} />{t(entity === "location_details" ? storagePlacesView ? "createStoragePlace" : "createLocation" : "create")}</button>}</div>}
@@ -469,7 +480,7 @@ export function OperationsWorkspace(props: Props) {
       </article>)}
     </div>}
     {count > 50 && !purchasingDamage && <div className={styles.toolbar}><button aria-label={t("previous")} disabled={page === 0} onClick={() => setPage((p) => p - 1)}><ChevronLeft size={18} /></button><span>{page + 1} / {Math.ceil(count / 50)}</span><button aria-label={t("next")} disabled={(page + 1) * 50 >= count} onClick={() => setPage((p) => p + 1)}><ChevronRight size={18} /></button></div>}
-    {tab === "purchasing" && !purchasingDamage && entity === "purchase_orders" && !parent && <GoodsReceiptHistory language={language} refresh={refresh} onSelectionChange={setDeliverySelected} />}
+    </OrderListBlocks>
     {receivable && <section className={styles.receiptBooking}>
       <div className={styles.fields}>
         {input("location_id", { location_id: receiptLocation }, (_key, value) => setReceiptLocation(value), true)}

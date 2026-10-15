@@ -9,7 +9,9 @@ import { AppleRemindersBridge } from "@/components/AppleRemindersBridge";
 import { TripSurface } from "@/components/TripSurface";
 import { StandardTripsEditor } from "@/components/StandardTripsEditor";
 import { PersonalNavigation, PersonalVehicleBlocks } from "@/components/PersonalLayout";
+import { PersonalBlock, PersonalBlocks, PersonalBlocksProvider } from "@/components/PersonalBlocks";
 import { useLayoutPreferences, type LayoutPreferencesController } from "@/lib/useLayoutPreferences";
+import { useBlockLayouts } from "@/lib/useBlockLayouts";
 import type { StandardTrip } from "@/lib/standardTrips";
 import { standardTripOdometers } from "@/lib/standardTrips";
 import { OperationsWorkspace } from "@/components/OperationsWorkspace";
@@ -2802,6 +2804,10 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Übersetzungsvorschläge wurden eingetragen. Bitte prüfen und speichern.", sv: "Översättningsförslag har lagts in. Kontrollera och spara.", en: "Translation suggestions were entered. Please review and save." },
   { de: "ausgeschieden", sv: "slutat", en: "left" },
   { de: "pausiert", sv: "pausad", en: "paused" },
+  { de: "Arbeitsübersicht", sv: "Arbetsöversikt", en: "Work overview" },
+  { de: "Objekte und Personal", sv: "Objekt och personal", en: "Properties and staff" },
+  { de: "Pauschaler Rabatt", sv: "Generell rabatt", en: "Overall discount" },
+  { de: "Hinweise", sv: "Meddelanden", en: "Notices" },
 ];
 
 const appFieldSvText = Object.fromEntries(appFieldTranslations.map((row) => [row.de, row.sv]));
@@ -8977,6 +8983,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
   const [quickTripAddressLoading, setQuickTripAddressLoading] = useState("");
   const [quickTripStandardId, setQuickTripStandardId] = useState("");
   const layoutPreferences = useLayoutPreferences(!portalOnly);
+  const blockLayouts = useBlockLayouts(!portalOnly);
   const [quickTripSaving, setQuickTripSaving] = useState(false);
   const quickTripSavingRef = useRef(false);
   const [quickTripForm, setQuickTripForm] = useState({
@@ -13271,6 +13278,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
   );
 
   return (
+    <PersonalBlocksProvider controller={blockLayouts}>
     <main className="app" data-ready="true" data-theme={theme}>
       {onboardingVisible && (
         <OnboardingWizard
@@ -13762,21 +13770,23 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
           </TripSurface>
       )}
         {section === "dashboard" && !quickTripOpen && (
-          <div className="quickbar">
+          <PersonalBlocks scope="dashboard.metrics" language={language} className="quickbar">
             {dashboardStats.map((item) => (
-              <button key={item.label} onClick={() => setSection(item.section)} type="button">
+              <PersonalBlock key={item.section} id={item.section} title={item.label} pressable>
+              <button className="quickbar-card" onClick={() => setSection(item.section)} type="button">
                 <strong>{item.value}</strong>
                 <span>{item.label}</span>
               </button>
+              </PersonalBlock>
             ))}
-          </div>
+          </PersonalBlocks>
         )}
 
         {!quickTripOpen && <section className="layout full">
           <div className="main-panel">
             {section === "dashboard" && (
-              <>
-                {(!onboardingState.firstStepsDismissed || !companySettings.onboarding) && (
+              <Dashboard
+                firstSteps={(!onboardingState.firstStepsDismissed || !companySettings.onboarding) ? (
                   <FirstStepsCard
                     companySettings={companySettings}
                     dailyMailSettings={dailyMailSettings}
@@ -13787,17 +13797,15 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
                     personnelCount={personnel.filter((person) => !person.archived).length}
                     pwaStandalone={pwaStandalone}
                   />
-                )}
-                <Dashboard
+                ) : null}
                   allJobs={jobs}
                   onOpenJob={openEditJob}
                   language={language}
                   objects={activeObjects}
                   reports={reports}
                   setSection={setSection}
+                  warnings={<OperationsWarnings language={language} onOpen={() => setSection("inventory")} />}
                 />
-                <OperationsWarnings language={language} onOpen={() => setSection("inventory")} />
-              </>
             )}
             {section === "objects" && objectEditorOpen && (
               <ObjectEditorPage
@@ -14481,6 +14489,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
         </div>
       )}
     </main>
+    </PersonalBlocksProvider>
   );
 }
 
@@ -14807,18 +14816,22 @@ function ContextHelpBanner({ helpKey, language, onDismiss }: { helpKey: Onboardi
 
 function Dashboard({
   allJobs,
+  firstSteps,
   onOpenJob,
   language,
   objects,
   reports,
   setSection,
+  warnings,
 }: {
   allJobs: JobRecord[];
+  firstSteps: ReactNode;
   onOpenJob: (job: JobRecord) => void;
   language: Language;
   objects: ObjectRecord[];
   reports: ReportRecord[];
   setSection: (section: Section) => void;
+  warnings: ReactNode;
 }) {
   const tt = (value: string) => uiText(value, language);
   const openDashboardJobs = dashboardWorkJobs(allJobs);
@@ -14829,16 +14842,24 @@ function Dashboard({
   ];
 
   return (
-    <div className="stack">
-      <section className="workboard">
+    <PersonalBlocks scope="dashboard.content" language={language}>
+      {firstSteps && <PersonalBlock id="firstSteps" title={tt("Erste Schritte")}>
+        {firstSteps}
+      </PersonalBlock>}
+      <PersonalBlock id="workboard" title={tt("Arbeitsübersicht")}>
+      <PersonalBlocks scope="dashboard.shortcuts" language={language} className="workboard">
         {workBlocks.map((block) => (
-          <button key={block.label} onClick={() => setSection(block.section)} type="button">
+          <PersonalBlock key={block.section} id={block.section} title={block.label} pressable>
+          <button className="workboard-card" onClick={() => setSection(block.section)} type="button">
             <span>{block.label}</span>
             <strong>{block.value}</strong>
             <small>{block.text}</small>
           </button>
+          </PersonalBlock>
         ))}
-      </section>
+      </PersonalBlocks>
+      </PersonalBlock>
+      <PersonalBlock id="upcomingJobs" title={tt("Nächste Einsätze")}>
       <section className="panel">
         <div className="panel-title">
           <div>
@@ -14860,7 +14881,11 @@ function Dashboard({
           {openDashboardJobs.length === 0 && <span className="muted-line">{tt("Keine offenen Einsätze.")}</span>}
         </div>
       </section>
-    </div>
+      </PersonalBlock>
+      <PersonalBlock id="operationsWarnings" title={tt("Hinweise")}>
+        {warnings}
+      </PersonalBlock>
+    </PersonalBlocks>
   );
 }
 
@@ -15144,15 +15169,17 @@ function AnalyticsView({
           <input type="checkbox" checked={onlyBooked} onChange={(event) => setOnlyBooked(event.target.checked)} />
           <span>{tt("Nur mit erfasster Zeit")}</span>
         </label>
-        <div className="analytics-summary-grid">
-          <div><span>{tt("Dokumentierte Arbeitszeit")}</span><strong>{formatWorkHours(totalMinutes)}</strong></div>
-          <div><span>{tt("Einsatzberichte")}</span><strong>{filteredReports.length}</strong></div>
-          <div><span>{tt("Kunden mit Zeiten")}</span><strong>{customerRows.filter((row) => row.minutes > 0).length}</strong></div>
-          <div><span>{tt("Berichtsfotos")}</span><strong>{totalPhotos}</strong></div>
-          <div><span>{tt("Abgeschlossene Aufträge")}</span><strong>{completedJobs}</strong></div>
-        </div>
+        <PersonalBlocks scope="analytics.metrics" language={language} className="analytics-summary-grid">
+          <PersonalBlock id="workTime" title={tt("Dokumentierte Arbeitszeit")}><div className="analytics-metric"><span>{tt("Dokumentierte Arbeitszeit")}</span><strong>{formatWorkHours(totalMinutes)}</strong></div></PersonalBlock>
+          <PersonalBlock id="reports" title={tt("Einsatzberichte")}><div className="analytics-metric"><span>{tt("Einsatzberichte")}</span><strong>{filteredReports.length}</strong></div></PersonalBlock>
+          <PersonalBlock id="customers" title={tt("Kunden mit Zeiten")}><div className="analytics-metric"><span>{tt("Kunden mit Zeiten")}</span><strong>{customerRows.filter((row) => row.minutes > 0).length}</strong></div></PersonalBlock>
+          <PersonalBlock id="photos" title={tt("Berichtsfotos")}><div className="analytics-metric"><span>{tt("Berichtsfotos")}</span><strong>{totalPhotos}</strong></div></PersonalBlock>
+          <PersonalBlock id="completedJobs" title={tt("Abgeschlossene Aufträge")}><div className="analytics-metric"><span>{tt("Abgeschlossene Aufträge")}</span><strong>{completedJobs}</strong></div></PersonalBlock>
+        </PersonalBlocks>
       </section>
 
+      <PersonalBlocks scope="analytics.content" language={language}>
+      <PersonalBlock id="customers" title={tt("Zeit je Kunde")}>
       <section className="panel">
         <div className="panel-title">
           <div>
@@ -15197,7 +15224,10 @@ function AnalyticsView({
         </div>
       </section>
 
-      <section className="analytics-split">
+      </PersonalBlock>
+      <PersonalBlock id="details" title={tt("Objekte und Personal")}>
+      <PersonalBlocks scope="analytics.details" language={language} className="analytics-split">
+        <PersonalBlock id="objects" title={tt("Zeit je Objekt")}>
         <div className="panel">
           <div className="panel-title">
             <div>
@@ -15233,6 +15263,8 @@ function AnalyticsView({
             {objectRows.length === 0 && <p className="empty-list-note">{tt("Noch keine Objektzeiten vorhanden.")}</p>}
           </div>
         </div>
+        </PersonalBlock>
+        <PersonalBlock id="personnel" title={tt("Zeit je Mitarbeiter")}>
         <div className="panel">
           <div className="panel-title">
             <div>
@@ -15268,7 +15300,10 @@ function AnalyticsView({
             {personnelRows.length === 0 && <p className="empty-list-note">{tt("Noch keine Mitarbeiterzeiten vorhanden.")}</p>}
           </div>
         </div>
-      </section>
+        </PersonalBlock>
+      </PersonalBlocks>
+      </PersonalBlock>
+      </PersonalBlocks>
       {detailReport && (
         <div className="modal-backdrop">
           <section className="modal analytics-report-modal" role="dialog" aria-modal="true" aria-labelledby="analytics-report-title">
@@ -18859,6 +18894,8 @@ function TrackingView({
           <span>{tt("Letzte per Mitarbeiter-Mobil erfasste Standorte aus dem Fahrtenbuch.")}</span>
         </div>
       </div>
+      <PersonalBlocks scope="tracking.content" language={language}>
+      <PersonalBlock id="summary" title={tt("Zusammenfassung")}>
       <div className="inventory-summary-grid tracking-summary-grid">
         <div className="inventory-summary-card">
           <strong>{vehicles.length}</strong>
@@ -18873,6 +18910,8 @@ function TrackingView({
           <span>{tt("mit Standort")}</span>
         </div>
       </div>
+      </PersonalBlock>
+      <PersonalBlock id="map" title={tt("Karte")}>
       <div className="tracking-map-panel">
         {selected ? (
           <>
@@ -18895,6 +18934,8 @@ function TrackingView({
           </div>
         )}
       </div>
+      </PersonalBlock>
+      <PersonalBlock id="vehicles" title={tt("Fahrzeuge")}>
       <div className="table-list compact-list tracking-list">
         {vehicles.map((vehicle) => {
           const position = latestVehiclePosition(vehicle, livePositions);
@@ -18929,6 +18970,8 @@ function TrackingView({
         })}
         {vehicles.length === 0 && <p>{tt("Bitte zuerst ein Fahrzeug in den Ressourcen anlegen.")}</p>}
       </div>
+      </PersonalBlock>
+      </PersonalBlocks>
     </section>
   );
 }
@@ -23811,7 +23854,8 @@ function MasterDataView({
       )}
 
       {masterDataTab === "services" && (
-        <>
+        <PersonalBlocks scope="masterData.services" language={language}>
+          <PersonalBlock id="services" title={tt("Leistungen einzeln erfassen")}>
           <section className="panel">
         <div className="panel-title">
           <div>
@@ -23866,6 +23910,8 @@ function MasterDataView({
         )}
       </section>
 
+      </PersonalBlock>
+      <PersonalBlock id="packages" title={tt("Mehrere Leistungen bündeln")}>
       <section className="panel">
         <div className="panel-title">
           <div>
@@ -23921,7 +23967,8 @@ function MasterDataView({
           </div>
         )}
       </section>
-        </>
+      </PersonalBlock>
+        </PersonalBlocks>
       )}
       {materialEditorOpen && masterDataTab === "materials" && (
         <div className="modal-backdrop nested-backdrop">
@@ -24821,6 +24868,8 @@ function ObjectForm({
 
   return (
     <div className="form-grid" onBlurCapture={autosaveField}>
+      <PersonalBlocks scope="object.form" language={language} className="wide form-grid">
+      <PersonalBlock id="basics" title={tt("Basisdaten")} className="wide personal-form-block">
       <h3>{tt("Basisdaten")}</h3>
       <label><span>{tt("Typ")}</span>
         <select value={newObject.type} onChange={(event) => setNewObject({ ...newObject, type: event.target.value })}>
@@ -24838,7 +24887,8 @@ function ObjectForm({
           {resolvedStatusOptions.map((status) => <option key={status} value={status}>{status}</option>)}
         </select>
       </label>
-      {hasFieldGroup("customer") && <>
+      </PersonalBlock>
+      {hasFieldGroup("customer") && <PersonalBlock id="customer" title={tt("Kunde / Eigentümer")} className="wide personal-form-block">
         <h3>{tt("Kunde / Eigentümer")}</h3>
         {isFieldVisible("ownerCustomerId") && <label className="wide">
           <span>{fieldLabel("ownerCustomerId", "Kunde / Eigentümer auswählen")}</span>
@@ -24852,14 +24902,14 @@ function ObjectForm({
         {isFieldVisible("ownerPhone") && <label><span>{fieldLabel("ownerPhone", "Telefon")}</span><input value={newObject.ownerPhone} onChange={(event) => update("ownerPhone", event.target.value)} /></label>}
         {isFieldVisible("ownerAddress") && <AddressFields label={fieldLabel("ownerAddress", "Kunden-/Eigentümeradresse")} language={language} value={newObject.ownerAddress} onChange={(part, value) => updateObjectAddress("ownerAddress", part, value)} />}
         {renderCustomFields("customer")}
-      </>}
-      {hasFieldGroup("address") && <>
+      </PersonalBlock>}
+      {hasFieldGroup("address") && <PersonalBlock id="address" title={tt("Adresse / Region")} className="wide personal-form-block">
         <h3>{tt("Adresse / Region")}</h3>
         {isFieldVisible("region") && <label><span>{fieldLabel("region", "Ort/Region")}</span><input value={newObject.region} onChange={(event) => update("region", event.target.value)} /></label>}
         {isFieldVisible("address") && <AddressFields label={selectedObjectType.fieldLabels?.address?.[language]?.trim() || entityAddressLabel} language={language} value={newObject.address} onChange={(part, value) => updateObjectAddress("address", part, value)} />}
         {renderCustomFields("address")}
-      </>}
-      {hasFieldGroup("billing") && <>
+      </PersonalBlock>}
+      {hasFieldGroup("billing") && <PersonalBlock id="billing" title={tt("Abrechnung")} className="wide personal-form-block">
         <h3>{tt("Abrechnung")}</h3>
         {isFieldVisible("billingAddressMode") && <label>
           <span>{fieldLabel("billingAddressMode", "Rechnungsadresse verwenden")}</span>
@@ -24871,8 +24921,8 @@ function ObjectForm({
         </label>}
         {isFieldVisible("billingAddress") && <AddressFields disabled={newObject.billingAddressMode !== "Abweichend"} label={fieldLabel("billingAddress", "Rechnungsadresse")} language={language} value={newObject.billingAddressMode === "Objektadresse" ? newObject.address : newObject.billingAddressMode === "Eigentümeradresse" ? newObject.ownerAddress : newObject.billingAddress} onChange={(part, value) => updateObjectAddress("billingAddress", part, value)} />}
         {renderCustomFields("billing")}
-      </>}
-      {hasFieldGroup("property") && <>
+      </PersonalBlock>}
+      {hasFieldGroup("property") && <PersonalBlock id="property" title={tt("Gebäude / Flächen")} className="wide personal-form-block">
         <h3>{tt("Gebäude / Flächen")}</h3>
         {isFieldVisible("sizeSqm") && <label><span>{fieldLabel("sizeSqm", "Größe m²")}</span><input type="number" value={newObject.sizeSqm} onChange={(event) => update("sizeSqm", event.target.value)} /></label>}
         {isFieldVisible("plotSqm") && <label><span>{fieldLabel("plotSqm", "Grundstück m²")}</span><input type="number" value={newObject.plotSqm} onChange={(event) => update("plotSqm", event.target.value)} /></label>}
@@ -24881,47 +24931,48 @@ function ObjectForm({
         {isFieldVisible("beds") && <label><span>{fieldLabel("beds", "Betten")}</span><input type="number" value={newObject.beds} onChange={(event) => update("beds", event.target.value)} /></label>}
         {isFieldVisible("bathrooms") && <label><span>{fieldLabel("bathrooms", "Bäder")}</span><input type="number" value={newObject.bathrooms} onChange={(event) => update("bathrooms", event.target.value)} /></label>}
         {renderCustomFields("property")}
-      </>}
-      {hasFieldGroup("project") && <>
+      </PersonalBlock>}
+      {hasFieldGroup("project") && <PersonalBlock id="project" title={tt("Projektangaben")} className="wide personal-form-block">
         <h3>{tt("Projektangaben")}</h3>
         {isFieldVisible("projectStart") && <label><span>{fieldLabel("projectStart", "Projektbeginn")}</span><input type="date" value={newObject.customFields.projectStart ?? ""} onChange={(event) => updateCustomField("projectStart", event.target.value)} /></label>}
         {isFieldVisible("projectEnd") && <label><span>{fieldLabel("projectEnd", "Projektende")}</span><input type="date" value={newObject.customFields.projectEnd ?? ""} onChange={(event) => updateCustomField("projectEnd", event.target.value)} /></label>}
         {isFieldVisible("projectManager") && <label><span>{fieldLabel("projectManager", "Projektleitung")}</span><input value={newObject.customFields.projectManager ?? ""} onChange={(event) => updateCustomField("projectManager", event.target.value)} /></label>}
         {isFieldVisible("budget") && <label><span>{fieldLabel("budget", "Budget")}</span><input value={newObject.customFields.budget ?? ""} onChange={(event) => updateCustomField("budget", event.target.value)} /></label>}
         {renderCustomFields("project")}
-      </>}
-      {hasFieldGroup("asset") && <>
+      </PersonalBlock>}
+      {hasFieldGroup("asset") && <PersonalBlock id="asset" title={tt("Anlagendaten")} className="wide personal-form-block">
         <h3>{tt("Anlagendaten")}</h3>
         {isFieldVisible("manufacturer") && <label><span>{fieldLabel("manufacturer", "Hersteller")}</span><input value={newObject.customFields.manufacturer ?? ""} onChange={(event) => updateCustomField("manufacturer", event.target.value)} /></label>}
         {isFieldVisible("model") && <label><span>{fieldLabel("model", "Modell")}</span><input value={newObject.customFields.model ?? ""} onChange={(event) => updateCustomField("model", event.target.value)} /></label>}
         {isFieldVisible("serialNumber") && <label><span>{fieldLabel("serialNumber", "Seriennummer")}</span><input value={newObject.customFields.serialNumber ?? ""} onChange={(event) => updateCustomField("serialNumber", event.target.value)} /></label>}
         {isFieldVisible("maintenanceInterval") && <label><span>{fieldLabel("maintenanceInterval", "Wartungsintervall")}</span><input value={newObject.customFields.maintenanceInterval ?? ""} onChange={(event) => updateCustomField("maintenanceInterval", event.target.value)} /></label>}
         {renderCustomFields("asset")}
-      </>}
-      {hasFieldGroup("service") && <>
+      </PersonalBlock>}
+      {hasFieldGroup("service") && <PersonalBlock id="service" title={tt("Betreuung")} className="wide personal-form-block">
         <h3>{tt("Betreuung")}</h3>
         {isFieldVisible("carePackage") && <label><span>{fieldLabel("carePackage", "Betreuungspaket")}</span><select value={newObject.carePackage} onChange={(event) => update("carePackage", event.target.value)}>{packageOptions.map((option) => <option key={option} value={option}>{option}</option>)}</select></label>}
         {renderCustomFields("service")}
-      </>}
-      {hasFieldGroup("access") && <>
+      </PersonalBlock>}
+      {hasFieldGroup("access") && <PersonalBlock id="access" title={tt("Zugang")} className="wide personal-form-block">
         <h3>{tt("Zugang")}</h3>
         {isFieldVisible("keySafe") && <label><span>{fieldLabel("keySafe", "Zugang / Schlüssel")}</span><textarea value={newObject.keySafe} onChange={(event) => update("keySafe", event.target.value)} /></label>}
         {isFieldVisible("alarm") && <label><span>{fieldLabel("alarm", "Alarmanlage")}</span><textarea value={newObject.alarm} onChange={(event) => update("alarm", event.target.value)} /></label>}
         {isFieldVisible("parking") && <label><span>{fieldLabel("parking", "Parken")}</span><textarea value={newObject.parking} onChange={(event) => update("parking", event.target.value)} /></label>}
         {isFieldVisible("accessNotes") && <label><span>{fieldLabel("accessNotes", "Zugangshinweise")}</span><textarea value={newObject.accessNotes} onChange={(event) => update("accessNotes", event.target.value)} /></label>}
         {renderCustomFields("access")}
-      </>}
-      {hasFieldGroup("utilities") && <>
+      </PersonalBlock>}
+      {hasFieldGroup("utilities") && <PersonalBlock id="utilities" title={tt("Technik / Versorgung")} className="wide personal-form-block">
         <h3>{tt("Technik / Versorgung")}</h3>
         {isFieldVisible("heating") && <label><span>{fieldLabel("heating", "Heizung")}</span><input value={newObject.heating} onChange={(event) => update("heating", event.target.value)} /></label>}
         {isFieldVisible("water") && <label><span>{fieldLabel("water", "Wasser")}</span><input value={newObject.water} onChange={(event) => update("water", event.target.value)} /></label>}
         {isFieldVisible("septic") && <label><span>{fieldLabel("septic", "Abwasser")}</span><input value={newObject.septic} onChange={(event) => update("septic", event.target.value)} /></label>}
         {isFieldVisible("internet") && <label><span>{fieldLabel("internet", "Internet")}</span><input value={newObject.internet} onChange={(event) => update("internet", event.target.value)} /></label>}
         {renderCustomFields("utilities")}
-      </>}
-      {hasFieldGroup("documentation") && <h3>{tt("Fotos & Dokumente")}</h3>}
-      {hasFieldGroup("documentation") && renderCustomFields("documentation")}
-      {hasFieldGroup("documentation") && isFieldVisible("photos") &&
+      </PersonalBlock>}
+      {hasFieldGroup("documentation") && <PersonalBlock id="documentation" title={tt("Fotos & Dokumente")} className="wide personal-form-block">
+      <h3>{tt("Fotos & Dokumente")}</h3>
+      {renderCustomFields("documentation")}
+      {isFieldVisible("photos") &&
       <section className="wide object-attachment-section">
         <div className="attachment-section-head">
           <div>
@@ -24966,7 +25017,7 @@ function ObjectForm({
           <p className="empty-attachment">{language === "de" ? `Noch keine Fotos zum ${entityName} vorhanden.` : language === "sv" ? `Inga foton finns ännu för ${entityName}.` : `No photos available for ${entityName} yet.`}</p>
         )}
       </section>}
-      {hasFieldGroup("documentation") && isFieldVisible("documents") &&
+      {isFieldVisible("documents") &&
       <section className="wide object-attachment-section">
         <div className="attachment-section-head">
           <div>
@@ -25015,6 +25066,24 @@ function ObjectForm({
           <p className="empty-attachment">{language === "de" ? `Noch keine Dokumente zum ${entityName} vorhanden.` : language === "sv" ? `Inga dokument finns ännu för ${entityName}.` : `No documents available for ${entityName} yet.`}</p>
         )}
       </section>}
+      </PersonalBlock>}
+      {hasFieldGroup("planning") && <PersonalBlock id="planning" title={tt("Planung / Besuche")} className="wide personal-form-block">
+        <h3>{tt("Planung / Besuche")}</h3>
+        {isFieldVisible("lastVisit") && <label><span>{fieldLabel("lastVisit", "Letzter Besuch")}</span><input value={newObject.lastVisit} onChange={(event) => update("lastVisit", event.target.value)} /></label>}
+        {isFieldVisible("nextVisit") && <label><span>{fieldLabel("nextVisit", "Nächster Besuch")}</span><input value={newObject.nextVisit} onChange={(event) => update("nextVisit", event.target.value)} /></label>}
+        {renderCustomFields("planning")}
+      </PersonalBlock>}
+      {hasFieldGroup("equipment") && <PersonalBlock id="equipment" title={tt("Ausstattung")} className="wide personal-form-block">
+        <h3>{tt("Ausstattung")}</h3>
+        {isFieldVisible("equipment") && <label className="wide"><span>{fieldLabel("equipment", "Ausstattung")}</span><textarea value={newObject.equipment} onChange={(event) => update("equipment", event.target.value)} placeholder="Pool, Sauna, Kamin" /></label>}
+        {renderCustomFields("equipment")}
+      </PersonalBlock>}
+      {hasFieldGroup("risks") && <PersonalBlock id="risks" title={tt("Hinweise / Risiken")} className="wide personal-form-block">
+        <h3>{tt("Hinweise / Risiken")}</h3>
+        {isFieldVisible("risks") && <label className="wide"><span>{fieldLabel("risks", "Hinweise / Risiken")}</span><textarea value={newObject.risks} onChange={(event) => update("risks", event.target.value)} /></label>}
+        {renderCustomFields("risks")}
+      </PersonalBlock>}
+      </PersonalBlocks>
       {previewDocument && (
         <div className="modal-backdrop nested-backdrop">
           <section aria-labelledby="document-preview-title" aria-modal="true" className="modal document-preview-modal" role="dialog">
@@ -25075,22 +25144,6 @@ function ObjectForm({
           </section>
         </div>
       )}
-      {hasFieldGroup("planning") && <>
-        <h3>{tt("Planung / Besuche")}</h3>
-        {isFieldVisible("lastVisit") && <label><span>{fieldLabel("lastVisit", "Letzter Besuch")}</span><input value={newObject.lastVisit} onChange={(event) => update("lastVisit", event.target.value)} /></label>}
-        {isFieldVisible("nextVisit") && <label><span>{fieldLabel("nextVisit", "Nächster Besuch")}</span><input value={newObject.nextVisit} onChange={(event) => update("nextVisit", event.target.value)} /></label>}
-        {renderCustomFields("planning")}
-      </>}
-      {hasFieldGroup("equipment") && <>
-        <h3>{tt("Ausstattung")}</h3>
-        {isFieldVisible("equipment") && <label className="wide"><span>{fieldLabel("equipment", "Ausstattung")}</span><textarea value={newObject.equipment} onChange={(event) => update("equipment", event.target.value)} placeholder="Pool, Sauna, Kamin" /></label>}
-        {renderCustomFields("equipment")}
-      </>}
-      {hasFieldGroup("risks") && <>
-        <h3>{tt("Hinweise / Risiken")}</h3>
-        {isFieldVisible("risks") && <label className="wide"><span>{fieldLabel("risks", "Hinweise / Risiken")}</span><textarea value={newObject.risks} onChange={(event) => update("risks", event.target.value)} /></label>}
-        {renderCustomFields("risks")}
-      </>}
       <button className="primary-button wide" onClick={onSubmit} type="button">{submitLabel}</button>
     </div>
   );
@@ -25263,6 +25316,8 @@ function CustomerForm({
 
   return (
     <div className="form-grid" onBlurCapture={autosaveField}>
+      <PersonalBlocks scope="customer.form" language={language} className="wide form-grid">
+      <PersonalBlock id="customerData" title={tt("Kundendaten")} className="wide personal-form-block">
       <h3>{tt("Kundendaten")}</h3>
       <div className="wide record-meta-line">
         <span>{tt("Kundennummer")}: {normalizeReadableNumber(customer.personalNumber) || tt("wird beim Speichern erstellt")}</span>
@@ -25305,14 +25360,8 @@ function CustomerForm({
           {languageOptions.map((language) => <option key={language} value={language} />)}
         </datalist>
       </label>
-      <label>
-        <span>{tt("Portalstatus")}</span>
-        <select value={customer.portalStatus} onChange={(event) => update("portalStatus", event.target.value)}>
-          <option value="aktiv">{tt("aktiv")}</option>
-          <option value="einladen">{tt("einladen")}</option>
-          <option value="gesperrt">{tt("gesperrt")}</option>
-        </select>
-      </label>
+      </PersonalBlock>
+      <PersonalBlock id="billingPreference" title={tt("Abrechnung")} className="wide personal-form-block">
       <section className="wide customer-preference-card">
         <div>
           <strong>{tt("Abrechnung")}</strong>
@@ -25327,49 +25376,24 @@ function CustomerForm({
           <span>{tt("Neue Aufträge in Abrechnung übernehmen")}</span>
         </label>
       </section>
+      </PersonalBlock>
+      <PersonalBlock id="portalAccess" title={tt("Portalzugang")} className="wide personal-form-block">
       <h3>{tt("Portalzugang")}</h3>
+      <label>
+        <span>{tt("Portalstatus")}</span>
+        <select value={customer.portalStatus} onChange={(event) => update("portalStatus", event.target.value)}>
+          <option value="aktiv">{tt("aktiv")}</option>
+          <option value="einladen">{tt("einladen")}</option>
+          <option value="gesperrt">{tt("gesperrt")}</option>
+        </select>
+      </label>
       <label><span>{tt("Login-E-Mail")}</span><input type="email" value={customer.portalLoginEmail} onChange={(event) => update("portalLoginEmail", event.target.value)} /></label>
       <button className="ghost-button wide" onClick={inviteToPortal} type="button">
         <KeyRound size={16} />
         {tt("Kunden ins Portal einladen")}
       </button>
-      {portalInvitePreview && (
-        <div className="modal-backdrop nested-backdrop">
-          <section aria-labelledby="portal-invite-title" aria-modal="true" className="modal send-preview-modal" role="dialog">
-            <header>
-              <div>
-                <p>{tt("Portal-Einladung")}</p>
-                <h2 id="portal-invite-title">{tt("Einladung senden")}</h2>
-              </div>
-              <button aria-label={tt("Einladungsvorschau schließen")} onClick={() => setPortalInvitePreview(null)} type="button">
-                <X size={18} />
-              </button>
-            </header>
-            {portalInviteNotice && <div className="warning-line">{portalInviteNotice}</div>}
-            <div className="send-preview-grid">
-              <label className="wide">
-                <span>{tt("An")}</span>
-                <input type="email" value={portalInvitePreview.to} onChange={(event) => setPortalInvitePreview({ ...portalInvitePreview, to: event.target.value })} />
-              </label>
-              <label className="wide">
-                <span>{tt("Betreff")}</span>
-                <input value={portalInvitePreview.subject} onChange={(event) => setPortalInvitePreview({ ...portalInvitePreview, subject: event.target.value })} />
-              </label>
-              <label className="wide">
-                <span>{tt("Nachricht")}</span>
-                <textarea value={portalInvitePreview.body} onChange={(event) => setPortalInvitePreview({ ...portalInvitePreview, body: event.target.value })} />
-              </label>
-            </div>
-            <div className="modal-actions">
-              <button className="ghost-button" onClick={() => setPortalInvitePreview(null)} type="button">{tt("Abbrechen")}</button>
-              <button className="primary-button" disabled={portalInviteSending} onClick={() => void sendPortalInvite()} type="button">
-                <Send size={16} />
-                {portalInviteSending ? tt("Senden...") : tt("Senden und Kundendaten speichern")}
-              </button>
-            </div>
-          </section>
-        </div>
-      )}
+      </PersonalBlock>
+      <PersonalBlock id="loginHistory" title={tt("Login-Verlauf Kundenportal")} className="wide personal-form-block">
       <div className="wide portal-login-history">
         <button className="job-fold-toggle" onClick={() => setLoginHistoryOpen((open) => !open)} type="button">
           {loginHistoryOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
@@ -25390,6 +25414,8 @@ function CustomerForm({
           <p>{tt("Noch keine Kundenportal-Logins protokolliert.")}</p>
         ) : null}
       </div>
+      </PersonalBlock>
+      <PersonalBlock id="notes" title={tt("Notizen / interne Info")} className="wide personal-form-block">
       <label><span>{tt("Saldo")}</span><input value={customer.balance} onChange={(event) => update("balance", event.target.value)} /></label>
       <label className="wide"><span>{tt("Notizen / interne Info")}</span><textarea value={customer.notes} onChange={(event) => update("notes", event.target.value)} /></label>
       <label>
@@ -25400,6 +25426,8 @@ function CustomerForm({
           <option value="hide">{tt("Immer ausblenden")}</option>
         </select>
       </label>
+      </PersonalBlock>
+      <PersonalBlock id="mailTexts" title={tt("Mailtexte")} className="wide personal-form-block">
       <section className="wide customer-fold-section">
         <button className="job-fold-toggle" onClick={() => setMailTextsOpen((open) => !open)} type="button">
           {mailTextsOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
@@ -25444,6 +25472,8 @@ function CustomerForm({
           </div>
         )}
       </section>
+      </PersonalBlock>
+      <PersonalBlock id="objectAssignments" title={tt("Zugeordnete Objekte")} className="wide personal-form-block">
       <label className="wide">
         <span>{tt("Objekt zuordnen")}</span>
         <select value="" onChange={(event) => assignObject(event.target.value)}>
@@ -25463,6 +25493,45 @@ function CustomerForm({
         ))}
         {customer.objects.length === 0 && <p>{tt("Noch keine Objekte zugeordnet.")}</p>}
       </div>
+      </PersonalBlock>
+      </PersonalBlocks>
+      {portalInvitePreview && (
+        <div className="modal-backdrop nested-backdrop">
+          <section aria-labelledby="portal-invite-title" aria-modal="true" className="modal send-preview-modal" role="dialog">
+            <header>
+              <div>
+                <p>{tt("Portal-Einladung")}</p>
+                <h2 id="portal-invite-title">{tt("Einladung senden")}</h2>
+              </div>
+              <button aria-label={tt("Einladungsvorschau schließen")} onClick={() => setPortalInvitePreview(null)} type="button">
+                <X size={18} />
+              </button>
+            </header>
+            {portalInviteNotice && <div className="warning-line">{portalInviteNotice}</div>}
+            <div className="send-preview-grid">
+              <label className="wide">
+                <span>{tt("An")}</span>
+                <input type="email" value={portalInvitePreview.to} onChange={(event) => setPortalInvitePreview({ ...portalInvitePreview, to: event.target.value })} />
+              </label>
+              <label className="wide">
+                <span>{tt("Betreff")}</span>
+                <input value={portalInvitePreview.subject} onChange={(event) => setPortalInvitePreview({ ...portalInvitePreview, subject: event.target.value })} />
+              </label>
+              <label className="wide">
+                <span>{tt("Nachricht")}</span>
+                <textarea value={portalInvitePreview.body} onChange={(event) => setPortalInvitePreview({ ...portalInvitePreview, body: event.target.value })} />
+              </label>
+            </div>
+            <div className="modal-actions">
+              <button className="ghost-button" onClick={() => setPortalInvitePreview(null)} type="button">{tt("Abbrechen")}</button>
+              <button className="primary-button" disabled={portalInviteSending} onClick={() => void sendPortalInvite()} type="button">
+                <Send size={16} />
+                {portalInviteSending ? tt("Senden...") : tt("Senden und Kundendaten speichern")}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
       <button className="primary-button wide" onClick={onSubmit} type="button">{submitLabel}</button>
       {(onArchive || onRestore || onDelete) && (
         <div className="wide record-dialog-actions">
@@ -25905,7 +25974,9 @@ function JobForm({
 
   return (
     <div className="form-grid job-form-layout">
-      <section className="wide job-form-panel job-form-basics">
+      <PersonalBlocks scope="job.form" language={language} className="wide form-grid job-form-layout">
+      <PersonalBlock id="basics" title={tt("Basisdaten")} className="wide personal-form-block">
+        <section className="wide job-form-panel job-form-basics">
         <div className="job-form-topline">
           <label className="job-title-field">
             <span>Titel</span>
@@ -26050,7 +26121,9 @@ function JobForm({
           </label>
         </section>
       </section>
-      <section className="wide job-position-section">
+      </PersonalBlock>
+      <PersonalBlock id="services" title={tt("Leistungen")} className="wide personal-form-block">
+        <section className="wide job-position-section">
         <div className="section-heading">
           <span>{tt("Leistungen")}</span>
           <strong>{newJob.serviceIds.length + (newJob.customServiceName.trim() ? 1 : 0)} Positionen</strong>
@@ -26166,7 +26239,9 @@ function JobForm({
           </div>
         )}
       </section>
-      <section className="wide job-position-section">
+      </PersonalBlock>
+      <PersonalBlock id="materials" title={tt("Material")} className="wide personal-form-block">
+        <section className="wide job-position-section">
         <div className="section-heading">
           <span>{tt("Material")}</span>
           <strong>{newJob.materialItems.length} Positionen</strong>
@@ -26278,73 +26353,9 @@ function JobForm({
           </div>
         )}
       </section>
-      {serviceEntryMode === "catalog" && (
-        <div className="modal-backdrop nested-backdrop">
-          <section aria-labelledby="job-service-picker-title" aria-modal="true" className="modal send-preview-modal job-picker-modal" role="dialog">
-            <header>
-              <div>
-                <p>{tt("Auftrag")}</p>
-                <h2 id="job-service-picker-title">{tt("Leistung hinzufügen")}</h2>
-              </div>
-              <button aria-label="Leistungsauswahl schließen" onClick={() => { setServiceEntryMode(""); setServiceSearch(""); }} type="button">
-                <X size={18} />
-              </button>
-            </header>
-            <label className="search-field">
-              <Search size={16} />
-              <input autoFocus placeholder={tt("Leistung, Kategorie, Einheit oder Konto suchen...")} value={serviceSearch} onChange={(event) => setServiceSearch(event.target.value)} />
-            </label>
-            <div className="job-picker-list job-picker-results">
-              {filteredJobServices.map((service) => (
-                <article key={service.id} onClick={() => addServiceFromCatalog(service.id)} role="button" tabIndex={0} onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") addServiceFromCatalog(service.id);
-                }}>
-                  <div>
-                    <strong>{service.name}</strong>
-                    <span>{service.category} · {service.description}</span>
-                  </div>
-                  <span>{serviceRate(service)}</span>
-                </article>
-              ))}
-              {filteredJobServices.length === 0 && <p>{tt("Keine Leistung für diese Suche gefunden.")}</p>}
-            </div>
-          </section>
-        </div>
-      )}
-      {materialEntryMode === "catalog" && (
-        <div className="modal-backdrop nested-backdrop">
-          <section aria-labelledby="job-material-picker-title" aria-modal="true" className="modal send-preview-modal job-picker-modal" role="dialog">
-            <header>
-              <div>
-                <p>{tt("Auftrag")}</p>
-                <h2 id="job-material-picker-title">{tt("Material hinzufügen")}</h2>
-              </div>
-              <button aria-label="Materialauswahl schließen" onClick={() => { setMaterialEntryMode(""); setMaterialSearch(""); }} type="button">
-                <X size={18} />
-              </button>
-            </header>
-            <label className="search-field">
-              <Search size={16} />
-              <input autoFocus placeholder={tt("Material, Kategorie, Lagerort oder Lieferant suchen...")} value={materialSearch} onChange={(event) => setMaterialSearch(event.target.value)} />
-            </label>
-            <div className="job-picker-list job-picker-results">
-              {filteredJobMaterials.map((material) => (
-                <article key={material.id} onClick={() => addMaterialFromCatalog(material.id)} role="button" tabIndex={0} onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") addMaterialFromCatalog(material.id);
-                }}>
-                  <div>
-                    <strong>{material.name}</strong>
-                  <span>{material.category} · {materialRate(material)}</span>
-                </div>
-                  <span>{tt("Bestand")} {materialInventoryLabel(material)}</span>
-                </article>
-              ))}
-              {filteredJobMaterials.length === 0 && <p>{tt("Kein Material für diese Suche gefunden.")}</p>}
-            </div>
-          </section>
-        </div>
-      )}
-      <div className="wide recurrence-editor">
+      </PersonalBlock>
+      <PersonalBlock id="recurrence" title={tt("Auftragsart")} className="wide personal-form-block">
+        <div className="wide recurrence-editor">
         <div className="recurrence-head">
           <CalendarDays size={18} />
           <div>
@@ -26427,9 +26438,13 @@ function JobForm({
           </div>
         )}
       </div>
-      <label className="wide"><span>Beschreibung</span><textarea value={newJob.description} onChange={(event) => update("description", event.target.value)} /></label>
+      </PersonalBlock>
+      <PersonalBlock id="notes" title={tt("Beschreibung")} className="wide personal-form-block">
+        <label className="wide"><span>Beschreibung</span><textarea value={newJob.description} onChange={(event) => update("description", event.target.value)} /></label>
       {!customerMode && <label className="wide"><span>Interne Notizen</span><textarea value={newJob.internalNotes} onChange={(event) => update("internalNotes", event.target.value)} /></label>}
-      {newJob.discountValue.trim() ? (
+      </PersonalBlock>
+      <PersonalBlock id="globalDiscount" title={tt("Pauschaler Rabatt")} className="wide personal-form-block">
+        {newJob.discountValue.trim() ? (
         <section className="wide job-position-section">
           <div className="section-heading">
             <span>Pauschaler Rabatt</span>
@@ -26461,6 +26476,74 @@ function JobForm({
           <Plus size={16} />
           Pauschalen Rabatt hinzufügen
         </button>
+      )}
+      </PersonalBlock>
+      </PersonalBlocks>
+      {serviceEntryMode === "catalog" && (
+        <div className="modal-backdrop nested-backdrop">
+          <section aria-labelledby="job-service-picker-title" aria-modal="true" className="modal send-preview-modal job-picker-modal" role="dialog">
+            <header>
+              <div>
+                <p>{tt("Auftrag")}</p>
+                <h2 id="job-service-picker-title">{tt("Leistung hinzufügen")}</h2>
+              </div>
+              <button aria-label="Leistungsauswahl schließen" onClick={() => { setServiceEntryMode(""); setServiceSearch(""); }} type="button">
+                <X size={18} />
+              </button>
+            </header>
+            <label className="search-field">
+              <Search size={16} />
+              <input autoFocus placeholder={tt("Leistung, Kategorie, Einheit oder Konto suchen...")} value={serviceSearch} onChange={(event) => setServiceSearch(event.target.value)} />
+            </label>
+            <div className="job-picker-list job-picker-results">
+              {filteredJobServices.map((service) => (
+                <article key={service.id} onClick={() => addServiceFromCatalog(service.id)} role="button" tabIndex={0} onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") addServiceFromCatalog(service.id);
+                }}>
+                  <div>
+                    <strong>{service.name}</strong>
+                    <span>{service.category} · {service.description}</span>
+                  </div>
+                  <span>{serviceRate(service)}</span>
+                </article>
+              ))}
+              {filteredJobServices.length === 0 && <p>{tt("Keine Leistung für diese Suche gefunden.")}</p>}
+            </div>
+          </section>
+        </div>
+      )}
+      {materialEntryMode === "catalog" && (
+        <div className="modal-backdrop nested-backdrop">
+          <section aria-labelledby="job-material-picker-title" aria-modal="true" className="modal send-preview-modal job-picker-modal" role="dialog">
+            <header>
+              <div>
+                <p>{tt("Auftrag")}</p>
+                <h2 id="job-material-picker-title">{tt("Material hinzufügen")}</h2>
+              </div>
+              <button aria-label="Materialauswahl schließen" onClick={() => { setMaterialEntryMode(""); setMaterialSearch(""); }} type="button">
+                <X size={18} />
+              </button>
+            </header>
+            <label className="search-field">
+              <Search size={16} />
+              <input autoFocus placeholder={tt("Material, Kategorie, Lagerort oder Lieferant suchen...")} value={materialSearch} onChange={(event) => setMaterialSearch(event.target.value)} />
+            </label>
+            <div className="job-picker-list job-picker-results">
+              {filteredJobMaterials.map((material) => (
+                <article key={material.id} onClick={() => addMaterialFromCatalog(material.id)} role="button" tabIndex={0} onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") addMaterialFromCatalog(material.id);
+                }}>
+                  <div>
+                    <strong>{material.name}</strong>
+                  <span>{material.category} · {materialRate(material)}</span>
+                </div>
+                  <span>{tt("Bestand")} {materialInventoryLabel(material)}</span>
+                </article>
+              ))}
+              {filteredJobMaterials.length === 0 && <p>{tt("Kein Material für diese Suche gefunden.")}</p>}
+            </div>
+          </section>
+        </div>
       )}
       <button className="primary-button wide" onClick={onSubmit} type="button">{submitLabel}</button>
     </div>

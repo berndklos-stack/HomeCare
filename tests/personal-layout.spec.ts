@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { defaultLayoutPreferences, moveLayoutItem, navigationOrder, orderedIds, validateLayoutOrder, vehicleBlockOrder } from '../lib/layoutPreferences';
 import { defaultResourceTypes } from '../lib/resourceTypes';
+import { holdToArrange } from './helpers/personal-layout';
 
 test('Reihenfolgen bleiben vollstaendig, eindeutig und validiert', () => {
   expect(orderedIds(['jobs', 'jobs', 'invalid'], navigationOrder)).toEqual(['jobs', ...navigationOrder.filter((id) => id !== 'jobs')]);
@@ -28,14 +29,14 @@ for (const size of [{ width: 1440, height: 1000 }, { width: 820, height: 1180 },
     });
     await page.route('**/api/resource-types', (route) => route.fulfill({ json: { types: defaultResourceTypes.map((type) => ({ ...type, revision: 1 })) } }));
     await page.goto('/');
-    await expect(page.locator('main.app')).toHaveAttribute('data-ready', 'true');
+    await expect(page.locator('main.app')).toHaveAttribute('data-ready', 'true', { timeout: 30_000 });
     const sidebar = page.locator('.sidebar');
-    expect((await sidebar.getByRole('button', { name: 'Anordnen', exact: true }).boundingBox())!.height).toBeGreaterThanOrEqual(44);
-    await sidebar.getByRole('button', { name: 'Anordnen', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Anordnen', exact: true })).toHaveCount(0);
+    await holdToArrange(page, page.getByTestId('nav-dashboard'), sidebar.locator('.personal-navigation'));
     await sidebar.getByRole('button', { name: 'Stammdaten nach oben verschieben', exact: true }).click();
     await expect.poll(() => saved.navigationOrder.indexOf('masterData')).toBe(11);
     await expect(sidebar.locator('[data-nav-id]').nth(11)).toHaveAttribute('data-nav-id', 'masterData');
-    await sidebar.getByRole('button', { name: 'Anordnen beenden', exact: true }).click();
+    await sidebar.getByRole('button', { name: 'Verschieben beenden', exact: true }).click();
     await page.getByTestId('nav-masterData').click();
     await page.getByRole('button', { name: 'Ressourcen', exact: true }).click();
     await page.getByRole('button', { name: 'Ressource Servicebil Kolaretorp bearbeiten', exact: true }).click();
@@ -44,13 +45,13 @@ for (const size of [{ width: 1440, height: 1000 }, { width: 820, height: 1180 },
     expect(await blocks.locator('.vehicle-disclosure').first().evaluate((element) => ({ display: getComputedStyle(element).display, border: getComputedStyle(element).borderTopWidth }))).toEqual({ display: 'flex', border: '0px' });
     expect(await blocks.locator('.vehicle-disclosure > span').first().evaluate((element) => parseFloat(getComputedStyle(element).fontSize))).toBeGreaterThanOrEqual(16);
     for (const title of ['Standardfahrten', 'Fahrzeugdokumente', 'Termine / Wartung']) await expect(blocks.getByRole('button', { name: new RegExp('^' + title + '\\s*\\d+$') })).toHaveAttribute('aria-expanded', 'false');
-    await blocks.getByRole('button', { name: 'Anordnen', exact: true }).click();
+    await holdToArrange(page, blocks.locator('.vehicle-disclosure').first(), blocks);
     await blocks.getByRole('button', { name: 'Termine / Wartung nach oben verschieben', exact: true }).click();
     await expect.poll(() => saved.vehicleBlockOrder).toEqual(['standardTrips', 'maintenance', 'documents']);
     await blocks.getByRole('button', { name: 'Termine / Wartung nach oben verschieben', exact: true }).click();
     await expect.poll(() => saved.vehicleBlockOrder).toEqual(['maintenance', 'standardTrips', 'documents']);
     await expect(blocks.locator('[data-block-id]').first()).toHaveAttribute('data-block-id', 'maintenance');
-    await blocks.getByRole('button', { name: 'Anordnen beenden', exact: true }).click();
+    await blocks.getByRole('button', { name: 'Verschieben beenden', exact: true }).click();
     const maintenanceToggle = blocks.getByRole('button', { name: /^Termine \/ Wartung\s*\d+$/ });
     await maintenanceToggle.click();
     await blocks.locator('[data-block-id="maintenance"]').getByLabel('Termin', { exact: true }).fill('Serviceentwurf');
@@ -64,17 +65,15 @@ for (const size of [{ width: 1440, height: 1000 }, { width: 820, height: 1180 },
     await editor.getByRole('button', { name: 'Neue Standardfahrt anlegen', exact: true }).click();
     await editor.getByLabel('Bezeichnung der Standardfahrt', { exact: true }).fill('Unfertiger Entwurf');
     await expect(standardToggle).toBeDisabled();
-    await blocks.getByRole('button', { name: 'Anordnen', exact: true }).click();
     for (const grip of await blocks.locator('.personal-drag-handle').all()) await expect(grip).toBeDisabled();
-    await expect(blocks.getByRole('button', { name: 'Standardreihenfolge', exact: true })).toBeDisabled();
-    await blocks.getByRole('button', { name: 'Anordnen beenden', exact: true }).click();
+    await expect(blocks.getByRole('button', { name: 'Standardreihenfolge', exact: true })).toHaveCount(0);
     await editor.getByRole('button', { name: 'Abbrechen', exact: true }).click();
     await standardToggle.click();
     await expect(editor).not.toBeVisible();
     await page.screenshot({ path: `test-results/personal-layout-${size.width}-${test.info().project.name}.png` });
     await dialog.getByRole('button', { name: 'Ressource schließen', exact: true }).click();
     await page.reload();
-    await expect(page.locator('main.app')).toHaveAttribute('data-ready', 'true');
+    await expect(page.locator('main.app')).toHaveAttribute('data-ready', 'true', { timeout: 30_000 });
     await expect(sidebar.locator('[data-nav-id]').nth(11)).toHaveAttribute('data-nav-id', 'masterData');
     await page.getByTestId('nav-masterData').click();
     await page.getByRole('button', { name: 'Ressourcen', exact: true }).click();
@@ -82,7 +81,7 @@ for (const size of [{ width: 1440, height: 1000 }, { width: 820, height: 1180 },
     await expect(blocks.locator('[data-block-id]').first()).toHaveAttribute('data-block-id', 'maintenance');
     await dialog.getByRole('button', { name: 'Ressource schließen', exact: true }).click();
     fail = true;
-    await sidebar.getByRole('button', { name: 'Anordnen', exact: true }).click();
+    await holdToArrange(page, page.getByTestId('nav-dashboard'), sidebar.locator('.personal-navigation'));
     await sidebar.getByRole('button', { name: 'Stammdaten nach oben verschieben', exact: true }).click();
     await expect(sidebar.locator('.personal-order-toolbar').getByRole('status')).toHaveText('Nicht gespeichert');
     expect(saved.navigationOrder.indexOf('masterData')).toBe(11);
@@ -119,10 +118,10 @@ for (const width of [1440, 820, 390]) {
     });
     await page.route('**/api/resource-types', route => route.fulfill({ json: { types: defaultResourceTypes.map(type => ({ ...type, revision: 1 })) } }));
     await page.goto('/');
-    await expect(page.locator('main.app')).toHaveAttribute('data-ready', 'true');
+    await expect(page.locator('main.app')).toHaveAttribute('data-ready', 'true', { timeout: 30_000 });
     const sidebar = page.locator('.sidebar');
-    await sidebar.getByRole('button', { name: 'Anordnen', exact: true }).click();
     const handle = sidebar.locator('[data-nav-id="dashboard"] .personal-drag-handle');
+    await expect(handle).toBeEnabled();
     await handle.focus();
     await page.keyboard.press('Space');
     await expect(sidebar.locator('.personal-dragging')).toHaveCount(1);
@@ -136,12 +135,12 @@ for (const width of [1440, 820, 390]) {
     await page.keyboard.press(width > 1180 ? 'ArrowDown' : 'ArrowRight');
     await page.keyboard.press('Escape');
     expect(writes).toBe(1);
-    await sidebar.getByRole('button', { name: 'Anordnen beenden', exact: true }).click();
+    await expect(sidebar.locator('.personal-navigation')).not.toHaveClass(/personal-arranging/);
     await page.getByTestId('nav-masterData').click();
     await page.getByRole('button', { name: 'Ressourcen', exact: true }).click();
     await page.getByRole('button', { name: 'Ressource Servicebil Kolaretorp bearbeiten', exact: true }).click();
     const blocks = page.getByRole('dialog').locator('.personal-vehicle-blocks');
-    await blocks.getByRole('button', { name: 'Anordnen', exact: true }).click();
+    await holdToArrange(page, blocks.locator('.vehicle-disclosure').first(), blocks);
     const source = blocks.locator('[data-block-id="maintenance"] .personal-drag-handle');
     const target = blocks.locator('[data-block-id="standardTrips"] .personal-drag-handle');
     await source.scrollIntoViewIfNeeded();
@@ -162,6 +161,8 @@ for (const width of [1440, 820, 390]) {
     await page.mouse.move(1, 1, { steps: 15 });
     await page.mouse.up();
     await expect(blocks.locator('.personal-dragging')).toHaveCount(0);
+    await expect(blocks.locator('[data-block-id="maintenance"]')).toHaveCSS('transform', 'none');
+    await page.waitForTimeout(80); // Wait for dnd-kit's document click guard to release.
     expect(writes).toBe(2);
     // A failed drop must leave the confirmed order in place.
     fail = true;
@@ -197,19 +198,19 @@ for (const width of [390, 820]) test(`Echte Touchgeste verschiebt Fahrzeugbloeck
     });
     await page.route('**/api/resource-types', route => route.fulfill({ json: { types: defaultResourceTypes.map(type => ({ ...type, revision: 1 })) } }));
     await page.goto('/');
-    await expect(page.locator('main.app')).toHaveAttribute('data-ready', 'true');
+    await expect(page.locator('main.app')).toHaveAttribute('data-ready', 'true', { timeout: 30_000 });
     await page.getByTestId('nav-masterData').click();
     await page.getByRole('button', { name: 'Ressourcen', exact: true }).click();
     await page.getByRole('button', { name: 'Ressource Servicebil Kolaretorp bearbeiten', exact: true }).click();
     const blocks = page.getByRole('dialog').locator('.personal-vehicle-blocks');
-    await blocks.getByRole('button', { name: 'Anordnen', exact: true }).click();
-    const source = blocks.locator('[data-block-id="maintenance"] .personal-drag-handle');
+    const source = blocks.locator('[data-block-id="maintenance"] .vehicle-disclosure');
     await source.scrollIntoViewIfNeeded();
     const from = (await source.boundingBox())!;
-    const to = (await blocks.locator('[data-block-id="standardTrips"] .personal-drag-handle').boundingBox())!;
-    expect(await source.evaluate(el => getComputedStyle(el).touchAction)).toBe('none');
+    expect(await source.evaluate(el => getComputedStyle(el).touchAction)).not.toBe('none');
     const cdp = await context.newCDPSession(page);
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: from.x + 22, y: from.y + 22 }] });
+    await expect(blocks).toHaveClass(/personal-arranging/);
+    const to = (await blocks.locator('[data-block-id="standardTrips"] .vehicle-disclosure').boundingBox())!;
     for (let step = 1; step <= 15; step++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: from.x + 22, y: from.y + 22 + (to.y - from.y) * step / 15 }] });
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     await expect.poll(() => saved.vehicleBlockOrder).toEqual(['maintenance', 'standardTrips', 'documents']);

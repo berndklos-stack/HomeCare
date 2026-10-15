@@ -51,6 +51,10 @@ try {
     sql("supabase/tests/personal_layout_preferences.sql");
     sql("supabase/migrations/20261014140000_personal_layout_preferences.sql");
     sql("supabase/tests/personal_layout_preferences.sql");
+    sql("supabase/migrations/20261014150000_personal_block_layouts.sql");
+    sql("supabase/tests/personal_block_layouts.sql");
+    sql("supabase/migrations/20261014150000_personal_block_layouts.sql");
+    sql("supabase/tests/personal_block_layouts.sql");
     console.log("Complete migration chain and Operations backup round trip passed (local Auth shim, not live Supabase).");
   } else {
   sql("supabase/tests/operations_foundation_fixture.sql");

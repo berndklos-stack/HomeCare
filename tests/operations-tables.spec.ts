@@ -805,7 +805,7 @@ test("Lageransicht verwendet die Panel- und Kennzahlgestaltung der Auswertung", 
     return { background: style.backgroundColor, radius: style.borderRadius, border: style.border, padding: style.padding };
   };
   const panelStyle = await panel.evaluate(appearance);
-  const metricStyle = await panel.locator(".analytics-summary-grid > div").first().evaluate(appearance);
+  const metricStyle = await panel.locator(".analytics-summary-grid .analytics-metric").first().evaluate(appearance);
   await page.screenshot({ path: `test-results/analytics-reference-${test.info().project.name}.png` });
   await page.getByRole("button", { name: "Lager & Material", exact: true }).click();
   const stockPanel = page.getByRole("heading", { name: "Bestandsübersicht", exact: true }).locator("xpath=ancestor::section[1]");

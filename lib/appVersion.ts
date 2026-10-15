@@ -1,10 +1,11 @@
 export const appVersion = {
-  version: "1.427.45",
-  releaseDate: "2026-10-14",
+  version: "1.427.46",
+  releaseDate: "2026-10-15",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  { version: "1.427.46", date: "2026-10-15", changes: ["Langes Druecken aktiviert Verschieben statt eines Anordnen-Buttons; kurzes Tippen und Scrollen bleiben erhalten", "Persoenliche Blockreihenfolgen auf Dashboard, Auswertung, Positionen, Stammdaten, Formulargruppen sowie Lager und Einkauf erweitert", "Eigene typisierte Layout-Tabelle mit Benutzer-/Mandantenschutz, Backup-Unterstuetzung und bestaetigtem Speichern; Touch und Tastatur geprueft"] },
   { version: "1.427.45", date: "2026-10-14", changes: ["Standardfahrten, Fahrzeugdokumente und Wartung beim Fahrzeug ein- und ausklappen", "Fahrzeugbloecke und Hauptmenue per Drag-and-drop mit Maus, Touch oder Tastatur anordnen", "Reihenfolgen persoenlich je Benutzer und Mandant in eigenen Datenbankspalten speichern; Entwuerfe und bestaetigte Anordnung bei Fehlern erhalten"] },
   { version: "1.427.44", date: "2026-10-14", changes: ["iPad-Hochformat: kompakte horizontal scrollbare Hauptnavigation statt bildschirmhoher Seitenleiste", "Arbeitsbereich, Auswertung und Bearbeitung auch im Hochformat sichtbar; Formulareingaben bleiben beim Drehen erhalten", "Layout-Grenzen, iPad Pro, iPad Air, iPad und iPhone in Safari und Chrome geprueft"] },
   { version: "1.427.43", date: "2026-10-14", changes: ["Standardfahrten mit eigener Entfernung in km; Endkilometerstand aus Startstand plus Vorlagenentfernung vorschlagen", "Gefahrene Routen beim Fahrzeug als bearbeitbare Standardfahrt uebernehmen, ohne Anfangs-/Endkilometerstaende oder Fotos", "Entfernung in eigener numerischer Datenbankspalte mit Mandantenschutz, Revisionsschutz und Backup-/Restore-Unterstuetzung speichern"] },

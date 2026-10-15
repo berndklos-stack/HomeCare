@@ -145,7 +145,7 @@ for (const width of [1440, 320]) test(`Dialogkopf-Tooltip bleibt vollständig si
 test("Blaue Kennzahlen spiegeln sich weder bei Hover noch bei Tastaturfokus", async ({ page }) => {
   await page.goto("/");
   await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true");
-  const buttons = page.locator(".quickbar button");
+  const buttons = page.locator(".quickbar .quickbar-card");
   await expect(buttons).toHaveCount(4);
   for (const button of await buttons.all()) {
     for (const state of ["hover", "focus"]) {
@@ -198,7 +198,7 @@ test("Auswertung trennt gleiche Kundennamen und zählt laufende Leistungen im ge
   await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true");
   await page.getByTestId("nav-analytics").click();
   await page.getByLabel("Monat", { exact: true }).fill("2026-10");
-  const rows = page.locator(".analytics-view > section").filter({ has: page.getByRole("heading", { name: "Zeit je Kunde", exact: true }) }).locator("article");
+  const rows = page.getByRole("heading", { name: "Zeit je Kunde", exact: true }).locator("xpath=ancestor::section[1]").locator("article");
   await expect(rows).toHaveCount(4);
   const privateRow = rows.filter({ hasText: "Kundennummer: 001" });
   await expect(privateRow).toContainText("1 Std.");
@@ -295,7 +295,7 @@ test("Einzelne und ausgewählte Konflikte bleiben nach Reload aufgelöst", async
     sessionStorage.setItem("ux-conflicts", "1");
     localStorage.setItem("workcore-sync-mutations-v1", JSON.stringify([1, 2, 3, 4].map((n) => ({
       id: `C-${n}`, entityId: `ROW-${n}`, entityType: "report", resourceId: `ROW-${n}`, operation: "update",
-      expectedRevision: 1, payload: { summary: `Entwurf ${n}`, date: "2026-10-01", title: `Bericht ${n}`, jobId: "JOB-2407", objectId: "OBJ-1001", checklistResults: [], media: [], customerComment: "", visibleToCustomer: true }, status: "conflict", attempts: 1,
+      expectedRevision: 1, payload: { summary: `Entwurf ${n}`, date: "2026-10-01", title: `Bericht ${n}`, jobId: "JOB-2407", objectId: "OBJ-1001", checklistResults: [], media: [], customerComment: "", visibleToCustomer: true }, status: n === 4 ? "failed" : "conflict", attempts: 1,
       createdAt: "2026-10-01T00:00:00Z", updatedAt: "2026-10-01T00:00:00Z", serverRecord: { revision: 2 }, error: "Revision veraltet",
     }))));
   });
@@ -309,6 +309,7 @@ test("Einzelne und ausgewählte Konflikte bleiben nach Reload aufgelöst", async
   await expect(page.getByRole("button", { name: "Synchronisierungskonflikt", exact: true })).toBeFocused();
   await page.getByRole("button", { name: "Synchronisierungskonflikt", exact: true }).click();
   const entry = page.getByRole("region", { name: "Konflikt ROW-1", exact: true });
+  await expect(entry.getByRole("button", { name: "Erneut versuchen", exact: true })).toHaveCount(0);
   await entry.getByText("Änderung prüfen").click();
   await expect(entry.getByText("Entwurf 1", { exact: true })).toBeVisible();
   await entry.getByRole("button", { name: "Serverstand übernehmen", exact: true }).click();
