@@ -102,7 +102,7 @@ import {
   type RevisionedCustomerContact,
 } from "@/lib/customerSync";
 import { overlayPendingObjectMutations, prepareObjectMutations } from "@/lib/objectSync";
-import { overlayPendingJobOperations, prepareJobMutations, prepareNoteMutations, prepareProgressMutations, type RevisionMeta } from "@/lib/jobOperationsSync";
+import { needsProgressPhotoDraftWrite, overlayPendingJobOperations, prepareJobMutations, prepareNoteMutations, prepareProgressMutations, type RevisionMeta } from "@/lib/jobOperationsSync";
 import { overlayPendingReportCommunication, preparePortalMessageMutations, prepareReportMutations } from "@/lib/reportCommunicationSync";
 import { overlayPendingFinancialMutations, prepareFinancialMutations } from "@/lib/financialSync";
 import { useSyncQueue } from "@/lib/useSyncQueue";
@@ -10164,12 +10164,9 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
   }
 
   function persistFieldProgressRelational(nextProgress: Record<string, Record<string, FieldTaskProgress>>) {
-    // Unfinished photos are local drafts, not server mutations. Persist their
-    // image data durably before accepting them so quota errors remain visible.
-    const hasLocalPhotoData = Object.values(nextProgress).some((tasks) => Object.values(tasks).some((task) => (
-      task.photos?.some((photo) => photo.uploadStatus !== "uploaded" && photo.previewUrl?.startsWith("data:image/"))
-    )));
-    if (hasLocalPhotoData) {
+    // New photo drafts must be durable before acceptance. Existing photo data
+    // must not block ordinary edits, which are durably stored in the sync queue.
+    if (needsProgressPhotoDraftWrite(fieldProgressRef.current, nextProgress)) {
       window.localStorage.setItem(storageKeys.fieldProgress, JSON.stringify(nextProgress));
     }
     const prepared = prepareProgressMutations(fieldProgressRef.current, nextProgress);

@@ -27,6 +27,19 @@ export function hasUnfinishedProgressPhotos(value: Record<string, unknown>) {
     && ["pending", "queued", "uploading", "failed"].includes(String((photo as Record<string, unknown>).uploadStatus)));
 }
 
+export function needsProgressPhotoDraftWrite(
+  current: Record<string, Record<string, RevisionedProgress>>,
+  next: Record<string, Record<string, RevisionedProgress>>,
+) {
+  return Object.entries(next).some(([key, tasks]) => Object.entries(tasks).some(([id, task]) => {
+    const previousPhotos = current[key]?.[id]?.photos;
+    if (task.photos === previousPhotos || !Array.isArray(task.photos)) return false;
+    const hasLocalData = task.photos.some(photo => photo && typeof photo === 'object'
+      && photo.uploadStatus !== 'uploaded' && typeof photo.previewUrl === 'string' && photo.previewUrl.startsWith('data:image/'));
+    return hasLocalData && JSON.stringify(task.photos) !== JSON.stringify(previousPhotos);
+  }));
+}
+
 function progressPayload(task: RevisionedProgress) {
   const result = payload(task);
   // Upload placeholders are local state, not a replacement for stored photos.

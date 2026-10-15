@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { createSyncMutation, enqueueSyncMutation, markMutationSyncing, nextPendingMutation, revisionAfterConfirmation, settleSyncMutation, retryNetworkFailures } from "../lib/syncQueue";
-import { prepareProgressMutations, hasUnfinishedProgressPhotos } from "../lib/jobOperationsSync";
+import { prepareProgressMutations, hasUnfinishedProgressPhotos, needsProgressPhotoDraftWrite } from "../lib/jobOperationsSync";
 import { reviewApprovedResolution, reviewConflictSequence, reviewProgressConflict } from "../lib/conflictReview";
 
 const edit = (revision: number, minutes = "90") => createSyncMutation({
@@ -9,6 +9,21 @@ const edit = (revision: number, minutes = "90") => createSyncMutation({
 });
 const row = { id: "JOB:task", tenant_id: "T", job_id: "JOB", revision: 4, deleted_at: null,
   task_id: "task", work_date: null, completed: false, minutes: 90, note: "Arbeit", photos: [], show_work_time_in_report: true };
+
+test('Vorhandene Fotodaten verlangen beim Anhaken und Schreiben keinen erneuten Fotodraft', () => {
+  const photo = { id: 'local', previewUrl: 'data:image/png;base64,photo', uploadStatus: 'queued', accepted: true };
+  const current = { JOB: { task: { completed: false, note: '', photos: [photo] } } };
+  const next = { JOB: { task: { ...current.JOB.task, completed: true, note: 'Erledigt' } } };
+  expect(needsProgressPhotoDraftWrite(current, next)).toBe(false);
+  expect(needsProgressPhotoDraftWrite(current, structuredClone(next))).toBe(false);
+  expect(needsProgressPhotoDraftWrite({}, current)).toBe(true);
+  expect(needsProgressPhotoDraftWrite(current, { JOB: { task: { ...next.JOB.task, photos: [{ ...photo, previewUrl: photo.previewUrl + 'new' }] } } })).toBe(true);
+  expect(needsProgressPhotoDraftWrite(current, { JOB: { task: { ...next.JOB.task, photos: [{ ...photo, accepted: false }] } } })).toBe(true);
+  expect(needsProgressPhotoDraftWrite(current, { OTHER: current.JOB, ...next })).toBe(true);
+  const mutation = prepareProgressMutations(current, next).mutations[0];
+  expect(mutation.payload).toMatchObject({ completed: true, note: 'Erledigt' });
+  expect(mutation.payload).not.toHaveProperty('photos');
+});
 
 test("Netzwerkfehler werden pro Verbindungsphase nur einmal mit unveraenderter Identitaet wiederholt", () => {
   const network = { ...edit(15), status: "failed" as const, error: "Load failed", attempts: 2 };

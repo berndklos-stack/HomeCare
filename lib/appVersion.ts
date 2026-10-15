@@ -1,10 +1,11 @@
 export const appVersion = {
-  version: "1.427.46",
+  version: "1.427.47",
   releaseDate: "2026-10-15",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  { version: "1.427.47", date: "2026-10-15", changes: ["Mobil vor Ort: unveraenderte wartende Fotos blockieren bei Fotocache-Speicherfehlern keine Haken, Arbeitszeiten und Hinweise mehr", "Neue und geaenderte Fotodrafts weiterhin vor Annahme sichern; bestehende Fotos und lokale Entwuerfe erhalten", "Eingaben und Reload auf iPhone/iPad in Chrome und Safari sowie Foto- und Sync-Regressionsfaelle geprueft"] },
   { version: "1.427.46", date: "2026-10-15", changes: ["Langes Druecken aktiviert Verschieben statt eines Anordnen-Buttons; kurzes Tippen und Scrollen bleiben erhalten", "Persoenliche Blockreihenfolgen auf Dashboard, Auswertung, Positionen, Stammdaten, Formulargruppen sowie Lager und Einkauf erweitert", "Eigene typisierte Layout-Tabelle mit Benutzer-/Mandantenschutz, Backup-Unterstuetzung und bestaetigtem Speichern; Touch und Tastatur geprueft"] },
   { version: "1.427.45", date: "2026-10-14", changes: ["Standardfahrten, Fahrzeugdokumente und Wartung beim Fahrzeug ein- und ausklappen", "Fahrzeugbloecke und Hauptmenue per Drag-and-drop mit Maus, Touch oder Tastatur anordnen", "Reihenfolgen persoenlich je Benutzer und Mandant in eigenen Datenbankspalten speichern; Entwuerfe und bestaetigte Anordnung bei Fehlern erhalten"] },
   { version: "1.427.44", date: "2026-10-14", changes: ["iPad-Hochformat: kompakte horizontal scrollbare Hauptnavigation statt bildschirmhoher Seitenleiste", "Arbeitsbereich, Auswertung und Bearbeitung auch im Hochformat sichtbar; Formulareingaben bleiben beim Drehen erhalten", "Layout-Grenzen, iPad Pro, iPad Air, iPad und iPhone in Safari und Chrome geprueft"] },
