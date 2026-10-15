@@ -4,6 +4,8 @@
 
 import Image from "next/image";
 import { AuthGate, EmployeeLogoutButton } from "@/components/AuthGate";
+import { CompanyBrand } from "@/components/CompanyBrand";
+import { companyLogoSource, maxCompanyLogoLength } from "@/lib/companyLogo";
 import { SyncStatus } from "@/components/SyncStatus";
 import { AppleRemindersBridge } from "@/components/AppleRemindersBridge";
 import { TripSurface } from "@/components/TripSurface";
@@ -73,6 +75,7 @@ import {
   Send,
   Sun,
   Trash2,
+  Upload,
   UserRound,
   UsersRound,
   Wrench,
@@ -2261,6 +2264,14 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Fakturadatum", sv: "Fakturadatum", en: "Invoice date" },
   { de: "Fakturanr.", sv: "Fakturanr.", en: "Invoice no." },
   { de: "Firmenname", sv: "Företagsnamn", en: "Company name" },
+  { de: "Firmenlogo", sv: "Företagslogotyp", en: "Company logo" },
+  { de: "Logo hochladen", sv: "Ladda upp logotyp", en: "Upload logo" },
+  { de: "Firmenlogo hochladen", sv: "Ladda upp företagslogotyp", en: "Upload company logo" },
+  { de: "Firmenlogo entfernen", sv: "Ta bort företagslogotyp", en: "Remove company logo" },
+  { de: "Bitte einen Firmennamen eingeben.", sv: "Ange ett företagsnamn.", en: "Enter a company name." },
+  { de: "Bitte eine Bilddatei (PNG, JPG, WebP oder GIF) bis 10 MB auswählen.", sv: "Välj en bildfil (PNG, JPG, WebP eller GIF) på högst 10 MB.", en: "Choose an image (PNG, JPG, WebP or GIF) up to 10 MB." },
+  { de: "Logo vorbereitet. Bitte die Firmenstammdaten speichern.", sv: "Logotypen är klar. Spara företagsuppgifterna.", en: "Logo ready. Save the company master data." },
+  { de: "Logo konnte nicht geladen werden. Bitte ein kleineres Bild auswählen.", sv: "Logotypen kunde inte läsas. Välj en mindre bild.", en: "Could not load the logo. Choose a smaller image." },
   { de: "Standardwährung", sv: "Standardvaluta", en: "Default currency" },
   { de: "Umsatzsteuer / Moms %", sv: "Moms %", en: "VAT %" },
   { de: "Firmenstammdaten speichern", sv: "Spara företagsuppgifter", en: "Save company master data" },
@@ -6969,7 +6980,7 @@ async function normalizeImageDataUrlForPdf(source: string, maxPdfImageSize = 640
   return { dataUrl: canvas.toDataURL("image/jpeg", quality), format: "JPEG" as const, image };
 }
 
-async function fileToImagePreview(file: File, maxSize = 1280, quality = 0.72) {
+async function fileToImagePreview(file: File, maxSize = 1280, quality = 0.72, preserveTransparency = false) {
   let bitmap: ImageBitmap | null = null;
   if ("createImageBitmap" in window) {
     try {
@@ -6993,10 +7004,12 @@ async function fileToImagePreview(file: File, maxSize = 1280, quality = 0.72) {
     canvas.height = height;
     const context = canvas.getContext("2d");
     if (!context) return "";
-    context.fillStyle = "#ffffff";
-    context.fillRect(0, 0, width, height);
+    if (!preserveTransparency) {
+      context.fillStyle = "#ffffff";
+      context.fillRect(0, 0, width, height);
+    }
     context.drawImage(image, 0, 0, width, height);
-    return canvas.toDataURL("image/jpeg", quality);
+    return canvas.toDataURL(preserveTransparency ? "image/png" : "image/jpeg", quality);
   } catch (error) {
     console.warn("Bildvorschau konnte nicht verkleinert werden.", error);
     return "";
@@ -13329,7 +13342,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
       )}
       <aside className="sidebar">
         <div className="brand">
-          <Image alt="Kolaretorp Service AB" height={23} priority src="/brand/kolaretorp-logo-white.png" width={220} />
+          <CompanyBrand logoUrl={companySettings.logoUrl} name={companySettings.name} />
         </div>
         <PersonalNavigation controller={layoutPreferences} language={language} selected={section}
           select={(id) => { setQuickTripOpen(false); setSection(id as Section); }}
@@ -20857,6 +20870,7 @@ function MasterDataView({
   });
   const [mailSettingsForm, setMailSettingsForm] = useState(dailyMailSettings);
   const [companySettingsForm, setCompanySettingsForm] = useState(companySettings);
+  const [companyLogoBusy, setCompanyLogoBusy] = useState(false);
   const [serviceForm, setServiceForm] = useState({
     accountingAccount: "3041",
     name: "",
@@ -21819,6 +21833,10 @@ function MasterDataView({
   }
 
   function saveCompanySettings() {
+    if (!companySettingsForm.name.trim()) {
+      setArchiveNotice(tt("Bitte einen Firmennamen eingeben."));
+      return;
+    }
     setCompanySettings({
       ...companySettingsForm,
       address: companySettingsForm.address.trim(),
@@ -21831,7 +21849,7 @@ function MasterDataView({
       countryCode: companySettingsForm.countryCode?.trim().toUpperCase(),
       email: companySettingsForm.email.trim(),
       fSkattApproved: companySettingsForm.fSkattApproved,
-      name: companySettingsForm.name.trim() || "Kolaretorp Service AB",
+      name: companySettingsForm.name.trim(),
       objectTypes: normalizeObjectTypeDefinitions(companySettingsForm.objectTypes),
       organizationNumber: companySettingsForm.organizationNumber.trim(),
       vatNumber: companySettingsForm.vatNumber.trim(),
@@ -22550,6 +22568,30 @@ function MasterDataView({
             </div>
           </div>
           <div className="form-grid compact-form">
+            <div className="wide company-logo-editor">
+              <span>{tt("Firmenlogo")}</span>
+              <div className="company-logo-preview"><CompanyBrand logoUrl={companySettingsForm.logoUrl} name={companySettingsForm.name} /></div>
+              <div className="row-actions">
+                <label className="ghost-button company-logo-upload"><Upload size={16} />{tt("Logo hochladen")}
+                  <input accept="image/png,image/jpeg,image/webp,image/gif" aria-label={tt("Firmenlogo hochladen")} disabled={companyLogoBusy} type="file" onChange={async event => {
+                    const file = event.target.files?.[0]; event.target.value = "";
+                    if (!file) return;
+                    if (!['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(file.type) || file.size > 10 * 1024 * 1024) {
+                      setArchiveNotice(tt("Bitte eine Bilddatei (PNG, JPG, WebP oder GIF) bis 10 MB auswählen.")); return;
+                    }
+                    setCompanyLogoBusy(true);
+                    try {
+                      const logo = await fileToImagePreview(file, 900, 0.85, true);
+                      if (!companyLogoSource(logo) || logo.length > maxCompanyLogoLength) throw new Error("INVALID_LOGO");
+                      setCompanySettingsForm(current => ({ ...current, logoUrl: logo, logoStoragePath: "" }));
+                      setArchiveNotice(tt("Logo vorbereitet. Bitte die Firmenstammdaten speichern."));
+                    } catch { setArchiveNotice(tt("Logo konnte nicht geladen werden. Bitte ein kleineres Bild auswählen.")); }
+                    finally { setCompanyLogoBusy(false); }
+                  }} />
+                </label>
+                {companySettingsForm.logoUrl && <button className="ghost-button icon-button" aria-label={tt("Firmenlogo entfernen")} disabled={companyLogoBusy} title={tt("Firmenlogo entfernen")} onClick={() => setCompanySettingsForm(current => ({ ...current, logoUrl: "", logoStoragePath: "" }))} type="button"><Trash2 size={16} /></button>}
+              </div>
+            </div>
             <label><span>{tt("Firmenname")}</span><input value={companySettingsForm.name} onChange={(event) => setCompanySettingsForm({ ...companySettingsForm, name: event.target.value })} /></label>
             <label><span>{tt("E-Mail")}</span><input type="email" value={companySettingsForm.email} onChange={(event) => setCompanySettingsForm({ ...companySettingsForm, email: event.target.value })} /></label>
             <label><span>{tt("Telefon")}</span><input type="tel" value={companySettingsForm.phone ?? ""} onChange={(event) => setCompanySettingsForm({ ...companySettingsForm, phone: event.target.value })} /></label>
@@ -22570,7 +22612,7 @@ function MasterDataView({
               </select>
               <small>Gilt für neue Kameraaufnahmen in Mobil vor Ort. Auch bei „Immer“ erfordert Safari/PWA einen ausdrücklichen Speichern-/Teilen-Schritt. Bibliotheksbilder werden nicht erneut gespeichert.</small>
             </label>
-            <button className="primary-button wide" onClick={saveCompanySettings} type="button">{tt("Firmenstammdaten speichern")}</button>
+            <button className="primary-button wide" disabled={companyLogoBusy} onClick={saveCompanySettings} type="button">{tt("Firmenstammdaten speichern")}</button>
           </div>
           <section className="regulation-admin-section">
             <div>

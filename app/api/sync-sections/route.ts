@@ -522,6 +522,7 @@ type TranslationRow = {
 type SettingRow = {
   deleted_at: string | null;
   key: string;
+  logo_url?: string | null;
   revision: number;
   updated_at: string | null;
   value: unknown;
@@ -1897,7 +1898,7 @@ async function loadAuthoritativeSettingsSections(
   if (!settingKeys.length) return {};
   const { data, error } = await supabase
     .from("homecare_settings")
-    .select("key, value, revision, deleted_at, updated_at")
+    .select("key, value, logo_url, revision, deleted_at, updated_at")
     .in("key", settingKeys);
   if (error) throw new Error(error.message);
   const rows = (data ?? []) as SettingRow[];
@@ -1905,6 +1906,10 @@ async function loadAuthoritativeSettingsSections(
     const tenant = await supabase.from("homecare_tenants").select("name,country_code,locale,default_currency,organization_number,vat_number,onboarded_by").eq("id", tenantId).single();
     if (tenant.error) throw new Error(tenant.error.message);
     const company = rows.find(row => row.key === "companySettings" && !row.deleted_at);
+    if (company) {
+      const previous = company.value && typeof company.value === "object" && !Array.isArray(company.value) ? company.value as JsonObject : {};
+      company.value = { ...previous, logoUrl: company.logo_url ?? "" };
+    }
     if (company && tenant.data.onboarded_by) {
       const previous = company.value && typeof company.value === "object" && !Array.isArray(company.value) ? company.value as JsonObject : {};
       company.value = { ...previous, name: tenant.data.name, countryCode: tenant.data.country_code, currency: tenant.data.default_currency,

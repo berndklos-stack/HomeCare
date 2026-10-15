@@ -137,6 +137,17 @@ button {
   object-fit: contain;
 }
 
+.company-brand-name { display: block; min-width: 0; overflow-wrap: anywhere; font-size: 18px; line-height: 1.3; }
+.brand .company-brand-image { width: auto; max-width: 100%; height: auto; max-height: 54px; object-position: left center; }
+@media (max-width: 1180px) { .sidebar .brand .company-brand-image { max-height: 32px; max-width: min(280px, 100%); } }
+@media (max-width: 600px) { .sidebar .brand .company-brand-image { max-height: 26px; max-width: min(190px, 100%); } }
+.company-logo-editor { display: grid; gap: 10px; }
+.company-logo-preview { display: flex; align-items: center; width: min(100%, 300px); height: 84px; padding: 10px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: #111; }
+.company-logo-preview img { max-width: 100%; height: auto; max-height: 64px; object-fit: contain; object-position: left; }
+.company-logo-upload { position: relative; min-height: 44px; cursor: pointer; }
+.company-logo-upload input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.company-logo-upload:focus-within { outline: 2px solid #0074e8; outline-offset: 2px; }
+
 .sidebar nav {
   display: grid;
   gap: 5px;
