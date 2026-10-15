@@ -8,15 +8,17 @@ DOM: Eingaben bleiben beim Ein-/Ausklappen und Umordnen erhalten. Ein offener
 Standardfahrtenentwurf sperrt das Einklappen dieses Blocks und das Umsortieren,
 bis er gespeichert oder verworfen wird.
 
-Anordnen zeigt Ziehgriffe und Auf-/Ab-Pfeile fuer Fahrzeugbloecke beziehungsweise
-Menuepunkte. Drag-and-drop verwendet dnd-kit mit Pointer- und Tastatursensoren.
-Die Griffe unterstuetzen Maus und Touch; nur dort ist Touch-Scrollen gesperrt.
-Alternativ: Griff fokussieren, Leertaste, Pfeiltasten, Leertaste; Escape bricht ab.
+Etwa 500 ms Halten hebt eine Menuezeile oder Fahrzeugueberschrift direkt an.
+Mit gehaltenem Finger oder Maustaste ziehen und an der Zielposition loslassen.
+Es gibt keine sichtbaren Griffe, Auf-/Ab-Pfeile oder Bestaetigungsbuttons und
+keinen nach dem Ablegen aktiven Anordnungsmodus. Breite und Hoehe bleiben beim
+Anheben gleich. Drag-and-drop verwendet dnd-kit mit Maus-, Touch- und
+Tastatursensoren; Bewegung vor der Haltefrist bleibt normales Scrollen.
+Alternativ: den nicht sichtbaren Sortierfokus per Tab erreichen, Leertaste,
+Pfeiltasten, Leertaste; Escape bricht ab. Die Zeile erhaelt einen Fokusrahmen.
 Abbrechen oder Ablegen ausserhalb der Ziele schreibt nichts. Gespeichert wird
-nur nach dem Ablegen, nicht waehrend des Ziehens. Die Pfeile bleiben als
-Alternative erhalten. Jede erfolgreiche Bewegung
-wird persoenlich gespeichert; Standardreihenfolge setzt nur den jeweiligen
-Bereich zurueck. Bei Speicherfehlern bleibt die bisher bestaetigte Anordnung
+nur nach dem Ablegen, nicht waehrend des Ziehens. Jede erfolgreiche Bewegung
+wird persoenlich gespeichert. Bei Speicherfehlern bleibt die bisher bestaetigte Anordnung
 erhalten und die App meldet Nicht gespeichert. Keine vorgetaeuschte Offline-
 Speicherung. Es gibt keinen benutzeruebergreifenden lokalen Einstellungscache.
 Ein-/Ausklappzustand wird nur fuer das offene Fahrzeugformular gehalten.
@@ -55,7 +57,7 @@ Staging-Nachweis (gleiche Migrations- und Test-Pruefsummen).
 Wiederholung, Benutzer-/Mandantentrennung, Anon-Sperre, ungueltige IDs,
 unabhaengige Spaltenaenderungen und den Backup-/Restore-Rundlauf.
 `personal-layout.spec.ts` prueft Ein-/Ausklappen, Touch-Groessen, Anordnung,
-Reload, Ruecksetzen, Speicherfehler, Auth und Testbypass auf Desktop, iPad und
+Reload, Speicherfehler, Auth und Testbypass auf Desktop, iPad und
 iPhone. Bestehende Standardfahrten-, Sprachen-, iPad- und Kopfzeilentests
 bleiben Teil der Regression.
 

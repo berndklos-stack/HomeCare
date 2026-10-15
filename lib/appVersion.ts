@@ -1,10 +1,11 @@
 export const appVersion = {
-  version: "1.427.47",
+  version: "1.427.48",
   releaseDate: "2026-10-15",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  { version: "1.427.48", date: "2026-10-15", changes: ["Menuezeilen und Bereiche nach langem Druecken direkt ziehen und beim Loslassen speichern", "Keine sichtbaren Sortierpfeile, Ziehgriffe oder Fertig-Buttons; Beschriftungen und Zeilen behalten ihre volle Groesse", "Persoenliche Reihenfolgen, Tastatursteuerung, iPhone-Touch, iPad-Drehung und Vor-Ort-Eingaben geprueft"] },
   { version: "1.427.47", date: "2026-10-15", changes: ["Mobil vor Ort: unveraenderte wartende Fotos blockieren bei Fotocache-Speicherfehlern keine Haken, Arbeitszeiten und Hinweise mehr", "Neue und geaenderte Fotodrafts weiterhin vor Annahme sichern; bestehende Fotos und lokale Entwuerfe erhalten", "Eingaben und Reload auf iPhone/iPad in Chrome und Safari sowie Foto- und Sync-Regressionsfaelle geprueft"] },
   { version: "1.427.46", date: "2026-10-15", changes: ["Langes Druecken aktiviert Verschieben statt eines Anordnen-Buttons; kurzes Tippen und Scrollen bleiben erhalten", "Persoenliche Blockreihenfolgen auf Dashboard, Auswertung, Positionen, Stammdaten, Formulargruppen sowie Lager und Einkauf erweitert", "Eigene typisierte Layout-Tabelle mit Benutzer-/Mandantenschutz, Backup-Unterstuetzung und bestaetigtem Speichern; Touch und Tastatur geprueft"] },
   { version: "1.427.45", date: "2026-10-14", changes: ["Standardfahrten, Fahrzeugdokumente und Wartung beim Fahrzeug ein- und ausklappen", "Fahrzeugbloecke und Hauptmenue per Drag-and-drop mit Maus, Touch oder Tastatur anordnen", "Reihenfolgen persoenlich je Benutzer und Mandant in eigenen Datenbankspalten speichern; Entwuerfe und bestaetigte Anordnung bei Fehlern erhalten"] },

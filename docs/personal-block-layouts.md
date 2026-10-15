@@ -1,18 +1,27 @@
 # Persoenliche Blockanordnung per langem Druecken
 
+Die direkte Ziehbedienung ohne sichtbare Pfeile/Griffe ist fuer Release
+1.427.48 vorbereitet und geprueft. Datenbank und persoenliche Reihenfolgen
+bleiben unveraendert; keine zusaetzliche Migration erforderlich.
+
 ## Bedienung
 
 Es gibt keinen Einstiegsknopf Anordnen mehr. Etwa 500 ms Halten auf einem
 Menuepunkt, einer Bereichsueberschrift, einer freigegebenen Uebersichtskarte
-oder neutralem Blockhintergrund startet den Verschiebemodus. Bewegung vor
+oder neutralem Blockhintergrund hebt den Bereich direkt zum Ziehen an. Bewegung vor
 der Haltefrist bricht die Aktivierung ab, sodass normales Scrollen erhalten
 bleibt. Kurzes Tippen navigiert oder oeffnet wie bisher.
 
-Danach kann direkt weitergezogen oder ein Ziehgriff benutzt werden.
-Eine gestrichelte Umrandung kennzeichnet das Ablageziel. Haekchen beendet,
-Escape bricht ab. Fokus auf einen Ziehgriff und Leertaste/Pfeiltasten erlaubt
-dieselbe Bedienung mit Tastatur. Pfeile sind im aktiven Modus zusaetzlich
-verfuegbar. Ohne Modus entstehen keine permanenten Werkzeugleisten.
+Ohne Loslassen direkt zur Zielposition ziehen und dort loslassen. Die Zeile
+behaelt dabei ihre Groesse und wirkt durch Schatten angehoben. Es erscheinen
+keine sichtbaren Ziehgriffe, Auf-/Ab-Pfeile, doppelten Titel oder Fertig-Buttons.
+Loslassen beendet das Ziehen automatisch und speichert die Position.
+Eine gestrichelte Umrandung kennzeichnet das Ablageziel. Escape bricht ab.
+Ein per Tab erreichbarer, nur fuer Tastatur und Screenreader vorgesehener
+Sortierfokus ermoeglicht weiterhin Leertaste/Pfeiltasten/Leertaste. Die
+Fokusanzeige umrahmt die zugehoerige Zeile, ohne Platz zu beanspruchen.
+Auch die Speicheranzeige aendert keine Zeilenhoehen; Fehler bleiben mit
+erneuter Lademoeglichkeit sichtbar. Kein dauerhaft eingeschalteter Modus.
 
 Inputs, Textfelder, Auswahllisten, Tabellen und fachliche Aktionsbuttons
 aktivieren kein Verschieben. Nur ausdruecklich freigegebene Navigationskarten
@@ -38,6 +47,25 @@ Leere Hinweise werden nicht als leere Karte angezeigt. Gespeicherte Positionen
 momentan ausgeblendeter Gruppen bleiben beim Sortieren sichtbarer Gruppen
 erhalten. Laufende Formulare behalten ihre React-Keys und Eingaben; offener
 Standardfahrtenentwurf sperrt weiterhin die zugehoerige Fahrzeuganordnung.
+
+## Direkte Ziehbedienung: Verifikation
+
+- 33 Sortier-/Layouttests in Chromium und WebKit erfolgreich; drei CDP-Tests
+  unter WebKit erwartungsgemaess uebersprungen, in Chromium erfolgreich.
+- Echte Touchgesten verschieben Hauptmenue und Fahrzeugbloecke bei 390/820 px.
+  Normales Scrollen vor der Haltefrist startet kein Ziehen; kurze Klicks nach
+  dem Ablegen funktionieren sofort wieder. Kein Bestaetigungsbutton notwendig.
+- Tests messen unveraenderte Breite/Hoehe waehrend des Haltens und pruefen,
+  dass weder Pfeile noch zusaetzliche sichtbare Griffe erscheinen.
+- Tastatursteuerung, Escape, Ablegen ausserhalb, fehlgeschlagenes Speichern,
+  bestaetigte Reihenfolgen nach Reload und gesperrte Entwuerfe geprueft.
+  Bei unterschiedlich hohen Bloecken darf die alte Position das per Tastatur
+  angesteuerte Ziel nicht verdecken; die Zielerkennung beruecksichtigt dies.
+- 24 zusaetzliche Vor-Ort-Eingabe-/iPad-/Layout-Grenztests erfolgreich.
+- Desktop- und iPhone-Screenshots waehrend des Haltens visuell geprueft.
+- TypeScript, Produktionsbuild, gezieltes ESLint und `git diff --check`
+  erfolgreich.
+- Keine Migration und keine Aenderung der vorhandenen Daten oder Schreibrechte.
 
 ## Speicherung
 

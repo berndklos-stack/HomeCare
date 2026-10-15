@@ -4,7 +4,7 @@ import { Children, Fragment, createContext, isValidElement, useContext, useState
 import { mergeVisibleBlockOrder } from '@/lib/blockLayouts';
 import { orderedIds } from '@/lib/layoutPreferences';
 import type { BlockLayoutsController } from '@/lib/useBlockLayouts';
-import { OrderArrows, OrderToolbar, SortableOrder, SortableRow } from './PersonalLayout';
+import { OrderToolbar, SortableOrder, SortableRow } from './PersonalLayout';
 
 type Language = 'de' | 'sv' | 'en';
 const LayoutContext = createContext<BlockLayoutsController | null>(null);
@@ -38,14 +38,14 @@ export function PersonalBlocks({ scope, language, children, className = 'stack',
     if (arranging && event.key === 'Escape') { event.preventDefault(); setArranging(false); }
     attributes.onKeyDownCapture?.(event);
   }}>
-    {controller && <OrderToolbar controller={controller} language={language} active={arranging} locked={locked} toggle={() => setArranging(false)} reset={() => change(visible)}/>}
+    {controller && <OrderToolbar controller={controller} language={language}/>}
     <SortableOrder ids={ids} disabled={disabled} language={language} activate={() => setArranging(true)} cancel={() => setArranging(false)} change={change}>
       {nodes.map(node => {
         if (!isValidElement<BlockProps>(node) || node.type !== PersonalBlock) return node;
         const id = ids[slot++];
         const block = blocks.find(item => item.props.id === id)!;
         return <SortableRow key={id} id={id} label={block.props.title} language={language} disabled={disabled} className={`personal-block-item ${block.props.className ?? ''}`}>{({ handle, press }) => <>
-          <div className="personal-block-controls">{arranging && <span>{block.props.title}</span>}{handle}{arranging && <OrderArrows ids={ids} id={id} label={block.props.title} language={language} disabled={disabled} change={change}/>}</div>
+          <div className="personal-block-controls">{handle}</div>
           <div className="personal-block-content" onMouseDown={event => { if (canStart(event, block.props.pressable)) { event.stopPropagation(); press.onMouseDown?.(event); } }} onTouchStart={event => { if (canStart(event, block.props.pressable)) { event.stopPropagation(); press.onTouchStart?.(event); } }} onContextMenu={event => { if (canStart(event, block.props.pressable)) { event.stopPropagation(); press.onContextMenu?.(event); } }}>{block.props.children}</div>
         </>}</SortableRow>;
       })}

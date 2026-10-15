@@ -1,6 +1,6 @@
-import { expect, test, type Locator, type Page } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { mergeVisibleBlockOrder, validateBlockLayout, type BlockLayouts } from '../lib/blockLayouts';
-import { holdToArrange } from './helpers/personal-layout';
+import { dragByHold, keyboardReorder } from './helpers/personal-layout';
 
 test('Block-IDs sind begrenzt und ausgeblendete Positionen bleiben erhalten', () => {
   expect(mergeVisibleBlockOrder(['a', 'hidden', 'b'], ['a', 'b', 'new'], ['new', 'b', 'a'])).toEqual(['new', 'hidden', 'b', 'a']);
@@ -32,41 +32,24 @@ async function setup(page: Page) {
   return { orders: () => orders, writes, reads: () => reads, fail: (value: boolean) => { fail = value; }, failRead: (value: boolean) => { failRead = value; } };
 }
 
-async function move(page: Page, source: Locator, target: Locator) {
-  await target.evaluate(el => el.scrollIntoView({ block: 'center', inline: 'nearest' }));
-  await source.scrollIntoViewIfNeeded();
-  const a = (await source.boundingBox())!;
-  const b = (await target.boundingBox())!;
-  await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
-  await page.mouse.down();
-  await expect(source.locator('xpath=ancestor::*[@data-sort-id][1]')).toHaveClass(/personal-dragging/);
-  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 20 });
-  await expect(target.locator('xpath=ancestor::*[@data-sort-id][1]')).toHaveClass(/personal-drop-target/);
-  await page.mouse.up();
-}
-
 for (const width of [1440, 820, 390]) test(`Bereiche per Halten umordnen, getrennt speichern und neu laden ${width}px`, async ({ page }) => {
   await page.setViewportSize({ width, height: 1180 });
   const state = await setup(page);
   await expect(page.getByRole('button', { name: 'Anordnen', exact: true })).toHaveCount(0);
   const group = page.locator('[data-layout-scope="dashboard.content"]');
   const source = group.locator(':scope > [data-block-id="upcomingJobs"]');
-  await holdToArrange(page, source.getByRole('heading', { name: 'Nächste Einsätze', exact: true }), group);
   expect(state.writes).toHaveLength(0);
-  await move(page, source.locator(':scope > .personal-block-controls .personal-drag-handle'), group.locator(':scope > [data-block-id="workboard"] > .personal-block-controls .personal-drag-handle'));
+  await dragByHold(page, source.getByRole('heading', { name: 'Nächste Einsätze', exact: true }), group.locator(':scope > [data-block-id="workboard"]'), group);
   await expect.poll(() => state.orders()['dashboard.content'][0]).toBe('upcomingJobs');
   expect(state.orders()['dashboard.content'][1]).toBe('futureHidden');
   await expect(group.locator(':scope > [data-block-id]').first()).toHaveAttribute('data-block-id', 'upcomingJobs');
-  await group.locator(':scope > .personal-order-toolbar').getByRole('button', { name: 'Verschieben beenden', exact: true }).click();
   const shortcuts = page.locator('[data-layout-scope="dashboard.shortcuts"]');
   const card = shortcuts.locator('[data-block-id="objects"] .workboard-card');
-  await holdToArrange(page, card, shortcuts);
   await expect(group).not.toHaveClass(/personal-arranging/);
   await expect(page.getByTestId('nav-dashboard')).toHaveClass(/active/);
-  await move(page, shortcuts.locator('[data-block-id="objects"] .personal-drag-handle'), shortcuts.locator('[data-block-id="planning"] .personal-drag-handle'));
+  await dragByHold(page, card, shortcuts.locator('[data-block-id="planning"] .workboard-card'), shortcuts);
   await expect.poll(() => state.orders()['dashboard.shortcuts']?.[0]).toBe('objects');
   expect(state.orders()['dashboard.content'][0]).toBe('upcomingJobs');
-  await shortcuts.getByRole('button', { name: 'Verschieben beenden', exact: true }).click();
   await expect(shortcuts.locator(':scope > [data-block-id="objects"]')).toHaveCSS('transform', 'none');
   await page.screenshot({ path: `test-results/block-layout-dashboard-${width}-${test.info().project.name}.png` });
   await page.reload();
@@ -74,8 +57,7 @@ for (const width of [1440, 820, 390]) test(`Bereiche per Halten umordnen, getren
   await expect(group.locator(':scope > [data-block-id]').first()).toHaveAttribute('data-block-id', 'upcomingJobs');
   await expect(shortcuts.locator(':scope > [data-block-id]').first()).toHaveAttribute('data-block-id', 'objects');
   state.fail(true);
-  await holdToArrange(page, source.getByRole('heading', { name: 'Nächste Einsätze', exact: true }), group);
-  await group.getByRole('button', { name: 'Nächste Einsätze nach unten verschieben', exact: true }).click();
+  await keyboardReorder(page, source, group, 'ArrowDown');
   await expect(group.locator(':scope > .personal-order-toolbar').getByRole('status')).toHaveText('Nicht gespeichert');
   await expect(group.locator(':scope > [data-block-id]').first()).toHaveAttribute('data-block-id', 'upcomingJobs');
   const reads = state.reads();
@@ -97,11 +79,9 @@ for (const width of [1440, 390]) test(`Formulare behalten Eingaben beim Verschie
   const title = group.getByLabel('Titel', { exact: true });
   await title.fill('Entwurf bleibt erhalten');
   const materials = group.locator(':scope > [data-block-id="materials"]');
-  await holdToArrange(page, materials.getByText('Material', { exact: true }).first(), group);
-  await group.getByRole('button', { name: 'Material nach oben verschieben', exact: true }).click();
+  await keyboardReorder(page, materials, group, 'ArrowUp');
   await expect.poll(() => state.orders()['job.form']?.indexOf('materials')).toBe(1);
   await expect(title).toHaveValue('Entwurf bleibt erhalten');
-  await group.getByRole('button', { name: 'Verschieben beenden', exact: true }).click();
   await title.scrollIntoViewIfNeeded();
   const box = (await title.boundingBox())!;
   await page.mouse.move(box.x + 15, box.y + 15);
@@ -145,7 +125,8 @@ test('iPhone: echtes langes Druecken bewegt einen Bereich, Scrollgeste aktiviert
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     await expect.poll(() => state.orders()['dashboard.content'][0]).toBe('upcomingJobs');
     await expect(group.locator(':scope > [data-block-id="upcomingJobs"]')).toHaveCSS('transform', 'none');
-    await group.locator(':scope > .personal-order-toolbar').getByRole('button', { name: 'Verschieben beenden', exact: true }).tap();
+    await expect(group).not.toHaveClass(/personal-arranging/);
+    await expect(group.locator('.personal-order-arrows')).toHaveCount(0);
     await heading.evaluate(el => el.scrollIntoView({ block: 'center', inline: 'nearest' }));
     const box = (await heading.boundingBox())!;
     const start = await page.locator('.workspace').evaluate(el => el.scrollTop);
