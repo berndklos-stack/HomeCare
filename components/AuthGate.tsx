@@ -1,10 +1,10 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import type { AuthChangeEvent, Session, SupabaseClient } from "@supabase/supabase-js";
-import { Building2, LogIn, LogOut } from "lucide-react";
+import { Building2, LogIn, LogOut, Mail } from "lucide-react";
 import type { AuthContextPayload } from "@/lib/authModel";
-import { activeTenantStorageKey, apiFetch } from "@/lib/apiClient";
+import { activateTenant, activeTenantStorageKey, pendingTenantStorageKey, getActiveTenantId, apiFetch } from "@/lib/apiClient";
 import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
 
 type AuthActions = {
@@ -72,11 +72,14 @@ export function AuthGate({ children }: { children: ReactNode }) {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [ready, setReady] = useState(false);
+  const [contextKey, setContextKey] = useState("");
+  const currentIdentity = useRef("");
 
   async function establishContext(providedSession?: Session | null) {
     if (employeeAuthBypassEnabled()) {
-      window.localStorage.setItem(activeTenantStorageKey, "00000000-0000-0000-0000-000000000001");
+      activateTenant("00000000-0000-0000-0000-000000000001");
       setReady(true);
       setBusy(false);
       return;
@@ -94,8 +97,17 @@ export function AuthGate({ children }: { children: ReactNode }) {
     if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || "Mandantenzugriff konnte nicht geladen werden.");
     const context = await response.json() as AuthContextPayload;
     if (context.memberships.length === 0) throw new Error("Für dieses Konto ist keine aktive Firma zugeordnet.");
-    const tenantId = resolveEmployeeTenantId(context.memberships, window.localStorage.getItem(activeTenantStorageKey));
-    window.localStorage.setItem(activeTenantStorageKey, tenantId);
+    const lastTenantKey = `workcore-last-tenant:${context.user.id}`;
+    const currentTabBelongsToUser = window.sessionStorage.getItem("workcore-active-user-id") === context.user.id;
+    const preferred = window.sessionStorage.getItem(pendingTenantStorageKey)
+      ?? (currentTabBelongsToUser ? getActiveTenantId() : window.localStorage.getItem(lastTenantKey) ?? getActiveTenantId());
+    const tenantId = resolveEmployeeTenantId(context.memberships, preferred);
+    activateTenant(tenantId);
+    window.sessionStorage.setItem("workcore-active-user-id", context.user.id);
+    window.localStorage.setItem(lastTenantKey, tenantId);
+    window.sessionStorage.removeItem(pendingTenantStorageKey);
+    currentIdentity.current = context.user.id;
+    setContextKey(`${context.user.id}:${tenantId}`);
     setError("");
     setReady(true);
     setBusy(false);
@@ -109,6 +121,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
     function handleAuthChange(_event: AuthChangeEvent, session: Session | null) {
       if (cancelled) return;
+      if (!session || session.user.id !== currentIdentity.current) setReady(false);
       if (authChangeId) window.clearTimeout(authChangeId);
       authChangeId = window.setTimeout(() => {
         if (cancelled) return;
@@ -122,7 +135,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
     }
 
     if (employeeAuthBypassEnabled() || !client) {
-      void establishContext().catch((cause) => {
+      void Promise.resolve().then(() => establishContext()).catch((cause) => {
         if (cancelled) return;
         setError(cause instanceof Error ? cause.message : "Anmeldung konnte nicht geprüft werden.");
         setBusy(false);
@@ -169,6 +182,18 @@ export function AuthGate({ children }: { children: ReactNode }) {
     });
   }
 
+  async function sendLoginLink() {
+    setBusy(true); setError(""); setNotice("");
+    try {
+      const client = getSupabaseBrowserClient();
+      if (!client) throw new Error("Auth unavailable");
+      const result = await client.auth.signInWithOtp({ email: email.trim(), options: { shouldCreateUser: false, emailRedirectTo: new URL("/auth/accept", window.location.origin).toString() } });
+      if (result.error) throw result.error;
+      setNotice("Wenn für diese E-Mail ein Zugang besteht, erhältst du einen Anmeldelink.");
+    } catch { setNotice("Wenn für diese E-Mail ein Zugang besteht, erhältst du einen Anmeldelink. Bitte gegebenenfalls später erneut versuchen."); }
+    finally { setBusy(false); }
+  }
+
   async function signOut() {
     setBusy(true);
     setError("");
@@ -185,11 +210,15 @@ export function AuthGate({ children }: { children: ReactNode }) {
       return;
     }
     clearEmployeeSessionContext(window.localStorage);
+    clearEmployeeSessionContext(window.sessionStorage);
+    window.sessionStorage.removeItem(pendingTenantStorageKey);
+    window.sessionStorage.removeItem("workcore-active-user-id");
+    currentIdentity.current = "";
     setReady(false);
     setBusy(false);
   }
 
-  if (ready) return <AuthActionsContext.Provider value={{ busy, signOut }}>{children}</AuthActionsContext.Provider>;
+  if (ready) return <AuthActionsContext.Provider key={contextKey} value={{ busy, signOut }}>{children}</AuthActionsContext.Provider>;
   return (
     <main className="app auth-app" data-ready="false">
       <section className="auth-shell">
@@ -199,7 +228,9 @@ export function AuthGate({ children }: { children: ReactNode }) {
           <label><span>E-Mail</span><input autoComplete="email" disabled={busy} onChange={(event) => setEmail(event.target.value)} type="email" value={email} /></label>
           <label><span>Passwort</span><input autoComplete="current-password" disabled={busy} onChange={(event) => setPassword(event.target.value)} onKeyDown={(event) => event.key === "Enter" && void signIn()} type="password" value={password} /></label>
           {error && <p className="form-error" role="alert">{error}</p>}
+          {notice && <p role="status">{notice}</p>}
           <button className="primary-button" disabled={busy || !email.trim() || !password} onClick={() => void signIn()} type="button"><LogIn size={16} />{busy ? "Wird geprüft ..." : "Anmelden"}</button>
+          <button className="ghost-button" disabled={busy || !email.trim()} onClick={() => void sendLoginLink()} type="button"><Mail size={16} />Anmeldelink senden</button>
         </section>
       </section>
     </main>

@@ -1,3 +1,5 @@
+import { getActiveTenantId } from "@/lib/apiClient";
+
 export type SyncMutationStatus = "pending" | "syncing" | "synced" | "failed" | "conflict";
 
 export type SyncMutationOperation = "create" | "update" | "delete" | "restore";
@@ -46,7 +48,7 @@ function compactSyncedHistory(queue: SyncMutation[]) {
 
 function currentSyncQueueStorageKey() {
   if (typeof window === "undefined" || process.env.NEXT_PUBLIC_E2E_AUTH_BYPASS === "1") return syncQueueStorageKey;
-  const tenantId = window.localStorage.getItem("workcore-active-tenant-id");
+  const tenantId = getActiveTenantId();
   return tenantId ? `${syncQueueStorageKey}:${tenantId}` : syncQueueStorageKey;
 }
 

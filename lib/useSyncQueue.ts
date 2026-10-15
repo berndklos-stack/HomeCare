@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { apiFetch } from "@/lib/apiClient";
+import { apiFetch, getActiveTenantId } from "@/lib/apiClient";
 import { isLegacyTripValidationConflict, overlappingLegacyTripConflict } from "@/lib/legacyTripConflict";
 import { reviewConflictSequence, type ConflictReview } from "@/lib/conflictReview";
 import {
@@ -178,9 +178,9 @@ export function useSyncQueue({ disabled = false, onApplied }: UseSyncQueueOption
 
   const reviewConflicts = useCallback(async (ids: string[], resolve = false): Promise<ConflictReview[]> => {
     const epoch = reviewEpoch.current;
-    const tenant = window.localStorage.getItem("workcore-active-tenant-id");
+    const tenant = getActiveTenantId();
     const assertContext = () => {
-      if (epoch !== reviewEpoch.current || tenant !== window.localStorage.getItem("workcore-active-tenant-id")) {
+      if (epoch !== reviewEpoch.current || tenant !== getActiveTenantId()) {
         throw new Error("Sitzung geändert. Konfliktprüfung abgebrochen.");
       }
     };

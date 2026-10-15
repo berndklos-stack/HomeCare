@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Building2, FileText, LogIn, LogOut, MessageSquare } from "lucide-react";
-import { activeTenantStorageKey, apiFetch } from "@/lib/apiClient";
+import { activateTenant, activeTenantStorageKey, apiFetch } from "@/lib/apiClient";
 import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
 
 type PortalData = {
@@ -35,7 +35,7 @@ export default function PortalPage() {
     const context = await contextResponse.json() as { portalAccess?: Array<{ tenantId: string }> };
     const tenantId = context.portalAccess?.[0]?.tenantId;
     if (!tenantId) throw new Error("Für dieses Konto ist kein Kundenportal freigeschaltet.");
-    window.localStorage.setItem(activeTenantStorageKey, tenantId);
+    activateTenant(tenantId);
     const response = await apiFetch("/api/portal/context");
     const payload = await response.json().catch(() => ({})) as PortalData & { error?: string };
     if (!response.ok) throw new Error(payload.error || "Portaldaten konnten nicht geladen werden.");
@@ -77,6 +77,7 @@ export default function PortalPage() {
   async function signOut() {
     await getSupabaseBrowserClient()?.auth.signOut();
     window.localStorage.removeItem(activeTenantStorageKey);
+    window.sessionStorage.removeItem(activeTenantStorageKey);
     setData(null);
   }
 

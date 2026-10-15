@@ -31,6 +31,7 @@ import { serviceListRecipientLanguage } from "@/lib/consultingServiceList";
 import { serviceListLabels } from "@/lib/consultingServiceList";
 import { DevicePhotoSave, type DevicePhotoPolicy } from "@/components/DevicePhotoSave";
 import { TenantSwitcher } from "@/components/TenantSwitcher";
+import { AdministrationLinks } from "@/components/AdministrationLinks";
 import {
   ArrowDown,
   ArrowLeft,
@@ -80,7 +81,7 @@ import {
 import { type CSSProperties, type DragEvent, type MouseEvent, type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { appVersion, versionHistory } from "@/lib/appVersion";
 import { compareTripChronology, localTripDate, localTripTime, tripStartAt, tripNeighbors, tripMileageGaps, tripChronologyWarnings, tripOdometerAfterAcknowledgement } from "@/lib/tripChronology";
-import { apiFetch, apiRequestHeaders, tenantScopedStorageKey } from "@/lib/apiClient";
+import { apiFetch, apiRequestHeaders, getActiveTenantId, tenantScopedStorageKey } from "@/lib/apiClient";
 import { useAuthenticatedMedia } from "@/lib/useAuthenticatedMedia";
 import { defaultAppBranding, resolveAppBranding } from "@/lib/branding";
 import { createStableId, readSyncQueue, revisionAfterConfirmation, type SyncMutation, type SyncMutationOperation, type SyncMutationResult } from "@/lib/syncQueue";
@@ -3052,25 +3053,25 @@ function readLocalSnapshot(): AppSnapshot {
   return sanitizePersonnelSnapshot(recoverReportsFromFieldProgress({
     activeJobId: readStoredValue<string | null>(storageKeys.activeJobId, null),
     accountingAccounts: readStoredValue<AccountingAccount[]>(storageKeys.accountingAccounts, defaultVismaChartOfAccounts),
-    billing: readStoredValue<BillingRecord[]>(storageKeys.billing, seedBilling),
-    companySettings: readStoredValue<CompanySettings>(storageKeys.companySettings, seedCompanySettings),
-    customers: readStoredValue<CustomerRecord[]>(storageKeys.customers, seedCustomers),
+    billing: readStoredValue<BillingRecord[]>(storageKeys.billing, tenantSeed(seedBilling)),
+    companySettings: readStoredValue<CompanySettings>(storageKeys.companySettings, tenantCompanyDefaults()),
+    customers: readStoredValue<CustomerRecord[]>(storageKeys.customers, tenantSeed(seedCustomers)),
     dailyMailSettings: normalizeDailyMailSettings(readStoredValue<Partial<DailyMailSettings>>(storageKeys.dailyMailSettings, seedDailyMailSettings)),
     deletedEntityIds: readStoredValue<Record<string, string[]>>(storageKeys.deletedEntityIds, {}),
     deletedReportIds: readStoredValue<string[]>(storageKeys.deletedReportIds, []),
     fieldNotes: readStoredValue<Record<string, string>>(storageKeys.fieldNotes, {}),
     fieldProgress: readStoredValue<Record<string, Record<string, FieldTaskProgress>>>(storageKeys.fieldProgress, {}),
     jobNoteMeta: readStoredValue<Record<string, RevisionMeta>>(storageKeys.jobNoteMeta, {}),
-    jobs: readStoredValue<JobRecord[]>(storageKeys.jobs, seedJobs),
-    inventoryLocations: readStoredValue<InventoryLocation[]>(storageKeys.inventoryLocations, seedInventoryLocations),
-    materials: readStoredValue<MaterialItem[]>(storageKeys.materials, seedMaterials),
-    objects: readStoredValue<ObjectRecord[]>(storageKeys.objects, seedObjects),
-    packages: readStoredValue<ServicePackage[]>(storageKeys.packages, seedPackages),
-    personnel: readStoredValue<PersonnelRecord[]>(storageKeys.personnel, seedPersonnel),
+    jobs: readStoredValue<JobRecord[]>(storageKeys.jobs, tenantSeed(seedJobs)),
+    inventoryLocations: readStoredValue<InventoryLocation[]>(storageKeys.inventoryLocations, tenantSeed(seedInventoryLocations)),
+    materials: readStoredValue<MaterialItem[]>(storageKeys.materials, tenantSeed(seedMaterials)),
+    objects: readStoredValue<ObjectRecord[]>(storageKeys.objects, tenantSeed(seedObjects)),
+    packages: readStoredValue<ServicePackage[]>(storageKeys.packages, tenantSeed(seedPackages)),
+    personnel: readStoredValue<PersonnelRecord[]>(storageKeys.personnel, tenantSeed(seedPersonnel)),
     portalMessages: readStoredValue<PortalMessageRecord[]>(storageKeys.portalMessages, []),
-    reports: dedupeReports(readStoredValue<ReportRecord[]>(storageKeys.reports, seedReports)),
-    resources: readStoredValue<ResourceRecord[]>(storageKeys.resources, seedResources),
-    services: readStoredValue<ServiceItem[]>(storageKeys.services, seedServices),
+    reports: dedupeReports(readStoredValue<ReportRecord[]>(storageKeys.reports, tenantSeed(seedReports))),
+    resources: readStoredValue<ResourceRecord[]>(storageKeys.resources, tenantSeed(seedResources)),
+    services: readStoredValue<ServiceItem[]>(storageKeys.services, tenantSeed(seedServices)),
     tenantSettings: readStoredValue<TenantSettings>(storageKeys.tenantSettings, seedTenantSettings),
     translationOverrides: readStoredValue<TranslationFileRow[]>(storageKeys.translationOverrides, []),
     updatedAt: readStoredValue<string | undefined>(storageKeys.updatedAt, undefined),
@@ -8014,6 +8015,15 @@ const seedCompanySettings: CompanySettings = {
   vatNumber: "",
 };
 
+function tenantSeed<T>(rows: T[]): T[] {
+  return process.env.NEXT_PUBLIC_E2E_AUTH_BYPASS === "1" || getActiveTenantId() === "00000000-0000-0000-0000-000000000001" ? rows : [];
+}
+
+function tenantCompanyDefaults(): CompanySettings {
+  if (process.env.NEXT_PUBLIC_E2E_AUTH_BYPASS === "1" || getActiveTenantId() === "00000000-0000-0000-0000-000000000001") return seedCompanySettings;
+  return { ...seedCompanySettings, name: "", address: "", email: "", phone: "", organizationNumber: "", vatNumber: "", countryCode: "", currency: "", vatRate: "", fSkattApproved: false };
+}
+
 const allFeatureModules: FeatureModule[] = [
   "jobs",
   "reports",
@@ -9572,7 +9582,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     setObjects(cleanSnapshot.objects);
     setAccountingAccounts(allAccountingAccounts(cleanSnapshot.accountingAccounts ?? defaultVismaChartOfAccounts));
     setBilling(cleanSnapshot.billing ?? seedBilling);
-    const nextCompanySettings = { ...seedCompanySettings, ...(cleanSnapshot.companySettings ?? {}) };
+    const nextCompanySettings = { ...tenantCompanyDefaults(), ...(cleanSnapshot.companySettings ?? {}) };
     setCompanySettings(nextCompanySettings);
     if (nextCompanySettings.onboarding?.language) setLanguage(nextCompanySettings.onboarding.language);
     setCustomers(cleanSnapshot.customers);
@@ -13323,7 +13333,8 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
         </div>
         <PersonalNavigation controller={layoutPreferences} language={language} selected={section}
           select={(id) => { setQuickTripOpen(false); setSection(id as Section); }}
-          items={navItems.map((item) => ({ id: item.id, label: navLabels[language][item.id], icon: <item.icon size={17}/> }))}/>
+          items={navItems.map((item) => ({ id: item.id, label: navLabels[language][item.id], icon: <item.icon size={17}/> }))}
+          trailing={<AdministrationLinks section={section} />}/>
         <button className="version" onClick={() => setModal("version")} type="button">
           <span>{tx("Aktuelle Version")}</span>
           <strong>v{appVersion.version}</strong>

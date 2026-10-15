@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { AuthContextPayload, TenantMembership } from "@/lib/authModel";
-import { activeTenantStorageKey, apiFetch } from "@/lib/apiClient";
+import { getActiveTenantId, pendingTenantStorageKey, apiFetch } from "@/lib/apiClient";
 
 export function TenantSwitcher() {
   const [memberships, setMemberships] = useState<TenantMembership[]>([]);
@@ -14,7 +14,7 @@ export function TenantSwitcher() {
       if (!response.ok) return;
       const context = await response.json() as AuthContextPayload;
       setMemberships(context.memberships);
-      setTenantId(window.localStorage.getItem(activeTenantStorageKey) ?? context.memberships[0]?.tenantId ?? "");
+      setTenantId(getActiveTenantId() || context.memberships[0]?.tenantId || "");
     });
   }, []);
 
@@ -23,7 +23,7 @@ export function TenantSwitcher() {
     <label className="select-field tenant-switcher">
       <span className="sr-only">Firma</span>
       <select value={tenantId} onChange={(event) => {
-        window.localStorage.setItem(activeTenantStorageKey, event.target.value);
+        window.sessionStorage.setItem(pendingTenantStorageKey, event.target.value);
         window.location.reload();
       }}>
         {memberships.map((membership) => <option key={membership.tenantId} value={membership.tenantId}>{membership.tenantName}</option>)}

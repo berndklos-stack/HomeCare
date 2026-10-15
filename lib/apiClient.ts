@@ -3,10 +3,16 @@
 import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
 
 export const activeTenantStorageKey = "workcore-active-tenant-id";
+export const pendingTenantStorageKey = "workcore-pending-tenant-id";
+
+export function activateTenant(tenantId: string) {
+  window.sessionStorage.setItem(activeTenantStorageKey, tenantId);
+  window.localStorage.setItem(activeTenantStorageKey, tenantId);
+}
 
 export function getActiveTenantId() {
   if (typeof window === "undefined") return "";
-  return window.localStorage.getItem(activeTenantStorageKey) ?? "";
+  return window.sessionStorage.getItem(activeTenantStorageKey) ?? window.localStorage.getItem(activeTenantStorageKey) ?? "";
 }
 
 export function tenantScopedStorageKey(key: string) {

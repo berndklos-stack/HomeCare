@@ -134,12 +134,7 @@ for (const width of [1440, 820, 390]) {
     const sidebar = page.locator('.sidebar');
     const handle = sidebar.locator('[data-nav-id="dashboard"] .personal-drag-handle');
     await expect(handle).toBeEnabled();
-    await handle.focus();
-    await page.keyboard.press('Space');
-    await expect(sidebar.locator('.personal-dragging')).toHaveCount(1);
-    await page.keyboard.press(width > 1180 ? 'ArrowDown' : 'ArrowRight');
-    await expect(sidebar.locator('[aria-live="assertive"]')).toContainText('Position 2 von');
-    await page.keyboard.press('Space');
+    await keyboardReorder(page, sidebar.locator('[data-nav-id="dashboard"]'), sidebar.locator('.personal-navigation'), width > 1180 ? 'ArrowDown' : 'ArrowRight');
     await expect.poll(() => saved.navigationOrder[1]).toBe('dashboard');
     await handle.focus();
     await page.keyboard.press('Space');

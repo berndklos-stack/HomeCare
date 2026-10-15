@@ -1,10 +1,11 @@
 export const appVersion = {
-  version: "1.427.48",
+  version: "1.428.0",
   releaseDate: "2026-10-15",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  { version: "1.428.0", date: "2026-10-15", changes: ["Firmenadministration mit Benutzerverwaltung, sicheren Einladungen, Rollen und Mitarbeiterzuordnung", "Kontrollierte Pilotfirmenanlage nur fuer explizit freigeschaltete Plattformadministratoren", "Firmengebundene Module und Feedback, tabgebundener Firmenwechsel und mandantengeschuetzte Datenbankspalten"] },
   { version: "1.427.48", date: "2026-10-15", changes: ["Menuezeilen und Bereiche nach langem Druecken direkt ziehen und beim Loslassen speichern", "Keine sichtbaren Sortierpfeile, Ziehgriffe oder Fertig-Buttons; Beschriftungen und Zeilen behalten ihre volle Groesse", "Persoenliche Reihenfolgen, Tastatursteuerung, iPhone-Touch, iPad-Drehung und Vor-Ort-Eingaben geprueft"] },
   { version: "1.427.47", date: "2026-10-15", changes: ["Mobil vor Ort: unveraenderte wartende Fotos blockieren bei Fotocache-Speicherfehlern keine Haken, Arbeitszeiten und Hinweise mehr", "Neue und geaenderte Fotodrafts weiterhin vor Annahme sichern; bestehende Fotos und lokale Entwuerfe erhalten", "Eingaben und Reload auf iPhone/iPad in Chrome und Safari sowie Foto- und Sync-Regressionsfaelle geprueft"] },
   { version: "1.427.46", date: "2026-10-15", changes: ["Langes Druecken aktiviert Verschieben statt eines Anordnen-Buttons; kurzes Tippen und Scrollen bleiben erhalten", "Persoenliche Blockreihenfolgen auf Dashboard, Auswertung, Positionen, Stammdaten, Formulargruppen sowie Lager und Einkauf erweitert", "Eigene typisierte Layout-Tabelle mit Benutzer-/Mandantenschutz, Backup-Unterstuetzung und bestaetigtem Speichern; Touch und Tastatur geprueft"] },

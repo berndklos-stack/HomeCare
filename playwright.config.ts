@@ -30,7 +30,7 @@ export default defineConfig({
     },
     {
       name: "webkit",
-      testMatch: /(?:personal-layout|block-layouts|tablet-layout|standard-trips|resource-types-ui|operations-ui|operations-tables|supplier-damage-cases|stock-overview|safari-runtime|report-private-media|field-multi-photo|field-material-review|field-inputs|consulting-service-list|workcore-ux|report-transitions|dashboard-job-opening|sticky-header-layering|drive-log-ux|logbook-language|trip-chronology-ui)\.spec\.ts/,
+      testMatch: /(?:administration|personal-layout|block-layouts|tablet-layout|standard-trips|resource-types-ui|operations-ui|operations-tables|supplier-damage-cases|stock-overview|safari-runtime|report-private-media|field-multi-photo|field-material-review|field-inputs|consulting-service-list|workcore-ux|report-transitions|dashboard-job-opening|sticky-header-layering|drive-log-ux|logbook-language|trip-chronology-ui)\.spec\.ts/,
       use: { ...devices["Desktop Safari"] },
     },
   ],

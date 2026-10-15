@@ -77,7 +77,7 @@ async function authenticatedUser(request: Request) {
 export async function loadMemberships(admin: SupabaseClient, userId: string): Promise<TenantMembership[]> {
   const { data, error } = await admin
     .from("homecare_tenant_memberships")
-    .select("tenant:homecare_tenants!inner(id,name,slug),role:homecare_roles!inner(key,name,permissions)")
+    .select("tenant:homecare_tenants!inner(id,name,slug),role:homecare_roles!homecare_tenant_memberships_role_id_fkey!inner(key,name,permissions)")
     .eq("user_id", userId)
     .eq("status", "active");
   if (error) throw new Error(error.message);

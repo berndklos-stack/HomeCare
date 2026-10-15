@@ -10,7 +10,7 @@ create schema auth;
 create schema storage;
 create schema extensions;
 create extension pgcrypto with schema extensions;
-create table auth.users(id uuid primary key, email text);
+create table auth.users(id uuid primary key, email text, email_confirmed_at timestamptz, raw_user_meta_data jsonb not null default '{}', last_sign_in_at timestamptz);
 create table storage.buckets(id text primary key, public boolean not null default false);
 create function auth.uid() returns uuid language sql stable as $$
   select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid

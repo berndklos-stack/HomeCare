@@ -1891,6 +1891,7 @@ async function loadTranslationOverridesSection(supabase: NonNullable<ReturnType<
 async function loadAuthoritativeSettingsSections(
   supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>,
   keys: SyncSectionKey[],
+  tenantId: string,
 ) {
   const settingKeys = keys.filter((key) => key === "companySettings" || key === "dailyMailSettings");
   if (!settingKeys.length) return {};
@@ -1899,7 +1900,19 @@ async function loadAuthoritativeSettingsSections(
     .select("key, value, revision, deleted_at, updated_at")
     .in("key", settingKeys);
   if (error) throw new Error(error.message);
-  return Object.fromEntries(((data ?? []) as SettingRow[]).map((row) => [row.key, {
+  const rows = (data ?? []) as SettingRow[];
+  if (keys.includes("companySettings")) {
+    const tenant = await supabase.from("homecare_tenants").select("name,country_code,locale,default_currency,organization_number,vat_number,onboarded_by").eq("id", tenantId).single();
+    if (tenant.error) throw new Error(tenant.error.message);
+    const company = rows.find(row => row.key === "companySettings" && !row.deleted_at);
+    if (company && tenant.data.onboarded_by) {
+      const previous = company.value && typeof company.value === "object" && !Array.isArray(company.value) ? company.value as JsonObject : {};
+      company.value = { ...previous, name: tenant.data.name, countryCode: tenant.data.country_code, currency: tenant.data.default_currency,
+        organizationNumber: tenant.data.organization_number ?? "", vatNumber: tenant.data.vat_number ?? "",
+        onboarding: { language: tenant.data.locale, ...(previous.onboarding && typeof previous.onboarding === "object" ? previous.onboarding : {}) } };
+    }
+  }
+  return Object.fromEntries(rows.map((row) => [row.key, {
     hasRecord: true,
     updatedAt: row.updated_at,
     value: row.deleted_at
@@ -1974,7 +1987,7 @@ export async function GET(request: Request) {
   const sections: Record<string, unknown> = {};
 
   try {
-    const authoritativeSettings = await loadAuthoritativeSettingsSections(supabase, keys);
+    const authoritativeSettings = await loadAuthoritativeSettingsSections(supabase, keys, auth.tenantId);
     for (const key of ["companySettings", "dailyMailSettings"] as const) {
       if (!keys.includes(key)) continue;
       const relational = authoritativeSettings[key];

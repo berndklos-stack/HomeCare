@@ -51,7 +51,7 @@ export function OrderToolbar({ controller, language }: { controller: Pick<Layout
     <span role="status">{controller.saving ? word(language, 'Speichert…', 'Sparar…', 'Saving…') : word(language, 'Nicht gespeichert', 'Inte sparat', 'Not saved')}</span>
   </div>;
 }
-export function PersonalNavigation({ items, selected, select, controller, language }: { items: { id: string; label: string; icon: ReactNode }[]; selected: string; select: (id: string) => void; controller: LayoutPreferencesController; language: Language }) {
+export function PersonalNavigation({ items, selected, select, controller, language, trailing }: { items: { id: string; label: string; icon: ReactNode }[]; selected: string; select: (id: string) => void; controller: LayoutPreferencesController; language: Language; trailing?: ReactNode }) {
   const [arranging, setArranging] = useState(false);
   const ids = orderedIds(controller.preferences.navigationOrder, items.map((item) => item.id));
   return <div className={`personal-navigation${arranging ? ' personal-arranging' : ''}`} onKeyDownCapture={(event) => { if (arranging && event.key === 'Escape') { event.preventDefault(); setArranging(false); } }}>
@@ -62,7 +62,7 @@ export function PersonalNavigation({ items, selected, select, controller, langua
         <button {...press} type="button" className={selected === id ? 'nav-link active' : 'nav-link'} data-testid={`nav-${id}`} onClick={() => { if (!arranging) select(id); }}>{item.icon}{item.label}</button>
         {handle}
       </>}</SortableRow>;
-    })}</nav></SortableOrder>
+    })}{trailing}</nav></SortableOrder>
   </div>;
 }
 export function PersonalVehicleBlocks({ blocks, controller, language, locked = false }: { blocks: { id: string; title: string; count: number; content: ReactNode }[]; controller: LayoutPreferencesController; language: Language; locked?: boolean }) {

@@ -1,0 +1,54 @@
+.administration-shell { width: min(1280px,100%); margin: 0 auto; padding: 24px; color: var(--foreground,#202124); }
+.administration-shell h1 { font-size: 28px; margin: 24px 0; }
+.administration-shell h2 { font-size: 22px; margin: 20px 0; }
+.administration-shell h3 { font-size: 17px; margin: 0 0 6px; overflow-wrap: anywhere; }
+.administration-shell h4 { font-size: 14px; margin: 14px 0 4px; }
+.administration-shell p { margin: 4px 0 8px; overflow-wrap: anywhere; }
+.administration-shell label,.administration-invite label { display: flex; flex-direction: column; gap: 6px; font-size: 14px; min-width: 0; }
+.administration-shell input:not([type=checkbox]),.administration-shell select,.administration-shell textarea,
+.administration-invite input,.administration-invite select { width: 100%; min-height: 44px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); color: var(--foreground); font: inherit; font-size: 16px; }
+.administration-shell form { display: grid; gap: 18px; }
+.administration-shell select,.administration-invite select { height: 44px; }
+.administration-page-header,.administration-section-header,.administration-invite header,.administration-invite footer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.administration-page-header { justify-content: flex-start; }
+.administration-tabs { display: flex; flex-wrap: wrap; gap: 10px; border-bottom: 1px solid var(--line); padding-bottom: 16px; margin-bottom: 24px; }
+.administration-tabs button { min-height: 44px; padding: 10px 24px; border: 1px solid var(--line); border-radius: 999px; background: var(--paper); color: var(--muted); font-weight: 700; }
+.administration-tabs button.active { background: var(--brand); color: #fff; border-color: var(--brand); }
+.administration-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 18px; }
+.administration-grid dd { margin: 4px 0 0; font-weight: 600; overflow-wrap: anywhere; }
+.administration-grid dt { color: var(--muted); }
+.administration-filters { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px; margin: 18px 0; }
+.administration-user { display: grid; grid-template-columns: minmax(200px,2fr) minmax(150px,1fr) minmax(150px,1fr) auto; align-items: center; gap: 18px; padding: 18px 0; border-bottom: 1px solid var(--line); }
+.administration-user-actions { display: flex; gap: 8px; }
+.administration-pagination { display: flex; justify-content: flex-end; gap: 12px; align-items: center; padding: 18px 0; }
+.administration-user-actions button { width: 44px; height: 44px; flex-shrink: 0; padding: 10px; }
+.administration-role-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(260px,100%),1fr)); gap: 24px; }
+.administration-role-grid article { border-top: 2px solid var(--line); padding-top: 18px; }
+.administration-role-grid h3,.administration-role-grid li { display: flex; align-items: center; gap: 8px; }
+.administration-role-grid li { font-size: 14px; padding: 3px 0; }
+.administration-role-grid ul { list-style: none; padding: 0; }
+.administration-role-grid svg { flex-shrink: 0; }
+.administration-modules { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(150px,100%),1fr)); gap: 10px 14px; border: 0; padding: 12px 0; }
+.administration-modules label { flex-direction: row; align-items: center; min-height: 44px; }
+.administration-modules input { width: 22px; height: 22px; }
+.administration-company-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--line); padding: 14px 0; }
+.administration-feedback { border-top: 1px solid var(--line); padding: 18px 0; }
+.administration-feedback p { white-space: pre-wrap; }
+.administration-invite { width: min(480px,calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow: auto; margin: auto; padding: 24px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); color: var(--foreground); }
+.administration-invite::backdrop { background: #0008; }
+.administration-invite h2 { font-size: 22px; }
+.administration-invite form { display: grid; gap: 18px; margin-top: 18px; }
+.administration-links { display: flex; flex-direction: column; gap: 8px; }
+.administration-links a { display: flex; align-items: center; gap: 10px; color: #bbb; min-height: 44px; font-size: 14px; padding: 0 10px; border-radius: 8px; white-space: nowrap; }
+.administration-links a:hover { color: white; background: #ffffff1f; }
+.administration-shell [role=alert],.administration-invite [role=alert] { color: #b42318; }
+@media(max-width: 760px) {
+  .administration-shell { padding: 16px; padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
+  .administration-grid { grid-template-columns: 1fr; }
+  .administration-filters { grid-template-columns: 1fr 1fr; }
+  .administration-filters label:first-child { grid-column: 1 / -1; }
+  .administration-user { grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 12px; }
+  .administration-user > div:first-child,.administration-user-actions { grid-column: 1 / -1; }
+  .administration-invite { padding: 18px; }
+}
+@media(max-width: 1180px) { .administration-links { flex-direction: row; flex: 0 0 auto; gap: 6px; } }
