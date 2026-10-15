@@ -141,12 +141,17 @@ button {
 .brand .company-brand-image { width: auto; max-width: 100%; height: auto; max-height: 54px; object-position: left center; }
 @media (max-width: 1180px) { .sidebar .brand .company-brand-image { max-height: 32px; max-width: min(280px, 100%); } }
 @media (max-width: 600px) { .sidebar .brand .company-brand-image { max-height: 26px; max-width: min(190px, 100%); } }
-.company-logo-editor { display: grid; gap: 10px; }
+.company-logo-editor { display: grid; grid-template-columns: minmax(0, 300px) max-content; align-items: center; justify-content: start; gap: 10px 16px; min-width: 0; }
+.company-logo-editor > span { grid-column: 1 / -1; }
+.company-logo-editor > .row-actions { display: flex; flex-direction: row; justify-content: flex-start; align-self: center; flex-wrap: wrap; width: max-content; max-width: 100%; }
 .company-logo-preview { display: flex; align-items: center; width: min(100%, 300px); height: 84px; padding: 10px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: #111; }
 .company-logo-preview img { max-width: 100%; height: auto; max-height: 64px; object-fit: contain; object-position: left; }
-.company-logo-upload { position: relative; min-height: 44px; cursor: pointer; }
+.company-logo-editor > .row-actions > .company-logo-upload { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 8px; flex: 0 1 auto; width: max-content; max-width: 100%; min-height: 44px; margin: 0; cursor: pointer; }
+.company-logo-editor > .row-actions > .icon-button { flex: 0 0 44px; width: 44px; min-width: 44px; height: 44px; min-height: 44px; }
+.company-logo-upload > svg { flex: none; }
 .company-logo-upload input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
 .company-logo-upload:focus-within { outline: 2px solid #0074e8; outline-offset: 2px; }
+@media (max-width: 600px) { .company-logo-editor { grid-template-columns: minmax(0, 1fr); } }
 
 .sidebar nav {
   display: grid;

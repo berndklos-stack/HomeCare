@@ -34,6 +34,27 @@ for (const width of [390, 820, 1440]) test(`Firmenlogo aus Stammdaten hochladen,
   });
   await page.getByLabel("Firmenlogo hochladen", { exact: true }).setInputFiles({ name: "firmenlogo.png", mimeType: "image/png", buffer: Buffer.from(image, "base64") });
   await expect(page.locator(".company-logo-preview img")).toBeVisible();
+  const editor = page.locator(".company-logo-editor");
+  const preview = (await editor.locator(".company-logo-preview").boundingBox())!;
+  const actions = (await editor.locator(".row-actions").boundingBox())!;
+  const upload = editor.locator(".company-logo-upload");
+  expect(await upload.evaluate(element => getComputedStyle(element).display)).toMatch(/^(inline-)?flex$/);
+  expect(await upload.evaluate(element => getComputedStyle(element).flexDirection)).toBe("row");
+  expect((await upload.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  const remove = (await editor.getByRole("button", { name: "Firmenlogo entfernen", exact: true }).boundingBox())!;
+  expect(remove.width).toBe(44);
+  expect(remove.height).toBe(44);
+  expect(remove.x).toBeGreaterThanOrEqual((await upload.boundingBox())!.x + (await upload.boundingBox())!.width);
+  if (width > 600) {
+    expect(Math.abs(preview.y + preview.height / 2 - actions.y - actions.height / 2)).toBeLessThan(2);
+    expect(actions.x - preview.x - preview.width).toBeGreaterThanOrEqual(12);
+    expect(actions.x - preview.x - preview.width).toBeLessThanOrEqual(20);
+  } else {
+    expect(actions.y).toBeGreaterThanOrEqual(preview.y + preview.height);
+    expect(Math.abs(actions.x - preview.x)).toBeLessThan(2);
+  }
+  await editor.scrollIntoViewIfNeeded();
+  await editor.screenshot({ path: `test-results/company-logo-editor-${width}-${test.info().project.name}.png` });
   await expect(brand.locator("img")).toHaveCount(0);
   await page.getByRole("button", { name: "Firmenstammdaten speichern", exact: true }).click();
   await expect(brand.getByRole("img", { name: "Logo Test GmbH", exact: true })).toBeVisible();
