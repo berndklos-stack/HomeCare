@@ -110,7 +110,7 @@ import { needsProgressPhotoDraftWrite, overlayPendingJobOperations, prepareJobMu
 import { overlayPendingReportCommunication, preparePortalMessageMutations, prepareReportMutations } from "@/lib/reportCommunicationSync";
 import { overlayPendingFinancialMutations, prepareFinancialMutations } from "@/lib/financialSync";
 import { useSyncQueue } from "@/lib/useSyncQueue";
-import { isStorageQuotaError, localCacheQuotaEvent, writeLocalCache } from "@/lib/localCache";
+import { hydrateLocalReadCache, isStorageQuotaError, localCacheQuotaEvent, localCacheRecoveredEvent, readLocalCache, writeLocalCache } from "@/lib/localCache";
 import {
   normalizeOnboardingState,
   onboardingInstallPlatform,
@@ -3035,7 +3035,7 @@ function isRetryableSyncError(error: unknown) {
 }
 
 function readStoredValue<T>(key: string, fallback: T): T {
-  const stored = window.localStorage.getItem(key);
+  const stored = readLocalCache(window.localStorage, key);
   if (!stored) return fallback;
 
   try {
@@ -3096,7 +3096,7 @@ function hasSavedLocalSnapshot() {
     storageKeys.jobs,
     storageKeys.reports,
     storageKeys.fieldProgress,
-  ].some((key) => window.localStorage.getItem(key) !== null);
+  ].some((key) => readLocalCache(window.localStorage, key) !== null);
 }
 
 function persistLocalSnapshot(snapshot: AppSnapshot) {
@@ -9034,8 +9034,13 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
   const [localCacheFull, setLocalCacheFull] = useState(false);
   useEffect(() => {
     const handleQuota = () => setLocalCacheFull(true);
+    const handleRecovery = () => setLocalCacheFull(false);
     window.addEventListener(localCacheQuotaEvent, handleQuota);
-    return () => window.removeEventListener(localCacheQuotaEvent, handleQuota);
+    window.addEventListener(localCacheRecoveredEvent, handleRecovery);
+    return () => {
+      window.removeEventListener(localCacheQuotaEvent, handleQuota);
+      window.removeEventListener(localCacheRecoveredEvent, handleRecovery);
+    };
   }, []);
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const [onboardingDeferredThisSession, setOnboardingDeferredThisSession] = useState(false);
@@ -9630,6 +9635,12 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
 
     async function loadSnapshot() {
       setAppLoadError("");
+      const readCacheKeys = [...syncSectionKeys, "activeJobId", "updatedAt"] as const;
+      const cacheKeys = readCacheKeys.map(key => storageKeys[key]);
+      // Legacy unscoped caches are preserved under their original keys, never
+      // treated as the active tenant's data. Moving them also frees the shared quota.
+      await hydrateLocalReadCache(window.localStorage, [...new Set([...cacheKeys, ...readCacheKeys.map(key => baseStorageKeys[key])])]);
+      if (cancelled) return;
       const hasLocalData = hasSavedLocalSnapshot();
       const localSnapshot = readLocalSnapshot();
       const localQueue = readSyncQueue(window.localStorage);

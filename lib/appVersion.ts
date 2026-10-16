@@ -1,10 +1,11 @@
 export const appVersion = {
-  version: "1.428.2",
-  releaseDate: "2026-10-15",
+  version: "1.428.3",
+  releaseDate: "2026-10-16",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  { version: "1.428.3", date: "2026-10-16", changes: ["Grosse Offline-Lesecaches sicher in IndexedDB statt im begrenzten lokalen Browserspeicher ablegen", "Bestehende Cachewerte erst nach bestaetigter Speicherung entfernen; ungesendete Fahrten, Fotos und Entwuerfe erhalten", "Speichererholung sowie Offline-Neuladen auf iPhone/iPad-Viewportgroessen in Chromium und WebKit geprueft"] },
   { version: "1.428.2", date: "2026-10-15", changes: ["Firmenlogo-Vorschau und Aktionen kompakt links nebeneinander statt mit grosser Leerflaeche", "Auf dem iPhone Vorschau ueber einer gemeinsamen Buttonreihe; Uploadsymbol neben der Beschriftung", "Entfernenbutton mit 44-Pixel-Touchflaeche; responsive Anordnung in Chromium und WebKit geprueft"] },
   { version: "1.428.1", date: "2026-10-15", changes: ["Logo oben links aus den Firmenstammdaten statt festem Kolaretorp-Logo", "Firmenlogo hochladen und entfernen; Firmenname als Ersatz bei fehlendem oder defektem Bild", "Eigene mandantengeschuetzte Logospalte mit Synchronisations-, Bestandsuebernahme- und Backup-Tests"] },
   { version: "1.428.0", date: "2026-10-15", changes: ["Firmenadministration mit Benutzerverwaltung, sicheren Einladungen, Rollen und Mitarbeiterzuordnung", "Kontrollierte Pilotfirmenanlage nur fuer explizit freigeschaltete Plattformadministratoren", "Firmengebundene Module und Feedback, tabgebundener Firmenwechsel und mandantengeschuetzte Datenbankspalten"] },

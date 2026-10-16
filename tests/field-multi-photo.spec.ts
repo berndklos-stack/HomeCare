@@ -135,8 +135,9 @@ test("Speicherfehler bleibt offline sichtbar und lokale Vorschauen sind nach Rec
   expect(ids.size).toBe(4);
 });
 
-test("Voller Berichtscache zeigt Warnung ohne Reload und erhält den Bericht in der Offline-Queue", async ({ page }) => {
+test("Voller Berichtscache und nicht verfuegbares IndexedDB zeigen Warnung ohne Queueverlust", async ({ page }) => {
   await page.addInitScript(() => {
+    IDBFactory.prototype.open = () => { throw new DOMException("Database unavailable", "QuotaExceededError"); };
     const original = Storage.prototype.setItem;
     Storage.prototype.setItem = function (key, value) {
       if (key.startsWith("kolaretorp-reports")) throw new DOMException("Test quota", "QuotaExceededError");
