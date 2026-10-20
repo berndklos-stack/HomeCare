@@ -37,8 +37,10 @@ Browsertests pruefen PNG-Format, sichtbare Farbpixel, Transparenz, Neuladen und
 Ablehnung aktiver/externer Inhalte ohne Netzabruf in Chromium und WebKit.
 
 Die Navigation prueft nach dem Laden die alpha-gewichtete Helligkeit des
-Logos auf einer kleinen Canvas. Dunkle Logos erhalten einen weissen Hintergrund,
-helle Logos bleiben auf dem dunklen Menue. Die Bilddaten werden dabei nicht
+Logos auf einer kleinen Canvas. Dunkle, transparente monochrome Logos werden
+auf dem in beiden Themes dunklen Menue invertiert, ohne zusaetzlichen Kasten.
+Farbige dunkle Logos erhalten einen weissen Hintergrund, helle Logos bleiben
+unveraendert auf dem dunklen Menue. Die Bilddaten werden dabei nicht
 veraendert. Bei externen Bildern ohne CORS bleibt die bisherige Darstellung
 erhalten, ohne den Upload oder die Bildanzeige zu blockieren.
 

@@ -140,6 +140,7 @@ button {
 .company-brand-name { display: block; min-width: 0; overflow-wrap: anywhere; font-size: 18px; line-height: 1.3; }
 .brand .company-brand-image { width: auto; max-width: 100%; height: auto; max-height: 54px; object-position: left center; }
 .brand .company-brand-image-light { background-color: #fff; border-radius: 4px; padding: 4px 6px; }
+.brand .company-brand-image-invert { filter: invert(1); }
 @media (max-width: 1180px) { .sidebar .brand .company-brand-image { max-height: 32px; max-width: min(280px, 100%); } }
 @media (max-width: 600px) { .sidebar .brand .company-brand-image { max-height: 26px; max-width: min(190px, 100%); } }
 .company-logo-editor { display: grid; grid-template-columns: minmax(0, 300px) max-content; align-items: center; justify-content: start; gap: 10px 16px; min-width: 0; }

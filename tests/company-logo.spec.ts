@@ -19,9 +19,14 @@ test("Dunkles SVG-Firmenlogo bleibt im dunklen Seitenmenue lesbar", async ({ pag
   await page.getByRole("button", { name: "Firmenstammdaten speichern", exact: true }).click();
   const logo = page.locator(".sidebar .brand img");
   await expect(logo).toBeVisible();
-  await expect(logo).toHaveClass(/company-brand-image-light/);
-  await expect(logo).toHaveCSS("background-color", "rgb(255, 255, 255)");
-  await logo.screenshot({ path: `test-results/dark-svg-logo-${test.info().project.name}.png` });
+  for (const theme of ["light", "dark"]) {
+    if (theme === "dark") await page.getByRole("button", { name: "Dunkelmodus", exact: true }).click();
+    await expect(logo).toHaveClass(/company-brand-image-invert/);
+    await expect(logo).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    await expect(logo).toHaveCSS("filter", "invert(1)");
+    await expect(logo).toHaveCSS("padding", "0px");
+    await logo.screenshot({ path: `test-results/dark-svg-logo-${theme}-${test.info().project.name}.png` });
+  }
   await page.getByLabel("Firmenlogo hochladen", { exact: true }).setInputFiles({
     name: "white-logo.svg", mimeType: "image/svg+xml",
     buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 40"><path fill="#fff" d="M10 10h180v20H10z"/></svg>'),
@@ -29,6 +34,7 @@ test("Dunkles SVG-Firmenlogo bleibt im dunklen Seitenmenue lesbar", async ({ pag
   await expect(preview).not.toHaveAttribute("src", await logo.getAttribute("src") || "");
   await page.getByRole("button", { name: "Firmenstammdaten speichern", exact: true }).click();
   await expect(logo).not.toHaveClass(/company-brand-image-light/);
+  await expect(logo).not.toHaveClass(/company-brand-image-invert/);
 });
 
 test("Firmenlogo erlaubt nur sichere Bildquellen", () => {
