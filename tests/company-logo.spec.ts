@@ -83,3 +83,64 @@ test("Defektes Firmenlogo zeigt nur den Namen dieser Firma", async ({ page }) =>
   await expect(page.locator(".sidebar .brand")).toHaveText("Andere Firma");
   await expect(page.locator(".sidebar .brand img")).toHaveCount(0);
 });
+
+for (const width of [390, 820]) test(`SVG-Logo wird transparentes PNG und bleibt nach Reload erhalten ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 1000 });
+  await page.addInitScript(() => {
+    localStorage.setItem("kolaretorp-field-progress", JSON.stringify({ fixture: {} }));
+    if (!localStorage.getItem("svg-fixture")) {
+      localStorage.setItem("svg-fixture", "1");
+      localStorage.setItem("kolaretorp-company-settings", JSON.stringify({ name: "SVG Firma", logoUrl: "" }));
+    }
+  });
+  await page.goto("/");
+  await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true");
+  await page.getByTestId("nav-masterData").click();
+  await page.getByRole("button", { name: "Firma", exact: true }).click();
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100" style="width:99999px;height:99999px"><style>.brand-fill{fill:#0071e3}</style><rect class="brand-fill" x="20" y="20" width="160" height="60"/></svg>';
+  await page.getByLabel("Firmenlogo hochladen", { exact: true }).setInputFiles({ name: "logo.svg", mimeType: "image/svg+xml", buffer: Buffer.from(svg) });
+  const image = page.locator(".company-logo-preview img");
+  await expect(image).toBeVisible();
+  await expect(image).toHaveAttribute("src", /^data:image\/png;base64,/);
+  const pixels = await image.evaluate(async (image: HTMLImageElement) => {
+    await image.decode();
+    const canvas = document.createElement("canvas"); canvas.width = image.naturalWidth; canvas.height = image.naturalHeight;
+    const context = canvas.getContext("2d")!; context.drawImage(image, 0, 0);
+    return { width: canvas.width, height: canvas.height, corner: [...context.getImageData(0, 0, 1, 1).data], center: [...context.getImageData(100, 50, 1, 1).data] };
+  });
+  expect(pixels).toEqual({ width: 200, height: 100, corner: [0, 0, 0, 0], center: [0, 113, 227, 255] });
+  await page.getByRole("button", { name: "Firmenstammdaten speichern", exact: true }).click();
+  await expect(page.locator(".sidebar .brand img")).toHaveAttribute("src", /^data:image\/png;base64,/);
+  await page.reload();
+  await expect(page.locator(".sidebar .brand img")).toHaveAttribute("src", /^data:image\/png;base64,/);
+});
+
+const unsafeSvgs = {
+  script: '<script>window.svgExecuted=true</script>',
+  handler: '<rect width="20" height="20" onload="window.svgExecuted=true"/>',
+  foreignObject: '<foreignObject><div xmlns="http://www.w3.org/1999/xhtml">HTML</div></foreignObject>',
+  externalImage: '<image href="https://svg-test.invalid/tracker.png"/>',
+  externalUse: '<use href="https://svg-test.invalid/logo.svg#part"/>',
+  cssImport: '<style>@import "https://svg-test.invalid/style.css";</style>',
+  cssEscapedUrl: '<style>rect{fill:u\\72l(https://svg-test.invalid/a.svg)}</style>',
+  cssImageSet: '<style>rect{background:image-set("https://svg-test.invalid/a.png" 1x)}</style>',
+};
+for (const [name, content] of Object.entries(unsafeSvgs)) test(`SVG mit ${name} wird ohne Ausfuehrung oder Netzabruf abgewiesen`, async ({ page }) => {
+  const requests: string[] = [];
+  page.on("request", request => { if (request.url().includes("svg-test.invalid")) requests.push(request.url()); });
+  await page.route("https://svg-test.invalid/**", route => route.abort());
+  await page.addInitScript(() => {
+    localStorage.setItem("kolaretorp-field-progress", JSON.stringify({ fixture: {} }));
+    localStorage.setItem("kolaretorp-company-settings", JSON.stringify({ name: "Sichere Firma", logoUrl: "" }));
+  });
+  await page.goto("/");
+  await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true");
+  await page.getByTestId("nav-masterData").click();
+  await page.getByRole("button", { name: "Firma", exact: true }).click();
+  await page.getByLabel("Firmenlogo hochladen", { exact: true }).setInputFiles({ name: "unsafe.svg", mimeType: "image/svg+xml", buffer: Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="100" height="50">${content}</svg>`) });
+  await expect(page.locator(".archive-notice")).toContainText("SVG konnte nicht sicher geladen werden");
+  await expect(page.locator(".company-logo-preview img")).toHaveCount(0);
+  expect(await page.evaluate(() => (window as Window & { svgExecuted?: boolean }).svgExecuted)).toBeUndefined();
+  expect(requests).toEqual([]);
+  await expect(page.locator(".sidebar .brand")).toHaveText("Sichere Firma");
+});

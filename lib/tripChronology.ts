@@ -39,6 +39,24 @@ function tripDate(trip: ChronologicalTrip) {
   return trip.date || (trip.startedAt ? localTripDate(new Date(trip.startedAt)) : "");
 }
 
+export function latestCompletedTripForDate<T extends ChronologicalTrip>(trips: T[], date: string, deletedIds: string[] = []) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return undefined;
+  const deleted = new Set(deletedIds);
+  return trips.filter(trip => !trip.deletedAt && !deleted.has(trip.id) && trip.status !== "laufend"
+    && tripDate(trip) && tripDate(trip) <= date && odometer(trip.endOdometer) !== undefined)
+    .sort((first, second) => tripDate(second).localeCompare(tripDate(first))
+      || Number(second.endOdometer) - Number(first.endOdometer)
+      || compareTripChronology(second, first))[0];
+}
+
+export function maximumTripEndForDate(trips: ChronologicalTrip[], date: string, deletedIds: string[] = []) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return "";
+  const deleted = new Set(deletedIds);
+  const starts = trips.filter(trip => !trip.deletedAt && !deleted.has(trip.id) && tripDate(trip) > date)
+    .map(trip => odometer(trip.startOdometer)).filter((value): value is number => value !== undefined);
+  return starts.length ? String(Math.min(...starts)) : "";
+}
+
 export function compareTripChronology(first: ChronologicalTrip, second: ChronologicalTrip) {
   const dates = tripDate(first).localeCompare(tripDate(second));
   if (dates) return dates;

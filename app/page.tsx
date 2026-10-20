@@ -83,7 +83,8 @@ import {
 } from "lucide-react";
 import { type CSSProperties, type DragEvent, type MouseEvent, type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { appVersion, versionHistory } from "@/lib/appVersion";
-import { compareTripChronology, localTripDate, localTripTime, tripStartAt, tripNeighbors, tripMileageGaps, tripChronologyWarnings, tripOdometerAfterAcknowledgement } from "@/lib/tripChronology";
+import { prepareCompanyLogoFile } from "@/lib/companyLogoUpload";
+import { compareTripChronology, latestCompletedTripForDate, maximumTripEndForDate, localTripDate, localTripTime, tripStartAt, tripNeighbors, tripMileageGaps, tripChronologyWarnings, tripOdometerAfterAcknowledgement } from "@/lib/tripChronology";
 import { apiFetch, apiRequestHeaders, getActiveTenantId, tenantScopedStorageKey } from "@/lib/apiClient";
 import { useAuthenticatedMedia } from "@/lib/useAuthenticatedMedia";
 import { defaultAppBranding, resolveAppBranding } from "@/lib/branding";
@@ -1071,6 +1072,16 @@ function latestKnownVehicleOdometer(vehicle?: ResourceRecord) {
     .filter((entry) => String(entry.odometer ?? "").trim())
     .sort((first, second) => String(second.createdAt).localeCompare(String(first.createdAt)));
   return history[0]?.odometer ?? vehicle?.odometerYearStart ?? "";
+}
+
+function vehicleTripStartForDate(vehicle: ResourceRecord | undefined, date: string) {
+  const previous = latestCompletedTripForDate(vehicle?.logbook ?? [], date, vehicle?.deletedLogbookEntryIds);
+  return {
+    startOdometer: previous?.endOdometer?.trim() ?? "",
+    startAddress: previous?.endAddress ?? "",
+    startCoordinates: previous?.endCoordinates,
+    endOdometer: maximumTripEndForDate(vehicle?.logbook ?? [], date, vehicle?.deletedLogbookEntryIds),
+  };
 }
 
 function odometerDifference(value?: string, reference?: string) {
@@ -2269,7 +2280,8 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Firmenlogo hochladen", sv: "Ladda upp företagslogotyp", en: "Upload company logo" },
   { de: "Firmenlogo entfernen", sv: "Ta bort företagslogotyp", en: "Remove company logo" },
   { de: "Bitte einen Firmennamen eingeben.", sv: "Ange ett företagsnamn.", en: "Enter a company name." },
-  { de: "Bitte eine Bilddatei (PNG, JPG, WebP oder GIF) bis 10 MB auswählen.", sv: "Välj en bildfil (PNG, JPG, WebP eller GIF) på högst 10 MB.", en: "Choose an image (PNG, JPG, WebP or GIF) up to 10 MB." },
+  { de: "Bitte PNG, JPG, WebP oder GIF bis 10 MB oder SVG bis 2 MB auswählen.", sv: "Välj PNG, JPG, WebP eller GIF på högst 10 MB eller SVG på högst 2 MB.", en: "Choose PNG, JPG, WebP or GIF up to 10 MB, or SVG up to 2 MB." },
+  { de: "SVG konnte nicht sicher geladen werden. Bitte ein statisches Logo ohne Skripte und externe Verweise auswählen.", sv: "SVG kunde inte läsas säkert. Välj en statisk logotyp utan skript och externa referenser.", en: "SVG could not be loaded safely. Choose a static logo without scripts or external references." },
   { de: "Logo vorbereitet. Bitte die Firmenstammdaten speichern.", sv: "Logotypen är klar. Spara företagsuppgifterna.", en: "Logo ready. Save the company master data." },
   { de: "Logo konnte nicht geladen werden. Bitte ein kleineres Bild auswählen.", sv: "Logotypen kunde inte läsas. Välj en mindre bild.", en: "Could not load the logo. Choose a smaller image." },
   { de: "Standardwährung", sv: "Standardvaluta", en: "Default currency" },
@@ -4150,14 +4162,6 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs = 8000): Promise<T>
   } finally {
     if (timeoutId) window.clearTimeout(timeoutId);
   }
-}
-
-async function loadSupabaseSnapshot() {
-  if (process.env.NEXT_PUBLIC_DISABLE_SUPABASE_SYNC === "1") {
-    return null;
-  }
-  const sections = await loadSyncSections();
-  return mergeSnapshotWithSyncSections(readLocalSnapshot(), sections);
 }
 
 async function loadSyncSections(keys?: SyncSectionKey[]) {
@@ -8999,10 +9003,13 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
   const [customerMessageForm, setCustomerMessageForm] = useState({ message: "", subject: "" });
   const [customerMessageSending, setCustomerMessageSending] = useState(false);
   const [quickTripOpen, setQuickTripOpen] = useState(false);
+  const [quickTripLoading, setQuickTripLoading] = useState(false);
+  const quickTripOpenRequestRef = useRef(0);
   const [resourceLogbookOpenRequestId, setResourceLogbookOpenRequestId] = useState("");
   const [operationsMasterDataRequest, setOperationsMasterDataRequest] = useState("");
   const [dailyMailSending, setDailyMailSending] = useState(false);
   const [manualRefreshRunning, setManualRefreshRunning] = useState(false);
+  const [refreshNotice, setRefreshNotice] = useState({ message: "", error: false });
   const [quickTripAddressLoading, setQuickTripAddressLoading] = useState("");
   const [quickTripStandardId, setQuickTripStandardId] = useState("");
   const layoutPreferences = useLayoutPreferences(!portalOnly);
@@ -9057,7 +9064,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
   const pendingRemoteSectionKeysRef = useRef<Set<SyncSectionKey>>(new Set());
   const syncedSectionHashesRef = useRef<SectionHashMap>({});
   const remoteSaveTimerRef = useRef<number | null>(null);
-  const remoteSyncRunningRef = useRef(false);
+  const remoteSyncPromiseRef = useRef<Promise<void> | null>(null);
   const pendingLocalSnapshotRef = useRef<AppSnapshot | null>(null);
   const pendingLocalSectionKeysRef = useRef<Set<SyncSectionKey>>(new Set());
   const localSaveTimerRef = useRef<number | null>(null);
@@ -9667,11 +9674,8 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
         return;
       }
 
-      const remoteSnapshotPromise = loadSupabaseSnapshot();
-      const remoteSectionsPromise = loadSyncSections().catch((error) => {
-        console.warn("Sync-Bereiche konnten beim Start nicht geladen werden.", error);
-        return {};
-      });
+      const remoteSectionsPromise = loadSyncSections();
+      const remoteSnapshotPromise = remoteSectionsPromise.then(sections => mergeSnapshotWithSyncSections(localSnapshot, sections));
       const reportBackupsPromise = loadReportTextBackups();
       let remoteSnapshotWasApplied = false;
 
@@ -9864,23 +9868,31 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     ...overrides,
   }), [accountingAccounts, activeJobId, appUpdatedAt, billing, companySettings, customers, dailyMailSettings, deletedEntityIds, deletedReportIds, fieldNotes, fieldProgress, inventoryLocations, jobNoteMeta, jobs, materials, objects, personnel, portalMessages, reports, resources, servicePackages, services, tenantSettings, translationOverrides]);
 
+  const currentSnapshotRef = useRef(currentSnapshot);
+  useEffect(() => { currentSnapshotRef.current = currentSnapshot; }, [currentSnapshot]);
+
   const syncRemoteSnapshot = useCallback(async (force = false) => {
-    if (!appStorageReady || !initialSyncComplete || remoteSyncRunningRef.current) return;
+    if (!appStorageReady || !initialSyncComplete) {
+      if (force) throw new Error("Der erste Datenabgleich laeuft noch. Bitte kurz warten.");
+      return;
+    }
+    while (remoteSyncPromiseRef.current) {
+      if (!force) return;
+      await remoteSyncPromiseRef.current.catch(() => undefined);
+    }
     if (supabaseSyncDisabled && !force) return;
     if (force && remoteSaveTimerRef.current) {
       window.clearTimeout(remoteSaveTimerRef.current);
       remoteSaveTimerRef.current = null;
       pendingRemoteSnapshotKeyRef.current = null;
     }
-    remoteSyncRunningRef.current = true;
-
+    const task = (async () => {
     try {
-      const remoteSnapshot = await loadSupabaseSnapshot();
-      if (!remoteSnapshot) return;
-
-      const remoteSections = await loadSyncSections().catch(() => ({}));
+      const [remoteSections, reportBackups] = await Promise.all([loadSyncSections(), loadReportTextBackups()]);
+      const localSnapshot = currentSnapshotRef.current();
+      const remoteSnapshot = mergeSnapshotWithSyncSections(localSnapshot, remoteSections);
       const remoteSnapshotWithSectionsBase = overlayPendingRecordMutations(
-        mergeSnapshotWithSyncSections(remoteSnapshot, remoteSections),
+        remoteSnapshot,
         readSyncQueue(window.localStorage),
       );
       const remoteSnapshotWithSections = {
@@ -9891,9 +9903,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
         ),
       };
 
-      const localSnapshot = currentSnapshot();
       const pendingKeys = readPendingSyncKeys();
-      const reportBackups = await loadReportTextBackups();
       const baseMergedSnapshot = pendingKeys.length > 0
         ? mergePendingLocalSections(remoteSnapshotWithSections, localSnapshot, pendingKeys)
         : remoteSnapshotWithSections;
@@ -9925,10 +9935,13 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     } catch (error) {
       console.warn("App-Daten konnten nicht automatisch aktualisiert werden.", error);
       if (!isRetryableSyncError(error)) setSupabaseSyncDisabled(true);
-    } finally {
-      remoteSyncRunningRef.current = false;
+      if (force) throw error;
     }
-  }, [appStorageReady, currentSnapshot, initialSyncComplete, supabaseSyncDisabled]);
+    })();
+    remoteSyncPromiseRef.current = task;
+    try { await task; }
+    finally { if (remoteSyncPromiseRef.current === task) remoteSyncPromiseRef.current = null; }
+  }, [appStorageReady, initialSyncComplete, supabaseSyncDisabled]);
 
   const syncVehiclePositions = useCallback(async () => {
     if (!appStorageReady) return;
@@ -9958,7 +9971,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
         const now = Date.now();
         if (!quickTripOpen && !shouldDeferBackgroundUiWork() && now - lastForegroundSyncAtRef.current > 20000) {
           lastForegroundSyncAtRef.current = now;
-          void syncRemoteSnapshot(true);
+          void syncRemoteSnapshot(true).catch(() => undefined);
         }
         if (!shouldDeferBackgroundUiWork()) void syncVehiclePositions();
       } else {
@@ -9997,13 +10010,13 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     function handleStorageChange(event: StorageEvent) {
       if (quickTripOpen || shouldDeferBackgroundUiWork()) return;
       if (Object.values(storageKeys).includes(event.key ?? "")) {
-        void syncRemoteSnapshot(true);
+        void syncRemoteSnapshot(true).catch(() => undefined);
       }
     }
 
     function handleOnline() {
       setSupabaseSyncDisabled(false);
-      if (!quickTripOpen && !shouldDeferBackgroundUiWork()) void syncRemoteSnapshot(true);
+      if (!quickTripOpen && !shouldDeferBackgroundUiWork()) void syncRemoteSnapshot(true).catch(() => undefined);
       if (!shouldDeferBackgroundUiWork()) void syncVehiclePositions();
     }
 
@@ -10011,7 +10024,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
       const now = Date.now();
       if (!quickTripOpen && !shouldDeferBackgroundUiWork() && now - lastForegroundSyncAtRef.current > 20000) {
         lastForegroundSyncAtRef.current = now;
-        void syncRemoteSnapshot(true);
+        void syncRemoteSnapshot(true).catch(() => undefined);
       }
       if (!shouldDeferBackgroundUiWork()) void syncVehiclePositions();
     }
@@ -10392,6 +10405,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
   const objectStatusOptions = uniqueSortedValues(objects.map((object) => object.status), ["Saison aktiv", "Kontrolle offen", "Winterruhe"]);
   const activeVehicles = resources.filter((resource) => resourceIsVehicle(resource) && !resource.archived);
   const quickTripVehicle = activeVehicles.find((vehicle) => vehicle.id === quickTripForm.resourceId);
+  const quickTripEndLimit = maximumTripEndForDate(quickTripVehicle?.logbook ?? [], quickTripForm.date, quickTripVehicle?.deletedLogbookEntryIds);
   const quickTripLanguage = language;
   const qtx = (value: string) => translateForLanguage(value, quickTripLanguage);
   const quickTripStandardTrips = quickTripVehicle?.standardTrips ?? [];
@@ -12179,12 +12193,6 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
       .sort((first, second) => String(second.startedAt ?? second.id).localeCompare(String(first.startedAt ?? first.id)))[0];
   }
 
-  function activeLiveQuickTrip(vehicleId?: string) {
-    return liveVehiclePositions
-      .filter((position) => (!vehicleId || position.resourceId === vehicleId) && isCurrentLiveVehiclePosition(position))
-      .sort((first, second) => Date.parse(second.updatedAt ?? "") - Date.parse(first.updatedAt ?? ""))[0];
-  }
-
   function quickTripFromLivePosition(position: LiveVehiclePosition) {
     return {
       activeLogbookEntryId: position.entryId,
@@ -12210,15 +12218,16 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     };
   }
 
-  function quickTripDefaultsForVehicle(vehicleId: string, sourceResources = resources) {
+  function quickTripDefaultsForVehicle(vehicleId: string, sourceResources = resources, date = currentLocalDateValue()) {
     const vehicle = sourceResources.find((resource) => resource.id === vehicleId && resourceIsVehicle(resource));
     // Start-KM und Startort einer neuen Fahrt muessen aus derselben, zuletzt
     // abgeschlossenen Fahrt stammen. So bleiben beide Werte geraeteuebergreifend
     // konsistent, auch wenn Hilfstabellen/History etwas spaeter synchronisieren.
-    const latestEntry = latestCompletedLogbookEntry(vehicle);
+    const defaults = vehicleTripStartForDate(vehicle, date);
     return {
-      endAddress: latestEntry?.endAddress?.trim() || vehicle?.location?.trim() || "",
-      startOdometer: latestEntry?.endOdometer?.trim() || latestKnownVehicleOdometer(vehicle),
+      endAddress: defaults.startAddress || (date >= currentLocalDateValue() ? vehicle?.location?.trim() : "") || "",
+      startOdometer: defaults.startOdometer || (date >= currentLocalDateValue() ? latestKnownVehicleOdometer(vehicle) : ""),
+      endOdometer: defaults.endOdometer,
     };
   }
 
@@ -12227,34 +12236,20 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     try {
       // Fuer eine neue Fahrt ist die relationale Ressourcenprojektion die
       // fuehrende Quelle. Sie fuehrt Ressourcen, Fahrten und Medien zusammen.
-      const [remoteSnapshot, resourceSections] = await Promise.all([
-        loadSupabaseSnapshot().catch(() => null),
-        loadSyncSections(["resources"]).catch(() => ({} as SyncSectionMap)),
-      ]);
-      const current = currentSnapshot();
-      let mergedSnapshot = remoteSnapshot
-        ? sanitizePersonnelSnapshot(mergeSnapshots(remoteSnapshot, current))
-        : current;
+      const resourceSections = await loadSyncSections(["resources"]);
       const syncedResources = resourceSections.resources?.value;
-      if (Array.isArray(syncedResources)) {
-        // Der relationale Stand ist vollständig autoritativ. Nur noch nicht
-        // synchronisierte Datensatzmutationen werden lokal darübergelegt.
-        mergedSnapshot = {
-          ...mergedSnapshot,
-          resources: overlayPendingResourceMutations(
-            syncedResources as ResourceRecord[],
-            readSyncQueue(window.localStorage),
-          ),
-          updatedAt: resourceSections.resources?.updatedAt ?? mergedSnapshot.updatedAt,
-        };
-      }
-      if (JSON.stringify(mergedSnapshot) !== JSON.stringify(current)) {
+      if (!Array.isArray(syncedResources)) return resources;
+      // Only refresh vehicle-related state; do not reapply/cache the entire app.
+      const freshResources = overlayPendingResourceMutations(
+        syncedResources as ResourceRecord[],
+        readSyncQueue(window.localStorage),
+      );
+      if (JSON.stringify(freshResources) !== JSON.stringify(resources)) {
         skipNextAutoSaveRef.current = true;
-        applySnapshot(mergedSnapshot);
-        persistLocalSnapshot(mergedSnapshot);
+        setResources(freshResources);
+        writeLocalCache(window.localStorage, storageKeys.resources, freshResources);
       }
-      if (remoteSnapshot) lastRemoteSnapshotKeyRef.current = snapshotContentKey(remoteSnapshot);
-      return mergedSnapshot.resources ?? resources;
+      return freshResources;
     } catch (error) {
       console.warn("Fahrtenbuch-Stand konnte vor Quick-Fahrt nicht aktualisiert werden.", error);
       return resources;
@@ -12262,14 +12257,17 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
   }
 
   async function openQuickTrip() {
-    const livePositions = supabaseSyncDisabled
-      ? liveVehiclePositions
-      : overlayPendingVehiclePositionMutations(
-          await loadVehiclePositions().catch(() => liveVehiclePositions),
-          readSyncQueue(window.localStorage),
-        );
-    if (livePositions.length) setLiveVehiclePositions(livePositions);
-    const freshResources = supabaseSyncDisabled ? resources : await syncedResourcesForQuickTrip();
+    const requestId = ++quickTripOpenRequestRef.current;
+    setQuickTripLoading(true);
+    setQuickTripOpen(true);
+    const [positionRecords, freshResources] = await Promise.all([
+      supabaseSyncDisabled ? Promise.resolve(liveVehiclePositions) : loadVehiclePositions().catch(() => liveVehiclePositions),
+      supabaseSyncDisabled ? Promise.resolve(resources) : syncedResourcesForQuickTrip(),
+    ]);
+    // A dismissed or superseded request must never reopen or replace a draft.
+    if (requestId !== quickTripOpenRequestRef.current) return;
+    const livePositions = overlayPendingVehiclePositionMutations(positionRecords, readSyncQueue(window.localStorage));
+    setLiveVehiclePositions(livePositions);
     const freshVehicles = freshResources.filter((resource) => resourceIsVehicle(resource) && !resource.archived);
     setQuickTripForm((current) => {
       if (current.activeLogbookEntryId) return current;
@@ -12277,17 +12275,6 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
       const liveTrip = livePositions
         .filter((position) => isCurrentLiveVehiclePosition(position))
         .sort((first, second) => Date.parse(second.updatedAt ?? "") - Date.parse(first.updatedAt ?? ""))[0];
-      const hasMeaningfulDraft = Boolean(
-        current.activeLogbookEntryId
-        || current.endAddress.trim()
-        || current.endOdometer.trim()
-        || current.purpose.trim()
-        || current.visited.trim()
-        || current.waypoints.length
-        || current.fuelOrCharge.trim()
-        || current.fuelReceiptPhoto
-        || current.odometerPhotos.length
-      );
       const draftVehicleStillExists = Boolean(current.resourceId && freshVehicles.some((item) => item.id === current.resourceId));
       const mostRecentlyUsedVehicle = [...freshVehicles]
         .map((vehicle) => ({ entry: latestCompletedLogbookEntry(vehicle), vehicle }))
@@ -12307,7 +12294,9 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
           || "";
       const vehicle = freshResources.find((resource) => resource.id === resourceId && resourceIsVehicle(resource));
       const activeEntry = activeLogbookEntry(vehicle);
-      const activeLiveTrip = activeLiveQuickTrip(resourceId) ?? liveTrip;
+      const activeLiveTrip = livePositions
+        .filter((position) => position.resourceId === resourceId && isCurrentLiveVehiclePosition(position))
+        .sort((first, second) => Date.parse(second.updatedAt ?? "") - Date.parse(first.updatedAt ?? ""))[0] ?? liveTrip;
       const defaults = quickTripDefaultsForVehicle(resourceId, freshResources);
       if (activeEntry) {
         return {
@@ -12381,9 +12370,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
         odometerPhotos: [],
       };
     });
-    // Modal erst nach dem Ermitteln des aktuellen Fahrzeug-/Fahrtenstands oeffnen.
-    // Dadurch wird nicht kurz ein veraltetes Fahrzeug aus dem lokalen Entwurf angezeigt.
-    setQuickTripOpen(true);
+    setQuickTripLoading(false);
   }
 
   function openLogbookFromQuickTrip() {
@@ -12399,6 +12386,8 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
 
   function closeQuickTripDialog() {
     if (quickTripSavingRef.current) return;
+    quickTripOpenRequestRef.current += 1;
+    setQuickTripLoading(false);
     setQuickTripOpen(false);
   }
 
@@ -13077,20 +13066,20 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
   async function refreshAppDataNow() {
     if (manualRefreshRunning) return;
     setManualRefreshRunning(true);
-    setRecordNotice("Daten werden aktualisiert...");
+    setRefreshNotice({ message: "Daten werden aktualisiert...", error: false });
 
     try {
       setSupabaseSyncDisabled(false);
       const liveVersion = await loadLiveAppVersion();
       if (liveVersion && liveVersion !== appVersion.version) {
-        setRecordNotice(`Neue Version ${liveVersion} wird geladen...`);
+        setRefreshNotice({ message: `Neue Version ${liveVersion} wird geladen...`, error: false });
         window.location.reload();
         return;
       }
       await syncRemoteSnapshot(true);
-      setRecordNotice(`Daten aktualisiert: ${new Date().toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}`);
+      setRefreshNotice({ message: `Daten aktualisiert: ${new Date().toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}`, error: false });
     } catch (error) {
-      setRecordNotice(error instanceof Error ? error.message : "Daten konnten nicht aktualisiert werden.");
+      setRefreshNotice({ message: error instanceof Error ? error.message : "Daten konnten nicht aktualisiert werden.", error: true });
     } finally {
       setManualRefreshRunning(false);
     }
@@ -13396,11 +13385,11 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
                 </select>
               </label>
               <TenantSwitcher />
-              <button className="ghost-button app-toolbar-trip" onClick={openQuickTrip} type="button">
+              <button disabled={quickTripLoading} className="ghost-button app-toolbar-trip" onClick={openQuickTrip} type="button">
                 <CarFront size={16} />
                 {tx("Fahrt")}
               </button>
-              <button className={`ghost-button refresh-button app-toolbar-refresh ${manualRefreshRunning ? "running" : ""}`} disabled={manualRefreshRunning} onClick={() => void refreshAppDataNow()} type="button">
+              <button className={`ghost-button refresh-button app-toolbar-refresh ${manualRefreshRunning ? "running" : ""}`} disabled={manualRefreshRunning || !initialSyncComplete} onClick={() => void refreshAppDataNow()} type="button">
                 <RefreshCw size={16} />
                 {manualRefreshRunning ? tx("Aktualisiere") : tx("Aktualisieren")}
               </button>
@@ -13439,6 +13428,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
           </div>
         </header>
 
+        {refreshNotice.message && <p role={refreshNotice.error ? "alert" : "status"}>{tx(refreshNotice.message)}</p>}
         {localCacheFull && <p role="alert">{language === "sv"
           ? "Enhetens lagring är full. Onlinesynkroniseringen fortsätter, men offlinekopian kunde inte uppdateras. Lägg inte till fler foton just nu och radera inte osynkroniserade ändringar."
           : language === "en"
@@ -13459,7 +13449,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
                 <h2 id="quick-trip-title">{qtx("Fahrt erfassen")}</h2>
               </div>
               <div className="modal-header-actions">
-                <button disabled={quickTripSaving} aria-label={qtx("Fahrtenbuch öffnen")} title={qtx("Fahrtenbuch öffnen")} data-tooltip={qtx("Fahrtenbuch öffnen")} className="ghost-button compact trip-logbook-link" onClick={openLogbookFromQuickTrip} type="button">
+                <button disabled={quickTripSaving || quickTripLoading} aria-label={qtx("Fahrtenbuch öffnen")} title={qtx("Fahrtenbuch öffnen")} data-tooltip={qtx("Fahrtenbuch öffnen")} className="ghost-button compact trip-logbook-link" onClick={openLogbookFromQuickTrip} type="button">
                   <List size={16} />
                   <span>{qtx("Fahrtenbuch öffnen")}</span>
                 </button>
@@ -13469,7 +13459,8 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
               </div>
             </header>
             {recordNotice && <p role="status">{qtx(recordNotice)}</p>}
-            <fieldset className="quick-trip-flow trip-fields" disabled={quickTripSaving}>
+            {quickTripLoading && <p role="status">{quickTripLanguage === "sv" ? "Hämtar fordonsdata ..." : quickTripLanguage === "en" ? "Loading vehicle data ..." : "Fahrzeugdaten werden aktualisiert ..."}</p>}
+            <fieldset className="quick-trip-flow trip-fields" disabled={quickTripSaving || quickTripLoading} aria-busy={quickTripLoading}>
               <section className="trip-step" aria-labelledby="standard-trip-title">
                 <div className="trip-step-head">
                   <span><List size={14} /></span>
@@ -13499,7 +13490,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
                 <div className="form-grid compact-form">
                   <label><span>{qtx("Fahrzeug")}</span>
                     <select disabled={Boolean(quickTripForm.activeLogbookEntryId)} value={quickTripForm.resourceId} onChange={(event) => {
-                      const defaults = quickTripDefaultsForVehicle(event.target.value);
+                      const defaults = quickTripDefaultsForVehicle(event.target.value, resources, quickTripForm.date);
                       setQuickTripStandardId("");
                       setQuickTripForm({
                         ...quickTripForm,
@@ -13507,13 +13498,17 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
                         resourceId: event.target.value,
                         startAddress: defaults.endAddress,
                         startOdometer: defaults.startOdometer,
+                        endOdometer: defaults.endOdometer,
                       });
                     }}>
                       <option value="">{qtx("Fahrzeug auswählen")}</option>
                       {activeVehicles.map((vehicle) => <option key={vehicle.id} value={vehicle.id}>{vehicle.name} · {vehicle.identifier}</option>)}
                     </select>
                   </label>
-                  <label><span>{qtx("Datum")}</span><input type="date" value={quickTripForm.date} onChange={(event) => setQuickTripForm({ ...quickTripForm, date: event.target.value })} /></label>
+                  <label><span>{qtx("Datum")}</span><input type="date" value={quickTripForm.date} onChange={(event) => {
+                    const date = event.target.value;
+                    setQuickTripForm(current => ({ ...current, date, ...(current.activeLogbookEntryId ? {} : vehicleTripStartForDate(quickTripVehicle, date)) }));
+                  }} /></label>
                   <label><span>{qtx("Fahrer")}</span>
                     <select value={quickTripForm.driverId} onChange={(event) => setQuickTripForm({ ...quickTripForm, driverId: event.target.value })}>
                       <option value="">{qtx("Nicht zugeordnet")}</option>
@@ -13704,7 +13699,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
                   <small>{qtx("Zieladresse und End-KM beim Abstellen erfassen.")}</small>
                 </div>
                 <div className="form-grid compact-form">
-                  <label><span>{qtx("End-Km")}</span><input ref={quickTripEndOdometerRef} inputMode="numeric" value={quickTripForm.endOdometer} onChange={(event) => setQuickTripForm({ ...quickTripForm, endOdometer: event.target.value })} /></label>
+                  <label><span>{qtx("End-Km")}</span><input aria-label={qtx("End-Km")} ref={quickTripEndOdometerRef} inputMode="numeric" value={quickTripForm.endOdometer} onChange={(event) => setQuickTripForm({ ...quickTripForm, endOdometer: event.target.value })} />{quickTripEndLimit && <small>{language === "sv" ? "Högst" : language === "en" ? "Maximum" : "Maximal"} {quickTripEndLimit} km</small>}</label>
                   <label><span>{qtx("Kilometer")}</span><input readOnly inputMode="numeric" placeholder={qtx("wird aus Km-Ständen berechnet")} value={calculatedTripKilometers(quickTripForm.startOdometer, quickTripForm.endOdometer)} /></label>
                   <label className="wide"><span>{qtx("Zieladresse")}</span>
                     <div className="address-gps-row">
@@ -13787,14 +13782,14 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
               </section>
             </fieldset>
             <div className="modal-actions trip-actions">
-              <button disabled={quickTripSaving} className="ghost-button trip-discard" onClick={cancelQuickTrip} type="button">
+              <button disabled={quickTripSaving || quickTripLoading} className="ghost-button trip-discard" onClick={cancelQuickTrip} type="button">
                 <Trash2 size={16} />{qtx("Fahrt verwerfen")}
               </button>
-              <button disabled={quickTripSaving} className="ghost-button" onClick={() => void persistQuickTrip(false)} type="button">
+              <button disabled={quickTripSaving || quickTripLoading} className="ghost-button" onClick={() => void persistQuickTrip(false)} type="button">
                 <Check size={16} />
                 {qtx("Zwischenstand speichern")}
               </button>
-              <button disabled={quickTripSaving} className="primary-button" onClick={() => void persistQuickTrip(true)} type="button">
+              <button disabled={quickTripSaving || quickTripLoading} className="primary-button" onClick={() => void persistQuickTrip(true)} type="button">
                 <Check size={16} />
                 {qtx("Fahrt abschließen & speichern")}
               </button>
@@ -20951,6 +20946,7 @@ function MasterDataView({
   const selectedLogbookLanguage = language;
   const lt = (value: string) => uiTextWithOverrides(value, selectedLogbookLanguage, translationOverrides);
   const selectedResourceLogbook = resourceIsVehicle(selectedResource) ? sortVehicleLogbook(selectedResource.logbook) : [];
+  const logbookEndLimit = maximumTripEndForDate(selectedResource?.logbook ?? [], logbookForm.date, selectedResource?.deletedLogbookEntryIds);
   const selectedResourceRegulation = resourceIsVehicle(selectedResource) ? drivingLogRegulationForCountry(selectedResource.taxCountry) : undefined;
   const selectedResourceNeedsOdometerCheck = resourceIsVehicle(selectedResource) ? needsCurrentMonthOdometerCheck(selectedResource) : false;
   const resourceImages = resourceForm.mediaItems.filter((item) => item.type === "Bild");
@@ -21543,14 +21539,8 @@ function MasterDataView({
     setResourceImageIndex((current) => (current + 1) % resourceImages.length);
   }
 
-  function latestSelectedLogbookEntry() {
-    return sortVehicleLogbook(selectedResource?.logbook ?? [])
-      .filter((entry) => entry.endOdometer.trim())
-      .at(-1);
-  }
-
   function resetLogbookForm() {
-    const latestEntry = latestSelectedLogbookEntry();
+    const defaults = vehicleTripStartForDate(selectedResource, localTripDate());
     setEditingLogEntryId(null);
     editingLogEntryRevision.current = null;
     setLogbookForm({
@@ -21559,15 +21549,15 @@ function MasterDataView({
       driverId: "",
       endAddress: "",
       endCoordinates: undefined,
-      endOdometer: "",
+      endOdometer: defaults.endOdometer,
       fuelOrCharge: "",
       fuelReceiptPhoto: undefined,
       kilometers: "",
       notes: "",
       purpose: "",
-      startAddress: latestEntry?.endAddress ?? "",
-      startCoordinates: latestEntry?.endCoordinates,
-      startOdometer: latestKnownVehicleOdometer(selectedResource),
+      startAddress: defaults.startAddress,
+      startCoordinates: defaults.startCoordinates,
+      startOdometer: defaults.startOdometer || latestKnownVehicleOdometer(selectedResource),
       tripType: "Dienstfahrt",
       visited: "",
       waypoints: [],
@@ -21591,11 +21581,9 @@ function MasterDataView({
   }
 
   function changeLogbookDateTime(date: string, time: string) {
-    const candidate = { id: editingLogEntryId ?? "~new", date, startedAt: tripStartAt(date, time) };
-    const previous = tripNeighbors(selectedResourceLogbook, candidate).previous;
-    setLogbookForm((current) => ({ ...current, date, startedAt: candidate.startedAt,
+    setLogbookForm((current) => ({ ...current, date, startedAt: tripStartAt(date, time),
       // Existing entries keep their recorded mileage until explicitly edited.
-      startOdometer: editingLogEntryId ? current.startOdometer : previous?.endOdometer ?? "",
+      ...(!editingLogEntryId && date !== current.date ? vehicleTripStartForDate(selectedResource, date) : {}),
     }));
   }
 
@@ -22584,19 +22572,22 @@ function MasterDataView({
               <div className="company-logo-preview"><CompanyBrand logoUrl={companySettingsForm.logoUrl} name={companySettingsForm.name} /></div>
               <div className="row-actions">
                 <label className="ghost-button company-logo-upload"><Upload size={16} />{tt("Logo hochladen")}
-                  <input accept="image/png,image/jpeg,image/webp,image/gif" aria-label={tt("Firmenlogo hochladen")} disabled={companyLogoBusy} type="file" onChange={async event => {
+                  <input accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml,.svg" aria-label={tt("Firmenlogo hochladen")} disabled={companyLogoBusy} type="file" onChange={async event => {
                     const file = event.target.files?.[0]; event.target.value = "";
                     if (!file) return;
-                    if (!['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(file.type) || file.size > 10 * 1024 * 1024) {
-                      setArchiveNotice(tt("Bitte eine Bilddatei (PNG, JPG, WebP oder GIF) bis 10 MB auswählen.")); return;
+                    const svg = file.type === "image/svg+xml" || /\.svg$/i.test(file.name);
+                    if ((!['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(file.type) && !svg) || file.size > (svg ? 2 : 10) * 1024 * 1024) {
+                      setArchiveNotice(tt("Bitte PNG, JPG, WebP oder GIF bis 10 MB oder SVG bis 2 MB auswählen.")); return;
                     }
                     setCompanyLogoBusy(true);
                     try {
-                      const logo = await fileToImagePreview(file, 900, 0.85, true);
+                      const logo = await fileToImagePreview(await prepareCompanyLogoFile(file), 900, 0.85, true);
                       if (!companyLogoSource(logo) || logo.length > maxCompanyLogoLength) throw new Error("INVALID_LOGO");
                       setCompanySettingsForm(current => ({ ...current, logoUrl: logo, logoStoragePath: "" }));
                       setArchiveNotice(tt("Logo vorbereitet. Bitte die Firmenstammdaten speichern."));
-                    } catch { setArchiveNotice(tt("Logo konnte nicht geladen werden. Bitte ein kleineres Bild auswählen.")); }
+                    } catch (error) { setArchiveNotice(tt(error instanceof Error && error.message === "UNSAFE_SVG_LOGO"
+                      ? "SVG konnte nicht sicher geladen werden. Bitte ein statisches Logo ohne Skripte und externe Verweise auswählen."
+                      : "Logo konnte nicht geladen werden. Bitte ein kleineres Bild auswählen.")); }
                     finally { setCompanyLogoBusy(false); }
                   }} />
                 </label>
@@ -23325,11 +23316,11 @@ function MasterDataView({
                     </select>
                   </label>
                   <label><span>{lt("Start-Km")}</span><input inputMode="numeric" value={logbookForm.startOdometer} onChange={(event) => setLogbookForm({ ...logbookForm, startOdometer: event.target.value })} /></label>
-                  <label><span>{lt("End-Km")}</span><input inputMode="numeric" value={logbookForm.endOdometer} onChange={(event) => setLogbookForm({ ...logbookForm, endOdometer: event.target.value })} /></label>
+                  <label><span>{lt("End-Km")}</span><input aria-label={lt("End-Km")} inputMode="numeric" value={logbookForm.endOdometer} onChange={(event) => setLogbookForm({ ...logbookForm, endOdometer: event.target.value })} />{logbookEndLimit && <small>{language === "sv" ? "Högst" : language === "en" ? "Maximum" : "Maximal"} {logbookEndLimit} km</small>}</label>
                   <label><span>{lt("Kilometer")}</span><input readOnly inputMode="numeric" value={calculatedTripKilometers(logbookForm.startOdometer, logbookForm.endOdometer)} /></label>
                   <label><span>{lt("Startadresse")}</span>
                     <div className="address-gps-row">
-                      <input list="logbook-address-options" value={logbookForm.startAddress} onChange={(event) => setLogbookForm({ ...logbookForm, startAddress: event.target.value })} />
+                      <input aria-label={lt("Startadresse")} list="logbook-address-options" value={logbookForm.startAddress} onChange={(event) => setLogbookForm({ ...logbookForm, startAddress: event.target.value })} />
                       <button className="ghost-button compact" disabled={Boolean(logbookAddressLoading)} onClick={() => void loadCurrentLogbookAddress("start")} type="button">
                         <ScanLine size={15} />
                         {logbookAddressLoading === "start" ? lt("Lädt...") : lt("Aktuelle Adresse")}

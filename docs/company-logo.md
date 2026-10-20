@@ -8,7 +8,7 @@ Release: 1.428.1, 15.10.2026.
   Die Navigation aendert sich erst nach dem Speichern, nicht schon bei der Dateiauswahl.
 - PNG, JPEG, WebP und GIF bis 10 MB werden lokal zu einer verkleinerten PNG-Datei
   verarbeitet; Transparenz bleibt erhalten. Gespeicherte Bilddaten sind auf
-  1.500.000 Zeichen begrenzt. SVG und unsichere Bildquellen werden abgelehnt.
+  1.500.000 Zeichen begrenzt. Unsichere Bildquellen werden abgelehnt.
 - Massgeblich ist die eigene Textspalte `homecare_settings.logo_url` in der
   mandantengebundenen Zeile `companySettings`. Das bisherige JSON-Feld ist eine
   Kompatibilitaetsprojektion. Trigger und Synchronisationsrevision verhindern,
@@ -19,6 +19,22 @@ Release: 1.428.1, 15.10.2026.
   Invoker, ist nicht direkt fuer anonyme oder authentifizierte Clients aufrufbar
   und verwendet einen festen Suchpfad. Das relationale Backup umfasst die Spalte.
 - Andere Logos in Dokumenten und Kundenportal sind nicht Teil dieser Aenderung.
+
+## SVG-Import
+
+Statische SVG-Dateien bis 2 MB werden vor dem Rendern als XML geprueft und
+zusaetzlich mit DOMPurify bereinigt. Skripte, Ereignisattribute, eingebettetes
+HTML, externe Bilder/Verweise, CSS-Imports und verschleierte CSS-URLs werden
+abgewiesen. Lokale Fragmentverweise, Formen, Texte und einfache Styles bleiben
+moeglich. SVG-Abmessungen werden vor dem Dekodieren auf maximal 900 Pixel
+begrenzt; eine reine viewBox-Datei wird ebenfalls unterstuetzt.
+
+Nur das daraus lokal erzeugte transparente PNG wird in der bestehenden
+Logospalte gespeichert. SVG-Quelltext wird weder in die Seite eingefuegt noch
+in der Datenbank abgelegt. Bestehende Bildquellenpruefung, Mandantenschutz,
+Schreibwege und Entfernen bleiben unveraendert; keine neue Spalte erforderlich.
+Browsertests pruefen PNG-Format, sichtbare Farbpixel, Transparenz, Neuladen und
+Ablehnung aktiver/externer Inhalte ohne Netzabruf in Chromium und WebKit.
 
 ## Pruefungen
 

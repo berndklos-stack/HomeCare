@@ -3,7 +3,7 @@ import { defineConfig, devices } from "@playwright/test";
 const projectRoot = __dirname;
 
 export default defineConfig({
-  testDir: "./tests",
+  testDir: process.env.WORKCORE_TEST_ONLINE === "1" ? "./tests/online" : "./tests",
   timeout: 90_000,
   expect: {
     timeout: 5_000,
@@ -17,7 +17,7 @@ export default defineConfig({
     trace: "on-first-retry",
   },
   webServer: {
-    command: "NEXT_PUBLIC_DISABLE_SUPABASE_SYNC=1 NEXT_PUBLIC_E2E_AUTH_BYPASS=1 WORKCORE_E2E_AUTH_BYPASS=1 npm run dev -- --port 3100",
+    command: `NEXT_PUBLIC_DISABLE_SUPABASE_SYNC=${process.env.WORKCORE_TEST_ONLINE === "1" ? "0" : "1"} NEXT_PUBLIC_E2E_AUTH_BYPASS=1 WORKCORE_E2E_AUTH_BYPASS=1 npm run dev -- --port 3100`,
     cwd: projectRoot,
     url: "http://localhost:3100",
     reuseExistingServer: !process.env.CI,
