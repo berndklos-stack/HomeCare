@@ -2,6 +2,35 @@ import { test, expect } from "@playwright/test";
 import { defaultResourceTypes } from "../lib/resourceTypes";
 import { latestCompletedTripForDate, maximumTripEndForDate } from "../lib/tripChronology";
 
+for (const width of [390, 820]) test(`Septemberfahrten ohne Uhrzeit werden lueckenlos angezeigt ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 1100 });
+  await page.addInitScript(() => {
+    localStorage.setItem("kolaretorp-field-progress", JSON.stringify({ fixture: {} }));
+    const base = { driverId: "PER-1", tripType: "Dienstfahrt", status: "abgeschlossen", startAddress: "Start", endAddress: "Ziel", purpose: "Test", visited: "", fuelOrCharge: "", notes: "", odometerPhotos: [] };
+    localStorage.setItem("kolaretorp-resources", JSON.stringify([{
+      id: "RES-1", type: "Fahrzeug", name: "Septemberfahrzeug", identifier: "TEST", status: "aktiv", responsiblePersonId: "PER-1", location: "", notes: "", media: [], logbookYear: "2026", deletedLogbookEntryIds: [],
+      logbook: [
+        { ...base, id: "A", date: "2026-09-02", startOdometer: "202350", endOdometer: "202353", kilometers: "3" },
+        { ...base, id: "B", date: "2026-09-01", startOdometer: "202345", endOdometer: "202348", kilometers: "3" },
+        { ...base, id: "Z", date: "2026-09-02", startOdometer: "202348", endOdometer: "202350", kilometers: "2" },
+        { ...base, id: "C", date: "2026-09-07", startOdometer: "202353", endOdometer: "202356", kilometers: "3" },
+      ],
+    }]));
+  });
+  await page.route("**/api/resource-types", route => route.fulfill({ json: { types: defaultResourceTypes.map(type => ({ ...type, revision: 1 })) } }));
+  await page.goto("/");
+  await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true");
+  await page.getByTestId("nav-masterData").click();
+  await page.getByRole("button", { name: "Ressourcen", exact: true }).click();
+  await page.locator("article").filter({ hasText: "Septemberfahrzeug" }).first().click();
+  const resource = page.locator(".resource-editor-modal, .resource-editor-workspace");
+  await resource.getByRole("button", { name: "Fahrtenbuch", exact: true }).click();
+  await expect(resource.getByLabel("Offene Kilometerluecken")).toHaveCount(0);
+  await expect(resource.locator('.logbook-table td[data-label="KM-Stand"]')).toHaveText([
+    "202345 → 202348", "202348 → 202350", "202350 → 202353", "202353 → 202356",
+  ]);
+});
+
 const historicalTrips = [
   { id: "FIRST", date: "2026-10-01", startOdometer: "100", endOdometer: "150", endAddress: "Erster Ort" },
   { id: "LOWER", date: "2026-10-02", startedAt: "2026-10-02T18:00:00Z", startOdometer: "150", endOdometer: "175", endAddress: "Niedrigerer Stand" },

@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { compareTripChronology, tripNeighbors, tripMileageGaps, tripChronologyWarnings, tripStartAt, localTripTime, type ChronologicalTrip } from "../lib/tripChronology";
+import { sortTripChronology, compareTripChronology, tripNeighbors, tripMileageGaps, tripChronologyWarnings, tripStartAt, localTripTime, type ChronologicalTrip } from "../lib/tripChronology";
 import { applyVehicleMutation, type VehicleMutationState, type VersionedVehicleTrip } from "../lib/vehicleSync";
 import { createSyncMutation } from "../lib/syncQueue";
 
@@ -8,6 +8,29 @@ const trip = (id: string, date: string, time: string, start: string, end: string
 });
 const previous = trip("A", "2026-10-01", "09:00", "202900", "202947");
 const next = trip("B", "2026-10-03", "10:00", "203132", "203200");
+
+test("2. September: lueckenlose Fahrten ohne Uhrzeit nach KM statt Kennung", () => {
+  const before = trip("BEFORE", "2026-09-01", "", "202345", "202348");
+  const outbound = trip("Z", "2026-09-02", "", "202348", "202350");
+  const returning = trip("A", "2026-09-02", "", "202350", "202353");
+  const after = trip("AFTER", "2026-09-07", "", "202353", "202356");
+  const input = [returning, after, outbound, before];
+  const original = JSON.stringify(input);
+  expect(sortTripChronology(input)).toEqual([before, outbound, returning, after]);
+  expect(tripMileageGaps(input)).toEqual([]);
+  expect(tripMileageGaps([{ ...after, startOdometer: "202355" }, returning, outbound, before])[0].kilometers).toBe(2);
+  expect(JSON.stringify(input)).toBe(original);
+});
+
+test("Gemischte Uhrzeiten bleiben unabhaengig von Eingabereihenfolge sortierbar", () => {
+  const a = trip("Z", "2026-09-02", "10:00", "100", "102");
+  const b = trip("Y", "2026-09-02", "", "102", "104");
+  const c = trip("X", "2026-09-02", "09:00", "104", "106");
+  for (const input of [[a, b, c], [c, b, a], [b, a, c], [c, a, b]]) {
+    expect(sortTripChronology(input)).toEqual([a, b, c]);
+    expect(tripMileageGaps(input)).toEqual([]);
+  }
+});
 
 test("Aktuelle Fahrt verwendet chronologisch letzte Fahrt statt Erfassungszeit oder Hoechststand", () => {
   const candidate = trip("C", "2026-10-12", "09:00", "", "");

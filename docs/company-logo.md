@@ -36,6 +36,12 @@ Schreibwege und Entfernen bleiben unveraendert; keine neue Spalte erforderlich.
 Browsertests pruefen PNG-Format, sichtbare Farbpixel, Transparenz, Neuladen und
 Ablehnung aktiver/externer Inhalte ohne Netzabruf in Chromium und WebKit.
 
+Die Navigation prueft nach dem Laden die alpha-gewichtete Helligkeit des
+Logos auf einer kleinen Canvas. Dunkle Logos erhalten einen weissen Hintergrund,
+helle Logos bleiben auf dem dunklen Menue. Die Bilddaten werden dabei nicht
+veraendert. Bei externen Bildern ohne CORS bleibt die bisherige Darstellung
+erhalten, ohne den Upload oder die Bildanzeige zu blockieren.
+
 ## Pruefungen
 
 - Vollstaendige lokale SQL-Migrationskette mit Altwertuebernahme, RLS,

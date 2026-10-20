@@ -1,6 +1,36 @@
 import { expect, test } from "@playwright/test";
 import { companyLogoSource, maxCompanyLogoLength } from "../lib/companyLogo";
 
+test("Dunkles SVG-Firmenlogo bleibt im dunklen Seitenmenue lesbar", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("kolaretorp-field-progress", JSON.stringify({ fixture: {} }));
+    localStorage.setItem("kolaretorp-company-settings", JSON.stringify({ name: "SVG Logo Test", logoUrl: "" }));
+  });
+  await page.goto("/");
+  await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true");
+  await page.getByTestId("nav-masterData").click();
+  await page.getByRole("button", { name: "Firma", exact: true }).click();
+  await page.getByLabel("Firmenlogo hochladen", { exact: true }).setInputFiles(process.env.WORKCORE_LOGO_TEST_FILE || {
+    name: "black-logo.svg", mimeType: "image/svg+xml",
+    buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 32"><g fill="#000"><svg width="32" height="32" viewBox="0 0 32 32"><path d="M4 4h24v24H4z"/></svg></g><path fill="#000" d="M40 8h250v16H40z"/></svg>'),
+  });
+  const preview = page.locator(".company-logo-preview img");
+  await expect(preview).toHaveAttribute("src", /^data:image\/png;base64,/);
+  await page.getByRole("button", { name: "Firmenstammdaten speichern", exact: true }).click();
+  const logo = page.locator(".sidebar .brand img");
+  await expect(logo).toBeVisible();
+  await expect(logo).toHaveClass(/company-brand-image-light/);
+  await expect(logo).toHaveCSS("background-color", "rgb(255, 255, 255)");
+  await logo.screenshot({ path: `test-results/dark-svg-logo-${test.info().project.name}.png` });
+  await page.getByLabel("Firmenlogo hochladen", { exact: true }).setInputFiles({
+    name: "white-logo.svg", mimeType: "image/svg+xml",
+    buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 40"><path fill="#fff" d="M10 10h180v20H10z"/></svg>'),
+  });
+  await expect(preview).not.toHaveAttribute("src", await logo.getAttribute("src") || "");
+  await page.getByRole("button", { name: "Firmenstammdaten speichern", exact: true }).click();
+  await expect(logo).not.toHaveClass(/company-brand-image-light/);
+});
+
 test("Firmenlogo erlaubt nur sichere Bildquellen", () => {
   for (const source of ["javascript:alert(1)", "data:image/svg+xml;base64,AAAA", "http://example.invalid/logo.png", "https://user:password@example.invalid/a.png", "not-a-url", "data:image/png;base64," + "A".repeat(maxCompanyLogoLength)]) {
     expect(companyLogoSource(source)).toBe("");

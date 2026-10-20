@@ -22,6 +22,11 @@
   Fahrten behalten ihre erfassten Werte; reine Zeitwahl ersetzt keine Eingaben.
 - Es werden nur vorhandene Fahrtendaten ausgewertet, keine neuen fachlichen
   Felder oder Datenbankstrukturen eingefuehrt.
+- Fahrtenanzeige und Kilometerluecken verwenden dieselbe Tagesreihenfolge:
+  Sind alle Startzeiten eines Fahrzeugs am Tag vorhanden und passend zum Datum,
+  gilt die Uhrzeit. Fehlt eine passende Startzeit, entscheidet fuer diesen Tag
+  der Start-/Endkilometerstand statt der internen Kennung. Gespeicherte Zeiten
+  und Kilometerstaende werden nicht geaendert. Echte Luecken bleiben sichtbar.
 
 ## Tests
 

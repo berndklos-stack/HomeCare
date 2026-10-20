@@ -1,10 +1,11 @@
 export const appVersion = {
-  version: "1.428.4",
+  version: "1.428.5",
   releaseDate: "2026-10-20",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  { version: "1.428.5", date: "2026-10-20", changes: ["Dunkle Firmenlogos automatisch mit hellem Hintergrund im Seitenmenue lesbar darstellen; helle Logos unveraendert lassen", "Fahrten ohne vollstaendige Tagesstartzeiten nach Kilometerstaenden statt internen Kennungen anzeigen", "Identische Reihenfolge fuer Fahrtenanzeige und Kilometerluecken; Original-SVG sowie Septemberfahrten in Safari und Chromium geprueft"] },
   { version: "1.428.4", date: "2026-10-20", changes: ["Schnellfahrt sofort anzeigen und nur benoetigte Fahrzeugdaten parallel laden", "Startabgleich und Aktualisieren ohne doppelte Komplettabrufe; laufenden Abgleich abwarten und Fehler sichtbar melden", "Datumsabhaengige Startorte und Kilometerstaende sowie maximalen Endstand aus spaeteren Fahrten vorschlagen", "SVG-Firmenlogos sicher in transparente PNGs umwandeln; Next.js-Sicherheitsupdate auf 16.4.2"] },
   { version: "1.428.3", date: "2026-10-16", changes: ["Grosse Offline-Lesecaches sicher in IndexedDB statt im begrenzten lokalen Browserspeicher ablegen", "Bestehende Cachewerte erst nach bestaetigter Speicherung entfernen; ungesendete Fahrten, Fotos und Entwuerfe erhalten", "Speichererholung sowie Offline-Neuladen auf iPhone/iPad-Viewportgroessen in Chromium und WebKit geprueft"] },
   { version: "1.428.2", date: "2026-10-15", changes: ["Firmenlogo-Vorschau und Aktionen kompakt links nebeneinander statt mit grosser Leerflaeche", "Auf dem iPhone Vorschau ueber einer gemeinsamen Buttonreihe; Uploadsymbol neben der Beschriftung", "Entfernenbutton mit 44-Pixel-Touchflaeche; responsive Anordnung in Chromium und WebKit geprueft"] },

@@ -67,6 +67,30 @@ export function compareTripChronology(first: ChronologicalTrip, second: Chronolo
   return (Number.isFinite(difference) ? difference : 0) || first.id.localeCompare(second.id);
 }
 
+function hasJourneyTime(trip: ChronologicalTrip) {
+  return Boolean(trip.startedAt && Number.isFinite(Date.parse(trip.startedAt))
+    && localTripDate(new Date(trip.startedAt)) === tripDate(trip));
+}
+
+export function sortTripChronology<T extends ChronologicalTrip>(trips: T[]): T[] {
+  const group = (trip: ChronologicalTrip) => JSON.stringify([trip.resourceId ?? "", tripDate(trip)]);
+  const untimedDays = new Set(trips.filter(trip => !hasJourneyTime(trip)).map(group));
+  // Decide once per vehicle/day; pairwise time/KM fallbacks can produce cyclic comparisons.
+  return [...trips].sort((first, second) => {
+    const day = tripDate(first).localeCompare(tripDate(second));
+    if (day) return day;
+    const vehicle = (first.resourceId ?? "").localeCompare(second.resourceId ?? "");
+    if (vehicle) return vehicle;
+    if (untimedDays.has(group(first))) {
+      const start = (odometer(first.startOdometer) ?? Infinity) - (odometer(second.startOdometer) ?? Infinity);
+      if (start && !Number.isNaN(start)) return start;
+      const end = (odometer(first.endOdometer) ?? Infinity) - (odometer(second.endOdometer) ?? Infinity);
+      if (end && !Number.isNaN(end)) return end;
+    }
+    return compareTripChronology(first, second);
+  });
+}
+
 export function tripNeighbors<T extends ChronologicalTrip>(trips: T[], candidate: ChronologicalTrip) {
   const relevant = trips.filter((trip) => !trip.deletedAt && trip.id !== candidate.id
     && (!candidate.resourceId || !trip.resourceId || trip.resourceId === candidate.resourceId))
@@ -114,7 +138,7 @@ export function tripChronologyWarnings(trips: ChronologicalTrip[], candidate: Ch
 }
 
 export function tripMileageGaps<T extends ChronologicalTrip>(trips: T[]) {
-  const ordered = trips.filter((trip) => !trip.deletedAt && trip.status !== "laufend").sort(compareTripChronology);
+  const ordered = sortTripChronology(trips.filter((trip) => !trip.deletedAt && trip.status !== "laufend"));
   const lastByVehicle = new Map<string, T>();
   return ordered.flatMap((next) => {
     const previous = lastByVehicle.get(next.resourceId ?? "");

@@ -84,7 +84,7 @@ import {
 import { type CSSProperties, type DragEvent, type MouseEvent, type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { appVersion, versionHistory } from "@/lib/appVersion";
 import { prepareCompanyLogoFile } from "@/lib/companyLogoUpload";
-import { compareTripChronology, latestCompletedTripForDate, maximumTripEndForDate, localTripDate, localTripTime, tripStartAt, tripNeighbors, tripMileageGaps, tripChronologyWarnings, tripOdometerAfterAcknowledgement } from "@/lib/tripChronology";
+import { sortTripChronology, latestCompletedTripForDate, maximumTripEndForDate, localTripDate, localTripTime, tripStartAt, tripNeighbors, tripMileageGaps, tripChronologyWarnings, tripOdometerAfterAcknowledgement } from "@/lib/tripChronology";
 import { apiFetch, apiRequestHeaders, getActiveTenantId, tenantScopedStorageKey } from "@/lib/apiClient";
 import { useAuthenticatedMedia } from "@/lib/useAuthenticatedMedia";
 import { defaultAppBranding, resolveAppBranding } from "@/lib/branding";
@@ -1043,12 +1043,8 @@ function vehicleRuleSnapshot(vehicle?: ResourceRecord) {
   };
 }
 
-function compareVehicleLogbookEntries(first: VehicleLogEntry, second: VehicleLogEntry) {
-  return compareTripChronology(first, second);
-}
-
 function sortVehicleLogbook(logbook: VehicleLogEntry[] = []) {
-  return [...logbook].sort(compareVehicleLogbookEntries);
+  return sortTripChronology(logbook);
 }
 
 function latestCompletedLogbookEntry(vehicle?: ResourceRecord) {
@@ -3659,13 +3655,12 @@ function mergeOdometerPhotos(primaryPhotos: VehicleOdometerPhoto[] = [], seconda
 function mergeVehicleLogbook(primaryLogbook: VehicleLogEntry[] = [], secondaryLogbook: VehicleLogEntry[] = [], deletedEntryIds: string[] = []) {
   const deletedIds = new Set(deletedEntryIds);
   const secondaryById = new Map(secondaryLogbook.map((entry) => [entry.id, entry]));
-  return mergeRecordsById(primaryLogbook, secondaryLogbook)
+  return sortVehicleLogbook(mergeRecordsById(primaryLogbook, secondaryLogbook)
     .map((entry) => ({
       ...entry,
       odometerPhotos: mergeOdometerPhotos(entry.odometerPhotos, secondaryById.get(entry.id)?.odometerPhotos),
     }))
-    .filter((entry) => !deletedIds.has(entry.id))
-    .sort(compareVehicleLogbookEntries);
+    .filter((entry) => !deletedIds.has(entry.id)));
 }
 
 function mergeResourcesById(primaryResources: ResourceRecord[] = [], secondaryResources: ResourceRecord[] = []) {
