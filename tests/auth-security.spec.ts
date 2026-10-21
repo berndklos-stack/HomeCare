@@ -85,7 +85,7 @@ test("Service-Role-Routen besitzen Autorisierung und explizite Mandantenbindung"
     "app/api/portal/invite/route.ts",
     "app/api/sync-mutations/route.ts",
     "app/api/app-state/migrate-media/route.ts",
-    "app/api/cron/daily-jobs/route.ts",
+    "lib/server/dailyJobs.ts",
   ]) {
     const source = readFileSync(path.join(root, file), "utf8");
     expect(source).toMatch(/require(Api|Portal)Auth/);
@@ -94,7 +94,7 @@ test("Service-Role-Routen besitzen Autorisierung und explizite Mandantenbindung"
 });
 
 test("Cron-Servicezugriffe sind an einen expliziten Mandanten gebunden", () => {
-  const source = readFileSync(path.join(process.cwd(), "app/api/cron/daily-jobs/route.ts"), "utf8");
+  const source = readFileSync(path.join(process.cwd(), "lib/server/dailyJobs.ts"), "utf8");
   expect(source).toContain('request.headers.get("x-workcore-tenant")');
   expect(source).toContain('.eq("tenant_id", tenantId)');
   expect(source).toContain('.from("homecare_daily_mail_state")');

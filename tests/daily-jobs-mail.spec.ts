@@ -4,7 +4,7 @@ import {
   buildDailyJobMail,
   calendarEventTimeLabel,
   parseIcsEvents,
-} from "../app/api/cron/daily-jobs/route";
+} from "../lib/server/dailyJobs";
 
 function job(overrides: Record<string, unknown> = {}) {
   return {

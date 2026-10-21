@@ -70,7 +70,7 @@ test("Legacy-Endpunkte können Phase-3B-Domänen nicht mehr überschreiben", () 
   const root = process.cwd();
   const sectionRoute = readFileSync(path.join(root, "app/api/sync-sections/route.ts"), "utf8");
   const appStateRoute = readFileSync(path.join(root, "app/api/app-state/route.ts"), "utf8");
-  const cronRoute = readFileSync(path.join(root, "app/api/cron/daily-jobs/route.ts"), "utf8");
+  const cronRoute = readFileSync(path.join(root, "lib/server/dailyJobs.ts"), "utf8");
   expect(sectionRoute).toContain("SYNC_SECTION_WRITES_RETIRED");
   expect(sectionRoute).toContain("loadAuthoritativeSettingsSections");
   expect(sectionRoute).not.toContain("LEGACY_SETTINGS_READ_FALLBACK");

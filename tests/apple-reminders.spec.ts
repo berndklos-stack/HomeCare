@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import ts from "typescript";
 import { NextResponse } from "next/server";
 import { reminderTokenHash, reminderTokenMatches, parseReminderSnapshot, remindersForMail } from "../lib/server/appleReminders";
-import { buildDailyJobMail } from "../app/api/cron/daily-jobs/route";
+import { buildDailyJobMail } from "../lib/server/dailyJobs";
 import * as reminderHelpers from "../lib/server/appleReminders";
 
 const now = new Date("2026-10-07T03:45:00Z");
