@@ -1,10 +1,11 @@
 export const appVersion = {
-  version: "1.428.7",
+  version: "1.428.8",
   releaseDate: "2026-10-21",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  { version: "1.428.8", date: "2026-10-21", changes: ["System / Branding in die Administration verschoben; Ressourcentypen unter Ressourcen integriert", "Eigene Zeiterfassung mit Stempeln, Pausen, Unterbrechungen, Nachtraegen, Freigabe und Excel-Export", "Urlaubskonten und Urlaubsantraege mit Entscheidungsverlauf; mandanten- und mitarbeitergeschuetzte Speicherung, Revisionsschutz und mobile Safari-Bedienung"] },
   { version: "1.428.7", date: "2026-10-21", changes: ["Stammdaten im Stil der Lagerverwaltung mit kompakten Reitern, einheitlichen Formularen und mobilen Layoutkorrekturen", "Zentrale Firmenuebersicht mit Suche und Seitennavigation nur fuer freigeschaltete Plattformadministratoren", "Firmeneinstellungen und Module direkt ohne Mandantenwechsel bearbeiten; Revisionsschutz, Audit und Erhalt vorhandener Logos und Altwerte"] },
   { version: "1.428.6", date: "2026-10-20", changes: ["Dunkle transparente Schwarzweiss-Logos ohne weissen Kasten direkt auf der Menueleiste darstellen", "Automatische Lesbarkeit im Hell- und Dunkelmodus; Markenfarben farbiger Logos und gespeicherte Bilddaten erhalten", "Original-Firmenlogo, Moduswechsel, Upload und SVG-Sicherheit in Safari und Chromium geprueft"] },
   { version: "1.428.5", date: "2026-10-20", changes: ["Dunkle Firmenlogos automatisch mit hellem Hintergrund im Seitenmenue lesbar darstellen; helle Logos unveraendert lassen", "Fahrten ohne vollstaendige Tagesstartzeiten nach Kilometerstaenden statt internen Kennungen anzeigen", "Identische Reihenfolge fuer Fahrtenanzeige und Kilometerluecken; Original-SVG sowie Septemberfahrten in Safari und Chromium geprueft"] },

@@ -1,4 +1,4 @@
-export const navigationOrder = ['dashboard', 'objects', 'customers', 'jobs', 'planning', 'field', 'tracking', 'communication', 'billing', 'analytics', 'inventory', 'portal', 'masterData'] as const;
+export const navigationOrder = ['dashboard', 'objects', 'customers', 'jobs', 'planning', 'field', 'time', 'tracking', 'communication', 'billing', 'analytics', 'inventory', 'portal', 'masterData'] as const;
 export const vehicleBlockOrder = ['standardTrips', 'documents', 'maintenance'] as const;
 export type LayoutPreferences = { navigationOrder: string[]; vehicleBlockOrder: string[] };
 export type LayoutPreferenceKey = keyof LayoutPreferences;

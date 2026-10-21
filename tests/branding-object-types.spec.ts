@@ -248,16 +248,11 @@ test("Branding und Objekttyp bleiben nach dem Speichern erhalten", async ({ page
   await expect(consultingRow).toContainText("Offen: 2,50 h");
 
   await page.getByTestId("nav-masterData").click();
-  await page.getByRole("button", { name: "System / Branding", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Einrichtungsassistent öffnen", exact: true })).toBeVisible();
-  await page.getByLabel("Internationaler Markenname").fill("FieldSuite");
-  await page.getByLabel("Deutscher Claim").fill("Alles im Blick.");
-  await page.getByRole("button", { name: "Branding speichern", exact: true }).click();
+  await expect(page.getByRole("button", { name: "System / Branding", exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "Firma", exact: true }).click();
   await page.getByLabel("Unternehmensland (ISO)").fill("DE");
   await page.getByRole("button", { name: "Firmenstammdaten speichern", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "FieldSuite" })).toBeVisible();
-  await expect(page.getByText("Alles im Blick.", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "WorkCore", exact: true })).toBeVisible();
 
   await page.getByRole("button", { name: "Projekt-/Objekttypen", exact: true }).click();
   const projectTypeCard = page.getByLabel("Deutsch Projekt").locator("xpath=ancestor::article");
@@ -292,7 +287,7 @@ test("Branding und Objekttyp bleiben nach dem Speichern erhalten", async ({ page
 
   await page.reload();
   await expect(page.locator("main")).toHaveAttribute("data-ready", "true", { timeout: 2_000 });
-  await expect(page.getByRole("heading", { name: "FieldSuite" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "WorkCore", exact: true })).toBeVisible();
   await page.getByTestId("nav-objects").click();
   const projectRow = page.getByText("Kundenprojekt · Logistik-Hub Süddeutschland", { exact: true });
   await expect(projectRow).toBeVisible();

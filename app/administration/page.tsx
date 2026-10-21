@@ -6,6 +6,7 @@ import { ArrowLeft, ArrowRight, Check, Mail, Plus, RefreshCw, Shield, UserMinus,
 import { AuthGate, EmployeeLogoutButton } from "@/components/AuthGate";
 import { TenantSwitcher } from "@/components/TenantSwitcher";
 import { CompanyDirectory } from "@/components/CompanyDirectory";
+import { BrandingSettings } from "@/components/BrandingSettings";
 import { apiFetch } from "@/lib/apiClient";
 import { companyModules, permissionDomains, type AdministrationData, type AdministrationMember, type CompanyInput } from "@/lib/administration";
 
@@ -145,6 +146,8 @@ function CompanyOnboarding() {
 }
 
 function AdministrationWorkspace() {
+  const [brandingDirty, setBrandingDirty] = useState(false);
+  const [brandingBusy, setBrandingBusy] = useState(false);
   const [data, setData] = useState<AdministrationData | null>(null); const [error, setError] = useState(""); const [notice, setNotice] = useState(""); const [tab, setTab] = useState("Firma");
   const [busy, setBusy] = useState(false);
   const refresh = useCallback(async (message?: string) => {
@@ -156,7 +159,7 @@ function AdministrationWorkspace() {
       .catch(cause => { if (!cancelled) setError((cause as Error).message); });
     return () => { cancelled = true; };
   }, []);
-  const tabs = data ? [data.canManageCompany && "Firma", data.platformAdmin && "Firmen", data.canManageMembers && "Benutzer", data.canManageRoles && "Rollen", data.canManageCompany && "Module", (data.canManageCompany || data.platformAdmin) && "Pilot/Test"].filter(Boolean) as string[] : [];
+  const tabs = data ? [data.canManageCompany && "Firma", data.platformAdmin && "Firmen", data.canManageCompany && "System / Branding", data.canManageMembers && "Benutzer", data.canManageRoles && "Rollen", data.canManageCompany && "Module", (data.canManageCompany || data.platformAdmin) && "Pilot/Test"].filter(Boolean) as string[] : [];
   const selected = tabs.includes(tab) ? tab : tabs[0];
   return <main className="administration-shell">
     <header className="administration-page-header"><Link className="ghost-button" href="/"><ArrowLeft size={18} />WorkCore</Link><TenantSwitcher /><EmployeeLogoutButton /></header>
@@ -164,7 +167,12 @@ function AdministrationWorkspace() {
     {error && <div role="alert"><p>{error}</p><button className="ghost-button" type="button" onClick={() => void refresh()}><RefreshCw size={18} />Erneut laden</button></div>}
     {!data && !error && <p role="status">Wird geladen …</p>}
     {notice && <p role="status">{notice}</p>}
-    {data && <><nav className="administration-tabs" aria-label="Administration">{tabs.map(t => <button key={t} className={selected === t ? "active" : ""} type="button" onClick={() => setTab(t)}>{t}</button>)}</nav>
+    {data && <><nav className="administration-tabs" aria-label="Administration">{tabs.map(t => <button key={t} className={selected === t ? "active" : ""} type="button" disabled={brandingBusy && selected === "System / Branding" && t !== selected} onClick={() => {
+      if (t === selected) return;
+      if (selected === "System / Branding" && brandingDirty && !window.confirm("Ungespeicherte Branding-Änderungen verwerfen?")) return;
+      setBrandingDirty(false); setBrandingBusy(false); setTab(t);
+    }}>{t}</button>)}</nav>
+      {selected === "System / Branding" && data.canManageCompany && <BrandingSettings dirtyChanged={setBrandingDirty} busyChanged={setBrandingBusy}/>}
       {selected === "Firma" && <section><h2>{data.company.name}</h2><dl className="administration-grid">{[["Land", "country_code"], ["Sprache", "locale"], ["Zeitzone", "timezone"], ["Organisationsnummer", "organization_number"], ["USt-ID", "vat_number"], ["Kontotyp", "account_type"]].map(([title, key]) => <div key={key}><dt>{title}</dt><dd>{data.company[key] || "—"}</dd></div>)}</dl></section>}
       {selected === "Benutzer" && <UserAdministration data={data} refresh={refresh} />}
       {selected === "Firmen" && data.platformAdmin && <CompanyDirectory />}

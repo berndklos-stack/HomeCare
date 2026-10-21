@@ -36,7 +36,9 @@ for (const width of [390, 820, 1440]) test(`Stammdaten: Lagerstil, Reiter und Ei
   await tabs.getByRole("button", { name: "Firma", exact: true }).click();
   await expect(panel.getByLabel("Firmenname", { exact: true })).toHaveValue("Gepruefter Entwurf");
   await page.screenshot({ path: `test-results/master-data-company-${width}-${test.info().project.name}.png` });
-  for (const name of ["Personal", "Ressourcen", "Leistungen", "Ressourcentypen", "Buchhaltung", "Tagesmail", "Sprachen"]) {
+  await expect(tabs.getByRole("button", { name: "System / Branding", exact: true })).toHaveCount(0);
+  await expect(tabs.getByRole("button", { name: "Ressourcentypen", exact: true })).toHaveCount(0);
+  for (const name of ["Personal", "Ressourcen", "Leistungen", "Buchhaltung", "Tagesmail", "Sprachen"]) {
     await tabs.getByRole("button", { name, exact: true }).click();
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
     const overflow = await page.locator(".master-data-workspace").evaluate(element => element.scrollWidth - element.clientWidth);
@@ -46,6 +48,14 @@ for (const width of [390, 820, 1440]) test(`Stammdaten: Lagerstil, Reiter und Ei
     });
     expect(overflow, `${name}: ${JSON.stringify(overflowing)}`).toBeLessThanOrEqual(2);
   }
+  await tabs.getByRole("button", { name: "Ressourcen", exact: true }).click();
+  const resourceTabs = page.getByRole("navigation", { name: "Ressourcen", exact: true });
+  await resourceTabs.getByRole("button", { name: "Ressourcentypen", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Ressourcentypen", exact: true })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+  await page.screenshot({ path: `test-results/resource-type-navigation-${width}-${test.info().project.name}.png` });
+  await resourceTabs.getByRole("button", { name: "Übersicht", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Neue Ressource anlegen", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Dunkelmodus", exact: true }).click();
   await tabs.getByRole("button", { name: "Firma", exact: true }).click();
   await expect(company).toHaveCSS("background-color", "rgb(41, 151, 255)");

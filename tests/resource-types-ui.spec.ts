@@ -56,6 +56,7 @@ for (const mobile of [false, true]) {
 
 test("Eigener Ressourcentyp konfiguriert Pflichtfelder und überlebt Reload offline", async ({ page }) => {
   await openMaster(page);
+  await page.getByRole("button", { name: "Ressourcen", exact: true }).click();
   await page.getByRole("button", { name: "Ressourcentypen", exact: true }).click();
   await page.getByRole("button", { name: "Neuer Ressourcentyp", exact: true }).click();
   const dialog = page.getByRole("dialog");

@@ -2,6 +2,8 @@ import { expect, test } from "@playwright/test";
 import { feedbackPath, validateCompany, validEmail, validUuid, type AdministrationData, type CompanyInput } from "../lib/administration";
 import { defaultRolePermissions } from "../lib/authModel";
 import { deliverInvitation, isPlatformAdmin } from "../lib/server/administration";
+import { readBranding, saveCompanyBranding, validateBranding } from "../lib/server/companyBranding";
+import { defaultAppBranding } from "../lib/branding";
 import { activateTenant, activeTenantStorageKey, getActiveTenantId, pendingTenantStorageKey, tenantScopedStorageKey } from "../lib/apiClient";
 
 const company: CompanyInput = { name: "Pilot A", ownerEmail: "owner@example.invalid", country: "SE", locale: "de", timezone: "Europe/Stockholm", accountType: "pilot", pilotStartDate: "2026-10-15", pilotEndDate: "", contactPerson: "", internalLabel: "", notes: "", organizationNumber: "", vatNumber: "", modules: ["jobs", "reports"] };
@@ -78,19 +80,91 @@ test("Einladungsversand: Zustellung, Providerfehler und Doppelsendesperre bleibe
     for (const [key, value] of [["RESEND_API_KEY", oldKey], ["RESEND_FROM_EMAIL", oldFrom], ["WORKCORE_APP_URL", oldUrl]]) { if (value === undefined) delete process.env[key!]; else process.env[key!] = value; }
   }
 });
+test("Branding akzeptiert nur vorhandene Markenfelder", () => {
+  expect(validateBranding({ ...defaultAppBranding, claimGerman: " Neu " }).claimGerman).toBe("Neu");
+  expect(readBranding({ brandNameSweden: "Firma", name: "nicht sichtbar", claimGerman: null }).claimGerman).toBe("");
+  for (const input of [null, [], {}, { ...defaultAppBranding, name: "fremd" }, { ...defaultAppBranding, claimGerman: 7 }, { ...defaultAppBranding, claimGerman: "x".repeat(301) }]) expect(() => validateBranding(input)).toThrow();
+});
+
+test("Branding speichert mandantengebunden mit CAS und erhält Firma, Logo und Altwerte", async () => {
+  for (const mode of ["success", "stale", "race", "missing", "error"] as const) {
+    const filters: unknown[][] = []; const writes: Record<string, unknown>[] = [];
+    const original = { name: "Firma", countryCode: "SE", logoUrl: "https://example.invalid/logo.svg", bankDetails: "erhalten", legacy: { keep: true }, ...defaultAppBranding };
+    const client = { from(table: string) {
+      expect(table).toBe("homecare_settings");
+      let writing = false;
+      return {
+        select() { return this; },
+        eq(key: string, value: unknown) { filters.push([writing, key, value]); return this; },
+        update(value: Record<string, unknown>) { writing = true; writes.push(value); return this; },
+        async maybeSingle() { return { data: writing ? (mode === "race" ? null : { revision: 8 }) : mode === "missing" ? null : { value: original, revision: mode === "stale" ? 8 : 7 }, error: mode === "error" ? { message: "failed" } : null }; },
+      };
+    } };
+    const branding = { ...defaultAppBranding, claimGerman: "Neu" };
+    const result = await saveCompanyBranding(client as never, "tenant-a", 7, branding);
+    expect(filters).toContainEqual([false, "tenant_id", "tenant-a"]);
+    expect(result.conflict).toBe(["stale", "race", "missing"].includes(mode));
+    if (["success", "race"].includes(mode)) {
+      expect(writes).toEqual([{ value: { ...original, ...branding } }]);
+      expect(filters).toContainEqual([true, "tenant_id", "tenant-a"]);
+      expect(filters).toContainEqual([true, "key", "companySettings"]);
+      expect(filters).toContainEqual([true, "revision", 7]);
+    } else expect(writes).toHaveLength(0);
+  }
+});
+
 test("Administrations-APIs lehnen anonyme Aufrufe ab", async ({ request }) => {
+  for (const method of ["GET", "PATCH"]) {
+    const response = await request.fetch("/api/administration/branding", { method, headers: { "X-WorkCore-E2E-Bypass": "0" }, ...(method === "PATCH" ? { data: {} } : {}) });
+    expect(response.status()).toBe(401);
+  }
   for (const [url, method] of [["/api/administration", "GET"], ["/api/administration", "POST"], ["/api/administration", "PATCH"], ["/api/administration/companies", "POST"], ["/api/administration/companies", "PATCH"], ["/api/administration/modules", "PATCH"], ["/api/feedback", "POST"]]) {
     const response = await request.fetch(url, { method, headers: { "X-WorkCore-E2E-Bypass": "0" }, data: {} });
     expect(response.status()).toBe(401);
   }
 });
 test("UI-Testbypass darf keine echten Benutzer oder Feedbackeinträge schreiben", async ({ request }) => {
+  expect((await request.get("/api/administration/branding")).status()).toBe(503);
+  expect((await request.patch("/api/administration/branding", { data: {} })).status()).toBe(503);
   for (const url of ["/api/administration", "/api/feedback"]) {
     const response = await request.post(url, { data: {} }); expect(response.status()).toBe(503);
   }
 });
 
 for (const width of [390, 820, 1440]) {
+  test(`Branding in Administration: Speichern, Konflikt und mobile Eingabe bei ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    await page.route(url => url.pathname === "/api/administration", route => route.fulfill({ json: data }));
+    let current = { ...defaultAppBranding }; let revision = 7; let conflict = true;
+    await page.route("**/api/administration/branding", async route => {
+      if (route.request().method() === "PATCH") {
+        const body = route.request().postDataJSON();
+        expect(body.revision).toBe(revision);
+        expect(Object.keys(body.branding).sort()).toEqual(Object.keys(defaultAppBranding).sort());
+        if (conflict) return route.fulfill({ status: 409, json: { error: "Zwischenzeitlich geändert. Deine Eingaben bleiben erhalten." } });
+        current = body.branding; revision++;
+      }
+      await route.fulfill({ json: { branding: current, revision } });
+    });
+    await page.goto("/administration");
+    await page.getByRole("button", { name: "System / Branding", exact: true }).click();
+    await page.getByLabel("Internationaler Markenname", { exact: true }).fill("FieldSuite");
+    await page.getByLabel("Deutscher Claim", { exact: true }).fill("Alles im Blick.");
+    await page.getByRole("button", { name: "Branding speichern", exact: true }).click();
+    await expect(page.getByRole("region", { name: "System / Branding", exact: true }).getByRole("alert")).toContainText("Eingaben bleiben erhalten");
+    await expect(page.getByLabel("Internationaler Markenname", { exact: true })).toHaveValue("FieldSuite");
+    page.once("dialog", dialog => dialog.dismiss());
+    await page.getByRole("button", { name: "Firma", exact: true }).click();
+    await expect(page.getByLabel("Deutscher Claim", { exact: true })).toHaveValue("Alles im Blick.");
+    conflict = false;
+    await page.getByRole("button", { name: "Branding speichern", exact: true }).click();
+    await expect(page.getByRole("status")).toHaveText("Branding gespeichert.");
+    await page.screenshot({ path: `test-results/administration-branding-${width}-${test.info().project.name}.png`, fullPage: true });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.getByRole("button", { name: "Firma", exact: true }).click();
+    await page.getByRole("button", { name: "System / Branding", exact: true }).click();
+    await expect(page.getByLabel("Internationaler Markenname", { exact: true })).toHaveValue("FieldSuite");
+  });
   test(`Administration, Einladungsdialog und Pilotanlage bei ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     let invited: Record<string, unknown> | undefined;
@@ -121,13 +195,22 @@ for (const width of [390, 820, 1440]) {
     await expect(page.getByRole("heading", { name: "Rollen & Berechtigungen" })).toBeVisible();
     await expect(page.getByText("Benutzer verwalten", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Pilot/Test", exact: true }).click();
+    await expect(page.getByRole("checkbox", { name: "Zeiterfassung", exact: true })).toBeVisible();
     await page.getByLabel("Firmenname", { exact: true }).fill("Pilot B");
     await page.getByLabel("Eigentümer-E-Mail").fill("pilot-b@example.invalid");
     await expect(page.getByRole("button", { name: "Firma anlegen" })).toBeVisible();
+    await page.getByRole("button", { name: "Module", exact: true }).click();
+    await expect(page.getByRole("checkbox", { name: "Zeiterfassung", exact: true })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     await page.screenshot({ path: `test-results/administration-${width}-${test.info().project.name}.png`, fullPage: true });
   });
 }
+test("Branding bleibt ohne Firmenadministrationsrecht verborgen", async ({ page }) => {
+  await page.route(url => url.pathname === "/api/administration", route => route.fulfill({ json: { ...data, canManageCompany: false, platformAdmin: false } }));
+  await page.goto("/administration");
+  await expect(page.getByRole("button", { name: "Benutzer", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "System / Branding", exact: true })).toHaveCount(0);
+});
 test("Feedback sendet ausschließlich eingegebene Nachricht und technische Seitenkategorie", async ({ page }) => {
   let body: Record<string, unknown> | undefined;
   await page.route("**/api/feedback", async route => { body = route.request().postDataJSON(); await route.fulfill({ json: { ok: true } }); });

@@ -27,6 +27,7 @@ import { FieldAssignedMaterials, FieldCompletionCheck } from "@/components/Field
 import { billableJobMaterials, type StockMaterialLine } from "@/lib/jobStock";
 import { OperationsWarnings } from "@/components/OperationsWarnings";
 import { DynamicResourceFields, ResourceTypesPanel, useResourceTypes } from "@/components/ResourceTypes";
+import { StaffTimeWorkspace } from "@/components/StaffTimeWorkspace";
 import { legacyResourceType, missingResourceFields, resourceIsVehicle, resourceLanguageIndex, resourceTypesText } from "@/lib/resourceTypes";
 import { ConsultingServiceList } from "@/components/ConsultingServiceList";
 import { serviceListRecipientLanguage } from "@/lib/consultingServiceList";
@@ -48,6 +49,7 @@ import {
   ChevronRight,
   Camera,
   ClipboardList,
+  Clock3,
   Euro,
   FileDown,
   FileOutput,
@@ -141,6 +143,7 @@ type Section =
   | "jobs"
   | "planning"
   | "field"
+  | "time"
   | "tracking"
   | "reports"
   | "communication"
@@ -1383,6 +1386,7 @@ const navLabels: Record<Language, Record<Section, string>> = {
     customers: "Kunden",
     dashboard: "Dashboard",
     field: "Mobil vor Ort",
+    time: "Zeiterfassung",
     inventory: "Lager & Material",
     jobs: "Aufträge",
     masterData: "Stammdaten",
@@ -1399,6 +1403,7 @@ const navLabels: Record<Language, Record<Section, string>> = {
     customers: "Kunder",
     dashboard: "Dashboard",
     field: "Mobilt på plats",
+    time: "Tidrapportering",
     inventory: "Lager & material",
     jobs: "Uppdrag",
     masterData: "Grunddata",
@@ -1415,6 +1420,7 @@ const navLabels: Record<Language, Record<Section, string>> = {
     customers: "Customers",
     dashboard: "Dashboard",
     field: "Mobile field",
+    time: "Time tracking",
     inventory: "Inventory & materials",
     jobs: "Jobs",
     masterData: "Master data",
@@ -1433,6 +1439,7 @@ const navItems: Array<{ id: Section; icon: typeof Home }> = [
   { id: "jobs", icon: ClipboardList },
   { id: "planning", icon: CalendarDays },
   { id: "field", icon: Wrench },
+  { id: "time", icon: Clock3 },
   { id: "tracking", icon: MapPin },
   { id: "communication", icon: Mail },
   { id: "billing", icon: Euro },
@@ -8931,6 +8938,8 @@ type HomePageProps = {
 
 function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: HomePageProps = {}) {
   const [section, setSection] = useState<Section>(initialSection);
+  const [staffTimeDirty, setStaffTimeDirty] = useState(false);
+  const [staffTimeBusy, setStaffTimeBusy] = useState(false);
   const [language, setLanguage] = useState<Language>("de");
   const [theme, setTheme] = useState<Theme>("light");
   const [query, setQuery] = useState("");
@@ -12251,7 +12260,15 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     }
   }
 
+  function leaveStaffTime() {
+    if (section !== "time") return true;
+    if (staffTimeBusy) return false;
+    return !staffTimeDirty || window.confirm(language === "sv" ? "Kasta osparade tiduppgifter?" : language === "en" ? "Discard unsaved time entries?" : "Ungespeicherte Eingaben in der Zeiterfassung verwerfen?");
+  }
+
   async function openQuickTrip() {
+    if (!leaveStaffTime()) return;
+    setStaffTimeDirty(false);
     const requestId = ++quickTripOpenRequestRef.current;
     setQuickTripLoading(true);
     setQuickTripOpen(true);
@@ -13261,7 +13278,6 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
       language={language}
       objects={activeObjects}
       onSendDailyMail={sendDailyMailNow}
-      onStartOnboarding={startOnboarding}
       materials={materials}
       packages={servicePackages}
       personnel={personnel}
@@ -13340,7 +13356,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
           <CompanyBrand logoUrl={companySettings.logoUrl} name={companySettings.name} />
         </div>
         <PersonalNavigation controller={layoutPreferences} language={language} selected={section}
-          select={(id) => { setQuickTripOpen(false); setSection(id as Section); }}
+          select={(id) => { if (id !== "time" && !leaveStaffTime()) return; if (id !== "time") setStaffTimeDirty(false); setQuickTripOpen(false); setSection(id as Section); }}
           items={navItems.map((item) => ({ id: item.id, label: navLabels[language][item.id], icon: <item.icon size={17}/> }))}
           trailing={<AdministrationLinks section={section} />}/>
         <button className="version" onClick={() => setModal("version")} type="button">
@@ -14059,6 +14075,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
               />
             )}
             {section === "masterData" && masterDataView}
+            {section === "time" && <StaffTimeWorkspace language={language} dirtyChanged={setStaffTimeDirty} busyChanged={setStaffTimeBusy}/>}
           </div>
         </section>}
       </section>
@@ -20695,7 +20712,6 @@ function MasterDataView({
   materials,
   objects,
   onSendDailyMail,
-  onStartOnboarding,
   openResourceLogbookRequestId,
   operationsMasterDataRequest,
   personnel,
@@ -20730,7 +20746,6 @@ function MasterDataView({
   materials: MaterialItem[];
   objects: ObjectRecord[];
   onSendDailyMail: () => Promise<void>;
-  onStartOnboarding: () => void;
   openResourceLogbookRequestId: string;
   operationsMasterDataRequest: string;
   personnel: PersonnelRecord[];
@@ -20757,11 +20772,12 @@ function MasterDataView({
   const tt = translate;
   const resourceTypes = useResourceTypes(queue, enqueue);
   const [resourceOperationsOpen, setResourceOperationsOpen] = useState(false);
-  const [masterDataTab, setMasterDataTab] = useState<"company" | "branding" | "objectTypes" | "personal" | "resources" | "resourceTypes" | "services" | "materials" | "accounting" | "mail" | "languages" | "backups">(materialsOnly ? "materials" : "company");
+  const [masterDataTab, setMasterDataTab] = useState<"company" | "objectTypes" | "personal" | "resources" | "services" | "materials" | "accounting" | "mail" | "languages" | "backups">(materialsOnly ? "materials" : "company");
+  const [resourceSection, setResourceSection] = useState<"overview" | "types">("overview");
   useEffect(() => {
     const tab = operationsMasterDataRequest.split(":")[0];
     if (materialsOnly) setMasterDataTab("materials");
-    else if (tab === "resources") setMasterDataTab(tab);
+    else if (tab === "resources") { setMasterDataTab(tab); setResourceSection("overview"); }
     else setMasterDataTab((current) => current === "materials" ? "company" : current);
   }, [operationsMasterDataRequest, materialsOnly]);
   const [editingPersonId, setEditingPersonId] = useState<string | null>(null);
@@ -21225,6 +21241,7 @@ function MasterDataView({
     resetLogbookForm();
     setResourceModalView("details");
     setMasterDataTab("resources");
+    setResourceSection("overview");
   }
 
   function openResourceLogbook(resource: ResourceRecord) {
@@ -22381,10 +22398,6 @@ function MasterDataView({
           <Home size={16} />
           {tt("Firma")}
         </button>
-        <button className={masterDataTab === "branding" ? "active" : ""} onClick={() => setMasterDataTab("branding")} type="button">
-          <Wrench size={16} />
-          {tt("System / Branding")}
-        </button>
         <button className={masterDataTab === "objectTypes" ? "active" : ""} onClick={() => setMasterDataTab("objectTypes")} type="button">
           <LayoutGrid size={16} />
           {tt("Projekt-/Objekttypen")}
@@ -22393,17 +22406,13 @@ function MasterDataView({
           <UserRound size={16} />
           {tt("Personal")}
         </button>
-        <button className={masterDataTab === "resources" ? "active" : ""} onClick={() => { setMasterDataTab("resources"); resetResourceForm(); }} type="button">
+        <button className={masterDataTab === "resources" ? "active" : ""} onClick={() => { setMasterDataTab("resources"); setResourceSection("overview"); resetResourceForm(); }} type="button">
           <CarFront size={16} />
           {tt("Ressourcen")}
         </button>
         <button className={masterDataTab === "services" ? "active" : ""} onClick={() => setMasterDataTab("services")} type="button">
           <Wrench size={16} />
           {tt("Leistungen")}
-        </button>
-        <button className={masterDataTab === "resourceTypes" ? "active" : ""} onClick={() => setMasterDataTab("resourceTypes")} type="button">
-          <LayoutGrid size={16} />
-          {resourceTypesText.title[resourceLanguageIndex(language)]}
         </button>
         <button className={masterDataTab === "accounting" ? "active" : ""} onClick={() => setMasterDataTab("accounting")} type="button">
           <Euro size={16} />
@@ -22423,7 +22432,11 @@ function MasterDataView({
         </button>
       </nav>}
 
-      {masterDataTab === "resourceTypes" && <ResourceTypesPanel types={resourceTypes.types} language={language} save={resourceTypes.save} ready={resourceTypes.ready} error={!resourceTypes.ready && resourceTypes.error} retry={resourceTypes.retry}/>}
+      {masterDataTab === "resources" && <nav aria-label={tt("Ressourcen")} className="master-data-tabs">
+        <button type="button" aria-pressed={resourceSection === "overview"} className={resourceSection === "overview" ? "active" : ""} onClick={() => setResourceSection("overview")}><CarFront size={16}/>{tt("Übersicht")}</button>
+        <button type="button" aria-pressed={resourceSection === "types"} className={resourceSection === "types" ? "active" : ""} onClick={() => setResourceSection("types")}><LayoutGrid size={16}/>{resourceTypesText.title[resourceLanguageIndex(language)]}</button>
+      </nav>}
+      {masterDataTab === "resources" && resourceSection === "types" && <ResourceTypesPanel types={resourceTypes.types} language={language} save={resourceTypes.save} ready={resourceTypes.ready} error={!resourceTypes.ready && resourceTypes.error} retry={resourceTypes.retry}/>}
 
       {archiveNotice && <p className="archive-notice">{archiveNotice}</p>}
 
@@ -22630,30 +22643,6 @@ function MasterDataView({
             </div>
             <small>{tt("Historische Regelwerke bleiben versioniert erhalten und werden nicht überschrieben.")}</small>
           </section>
-        </section>
-      )}
-
-      {masterDataTab === "branding" && (
-        <section className="panel">
-          <div className="panel-title">
-            <div>
-              <p>{tt("Entwickler / Admin")}</p>
-              <h2>{tt("System / Branding")}</h2>
-              <span>{tt("Zentraler Entwickler- und Adminbereich für die sichtbare App-Marke.")}</span>
-            </div>
-            <button className="ghost-button" onClick={onStartOnboarding} type="button">
-              <PlayCircle size={16} />
-              {language === "sv" ? "Öppna konfigurationsguiden" : language === "en" ? "Open setup wizard" : "Einrichtungsassistent öffnen"}
-            </button>
-          </div>
-          <div className="form-grid compact-form">
-            <label><span>{tt("Markenname Schweden")}</span><input placeholder={defaultAppBranding.brandNameSweden} value={companySettingsForm.brandNameSweden ?? ""} onChange={(event) => setCompanySettingsForm({ ...companySettingsForm, brandNameSweden: event.target.value })} /></label>
-            <label><span>{tt("Claim Schweden")}</span><input placeholder={defaultAppBranding.claimSweden} value={companySettingsForm.claimSweden ?? ""} onChange={(event) => setCompanySettingsForm({ ...companySettingsForm, claimSweden: event.target.value })} /></label>
-            <label><span>{tt("Internationaler Markenname")}</span><input placeholder={defaultAppBranding.brandNameInternational} value={companySettingsForm.brandNameInternational ?? ""} onChange={(event) => setCompanySettingsForm({ ...companySettingsForm, brandNameInternational: event.target.value })} /></label>
-            <label><span>{tt("Deutscher Claim")}</span><input placeholder={defaultAppBranding.claimGerman} value={companySettingsForm.claimGerman ?? ""} onChange={(event) => setCompanySettingsForm({ ...companySettingsForm, claimGerman: event.target.value })} /></label>
-            <label className="wide"><span>{tt("Englischer Claim")}</span><input placeholder={defaultAppBranding.claimEnglish} value={companySettingsForm.claimEnglish ?? ""} onChange={(event) => setCompanySettingsForm({ ...companySettingsForm, claimEnglish: event.target.value })} /></label>
-            <button className="primary-button wide" onClick={saveCompanySettings} type="button">{tt("Branding speichern")}</button>
-          </div>
         </section>
       )}
 
@@ -23029,7 +23018,7 @@ function MasterDataView({
         </section>
       )}
 
-      {masterDataTab === "resources" && (
+      {masterDataTab === "resources" && resourceSection === "overview" && (
         <section className="panel">
           {!(resourceEditorOpen && resourceModalView === "logbook") && <>
           <div className="panel-title">
