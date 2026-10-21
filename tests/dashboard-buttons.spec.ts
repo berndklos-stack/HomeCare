@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { formatGoogleAddress } from "../app/api/geocode/reverse/route";
+import { formatGoogleAddress } from "../lib/googleAddress";
 import { createVehicleStandardTrip } from "./helpers/vehicle-standard-trips";
 
 test("Reverse Geocoding ergänzt ländliche Ortsnamen ohne normale Straßen zu verändern", () => {

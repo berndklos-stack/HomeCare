@@ -26614,6 +26614,6 @@ function Badge({ value }: { value: string }) {
   return <mark className={statusTone(value)}>{value}</mark>;
 }
 
-export default function HomePage(props: HomePageProps = {}) {
-  return <AuthGate><WorkCoreHomePage {...props} /></AuthGate>;
+export default function HomePage() {
+  return <AuthGate><WorkCoreHomePage /></AuthGate>;
 }

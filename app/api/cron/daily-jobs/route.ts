@@ -245,7 +245,7 @@ function normalizeJobStatus(status: string) {
   return status.trim().toLocaleLowerCase("de-DE");
 }
 
-export function isClosedDailyMailJob(job: Pick<JobRecord, "status">) {
+function isClosedDailyMailJob(job: Pick<JobRecord, "status">) {
   return closedJobStatuses.has(normalizeJobStatus(job.status));
 }
 
