@@ -4935,19 +4935,66 @@ mark.neutral {
 }
 
 .master-data-tabs {
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
 }
 
 .master-data-tabs button {
   align-items: center;
   display: flex;
-  gap: 8px;
+  gap: 6px;
   justify-content: center;
+  min-height: 34px;
+  min-width: 118px;
+  max-width: 100%;
+  padding: 7px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
-.master-data-tabs button:not(.active) {
-  background: var(--paper-soft);
-  color: var(--foreground);
+.master-data-tabs button.active {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+}
+
+.master-data-tabs button svg { flex-shrink: 0; }
+.master-data-tabs button:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.master-data-workspace .panel { border: 0; border-radius: 0; box-shadow: none; padding: 20px; border-bottom: 1px solid var(--line); }
+.master-data-workspace .panel > .panel-title { align-items: flex-start; flex-wrap: wrap; gap: 12px 20px; margin-bottom: 20px; }
+.master-data-workspace .panel > .panel-title > div:first-child { flex: 1 1 240px; min-width: 0; }
+.master-data-workspace .panel-title h2 { font-size: 20px; line-height: 1.35; overflow-wrap: anywhere; }
+.master-data-workspace .panel-title > div > span { display: block; margin-top: 6px; color: var(--muted); font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
+.master-data-workspace .panel > .compact-form { padding: 0; border: 0; border-radius: 0; background: transparent; gap: 16px 24px; }
+.master-data-workspace .form-grid label { min-width: 0; }
+.master-data-workspace .mail-settings-help { min-width: 0; overflow-wrap: anywhere; }
+.master-data-workspace .form-grid :is(input, select, textarea):not([type="checkbox"]):not([type="radio"]):not([type="file"]) { min-width: 0; max-width: 100%; border-radius: 6px; }
+.master-data-workspace .panel > .form-grid > button.wide { justify-self: end; width: auto; max-width: 100%; min-height: 44px; }
+.master-data-workspace .panel-title > .row-actions { display: flex; flex-wrap: wrap; width: auto; }
+.master-data-workspace .panel-title > .row-actions > button { width: auto; flex: 0 1 auto; }
+.master-data-workspace :is(.service-catalog, .table-list) article { min-width: 0; position: relative; }
+.master-data-workspace .service-catalog article > :is(strong, small, span) { min-width: 0; overflow-wrap: anywhere; }
+.master-data-workspace .service-master-list article > div { min-width: 0; }
+.master-data-workspace .service-master-list small { white-space: normal; overflow-wrap: anywhere; }
+.master-data-workspace :is(.service-catalog, .table-list) article .icon-button[data-tooltip] { position: static; }
+.master-data-workspace :is(.service-catalog, .table-list) article .icon-button[data-tooltip]::after { left: 12px; right: 12px; width: auto; max-width: none; transform: translateY(4px); }
+.master-data-workspace :is(.service-catalog, .table-list) article .icon-button[data-tooltip]:is(:hover, :focus-visible)::after { transform: translateY(0); }
+@media (max-width: 780px) { .master-data-workspace .package-master-list article { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 600px) {
+  .master-data-tabs { gap: 8px; }
+  .master-data-tabs button { min-height: 44px; min-width: 0; }
+  .master-data-workspace .panel { padding: 16px 12px; }
+  .master-data-workspace .form-grid :is(input, select, textarea):not([type="checkbox"]):not([type="radio"]):not([type="file"]) { font-size: 16px; }
 }
 
 .analytics-customer-identity {

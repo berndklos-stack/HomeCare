@@ -6,6 +6,8 @@ export type CompanyInput = {
   accountType: "production" | "pilot" | "demo"; pilotStartDate: string; pilotEndDate: string;
   contactPerson: string; internalLabel: string; notes: string; modules: CompanyModule[];
 };
+export type CompanyDirectoryEntry = { id: string; name: string; email: string | null; account_type: string; archived: boolean; country_code: string | null };
+export type CompanyAdministrationDetail = { id: string; revision: number; settingsRevision: number; archived: boolean; company: CompanyInput };
 export type AdministrationRole = { id: string; key: string; name: string; permissions: string[]; system_role: boolean };
 export type AdministrationMember = {
   id: string; user_id: string; status: string; role_id: string; employee_id: string | null;
@@ -52,6 +54,11 @@ export function validateCompany(value: unknown): CompanyInput {
   if (v.pilotEndDate && (!v.pilotStartDate || (v.pilotEndDate as string) < (v.pilotStartDate as string))) throw new Error("Pilotende liegt vor dem Beginn.");
   if (!Array.isArray(v.modules) || new Set(v.modules).size !== v.modules.length || !v.modules.every(item => companyModules.includes(item))) throw new Error("Ungültige Modulauswahl.");
   return { ...v, name: (v.name as string).trim(), ownerEmail: (v.ownerEmail as string).trim().toLowerCase() } as CompanyInput;
+}
+export function validateCompanyUpdate(value: unknown): CompanyInput {
+  const input = value as CompanyInput | null;
+  const result = validateCompany(input?.ownerEmail === "" ? { ...input, ownerEmail: "unchanged@example.invalid" } : value);
+  return input?.ownerEmail === "" ? { ...result, ownerEmail: "" } : result;
 }
 export function feedbackPath(path: string) {
   // Only a fixed page category; never a query, customer ID, object title or URL fragment.

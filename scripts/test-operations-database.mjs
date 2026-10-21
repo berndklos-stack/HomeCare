@@ -15,8 +15,10 @@ try {
   execFileSync("createdb", ["-h", root, "-p", "55437", "-U", "postgres", "workcore_operations_test"]);
   const sql = (file) => execFileSync("psql", [...args, "-f", resolve(file)], { stdio: "inherit" });
   if (process.argv.includes("--full-chain")) {
+    const through = process.argv.find(argument => argument.startsWith("--through="))?.slice("--through=".length);
+    if (through && !/^\d{14}$/.test(through)) throw new Error("INVALID_MIGRATION_CUTOFF");
     sql("supabase/tests/operations_full_chain_bootstrap.sql");
-    for (const migration of readdirSync("supabase/migrations").filter((file) => file.endsWith(".sql")).sort()) {
+    for (const migration of readdirSync("supabase/migrations").filter((file) => file.endsWith(".sql") && (!through || file.slice(0, 14) <= through)).sort()) {
       if (migration === "20261008100000_resource_types.sql") sql("supabase/tests/resource_types_migration_fixture.sql");
       if (migration === "20261011070000_master_data_columns.sql") sql("supabase/tests/master_data_columns_fixture.sql");
       if (migration === "20261015200000_company_logo.sql") sql("supabase/tests/company_logo_migration_fixture.sql");
@@ -27,6 +29,7 @@ try {
     }
     sql("supabase/tests/company_administration.sql");
     sql("supabase/tests/company_logo.sql");
+    if (!through || through >= "20261020150000") sql("supabase/tests/platform_company_editor.sql");
     sql("supabase/tests/operations_full_chain.sql");
     sql("supabase/tests/job_stock_billing.sql");
     sql("supabase/tests/scan_target_projections.sql");
@@ -59,7 +62,7 @@ try {
     sql("supabase/tests/personal_block_layouts.sql");
     sql("supabase/migrations/20261014150000_personal_block_layouts.sql");
     sql("supabase/tests/personal_block_layouts.sql");
-    console.log("Complete migration chain and Operations backup round trip passed (local Auth shim, not live Supabase).");
+    console.log(`Migration chain${through ? ` through ${through}` : " (complete)"} and Operations backup round trip passed (local Auth shim, not live Supabase).`);
   } else {
   sql("supabase/tests/operations_foundation_fixture.sql");
   sql("supabase/migrations/20261007230000_operations_foundation.sql");

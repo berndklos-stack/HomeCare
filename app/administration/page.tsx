@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, ArrowRight, Check, Mail, Plus, RefreshCw, Shield, UserMinus, UserRoundCheck, UserRoundX, X } from "lucide-react";
 import { AuthGate, EmployeeLogoutButton } from "@/components/AuthGate";
 import { TenantSwitcher } from "@/components/TenantSwitcher";
+import { CompanyDirectory } from "@/components/CompanyDirectory";
 import { apiFetch } from "@/lib/apiClient";
 import { companyModules, permissionDomains, type AdministrationData, type AdministrationMember, type CompanyInput } from "@/lib/administration";
 
@@ -155,7 +156,7 @@ function AdministrationWorkspace() {
       .catch(cause => { if (!cancelled) setError((cause as Error).message); });
     return () => { cancelled = true; };
   }, []);
-  const tabs = data ? [data.canManageCompany && "Firma", data.canManageMembers && "Benutzer", data.canManageRoles && "Rollen", data.canManageCompany && "Module", (data.canManageCompany || data.platformAdmin) && "Pilot/Test"].filter(Boolean) as string[] : [];
+  const tabs = data ? [data.canManageCompany && "Firma", data.platformAdmin && "Firmen", data.canManageMembers && "Benutzer", data.canManageRoles && "Rollen", data.canManageCompany && "Module", (data.canManageCompany || data.platformAdmin) && "Pilot/Test"].filter(Boolean) as string[] : [];
   const selected = tabs.includes(tab) ? tab : tabs[0];
   return <main className="administration-shell">
     <header className="administration-page-header"><Link className="ghost-button" href="/"><ArrowLeft size={18} />WorkCore</Link><TenantSwitcher /><EmployeeLogoutButton /></header>
@@ -166,6 +167,7 @@ function AdministrationWorkspace() {
     {data && <><nav className="administration-tabs" aria-label="Administration">{tabs.map(t => <button key={t} className={selected === t ? "active" : ""} type="button" onClick={() => setTab(t)}>{t}</button>)}</nav>
       {selected === "Firma" && <section><h2>{data.company.name}</h2><dl className="administration-grid">{[["Land", "country_code"], ["Sprache", "locale"], ["Zeitzone", "timezone"], ["Organisationsnummer", "organization_number"], ["USt-ID", "vat_number"], ["Kontotyp", "account_type"]].map(([title, key]) => <div key={key}><dt>{title}</dt><dd>{data.company[key] || "—"}</dd></div>)}</dl></section>}
       {selected === "Benutzer" && <UserAdministration data={data} refresh={refresh} />}
+      {selected === "Firmen" && data.platformAdmin && <CompanyDirectory />}
       {selected === "Rollen" && <section><h2>Rollen & Berechtigungen</h2><div className="administration-role-grid">{data.roles.map(role => <article key={role.id}><h3><Shield size={18} />{roleNames[role.key] ?? role.name}</h3>{Object.entries(permissionDomains).map(([domain, permissions]) => {
         const effective = permissions.filter(p => role.permissions.includes(p));
         return effective.length ? <div key={domain}><h4>{domain}</h4><ul>{effective.map(p => <li key={p}><Check size={14} />{permissionNames[p] ?? p}</li>)}</ul></div> : null;

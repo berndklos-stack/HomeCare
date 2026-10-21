@@ -248,11 +248,11 @@ for (const width of [1440, 390]) test(`Stammdaten-Reiter bleiben im Dunkelmodus 
   }));
   expect(colors.length).toBeGreaterThan(0);
   for (const colorset of colors) {
-    expect(colorset).toEqual({ background: "rgb(50, 53, 58)", color: "rgb(241, 243, 244)" });
+    expect(colorset).toEqual({ background: "rgb(42, 44, 48)", color: "rgb(194, 198, 204)" });
   }
   await tabs.getByRole("button", { name: "Ressourcen", exact: true }).click();
   await expect(tabs.getByRole("button", { name: "Ressourcen", exact: true })).toHaveClass("active");
-  await expect(tabs.getByRole("button", { name: "Firma", exact: true })).toHaveCSS("background-color", "rgb(50, 53, 58)");
+  await expect(tabs.getByRole("button", { name: "Firma", exact: true })).toHaveCSS("background-color", "rgb(42, 44, 48)");
   await page.screenshot({ path: `test-results/master-tabs-dark-${width}-${test.info().project.name}.png` });
 });
 

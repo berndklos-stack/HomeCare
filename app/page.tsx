@@ -22375,8 +22375,8 @@ function MasterDataView({
   }
 
   return (
-      <div className="stack">
-      {!materialsOnly && <div className="segmented-control master-data-tabs">
+      <div className="stack master-data-workspace">
+      {!materialsOnly && <nav aria-label={tt("Stammdaten")} className="master-data-tabs">
         <button className={masterDataTab === "company" ? "active" : ""} onClick={() => setMasterDataTab("company")} type="button">
           <Home size={16} />
           {tt("Firma")}
@@ -22421,7 +22421,7 @@ function MasterDataView({
           <Archive size={16} />
           Backups
         </button>
-      </div>}
+      </nav>}
 
       {masterDataTab === "resourceTypes" && <ResourceTypesPanel types={resourceTypes.types} language={language} save={resourceTypes.save} ready={resourceTypes.ready} error={!resourceTypes.ready && resourceTypes.error} retry={resourceTypes.retry}/>}
 

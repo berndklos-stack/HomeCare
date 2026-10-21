@@ -1,14 +1,27 @@
 import { isAuthError, requireApiAuth } from "@/lib/server/apiAuth";
 import { administrationError, administrationResponse, deliverInvitation, invitationIdentity, isPlatformAdmin, preventAdministrationTestWrites } from "@/lib/server/administration";
-import { validateCompany, validUuid } from "@/lib/administration";
+import { validateCompany, validateCompanyUpdate, validUuid } from "@/lib/administration";
 
 export async function GET(request: Request) {
   const auth = await requireApiAuth(request, "tenant.admin"); if (isAuthError(auth)) return auth;
   if (!isPlatformAdmin(auth.user.id)) return administrationResponse({ error: "Plattformberechtigung erforderlich." }, 403);
   const blocked = preventAdministrationTestWrites(request); if (blocked) return blocked;
-  const result = await auth.serviceClient.from("homecare_tenants").select("id,name,account_type,pilot_start_date,pilot_end_date,email,created_at").eq("onboarded_by", auth.user.id).order("created_at", { ascending: false }).limit(100);
+  const params = new URL(request.url).searchParams;
+  const tenantId = params.get("tenantId");
+  if (tenantId) {
+    if (!validUuid(tenantId)) return administrationResponse({ error: "Ungültige Firma." }, 400);
+    const detail = await auth.serviceClient.rpc("homecare_platform_company_detail", { p_actor: auth.user.id, p_home: auth.tenantId, p_tenant: tenantId });
+    if (detail.error) return administrationError(detail.error);
+    return detail.data ? administrationResponse(detail.data) : administrationResponse({ error: "Firma nicht gefunden." }, 404);
+  }
+  const page = Number(params.get("page") ?? "0");
+  const search = (params.get("search") ?? "").trim();
+  if (!Number.isSafeInteger(page) || page < 0 || page > 100000 || search.length > 120) return administrationResponse({ error: "Suche oder Seite prüfen." }, 400);
+  let query = auth.serviceClient.from("homecare_tenants").select("id,name,account_type,archived,country_code,email,created_at", { count: "exact" }).order("created_at", { ascending: false }).order("id");
+  if (search) query = query.ilike("name", `%${search.replace(/[\\%_]/g, "\\$&")}%`);
+  const result = await query.range(page * 50, page * 50 + 49);
   if (result.error) return administrationError(result.error);
-  return administrationResponse({ companies: result.data });
+  return administrationResponse({ companies: result.data, total: result.count ?? 0, page });
 }
 
 export async function POST(request: Request) {
@@ -48,6 +61,18 @@ export async function PATCH(request: Request) {
   const blocked = preventAdministrationTestWrites(request); if (blocked) return blocked;
   const body = await request.json().catch(() => null);
   if (!body || !validUuid(body.tenantId)) return administrationResponse({ error: "Firma fehlt." }, 400);
+  if (body.action === "save") {
+    if (!Number.isSafeInteger(body.revision) || body.revision < 1 || !Number.isSafeInteger(body.settingsRevision) || body.settingsRevision < 0) return administrationResponse({ error: "Versionsstand fehlt. Bitte Firma neu laden." }, 400);
+    let company;
+    try { company = validateCompanyUpdate(body.company); } catch (error) { return administrationResponse({ error: (error as Error).message }, 400); }
+    const result = await auth.serviceClient.rpc("homecare_platform_company_update", {
+      p_actor: auth.user.id, p_home: auth.tenantId, p_tenant: body.tenantId,
+      p_revision: body.revision, p_settings_revision: body.settingsRevision, p_company: company, p_modules: company.modules,
+    });
+    if (result.error?.code === "40001") return administrationResponse({ error: "Die Firma wurde zwischenzeitlich geändert. Bitte neu laden; deine Eingaben bleiben erhalten." }, 409);
+    return result.error ? administrationError(result.error) : administrationResponse({ ok: true });
+  }
+  if (body.action && body.action !== "resend") return administrationResponse({ error: "Unbekannte Aktion." }, 400);
   try {
     const company = await auth.serviceClient.from("homecare_tenants").select("id,email").eq("id", body.tenantId).eq("onboarded_by", auth.user.id).single();
     if (company.error) return administrationResponse({ error: "Firma nicht gefunden." }, 404);
