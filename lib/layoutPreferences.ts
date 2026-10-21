@@ -1,3 +1,4 @@
+// Retain the hidden legacy "time" ID for existing database order constraints and preferences.
 export const navigationOrder = ['dashboard', 'objects', 'customers', 'jobs', 'planning', 'field', 'time', 'tracking', 'communication', 'billing', 'analytics', 'inventory', 'portal', 'masterData'] as const;
 export const vehicleBlockOrder = ['standardTrips', 'documents', 'maintenance'] as const;
 export type LayoutPreferences = { navigationOrder: string[]; vehicleBlockOrder: string[] };

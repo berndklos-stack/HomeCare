@@ -1439,7 +1439,6 @@ const navItems: Array<{ id: Section; icon: typeof Home }> = [
   { id: "jobs", icon: ClipboardList },
   { id: "planning", icon: CalendarDays },
   { id: "field", icon: Wrench },
-  { id: "time", icon: Clock3 },
   { id: "tracking", icon: MapPin },
   { id: "communication", icon: Mail },
   { id: "billing", icon: Euro },
@@ -12261,7 +12260,6 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
   }
 
   function leaveStaffTime() {
-    if (section !== "time") return true;
     if (staffTimeBusy) return false;
     return !staffTimeDirty || window.confirm(language === "sv" ? "Kasta osparade tiduppgifter?" : language === "en" ? "Discard unsaved time entries?" : "Ungespeicherte Eingaben in der Zeiterfassung verwerfen?");
   }
@@ -13259,6 +13257,9 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
 
   const masterDataView = (
     <MasterDataView
+      staffTimeDirtyChanged={setStaffTimeDirty}
+      staffTimeBusyChanged={setStaffTimeBusy}
+      leaveStaffTime={leaveStaffTime}
       layoutPreferences={layoutPreferences}
       materialsOnly={section === "inventory"}
       queue={tripSync.queue}
@@ -13356,7 +13357,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
           <CompanyBrand logoUrl={companySettings.logoUrl} name={companySettings.name} />
         </div>
         <PersonalNavigation controller={layoutPreferences} language={language} selected={section}
-          select={(id) => { if (id !== "time" && !leaveStaffTime()) return; if (id !== "time") setStaffTimeDirty(false); setQuickTripOpen(false); setSection(id as Section); }}
+          select={(id) => { if (!leaveStaffTime()) return; setStaffTimeDirty(false); setQuickTripOpen(false); setSection(id as Section); }}
           items={navItems.map((item) => ({ id: item.id, label: navLabels[language][item.id], icon: <item.icon size={17}/> }))}
           trailing={<AdministrationLinks section={section} />}/>
         <button className="version" onClick={() => setModal("version")} type="button">
@@ -13400,7 +13401,12 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
                 <CarFront size={16} />
                 {tx("Fahrt")}
               </button>
-              <button className={`ghost-button refresh-button app-toolbar-refresh ${manualRefreshRunning ? "running" : ""}`} disabled={manualRefreshRunning || !initialSyncComplete} onClick={() => void refreshAppDataNow()} type="button">
+              <button className="ghost-button app-toolbar-time" type="button" aria-label={navLabels[language].time} title={navLabels[language].time} onClick={() => {
+                if (!leaveStaffTime()) return;
+                setStaffTimeDirty(false); setQuickTripOpen(false); setSection("masterData");
+                setOperationsMasterDataRequest(`personalTime:${Date.now()}`);
+              }}><Clock3 size={16}/><span>{navLabels[language].time}</span></button>
+              <button className={`ghost-button refresh-button app-toolbar-refresh ${manualRefreshRunning ? "running" : ""}`} title={manualRefreshRunning ? tx("Aktualisiere") : tx("Aktualisieren")} disabled={manualRefreshRunning || !initialSyncComplete} onClick={() => void refreshAppDataNow()} type="button">
                 <RefreshCw size={16} />
                 {manualRefreshRunning ? tx("Aktualisiere") : tx("Aktualisieren")}
               </button>
@@ -14075,7 +14081,6 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
               />
             )}
             {section === "masterData" && masterDataView}
-            {section === "time" && <StaffTimeWorkspace language={language} dirtyChanged={setStaffTimeDirty} busyChanged={setStaffTimeBusy}/>}
           </div>
         </section>}
       </section>
@@ -20698,6 +20703,9 @@ function CustomerPortalView({
 }
 
 function MasterDataView({
+  staffTimeDirtyChanged,
+  staffTimeBusyChanged,
+  leaveStaffTime,
   layoutPreferences,
   resourceOperations,
   materialsOnly = false,
@@ -20732,6 +20740,9 @@ function MasterDataView({
   translate,
   translationOverrides,
 }: {
+  staffTimeDirtyChanged: (dirty: boolean) => void;
+  staffTimeBusyChanged: (busy: boolean) => void;
+  leaveStaffTime: () => boolean;
   layoutPreferences: LayoutPreferencesController;
   resourceOperations: ReactNode;
   materialsOnly?: boolean;
@@ -20774,10 +20785,12 @@ function MasterDataView({
   const [resourceOperationsOpen, setResourceOperationsOpen] = useState(false);
   const [masterDataTab, setMasterDataTab] = useState<"company" | "objectTypes" | "personal" | "resources" | "services" | "materials" | "accounting" | "mail" | "languages" | "backups">(materialsOnly ? "materials" : "company");
   const [resourceSection, setResourceSection] = useState<"overview" | "types">("overview");
+  const [personnelSection, setPersonnelSection] = useState<"overview" | "time">("overview");
   useEffect(() => {
     const tab = operationsMasterDataRequest.split(":")[0];
     if (materialsOnly) setMasterDataTab("materials");
     else if (tab === "resources") { setMasterDataTab(tab); setResourceSection("overview"); }
+    else if (tab === "personalTime") { setMasterDataTab("personal"); setPersonnelSection("time"); }
     else setMasterDataTab((current) => current === "materials" ? "company" : current);
   }, [operationsMasterDataRequest, materialsOnly]);
   const [editingPersonId, setEditingPersonId] = useState<string | null>(null);
@@ -22393,7 +22406,9 @@ function MasterDataView({
 
   return (
       <div className="stack master-data-workspace">
-      {!materialsOnly && <nav aria-label={tt("Stammdaten")} className="master-data-tabs">
+      {!materialsOnly && <nav aria-label={tt("Stammdaten")} className="master-data-tabs" onClickCapture={event => {
+        if ((event.target as HTMLElement).closest("button") && !leaveStaffTime()) { event.preventDefault(); event.stopPropagation(); }
+      }}>
         <button className={masterDataTab === "company" ? "active" : ""} onClick={() => setMasterDataTab("company")} type="button">
           <Home size={16} />
           {tt("Firma")}
@@ -22402,7 +22417,7 @@ function MasterDataView({
           <LayoutGrid size={16} />
           {tt("Projekt-/Objekttypen")}
         </button>
-        <button className={masterDataTab === "personal" ? "active" : ""} onClick={() => { setMasterDataTab("personal"); resetPersonForm(); }} type="button">
+        <button className={masterDataTab === "personal" ? "active" : ""} onClick={() => { setMasterDataTab("personal"); setPersonnelSection("overview"); resetPersonForm(); }} type="button">
           <UserRound size={16} />
           {tt("Personal")}
         </button>
@@ -22909,7 +22924,12 @@ function MasterDataView({
         </section>
       )}
 
-      {masterDataTab === "personal" && (
+      {masterDataTab === "personal" && <nav className="master-data-tabs" aria-label={tt("Personal")}>
+        <button type="button" className={personnelSection === "overview" ? "active" : ""} onClick={() => { if (leaveStaffTime()) setPersonnelSection("overview"); }}><UserRound size={16}/>{tt("Übersicht")}</button>
+        <button type="button" className={personnelSection === "time" ? "active" : ""} onClick={() => setPersonnelSection("time")}><Clock3 size={16}/>{navLabels[language].time}</button>
+      </nav>}
+      {masterDataTab === "personal" && personnelSection === "time" && <StaffTimeWorkspace key={operationsMasterDataRequest} language={language} dirtyChanged={staffTimeDirtyChanged} busyChanged={staffTimeBusyChanged}/>}
+      {masterDataTab === "personal" && personnelSection === "overview" && (
         <section className="panel">
           <div className="panel-title">
             <div>

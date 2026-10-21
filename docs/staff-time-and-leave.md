@@ -6,11 +6,22 @@ Demo-Berechtigungen oder lokale Sammelspeicherung.
 
 ## Funktionsumfang
 
-- Eigener Hauptmenuepunkt, persoenlich per Drag-and-drop sortierbar.
+- Stammdaten > Personal > Zeiterfassung; Schnellbutton neben Fahrt zum Stempeln.
+- Kein eigener Hauptmenuepunkt. Die alte interne Layoutkennung bleibt fuer
+  gespeicherte Reihenfolgen kompatibel, wird aber nicht mehr angezeigt.
 - Arbeit, Pause, Unterbrechung; Wechsel und Beenden atomar mit Serverzeit.
 - Nachtragen, Korrigieren, Loeschen nicht freigegebener Zeiten; keine Ueberschneidungen.
 - Monatsuebersicht, monatsanteilige Summen und Excel-Export.
   Wie in der Vorlage zaehlen Unterbrechungen zur Arbeitszeit, Pausen nicht.
+- Tages- und Monatsbericht je Mitarbeiter sowie Personal-Monatsbericht fuer
+  Firmenadministratoren: Zeiten, Freigabestatus, Arbeitszeit, Pausen,
+  Unterbrechungen, Urlaub und verfuegbares Jahreskonto. Laufende Zeiten werden
+  angezeigt, aber nicht summiert. Tages-/Monatsgrenzen werden lokal abgeschnitten.
+- Druckvorschau (Drucken / als PDF sichern), Excel mit getrennten Blaettern fuer
+  Uebersicht, Zeiten und Urlaub, E-Mail-/SMS-Entwurf und Teilen ueber das Betriebssystem.
+  Kein automatischer Mailversand. Ausgabeinhalte werden HTML-maskiert.
+- Der Sammelbericht liest ausschliesslich den authentifizierten Mandanten und
+  erfordert serverseitig tenant.admin. Mitarbeiter behalten ihren eigenen Bereich.
 - Firmenadministratoren koennen Zeiten freigeben/sperren und entsperren.
 - Urlaubsantrag, Genehmigung, Ablehnung und Stornierung mit separatem Ereignisverlauf.
 - Jahreskonto je Mitarbeiter: Anspruch, Uebertrag und bereits ausserhalb erfasste Tage.

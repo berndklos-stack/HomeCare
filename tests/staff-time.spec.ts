@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { formatStaffMinutes, staffLeaveSummary, staffMinutesInMonth, suggestedLeaveDays, validateStaffCommand, type StaffCommand, type StaffTimeData } from "../lib/staffTime";
+import { buildStaffReport, staffReportRows } from "../lib/staffTimeReports";
 
 const entryId = "e2110000-0000-4000-8000-000000000001";
 const leaveId = "f2110000-0000-4000-8000-000000000001";
@@ -35,7 +36,8 @@ async function open(page: Page, manager = false, failManual = false) {
     await route.fulfill({ json: { ok: true } });
   });
   await page.goto("/"); await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true");
-  await page.getByTestId("nav-time").click();
+  await expect(page.getByTestId("nav-time")).toHaveCount(0);
+  await page.getByRole("button", { name: "Zeiterfassung", exact: true }).click();
   const workspace = page.getByRole("region", { name: "Zeiterfassung", exact: true });
   await expect(workspace.getByLabel("Mitarbeiter", { exact: true })).toHaveValue("PER-1");
   await expect(workspace.getByRole("button", { name: "Arbeit beginnen", exact: true })).toBeEnabled();
@@ -66,6 +68,50 @@ test("Zeitvalidierung, halbe Urlaubstage und Monatsgrenzen", () => {
   data.leaves[0].status = "approved";
   expect(staffLeaveSummary(data.balances[0], data.leaves, year).remaining).toBe(21);
   expect(staffLeaveSummary(undefined, data.leaves, year).remaining).toBeNull();
+});
+
+test("Berichte begrenzen Zeiten auf Tag und Monat und maskieren Inhalte", () => {
+  const data = fixture(true);
+  data.entries[0] = { ...data.entries[0], started_at: new Date(2026, 8, 30, 23).toISOString(), ended_at: new Date(2026, 9, 1, 2).toISOString(), minutes: 180, note: '<script>alert("x")</script>' };
+  const monthly = buildStaffReport(data, "2026-10", "month", "2026-10-01", "de");
+  expect(monthly.rows).toHaveLength(1);
+  expect(monthly.rows[0].work).toBe(120);
+  expect(monthly.html).not.toContain('<script>');
+  expect(monthly.html).toContain('&lt;script&gt;');
+  expect(monthly.text).toContain("Arbeitszeit: 2:00 h");
+  expect(staffReportRows(data, "2026-09", "day", "2026-09-30")[0].work).toBe(60);
+  expect(staffReportRows(data, "2026-10", "company", "2026-10-01")).toHaveLength(2);
+  data.entries[0].ended_at = null;
+  expect(staffReportRows(data, "2026-10", "month", "2026-10-01")[0].work).toBe(0);
+});
+
+for (const width of [320, 390, 820, 1440]) test(`Personal-Zeiterfassung und Berichte bei ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 1000 });
+  const { workspace } = await open(page, true);
+  await expect(page.getByRole("navigation", { name: "Personal", exact: true })).toBeVisible();
+  await workspace.getByRole("button", { name: "Berichte", exact: true }).click();
+  const reports = workspace.getByRole("region", { name: "Berichte", exact: true });
+  const frame = page.frameLocator('iframe[title^="Monatsbericht"]');
+  await expect(frame.getByRole("heading", { name: "Example Worker", exact: true })).toBeVisible();
+  await expect(frame.getByText("1:00 h", { exact: true }).first()).toBeVisible();
+  await frame.locator("body").evaluate(body => { window.print = () => { body.setAttribute("data-print-requested", "true"); }; });
+  await reports.getByRole("button", { name: "Drucken / PDF", exact: true }).click();
+  await expect(frame.locator("body")).toHaveAttribute("data-print-requested", "true");
+  await expect(reports.getByRole("link", { name: "E-Mail", exact: true })).toHaveAttribute("href", /^mailto:\?subject=/);
+  const downloadPromise = page.waitForEvent("download");
+  await reports.getByRole("button", { name: "Excel", exact: true }).click();
+  expect((await downloadPromise).suggestedFilename()).toBe(`staff-report-month-${month}.xlsx`);
+  await reports.getByLabel("Bericht", { exact: true }).selectOption("company");
+  await expect(page.frameLocator('iframe[title^="Personalbericht"]').getByRole("heading", { name: "Other Worker", exact: true })).toBeVisible();
+  await reports.getByLabel("Bericht", { exact: true }).selectOption("day");
+  await reports.getByLabel("Datum", { exact: true }).fill(`${month}-${String(date.getDate()).padStart(2, "0")}`);
+  await expect(page.frameLocator('iframe[title^="Tagesbericht"]').getByRole("cell", { name: "Office · Existing", exact: true })).toBeVisible();
+  await page.screenshot({ path: `test-results/staff-time-personnel-reports-${width}-${test.info().project.name}.png` });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.getByRole("navigation", { name: "Personal", exact: true }).getByRole("button", { name: "Übersicht", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Personal verwalten", exact: true })).toBeVisible();
+  await page.getByRole("navigation", { name: "Personal", exact: true }).getByRole("button", { name: "Zeiterfassung", exact: true }).click();
+  await expect(workspace).toBeVisible();
 });
 
 test("Zeiterfassungs-API verweigert anonyme und echte Testbypass-Zugriffe", async ({ request }) => {
@@ -117,6 +163,8 @@ for (const width of [390, 820, 1440]) test(`Mitarbeiter stempelt, korrigiert und
   await workspace.getByRole("button", { name: "Urlaub beantragen", exact: true }).last().click();
   await expect(workspace.getByLabel("Von", { exact: true })).toHaveCount(0);
   expect(commands.at(-1)?.command).toMatchObject({ action: "leave_request", employeeId: "PER-1", days: 2.5 });
+  await workspace.getByRole("button", { name: "Berichte", exact: true }).click();
+  await expect(workspace.getByLabel("Bericht", { exact: true }).locator('option[value="company"]')).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await workspace.getByRole("heading", { name: "Zeiterfassung", exact: true }).scrollIntoViewIfNeeded();

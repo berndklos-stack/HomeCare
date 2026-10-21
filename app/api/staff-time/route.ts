@@ -40,29 +40,37 @@ export async function GET(request: Request) {
   const ownEmployeeId = membership.data.employee_id as string | null;
   const canManage = auth.membership.permissions.includes("tenant.admin");
   const params = new URL(request.url).searchParams;
+  const companyReport = params.get("scope") === "company";
+  if (companyReport && !canManage) return administrationResponse({ error: messages.STAFF_FORBIDDEN }, 403);
   const employeeId = params.get("employeeId") || ownEmployeeId || "";
   const month = params.get("month") || new Date().toISOString().slice(0, 7);
   if (!/^20\d{2}-(0[1-9]|1[0-2])$/.test(month) || employeeId.length > 200) return administrationResponse({ error: "Monat oder Mitarbeiter prüfen." }, 400);
   if (!canManage && employeeId !== (ownEmployeeId ?? "")) return administrationResponse({ error: messages.STAFF_FORBIDDEN }, 403);
-  let directory = client.from("homecare_personnel").select("id,first_name,last_name").eq("tenant_id", auth.tenantId).eq("archived", false).is("deleted_at", null).order("last_name");
+  let directory = client.from("homecare_personnel").select("id,first_name,last_name").eq("tenant_id", auth.tenantId).is("deleted_at", null).order("last_name");
+  if (!companyReport) directory = directory.eq("archived", false);
   if (!canManage) directory = directory.eq("id", ownEmployeeId || "__unassigned__");
   const employees = await collect(directory.order("id"));
   if (employees.error) return administrationResponse({ error: "Personal konnte nicht geladen werden." }, 503);
   const result = { employees: (employees.data ?? []).map(row => ({ id: row.id, name: `${row.first_name} ${row.last_name}`.trim() })), ownEmployeeId, canManage, employeeId, month };
-  if (!employeeId) return administrationResponse({ ...result, entries: [], leaves: [], balances: [], events: [] });
-  if (!result.employees.some(row => row.id === employeeId)) return administrationResponse({ error: messages.STAFF_EMPLOYEE_MISSING }, 404);
+  if (!employeeId && !companyReport) return administrationResponse({ ...result, entries: [], leaves: [], balances: [], events: [] });
+  if (!companyReport && !result.employees.some(row => row.id === employeeId)) return administrationResponse({ error: messages.STAFF_EMPLOYEE_MISSING }, 404);
   const year = Number(month.slice(0, 4));
   // UTC month boundaries are widened by a day, then the UI groups in local time.
   const start = new Date(`${month}-01T00:00:00Z`); start.setUTCDate(start.getUTCDate() - 1);
   const end = new Date(`${month}-01T00:00:00Z`); end.setUTCMonth(end.getUTCMonth() + 1); end.setUTCDate(end.getUTCDate() + 1);
-  const entries = await collect(client.from("homecare_staff_time_entries").select("id,employee_id,kind,reason,note,started_at,ended_at,minutes,locked_at,revision")
-    .eq("tenant_id", auth.tenantId).eq("employee_id", employeeId).is("deleted_at", null)
+  let timeQuery = client.from("homecare_staff_time_entries").select("id,employee_id,kind,reason,note,started_at,ended_at,minutes,locked_at,revision")
+    .eq("tenant_id", auth.tenantId).is("deleted_at", null);
+  if (!companyReport) timeQuery = timeQuery.eq("employee_id", employeeId);
+  const entries = await collect(timeQuery
     .or(`and(started_at.lt.${end.toISOString()},ended_at.gt.${start.toISOString()}),ended_at.is.null`).order("started_at", { ascending: false }).order("id"));
-  const leaves = await collect(client.from("homecare_staff_leave_requests").select("id,employee_id,from_date,to_date,days,note,status,decision_reason,decided_at,revision")
-    .eq("tenant_id", auth.tenantId).eq("employee_id", employeeId).gte("from_date", `${year}-01-01`).lte("from_date", `${year}-12-31`).order("from_date", { ascending: false }).order("id"));
-  const balances = await client.from("homecare_staff_leave_balances").select("employee_id,year,entitlement_days,carryover_days,used_days,revision").eq("tenant_id", auth.tenantId).eq("employee_id", employeeId).eq("year", year);
+  let leaveQuery = client.from("homecare_staff_leave_requests").select("id,employee_id,from_date,to_date,days,note,status,decision_reason,decided_at,revision")
+    .eq("tenant_id", auth.tenantId).gte("from_date", `${year}-01-01`).lte("from_date", `${year}-12-31`);
+  let balanceQuery = client.from("homecare_staff_leave_balances").select("employee_id,year,entitlement_days,carryover_days,used_days,revision").eq("tenant_id", auth.tenantId).eq("year", year);
+  if (!companyReport) { leaveQuery = leaveQuery.eq("employee_id", employeeId); balanceQuery = balanceQuery.eq("employee_id", employeeId); }
+  const leaves = await collect(leaveQuery.order("from_date", { ascending: false }).order("id"));
+  const balances = await collect(balanceQuery.order("employee_id"));
   const events: unknown[] = [];
-  for (let offset = 0; offset < (leaves.data?.length ?? 0); offset += 100) {
+  for (let offset = 0; !companyReport && offset < (leaves.data?.length ?? 0); offset += 100) {
     const batch = await collect(client.from("homecare_staff_leave_events").select("id,request_id,action,reason,created_at").eq("tenant_id", auth.tenantId).in("request_id", leaves.data!.slice(offset, offset + 100).map(row => row.id)).order("created_at").order("id"));
     if (batch.error) return administrationResponse({ error: "Urlaubsverlauf konnte nicht geladen werden." }, 503);
     events.push(...(batch.data ?? []));

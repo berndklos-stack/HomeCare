@@ -5,10 +5,11 @@ import { Check, ChevronDown, Clock3, Coffee, Download, LockKeyhole, Pencil, Play
 import { apiFetch } from "@/lib/apiClient";
 import { formatStaffMinutes, staffLeaveSummary, staffMinutesInMonth, suggestedLeaveDays, validateStaffCommand, type StaffCommand, type StaffLeave, type StaffTimeData, type StaffTimeEntry, type StaffTimeKind } from "@/lib/staffTime";
 import styles from "./StaffTimeWorkspace.module.css";
+import { StaffTimeReports } from "./StaffTimeReports";
 
 type Language = "de" | "sv" | "en";
 const words = {
-  title: ["Zeiterfassung", "Tidrapportering", "Time tracking"], clock: ["Stempeln", "Stämpla", "Clock"], times: ["Zeiten", "Tider", "Times"], leave: ["Urlaub", "Semester", "Leave"],
+  title: ["Zeiterfassung", "Tidrapportering", "Time tracking"], clock: ["Stempeln", "Stämpla", "Clock"], times: ["Zeiten", "Tider", "Times"], leave: ["Urlaub", "Semester", "Leave"], reports: ["Berichte", "Rapporter", "Reports"],
   employee: ["Mitarbeiter", "Medarbetare", "Employee"], month: ["Monat", "Månad", "Month"], workingTime: ["Arbeitszeit", "Arbetstid", "Working time"], work: ["Arbeit", "Arbete", "Work"], pause: ["Pause", "Rast", "Break"], interruption: ["Unterbrechung", "Avbrott", "Interruption"],
   start: ["Arbeit beginnen", "Börja arbeta", "Start work"], resume: ["Arbeit fortsetzen", "Fortsätt arbeta", "Resume work"], stop: ["Beenden", "Avsluta", "Stop"], running: ["Läuft seit", "Pågår sedan", "Running since"], ready: ["Keine Zeit läuft", "Ingen tid pågår", "No timer running"],
   reason: ["Grund", "Orsak", "Reason"], note: ["Notiz", "Anteckning", "Note"], newTime: ["Zeit nachtragen", "Registrera tid", "Add time"], type: ["Art", "Typ", "Type"], from: ["Beginn", "Början", "Start"], to: ["Ende", "Slut", "End"], save: ["Speichern", "Spara", "Save"], cancel: ["Abbrechen", "Avbryt", "Cancel"], edit: ["Bearbeiten", "Redigera", "Edit"], remove: ["Löschen", "Ta bort", "Delete"],
@@ -27,7 +28,7 @@ type TimeDraft = { id?: string; revision?: number; kind: StaffTimeKind; reason: 
 export function StaffTimeWorkspace({ language, dirtyChanged, busyChanged }: { language: Language; dirtyChanged: (dirty: boolean) => void; busyChanged: (busy: boolean) => void }) {
   const index = language === "sv" ? 1 : language === "en" ? 2 : 0;
   const t = (key: keyof typeof words) => words[key][index];
-  const [tab, setTab] = useState<"clock" | "times" | "leave">("clock");
+  const [tab, setTab] = useState<"clock" | "times" | "leave" | "reports">("clock");
   const [month, setMonth] = useState(() => localMonth(new Date().toISOString()));
   const [employeeId, setEmployeeId] = useState("");
   const [data, setData] = useState<StaffTimeData | null>(null);
@@ -50,6 +51,7 @@ export function StaffTimeWorkspace({ language, dirtyChanged, busyChanged }: { la
   const dirty = Boolean(timeDraft || leaveDraft || balanceDraft || decision || reason || note);
   useEffect(() => { dirtyChanged(dirty); }, [dirty, dirtyChanged]);
   useEffect(() => { busyChanged(saving); }, [saving, busyChanged]);
+  useEffect(() => () => { dirtyChanged(false); busyChanged(false); }, [dirtyChanged, busyChanged]);
   useEffect(() => {
     const controller = new AbortController();
     const query = new URLSearchParams({ month, ...(employeeId ? { employeeId } : {}) });
@@ -119,12 +121,13 @@ export function StaffTimeWorkspace({ language, dirtyChanged, busyChanged }: { la
       <label>{t("employee")}<select aria-label={t("employee")} value={employeeId} disabled={busy || !data?.canManage} onChange={event => changeContext(() => setEmployeeId(event.target.value))}><option value="">—</option>{data?.employees.map(row => <option key={row.id} value={row.id}>{row.name}</option>)}</select><ChevronDown className={styles.selectChevron} size={16}/></label>
       <label>{t("month")}<input type="month" value={month} disabled={busy} onChange={event => { if (event.target.value) changeContext(() => setMonth(event.target.value)); }}/></label>
     </div>
-    <nav className="master-data-tabs" aria-label={t("title")}>{(["clock", "times", "leave"] as const).map(key => <button key={key} type="button" aria-pressed={tab === key} className={tab === key ? "active" : ""} onClick={() => setTab(key)}>{t(key)}</button>)}</nav>
+    <nav className="master-data-tabs" aria-label={t("title")}>{(["clock", "times", "leave", "reports"] as const).map(key => <button key={key} type="button" aria-pressed={tab === key} className={tab === key ? "active" : ""} onClick={() => changeContext(() => setTab(key))}>{t(key)}</button>)}</nav>
     {error && <p role="alert">{error}</p>}{notice && <p role="status">{notice}</p>}
     {loading && <p role="status">{t("loading")}</p>}
     {data && !employeeId && !loading && <p>{data.canManage ? t("employee") : t("missing")}</p>}
     {current && employeeId && <>
-      {tab !== "clock" && <dl className={styles.totals}>{(["work", "pause", "interruption"] as const).map(kind => <div key={kind}><dt>{t(kind === "work" ? "workingTime" : kind)}</dt><dd>{formatStaffMinutes(entries.filter(row => row.kind === kind || (kind === "work" && row.kind === "interruption")).reduce((sum, row) => sum + staffMinutesInMonth(row, month), 0))} h</dd></div>)}</dl>}
+      {tab === "reports" && <StaffTimeReports data={current} month={month} language={language}/>}
+      {tab !== "clock" && tab !== "reports" && <dl className={styles.totals}>{(["work", "pause", "interruption"] as const).map(kind => <div key={kind}><dt>{t(kind === "work" ? "workingTime" : kind)}</dt><dd>{formatStaffMinutes(entries.filter(row => row.kind === kind || (kind === "work" && row.kind === "interruption")).reduce((sum, row) => sum + staffMinutesInMonth(row, month), 0))} h</dd></div>)}</dl>}
       {tab === "clock" && <section className={styles.band} aria-label={t("clock")}>
         <div className={styles.clock}><Clock3 size={24}/><div><h3>{active ? t(active.kind) : t("ready")}</h3>{active && <p>{t("running")} {date(active.started_at)} · <strong>{formatStaffMinutes(Math.max(0, now - Date.parse(active.started_at)) / 60000)} h</strong></p>}</div></div>
         <div className={styles.actions}>

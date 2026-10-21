@@ -34,6 +34,8 @@
 .leaveRow { display: grid; gap: 12px; padding: 18px 0; border-bottom: 1px solid var(--line); min-width: 0; }
 .leaveRow summary { color: var(--muted); min-height: 32px; cursor: pointer; }
 .workspace [role="alert"] { color: var(--danger,#c12635); }
+.reportFrame { width: 100%; height: 680px; max-height: 80vh; border: 1px solid var(--line); border-radius: 6px; background: white; }
+.workspace .actions > a:global(.icon-button) { display: inline-flex; justify-content: center; align-items: center; width: 44px; height: 44px; flex: 0 0 44px; padding: 10px; }
 @media(max-width:760px) {
   .filters { grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 10px; }
   .grid { grid-template-columns: minmax(0,1fr); }

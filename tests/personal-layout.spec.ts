@@ -48,8 +48,9 @@ for (const size of [{ width: 1440, height: 1000 }, { width: 820, height: 1180 },
     await expect(navigation).not.toHaveClass(/personal-arranging/);
     await page.waitForTimeout(80);
     await keyboardReorder(page, sidebar.locator('[data-nav-id="masterData"]'), sidebar.locator('.personal-navigation'), size.width > 1180 ? 'ArrowUp' : 'ArrowLeft');
-    await expect.poll(() => saved.navigationOrder.indexOf('masterData')).toBe(navigationOrder.length - 2);
-    await expect(sidebar.locator('[data-nav-id]').nth(navigationOrder.length - 2)).toHaveAttribute('data-nav-id', 'masterData');
+    const visibleNavigationLength = navigationOrder.filter(id => id !== 'time').length;
+    await expect.poll(() => saved.navigationOrder.indexOf('masterData')).toBe(visibleNavigationLength - 2);
+    await expect(sidebar.locator('[data-nav-id]').nth(visibleNavigationLength - 2)).toHaveAttribute('data-nav-id', 'masterData');
     await expect(sidebar.locator('.personal-order-arrows')).toHaveCount(0);
     await page.getByTestId('nav-masterData').click();
     await page.getByRole('button', { name: 'Ressourcen', exact: true }).click();
@@ -87,7 +88,7 @@ for (const size of [{ width: 1440, height: 1000 }, { width: 820, height: 1180 },
     await dialog.getByRole('button', { name: 'Ressource schließen', exact: true }).click();
     await page.reload();
     await expect(page.locator('main.app')).toHaveAttribute('data-ready', 'true', { timeout: 30_000 });
-    await expect(sidebar.locator('[data-nav-id]').nth(navigationOrder.length - 2)).toHaveAttribute('data-nav-id', 'masterData');
+    await expect(sidebar.locator('[data-nav-id]').nth(visibleNavigationLength - 2)).toHaveAttribute('data-nav-id', 'masterData');
     await page.getByTestId('nav-masterData').click();
     await page.getByRole('button', { name: 'Ressourcen', exact: true }).click();
     await page.getByRole('button', { name: 'Ressource Servicebil Kolaretorp bearbeiten', exact: true }).click();
@@ -96,10 +97,10 @@ for (const size of [{ width: 1440, height: 1000 }, { width: 820, height: 1180 },
     fail = true;
     await keyboardReorder(page, sidebar.locator('[data-nav-id="masterData"]'), sidebar.locator('.personal-navigation'), size.width > 1180 ? 'ArrowUp' : 'ArrowLeft');
     await expect(sidebar.locator('.personal-order-toolbar').getByRole('status')).toHaveText('Nicht gespeichert');
-    expect(saved.navigationOrder.indexOf('masterData')).toBe(navigationOrder.length - 2);
+    expect(saved.navigationOrder.indexOf('masterData')).toBe(visibleNavigationLength - 2);
     fail = false;
     await keyboardReorder(page, sidebar.locator('[data-nav-id="masterData"]'), sidebar.locator('.personal-navigation'), size.width > 1180 ? 'ArrowDown' : 'ArrowRight');
-    await expect.poll(() => saved.navigationOrder).toEqual([...navigationOrder]);
+    await expect.poll(() => saved.navigationOrder).toEqual([...navigationOrder.filter(id => id !== 'time'), 'time']);
     expect(saved.vehicleBlockOrder).toEqual(['maintenance', 'standardTrips', 'documents']);
     expect(writes.length).toBeGreaterThan(3);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(size.width);

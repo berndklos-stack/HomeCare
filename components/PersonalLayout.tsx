@@ -56,7 +56,7 @@ export function PersonalNavigation({ items, selected, select, controller, langua
   const ids = orderedIds(controller.preferences.navigationOrder, items.map((item) => item.id));
   return <div className={`personal-navigation${arranging ? ' personal-arranging' : ''}`} onKeyDownCapture={(event) => { if (arranging && event.key === 'Escape') { event.preventDefault(); setArranging(false); } }}>
     <OrderToolbar controller={controller} language={language}/>
-    <SortableOrder ids={ids} disabled={!controller.ready || controller.saving} language={language} activate={() => setArranging(true)} cancel={() => setArranging(false)} change={(value) => void controller.save('navigationOrder', value)}><nav aria-label={word(language, 'Hauptnavigation', 'Huvudnavigation', 'Main navigation')}>{ids.map((id) => {
+    <SortableOrder ids={ids} disabled={!controller.ready || controller.saving} language={language} activate={() => setArranging(true)} cancel={() => setArranging(false)} change={(value) => void controller.save('navigationOrder', [...value, ...controller.preferences.navigationOrder.filter(id => !ids.includes(id))])}><nav aria-label={word(language, 'Hauptnavigation', 'Huvudnavigation', 'Main navigation')}>{ids.map((id) => {
       const item = items.find((entry) => entry.id === id)!;
       return <SortableRow className="personal-nav-entry" key={id} id={id} label={item.label} language={language} nav disabled={!controller.ready || controller.saving}>{({ handle, press }) => <>
         <button {...press} type="button" className={selected === id ? 'nav-link active' : 'nav-link'} data-testid={`nav-${id}`} onClick={() => { if (!arranging) select(id); }}>{item.icon}{item.label}</button>
