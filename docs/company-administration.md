@@ -2,7 +2,8 @@
 
 ## Umfang
 
-- `/administration`: Firma, Benutzer, Rollen, Module und Pilot/Test.
+- `/administration`: Firmen, System / Branding, Rollen und Module.
+- Benutzer und Kontoeinstellungen sind direkt bei der ausgewählten Firma integriert.
 - `/feedback`: explizit eingegebenes Feedback; technischer Kontext ohne Kundeninhalte.
 - `/auth/accept`: Supabase-Einladungsannahme und optionale Passwortvergabe.
 - Bestehende Supabase-Identitäten, Rollen und Mandantenzuordnungen bleiben maßgeblich.
@@ -139,11 +140,10 @@ Advisors erweitert.
   Länderwährung wird initial zugeordnet; keine länderspezifische Rechts-/Steuerberatung.
 - Die neuen Administrations-, Einladungs- und Feedbackseiten sind zunächst deutsch.
   Die eingestellte Firmensprache wird an die bestehende mehrsprachige Hauptapp übergeben.
-- Firmen-/Pilotmetadaten sind in Administration lesbar; bestehende allgemeine
-  Firmenstammdaten werden weiterhin in Stammdaten bearbeitet. Kein neuer
-  übergreifender Editor für sämtliche fremden Firmen oder Abonnements.
-- Plattformadmins sehen die zuletzt von ihnen angelegten 100 Firmen; sie erhalten
-  dadurch keinen Zugang zu deren Kunden-/Auftragsdaten.
+- Freigeschaltete Plattformadmins sehen alle Firmen mit Suche und Seitennavigation.
+  Firmenmetadaten und Module sind revisionsgeschützt bearbeitbar. Logo und weitere
+  allgemeine Firmenstammdaten werden weiterhin in Stammdaten bearbeitet; es entsteht
+  kein neuer Zugriff auf fremde Kunden-/Auftragsdaten oder Abonnements.
 - Mitarbeiter-Auswahl: bis 1000 aktive Mitarbeiter; Feedbackübersicht: letzte 100.
 - Modulauswahl nutzt den vorhandenen Konfigurationsmechanismus, keine neue
   Lizenz-/Abrechnungslogik. Module ersetzen keine serverseitigen Berechtigungen.
@@ -187,3 +187,30 @@ Advisors erweitert.
   0 Fehler, 8 Warnungen (Anzahl gegenüber dem Produktionsvorzustand unverändert).
   RLS aktiv; kein anonymer Feedbackzugriff oder Einladungs-RPC-Zugriff, keine
   direkten Membership-Schreibrechte oder Directory-RPC-Rechte für Browserclients.
+
+## Firmenbezogene Benutzerverwaltung ab 21.10.2026
+
+Die Hauptreiter Firma, Benutzer und Pilot/Test entfallen. In Firmen stehen je Firma
+Einstellungen und Benutzer bereit; nach erfolgreicher Firmenanlage öffnet sich
+direkt die Benutzerverwaltung der neuen Firma. Einladungsfehler bleiben sichtbar.
+Die Kontobezeichnungen lauten Produktion, Testkonto und Demo. Bestehende native
+`account_type`- und `pilot_*`-Spalten sowie deren Werte werden nicht umgeschrieben.
+
+`20261021120000_platform_company_members.sql` ergänzt ausschließlich zwei
+service-exklusive RPCs: `homecare_platform_member_directory` und
+`homecare_platform_member_command`. Beide haben einen festen Suchpfad und prüfen
+die aktive Administrationsberechtigung in der Heimatfirma erneut. Die API verlangt
+zusätzlich die ausdrückliche Plattform-Allowlist. Der tatsächliche Akteur wird
+protokolliert; es gibt weder fingierte Eigentümer noch künstliche Mitgliedschaften
+in fremden Firmen. Firmenwechsel und normaler Mandantenkontext bleiben unverändert.
+
+Rollenzuordnungen, Mitarbeiter und Einladungen sind an die Zielfirma gebunden.
+Letzter Eigentümer, bestätigte Identität und Einladungsannahme bleiben geschützt.
+`anon`, `authenticated` und `PUBLIC` erhalten kein EXECUTE auf die neuen Funktionen.
+Bestehende Tabellen-RLS und Grants werden nicht verbreitert.
+
+Prüfung: vollständige lokale SQL-/RLS-Kette, API-Regressionsprüfung und mobile
+Administrationsprüfungen in Chromium/WebKit. Der Release-Prüfer
+`scripts/verify-company-members-release.mjs` vergleicht Staging-Digests, prüft
+transaktionale Bestandsfingerprints, erzeugt vor Produktion serverseitige
+Firmensicherungen mit Prüfsummenprüfung und vergleicht den Security Advisor.

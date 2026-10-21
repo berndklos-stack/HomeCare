@@ -2,6 +2,9 @@ import { expect, test } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 import { stockOverviewRows } from "../lib/stockOverview";
 import { inventoryLocationPath, orderInventoryItems } from "../lib/inventoryPlan";
+test.beforeEach(async ({ page }) => { await page.addInitScript(() => {
+  localStorage.setItem("kolaretorp-company-settings", JSON.stringify({ name: "Lager Testfirma", logoUrl: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=" }));
+}); });
 
 test("Inventur-Laufreihenfolge gruppiert Lagerplaetze und sortiert Codes natuerlich", () => {
   const locations = [{ id: "root", name: "Lager", location_code: "01" }, { id: "a", name: "Regal", location_code: "R2", parent_location_id: "root" }, { id: "b", name: "Regal", location_code: "R10", parent_location_id: "root" }];

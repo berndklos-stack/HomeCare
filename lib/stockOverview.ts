@@ -1,3 +1,4 @@
+import { excelReportLogo, reportBrandingSnapshot, stampReportLogo } from "./reportBranding";
 export type StockMaterial = { id: string; name: string; sku?: string; unit?: string; archived?: boolean };
 export type StockBalance = { material_id: string; location_id: string; quantity: number };
 export type StockOverviewRow = { id: string; material_id: string; location_id: string; sku: string; designation: string; location: string; unit: string; quantity: number; archived: boolean };
@@ -16,6 +17,7 @@ export function stockOverviewRows(materials: StockMaterial[], locations: { id: s
 }
 
 export async function exportStockOverview(rows: StockOverviewRow[], headers: string[], title: string, capturedAt: string, format: "xlsx" | "pdf", statusLabels: [string, string]) {
+  const branding = reportBrandingSnapshot();
   const values = rows.map((row) => [row.sku, row.designation, row.location, row.quantity, row.unit, statusLabels[row.archived ? 1 : 0]]);
   if (format === "xlsx") {
     const { default: writeExcelFile } = await import("write-excel-file/universal");
@@ -24,20 +26,13 @@ export async function exportStockOverview(rows: StockOverviewRow[], headers: str
       headers.map((value) => ({ value, fontWeight: "bold" })),
       ...values.map((row) => row.map((value) => typeof value === "number" ? { value, type: Number, format: "#,##0.000" } : { value, type: String, wrap: true })),
     ];
-    return writeExcelFile(data, { columns: [20, 45, 30, 18, 15, 18].map((width) => ({ width })), stickyRowsCount: 3 }).toBlob();
+    return writeExcelFile(data, { images: await excelReportLogo(branding, 5), columns: [20, 45, 30, 18, 15, 18].map((width) => ({ width })), stickyRowsCount: 3 }).toBlob();
   }
   const { jsPDF } = await import("jspdf");
   const pdf = new jsPDF({ orientation: "landscape" });
-  const logoResponse = await fetch("/kolaretorp-logo.png");
-  if (!logoResponse.ok) throw new Error("LOGO_UNAVAILABLE");
-  const logo = new Uint8Array(await logoResponse.arrayBuffer());
-  const logoSize = pdf.getImageProperties(logo);
-  const logoWidth = 65;
-  const logoHeight = logoWidth * logoSize.height / logoSize.width;
   const widths = [32, 82, 57, 35, 30, 36];
   let y = 0;
   const header = () => {
-    pdf.addImage(logo, "PNG", 284 - logoWidth, 13, logoWidth, logoHeight, "company-logo");
     pdf.setFont("helvetica", "bold"); pdf.setFontSize(16); pdf.text(title, 12, 18);
     pdf.setFont("helvetica", "normal"); pdf.setFontSize(9); pdf.text(capturedAt, 12, 26);
     pdf.setFillColor(240, 242, 245); pdf.rect(12, 32, 272, 10, "F");
@@ -60,5 +55,6 @@ export async function exportStockOverview(rows: StockOverviewRow[], headers: str
   }
   const pages = pdf.getNumberOfPages();
   for (let page = 1; page <= pages; page++) { pdf.setPage(page); pdf.text(`${page} / ${pages}`, 284, 201, { align: "right" }); }
+  await stampReportLogo(pdf, branding);
   return new Blob([new Uint8Array(pdf.output("arraybuffer"))], { type: "application/pdf" });
 }

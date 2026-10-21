@@ -1516,6 +1516,10 @@ button {
   width: 54px;
 }
 
+.report-header-brand { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; max-width: 45%; }
+.report-company-logo { width: 160px; max-width: 100%; height: 48px; object-fit: contain; object-position: right top; background: white; }
+.report-company-logo-name { text-align: right; font-weight: 700; overflow-wrap: anywhere; }
+
 .customer-row {
   grid-template-columns: minmax(0, 1fr);
 }

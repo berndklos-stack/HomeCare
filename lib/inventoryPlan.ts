@@ -1,3 +1,4 @@
+import { reportBrandingSnapshot, stampReportLogo } from "./reportBranding";
 export type InventoryPlanItem = { material_id: string; location_id: string; expected: number; counted: number | null };
 export type InventoryPlan = { id: string; revision: number; note: string; created_at?: string; completed_at?: string | null; items: InventoryPlanItem[] };
 export type InventoryLocation = { id: string; name: string; archived?: boolean; location_code?: string; parent_location_id?: string | null };
@@ -19,15 +20,12 @@ export function orderInventoryItems(items: InventoryPlanItem[], locations: Inven
 }
 
 export async function inventoryPlanPdf(plan: InventoryPlan, locations: InventoryLocation[], materials: { id: string; name: string; sku?: string; unit?: string }[], language: "de" | "sv" | "en") {
+  const branding = reportBrandingSnapshot();
   const { jsPDF } = await import("jspdf");
   const pdf = new jsPDF();
   const text = language === "de" ? ["Inventur-Zählliste", "Inventur-ID", "Lagerort / Lagerplatz", "Materialnummer / Bezeichnung", "Einheit", "Gezählt", "Datum / Unterschrift"] : language === "sv" ? ["Inventeringslista", "Inventerings-ID", "Lager / Lagerplats", "Materialnummer / Benämning", "Enhet", "Räknat", "Datum / Signatur"] : ["Stocktake count sheet", "Stocktake ID", "Location / Bin", "Material number / Designation", "Unit", "Counted", "Date / Signature"];
-  const response = await fetch("/kolaretorp-logo.png");
-  if (!response.ok) throw new Error("LOGO_UNAVAILABLE");
-  const logo = new Uint8Array(await response.arrayBuffer()), size = pdf.getImageProperties(logo);
   let y = 0;
   function header() {
-    pdf.addImage(logo, "PNG", 150, 12, 45, 45 * size.height / size.width);
     pdf.setFont("helvetica", "bold"); pdf.setFontSize(16); pdf.text(text[0], 15, 20);
     pdf.setFont("helvetica", "normal"); pdf.setFontSize(9); pdf.text(`${text[1]}: ${plan.id}`, 15, 35);
     const note = pdf.splitTextToSize(plan.note, 180) as string[];
@@ -53,5 +51,6 @@ export async function inventoryPlanPdf(plan: InventoryPlan, locations: Inventory
   for (let page = 1; page <= pdf.getNumberOfPages(); page++) {
     pdf.setPage(page); pdf.setFontSize(8); pdf.text(text[6], 15, 285); pdf.text(`${page} / ${pdf.getNumberOfPages()}`, 195, 285, { align: "right" });
   }
+  await stampReportLogo(pdf, branding);
   return new Blob([new Uint8Array(pdf.output("arraybuffer"))], { type: "application/pdf" });
 }

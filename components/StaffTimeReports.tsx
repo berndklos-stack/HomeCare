@@ -6,6 +6,7 @@ import { apiFetch } from "@/lib/apiClient";
 import { buildStaffReport, staffReportText, type StaffReportLanguage, type StaffReportScope } from "@/lib/staffTimeReports";
 import type { StaffTimeData } from "@/lib/staffTime";
 import styles from "./StaffTimeWorkspace.module.css";
+import { excelReportLogo, reportBrandingSnapshot, reportLogoDataUrl, reportExcelHeading } from "@/lib/reportBranding";
 
 export function StaffTimeReports({ data, month, language }: { data: StaffTimeData; month: string; language: StaffReportLanguage }) {
   const [scope, setScope] = useState<StaffReportScope>("month");
@@ -14,6 +15,14 @@ export function StaffTimeReports({ data, month, language }: { data: StaffTimeDat
   const [company, setCompany] = useState<{ month: string; snapshot: StaffTimeData; data: StaffTimeData } | null>(null);
   const [error, setError] = useState("");
   const [exporting, setExporting] = useState(false);
+  const brandingKey = JSON.stringify(reportBrandingSnapshot());
+  const [logo, setLogo] = useState<{ key: string; data: string; error: string } | null>(null);
+  useEffect(() => {
+    let active = true;
+    void reportLogoDataUrl(JSON.parse(brandingKey)).then(data => { if (active) setLogo({ key: brandingKey, data, error: "" }); })
+      .catch(cause => { if (active) setLogo({ key: brandingKey, data: "", error: String(cause.message) }); });
+    return () => { active = false; };
+  }, [brandingKey]);
   const frame = useRef<HTMLIFrameElement>(null);
   const t = (de: string, sv: string, en: string) => language === "sv" ? sv : language === "en" ? en : de;
   useEffect(() => {
@@ -26,7 +35,8 @@ export function StaffTimeReports({ data, month, language }: { data: StaffTimeDat
     return () => controller.abort();
   }, [scope, month, data]);
   const source = scope === "company" ? company?.month === month && company.snapshot === data ? company.data : null : data;
-  const report = source ? buildStaffReport(source, month, scope, day, language) : null;
+  const logoReady = logo?.key === brandingKey;
+  const report = source && logoReady && !logo.error ? buildStaffReport(source, month, scope, day, language, { ...JSON.parse(brandingKey), logoUrl: logo.data }) : null;
   async function excel() {
     if (!report || exporting) return;
     setExporting(true); setError("");
@@ -45,9 +55,9 @@ export function StaffTimeReports({ data, month, language }: { data: StaffTimeDat
       const leaves: import("write-excel-file/universal").SheetData = [headings([staffReportText(language, "employee"), staffReportText(language, "from"), staffReportText(language, "to"), staffReportText(language, "days"), staffReportText(language, "status"), staffReportText(language, "note")]),
         ...report.rows.flatMap(row => row.leaves.map(leave => [{ value: row.employee.name, type: String }, { value: leave.from_date, type: String }, { value: leave.to_date, type: String }, { value: Number(leave.days), type: Number }, { value: staffReportText(language, leave.status), type: String }, { value: [leave.note, leave.decision_reason].filter(Boolean).join(" · "), type: String }]))];
       const blob = await writeExcelFile([
-        { sheet: t("Übersicht", "Översikt", "Summary"), data: summaries, stickyRowsCount: 1, columns: [28, 24, 24, 24, 28].map(width => ({ width })) },
-        { sheet: t("Zeiten", "Tider", "Times"), data: rows, stickyRowsCount: 1, columns: [28, 26, 26, 24, 15, 50].map(width => ({ width })) },
-        { sheet: staffReportText(language, "leave"), data: leaves, stickyRowsCount: 1, columns: [28, 20, 20, 15, 20, 50].map(width => ({ width })) },
+        { sheet: t("Übersicht", "Översikt", "Summary"), data: reportExcelHeading(summaries, JSON.parse(brandingKey), report.title), images: await excelReportLogo(JSON.parse(brandingKey), 5), stickyRowsCount: 4, columns: [28, 24, 24, 24, 28].map(width => ({ width })) },
+        { sheet: t("Zeiten", "Tider", "Times"), data: reportExcelHeading(rows, JSON.parse(brandingKey), report.title), images: await excelReportLogo(JSON.parse(brandingKey), 6), stickyRowsCount: 4, columns: [28, 26, 26, 24, 15, 50].map(width => ({ width })) },
+        { sheet: staffReportText(language, "leave"), data: reportExcelHeading(leaves, JSON.parse(brandingKey), report.title), images: await excelReportLogo(JSON.parse(brandingKey), 6), stickyRowsCount: 4, columns: [28, 20, 20, 15, 20, 50].map(width => ({ width })) },
       ]).toBlob();
       const url = URL.createObjectURL(blob); const link = document.createElement("a"); link.href = url; link.download = `staff-report-${scope}-${scope === "day" ? day : month}.xlsx`; link.click(); window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch { setError(t("Export fehlgeschlagen.", "Export misslyckades.", "Export failed.")); } finally { setExporting(false); }
@@ -57,6 +67,7 @@ export function StaffTimeReports({ data, month, language }: { data: StaffTimeDat
       {scope === "day" && <label>{staffReportText(language, "date")}<input type="date" min={`${month}-01`} max={`${month}-${new Date(Number(month.slice(0, 4)), Number(month.slice(5)), 0).getDate()}`} value={day} onChange={event => { if (event.target.value.startsWith(month)) setSelectedDay(event.target.value); }}/></label>}
     </div>
     {error && <p role="alert">{error}</p>}
+    {logoReady && logo.error && <p role="alert">{logo.error}</p>}
     {!report && !error && <p role="status">{t("Bericht wird geladen …", "Rapporten laddas …", "Loading report …")}</p>}
     {report && <><div className={styles.header}><h3>{report.title}</h3><div className={styles.actions}>
       <button className="ghost-button icon-button" type="button" title={t("Drucken / PDF", "Skriv ut / PDF", "Print / PDF")} aria-label={t("Drucken / PDF", "Skriv ut / PDF", "Print / PDF")} onClick={() => { frame.current?.contentWindow?.focus(); frame.current?.contentWindow?.print(); }}><Printer size={18}/></button>

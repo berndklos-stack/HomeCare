@@ -30,6 +30,10 @@ for (const width of [390, 820, 1440]) test(`Zentrale Firmen: richtige Firma, Kon
     return route.fulfill({ json: { companies, total: search ? companies.length : 51 } });
   });
   await page.goto("/administration");
+  const navigation = page.getByRole("navigation", { name: "Administration", exact: true });
+  await expect(navigation.getByRole("button", { name: "Pilot/Test", exact: true })).toHaveCount(0);
+  await expect(navigation.getByRole("button", { name: "Firma", exact: true })).toHaveCount(0);
+  await expect(navigation.getByRole("button", { name: "Benutzer", exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "Firmen", exact: true }).click();
   await expect(page.getByRole("button", { name: "Firma Andere Firma bearbeiten", exact: true })).toBeVisible();
   await expect(page.getByText("Gesperrt / archiviert", { exact: true })).toBeVisible();
@@ -39,6 +43,9 @@ for (const width of [390, 820, 1440]) test(`Zentrale Firmen: richtige Firma, Kon
   await page.getByRole("button", { name: "Firma Andere Firma bearbeiten", exact: true }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByLabel("Eigentümer-E-Mail", { exact: true })).toHaveAttribute("readonly", "");
+  await expect(page.getByRole("combobox", { name: "Kontotyp", exact: true }).locator('option[value="pilot"]')).toHaveText("Testkonto");
+  await expect(page.getByLabel("Testbeginn", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Testende", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Firmendaten neu laden", exact: true })).toHaveCSS("width", "44px");
   await page.getByLabel("Firmenname", { exact: true }).fill("Bearbeitete Firma");
   await page.getByLabel("Interne Notizen", { exact: true }).fill("Nur diese Firma");
@@ -57,8 +64,10 @@ for (const width of [390, 820, 1440]) test(`Zentrale Firmen: richtige Firma, Kon
 test("Firmenadministrator sieht keine zentrale Firmenverwaltung", async ({ page, request }) => {
   await page.route(url => url.pathname === "/api/administration", route => route.fulfill({ json: { ...administration, platformAdmin: false } }));
   await page.goto("/administration");
-  await expect(page.getByRole("button", { name: "Firma", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Firmen", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Firmen", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Firma", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Alle Firmen", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Neue Firma anlegen", exact: true })).toHaveCount(0);
   for (const method of ["GET", "PATCH"]) {
     const response = await request.fetch(`/api/administration/companies?tenantId=${target}`, { method, ...(method === "PATCH" ? { data: { action: "save", tenantId: target } } : {}) });
     expect(response.status()).toBe(403);

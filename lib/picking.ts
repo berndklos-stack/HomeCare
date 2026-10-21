@@ -1,3 +1,4 @@
+import { reportBrandingSnapshot, stampReportLogo } from "./reportBranding";
 export type PickingItem = { material_id: string; quantity: number; picked: number; material: { name: string; sku?: string; scan_code?: string | null; unit?: string; record_data?: { scanCode?: string } } };
 export type PickingOrder = { id: string; picking_code?: string; job_id: string; title: string; revision: number; status: "open" | "completed" | "loaded" | "dispatched" | "cancelled"; created_at: string; staging_id?: string | null; destination_id?: string | null; dispatched_at?: string | null; pickup_code?: string | null };
 
@@ -19,16 +20,13 @@ export function matchesPickupScan(value: string, order: PickingOrder) {
 }
 
 export async function pickingPdf(order: PickingOrder, items: PickingItem[], language: "de" | "sv" | "en") {
+  const branding = reportBrandingSnapshot();
   const [{ jsPDF }, { default: QRCode }] = await Promise.all([import("jspdf"), import("qrcode")]);
   const pdf = new jsPDF();
-  const response = await fetch("/kolaretorp-logo.png");
-  if (!response.ok) throw new Error("LOGO_UNAVAILABLE");
-  const logo = new Uint8Array(await response.arrayBuffer()), size = pdf.getImageProperties(logo);
   const qr = await QRCode.toDataURL(`PICK:${order.picking_code ?? order.id}`, { width: 500, margin: 4 });
   const labels = language === "de" ? ["Kommissionierliste", "Auftrag", "Bezeichnung", "Benötigt", "Entnommen", "Datum / Unterschrift"] : language === "sv" ? ["Plocklista", "Uppdrag", "Benämning", "Behov", "Plockat", "Datum / Signatur"] : ["Picking list", "Job", "Designation", "Required", "Picked", "Date / Signature"];
   let y = 0;
   function header() {
-    pdf.addImage(logo, "PNG", 150, 12, 45, 45 * size.height / size.width);
     pdf.setFont("helvetica", "bold"); pdf.setFontSize(16); pdf.text(labels[0], 15, 22);
     const codeLabel = language === "de" ? "Kommissioniercode" : language === "sv" ? "Plockkod" : "Picking code";
     pdf.setFont("helvetica", "normal"); pdf.setFontSize(10); pdf.text(`${codeLabel}: ${order.picking_code ?? "-"}`, 15, 34);
@@ -52,5 +50,6 @@ export async function pickingPdf(order: PickingOrder, items: PickingItem[], lang
   for (let page = 1; page <= pdf.getNumberOfPages(); page++) {
     pdf.setPage(page); pdf.setFontSize(8); pdf.text(labels[5], 15, 285); pdf.text(`${page} / ${pdf.getNumberOfPages()}`, 195, 285, { align: "right" });
   }
+  await stampReportLogo(pdf, branding);
   return new Blob([new Uint8Array(pdf.output("arraybuffer"))], { type: "application/pdf" });
 }

@@ -1,6 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { formatStaffMinutes, staffLeaveSummary, staffMinutesInMonth, suggestedLeaveDays, validateStaffCommand, type StaffCommand, type StaffTimeData } from "../lib/staffTime";
 import { buildStaffReport, staffReportRows } from "../lib/staffTimeReports";
+import { execFileSync } from "node:child_process";
 
 const entryId = "e2110000-0000-4000-8000-000000000001";
 const leaveId = "f2110000-0000-4000-8000-000000000001";
@@ -193,4 +194,31 @@ test("Firmenadministrator sperrt Zeiten und genehmigt Urlaub mit Verlauf", async
   await workspace.getByText("Verlauf", { exact: true }).click();
   await expect(workspace.getByText(/Genehmigt · Vertretung geklärt/)).toBeVisible();
   expect(commands.at(-1)?.command).toMatchObject({ action: "leave_approve", id: leaveId, revision: 1, reason: "Vertretung geklärt" });
+});
+
+test("Firmenlogo steht rechts im druckbaren Personalbericht und ist in allen Excelblaettern eingebettet", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 900 });
+  await page.addInitScript(() => {
+    const canvas = document.createElement("canvas"); canvas.width = 80; canvas.height = 20;
+    const context = canvas.getContext("2d")!; context.fillStyle = "#126b30"; context.fillRect(0, 0, 80, 20);
+    localStorage.setItem("kolaretorp-company-settings", JSON.stringify({ name: "Eigene Berichtsfirma", logoUrl: canvas.toDataURL("image/png") }));
+  });
+  const { workspace } = await open(page, true);
+  await workspace.getByRole("button", { name: "Berichte", exact: true }).click();
+  const reports = workspace.getByRole("region", { name: "Berichte", exact: true });
+  const frame = page.frameLocator('iframe[title^="Monatsbericht"]');
+  const logo = frame.getByRole("img", { name: "Eigene Berichtsfirma", exact: true });
+  await expect(logo).toHaveAttribute("src", /^data:image\/png/);
+  await expect.poll(() => logo.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBe(80);
+  expect((await logo.boundingBox())!.x).toBeGreaterThan((await frame.locator("body").boundingBox())!.x + 150);
+  const downloading = page.waitForEvent("download");
+  await reports.getByRole("button", { name: "Excel", exact: true }).click();
+  const file = (await (await downloading).path())!;
+  const files = execFileSync("unzip", ["-Z1", file], { encoding: "utf8" });
+  expect(files.match(/xl\/media\/[^\n]+\.png/g)).toHaveLength(3);
+  for (let number = 1; number <= 3; number++) {
+    const drawing = execFileSync("unzip", ["-p", file, `xl/drawings/drawing${number}.xml`], { encoding: "utf8" });
+    expect(drawing).toContain("Eigene Berichtsfirma");
+    expect(drawing).toMatch(/<(?:xdr:)?row>0<\//);
+  }
 });

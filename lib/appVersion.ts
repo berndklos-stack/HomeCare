@@ -1,10 +1,11 @@
 export const appVersion = {
-  version: "1.428.9",
+  version: "1.428.10",
   releaseDate: "2026-10-21",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  { version: "1.428.10", date: "2026-10-21", changes: ["Projekt- und Objektbilder auch mit abgelaufenen Bildlinks auf iPhone und iPad authentifiziert nachladen", "Firmenlogo oben rechts in erzeugten PDF-, Druck- und Excel-Berichten statt fest hinterlegter Logos", "Administration auf Firmen, System / Branding, Rollen und Module vereinfacht; Benutzer und Kontoeinstellungen direkt bei der Firma, ohne Pilot/Test-Reiter", "Firmenbenutzerverwaltung nur fuer freigeschaltete Plattformadministratoren mit Zielmandantenpruefung, Audit und geschuetzten Serverfunktionen"] },
   { version: "1.428.9", date: "2026-10-21", changes: ["Zeiterfassung unter Stammdaten / Personal statt eigenem Hauptmenuepunkt; direkter Schnellzugriff neben Fahrt", "Tages-, Monats- und Personalberichte nach Farmmanger-Vorbild mit Druck/PDF, Excel und Teilen", "Mandantengebundene Personalberichte nur fuer Firmenadministratoren; kompakte iPhone-Kopfleiste und gespeicherte Menuefolgen geprueft"] },
   { version: "1.428.8", date: "2026-10-21", changes: ["System / Branding in die Administration verschoben; Ressourcentypen unter Ressourcen integriert", "Eigene Zeiterfassung mit Stempeln, Pausen, Unterbrechungen, Nachtraegen, Freigabe und Excel-Export", "Urlaubskonten und Urlaubsantraege mit Entscheidungsverlauf; mandanten- und mitarbeitergeschuetzte Speicherung, Revisionsschutz und mobile Safari-Bedienung"] },
   { version: "1.428.7", date: "2026-10-21", changes: ["Stammdaten im Stil der Lagerverwaltung mit kompakten Reitern, einheitlichen Formularen und mobilen Layoutkorrekturen", "Zentrale Firmenuebersicht mit Suche und Seitennavigation nur fuer freigeschaltete Plattformadministratoren", "Firmeneinstellungen und Module direkt ohne Mandantenwechsel bearbeiten; Revisionsschutz, Audit und Erhalt vorhandener Logos und Altwerte"] },

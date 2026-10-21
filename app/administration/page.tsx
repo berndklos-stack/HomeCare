@@ -23,7 +23,7 @@ async function administrationRequest(path: string, method: string, body?: unknow
   return result;
 }
 
-function InviteDialog({ data, close, saved }: { data: AdministrationData; close: () => void; saved: (notice: string) => Promise<void> }) {
+function InviteDialog({ data, close, saved, tenantId }: { data: AdministrationData; close: () => void; saved: (notice: string) => Promise<void>; tenantId?: string }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [email, setEmail] = useState("");
   const [roleId, setRoleId] = useState(data.roles.find(r => r.key === "field_worker")?.id ?? "");
@@ -36,7 +36,7 @@ function InviteDialog({ data, close, saved }: { data: AdministrationData; close:
     <form onSubmit={async event => {
       event.preventDefault(); setBusy(true); setError("");
       try {
-        const result = await administrationRequest("/api/administration", "POST", { email, roleId, employeeId: employeeId || null });
+        const result = await administrationRequest("/api/administration", "POST", { email, roleId, employeeId: employeeId || null, ...(tenantId ? { tenantId } : {}) });
         await saved(result.sent ? "Einladung versandt." : result.error); close();
       } catch (cause) { setError((cause as Error).message); setBusy(false); }
     }}>
@@ -49,12 +49,12 @@ function InviteDialog({ data, close, saved }: { data: AdministrationData; close:
   </dialog>;
 }
 
-function UserAdministration({ data, refresh }: { data: AdministrationData; refresh: (notice?: string) => Promise<void> }) {
+function UserAdministration({ data, refresh, tenantId }: { data: AdministrationData; refresh: (notice?: string) => Promise<void>; tenantId?: string }) {
   const [search, setSearch] = useState(""); const [status, setStatus] = useState(""); const [role, setRole] = useState("");
   const [invite, setInvite] = useState(false); const [busy, setBusy] = useState(false); const [error, setError] = useState("");
   const [page, setPage] = useState(0);
-  const queryKey = new URLSearchParams({ search, status, role, page: String(page) }).toString();
-  const [directory, setDirectory] = useState({ members: data.members, total: data.memberTotal ?? data.members.length, key: new URLSearchParams({ search: "", status: "", role: "", page: "0" }).toString() });
+  const queryKey = new URLSearchParams({ search, status, role, page: String(page), ...(tenantId ? { tenantId } : {}) }).toString();
+  const [directory, setDirectory] = useState({ members: data.members, total: data.memberTotal ?? data.members.length, key: new URLSearchParams({ search: "", status: "", role: "", page: "0", ...(tenantId ? { tenantId } : {}) }).toString() });
   const loading = directory.key !== queryKey;
   useEffect(() => {
     const controller = new AbortController();
@@ -71,7 +71,7 @@ function UserAdministration({ data, refresh }: { data: AdministrationData; refre
     if ((action === "remove" || action === "suspend") && !window.confirm(action === "remove" ? `Firmenzugang von ${member.email} entziehen?` : `Firmenzugang von ${member.email} deaktivieren?`)) return;
     setBusy(true); setError("");
     try {
-      const result = await administrationRequest("/api/administration", "PATCH", { memberId: member.id, action, ...values });
+      const result = await administrationRequest("/api/administration", "PATCH", { memberId: member.id, action, ...values, ...(tenantId ? { tenantId } : {}) });
       await refresh(result.sent === false ? result.error : "Änderung gespeichert.");
     } catch (cause) { setError((cause as Error).message); } finally { setBusy(false); }
   }
@@ -100,31 +100,27 @@ function UserAdministration({ data, refresh }: { data: AdministrationData; refre
       {loading ? <p role="status">Benutzer werden geladen …</p> : !members.length && <p>Keine Benutzer gefunden.</p>}
     </div>
     {!loading && directory.total > 50 && <div className="administration-pagination"><button type="button" className="ghost-button icon-button" aria-label="Vorherige Seite" title="Vorherige Seite" disabled={page === 0 || busy} onClick={() => setPage(page - 1)}><ArrowLeft size={18} /></button><span>{page + 1} / {Math.ceil(directory.total / 50)}</span><button type="button" className="ghost-button icon-button" aria-label="Nächste Seite" title="Nächste Seite" disabled={(page + 1) * 50 >= directory.total || busy} onClick={() => setPage(page + 1)}><ArrowRight size={18} /></button></div>}
-    {invite && <InviteDialog data={data} close={() => setInvite(false)} saved={refresh} />}
+    {invite && <InviteDialog data={data} tenantId={tenantId} close={() => setInvite(false)} saved={refresh} />}
   </section>;
 }
 
 const emptyCompany = (): CompanyInput => ({ name: "", country: "SE", locale: "de", timezone: "Europe/Stockholm", organizationNumber: "", vatNumber: "", ownerEmail: "", accountType: "pilot", pilotStartDate: new Date().toISOString().slice(0, 10), pilotEndDate: "", contactPerson: "", internalLabel: "", notes: "", modules: ["jobs", "reports", "time_tracking", "documents"] });
 
-function CompanyOnboarding() {
+function CompanyOnboarding({ created, close, busyChanged }: { created: (id: string, notice: string) => void; close: () => void; busyChanged: (busy: boolean) => void }) {
   const [form, setForm] = useState(emptyCompany); const [requestId, setRequestId] = useState(""); const [busy, setBusy] = useState(false); const [status, setStatus] = useState("");
-  const [companies, setCompanies] = useState<{ id: string; name: string; account_type: string; email: string }[]>([]);
   const [error, setError] = useState("");
-  const load = useCallback(async () => {
-    try { setCompanies((await administrationRequest("/api/administration/companies", "GET")).companies); } catch (cause) { setError((cause as Error).message); }
-  }, []);
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { busyChanged(busy); return () => busyChanged(false); }, [busy, busyChanged]);
   function input(key: keyof CompanyInput, label: string, type = "text", required = false) {
     return <label>{label}<input type={type} required={required} maxLength={254} value={String(form[key])} disabled={busy} onChange={e => setForm({ ...form, [key]: e.target.value })} /></label>;
   }
-  return <section><h2>Pilot/Test</h2>
+  return <section><button className="ghost-button" type="button" disabled={busy} onClick={() => { if (window.confirm("Firmenanlage abbrechen und Eingaben verwerfen?")) close(); }}><ArrowLeft size={18}/>Firmenübersicht</button><h2>Neue Firma</h2>
     <form onSubmit={async event => {
       event.preventDefault(); setBusy(true); setError(""); setStatus("");
       const id = requestId || crypto.randomUUID(); setRequestId(id);
       try {
         const result = await administrationRequest("/api/administration/companies", "POST", { requestId: id, company: form });
-        setStatus(result.sent ? "Firma angelegt und Eigentümer eingeladen." : result.error);
-        setRequestId(""); setForm(emptyCompany()); await load();
+        const message = result.sent ? "Firma angelegt und Eigentümer eingeladen." : `Firma angelegt. ${result.error || "Einladung konnte nicht versandt werden. Bitte erneut senden."}`;
+        setRequestId(""); setForm(emptyCompany()); created(result.tenantId, message);
       } catch (cause) { setError((cause as Error).message); } finally { setBusy(false); }
     }}>
       <div className="administration-grid">
@@ -132,8 +128,8 @@ function CompanyOnboarding() {
         <label>Land<select value={form.country} disabled={busy} onChange={e => setForm({ ...form, country: e.target.value })}>{[["SE", "Schweden"], ["DE", "Deutschland"], ["AT", "Österreich"], ["CH", "Schweiz"], ["GB", "Großbritannien"], ["US", "USA"]].map(([v, label]) => <option key={v} value={v}>{label}</option>)}</select></label>
         <label>Sprache<select value={form.locale} disabled={busy} onChange={e => setForm({ ...form, locale: e.target.value as CompanyInput["locale"] })}><option value="de">Deutsch</option><option value="sv">Svenska</option><option value="en">English</option></select></label>
         {input("timezone", "Zeitzone", "text", true)}{input("organizationNumber", "Organisationsnummer")}{input("vatNumber", "USt-ID")}
-        <label>Kontotyp<select value={form.accountType} disabled={busy} onChange={e => setForm({ ...form, accountType: e.target.value as CompanyInput["accountType"] })}><option value="production">Produktion</option><option value="pilot">Pilot</option><option value="demo">Demo</option></select></label>
-        {form.accountType === "pilot" && <>{input("pilotStartDate", "Pilotbeginn", "date", true)}{input("pilotEndDate", "Pilotende", "date")}</>}
+        <label>Kontotyp<select aria-label="Kontotyp" value={form.accountType} disabled={busy} onChange={e => setForm({ ...form, accountType: e.target.value as CompanyInput["accountType"] })}><option value="production">Produktion</option><option value="pilot">Testkonto</option><option value="demo">Demo</option></select></label>
+        {form.accountType === "pilot" && <>{input("pilotStartDate", "Testbeginn", "date", true)}{input("pilotEndDate", "Testende", "date")}</>}
         {input("contactPerson", "Ansprechpartner")}{input("internalLabel", "Interne Bezeichnung")}
       </div>
       <fieldset className="administration-modules"><legend>Module</legend>{companyModules.map(module => <label key={module}><input type="checkbox" disabled={busy} checked={form.modules.includes(module)} onChange={e => setForm({ ...form, modules: e.target.checked ? [...form.modules, module] : form.modules.filter(m => m !== module) })} />{moduleNames[module]}</label>)}</fieldset>
@@ -141,14 +137,24 @@ function CompanyOnboarding() {
       <button className="ghost-button" type="submit" disabled={busy}><Plus size={18} />Firma anlegen</button>
     </form>
     {error && <p role="alert">{error}</p>}{status && <p role="status">{status}</p>}
-    <h3>Angelegte Firmen</h3>{companies.map(company => <div className="administration-company-row" key={company.id}><div><strong>{company.name}</strong><p>{company.account_type} · {company.email}</p></div><button type="button" className="ghost-button icon-button" title="Eigentümereinladung erneut senden" aria-label={`Einladung erneut senden: ${company.name}`} disabled={busy} onClick={async () => { setBusy(true); setError(""); try { const result = await administrationRequest("/api/administration/companies", "PATCH", { tenantId: company.id }); setStatus(result.sent ? "Einladung erneut versandt." : result.error); } catch (cause) { setError((cause as Error).message); } finally { setBusy(false); } }}><Mail size={18} /></button></div>)}
   </section>;
+}
+
+function ScopedCompanyUsers({ tenantId }: { tenantId: string }) {
+  const [data, setData] = useState<AdministrationData | null>(null); const [error, setError] = useState(""); const [notice, setNotice] = useState("");
+  const refresh = useCallback(async (message?: string) => {
+    const result = await administrationRequest(`/api/administration?tenantId=${encodeURIComponent(tenantId)}`, "GET");
+    setData(result); setError(""); if (message) setNotice(message);
+  }, [tenantId]);
+  useEffect(() => { let active = true; void administrationRequest(`/api/administration?tenantId=${encodeURIComponent(tenantId)}`, "GET").then(result => { if (active) setData(result); }).catch(cause => { if (active) setError(String(cause.message)); }); return () => { active = false; }; }, [tenantId]);
+  return <section>{error && <p role="alert">{error}</p>}{notice && <p role="status">{notice}</p>}{data ? data.canManageMembers ? <UserAdministration data={data} tenantId={tenantId} refresh={refresh}/> : <p>Keine Berechtigung zur Benutzerverwaltung.</p> : !error && <p role="status">Benutzer werden geladen …</p>}</section>;
 }
 
 function AdministrationWorkspace() {
   const [brandingDirty, setBrandingDirty] = useState(false);
   const [brandingBusy, setBrandingBusy] = useState(false);
-  const [data, setData] = useState<AdministrationData | null>(null); const [error, setError] = useState(""); const [notice, setNotice] = useState(""); const [tab, setTab] = useState("Firma");
+  const [companyBusy, setCompanyBusy] = useState(false);
+  const [data, setData] = useState<AdministrationData | null>(null); const [error, setError] = useState(""); const [notice, setNotice] = useState(""); const [tab, setTab] = useState("Firmen");
   const [busy, setBusy] = useState(false);
   const refresh = useCallback(async (message?: string) => {
     try { setData(await administrationRequest("/api/administration", "GET")); setError(""); if (message) setNotice(message); } catch (cause) { setError((cause as Error).message); }
@@ -159,7 +165,7 @@ function AdministrationWorkspace() {
       .catch(cause => { if (!cancelled) setError((cause as Error).message); });
     return () => { cancelled = true; };
   }, []);
-  const tabs = data ? [data.canManageCompany && "Firma", data.platformAdmin && "Firmen", data.canManageCompany && "System / Branding", data.canManageMembers && "Benutzer", data.canManageRoles && "Rollen", data.canManageCompany && "Module", (data.canManageCompany || data.platformAdmin) && "Pilot/Test"].filter(Boolean) as string[] : [];
+  const tabs = data ? [(data.canManageCompany || data.canManageMembers || data.platformAdmin) && "Firmen", data.canManageCompany && "System / Branding", data.canManageRoles && "Rollen", data.canManageCompany && "Module"].filter(Boolean) as string[] : [];
   const selected = tabs.includes(tab) ? tab : tabs[0];
   return <main className="administration-shell">
     <header className="administration-page-header"><Link className="ghost-button" href="/"><ArrowLeft size={18} />WorkCore</Link><TenantSwitcher /><EmployeeLogoutButton /></header>
@@ -167,15 +173,13 @@ function AdministrationWorkspace() {
     {error && <div role="alert"><p>{error}</p><button className="ghost-button" type="button" onClick={() => void refresh()}><RefreshCw size={18} />Erneut laden</button></div>}
     {!data && !error && <p role="status">Wird geladen …</p>}
     {notice && <p role="status">{notice}</p>}
-    {data && <><nav className="administration-tabs" aria-label="Administration">{tabs.map(t => <button key={t} className={selected === t ? "active" : ""} type="button" disabled={brandingBusy && selected === "System / Branding" && t !== selected} onClick={() => {
+    {data && <><nav className="administration-tabs" aria-label="Administration">{tabs.map(t => <button key={t} className={selected === t ? "active" : ""} type="button" disabled={companyBusy || (brandingBusy && selected === "System / Branding" && t !== selected)} onClick={() => {
       if (t === selected) return;
       if (selected === "System / Branding" && brandingDirty && !window.confirm("Ungespeicherte Branding-Änderungen verwerfen?")) return;
       setBrandingDirty(false); setBrandingBusy(false); setTab(t);
     }}>{t}</button>)}</nav>
       {selected === "System / Branding" && data.canManageCompany && <BrandingSettings dirtyChanged={setBrandingDirty} busyChanged={setBrandingBusy}/>}
-      {selected === "Firma" && <section><h2>{data.company.name}</h2><dl className="administration-grid">{[["Land", "country_code"], ["Sprache", "locale"], ["Zeitzone", "timezone"], ["Organisationsnummer", "organization_number"], ["USt-ID", "vat_number"], ["Kontotyp", "account_type"]].map(([title, key]) => <div key={key}><dt>{title}</dt><dd>{data.company[key] || "—"}</dd></div>)}</dl></section>}
-      {selected === "Benutzer" && <UserAdministration data={data} refresh={refresh} />}
-      {selected === "Firmen" && data.platformAdmin && <CompanyDirectory />}
+      {selected === "Firmen" && (data.platformAdmin ? <CompanyDirectory renderUsers={id => <ScopedCompanyUsers key={id} tenantId={id}/>} renderCreate={(created, close) => <CompanyOnboarding created={created} close={close} busyChanged={setCompanyBusy}/>}/> : <section><h2>{data.company.name}</h2>{data.canManageCompany && <dl className="administration-grid">{[["Kontotyp", "account_type"], ["Testbeginn", "pilot_start_date"], ["Testende", "pilot_end_date"], ["Ansprechpartner", "contact_person"], ["Interne Bezeichnung", "internal_label"]].map(([title, key]) => <div key={key}><dt>{title}</dt><dd>{key === "account_type" ? ({ production: "Produktion", pilot: "Testkonto", demo: "Demo" } as Record<string, string>)[data.company[key] ?? ""] || data.company[key] || "—" : data.company[key] || "—"}</dd></div>)}</dl>}{data.canManageMembers && <UserAdministration data={data} refresh={refresh}/>}</section>)}
       {selected === "Rollen" && <section><h2>Rollen & Berechtigungen</h2><div className="administration-role-grid">{data.roles.map(role => <article key={role.id}><h3><Shield size={18} />{roleNames[role.key] ?? role.name}</h3>{Object.entries(permissionDomains).map(([domain, permissions]) => {
         const effective = permissions.filter(p => role.permissions.includes(p));
         return effective.length ? <div key={domain}><h4>{domain}</h4><ul>{effective.map(p => <li key={p}><Check size={14} />{permissionNames[p] ?? p}</li>)}</ul></div> : null;
@@ -183,7 +187,7 @@ function AdministrationWorkspace() {
       {selected === "Module" && <section><h2>Module</h2><fieldset className="administration-modules"><legend>Aktive Module</legend>{companyModules.map(module => <label key={module}><input type="checkbox" disabled={busy} checked={data.modules.some(m => m.module === module && m.enabled)} onChange={async e => {
         setBusy(true); setNotice(""); try { await administrationRequest("/api/administration/modules", "PATCH", { module, enabled: e.target.checked }); await refresh("Modulauswahl gespeichert."); } catch (cause) { setError((cause as Error).message); } finally { setBusy(false); }
       }} />{moduleNames[module]}</label>)}</fieldset></section>}
-      {selected === "Pilot/Test" && <>{data.canManageCompany && <dl className="administration-grid">{[["Kontotyp", "account_type"], ["Pilotbeginn", "pilot_start_date"], ["Pilotende", "pilot_end_date"], ["Ansprechpartner", "contact_person"], ["Interne Bezeichnung", "internal_label"], ["Interne Notizen", "administration_notes"]].map(([title, key]) => <div key={key}><dt>{title}</dt><dd>{data.company[key] || "—"}</dd></div>)}</dl>}{data.platformAdmin && <CompanyOnboarding />}{data.canManageCompany && <section><h2>Feedback</h2>{data.feedback.map(f => <article className="administration-feedback" key={f.id}><h3>{categoryNames[f.category]} · {new Date(f.created_at).toLocaleDateString("de-DE")}</h3><p>{f.message}</p><details><summary>Technischer Kontext</summary><p>Version {f.app_version} · {f.page_path}</p><p>{f.user_agent}</p></details></article>)}{!data.feedback.length && <p>Noch kein Feedback vorhanden.</p>}</section>}</>}
+      {selected === "Firmen" && data.canManageCompany && <details><summary>Feedback zu {data.company.name}</summary>{data.feedback.map(f => <article className="administration-feedback" key={f.id}><h3>{categoryNames[f.category]} · {new Date(f.created_at).toLocaleDateString("de-DE")}</h3><p>{f.message}</p></article>)}{!data.feedback.length && <p>Noch kein Feedback vorhanden.</p>}</details>}
     </>}
   </main>;
 }

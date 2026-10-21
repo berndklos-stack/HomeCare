@@ -154,14 +154,14 @@ for (const width of [390, 820, 1440]) {
     await expect(page.getByRole("region", { name: "System / Branding", exact: true }).getByRole("alert")).toContainText("Eingaben bleiben erhalten");
     await expect(page.getByLabel("Internationaler Markenname", { exact: true })).toHaveValue("FieldSuite");
     page.once("dialog", dialog => dialog.dismiss());
-    await page.getByRole("button", { name: "Firma", exact: true }).click();
+    await page.getByRole("button", { name: "Firmen", exact: true }).click();
     await expect(page.getByLabel("Deutscher Claim", { exact: true })).toHaveValue("Alles im Blick.");
     conflict = false;
     await page.getByRole("button", { name: "Branding speichern", exact: true }).click();
     await expect(page.getByRole("status")).toHaveText("Branding gespeichert.");
     await page.screenshot({ path: `test-results/administration-branding-${width}-${test.info().project.name}.png`, fullPage: true });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    await page.getByRole("button", { name: "Firma", exact: true }).click();
+    await page.getByRole("button", { name: "Firmen", exact: true }).click();
     await page.getByRole("button", { name: "System / Branding", exact: true }).click();
     await expect(page.getByLabel("Internationaler Markenname", { exact: true })).toHaveValue("FieldSuite");
   });
@@ -177,9 +177,10 @@ for (const width of [390, 820, 1440]) {
         await route.fulfill({ json: { ...data, members, memberTotal: members.length } });
       }
     });
-    await page.route("**/api/administration/companies", route => route.fulfill({ json: { companies: [] } }));
+    await page.route(url => url.pathname === "/api/administration/companies", route => route.fulfill({ json: new URL(route.request().url()).searchParams.has("tenantId") ? { id: data.company.id, revision: 1, settingsRevision: 1, archived: false, company } : { companies: [{ ...data.company, email: company.ownerEmail, archived: false }], total: 1 } }));
     await page.goto("/administration");
     await expect(page.getByRole("heading", { name: "Administration", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Firma Pilot A bearbeiten", exact: true }).click();
     await page.getByRole("button", { name: "Benutzer", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Example Owner" })).toBeVisible();
     await page.getByRole("button", { name: "Benutzer einladen", exact: true }).click();
@@ -188,13 +189,14 @@ for (const width of [390, 820, 1440]) {
     await dialog.getByLabel("Mitarbeiter (optional)").selectOption("employee");
     await dialog.getByRole("button", { name: "Einladen", exact: true }).click();
     await expect(dialog).not.toBeVisible();
-    expect(invited).toMatchObject({ email: "worker@example.invalid", employeeId: "employee" });
+    expect(invited).toMatchObject({ email: "worker@example.invalid", employeeId: "employee", tenantId: data.company.id });
     await page.getByLabel("Suche", { exact: true }).fill("not-found");
     await expect(page.getByText("Keine Benutzer gefunden.")).toBeVisible();
     await page.getByRole("button", { name: "Rollen", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Rollen & Berechtigungen" })).toBeVisible();
     await expect(page.getByText("Benutzer verwalten", { exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "Pilot/Test", exact: true }).click();
+    await page.getByRole("button", { name: "Firmen", exact: true }).click();
+    await page.getByRole("button", { name: "Neue Firma anlegen", exact: true }).click();
     await expect(page.getByRole("checkbox", { name: "Zeiterfassung", exact: true })).toBeVisible();
     await page.getByLabel("Firmenname", { exact: true }).fill("Pilot B");
     await page.getByLabel("Eigentümer-E-Mail").fill("pilot-b@example.invalid");
@@ -208,8 +210,33 @@ for (const width of [390, 820, 1440]) {
 test("Branding bleibt ohne Firmenadministrationsrecht verborgen", async ({ page }) => {
   await page.route(url => url.pathname === "/api/administration", route => route.fulfill({ json: { ...data, canManageCompany: false, platformAdmin: false } }));
   await page.goto("/administration");
-  await expect(page.getByRole("button", { name: "Benutzer", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Benutzer", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "System / Branding", exact: true })).toHaveCount(0);
+});
+for (const sent of [true, false]) test(`Firmenanlage öffnet zielgebundene Benutzerverwaltung; Einladungsversand ${sent ? "erfolgreich" : "fehlgeschlagen"}`, async ({ page }) => {
+  const target = "b2112000-0000-4000-8000-000000000003";
+  let finish: (() => void) | undefined;
+  const gate = new Promise<void>(resolve => { finish = resolve; });
+  let saving = false;
+  await page.route(url => url.pathname === "/api/administration", route => route.fulfill({ json: data }));
+  await page.route(url => url.pathname === "/api/administration/companies", async route => {
+    if (route.request().method() === "POST") {
+      saving = true; await gate;
+      return route.fulfill({ json: { tenantId: target, sent, error: sent ? undefined : "Mailversand fehlgeschlagen." } });
+    }
+    return route.fulfill({ json: new URL(route.request().url()).searchParams.has("tenantId") ? { id: target, company: { ...company, name: "Neue Firma" }, archived: false, revision: 1, settingsRevision: 1 } : { companies: [], total: 0 } });
+  });
+  await page.goto("/administration");
+  await page.getByRole("button", { name: "Neue Firma anlegen", exact: true }).click();
+  await page.getByLabel("Firmenname", { exact: true }).fill("Neue Firma");
+  await page.getByLabel("Eigentümer-E-Mail", { exact: true }).fill("new@example.invalid");
+  await page.getByRole("button", { name: "Firma anlegen", exact: true }).click();
+  await expect.poll(() => saving).toBe(true);
+  await expect(page.getByRole("button", { name: "Firmenübersicht", exact: true })).toBeDisabled();
+  const directory = page.waitForRequest(request => new URL(request.url()).pathname === "/api/administration" && new URL(request.url()).searchParams.get("tenantId") === target);
+  finish!(); await directory;
+  await expect(page.getByRole("button", { name: "Benutzer einladen", exact: true })).toBeVisible();
+  await expect(page.getByRole("status")).toContainText(sent ? "Eigentümer eingeladen" : "Mailversand fehlgeschlagen");
 });
 test("Feedback sendet ausschließlich eingegebene Nachricht und technische Seitenkategorie", async ({ page }) => {
   let body: Record<string, unknown> | undefined;

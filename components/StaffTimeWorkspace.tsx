@@ -6,6 +6,7 @@ import { apiFetch } from "@/lib/apiClient";
 import { formatStaffMinutes, staffLeaveSummary, staffMinutesInMonth, suggestedLeaveDays, validateStaffCommand, type StaffCommand, type StaffLeave, type StaffTimeData, type StaffTimeEntry, type StaffTimeKind } from "@/lib/staffTime";
 import styles from "./StaffTimeWorkspace.module.css";
 import { StaffTimeReports } from "./StaffTimeReports";
+import { excelReportLogo, reportBrandingSnapshot, reportExcelHeading } from "@/lib/reportBranding";
 
 type Language = "de" | "sv" | "en";
 const words = {
@@ -103,6 +104,7 @@ export function StaffTimeWorkspace({ language, dirtyChanged, busyChanged }: { la
   }
   async function exportTimes() {
     if (busy) return;
+    const branding = reportBrandingSnapshot();
     setSaving(true); setError("");
     try {
     const cells = [[t("employee"), t("type"), t("from"), t("to"), t("duration"), t("reason"), t("note"), t("locked")], ...entries.map(row => [current?.employees.find(row => row.id === employeeId)?.name ?? "", t(row.kind), date(row.started_at), row.ended_at ? date(row.ended_at) : "", row.minutes == null ? "" : String(row.minutes), row.reason, row.note, row.locked_at ? t("locked") : ""])];
@@ -110,7 +112,7 @@ export function StaffTimeWorkspace({ language, dirtyChanged, busyChanged }: { la
     const rows: import("write-excel-file/universal").SheetData = cells.map((row, index) => row.map((value, column) => index > 0 && column === 4 && value !== ""
       ? { value: Number(value), type: Number, format: "0.00" }
       : { value, type: String, wrap: true, ...(index === 0 ? { fontWeight: "bold" as const } : {}) }));
-    const blob = await writeExcelFile(rows, { columns: [28, 18, 24, 24, 14, 35, 55, 18].map(width => ({ width })), stickyRowsCount: 1 }).toBlob();
+    const blob = await writeExcelFile(reportExcelHeading(rows, branding, `${t("times")} ${month}`), { images: await excelReportLogo(branding, 7), columns: [28, 18, 24, 24, 14, 35, 55, 18].map(width => ({ width })), stickyRowsCount: 4 }).toBlob();
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a"); link.href = url; link.download = `times-${month}.xlsx`; link.click(); window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch { setError(t("error")); } finally { setSaving(false); }

@@ -5,6 +5,10 @@
 import Image from "next/image";
 import { AuthGate, EmployeeLogoutButton } from "@/components/AuthGate";
 import { CompanyBrand } from "@/components/CompanyBrand";
+import { useObjectMediaImage } from "@/lib/useObjectMediaImage";
+import { objectImageSources } from "@/lib/objectMediaImage";
+import { reportBrandingSnapshot, stampReportLogo } from "@/lib/reportBranding";
+import { ReportLogo } from "@/components/ReportLogo";
 import { companyLogoSource, maxCompanyLogoLength } from "@/lib/companyLogo";
 import { SyncStatus } from "@/components/SyncStatus";
 import { AppleRemindersBridge } from "@/components/AppleRemindersBridge";
@@ -4740,8 +4744,8 @@ function portalInviteBody(customer: CustomerFormState) {
 }
 
 function primaryObjectImage(object: ObjectRecord) {
-  return object.media.items.find((item) => item.type === "Bild" && item.isPrimary && item.previewUrl)
-    ?? object.media.items.find((item) => item.type === "Bild" && item.previewUrl);
+  return object.media.items.find((item) => item.type === "Bild" && item.isPrimary && (item.previewUrl || item.storagePath))
+    ?? object.media.items.find((item) => item.type === "Bild" && (item.previewUrl || item.storagePath));
 }
 
 function primaryResourceImage(resource: ResourceRecord) {
@@ -5398,6 +5402,7 @@ function safeFileName(value: string) {
 }
 
 async function createReportPdfBlob(report: ReportRecord, object: ObjectRecord, job: JobRecord | undefined, customer: CustomerRecord | undefined) {
+  const branding = reportBrandingSnapshot();
   const { jsPDF } = await import("jspdf");
   const pdf = new jsPDF({ unit: "mm", format: "a4" });
   const pageWidth = pdf.internal.pageSize.getWidth();
@@ -5513,22 +5518,8 @@ async function createReportPdfBlob(report: ReportRecord, object: ObjectRecord, j
   pdf.rect(0, 0, pageWidth, pageHeight, "F");
 
   drawCard(margin, y, contentWidth, 28, [255, 255, 255]);
-  const logoDataUrl = await fetchAssetAsDataUrl("/kolaretorp-logo.png");
-  if (logoDataUrl) {
-    try {
-      pdf.addImage(logoDataUrl, "PNG", margin + 4, y + 4, 48, 5, undefined, "FAST");
-    } catch {
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(9);
-      pdf.setTextColor(18, 22, 28);
-      pdf.text("Kolaretorp Service AB", margin + 4, y + 8);
-    }
-  } else {
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(9);
-    pdf.setTextColor(18, 22, 28);
-    pdf.text("Kolaretorp Service AB", margin + 4, y + 8);
-  }
+  pdf.setFont("helvetica", "bold"); pdf.setFontSize(9); pdf.setTextColor(18, 22, 28);
+  pdf.text(branding.name, margin + 4, y + 8);
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(15);
   pdf.setTextColor(18, 22, 28);
@@ -5552,10 +5543,12 @@ async function createReportPdfBlob(report: ReportRecord, object: ObjectRecord, j
   const objectImageHeight = 30;
 
   const objectImage = primaryObjectImage(object);
-  if (objectImage?.previewUrl) {
-    try {
-      await addContainedImage(objectImage.previewUrl, imageX, imageY, objectImageWidth, objectImageHeight);
-    } catch {
+  if (objectImage) {
+    let added = false;
+    for (const source of objectImageSources(objectImage)) {
+      try { await addContainedImage(source, imageX, imageY, objectImageWidth, objectImageHeight); added = true; break; } catch { /* Try the permanent authenticated reference. */ }
+    }
+    if (!added) {
       pdf.setDrawColor(210);
       pdf.rect(imageX, imageY, objectImageWidth, objectImageHeight);
     }
@@ -5703,6 +5696,7 @@ async function createReportPdfBlob(report: ReportRecord, object: ObjectRecord, j
   }
 
   addFooter();
+  await stampReportLogo(pdf, branding);
   return pdf.output("blob");
 }
 
@@ -5762,16 +5756,6 @@ async function createOfferPdfBlob(job: JobRecord, object: ObjectRecord, customer
     if (y + height < pageHeight - 30) return;
     pdf.addPage();
     y = margin;
-  }
-
-  const logoData = await fetchAssetAsDataUrl("/kolaretorp-logo.png");
-  if (logoData) {
-    const logoImage = await loadImage(logoData);
-    if (logoImage) {
-      const logoWidth = 55;
-      const logoHeight = logoWidth * (logoImage.naturalHeight / logoImage.naturalWidth);
-      pdf.addImage(logoData, "PNG", margin, y, logoWidth, Math.min(logoHeight, 18));
-    }
   }
 
   pdf.setFont("helvetica", "bold");
@@ -5900,7 +5884,7 @@ async function createOfferPdfBlob(job: JobRecord, object: ObjectRecord, customer
   );
 
   addFooter();
-
+  await stampReportLogo(pdf, companySettings);
   return pdf.output("blob");
 }
 
@@ -5928,6 +5912,7 @@ function downloadBlob(blob: Blob, fileName: string) {
 }
 
 async function downloadMaterialInventoryMovementPdf(material: MaterialItem, customers: CustomerRecord[], services: ServiceItem[]) {
+  const branding = reportBrandingSnapshot();
   const { jsPDF } = await import("jspdf");
   const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "landscape" });
   const pageWidth = pdf.internal.pageSize.getWidth();
@@ -6100,10 +6085,12 @@ async function downloadMaterialInventoryMovementPdf(material: MaterialItem, cust
     pdf.text(`Seite ${page} von ${pageCount}`, pageWidth - margin, pageHeight - 6, { align: "right" });
   }
 
+  await stampReportLogo(pdf, branding);
   downloadBlob(pdf.output("blob"), `${safeFileName(`Lagerbewegungen-${material.name}-${new Date().toISOString().slice(0, 10)}`)}.pdf`);
 }
 
 async function downloadVehicleLogbookPdf(resource: ResourceRecord, entries: VehicleLogEntry[], personnel: PersonnelRecord[], includeImages = false) {
+  const branding = reportBrandingSnapshot();
   const pdfLanguage = vehicleLogbookLanguage(resource, "de");
   const pt = (value: string) => uiText(value, pdfLanguage);
   const { jsPDF } = await import("jspdf");
@@ -6289,6 +6276,7 @@ async function downloadVehicleLogbookPdf(resource: ResourceRecord, entries: Vehi
     pdf.setTextColor(120);
     pdf.text(`${pt("Seite")} ${page} ${pt("von")} ${pageCount}`, pageWidth - margin, pageHeight - 6, { align: "right" });
   }
+  await stampReportLogo(pdf, branding);
   downloadBlob(pdf.output("blob"), `${safeFileName(`${pt("Fahrtenbuch")}-${resource.name}-${resource.logbookYear || new Date().getFullYear()}${includeImages ? `-${pt("mit Bildern")}` : `-${pt("ohne Bilder")}`}`)}.pdf`);
 }
 
@@ -6315,6 +6303,7 @@ type AnalyticsReportPdfEntry = {
 };
 
 async function createAnalyticsReportPdfBlob(title: string, periodLabel: string, entries: AnalyticsReportPdfEntry[]) {
+  const branding = reportBrandingSnapshot();
   const { jsPDF } = await import("jspdf");
   const pdf = new jsPDF({ unit: "mm", format: "a4" });
   const pageWidth = pdf.internal.pageSize.getWidth();
@@ -6398,6 +6387,7 @@ async function createAnalyticsReportPdfBlob(title: string, periodLabel: string, 
     pdf.text(`Seite ${page} von ${pageCount}`, pageWidth - margin, pageHeight - 6, { align: "right" });
   }
 
+  await stampReportLogo(pdf, branding);
   return pdf.output("blob");
 }
 
@@ -6643,18 +6633,6 @@ async function createInvoicePdfBlob(item: BillingRecord, object: ObjectRecord, c
     y += wrapped.length * lineHeight;
   }
 
-  const logoData = await fetchAssetAsDataUrl("/kolaretorp-logo.png");
-  if (logoData) {
-    try {
-      const logoImage = await loadImage(logoData);
-      const logoWidth = 55;
-      const logoHeight = logoWidth * (logoImage?.naturalHeight ? logoImage.naturalHeight / logoImage.naturalWidth : 0.12);
-      pdf.addImage(logoData, "PNG", margin, y, logoWidth, Math.min(logoHeight, 18));
-    } catch {
-      pdf.text(companySettings.name, margin, y + 8);
-    }
-  }
-
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(18);
   pdf.text(swedish ? "Faktura" : "Rechnung", pageWidth - margin, y + 8, { align: "right" });
@@ -6852,6 +6830,7 @@ async function createInvoicePdfBlob(item: BillingRecord, object: ObjectRecord, c
     });
   }
 
+  await stampReportLogo(pdf, companySettings);
   return pdf.output("blob");
 }
 
@@ -15800,19 +15779,14 @@ function CustomerReportCard({
     <article className="customer-report-card printable-report">
       <div className="customer-report-head">
         <div>
-          <img alt="Kolaretorp Service AB" className="customer-report-logo" src="/kolaretorp-logo.png" />
           <h3>{reportKind}</h3>
           <small>Berichtsnummer {report.id} · erstellt am {new Date().toLocaleDateString("de-DE")}</small>
         </div>
-        <Badge value={job?.status ?? "Bericht"} />
+        <div className="report-header-brand"><ReportLogo/><Badge value={job?.status ?? "Bericht"} /></div>
       </div>
       <div className="report-hero">
-        {objectImage?.previewUrl ? (
-          <img
-            alt={`Objektbild ${object.name}`}
-            className="report-hero-image"
-            src={objectImage.previewUrl}
-          />
+        {objectImage ? (
+          <ObjectPhotoImage item={objectImage} language="de" className="report-hero-image" alt={`Objektbild ${object.name}`}/>
         ) : (
           <div className="report-hero-image report-hero-image-empty">
             <Home size={26} />
@@ -16156,13 +16130,14 @@ function ObjectsView({
 
 function ObjectThumbnail({ object }: { object: ObjectRecord }) {
   const image = primaryObjectImage(object);
+  const media = useObjectMediaImage(image ?? {});
 
-  return image?.previewUrl ? (
+  return media.url ? (
     <span
       aria-label={`Objektbild ${object.name}`}
       className="object-thumb"
       role="img"
-      style={{ backgroundImage: `url(${image.previewUrl})` }}
+      style={{ backgroundImage: `url("${media.url.replace(/"/g, "%22")}")` }}
     />
   ) : (
     <span className="object-thumb object-thumb-empty">
@@ -24669,25 +24644,14 @@ function AddressFields({
   );
 }
 
-function ObjectPhotoImage({ item, language, expanded = false }: { item: MediaItem; language: Language; expanded?: boolean }) {
-  const sources = [item.previewUrl || "", mediaSourceFromStoragePath(item.storagePath)]
-    .filter((source, index, values) => source && values.indexOf(source) === index);
-  const [sourceIndex, setSourceIndex] = useState(0);
-  const [decodeFailed, setDecodeFailed] = useState(false);
-  const media = useAuthenticatedMedia(sources[sourceIndex] || "");
-  useEffect(() => {
-    if (media.failed && sourceIndex + 1 < sources.length) setSourceIndex(sourceIndex + 1);
-  }, [media.failed, sourceIndex, sources.length]);
-  if (!media.url || decodeFailed) return <span className="object-photo-placeholder" role="status">
+function ObjectPhotoImage({ item, language, expanded = false, className, alt }: { item: MediaItem; language: Language; expanded?: boolean; className?: string; alt?: string }) {
+  const media = useObjectMediaImage(item);
+  if (!media.url) return <span className="object-photo-placeholder" role="status">
     <Camera size={24} />
     {uiText(media.loading ? "Foto wird geladen..." : "Keine Bildvorschau verfügbar", language)}
   </span>;
-  return <img alt={`${expanded ? "Vorschau" : "Foto"} ${item.name}`}
-    className={expanded ? "document-preview-image" : "object-photo-image"} src={media.url}
-    onError={() => {
-      if (sourceIndex + 1 < sources.length) setSourceIndex(sourceIndex + 1);
-      else setDecodeFailed(true);
-    }} />;
+  return <img alt={alt ?? `${expanded ? "Vorschau" : "Foto"} ${item.name}`}
+    className={className ?? (expanded ? "document-preview-image" : "object-photo-image")} src={media.url}/>;
 }
 
 function ObjectForm({
@@ -25974,6 +25938,7 @@ function JobForm({
   });
 
   async function downloadShoppingListPdf() {
+    const branding = reportBrandingSnapshot();
     if (!materialShortages.length) return;
     const { jsPDF } = await import("jspdf");
     const pdf = new jsPDF({ unit: "mm", format: "a4" });
@@ -26009,6 +25974,7 @@ function JobForm({
       pdf.text(pdf.splitTextToSize(supplier || "-", Math.max(18, pageWidth - 178 - margin)), 178, y);
       y += Math.max(7, nameLines.length * 5);
     });
+    await stampReportLogo(pdf, branding);
     const url = URL.createObjectURL(pdf.output("blob"));
     const link = document.createElement("a");
     link.href = url;

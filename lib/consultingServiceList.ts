@@ -1,3 +1,4 @@
+import { excelReportLogo, reportBrandingSnapshot, stampReportLogo } from "./reportBranding";
 export type ServiceListEntry = {
   id: string; date: string; startTime: string; endTime: string;
   minutes: number; description: string; billingStatus: "offen" | "abgerechnet";
@@ -32,6 +33,7 @@ export function serviceListTotals(entries: ServiceListEntry[], rate: number) {
 }
 
 export async function exportServiceListExcel(input: ServiceListExport) {
+  const branding = reportBrandingSnapshot();
   const { default: writeExcelFile } = await import("write-excel-file/universal");
   const labels = serviceListLabels[input.language];
   const rows: import("write-excel-file/universal").SheetData = [
@@ -45,11 +47,12 @@ export async function exportServiceListExcel(input: ServiceListExport) {
   ];
   const totals = serviceListTotals(input.entries, input.rate);
   rows.push([{ value: labels.total, fontWeight: "bold" }, null, null, { value: totals.minutes / 60, format: "#,##0.00", fontWeight: "bold" }, null, { value: totals.cents / 100, format: "#,##0.00", fontWeight: "bold" }]);
-  const blob = await writeExcelFile(rows, { sheet: labels.title, stickyRowsCount: 5, orientation: "landscape", columns: [14, 19, 80, 14, 16, 21, 17].map((width) => ({ width })) }).toBlob();
+  const blob = await writeExcelFile(rows, { images: await excelReportLogo(branding, 6), sheet: labels.title, stickyRowsCount: 5, orientation: "landscape", columns: [14, 19, 80, 14, 16, 21, 17].map((width) => ({ width })) }).toBlob();
   return new Uint8Array(await blob.arrayBuffer());
 }
 
 export async function exportServiceListPdf(input: ServiceListExport) {
+  const branding = reportBrandingSnapshot();
   const { jsPDF } = await import("jspdf");
   const pdf = new jsPDF({ orientation: "landscape" });
   const labels = serviceListLabels[input.language];
@@ -92,5 +95,6 @@ export async function exportServiceListPdf(input: ServiceListExport) {
   pdf.setFont("helvetica", "normal"); pdf.text(`${labels.rate}: ${number(input.rate)} ${input.currency}/h`, 14, y + 12);
   const pages = pdf.getNumberOfPages();
   for (let page = 1; page <= pages; page++) { pdf.setPage(page); pdf.setFontSize(9); pdf.text(`${labels.page} ${page}/${pages}`, 285, 201, { align: "right" }); }
+  await stampReportLogo(pdf, branding);
   return new Uint8Array(pdf.output("arraybuffer"));
 }

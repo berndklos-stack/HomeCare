@@ -1,3 +1,4 @@
+import { reportBrandingSnapshot, stampReportLogo } from "./reportBranding";
 export function storageLocationPath(id: string, locations: readonly { id: string; name: string; parentLocationId?: string }[]): string {
   const byId = new Map(locations.map((location) => [location.id, location]));
   const parts: string[] = [];
@@ -27,12 +28,9 @@ export async function entityCodeLabelPdf(entity: { name: string; code: string; k
 }
 
 export async function codeLabelPdf(label: { heading: string; name: string; code: string; footer?: string }) {
+  const branding = reportBrandingSnapshot();
   const [{ jsPDF }, { default: QRCode }] = await Promise.all([import("jspdf"), import("qrcode")]);
   const pdf = new jsPDF({ orientation: "landscape", format: [100, 60] });
-  const response = await fetch("/kolaretorp-logo.png");
-  if (!response.ok) throw new Error("LOGO_UNAVAILABLE");
-  const logo = new Uint8Array(await response.arrayBuffer()), size = pdf.getImageProperties(logo);
-  pdf.addImage(logo, "PNG", 53, 5, 42, 42 * size.height / size.width);
   pdf.setFont("helvetica", "bold"); pdf.setFontSize(10);
   pdf.text(label.heading, 5, 10);
   pdf.setDrawColor(210); pdf.line(5, 15, 95, 15);
@@ -51,5 +49,6 @@ export async function codeLabelPdf(label: { heading: string; name: string; code:
     if (parentLines.length > 1) throw new Error("LOCATION_LABEL_PARENT_TOO_LONG");
     pdf.text(parentLines, 5, 57);
   }
+  await stampReportLogo(pdf, branding);
   return new Blob([new Uint8Array(pdf.output("arraybuffer"))], { type: "application/pdf" });
 }
