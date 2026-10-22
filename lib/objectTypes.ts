@@ -201,3 +201,16 @@ export function objectTypeName(definitions: ObjectTypeDefinition[], id: string |
   const definition = definitions.find((item) => item.id === id);
   return definition?.names[language] || id || definitions[0]?.names[language] || "Objekt";
 }
+
+export function groupObjectsByType<T extends { id: string; name: string; type?: string }>(entries: T[], definitions: ObjectTypeDefinition[], language: "de" | "sv" | "en") {
+  const collator = new Intl.Collator(language, { numeric: true, sensitivity: "base" });
+  const groups = new Map<string, T[]>();
+  for (const entry of entries) {
+    const type = entry.type || definitions[0]?.id || "Objekt";
+    const items = groups.get(type) ?? [];
+    items.push(entry); groups.set(type, items);
+  }
+  const rank = (type: string) => type === "Projekt" ? 0 : type === "Objekt" ? 1 : 2;
+  return [...groups].sort(([a], [b]) => rank(a) - rank(b) || collator.compare(objectTypeName(definitions, a, language), objectTypeName(definitions, b, language)) || a.localeCompare(b))
+    .map(([type, items]) => ({ type, items: items.sort((a, b) => collator.compare(a.name, b.name) || a.id.localeCompare(b.id)) }));
+}

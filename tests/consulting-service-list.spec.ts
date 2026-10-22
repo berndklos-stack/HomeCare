@@ -79,12 +79,13 @@ for (const width of [1440, 390]) test(`Leistungsliste bei ${width}px: Auswahl un
   await expect(dialog.getByTestId("service-list-row")).toHaveCount(1);
   await expect(dialog).toContainText("400,00 SEK");
   await dialog.getByLabel("Alle auswählen", { exact: true }).uncheck();
-  await expect(dialog.getByRole("button", { name: "PDF", exact: true })).toBeDisabled();
+  await expect(dialog.getByLabel("Herunterladen", { exact: true })).toHaveAttribute("aria-disabled", "true");
   await dialog.getByLabel("Alle auswählen", { exact: true }).check();
   await dialog.getByLabel("Leistungen suchen", { exact: true }).fill("Börjes");
   await expect(dialog.getByTestId("service-list-row")).toHaveCount(1);
   await page.screenshot({ path: testInfo.outputPath("service-list.png") });
   for (const format of ["Excel", "PDF"]) {
+    await dialog.getByLabel("Herunterladen", { exact: true }).click();
     const download = page.waitForEvent("download");
     await dialog.getByRole("button", { name: format, exact: true }).click();
     const result = await download;

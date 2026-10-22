@@ -2,8 +2,13 @@
 
 ## Umfang
 
-- `/administration`: Firmen, System / Branding, Rollen und Module.
+- `/administration`: Firmen, System / Branding, Rollen, Module und Feedback.
 - Benutzer und Kontoeinstellungen sind direkt bei der ausgewählten Firma integriert.
+- Benutzer werden auf jeder Ergebnisseite in aktive und inaktive Zugänge gruppiert.
+  Offene Einladungen, deaktivierte und entzogene Zugänge zählen zu inaktiv; Suche,
+  Status-/Rollenfilter und Seitennavigation bleiben unverändert.
+- Feedback hat einen eigenen Reiter und bleibt an die aktive Firma und
+  `tenant.admin` gebunden, statt unter Firmen als ausklappbarer Bereich zu stehen.
 - `/feedback`: explizit eingegebenes Feedback; technischer Kontext ohne Kundeninhalte.
 - `/auth/accept`: Supabase-Einladungsannahme und optionale Passwortvergabe.
 - Bestehende Supabase-Identitäten, Rollen und Mandantenzuordnungen bleiben maßgeblich.
@@ -214,3 +219,34 @@ Administrationsprüfungen in Chromium/WebKit. Der Release-Prüfer
 `scripts/verify-company-members-release.mjs` vergleicht Staging-Digests, prüft
 transaktionale Bestandsfingerprints, erzeugt vor Produktion serverseitige
 Firmensicherungen mit Prüfsummenprüfung und vergleicht den Security Advisor.
+
+## Freigabe vom 22.10.2026
+
+- Globale Administration erfordert die feste Kolaretorp-Firmen-ID, die explizite
+  Benutzer-Allowlist und die vorhandene Administrationsberechtigung. Firmenname
+  und vom Client angegebene Zielmandanten koennen diese Grenze nicht aendern.
+- Jede Firma verwaltet eigene Benutzer unter Stammdaten / Benutzer. Die zentrale
+  Firmenansicht nutzt dieselben Memberships und Einladungen, keine Kopien.
+- `20261022090000_company_user_limits.sql` speichert die maximale Benutzerzahl in
+  `homecare_company_user_limits.max_users`, einer typisierten Integer-Spalte mit
+  mandantengebundenem Primaer-/Fremdschluessel, RLS und Backupregistrierung.
+  Fehlende Konfiguration bzw. `NULL` bedeutet unbegrenzt; Altzugriffe bleiben
+  erhalten. Aktiv, deaktiviert und offen eingeladen belegen einen Platz;
+  `revoked` nicht. Firmensperren serialisieren parallele Einladungen und
+  Limitwechsel. Ein zu niedriges Limit rollt die gesamte Einstellungsaktion zurueck.
+- `authenticated` darf Limits nur mit `members.manage` in der eigenen Firma
+  lesen, aber keine Limits oder Modulfreigaben direkt schreiben. Alle globalen
+  Konfigurationsaenderungen bleiben serverseitig abgesichert.
+- Passwort-Reset verwendet die bestaetigte kanonische Supabase-Identitaet. Nur
+  ein sicherer Recovery-Link wird per bestehendem Resend-Absender versandt.
+  Tokens/Passwoerter erscheinen nicht in API-Antworten. Eine Minute Cooldown und
+  Audit schuetzen den Versand; gesperrte/offene Einladungen werden nicht umgangen.
+  `/auth/accept` unterstuetzt Recovery mit Passwortbestaetigung. Bestehende
+  Passwoerter sind weder auslesbar noch administrativ sichtbar.
+- Pruefung: vollstaendige lokale SQL-/RLS-Kette, Staging-Fingerprints und Advisor,
+  synthetischer echter Supabase-Recovery/Login mit anschliessender Loeschung,
+  API- und Chromium/WebKit-Regressionen, TypeScript und Produktionsbuild.
+  `scripts/verify-company-members-release.mjs --user-limits` protokolliert den
+  abgesicherten Staging-/Produktionslauf. Staging: 0 Fehler, unveraendert 8 Warnungen.
+- Die separate unfertige Migration `20261020160000_administration_access.sql`
+  und deren Auth-Middleware sind ausdruecklich nicht Teil dieser Freigabe.

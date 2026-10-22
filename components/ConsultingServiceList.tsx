@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { FileDown, Sheet, X } from "lucide-react";
+import { X } from "lucide-react";
+import { CommunicationActions } from "./CommunicationActions";
 import { TripDialog } from "./TripDialog";
 import { exportServiceListExcel, exportServiceListPdf, filterServiceList, serviceListLabels, serviceListTotals, type ServiceListEntry, type ServiceListExport } from "@/lib/consultingServiceList";
 
@@ -61,7 +62,7 @@ export function ConsultingServiceList({ entries, title, company, currency, rate,
     </div>
     <footer className="service-list-footer">
       <strong>{labels.total}: {number(totals.minutes / 60)} h · {number(totals.cents / 100)} {currency}</strong>
-      <div className="row-actions"><button className="ghost-button" type="button" disabled={!selected.length || exporting} onClick={() => void download("xlsx")}><Sheet size={17} />Excel</button><button className="primary-button" type="button" disabled={!selected.length || exporting} onClick={() => void download("pdf")}><FileDown size={17} />PDF</button></div>
+      <CommunicationActions title={`${labels.title} ${title}`} text={selected.map(entry => `${entry.date} · ${entry.startTime}–${entry.endTime} · ${entry.description} · ${number(entry.minutes / 60)} h`).join("\n")} language={language} disabled={!selected.length || exporting} document={async () => { const bytes = await exportServiceListPdf({ entries: selected, title, company, currency, rate, language: exportLanguage }); return { blob: new Blob([bytes.buffer as ArrayBuffer], { type: "application/pdf" }), name: `${labels.title}.pdf` }; }} downloads={[{ label: "PDF", run: () => download("pdf") }, { label: "Excel", run: () => download("xlsx") }]} />
     </footer>
     {error && <p role="alert">{error}</p>}
   </TripDialog>;

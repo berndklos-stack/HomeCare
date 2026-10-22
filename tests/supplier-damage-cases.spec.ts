@@ -113,7 +113,8 @@ for (const mobile of [false, true]) test(`Schadensakte direkt aus Lagerbuchung $
   await page.getByRole("button", { name: "Lager & Material", exact: true }).click();
   await page.getByRole("tab", { name: "Buchungen", exact: true }).click();
   const table = page.getByRole("table", { name: "Buchungen", exact: true });
-  await expect(table).toContainText("Offen · 3 Latten gebrochen");
+  await expect(table).not.toContainText("3 Latten gebrochen");
+  await expect(table.getByRole("columnheader", { name: "Schadensakten", exact: true })).toHaveCount(0);
   await table.getByText("Lieferschein 4321", { exact: true }).click();
   const detail = page.locator('dialog[open][aria-labelledby="stock-details-title"]');
   await expect(detail).toContainText("Offen · 3 Latten gebrochen");

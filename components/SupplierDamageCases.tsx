@@ -5,6 +5,7 @@ import { apiFetch } from "@/lib/apiClient";
 import { operationLabel } from "@/lib/operationsUi";
 import { OperationsDataTable } from "./OperationsDataTable";
 import { TripDialog } from "./TripDialog";
+import { CommunicationActions } from "./CommunicationActions";
 import styles from "./OperationsWorkspace.module.css";
 
 type DamageCase = { id: string; description: string; revision: number; status: string; created_at: string; complaint_sent_at?: string; complaint_sent_to?: string; supplier?: { company: string }; receipt?: { delivery_number: string } };
@@ -75,7 +76,7 @@ export function SupplierDamageCases({ supplier, caseId, language, inline = false
     </> : preview ? <>
       <header className={inline ? "panel-title" : styles.dialogHeader}><h2 id="damage-preview-title">{preview.name}</h2><button aria-label={t("close")} onClick={() => setPreview(null)}><X size={18} /></button></header>
       <section className={styles.pdfPreview}>{preview.image ? <img src={preview.url} alt={preview.name} style={{ display: "block", width: "100%", maxHeight: "65vh", objectFit: "contain" }} /> : <iframe title={`${t("pdfPreview")}: ${preview.name}`} src={preview.url} />}</section>
-      <footer className={styles.actions}><button onClick={() => setPreview(null)}><ChevronLeft size={18} />{t("scanBack")}</button><a href={preview.url} download={preview.name}><Download size={18} />{t("download")}</a></footer>
+      <footer className={styles.actions}><button onClick={() => setPreview(null)}><ChevronLeft size={18} />{t("scanBack")}</button><CommunicationActions title={preview.name} text={[current?.supplier?.company, current?.description, preview.name].filter(Boolean).join("\n")} language={language} document={async () => ({ blob: await (await fetch(preview.url)).blob(), name: preview.name })} /></footer>
     </> : <>
     <header className={inline ? "panel-title" : styles.dialogHeader}><div>{inline && <p>{t("purchasingSection")}</p>}<h2 id="damage-title">{t("damageCases")}</h2>{supplier && <p>{supplier.name}</p>}</div><div className={styles.actions}>
       <button type="button" disabled={busy} aria-label={t("refresh")} onClick={() => setRefresh((value) => value + 1)}><RefreshCw size={18} /></button>

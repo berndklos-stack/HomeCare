@@ -193,7 +193,7 @@ for (const mobile of [false, true]) test(`Kommissionierplatz Abholcode und Auftr
  await scan.getByRole("spinbutton", { name: "Menge", exact: true }).fill("2.5"); await scan.getByRole("button", { name: "Umlagerung buchen", exact: true }).click();
  await expect(page.getByText(`Abholcode: AB-${order.picking_code}`, { exact: true })).toBeVisible();
  const download = page.waitForEvent("download"); await page.getByRole("button", { name: "Abholcode als PDF", exact: true }).click(); await (await download).saveAs(`test-results/pickup-label-${mobile}-${testInfo.project.name}.pdf`);
- const listDownload = page.waitForEvent("download"); await page.getByRole("button", { name: "Kommissionierliste als PDF", exact: true }).click();
+ const listDownload = page.waitForEvent("download"); await page.getByRole("button", { name: "Herunterladen", exact: true }).click();
  const pdfDownload = await listDownload;
  expect(pdfDownload.suggestedFilename()).toBe(`Kommissionierung-${order.picking_code}.pdf`);
  const pdfPath = `test-results/picking-list-${mobile}-${testInfo.project.name}.pdf`;
@@ -334,7 +334,7 @@ for (const withOrder of [false, true]) test(`Scan-Auswahl und gemeinsamer Warene
  await expect(page.getByRole("table", { name: "Wareneingang scannen", exact: true })).toContainText("2.5 Meter");
  await page.screenshot({ path: `test-results/scan-receipt-${withOrder}-${testInfo.project.name}.png` });
  await page.getByRole("button", { name: "Wareneingang abschließen", exact: true }).click();
- await expect(page.getByRole("status")).toContainText("Wareneingang erfolgreich gebucht");
+ await expect(page.getByRole("status").filter({ hasText: "Wareneingang erfolgreich gebucht" })).toBeVisible();
  expect(posts).toHaveLength(1); expect(posts[0]).toMatchObject({ payload: { delivery_number: "LS-TEST", location_id: "receipt-bin", order_id: withOrder ? "33333333-3333-4333-8333-333333333333" : null, items: [{ material_id: "receipt-material", quantity: 2.5 }] } });
 });
 
@@ -535,7 +535,7 @@ for (const mobile of [false, true]) test(`Lagerreiter trennen Ansichten und zeig
   await page.goto("/");
   await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true", { timeout: 30000 });
   await page.getByRole("button", { name: "Lager & Material", exact: true }).click();
-  const filter = page.locator("#inventory-stock-panel > div > section").first().getByRole("combobox", { name: "Bezeichnung", exact: true });
+  const filter = page.getByRole("combobox", { name: "Bezeichnung", exact: true }).filter({ has: page.getByRole("option", { name: "Alle Materialien", exact: true }) });
   await expect(filter).toHaveValue("");
   const materials = await filter.locator("option").evaluateAll((options) => options.filter((option) => (option as HTMLOptionElement).value).slice(0, 2).map((option) => ({ id: (option as HTMLOptionElement).value, label: option.textContent! })));
   expect(materials).toHaveLength(2);
@@ -841,7 +841,7 @@ for (const mobile of [false, true]) test(`Materialstammdaten kehren ohne alten L
   await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true", { timeout: 30000 });
   await page.getByRole("button", { name: "Lager & Material", exact: true }).click();
   await expect(page.getByText("Materialbestand, Lagerorte, Ein- und Ausgänge sowie Einkaufsbelege zentral verwalten.", { exact: true })).not.toBeVisible();
-  const material = page.locator("#inventory-stock-panel > div > section").first().getByRole("combobox", { name: "Bezeichnung", exact: true });
+  const material = page.getByRole("combobox", { name: "Bezeichnung", exact: true }).filter({ has: page.getByRole("option", { name: "Alle Materialien", exact: true }) });
   await expect(material).toBeVisible();
   await expect(material).toHaveValue("");
   await expect(page.getByRole("heading", { name: "Buchungen", exact: true })).toHaveCount(0);

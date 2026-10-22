@@ -4,7 +4,7 @@ import { validateCompany, validateCompanyUpdate, validUuid } from "@/lib/adminis
 
 export async function GET(request: Request) {
   const auth = await requireApiAuth(request, "tenant.admin"); if (isAuthError(auth)) return auth;
-  if (!isPlatformAdmin(auth.user.id)) return administrationResponse({ error: "Plattformberechtigung erforderlich." }, 403);
+  if (!isPlatformAdmin(auth.user.id, auth.tenantId)) return administrationResponse({ error: "Plattformberechtigung erforderlich." }, 403);
   const blocked = preventAdministrationTestWrites(request); if (blocked) return blocked;
   const params = new URL(request.url).searchParams;
   const tenantId = params.get("tenantId");
@@ -26,7 +26,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const auth = await requireApiAuth(request, "tenant.admin"); if (isAuthError(auth)) return auth;
-  if (!isPlatformAdmin(auth.user.id)) return administrationResponse({ error: "Plattformberechtigung erforderlich." }, 403);
+  if (!isPlatformAdmin(auth.user.id, auth.tenantId)) return administrationResponse({ error: "Plattformberechtigung erforderlich." }, 403);
   const blocked = preventAdministrationTestWrites(request); if (blocked) return blocked;
   const body = await request.json().catch(() => null);
   if (!body || !validUuid(body.requestId)) return administrationResponse({ error: "Vorgangskennung fehlt." }, 400);
@@ -41,6 +41,9 @@ export async function POST(request: Request) {
       const stored = existing.data as Record<string, unknown>;
       const modules = await auth.serviceClient.from("homecare_tenant_modules").select("module").eq("tenant_id", body.requestId).eq("enabled", true);
       if (modules.error) throw modules.error;
+      const quota = await auth.serviceClient.from("homecare_company_user_limits").select("max_users").eq("tenant_id", body.requestId).maybeSingle();
+      if (quota.error) throw quota.error;
+      if (company.userLimit !== undefined && (quota.data?.max_users ?? null) !== company.userLimit) return administrationResponse({ error: "Diese Anlage wurde bereits mit einem anderen Benutzerlimit gespeichert. Bitte die angelegte Firma prüfen." }, 409);
       if (Object.entries(expected).some(([key, value]) => (stored[key] ?? "") !== value) || JSON.stringify(modules.data.map(m => m.module).sort()) !== JSON.stringify([...company.modules].sort())) return administrationResponse({ error: "Diese Anlage wurde bereits mit anderen Angaben gespeichert. Bitte die angelegte Firma prüfen." }, 409);
     }
     if (!existing.data) {
@@ -57,7 +60,7 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   const auth = await requireApiAuth(request, "tenant.admin"); if (isAuthError(auth)) return auth;
-  if (!isPlatformAdmin(auth.user.id)) return administrationResponse({ error: "Plattformberechtigung erforderlich." }, 403);
+  if (!isPlatformAdmin(auth.user.id, auth.tenantId)) return administrationResponse({ error: "Plattformberechtigung erforderlich." }, 403);
   const blocked = preventAdministrationTestWrites(request); if (blocked) return blocked;
   const body = await request.json().catch(() => null);
   if (!body || !validUuid(body.tenantId)) return administrationResponse({ error: "Firma fehlt." }, 400);

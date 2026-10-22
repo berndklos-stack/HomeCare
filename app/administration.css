@@ -20,6 +20,8 @@
 .administration-filters { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px; margin: 18px 0; }
 .administration-user { display: grid; grid-template-columns: minmax(200px,2fr) minmax(150px,1fr) minmax(150px,1fr) auto; align-items: center; gap: 18px; padding: 18px 0; border-bottom: 1px solid var(--line); }
 .administration-user-actions { display: flex; gap: 8px; }
+.administration-user-group + .administration-user-group { margin-top: 28px; }
+.administration-shell.company-users-workspace { width: 100%; padding: 0; }
 .administration-pagination { display: flex; justify-content: flex-end; gap: 12px; align-items: center; padding: 18px 0; }
 .administration-user-actions button { width: 44px; height: 44px; flex-shrink: 0; padding: 10px; }
 .administration-role-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(260px,100%),1fr)); gap: 24px; }

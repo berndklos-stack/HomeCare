@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { FileSpreadsheet, FileText, RefreshCw } from "lucide-react";
+import { RefreshCw } from "lucide-react";
+import { CommunicationActions } from "./CommunicationActions";
 import { apiFetch } from "@/lib/apiClient";
 import { exportStockOverview, stockOverviewRows, type StockBalance, type StockMaterial } from "@/lib/stockOverview";
 import { OperationsDataTable } from "./OperationsDataTable";
@@ -50,6 +51,8 @@ export function StockOverview({ language, materials, locations, settled, pending
     { key: "archived", label: t.status, value: (row: Record<string, unknown>) => row.archived ? t.archive : t.active },
   ];
   const blocked = loading || Boolean(error) || pending;
+  const exportRows = rows.filter((row) => columns.every((column) => column.value(row).toLocaleLowerCase().includes((filters[column.key] ?? "").trim().toLocaleLowerCase())));
+  const outputDocument = async () => ({ blob: await exportStockOverview(exportRows, columns.map(column => column.label), t.title, new Date(capturedAt).toLocaleString(language, { timeZone: "Europe/Stockholm" }), "pdf", [t.active, t.archive]), name: `WorkCore-Lagerbestand-${new Date().toISOString().slice(0, 10)}.pdf` });
   async function output(format: "xlsx" | "pdf") {
     setExporting(true); setError("");
     try {
@@ -63,8 +66,7 @@ export function StockOverview({ language, materials, locations, settled, pending
   }
   return <section className="panel">
     <header className="panel-title"><div><p>Lager &amp; Material</p><h2>{mode === "inventory" ? t.count : t.title}</h2></div><div className={styles.toolbar}>
-      {mode === "overview" && <><button disabled={blocked || exporting} onClick={() => void output("xlsx")}><FileSpreadsheet size={18} />Excel</button>
-      <button disabled={blocked || exporting} onClick={() => void output("pdf")}><FileText size={18} />PDF</button></>}
+      {mode === "overview" && <CommunicationActions title={t.title} text={exportRows.map(row => columns.map(column => `${column.label}: ${column.value(row)}`).join(" · ")).join("\n")} language={language} disabled={blocked || exporting} document={outputDocument} downloads={[{ label: "PDF", run: () => output("pdf") }, { label: "Excel", run: () => output("xlsx") }]} />}
       <button aria-label={t.refresh} title={t.refresh} disabled={loading} onClick={() => setRefresh((value) => value + 1)}><RefreshCw size={18} /></button>
     </div></header>
     {mode === "overview" && <div className={styles.stockOptions}><label><input type="checkbox" checked={zero} onChange={(event) => setZero(event.target.checked)} />{t.zero}</label><label><input type="checkbox" checked={archived} onChange={(event) => setArchived(event.target.checked)} />{t.archived}</label></div>}

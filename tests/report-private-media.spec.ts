@@ -48,9 +48,21 @@ for (const storageOnly of [false, true]) test(`Projektbilder im iPhone-Cache und
   const box = (await logo.boundingBox())!, header = (await page.locator(".customer-report-head").first().boundingBox())!;
   expect(box.x).toBeGreaterThan(header.x + header.width / 2);
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "PDF für Projekt Bildtest herunterladen", exact: true }).click();
+  await page.getByRole("button", { name: "Herunterladen", exact: true }).click();
   const bytes = readFileSync((await (await downloadPromise).path())!);
   expect(bytes.toString("latin1")).toMatch(/\/Subtype \/Image\s+\/Width 80\s+\/Height 20/);
+  const actions = page.getByRole("group", { name: "Dokumentaktionen", exact: true });
+  for (const control of await actions.locator(":scope > button, :scope > a").all()) {
+    const bounds = (await control.boundingBox())!;
+    expect(bounds.width).toBe(44); expect(bounds.height).toBe(44);
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(390);
+  }
+  const popupPromise = page.waitForEvent("popup");
+  await actions.getByRole("button", { name: "Drucken / PDF", exact: true }).click();
+  const popup = await popupPromise;
+  await expect(popup.locator("iframe")).toHaveAttribute("src", /^blob:/);
+  expect(await popup.evaluate(() => window.opener === null)).toBe(true);
+  await popup.close();
   await page.screenshot({ path: `test-results/object-image-and-company-report-${storageOnly}-${test.info().project.name}.png` });
 });
 
@@ -79,7 +91,7 @@ test("Privates Berichtsfoto wird dauerhaft in die PDF-Datei eingebettet", async 
   await page.getByRole("button", { name: /^1 Berichte$/ }).click();
   await page.getByRole("button", { name: /PDF Fotopruefung/ }).first().click();
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "PDF für PDF Fotopruefung herunterladen", exact: true }).click();
+  await page.getByRole("button", { name: "Herunterladen", exact: true }).click();
   const download = await downloadPromise;
   const bytes = readFileSync((await download.path())!);
   expect(bytes.toString("latin1")).toMatch(/\/Subtype \/Image\s+\/Width 1\s+\/Height 1/);

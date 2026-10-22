@@ -94,6 +94,9 @@ insert into public.homecare_user_block_layouts(tenant_id,user_id,scope_key,block
 do $$ declare
   tenant uuid:='00000000-0000-0000-0000-000000000001'; backup_id uuid; table_name text; names text; original jsonb; restored jsonb;
 begin
+  if to_regclass('public.homecare_company_user_limits') is not null then
+    execute 'insert into public.homecare_company_user_limits(tenant_id,max_users) values($1,1000)' using tenant;
+  end if;
   backup_id:=(public.homecare_create_relational_backup(tenant,'roundtrip')->>'id')::uuid;
   select payload into original from public.homecare_relational_backups where id=backup_id;
   if (original->'homecare_resource_standard_trip_distances'->0->>'distance_km')::numeric is distinct from 17.125 then raise exception 'BACKUP_DISTANCE_MISSING'; end if;

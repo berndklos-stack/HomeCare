@@ -1,9 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import type { ApiAuthContext } from "@/lib/server/apiAuth";
+import { platformTenantId } from "@/lib/administration";
 
-export function isPlatformAdmin(userId: string) {
-  return (process.env.WORKCORE_PLATFORM_ADMIN_USER_IDS ?? "").split(",").map(id => id.trim()).filter(Boolean).includes(userId);
+export function isPlatformAdmin(userId: string, tenantId?: string) {
+  return tenantId === platformTenantId && (process.env.WORKCORE_PLATFORM_ADMIN_USER_IDS ?? "").split(",").map(id => id.trim()).filter(Boolean).includes(userId);
 }
 export function administrationResponse(body: unknown, status = 200) {
   return NextResponse.json(body, { status, headers: { "Cache-Control": "private, no-store" } });
@@ -18,6 +19,10 @@ export function administrationError(error: unknown) {
     INVITATION_ACCEPTANCE_REQUIRED: "Die Einladung muss zuerst angenommen werden.",
     ROLE_FORBIDDEN: "Diese Rolle darfst du nicht vergeben.", OWNER_CHANGE_FORBIDDEN: "Nur Eigentümer dürfen Eigentümerzugänge ändern.",
     MEMBER_NOT_FOUND: "Benutzer wurde in dieser Firma nicht gefunden.", EMPLOYEE_NOT_FOUND: "Mitarbeiter wurde in dieser Firma nicht gefunden.",
+    USER_LIMIT_REACHED: "Das Benutzerlimit dieser Firma ist erreicht. Bitte die zentrale Administration kontaktieren.",
+    USER_LIMIT_BELOW_USAGE: "Das Limit liegt unter der Zahl vorhandener Firmenzugänge. Bitte zuerst Zugänge entziehen.",
+    PASSWORD_RESET_COOLDOWN: "Ein Passwort-Reset wurde bereits angefordert. Bitte eine Minute warten.",
+    PASSWORD_RESET_NOT_ALLOWED: "Für diesen Zugang ist kein Passwort-Reset möglich. Bitte gegebenenfalls die Einladung erneut senden.",
   };
   const key = Object.keys(known).find(item => message.includes(item));
   return administrationResponse({ error: key ? known[key] : code === "23505" ? "Die Zuordnung besteht bereits." : "Änderung nicht gespeichert. Bitte Angaben und Berechtigung prüfen." }, code === "42501" ? 403 : code === "P0002" ? 404 : 400);

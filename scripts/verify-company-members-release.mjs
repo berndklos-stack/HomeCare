@@ -9,9 +9,11 @@ const environment = option('--project');
 const projects = { staging: 'ealfegjvbyiiporettpq', production: 'ruzsmxzxeqqcbeycfoma' };
 assert(Object.hasOwn(projects, environment), 'Explicit staging|production project required');
 if (environment === 'production') assert(process.argv.includes('--apply-production'), 'Explicit production approval required');
-const project = projects[environment], version = '20261021120000';
-const source = readFileSync(`supabase/migrations/${version}_platform_company_members.sql`, 'utf8');
-const tests = readFileSync('supabase/tests/platform_company_members.sql', 'utf8');
+const userLimits = process.argv.includes('--user-limits');
+const project = projects[environment], version = userLimits ? '20261022090000' : '20261021120000';
+const migrationName = userLimits ? 'company_user_limits' : 'platform_company_members';
+const source = readFileSync(`supabase/migrations/${version}_${migrationName}.sql`, 'utf8');
+const tests = readFileSync(`supabase/tests/${migrationName}.sql`, 'utf8');
 const digest = value => createHash('sha256').update(value).digest('hex');
 const migrationDigest = digest(source), testDigest = digest(tests);
 const directory = mkdtempSync(`/private/tmp/workcore-company-members-${environment}-`);
@@ -56,8 +58,9 @@ const backups = [];
 if (environment === 'production') {
   console.log('Creating or reusing recent server-side company backups.');
   for (const { id } of await query('select id from public.homecare_tenants')) {
-    const recent = await query(`select to_jsonb(b)-'payload' as backup from public.homecare_relational_backups b where tenant_id=${quote(id)}::uuid and reason='before-company-members-release-20261021' and created_at>now()-interval '15 minutes' order by created_at desc limit 1`);
-    const backup = recent[0]?.backup ?? (await query(`select public.homecare_create_relational_backup(${quote(id)}::uuid,'before-company-members-release-20261021') as backup`))[0].backup;
+    const reason = `before-${migrationName}-${version}`;
+    const recent = await query(`select to_jsonb(b)-'payload' as backup from public.homecare_relational_backups b where tenant_id=${quote(id)}::uuid and reason=${quote(reason)} and created_at>now()-interval '15 minutes' order by created_at desc limit 1`);
+    const backup = recent[0]?.backup ?? (await query(`select public.homecare_create_relational_backup(${quote(id)}::uuid,${quote(reason)}) as backup`))[0].backup;
     assert((await query(`select checksum=encode(extensions.digest(payload::text,'sha256'),'hex') as valid from public.homecare_relational_backups where id=${quote(backup.id)}::uuid`))[0].valid, 'Backup checksum mismatch');
     backups.push({ id: backup.id, checksumVerified: true });
     console.log('Company backup checksum verified.');
@@ -72,7 +75,7 @@ else {
     create temporary table members_before on commit drop as ${fingerprint};
     ${source.replace(/^begin;\s*/, '').replace(/\s*commit;\s*$/, '')}
     do $$ begin if (select fingerprint from members_before) is distinct from (${fingerprint}) then raise exception 'EXISTING_RECORDS_CHANGED'; end if; end $$;
-    insert into supabase_migrations.schema_migrations(version,name,statements) values(${quote(version)},'platform_company_members',array[${quote(source)}]);
+    insert into supabase_migrations.schema_migrations(version,name,statements) values(${quote(version)},${quote(migrationName)},array[${quote(source)}]);
     notify pgrst,'reload schema'; commit; select true as applied;`;
   save('apply.sql', sql); await query(sql);
 }
@@ -95,6 +98,18 @@ const security = (await query(`select
     and has_function_privilege('service_role','public.homecare_platform_member_command(uuid,uuid,uuid,text,uuid,uuid,text,text,uuid)','execute') as server_allowed,
   (select count(*)::int from pg_proc where oid in ('public.homecare_platform_member_directory(uuid,uuid,uuid,text,text,uuid,integer)'::regprocedure,'public.homecare_platform_member_command(uuid,uuid,uuid,text,uuid,uuid,text,text,uuid)'::regprocedure) and prosecdef and proconfig @> array['search_path=public, pg_temp']) as hardened_functions`))[0];
 assert(security.clients_blocked && security.server_allowed && security.hardened_functions === 2);
+if (userLimits) {
+  const limits = (await query(`select
+    (select relrowsecurity from pg_class where oid='public.homecare_company_user_limits'::regclass) as rls,
+    not has_table_privilege('anon','public.homecare_company_user_limits','select,insert,update,delete') and
+    not has_table_privilege('authenticated','public.homecare_company_user_limits','insert,update,delete') and
+    not has_table_privilege('authenticated','public.homecare_tenant_modules','insert,update,delete') as writes_blocked,
+    not has_function_privilege('anon','public.homecare_request_member_password_reset(uuid,uuid,uuid,uuid,boolean)','execute') and
+    not has_function_privilege('authenticated','public.homecare_request_member_password_reset(uuid,uuid,uuid,uuid,boolean)','execute') as reset_protected,
+    'homecare_company_user_limits'=any(public.homecare_relational_backup_tables()) as backup_registered`))[0];
+  assert(limits.rls && limits.writes_blocked && limits.reset_protected && limits.backup_registered);
+  security.userLimits = limits;
+}
 const afterAdvisor = await advisor(); save('advisors-after.json', afterAdvisor);
 assert(!(counts(afterAdvisor).ERROR ?? 0));
 const warningKey = item => JSON.stringify([item.name, item.metadata]);

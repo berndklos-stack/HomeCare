@@ -9,6 +9,8 @@ import { useObjectMediaImage } from "@/lib/useObjectMediaImage";
 import { objectImageSources } from "@/lib/objectMediaImage";
 import { reportBrandingSnapshot, stampReportLogo } from "@/lib/reportBranding";
 import { ReportLogo } from "@/components/ReportLogo";
+import { CommunicationActions } from "@/components/CommunicationActions";
+import { groupObjectsByType } from "@/lib/objectTypes";
 import { companyLogoSource, maxCompanyLogoLength } from "@/lib/companyLogo";
 import { SyncStatus } from "@/components/SyncStatus";
 import { AppleRemindersBridge } from "@/components/AppleRemindersBridge";
@@ -39,6 +41,7 @@ import { serviceListLabels } from "@/lib/consultingServiceList";
 import { DevicePhotoSave, type DevicePhotoPolicy } from "@/components/DevicePhotoSave";
 import { TenantSwitcher } from "@/components/TenantSwitcher";
 import { AdministrationLinks } from "@/components/AdministrationLinks";
+import { CompanyUsers } from "@/components/CompanyUsers";
 import {
   ArrowDown,
   ArrowLeft,
@@ -4749,8 +4752,15 @@ function primaryObjectImage(object: ObjectRecord) {
 }
 
 function primaryResourceImage(resource: ResourceRecord) {
-  return resource.media?.find((item) => item.type === "Bild" && item.isPrimary && item.previewUrl)
-    ?? resource.media?.find((item) => item.type === "Bild" && item.previewUrl);
+  return resource.media?.find((item) => item.type === "Bild" && item.isPrimary && (item.previewUrl || item.storagePath))
+    ?? resource.media?.find((item) => item.type === "Bild" && (item.previewUrl || item.storagePath));
+}
+
+function ResourceImage({ item, label, className }: { item?: MediaItem; label: string; className: string }) {
+  const media = useObjectMediaImage(item ?? {});
+  return <div aria-label={label} className={`${className}${media.url ? "" : " placeholder"}`} role="img" aria-busy={media.loading} style={media.url ? { backgroundImage: `url("${media.url.replace(/"/g, "%22")}")` } : undefined}>
+    {!media.url && <Camera size={22} />}
+  </div>;
 }
 
 function serviceToFieldTasks(service: ServiceItem): FieldTask[] {
@@ -5911,7 +5921,7 @@ function downloadBlob(blob: Blob, fileName: string) {
   URL.revokeObjectURL(url);
 }
 
-async function downloadMaterialInventoryMovementPdf(material: MaterialItem, customers: CustomerRecord[], services: ServiceItem[]) {
+async function downloadMaterialInventoryMovementPdf(material: MaterialItem, customers: CustomerRecord[], services: ServiceItem[], save = true) {
   const branding = reportBrandingSnapshot();
   const { jsPDF } = await import("jspdf");
   const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "landscape" });
@@ -6086,10 +6096,12 @@ async function downloadMaterialInventoryMovementPdf(material: MaterialItem, cust
   }
 
   await stampReportLogo(pdf, branding);
-  downloadBlob(pdf.output("blob"), `${safeFileName(`Lagerbewegungen-${material.name}-${new Date().toISOString().slice(0, 10)}`)}.pdf`);
+  const blob = pdf.output("blob");
+  if (save) downloadBlob(blob, `${safeFileName(`Lagerbewegungen-${material.name}-${new Date().toISOString().slice(0, 10)}`)}.pdf`);
+  return blob;
 }
 
-async function downloadVehicleLogbookPdf(resource: ResourceRecord, entries: VehicleLogEntry[], personnel: PersonnelRecord[], includeImages = false) {
+async function downloadVehicleLogbookPdf(resource: ResourceRecord, entries: VehicleLogEntry[], personnel: PersonnelRecord[], includeImages = false, save = true) {
   const branding = reportBrandingSnapshot();
   const pdfLanguage = vehicleLogbookLanguage(resource, "de");
   const pt = (value: string) => uiText(value, pdfLanguage);
@@ -6277,7 +6289,9 @@ async function downloadVehicleLogbookPdf(resource: ResourceRecord, entries: Vehi
     pdf.text(`${pt("Seite")} ${page} ${pt("von")} ${pageCount}`, pageWidth - margin, pageHeight - 6, { align: "right" });
   }
   await stampReportLogo(pdf, branding);
-  downloadBlob(pdf.output("blob"), `${safeFileName(`${pt("Fahrtenbuch")}-${resource.name}-${resource.logbookYear || new Date().getFullYear()}${includeImages ? `-${pt("mit Bildern")}` : `-${pt("ohne Bilder")}`}`)}.pdf`);
+  const blob = pdf.output("blob");
+  if (save) downloadBlob(blob, `${safeFileName(`${pt("Fahrtenbuch")}-${resource.name}-${resource.logbookYear || new Date().getFullYear()}${includeImages ? `-${pt("mit Bildern")}` : `-${pt("ohne Bilder")}`}`)}.pdf`);
+  return blob;
 }
 
 async function downloadCustomerReportPdf(report: ReportRecord, object: ObjectRecord, job: JobRecord | undefined, customer: CustomerRecord | undefined) {
@@ -6291,6 +6305,11 @@ async function downloadCustomerReportPdf(report: ReportRecord, object: ObjectRec
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
+}
+
+function CustomerReportActions({ report, object, job, customer, onEmail, language = "de" }: { report: ReportRecord; object: ObjectRecord; job?: JobRecord; customer?: CustomerRecord; onEmail?: () => void; language?: Language }) {
+  const title = customerReportSendSubject(report, object, customer);
+  return <CommunicationActions title={title} text={`${report.title}\n${object.name}\n${report.date}\n\n${report.summary}`} language={language} email={reportRecipientEmail(object, customer)} phone={customer?.phone} onEmail={onEmail} document={async () => ({ blob: await createReportPdfBlob(report, object, job, customer), name: `${safeFileName(title)}.pdf` })} />;
 }
 
 type AnalyticsReportPdfEntry = {
@@ -8989,6 +9008,14 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
   const quickTripOpenRequestRef = useRef(0);
   const [resourceLogbookOpenRequestId, setResourceLogbookOpenRequestId] = useState("");
   const [operationsMasterDataRequest, setOperationsMasterDataRequest] = useState("");
+  useEffect(() => {
+    if (!appStorageReady || portalOnly) return;
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("masterData") !== "users") return;
+    let active = true;
+    queueMicrotask(() => { if (active) { setSection("masterData"); setOperationsMasterDataRequest("users:direct"); url.searchParams.delete("masterData"); window.history.replaceState(window.history.state, "", url); } });
+    return () => { active = false; };
+  }, [appStorageReady, portalOnly]);
   const [dailyMailSending, setDailyMailSending] = useState(false);
   const [manualRefreshRunning, setManualRefreshRunning] = useState(false);
   const [refreshNotice, setRefreshNotice] = useState({ message: "", error: false });
@@ -13886,6 +13913,8 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
             {section === "jobs" && (
               <JobsView
                 companyName={companySettings.name}
+                companySettings={companySettings}
+                services={services}
                 customers={customers}
                 jobs={jobs}
                 language={language}
@@ -13985,6 +14014,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
             )}
             {section === "billing" && (
               <BillingView
+                companySettings={companySettings}
                 brandName={appBranding.brandName}
                 accountingAccounts={accountingAccounts}
                 billing={billing}
@@ -15336,21 +15366,11 @@ function AnalyticsView({
                 <h2 id="analytics-report-title">{detailReport.title}</h2>
               </div>
               <div className="modal-header-actions">
-                <IconAction label={tt("PDF herunterladen")} onClick={() => downloadAnalyticsReportPdf(detailReport.title, periodLabel, detailEntries)}><FileDown size={16} /></IconAction>
-                <button
-                  aria-label={detailReport.type === "personnel" ? tt("An Mitarbeiter senden") : tt("An Kunden senden")}
-                  className="icon-button"
-                  data-tooltip={detailReport.type === "personnel" ? tt("An Mitarbeiter senden") : tt("An Kunden senden")}
-                  disabled={sendingAnalyticsReport || !detailRecipientEmail}
-                  onClick={() => {
+                <CommunicationActions title={detailReport.title} text={`${detailReport.title}\n${periodLabel}\n\n${detailEntries.map(entry => `${entry.date} · ${entry.objectName} · ${entry.assignee}`).join("\n")}`} language={language} email={detailRecipientEmail} disabled={sendingAnalyticsReport} document={async () => ({ blob: await createAnalyticsReportPdfBlob(detailReport.title, periodLabel, detailEntries), name: `${safeFileName(detailReport.title)}.pdf` })} onEmail={detailRecipientEmail ? () => {
                     setAnalyticsNotice("");
                     setAnalyticsSendBody(detailDefaultMailBody);
                     setAnalyticsSendPreviewOpen(true);
-                  }}
-                  type="button"
-                >
-                  <Send size={16} />
-                </button>
+                  } : undefined} />
                 <button aria-label={tt("Schließen")} onClick={() => setDetailReport(null)} type="button">
                   <X size={18} />
                 </button>
@@ -15571,8 +15591,7 @@ function ReportsView({
                     <KeyRound size={16} />
                   </IconAction>
                 )}
-                <IconAction label={`PDF für ${selectedReport.title} herunterladen`} onClick={() => void downloadCustomerReportPdf(selectedReport, selectedObject, selectedJob, selectedCustomer)}><FileDown size={16} /></IconAction>
-                <IconAction label={`${tt("Bericht")} ${selectedReport.title} ${tt("An Kunden senden")}`} onClick={() => { onSendReport(selectedReport); setSelectedReportId(""); }}><Send size={16} /></IconAction>
+                <CustomerReportActions report={selectedReport} object={selectedObject} job={selectedJob} customer={selectedCustomer} language={language} onEmail={() => { onSendReport(selectedReport); setSelectedReportId(""); }} />
                 <button aria-label={`${tt("Bericht")} ${selectedReport.title} ${tt("Schließen")}`} onClick={() => setSelectedReportId("")} type="button">
                   <X size={18} />
                 </button>
@@ -16024,20 +16043,23 @@ function ObjectsView({
   const listedActiveObjects = objects.filter((object) => !isInactiveObject(object));
   const inactiveObjects = objects.filter(isInactiveObject);
 
-  const renderObjectList = (entries: ObjectRecord[]) => (
-    <div className="object-list">
-      {entries.map((object) => (
+  const renderObjectList = (entries: ObjectRecord[], archived = false) => (
+    <div className="object-type-groups">
+      {groupObjectsByType(entries, objectTypeDefinitions, language).map(group => <section className="object-type-group" key={group.type} aria-label={objectTypeName(objectTypeDefinitions, group.type, language)}>
+      <h3 className="object-type-group-heading">{group.type === "Projekt" ? language === "sv" ? "Projekt" : language === "en" ? "Projects" : "Projekte" : group.type === "Objekt" ? language === "sv" ? "Objekt" : language === "en" ? "Objects" : "Objekte" : objectTypeName(objectTypeDefinitions, group.type, language)} <small>{group.items.length}</small></h3>
+      <div className="object-list">
+      {group.items.map((object) => (
         <article
           className={selectedObjectId === object.id ? "selected clickable-record-row" : "clickable-record-row"}
           key={object.id}
           onClick={() => {
-            onSelect(object.id);
+            if (!archived) onSelect(object.id);
             onEdit(object);
           }}
           onKeyDown={(event) => {
             if (event.key === "Enter" || event.key === " ") {
               event.preventDefault();
-              onSelect(object.id);
+              if (!archived) onSelect(object.id);
               onEdit(object);
             }
           }}
@@ -16053,10 +16075,11 @@ function ObjectsView({
             <span>{object.region}</span>
             <span>{objectTypeSummary(object, objectTypeDefinitions, language)}</span>
             <span>{objectServiceSummary(object, objectTypeDefinitions)}</span>
-            <Badge value={tt(object.status)} />
+            <Badge value={tt(archived ? "archiviert" : object.status)} />
           </div>
         </article>
       ))}
+      </div></section>)}
     </div>
   );
 
@@ -16097,31 +16120,7 @@ function ObjectsView({
             <span>{tt("Archivierte Projekte & Objekte")}</span>
             <small>{archivedObjects.length}</small>
           </button>
-          {archivedObjectsOpen && (
-            <div className="table-list compact-list archive-list">
-              {archivedObjects.map((object) => (
-                <article
-                  className="clickable-record-row"
-                  key={object.id}
-                  onClick={() => onEdit(object)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      onEdit(object);
-                    }
-                  }}
-                  role="button"
-                  tabIndex={0}
-                >
-                  <div>
-                    <strong>{objectTypeName(objectTypeDefinitions, object.type, language)} · {object.name}</strong>
-                    <span>{displayAddress(object.address)}</span>
-                  </div>
-                  <Badge value={tt("archiviert")} />
-                </article>
-              ))}
-            </div>
-          )}
+          {archivedObjectsOpen && renderObjectList(archivedObjects, true)}
         </div>
       )}
     </section>
@@ -16422,6 +16421,8 @@ function CustomersView({
 
 function JobsView({
   companyName,
+  companySettings,
+  services,
   customers,
   jobs,
   language,
@@ -16444,6 +16445,8 @@ function JobsView({
   reports,
 }: {
   companyName: string;
+  companySettings: CompanySettings;
+  services: ServiceItem[];
   customers: CustomerRecord[];
   jobs: JobRecord[];
   language: Language;
@@ -16624,6 +16627,8 @@ function JobsView({
   }
 
   function renderJobRow(job: JobRecord) {
+    const object = objects.find(item => item.id === job.objectId);
+    const customer = customers.find(item => item.id === (job.customerId || object?.ownerCustomerId));
     const occurrences = sortedByDueDate(occurrenceGroups[job.id] ?? []);
     const isRecurring = isSeriesMaster(job);
     const isExpanded = expandedSeriesIds.includes(job.id);
@@ -16695,16 +16700,14 @@ function JobsView({
             )}
             {!isRecurring && job.status === "offerte" && (
               <>
-                <IconAction label={`Offerte ${job.title} als PDF herunterladen`} onClick={() => void onDownloadOffer(job)}><FileDown size={16} /></IconAction>
-                <IconAction label={`Offerte ${job.title} ${tt("An Kunden senden")}`} onClick={() => onSendOffer(job)}><Send size={16} /></IconAction>
+                {object && <CommunicationActions title={`${tt("Offerte")} · ${job.title}`} text={`${job.title}\n${object.name}\n${jobDateRangeLabel(job)}`} language={language} email={offerRecipientEmail(object, customer)} phone={customer?.phone} onEmail={() => onSendOffer(job)} document={async () => ({ blob: await createOfferPdfBlob(job, object, customer, services, companySettings), name: `${safeFileName(job.title)}.pdf` })} />}
                 <IconAction label={`Offerte ${job.title} als Auftrag bestätigen`} onClick={() => onConfirmOffer(job)}><Check size={16} /></IconAction>
               </>
             )}
             <IconAction label={`${tt("Auftrag")} ${job.title} ${tt("Bearbeiten")}`} onClick={() => onEdit(job)}><Pencil size={16} /></IconAction>
             {!isRecurring && !["offerte", "storniert", "erledigt", "abgerechnet"].includes(job.status) && (
               <>
-                <IconAction label={`${tt("Auftragsbestätigung")} ${job.title} als PDF herunterladen`} onClick={() => void onDownloadOrderConfirmation(job)}><FileDown size={16} /></IconAction>
-                <IconAction label={`${tt("Auftragsbestätigung")} ${job.title} ${tt("An Kunden senden")}`} onClick={() => onSendOrderConfirmation(job)}><Send size={16} /></IconAction>
+                {object && <CommunicationActions title={`${tt("Auftragsbestätigung")} · ${job.title}`} text={`${job.title}\n${object.name}\n${jobDateRangeLabel(job)}`} language={language} email={offerRecipientEmail(object, customer)} phone={customer?.phone} onEmail={() => onSendOrderConfirmation(job)} document={async () => ({ blob: await createOfferPdfBlob(job, object, customer, services, companySettings, "confirmation"), name: `${safeFileName(job.title)}.pdf` })} />}
                 <IconAction label={`${tt("Auftrag")} ${job.title} starten`} onClick={() => onStart(job)}><PlayCircle size={16} /></IconAction>
               </>
             )}
@@ -16783,8 +16786,7 @@ function JobsView({
                     <IconAction label={`${tt("Teilauftrag")} ${occurrenceExecutionDate} ${tt("Bearbeiten")}`} onClick={() => onEdit(occurrence)}><Pencil size={16} /></IconAction>
                     {occurrence.status === "offerte" && (
                       <>
-                        <IconAction label={`Offerte ${occurrenceExecutionDate} als PDF herunterladen`} onClick={() => void onDownloadOffer(occurrence)}><FileDown size={16} /></IconAction>
-                        <IconAction label={`Offerte ${occurrenceExecutionDate} an Kunden senden`} onClick={() => onSendOffer(occurrence)}><Send size={16} /></IconAction>
+                        {object && <CommunicationActions title={`${tt("Offerte")} · ${occurrence.title}`} text={`${occurrence.title}\n${object.name}\n${occurrenceExecutionDate}`} language={language} email={offerRecipientEmail(object, customer)} phone={customer?.phone} onEmail={() => onSendOffer(occurrence)} document={async () => ({ blob: await createOfferPdfBlob(occurrence, object, customer, services, companySettings), name: `${safeFileName(occurrence.title)}.pdf` })} />}
                         <IconAction label={`Teilauftrag ${occurrenceExecutionDate} als Auftrag bestätigen`} onClick={() => onConfirmOffer(occurrence)}><Check size={16} /></IconAction>
                       </>
                     )}
@@ -17386,12 +17388,7 @@ function PlanningView({
                 <h2 id="dispatch-report-title">{selectedDispatchReport.title}</h2>
               </div>
               <div className="modal-header-actions">
-                <IconAction
-                  label={`PDF für ${selectedDispatchReport.title} herunterladen`}
-                  onClick={() => void downloadCustomerReportPdf(selectedDispatchReport, selectedDispatchObject, selectedDispatchJob, selectedDispatchCustomer)}
-                >
-                  <FileDown size={16} />
-                </IconAction>
+                <CustomerReportActions report={selectedDispatchReport} object={selectedDispatchObject} job={selectedDispatchJob} customer={selectedDispatchCustomer} language={language} />
                 <button aria-label={`Bericht ${selectedDispatchReport.title} schließen`} onClick={() => setSelectedDispatchReportId("")} type="button">
                   <X size={18} />
                 </button>
@@ -18444,6 +18441,7 @@ function FieldView({
 }
 
 function BillingView({
+  companySettings,
   accountingAccounts,
   billing,
   brandName,
@@ -18463,6 +18461,7 @@ function BillingView({
   services,
 }: {
   accountingAccounts: AccountingAccount[];
+  companySettings: CompanySettings;
   billing: BillingRecord[];
   brandName: string;
   customers: CustomerRecord[];
@@ -18789,10 +18788,7 @@ function BillingView({
             </div>
             <div className="modal-actions">
               <button className="ghost-button" onClick={() => setPreviewInvoiceId(null)} type="button">Schließen</button>
-              <button className="primary-button" onClick={() => onDownloadInvoice(previewInvoice)} type="button">
-                <FileDown size={16} />
-                PDF laden
-              </button>
+              {previewObject && <CommunicationActions title={invoiceSubject(previewInvoice, previewObject, previewCustomer)} text={`${previewInvoice.invoiceNumber || previewInvoice.id}\n${previewObject.name}\n${formatMoney(previewTotals.gross, previewTotals.currency)}`} email={previewCustomer?.email || previewObject.ownerEmail} phone={previewCustomer?.phone} document={async () => ({ blob: await createInvoicePdfBlob(previewInvoice, previewObject, previewCustomer, companySettings), name: `${safeFileName(previewInvoice.invoiceNumber || previewInvoice.id)}.pdf` })} />}
             </div>
           </section>
         </div>
@@ -19772,10 +19768,7 @@ function InventoryView({
               </div>
               <div className="modal-header-actions">
                 {selectedHistoryMaterial && (
-                  <button className="ghost-button" onClick={() => void downloadMaterialInventoryMovementPdf(selectedHistoryMaterial, customers, activeServices)} type="button">
-                    <FileDown size={16} />
-                    {tt("Bewegungsliste PDF")}
-                  </button>
+                  <CommunicationActions title={`${tt("Buchungen")} · ${selectedHistoryMaterial.name}`} text={`${selectedHistoryMaterial.name}\n${tt("Aktueller Bestand")}: ${formatInventoryQuantity(materialInventoryTotal(selectedHistoryMaterial))} ${selectedHistoryMaterial.unit}`} language={language} document={async () => ({ blob: await downloadMaterialInventoryMovementPdf(selectedHistoryMaterial, customers, activeServices, false), name: `${safeFileName(selectedHistoryMaterial.name)}.pdf` })} />
                 )}
                 <button aria-label="Buchungshistorie schließen" onClick={() => setHistoryOpen(false)} type="button">
                   <X size={18} />
@@ -20523,7 +20516,7 @@ function CustomerPortalView({
                 <span>{selectedPortalReportObject.name} · {selectedPortalReport.date}</span>
               </div>
               <div className="row-actions">
-                <IconAction label={`PDF für ${selectedPortalReport.title} herunterladen`} onClick={() => void downloadCustomerReportPdf(selectedPortalReport, selectedPortalReportObject, selectedPortalReportJob, customer)}><FileDown size={16} /></IconAction>
+                <CustomerReportActions report={selectedPortalReport} object={selectedPortalReportObject} job={selectedPortalReportJob} customer={customer} />
                 <IconAction label={`Bericht ${selectedPortalReport.title} schließen`} onClick={() => setSelectedPortalReportId("")}><X size={16} /></IconAction>
               </div>
             </div>
@@ -20758,13 +20751,14 @@ function MasterDataView({
   const tt = translate;
   const resourceTypes = useResourceTypes(queue, enqueue);
   const [resourceOperationsOpen, setResourceOperationsOpen] = useState(false);
-  const [masterDataTab, setMasterDataTab] = useState<"company" | "objectTypes" | "personal" | "resources" | "services" | "materials" | "accounting" | "mail" | "languages" | "backups">(materialsOnly ? "materials" : "company");
+  const [masterDataTab, setMasterDataTab] = useState<"company" | "users" | "objectTypes" | "personal" | "resources" | "services" | "materials" | "accounting" | "mail" | "languages" | "backups">(materialsOnly ? "materials" : "company");
   const [resourceSection, setResourceSection] = useState<"overview" | "types">("overview");
   const [personnelSection, setPersonnelSection] = useState<"overview" | "time">("overview");
   useEffect(() => {
     const tab = operationsMasterDataRequest.split(":")[0];
     if (materialsOnly) setMasterDataTab("materials");
     else if (tab === "resources") { setMasterDataTab(tab); setResourceSection("overview"); }
+    else if (tab === "users") setMasterDataTab("users");
     else if (tab === "personalTime") { setMasterDataTab("personal"); setPersonnelSection("time"); }
     else setMasterDataTab((current) => current === "materials" ? "company" : current);
   }, [operationsMasterDataRequest, materialsOnly]);
@@ -22388,6 +22382,7 @@ function MasterDataView({
           <Home size={16} />
           {tt("Firma")}
         </button>
+        <button className={masterDataTab === "users" ? "active" : ""} onClick={() => setMasterDataTab("users")} type="button"><UserRound size={16}/>{tt("Benutzer")}</button>
         <button className={masterDataTab === "objectTypes" ? "active" : ""} onClick={() => setMasterDataTab("objectTypes")} type="button">
           <LayoutGrid size={16} />
           {tt("Projekt-/Objekttypen")}
@@ -22422,6 +22417,7 @@ function MasterDataView({
         </button>
       </nav>}
 
+      {masterDataTab === "users" && <CompanyUsers/>}
       {masterDataTab === "resources" && <nav aria-label={tt("Ressourcen")} className="master-data-tabs">
         <button type="button" aria-pressed={resourceSection === "overview"} className={resourceSection === "overview" ? "active" : ""} onClick={() => setResourceSection("overview")}><CarFront size={16}/>{tt("Übersicht")}</button>
         <button type="button" aria-pressed={resourceSection === "types"} className={resourceSection === "types" ? "active" : ""} onClick={() => setResourceSection("types")}><LayoutGrid size={16}/>{resourceTypesText.title[resourceLanguageIndex(language)]}</button>
@@ -23044,14 +23040,7 @@ function MasterDataView({
                           <Plus size={16} />
                           {lt("Neue Fahrt")}
                         </button>
-                        <button className="ghost-button" onClick={() => void downloadVehicleLogbookPdf(selectedResource, selectedResourceLogbook, activePersonnel, false)} type="button">
-                          <FileDown size={16} />
-                          {lt("PDF ohne Bilder")}
-                        </button>
-                        <button className="ghost-button" onClick={() => void downloadVehicleLogbookPdf(selectedResource, selectedResourceLogbook, activePersonnel, true)} type="button">
-                          <FileDown size={16} />
-                          {lt("PDF mit Bildern")}
-                        </button>
+                        <CommunicationActions title={`${lt("Fahrtenbuch")} · ${selectedResource.name}`} text={selectedResourceLogbook.map(entry => `${entry.date} · ${entry.startAddress} → ${entry.endAddress} · ${entry.kilometers} km`).join("\n")} language={language} document={async () => ({ blob: await downloadVehicleLogbookPdf(selectedResource, selectedResourceLogbook, activePersonnel, false, false), name: `${safeFileName(selectedResource.name)}.pdf` })} downloads={[{ label: lt("PDF ohne Bilder"), run: async () => { await downloadVehicleLogbookPdf(selectedResource, selectedResourceLogbook, activePersonnel, false); } }, { label: lt("PDF mit Bildern"), run: async () => { await downloadVehicleLogbookPdf(selectedResource, selectedResourceLogbook, activePersonnel, true); } }]} />
                         <button className="ghost-button" disabled={!selectedResourceRegulation} onClick={() => selectedResourceRegulation && setRegulationViewer(selectedResourceRegulation)} type="button">
                           <FileText size={16} />
                           {lt("Vorgaben für dieses Fahrzeug")}
@@ -23072,14 +23061,7 @@ function MasterDataView({
           {resourceModalView === "details" ? (
           <div className="form-grid compact-form master-data-editor resource-editor-grid">
             <aside className="resource-corner-gallery">
-              <div
-                aria-label={selectedResourceImage ? `Ressourcenbild ${selectedResourceImage.name}` : "Kein Ressourcenbild"}
-                className={selectedResourceImage?.previewUrl ? "resource-corner-image" : "resource-corner-image placeholder"}
-                role="img"
-                style={selectedResourceImage?.previewUrl ? { backgroundImage: `url(${selectedResourceImage.previewUrl})` } : undefined}
-              >
-                {!selectedResourceImage?.previewUrl ? <Camera size={22} /> : null}
-              </div>
+              <ResourceImage item={selectedResourceImage} label={selectedResourceImage ? `Ressourcenbild ${selectedResourceImage.name}` : "Kein Ressourcenbild"} className="resource-corner-image" />
               <div className="resource-corner-actions">
                 <button aria-label="Vorheriges Bild" className="icon-button" disabled={resourceImages.length < 2} onClick={showPreviousResourceImage} type="button">
                   <ArrowLeft size={14} />
@@ -23511,18 +23493,7 @@ function MasterDataView({
                 const previewImage = primaryResourceImage(resource);
                 return (
                 <article className="resource-master-card clickable-master-card" key={resource.id} onClick={() => editResource(resource)}>
-                  {previewImage?.previewUrl ? (
-                    <div
-                      aria-label={`Vorschaubild ${resource.name}`}
-                      className="resource-card-preview"
-                      role="img"
-                      style={{ backgroundImage: `url(${previewImage.previewUrl})` }}
-                    />
-                  ) : (
-                    <div className="resource-card-preview placeholder" aria-hidden="true">
-                      <CarFront size={18} />
-                    </div>
-                  )}
+                  <ResourceImage item={previewImage} label={`Vorschaubild ${resource.name}`} className="resource-card-preview" />
                   <span>{resourceTypes.types.find((type) => type.id === resource.resourceTypeId)?.name ?? tt(resource.type)}</span>
                   <strong>{resource.name}</strong>
                   <small>{[resource.identifier, resource.location, personName(resource.responsiblePersonId)].filter(Boolean).join(" · ")}</small>
@@ -23544,18 +23515,7 @@ function MasterDataView({
                 const previewImage = primaryResourceImage(resource);
                 return (
                   <article className="resource-table-row clickable-master-card" key={resource.id} onClick={() => editResource(resource)}>
-                    {previewImage?.previewUrl ? (
-                      <div
-                        aria-label={`Vorschaubild ${resource.name}`}
-                        className="resource-table-preview"
-                        role="img"
-                        style={{ backgroundImage: `url(${previewImage.previewUrl})` }}
-                      />
-                    ) : (
-                      <div className="resource-table-preview placeholder" aria-hidden="true">
-                        <CarFront size={18} />
-                      </div>
-                    )}
+                    <ResourceImage item={previewImage} label={`Vorschaubild ${resource.name}`} className="resource-table-preview" />
                     <div>
                       <strong>{resource.name}</strong>
                       <span>{resourceTypes.types.find((type) => type.id === resource.resourceTypeId)?.name ?? tt(resource.type)} · {[resource.identifier, resource.location, personName(resource.responsiblePersonId)].filter(Boolean).join(" · ") || tt("Stammdaten offen")}</span>
@@ -24540,18 +24500,12 @@ function ObjectHistory({
               <span>{selectedHistory.date} · {object.name}</span>
             </div>
             <div className="row-actions">
-              <IconAction label={`PDF für ${selectedHistory.title} herunterladen`} onClick={() => selectedReport && void downloadCustomerReportPdf(selectedReport, object, selectedJob, reportCustomer)}><FileDown size={16} /></IconAction>
+              {selectedReport && <CustomerReportActions report={selectedReport} object={object} job={selectedJob} customer={reportCustomer} language={language} onEmail={() => onSendReport(selectedReport)} />}
               {selectedReport?.sentAt && (
                 <IconAction label={`Bericht ${selectedHistory.title} entsperren`} onClick={() => selectedReport && void onUnlockReport(selectedReport)}>
                   <KeyRound size={16} />
                 </IconAction>
               )}
-              <IconAction
-                label={`Bericht ${selectedHistory.title} an Kunden senden`}
-                onClick={() => selectedReport && onSendReport(selectedReport)}
-              >
-                <Send size={16} />
-              </IconAction>
             </div>
           </div>
           <dl>
@@ -25937,9 +25891,8 @@ function JobForm({
       : [];
   });
 
-  async function downloadShoppingListPdf() {
+  async function createShoppingListPdf() {
     const branding = reportBrandingSnapshot();
-    if (!materialShortages.length) return;
     const { jsPDF } = await import("jspdf");
     const pdf = new jsPDF({ unit: "mm", format: "a4" });
     const pageWidth = pdf.internal.pageSize.getWidth();
@@ -25975,14 +25928,7 @@ function JobForm({
       y += Math.max(7, nameLines.length * 5);
     });
     await stampReportLogo(pdf, branding);
-    const url = URL.createObjectURL(pdf.output("blob"));
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `Einkaufsliste-${safeFileName(newJob.title || "Auftrag")}.pdf`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
+    return pdf.output("blob");
   }
 
   function toggleWeekday(day: string) {
@@ -26278,10 +26224,7 @@ function JobForm({
             {tt("Material manuell")}
           </button>
           {materialShortages.length > 0 && (
-            <button className="ghost-button warning-action" onClick={() => void downloadShoppingListPdf()} type="button">
-              <ClipboardList size={16} />
-              {tt("Einkaufsliste PDF")}
-            </button>
+            <CommunicationActions title={`${tt("Einkaufsliste PDF")} · ${newJob.title}`} text={materialShortages.map(({ item, missing, unit, supplier }) => `${item.name}: ${formatInventoryQuantity(missing)} ${unit} · ${supplier}`).join("\n")} language={language} document={async () => ({ blob: await createShoppingListPdf(), name: `Einkaufsliste-${safeFileName(newJob.title || "Auftrag")}.pdf` })} />
           )}
         </div>
         {materialShortages.length > 0 && (

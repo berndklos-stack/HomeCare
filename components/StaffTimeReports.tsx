@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, Download, Mail, MessageSquare, Printer, Share2 } from "lucide-react";
+import { ChevronDown } from "lucide-react";
+import { CommunicationActions } from "./CommunicationActions";
 import { apiFetch } from "@/lib/apiClient";
 import { buildStaffReport, staffReportText, type StaffReportLanguage, type StaffReportScope } from "@/lib/staffTimeReports";
 import type { StaffTimeData } from "@/lib/staffTime";
@@ -10,6 +11,7 @@ import { excelReportLogo, reportBrandingSnapshot, reportLogoDataUrl, reportExcel
 
 export function StaffTimeReports({ data, month, language }: { data: StaffTimeData; month: string; language: StaffReportLanguage }) {
   const [scope, setScope] = useState<StaffReportScope>("month");
+  const [employeeId, setEmployeeId] = useState("");
   const [selectedDay, setSelectedDay] = useState(`${month}-01`);
   const day = selectedDay.startsWith(month) ? selectedDay : `${month}-01`;
   const [company, setCompany] = useState<{ month: string; snapshot: StaffTimeData; data: StaffTimeData } | null>(null);
@@ -26,17 +28,17 @@ export function StaffTimeReports({ data, month, language }: { data: StaffTimeDat
   const frame = useRef<HTMLIFrameElement>(null);
   const t = (de: string, sv: string, en: string) => language === "sv" ? sv : language === "en" ? en : de;
   useEffect(() => {
-    if (scope !== "company" || !data.canManage) return;
+    if (!data.canManage) return;
     const controller = new AbortController();
     void apiFetch(`/api/staff-time?scope=company&month=${month}`, { signal: controller.signal }).then(async response => {
       const result = await response.json(); if (!response.ok) throw new Error(result.error);
       if (!controller.signal.aborted) { setError(""); setCompany({ month, snapshot: data, data: result }); }
     }).catch(cause => { if (!controller.signal.aborted) setError(String(cause.message)); });
     return () => controller.abort();
-  }, [scope, month, data]);
-  const source = scope === "company" ? company?.month === month && company.snapshot === data ? company.data : null : data;
+  }, [month, data]);
+  const source = data.canManage ? company?.month === month && company.snapshot === data ? company.data : null : data;
   const logoReady = logo?.key === brandingKey;
-  const report = source && logoReady && !logo.error ? buildStaffReport(source, month, scope, day, language, { ...JSON.parse(brandingKey), logoUrl: logo.data }) : null;
+  const report = source && logoReady && !logo.error ? buildStaffReport(source, month, scope, day, language, { ...JSON.parse(brandingKey), logoUrl: logo.data }, data.canManage ? employeeId : data.employeeId) : null;
   async function excel() {
     if (!report || exporting) return;
     setExporting(true); setError("");
@@ -63,18 +65,13 @@ export function StaffTimeReports({ data, month, language }: { data: StaffTimeDat
     } catch { setError(t("Export fehlgeschlagen.", "Export misslyckades.", "Export failed.")); } finally { setExporting(false); }
   }
   return <section className={styles.band} aria-label={t("Berichte", "Rapporter", "Reports")}>
-    <div className={styles.filters}><label>{t("Bericht", "Rapport", "Report")}<select aria-label={t("Bericht", "Rapport", "Report")} value={scope} onChange={event => { setError(""); setCompany(null); setScope(event.target.value as StaffReportScope); }}>{(["day", "month", ...(data.canManage ? ["company"] : [])] as StaffReportScope[]).map(key => <option key={key} value={key}>{staffReportText(language, key)}</option>)}</select><ChevronDown className={styles.selectChevron} size={16}/></label>
+    <div className={styles.filters}><label>{t("Bericht", "Rapport", "Report")}<select aria-label={t("Bericht", "Rapport", "Report")} value={scope} onChange={event => setScope(event.target.value as StaffReportScope)}>{(["day", "month", ...(data.canManage ? ["company"] : [])] as StaffReportScope[]).map(key => <option key={key} value={key}>{staffReportText(language, key)}</option>)}</select><ChevronDown className={styles.selectChevron} size={16}/></label>
+      {data.canManage && <label>{staffReportText(language, "employee")}<select aria-label={staffReportText(language, "employee")} value={employeeId} disabled={!source || exporting} onChange={event => setEmployeeId(event.target.value)}><option value="">{staffReportText(language, "allEmployees")}</option>{source?.employees.map(employee => <option key={employee.id} value={employee.id}>{employee.name}</option>)}</select><ChevronDown className={styles.selectChevron} size={16}/></label>}
       {scope === "day" && <label>{staffReportText(language, "date")}<input type="date" min={`${month}-01`} max={`${month}-${new Date(Number(month.slice(0, 4)), Number(month.slice(5)), 0).getDate()}`} value={day} onChange={event => { if (event.target.value.startsWith(month)) setSelectedDay(event.target.value); }}/></label>}
     </div>
     {error && <p role="alert">{error}</p>}
     {logoReady && logo.error && <p role="alert">{logo.error}</p>}
     {!report && !error && <p role="status">{t("Bericht wird geladen …", "Rapporten laddas …", "Loading report …")}</p>}
-    {report && <><div className={styles.header}><h3>{report.title}</h3><div className={styles.actions}>
-      <button className="ghost-button icon-button" type="button" title={t("Drucken / PDF", "Skriv ut / PDF", "Print / PDF")} aria-label={t("Drucken / PDF", "Skriv ut / PDF", "Print / PDF")} onClick={() => { frame.current?.contentWindow?.focus(); frame.current?.contentWindow?.print(); }}><Printer size={18}/></button>
-      <button className="ghost-button icon-button" type="button" disabled={exporting} title="Excel" aria-label="Excel" onClick={() => void excel()}><Download size={18}/></button>
-      <a className="ghost-button icon-button" title="E-Mail" aria-label="E-Mail" href={`mailto:?subject=${encodeURIComponent(report.title)}&body=${encodeURIComponent(report.text)}`}><Mail size={18}/></a>
-      <a className="ghost-button icon-button" title="SMS" aria-label="SMS" href={`sms:?&body=${encodeURIComponent(report.text)}`}><MessageSquare size={18}/></a>
-      {typeof navigator !== "undefined" && typeof navigator.share === "function" && <button className="ghost-button icon-button" type="button" title={t("Teilen", "Dela", "Share")} aria-label={t("Teilen", "Dela", "Share")} onClick={() => void navigator.share({ title: report.title, text: report.text }).catch(() => {})}><Share2 size={18}/></button>}
-    </div></div><iframe className={styles.reportFrame} ref={frame} title={report.title} srcDoc={report.html} sandbox="allow-same-origin allow-modals"/></>}
+    {report && <><div className={styles.header}><h3>{report.title}</h3><CommunicationActions title={report.title} text={report.text} language={language} disabled={exporting} onPrint={() => { frame.current?.contentWindow?.focus(); frame.current?.contentWindow?.print(); }} downloads={[{ label: "Excel", run: excel }]} /></div><iframe className={styles.reportFrame} ref={frame} title={report.title} srcDoc={report.html} sandbox="allow-same-origin allow-modals"/></>}
   </section>;
 }

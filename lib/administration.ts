@@ -1,10 +1,11 @@
 export const companyModules = ["jobs", "reports", "time_tracking", "billing", "inventory", "logbook", "customer_portal", "dispatch", "documents", "ai", "integrations"] as const;
 export type CompanyModule = typeof companyModules[number];
+export const platformTenantId = "00000000-0000-0000-0000-000000000001";
 export type CompanyInput = {
   name: string; country: string; locale: "de" | "sv" | "en"; timezone: string;
   organizationNumber: string; vatNumber: string; ownerEmail: string;
   accountType: "production" | "pilot" | "demo"; pilotStartDate: string; pilotEndDate: string;
-  contactPerson: string; internalLabel: string; notes: string; modules: CompanyModule[];
+  contactPerson: string; internalLabel: string; notes: string; modules: CompanyModule[]; userLimit?: number | null;
 };
 export type CompanyDirectoryEntry = { id: string; name: string; email: string | null; account_type: string; archived: boolean; country_code: string | null };
 export type CompanyAdministrationDetail = { id: string; revision: number; settingsRevision: number; archived: boolean; company: CompanyInput };
@@ -22,6 +23,7 @@ export type AdministrationData = {
   feedback: { id: string; category: string; message: string; created_at: string; app_version?: string; page_path?: string; user_agent?: string }[];
   canManageMembers: boolean; canManageCompany: boolean; canManageRoles: boolean; platformAdmin: boolean; owner: boolean;
   memberTotal?: number;
+  userLimit?: number | null; userCount?: number;
 };
 export const permissionDomains: Record<string, string[]> = {
   "Allgemein": ["data.read", "data.write", "sync.write"],
@@ -53,6 +55,7 @@ export function validateCompany(value: unknown): CompanyInput {
   if (v.accountType === "pilot" && !v.pilotStartDate) throw new Error("Pilotbeginn fehlt.");
   if (v.pilotEndDate && (!v.pilotStartDate || (v.pilotEndDate as string) < (v.pilotStartDate as string))) throw new Error("Pilotende liegt vor dem Beginn.");
   if (!Array.isArray(v.modules) || new Set(v.modules).size !== v.modules.length || !v.modules.every(item => companyModules.includes(item))) throw new Error("Ungültige Modulauswahl.");
+  if (v.userLimit !== undefined && v.userLimit !== null && (!Number.isSafeInteger(v.userLimit) || Number(v.userLimit) < 1 || Number(v.userLimit) > 100000)) throw new Error("Benutzerlimit muss zwischen 1 und 100000 liegen.");
   return { ...v, name: (v.name as string).trim(), ownerEmail: (v.ownerEmail as string).trim().toLowerCase() } as CompanyInput;
 }
 export function validateCompanyUpdate(value: unknown): CompanyInput {

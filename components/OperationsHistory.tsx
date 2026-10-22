@@ -7,6 +7,7 @@ import { operationLabel } from "@/lib/operationsUi";
 import type { OperationsLanguage } from "@/lib/operations";
 import type { OperationsRow } from "@/lib/operationsCommands";
 import { TripDialog } from "./TripDialog";
+import { CommunicationActions } from "./CommunicationActions";
 import styles from "./OperationsWorkspace.module.css";
 
 export function OperationsHistory({ entity, parent, order = false, title, language, onClose }: {
@@ -96,7 +97,7 @@ export function OperationsHistory({ entity, parent, order = false, title, langua
     {error && <p role="alert">{t("historyFailed")}</p>}
     {preview ? <section className={styles.pdfPreview}>
       <div className={styles.toolbar}><button onClick={() => setPreview(null)}><ChevronLeft size={18} />{t("backToHistory")}</button>
-        <a href={preview.url} download={preview.name}><Download size={18} />{preview.name}</a></div>
+        <CommunicationActions title={preview.name} text={`${title}\n${preview.name}`} language={language} document={async () => ({ blob: await (await fetch(preview.url)).blob(), name: preview.name })} /></div>
       <iframe title={`${t("pdfPreview")}: ${preview.name}`} src={preview.url} />
     </section> : <><div className={styles.list} aria-busy={loading}>
       {!loading && !error && !rows.length && <p>{t("empty")}</p>}

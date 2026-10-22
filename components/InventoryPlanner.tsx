@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { Plus, FileText, Save, X } from "lucide-react";
+import { Plus, Save, X } from "lucide-react";
+import { CommunicationActions } from "./CommunicationActions";
 import { apiFetch } from "@/lib/apiClient";
 import { createStableId } from "@/lib/syncQueue";
 import { inventoryLocationPath, inventoryPlanPdf, orderInventoryItems, type InventoryLocation, type InventoryPlan } from "@/lib/inventoryPlan";
@@ -80,14 +81,6 @@ export function InventoryPlanner({ language, materials, locations, balances, pen
       setDirty(false); setClosing(false);
     } catch { setError(t.error); } finally { lock.current = false; setBusy(false); }
   }
-  async function pdf() {
-    if (!plan || busy) return;
-    setBusy(true); setError("");
-    try {
-      const blob = await inventoryPlanPdf(plan, sites, materials, language), url = URL.createObjectURL(blob), link = document.createElement("a");
-      link.href = url; link.download = `Inventur-${plan.id}.pdf`; link.click(); setTimeout(() => URL.revokeObjectURL(url), 60000);
-    } catch { setError(t.error); } finally { setBusy(false); }
-  }
   const ordered = plan ? orderInventoryItems(plan.items, sites, materials, language) : [];
   const close = () => { if (busy) return; if (dirty) setClosing(true); else setPlan(null); };
   const changeCount = (locationId: string, materialId: string, value: string) => {
@@ -125,7 +118,7 @@ export function InventoryPlanner({ language, materials, locations, balances, pen
       })}</div></>}
       {error && <p role="alert">{error}</p>}{saved && <p role="status">{t.saved}</p>}{pending && <p role="status">{t.pending}</p>}
       <footer className={styles.actions}>
-        {plan.revision > 0 && <button disabled={busy || dirty} onClick={() => void pdf()}><FileText size={18} />PDF</button>}
+        {plan.revision > 0 && <CommunicationActions title={`${t.plans} · ${plan.note}`} text={[plan.note, ...ordered.map(item => `${inventoryLocationPath(item.location_id, sites)} · ${materials.find(material => material.id === item.material_id)?.name ?? ""} · ${item.counted ?? "—"}`)].join("\n")} language={language} disabled={busy || dirty} document={async () => ({ blob: await inventoryPlanPdf(plan, sites, materials, language), name: `Inventur-${plan.id}.pdf` })} />}
         {!plan.completed_at && <button className={styles.primaryAction} disabled={busy || pending || !plan.note.trim()} onClick={() => void save(false)}><Save size={18} />{plan.revision ? t.save : t.create}</button>}
         {plan.revision > 0 && !plan.completed_at && <button disabled={busy || pending || plan.items.some((item) => item.counted === null) || !plan.note.trim()} onClick={() => void save(true)}>{t.complete}</button>}
       </footer>

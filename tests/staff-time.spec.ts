@@ -82,6 +82,8 @@ test("Berichte begrenzen Zeiten auf Tag und Monat und maskieren Inhalte", () => 
   expect(monthly.text).toContain("Arbeitszeit: 2:00 h");
   expect(staffReportRows(data, "2026-09", "day", "2026-09-30")[0].work).toBe(60);
   expect(staffReportRows(data, "2026-10", "company", "2026-10-01")).toHaveLength(2);
+  expect(staffReportRows(data, "2026-10", "month", "2026-10-01", "")).toHaveLength(2);
+  expect(staffReportRows(data, "2026-10", "day", "2026-10-01", "PER-2").map(row => row.employee.id)).toEqual(["PER-2"]);
   data.entries[0].ended_at = null;
   expect(staffReportRows(data, "2026-10", "month", "2026-10-01")[0].work).toBe(0);
 });
@@ -166,6 +168,7 @@ for (const width of [390, 820, 1440]) test(`Mitarbeiter stempelt, korrigiert und
   expect(commands.at(-1)?.command).toMatchObject({ action: "leave_request", employeeId: "PER-1", days: 2.5 });
   await workspace.getByRole("button", { name: "Berichte", exact: true }).click();
   await expect(workspace.getByLabel("Bericht", { exact: true }).locator('option[value="company"]')).toHaveCount(0);
+  await expect(workspace.getByLabel("Mitarbeiter", { exact: true })).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await workspace.getByRole("heading", { name: "Zeiterfassung", exact: true }).scrollIntoViewIfNeeded();
@@ -211,6 +214,22 @@ test("Firmenlogo steht rechts im druckbaren Personalbericht und ist in allen Exc
   await expect(logo).toHaveAttribute("src", /^data:image\/png/);
   await expect.poll(() => logo.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBe(80);
   expect((await logo.boundingBox())!.x).toBeGreaterThan((await frame.locator("body").boundingBox())!.x + 150);
+  const printable = await page.context().newPage();
+  await printable.setViewportSize({ width: 794, height: 1123 });
+  await printable.setContent(await frame.locator("html").evaluate(element => element.outerHTML));
+  await printable.emulateMedia({ media: "print" });
+  const printLogo = printable.getByRole("img", { name: "Eigene Berichtsfirma", exact: true });
+  await expect.poll(() => printLogo.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBe(80);
+  const printBox = (await printLogo.boundingBox())!, header = (await printable.locator("header").boundingBox())!;
+  expect(printBox.y).toBeGreaterThanOrEqual(header.y);
+  expect(printBox.x + printBox.width).toBeLessThanOrEqual(header.x + header.width + 1);
+  expect(printBox.x).toBeGreaterThan(header.x + header.width / 2);
+  await printable.screenshot({ path: test.info().outputPath("staff-report-print.png"), fullPage: true });
+  if (test.info().project.name === "chromium") {
+    const pdf = await printable.pdf({ path: test.info().outputPath("staff-report.pdf"), format: "A4", preferCSSPageSize: true, printBackground: true });
+    expect(pdf.toString("latin1")).toMatch(/\/Subtype\s*\/Image/);
+  }
+  await printable.close();
   const downloading = page.waitForEvent("download");
   await reports.getByRole("button", { name: "Excel", exact: true }).click();
   const file = (await (await downloading).path())!;
@@ -221,4 +240,93 @@ test("Firmenlogo steht rechts im druckbaren Personalbericht und ist in allen Exc
     expect(drawing).toContain("Eigene Berichtsfirma");
     expect(drawing).toMatch(/<(?:xdr:)?row>0<\//);
   }
+});
+
+for (const width of [390, 820]) test(`Berichte zeigen alle Mitarbeiter und filtern unabhängig vom Stempeln ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 1000 });
+  const { data, workspace } = await open(page, true);
+  data.entries.push({ ...data.entries[0], id: "e2110000-0000-4000-8000-000000000002", employee_id: "PER-2", note: "Nur anderer Mitarbeiter", ended_at: new Date(date.getTime() + 7200000).toISOString(), minutes: 120 });
+  await workspace.getByRole("button", { name: "Berichte", exact: true }).click();
+  const reports = workspace.getByRole("region", { name: "Berichte", exact: true });
+  const frame = page.frameLocator('iframe[title^="Monatsbericht"]');
+  await expect(reports.getByLabel("Mitarbeiter", { exact: true })).toHaveValue("");
+  await expect(frame.getByRole("heading", { name: "Example Worker", exact: true })).toBeVisible();
+  await expect(frame.getByRole("heading", { name: "Other Worker", exact: true })).toBeVisible();
+  await reports.getByLabel("Mitarbeiter", { exact: true }).selectOption("PER-2");
+  await expect(frame.getByRole("heading", { name: "Other Worker", exact: true })).toBeVisible();
+  await expect(frame.getByRole("heading", { name: "Example Worker", exact: true })).toHaveCount(0);
+  const downloading = page.waitForEvent("download");
+  await reports.getByRole("button", { name: "Excel", exact: true }).click();
+  const xml = execFileSync("unzip", ["-p", (await (await downloading).path())!, "xl/sharedStrings.xml"], { encoding: "utf8" });
+  expect(xml).toContain("Other Worker"); expect(xml).not.toContain("Example Worker");
+  await reports.getByLabel("Bericht", { exact: true }).selectOption("day");
+  await reports.getByLabel("Datum", { exact: true }).fill(`${month}-${String(date.getDate()).padStart(2, "0")}`);
+  await expect(page.frameLocator('iframe[title^="Tagesbericht"]').getByRole("heading", { name: "Other Worker", exact: true })).toBeVisible();
+  await reports.getByLabel("Mitarbeiter", { exact: true }).selectOption("");
+  await expect(page.frameLocator('iframe[title^="Tagesbericht"]').getByRole("heading", { name: "Example Worker", exact: true })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await workspace.getByRole("button", { name: "Stempeln", exact: true }).click();
+  await expect(workspace.getByLabel("Mitarbeiter", { exact: true })).toHaveValue("PER-1");
+});
+
+test("Firmenadministrator ohne eigene Mitarbeiterzuordnung kann alle Personalberichte öffnen", async ({ page }) => {
+  const data = { ...fixture(true), employeeId: "", ownEmployeeId: null };
+  await page.route("**/api/staff-time**", route => route.fulfill({ json: data }));
+  await page.goto("/");
+  await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true");
+  await page.getByRole("button", { name: "Zeiterfassung", exact: true }).click();
+  await page.getByRole("region", { name: "Zeiterfassung", exact: true }).getByRole("button", { name: "Berichte", exact: true }).click();
+  await expect(page.frameLocator('iframe[title^="Monatsbericht"]').getByRole("heading", { name: "Other Worker", exact: true })).toBeVisible();
+});
+
+test("Kommunikationsleiste bleibt mobil erreichbar und teilt nur den ausgewählten Bericht", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 850 });
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "share", { configurable: true, value: async (data: ShareData) => { document.body.dataset.sharedReport = JSON.stringify(data); } });
+  });
+  const { workspace } = await open(page, true);
+  await workspace.getByRole("button", { name: "Berichte", exact: true }).click();
+  const reports = workspace.getByRole("region", { name: "Berichte", exact: true });
+  const actions = reports.getByRole("group", { name: "Dokumentaktionen" });
+  await expect(actions).toBeVisible();
+  const controls = actions.locator(":scope > button, :scope > a");
+  await expect(controls).toHaveCount(5);
+  for (const control of await controls.all()) {
+    const box = (await control.boundingBox())!;
+    expect(box.width).toBe(44); expect(box.height).toBe(44);
+    expect(box.x).toBeGreaterThanOrEqual(0); expect(box.x + box.width).toBeLessThanOrEqual(320);
+    await expect(control).toHaveAttribute("title", /.+/);
+  }
+  await reports.getByLabel("Mitarbeiter", { exact: true }).selectOption("PER-2");
+  await expect(page.frameLocator('iframe[title^="Monatsbericht"]').getByRole("heading", { name: "Other Worker", exact: true })).toBeVisible();
+  await actions.getByRole("button", { name: "Teilen", exact: true }).click();
+  const payload = JSON.parse((await page.locator("body").getAttribute("data-shared-report"))!);
+  expect(payload.text).toContain("Other Worker"); expect(payload.text).not.toContain("Example Worker");
+  expect(payload.url).toBeUndefined();
+  const mail = await actions.getByRole("link", { name: "E-Mail", exact: true }).getAttribute("href");
+  expect(new URL(mail!).searchParams.get("body")).toBe(payload.text);
+  const sms = await actions.getByRole("link", { name: "SMS", exact: true }).getAttribute("href");
+  expect(new URL(sms!).searchParams.get("body")).toBe(`${payload.title}\n\n${payload.text}`);
+  await page.screenshot({ path: test.info().outputPath("communication-actions-mobile.png") });
+});
+
+test("Teilen-Abbruch ist kein Fehler und Browser ohne Teilen können Inhalte kopieren", async ({ page }) => {
+  const { workspace } = await open(page, true);
+  await workspace.getByRole("button", { name: "Berichte", exact: true }).click();
+  const reports = workspace.getByRole("region", { name: "Berichte", exact: true });
+  const actions = reports.getByRole("group", { name: "Dokumentaktionen" });
+  await page.evaluate(() => Object.defineProperty(navigator, "share", { configurable: true, value: () => Promise.reject(new DOMException("Cancelled", "AbortError")) }));
+  await actions.getByRole("button", { name: "Teilen", exact: true }).click();
+  await expect(actions).toHaveAttribute("aria-busy", "false");
+  await expect(reports.getByRole("alert")).toHaveCount(0);
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, "share", { configurable: true, value: undefined });
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async (text: string) => { document.body.dataset.copiedReport = text; } } });
+  });
+  await actions.getByRole("button", { name: "Teilen", exact: true }).click();
+  await expect(reports.getByRole("status")).toHaveText("Inhalt zum Teilen kopiert.");
+  expect(await page.locator("body").getAttribute("data-copied-report")).toContain("Example Worker");
+  await page.evaluate(() => Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: () => Promise.reject(new Error("Denied")) } }));
+  await actions.getByRole("button", { name: "Teilen", exact: true }).click();
+  await expect(reports.getByRole("alert")).toHaveText("Die Aktion konnte nicht ausgeführt werden. Bitte erneut versuchen.");
 });

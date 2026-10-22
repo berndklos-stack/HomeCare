@@ -34,6 +34,7 @@ export type PortalAccess = {
 };
 
 export type AuthContextPayload = {
+  platformAdmin?: boolean;
   activeTenantId: string | null;
   memberships: TenantMembership[];
   portalAccess: PortalAccess[];

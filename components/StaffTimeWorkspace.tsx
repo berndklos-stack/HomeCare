@@ -120,15 +120,15 @@ export function StaffTimeWorkspace({ language, dirtyChanged, busyChanged }: { la
   return <section className={styles.workspace} aria-label={t("title")}>
     <header className={styles.header}><h2>{t("title")}</h2><button className="ghost-button icon-button" type="button" disabled={busy} title={t("reload")} aria-label={t("reload")} onClick={() => setReload(value => value + 1)}><RefreshCw size={18}/></button></header>
     <div className={styles.filters}>
-      <label>{t("employee")}<select aria-label={t("employee")} value={employeeId} disabled={busy || !data?.canManage} onChange={event => changeContext(() => setEmployeeId(event.target.value))}><option value="">—</option>{data?.employees.map(row => <option key={row.id} value={row.id}>{row.name}</option>)}</select><ChevronDown className={styles.selectChevron} size={16}/></label>
+      {tab !== "reports" && <label>{t("employee")}<select aria-label={t("employee")} value={employeeId} disabled={busy || !data?.canManage} onChange={event => changeContext(() => setEmployeeId(event.target.value))}><option value="">—</option>{data?.employees.map(row => <option key={row.id} value={row.id}>{row.name}</option>)}</select><ChevronDown className={styles.selectChevron} size={16}/></label>}
       <label>{t("month")}<input type="month" value={month} disabled={busy} onChange={event => { if (event.target.value) changeContext(() => setMonth(event.target.value)); }}/></label>
     </div>
     <nav className="master-data-tabs" aria-label={t("title")}>{(["clock", "times", "leave", "reports"] as const).map(key => <button key={key} type="button" aria-pressed={tab === key} className={tab === key ? "active" : ""} onClick={() => changeContext(() => setTab(key))}>{t(key)}</button>)}</nav>
     {error && <p role="alert">{error}</p>}{notice && <p role="status">{notice}</p>}
     {loading && <p role="status">{t("loading")}</p>}
-    {data && !employeeId && !loading && <p>{data.canManage ? t("employee") : t("missing")}</p>}
+    {data && !employeeId && !loading && tab !== "reports" && <p>{data.canManage ? t("employee") : t("missing")}</p>}
+    {tab === "reports" && data && !loading && <StaffTimeReports data={data} month={month} language={language}/>}
     {current && employeeId && <>
-      {tab === "reports" && <StaffTimeReports data={current} month={month} language={language}/>}
       {tab !== "clock" && tab !== "reports" && <dl className={styles.totals}>{(["work", "pause", "interruption"] as const).map(kind => <div key={kind}><dt>{t(kind === "work" ? "workingTime" : kind)}</dt><dd>{formatStaffMinutes(entries.filter(row => row.kind === kind || (kind === "work" && row.kind === "interruption")).reduce((sum, row) => sum + staffMinutesInMonth(row, month), 0))} h</dd></div>)}</dl>}
       {tab === "clock" && <section className={styles.band} aria-label={t("clock")}>
         <div className={styles.clock}><Clock3 size={24}/><div><h3>{active ? t(active.kind) : t("ready")}</h3>{active && <p>{t("running")} {date(active.started_at)} · <strong>{formatStaffMinutes(Math.max(0, now - Date.parse(active.started_at)) / 60000)} h</strong></p>}</div></div>

@@ -60,6 +60,7 @@ for (const mobile of [false, true]) test(`Gesamtbestand Export und Inventur ${mo
   await page.getByRole("checkbox", { name: "Archivierte Materialien anzeigen" }).check();
   await expect(table).toContainText("Archiviertes Material"); await expect(table).toContainText("Ohne Bestand");
   for (const format of ["Excel", "PDF"]) {
+    await page.getByLabel("Herunterladen", { exact: true }).click();
     const download = page.waitForEvent("download");
     await page.getByRole("button", { name: format, exact: true }).click();
     const file = await download;
@@ -80,7 +81,7 @@ for (const mobile of [false, true]) test(`Gesamtbestand Export und Inventur ${mo
   await dialog.getByRole("button", { name: "Inventur anlegen", exact: true }).click();
   await expect(dialog).toContainText("Inventur-ID");
   const download = page.waitForEvent("download");
-  await dialog.getByRole("button", { name: "PDF", exact: true }).click();
+  await dialog.getByRole("button", { name: "Herunterladen", exact: true }).click();
   const pdf = await download;
   await pdf.saveAs(`test-results/inventory-plan-${mobile}-${testInfo.project.name}.pdf`);
   expect((await readFile((await pdf.path())!)).toString("latin1")).toMatch(/\/Subtype\s*\/Image/);

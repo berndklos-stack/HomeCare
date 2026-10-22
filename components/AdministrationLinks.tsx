@@ -11,8 +11,7 @@ export function AdministrationLinks({ section = "" }: { section?: string }) {
     void apiFetch("/api/auth/context").then(async response => {
       if (!response.ok) return;
       const context = await response.json() as AuthContextPayload;
-      const membership = context.memberships.find(m => m.tenantId === context.activeTenantId);
-      if (!cancelled) setAllowed(Boolean(membership?.permissions.some(p => ["tenant.admin", "members.manage", "roles.manage"].includes(p))));
+      if (!cancelled) setAllowed(context.platformAdmin === true);
     }).catch(() => {});
     return () => { cancelled = true; };
   }, []);

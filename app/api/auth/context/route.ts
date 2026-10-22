@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { loadMemberships, loadPortalAccess, serviceClient } from "@/lib/server/apiAuth";
 import { createClient } from "@supabase/supabase-js";
+import { isPlatformAdmin } from "@/lib/server/administration";
 
 export const runtime = "nodejs";
 
@@ -26,6 +27,7 @@ export async function GET(request: Request) {
       : memberships[0]?.tenantId ?? portalAccess[0]?.tenantId ?? null;
     return NextResponse.json({
       activeTenantId,
+      platformAdmin: Boolean(activeTenantId && isPlatformAdmin(data.user.id, activeTenantId) && memberships.find(m => m.tenantId === activeTenantId)?.permissions.includes("tenant.admin")),
       memberships,
       portalAccess,
       user: { email: data.user.email ?? "", id: data.user.id },

@@ -3,6 +3,7 @@ import { administrationError, administrationResponse, isPlatformAdmin, preventAd
 import { validEmail, validUuid } from "@/lib/administration";
 import { companyAdministrationScope } from "@/lib/server/companyAdministrationScope";
 import { NextResponse } from "next/server";
+import { deliverMemberPasswordReset } from "@/lib/server/memberPasswordReset";
 
 export const runtime = "nodejs";
 
@@ -28,9 +29,12 @@ export async function GET(request: Request) {
     const employees = canManageMembers ? await client.from("homecare_personnel").select("id,first_name,last_name,links:homecare_tenant_memberships!membership_employee_tenant_fk(user_id)").eq("tenant_id", auth.tenantId).is("deleted_at", null).eq("archived", false).order("last_name").limit(1000) : { data: [], error: null };
     const modules = canManageCompany ? await client.from("homecare_tenant_modules").select("module,enabled").eq("tenant_id", auth.tenantId) : { data: [], error: null };
     const feedback = canManageCompany ? await client.from("homecare_feedback").select("id,category,message,created_at,app_version,page_path,user_agent").eq("tenant_id", auth.tenantId).order("created_at", { ascending: false }).limit(100) : { data: [], error: null };
-    for (const result of [company, roles, directory, employees, modules, feedback]) if (result.error) throw result.error;
+    const quota = canManageMembers ? await client.from("homecare_company_user_limits").select("max_users").eq("tenant_id", auth.tenantId).maybeSingle() : { data: null, error: null };
+    const users = canManageMembers ? await client.from("homecare_tenant_memberships").select("id", { count: "exact", head: true }).eq("tenant_id", auth.tenantId).neq("status", "revoked") : { count: 0, error: null };
+    for (const result of [company, roles, directory, employees, modules, feedback, quota, users]) if (result.error) throw result.error;
     return administrationResponse({ company: company.data, roles: roles.data, members: directory.data.members, memberTotal: directory.data.total, employees: (employees.data ?? []).map(e => ({ id: e.id, first_name: e.first_name, last_name: e.last_name, assignedUserId: e.links[0]?.user_id ?? null })), modules: modules.data, feedback: feedback.data,
-      canManageMembers, canManageCompany, canManageRoles: auth.membership.permissions.includes("roles.manage"), platformAdmin: isPlatformAdmin(auth.user.id), owner: auth.membership.roleKey === "owner" });
+      userLimit: quota.data?.max_users ?? null, userCount: users.count ?? 0,
+      canManageMembers, canManageCompany, canManageRoles: auth.membership.permissions.includes("roles.manage"), platformAdmin: isPlatformAdmin(identity.user.id, identity.tenantId), owner: auth.membership.roleKey === "owner" });
   } catch (error) { return administrationError(error); }
 }
 
@@ -44,6 +48,10 @@ export async function POST(request: Request) {
   if (!body || !validEmail(body.email) || !validUuid(body.roleId) || (body.employeeId != null && (typeof body.employeeId !== "string" || body.employeeId.length > 200))) return administrationResponse({ error: "E-Mail, Rolle und Mitarbeiter prüfen." }, 400);
   const email = body.email.trim().toLowerCase();
   try {
+    const quota = await auth.serviceClient.from("homecare_company_user_limits").select("max_users").eq("tenant_id", auth.tenantId).maybeSingle();
+    const users = await auth.serviceClient.from("homecare_tenant_memberships").select("id", { count: "exact", head: true }).eq("tenant_id", auth.tenantId).neq("status", "revoked");
+    if (quota.error || users.error) throw quota.error ?? users.error;
+    if (quota.data?.max_users != null && (users.count ?? 0) >= quota.data.max_users) return administrationResponse({ error: "Das Benutzerlimit dieser Firma ist erreicht." }, 409);
     // Check role and duplicates before creating any Auth identity.
     const role = await auth.serviceClient.from("homecare_roles").select("key").eq("tenant_id", auth.tenantId).eq("id", body.roleId).single();
     if (role.error || (role.data.key === "owner" && auth.membership.roleKey !== "owner")) return administrationResponse({ error: "Diese Rolle darfst du nicht vergeben." }, 403);
@@ -65,10 +73,15 @@ export async function PATCH(request: Request) {
   const body = await request.json().catch(() => null);
   const scope = await companyAdministrationScope(identity, body?.tenantId); if (scope instanceof NextResponse) return scope;
   const auth = { ...identity, tenantId: scope.tenantId, membership: scope.platform ? { ...identity.membership, roleKey: "owner" } : identity.membership };
-  if (!body || !["resend", "role", "employee", "suspend", "reactivate", "remove"].includes(body.action) || !validUuid(body.memberId)) return administrationResponse({ error: "Ungültige Benutzeraktion." }, 400);
+  if (!body || !["resend", "role", "employee", "suspend", "reactivate", "remove", "resetPassword"].includes(body.action) || !validUuid(body.memberId)) return administrationResponse({ error: "Ungültige Benutzeraktion." }, 400);
   if (body.action === "role" && !validUuid(body.roleId)) return administrationResponse({ error: "Rolle fehlt." }, 400);
   if (body.action === "employee" && body.employeeId != null && (typeof body.employeeId !== "string" || body.employeeId.length > 200)) return administrationResponse({ error: "Mitarbeiter prüfen." }, 400);
   try {
+    if (body.action === "resetPassword") {
+      const result = await auth.serviceClient.rpc("homecare_request_member_password_reset", { p_home: scope.homeTenantId, p_tenant: auth.tenantId, p_actor: auth.user.id, p_member: body.memberId, p_platform: isPlatformAdmin(identity.user.id, identity.tenantId) });
+      if (result.error) throw result.error;
+      return administrationResponse(await deliverMemberPasswordReset(auth.serviceClient, result.data));
+    }
     if (body.action === "resend") {
       const member = await auth.serviceClient.from("homecare_tenant_memberships").select("user_id,role:homecare_roles!homecare_tenant_memberships_role_id_fkey(key)").eq("tenant_id", auth.tenantId).eq("id", body.memberId).single();
       if (member.error) throw member.error;

@@ -64,7 +64,7 @@ for (const width of [390, 820, 1440]) test(`Zentrale Firmen: richtige Firma, Kon
 test("Firmenadministrator sieht keine zentrale Firmenverwaltung", async ({ page, request }) => {
   await page.route(url => url.pathname === "/api/administration", route => route.fulfill({ json: { ...administration, platformAdmin: false } }));
   await page.goto("/administration");
-  await expect(page.getByRole("button", { name: "Firmen", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Benutzer in den Stammdaten verwalten", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Firma", exact: true })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Alle Firmen", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Neue Firma anlegen", exact: true })).toHaveCount(0);

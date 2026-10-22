@@ -22,6 +22,13 @@ Demo-Berechtigungen oder lokale Sammelspeicherung.
   Kein automatischer Mailversand. Ausgabeinhalte werden HTML-maskiert.
 - Der Sammelbericht liest ausschliesslich den authentifizierten Mandanten und
   erfordert serverseitig tenant.admin. Mitarbeiter behalten ihren eigenen Bereich.
+- Unter Berichte sehen Firmenadministratoren standardmaessig alle Mitarbeiter
+  mit eigenem Mitarbeiterfilter, unabhaengig von der Auswahl beim Stempeln.
+  Tages-, Monats-, Druck- und Excel-Ausgabe verwenden denselben Filter.
+  Personalberichte sind auch ohne eigene Mitarbeiterzuordnung erreichbar.
+- Das Firmenlogo steht im sichtbaren Druck-/PDF-Berichtskopf oben rechts.
+  Keine negative feste Druckposition ausserhalb des bedruckbaren Bereichs;
+  Druckdarstellung in WebKit und tatsaechliche Chromium-PDF geprueft.
 - Firmenadministratoren koennen Zeiten freigeben/sperren und entsperren.
 - Urlaubsantrag, Genehmigung, Ablehnung und Stornierung mit separatem Ereignisverlauf.
 - Jahreskonto je Mitarbeiter: Anspruch, Uebertrag und bereits ausserhalb erfasste Tage.

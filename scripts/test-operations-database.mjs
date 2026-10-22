@@ -35,6 +35,7 @@ try {
     if (!through || through >= "20261020150000") sql("supabase/tests/platform_company_editor.sql");
     if (!through || through >= "20261021100000") sql("supabase/tests/staff_time_and_leave.sql");
     if (!through || through >= "20261021120000") sql("supabase/tests/platform_company_members.sql");
+    if (!through || through >= "20261022090000") sql("supabase/tests/company_user_limits.sql");
     sql("supabase/tests/operations_full_chain.sql");
     sql("supabase/tests/job_stock_billing.sql");
     sql("supabase/tests/scan_target_projections.sql");

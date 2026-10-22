@@ -1,9 +1,10 @@
 import { expect, test } from "@playwright/test";
-import { feedbackPath, validateCompany, validEmail, validUuid, type AdministrationData, type CompanyInput } from "../lib/administration";
+import { feedbackPath, platformTenantId, validateCompany, validEmail, validUuid, type AdministrationData, type AdministrationMember, type CompanyInput } from "../lib/administration";
 import { defaultRolePermissions } from "../lib/authModel";
 import { deliverInvitation, isPlatformAdmin } from "../lib/server/administration";
 import { readBranding, saveCompanyBranding, validateBranding } from "../lib/server/companyBranding";
 import { defaultAppBranding } from "../lib/branding";
+import { deliverMemberPasswordReset } from "../lib/server/memberPasswordReset";
 import { activateTenant, activeTenantStorageKey, getActiveTenantId, pendingTenantStorageKey, tenantScopedStorageKey } from "../lib/apiClient";
 
 const company: CompanyInput = { name: "Pilot A", ownerEmail: "owner@example.invalid", country: "SE", locale: "de", timezone: "Europe/Stockholm", accountType: "pilot", pilotStartDate: "2026-10-15", pilotEndDate: "", contactPerson: "", internalLabel: "", notes: "", organizationNumber: "", vatNumber: "", modules: ["jobs", "reports"] };
@@ -48,7 +49,8 @@ test("Plattformanlage benötigt explizite Freischaltung", () => {
     delete process.env.WORKCORE_PLATFORM_ADMIN_USER_IDS;
     expect(isPlatformAdmin("owner")).toBe(false);
     process.env.WORKCORE_PLATFORM_ADMIN_USER_IDS = "one, two";
-    expect(isPlatformAdmin("two")).toBe(true); expect(isPlatformAdmin("three")).toBe(false);
+    expect(isPlatformAdmin("two", platformTenantId)).toBe(true); expect(isPlatformAdmin("three", platformTenantId)).toBe(false);
+    expect(isPlatformAdmin("two", data.company.id!)).toBe(false);
   } finally { if (previous === undefined) delete process.env.WORKCORE_PLATFORM_ADMIN_USER_IDS; else process.env.WORKCORE_PLATFORM_ADMIN_USER_IDS = previous; }
 });
 test("Einladungsversand: Zustellung, Providerfehler und Doppelsendesperre bleiben nachvollziehbar", async () => {
@@ -210,8 +212,104 @@ for (const width of [390, 820, 1440]) {
 test("Branding bleibt ohne Firmenadministrationsrecht verborgen", async ({ page }) => {
   await page.route(url => url.pathname === "/api/administration", route => route.fulfill({ json: { ...data, canManageCompany: false, platformAdmin: false } }));
   await page.goto("/administration");
-  await expect(page.getByRole("heading", { name: "Benutzer", exact: true })).toBeVisible();
+  await expect(page.getByRole("main").getByRole("alert")).toContainText("globale Administration");
   await expect(page.getByRole("button", { name: "System / Branding", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("navigation", { name: "Administration", exact: true }).getByRole("button", { name: "Feedback", exact: true })).toHaveCount(0);
+});
+
+test("Passwort-Reset sendet nur an bestaetigte Auth-Identitaet und gibt keine Tokens aus", async () => {
+  const env = { ...process.env }, oldFetch = globalThis.fetch;
+  try {
+    process.env.WORKCORE_APP_URL = "https://workcore.example.invalid";
+    process.env.RESEND_API_KEY = "test-key"; process.env.RESEND_FROM_EMAIL = "sender@example.invalid";
+    for (const mode of ["success", "failure", "mismatch"]) {
+      let sends = 0;
+      globalThis.fetch = async (input, init) => {
+        expect(String(input)).toBe("https://api.resend.com/emails"); sends++;
+        const body = JSON.parse(String(init?.body)); expect(body.to).toEqual(["canonical@example.invalid"]);
+        expect(body.text).toContain("private-recovery-token");
+        return new Response("{}", { status: mode === "failure" ? 503 : 200 });
+      };
+      const admin = { auth: { admin: { generateLink: async (input: { type: string; email: string; options: { redirectTo: string } }) => {
+        expect(input).toEqual({ type: "recovery", email: "canonical@example.invalid", options: { redirectTo: "https://workcore.example.invalid/auth/accept" } });
+        return { data: { user: { id: mode === "mismatch" ? "different-user" : "target-user" }, properties: { action_link: "https://auth.example.invalid/private-recovery-token" } }, error: null };
+      } } } };
+      const result = await deliverMemberPasswordReset(admin as never, { userId: "target-user", email: "canonical@example.invalid" });
+      expect(result.sent).toBe(mode === "success"); expect(sends).toBe(mode === "mismatch" ? 0 : 1);
+      expect(JSON.stringify(result)).not.toContain("private-recovery-token");
+    }
+  } finally { process.env = env; globalThis.fetch = oldFetch; }
+});
+
+test("Recovery-Link verlangt neues Passwort und Bestaetigung ohne Einladung anzunehmen", async ({ page }) => {
+  const userId = "a2209000-0000-4000-8000-000000000001";
+  const user = { id: userId, aud: "authenticated", role: "authenticated", email: "recovery@example.invalid", email_confirmed_at: new Date().toISOString(), app_metadata: { provider: "email", providers: ["email"] }, user_metadata: {}, identities: [], created_at: new Date().toISOString() };
+  const token = [Buffer.from('{"alg":"HS256","typ":"JWT"}').toString("base64url"), Buffer.from(JSON.stringify({ sub: userId, aud: "authenticated", role: "authenticated", exp: Math.floor(Date.now() / 1000) + 3600 })).toString("base64url"), "test-signature"].join(".");
+  const updates: unknown[] = [];
+  await page.route(/\/auth\/v1\//, async route => {
+    expect(new URL(route.request().url()).pathname).toBe("/auth/v1/user");
+    if (route.request().method() === "PUT") updates.push(route.request().postDataJSON());
+    return route.fulfill({ json: user });
+  });
+  await page.route(url => url.pathname === "/api/auth/context", () => { throw new Error("Recovery must not accept a company invitation"); });
+  await page.goto(`/auth/accept#access_token=${token}&refresh_token=test-refresh&expires_in=3600&token_type=bearer&type=recovery`);
+  await expect(page.getByRole("heading", { name: "Passwort zurücksetzen", exact: true })).toBeVisible();
+  await page.getByLabel("Neues Passwort", { exact: true }).fill("Test-Password-1234");
+  await page.getByLabel("Neues Passwort bestätigen", { exact: true }).fill("Other-Password-1234");
+  await page.getByRole("button", { name: "Passwort speichern", exact: true }).click();
+  await expect(page.getByRole("main").getByRole("alert")).toContainText("zweimal identisch"); expect(updates).toHaveLength(0);
+  await page.getByLabel("Neues Passwort bestätigen", { exact: true }).fill("Test-Password-1234");
+  await page.getByRole("button", { name: "Passwort speichern", exact: true }).click();
+  await expect(page.getByRole("status")).toHaveText("Dein Passwort wurde geändert.");
+  expect(updates).toHaveLength(1); expect(updates[0]).toMatchObject({ password: "Test-Password-1234" });
+});
+
+for (const width of [390, 820]) test(`Eigene Firmenbenutzer: Limit, Reset und Verwaltung ohne Plattformzugriff ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 1000 });
+  const commands: unknown[] = [];
+  await page.route(url => url.pathname === "/api/administration", async route => {
+    if (route.request().method() === "PATCH") { commands.push(route.request().postDataJSON()); return route.fulfill({ json: { sent: true } }); }
+    return route.fulfill({ json: { ...data, platformAdmin: false, userCount: 1, userLimit: 1 } });
+  });
+  await page.goto("/?masterData=users");
+  const users = page.getByRole("region", { name: "Benutzerverwaltung", exact: true });
+  await expect(users).toContainText("1 / 1 Firmenzugänge");
+  await expect(users.getByRole("button", { name: "Benutzer einladen", exact: true })).toBeDisabled();
+  await expect(page.getByRole("link", { name: "Administration", exact: true })).toHaveCount(0);
+  page.once("dialog", dialog => dialog.accept());
+  await users.getByRole("button", { name: "Passwort zurücksetzen: owner@example.invalid", exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: "E-Mail zum Passwort-Reset versandt." })).toBeVisible();
+  expect(commands).toEqual([{ memberId: data.members[0].id, action: "resetPassword" }]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+for (const width of [390, 820]) test(`Feedback als eigener Reiter und aktive/inaktive Benutzergruppen ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 1000 });
+  const suspended = { ...data.members[0], id: "c2112000-0000-4000-8000-000000000002", name: "Inaktiver Benutzer", email: "inactive@example.invalid", status: "suspended" as const };
+  const pending = { ...data.members[0], id: "c2112000-0000-4000-8000-000000000003", name: "Offene Einladung", email: "pending@example.invalid", status: "suspended" as const, invitation: { id: roleId, delivery_status: "sent", expires_at: "2026-12-01T00:00:00Z" } };
+  const members: AdministrationMember[] = [data.members[0], suspended, pending, { ...data.members[0], id: "c2112000-0000-4000-8000-000000000004", name: "Entzogener Zugang", email: "revoked@example.invalid", status: "revoked" }];
+  await page.route(url => url.pathname === "/api/administration", route => {
+    if (route.request().method() === "PATCH") {
+      const body = route.request().postDataJSON();
+      expect(body).toMatchObject({ memberId: suspended.id, action: "reactivate" });
+      members[1] = { ...members[1], status: "active" };
+      return route.fulfill({ json: { ok: true } });
+    }
+    return route.fulfill({ json: { ...data, platformAdmin: true, members, feedback: [{ id: roleId, category: "problem", message: "Feedback der eigenen Firma", created_at: "2026-10-22T08:00:00Z" }] } });
+  });
+  await page.goto("/?masterData=users");
+  const active = page.getByRole("region", { name: "Aktive Benutzer", exact: true });
+  const inactive = page.getByRole("region", { name: "Inaktive Benutzer", exact: true });
+  await expect(active.getByRole("heading", { name: "Example Owner", exact: true })).toBeVisible();
+  for (const name of ["Inaktiver Benutzer", "Offene Einladung", "Entzogener Zugang"]) await expect(inactive.getByRole("heading", { name, exact: true })).toBeVisible();
+  await expect(page.getByText("Feedback der eigenen Firma", { exact: true })).toHaveCount(0);
+  await inactive.getByRole("button", { name: "Reaktivieren: inactive@example.invalid", exact: true }).click();
+  await expect(active.getByRole("heading", { name: "Inaktiver Benutzer", exact: true })).toBeVisible();
+  await expect(inactive.getByRole("heading", { name: "Inaktiver Benutzer", exact: true })).toHaveCount(0);
+  await page.goto("/administration");
+  await page.getByRole("navigation", { name: "Administration", exact: true }).getByRole("button", { name: "Feedback", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Feedback", exact: true }).getByText("Feedback der eigenen Firma", { exact: true })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: test.info().outputPath(`administration-feedback-${width}.png`), fullPage: true });
 });
 for (const sent of [true, false]) test(`Firmenanlage öffnet zielgebundene Benutzerverwaltung; Einladungsversand ${sent ? "erfolgreich" : "fehlgeschlagen"}`, async ({ page }) => {
   const target = "b2112000-0000-4000-8000-000000000003";

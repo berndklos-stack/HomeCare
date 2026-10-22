@@ -10,6 +10,55 @@ async function openMaster(page: Page) {
   await page.getByRole("button", { name: "Stammdaten", exact: true }).click();
 }
 
+for (const width of [390, 820]) test(`Ressourcenfoto erscheint nach Upload in Galerie, Liste und Kachel bei ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 1000 });
+  const pixel = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=";
+  let reads = 0;
+  await page.route("**/api/media", route => {
+    expect(route.request().method()).toBe("POST");
+    expect(route.request().postData()).toContain("resource-photos");
+    return route.fulfill({ json: { path: "tenant/resource-photos/mower.png", url: "/api/media?path=tenant%2Fresource-photos%2Fmower.png", contentType: "image/png", size: 100 } });
+  });
+  await page.route("**/api/media?**", route => {
+    expect(route.request().resourceType()).toBe("fetch");
+    expect(route.request().headers()["x-workcore-e2e-bypass"]).toBe("1");
+    reads++;
+    return route.fulfill({ contentType: "image/png", body: Buffer.from(pixel, "base64") });
+  });
+  await openMaster(page);
+  await page.getByRole("button", { name: "Ressourcen", exact: true }).click();
+  await page.getByRole("button", { name: "Neue Ressource anlegen", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Ressourcentyp", { exact: true }).selectOption(defaultResourceTypes[2].id);
+  await dialog.getByLabel("Name", { exact: true }).fill("Foto Rasenmäher");
+  await dialog.getByRole("button", { name: "Ressource anlegen", exact: true }).click();
+  await expect(dialog.getByRole("status")).toContainText("wurde gespeichert");
+  await dialog.getByLabel("Bild zur Ressource hinzufügen", { exact: true }).setInputFiles({ name: "mower.png", mimeType: "image/png", buffer: Buffer.from(pixel, "base64") });
+  await expect(dialog.getByRole("img", { name: "Ressourcenbild mower.png", exact: true })).toHaveCSS("background-image", /blob:/);
+  await page.screenshot({ path: test.info().outputPath(`resource-photo-${width}.png`) });
+  await dialog.getByRole("button", { name: "Ressource schließen", exact: true }).click();
+  await expect(page.getByRole("img", { name: "Vorschaubild Foto Rasenmäher", exact: true })).toHaveCSS("background-image", /blob:/);
+  await page.getByRole("button", { name: "Ressourcen als Liste anzeigen", exact: true }).click();
+  await expect(page.getByRole("img", { name: "Vorschaubild Foto Rasenmäher", exact: true })).toHaveCSS("background-image", /blob:/);
+  // The database may return only a storage path after a reload; that remains displayable.
+  await page.evaluate(() => {
+    const resources = JSON.parse(localStorage.getItem("kolaretorp-resources") ?? "[]");
+    const resource = resources.find((entry: { name: string }) => entry.name === "Foto Rasenmäher");
+    for (const item of resource.media) delete item.previewUrl;
+    localStorage.setItem("kolaretorp-resources", JSON.stringify(resources));
+  });
+  await page.reload();
+  await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true");
+  await page.getByRole("button", { name: "Stammdaten", exact: true }).click();
+  await page.getByRole("button", { name: "Ressourcen", exact: true }).click();
+  await expect(page.getByRole("img", { name: "Vorschaubild Foto Rasenmäher", exact: true })).toHaveCSS("background-image", /blob:/);
+  await page.getByRole("button", { name: "Ressource Foto Rasenmäher bearbeiten", exact: true }).click();
+  await expect(dialog.getByRole("img", { name: "Ressourcenbild mower.png", exact: true })).toHaveCSS("background-image", /blob:/);
+  const settled = reads;
+  await page.waitForTimeout(600);
+  expect(reads).toBe(settled);
+});
+
 for (const mobile of [false, true]) {
   test(`Typgesteuerte Ressource, versteckte Werte und Reload ${mobile ? "mobil" : "desktop"}`, async ({ page }) => {
     await page.setViewportSize(mobile ? { width: 390, height: 844 } : { width: 1440, height: 1000 });

@@ -5,6 +5,7 @@ import { apiFetch } from "@/lib/apiClient";
 import { createStableId, type SyncMutation } from "@/lib/syncQueue";
 import { operationLabel } from "@/lib/operationsUi";
 import { pickingPdf, pickupLabel, normalizePickupScan, type PickingItem, type PickingOrder } from "@/lib/picking";
+import { CommunicationActions } from "./CommunicationActions";
 import { OperationsDataTable } from "./OperationsDataTable";
 import { TripDialog } from "./TripDialog";
 import { ScanSurface } from "./ScanSurface";
@@ -73,14 +74,6 @@ export function PickingOrders({ job, language, queue = [], onBooked, pickupOnly,
     } catch (cause) { setError(cause instanceof Error ? cause.message : "OPERATIONS_UNAVAILABLE"); }
     finally { lock.current = false; setBusy(false); }
   }
-  async function print() {
-    if (!order || busy) return;
-    setBusy(true); setError("");
-    try {
-      const blob = await pickingPdf(order, items, language), url = URL.createObjectURL(blob), link = document.createElement("a");
-      link.href = url; link.download = `Kommissionierung-${order.picking_code ?? "Liste"}.pdf`; link.click(); setTimeout(() => URL.revokeObjectURL(url), 60000);
-    } catch { setError("OPERATIONS_UNAVAILABLE"); } finally { setBusy(false); }
-  }
   function accept(value: string) {
     if (lock.current) return;
     setCamera(false); setError("");
@@ -148,7 +141,7 @@ export function PickingOrders({ job, language, queue = [], onBooked, pickupOnly,
         { key: "picked", label: t("pickingPicked"), value: (row) => String(row.picked) },
         { key: "remaining", label: t("pickingRemaining"), value: (row) => String(Number(row.quantity) - Number(row.picked)) },
       ]} label={t("pickingOrders")} filterLabel={t("filter")} emptyLabel={t("empty")} actionsLabel={t("actions")} />
-      <footer className={styles.actions}><button type="button" disabled={busy} onClick={() => { setOrder(null); setItems([]); setError(""); }}><ChevronLeft size={18} />{t("scanBack")}</button><button type="button" disabled={busy || !items.length} onClick={() => void print()}><Printer size={18} />{t("pickingPdf")}</button>
+      <footer className={styles.actions}><button type="button" disabled={busy} onClick={() => { setOrder(null); setItems([]); setError(""); }}><ChevronLeft size={18} />{t("scanBack")}</button><CommunicationActions title={`${t("pickingOrders")} · ${order.title}`} text={items.map(item => `${item.material.name} · ${item.quantity} ${item.material.unit ?? ""}`).join("\n")} language={language} disabled={busy || !items.length} document={async () => ({ blob: await pickingPdf(order, items, language), name: `Kommissionierung-${order.picking_code ?? "Liste"}.pdf` })} />
         {(order.status === "completed" || order.status === "loaded") && <button className={styles.primaryAction} disabled={busy || pending} onClick={() => { setPickupConfirmed(false); setDispatch(true); }}><ScanLine size={18} />{t("pickingDispatch")}</button>}
         {order.status === "open" && <><button type="button" disabled={busy || pending || items.some((item) => Number(item.picked) > 0)} onClick={() => { setCancelReason(""); setError(""); setCancelDialog(true); }}>{t("pickingCancel")}</button>
         <button type="button" className={styles.primaryAction} disabled={busy || pending || !items.length} onClick={() => setScan(true)}><ScanLine size={18} />{t("pickingScan")}</button></>}
