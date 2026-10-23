@@ -11,7 +11,7 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-async function checkStrip(group: Locator, width: number) {
+async function checkStrip(group: Locator, width: number, size = 44) {
   const controls = group.locator(":scope > button, :scope > a");
   await expect(controls).toHaveCount(5);
   const bounds = await controls.evaluateAll(elements => elements.map(element => {
@@ -19,7 +19,7 @@ async function checkStrip(group: Locator, width: number) {
   }));
   expect(Math.max(...bounds.map(box => box.y)) - Math.min(...bounds.map(box => box.y))).toBeLessThan(1);
   for (const box of bounds) {
-    expect(box.width).toBe(44); expect(box.height).toBe(44);
+    expect(box.width).toBe(size); expect(box.height).toBe(size);
     expect(box.x).toBeGreaterThanOrEqual(0); expect(box.x + box.width).toBeLessThanOrEqual(width);
   }
 }
@@ -51,12 +51,21 @@ for (const width of [320, 390, 820, 1024, 1440]) {
     const rows = page.locator(".job-row");
     await expect(rows).toHaveCount(2);
     for (const row of await rows.all()) {
-      await checkStrip(row.getByRole("group", { name: "Dokumentaktionen" }), width);
+      await checkStrip(row.getByRole("group", { name: "Dokumentaktionen" }), width, 32);
       const meta = (await row.locator(".job-row-meta-line").boundingBox())!, actions = (await row.locator(".job-row-meta > .row-actions").boundingBox())!;
       expect(meta.y + meta.height).toBeLessThanOrEqual(actions.y);
       const main = (await row.locator(".job-row-main").boundingBox())!, side = (await row.locator(".job-row-meta").boundingBox())!;
       expect(main.x + main.width <= side.x + 1 || main.y + main.height <= side.y + 1).toBe(true);
-      for (const button of await row.locator(".job-row-meta > .row-actions > button").all()) { const box = (await button.boundingBox())!; expect(box.width).toBe(44); expect(box.height).toBe(44); }
+      for (const button of await row.locator(".job-row-meta > .row-actions > .icon-button").all()) { const box = (await button.boundingBox())!; expect(box.width).toBe(32); expect(box.height).toBe(32); }
+    }
+    const ongoing = rows.first();
+    for (const button of await ongoing.locator(".consulting-action-strip button, .consulting-entry-button").all()) expect((await button.boundingBox())!.height).toBe(32);
+    const entry = (await ongoing.getByRole("button", { name: "Leistung erfassen", exact: true }).boundingBox())!;
+    const edit = (await ongoing.locator(".job-row-meta > .row-actions > .icon-button").first().boundingBox())!;
+    expect(entry.y < edit.y || entry.x + entry.width <= edit.x).toBe(true);
+    if (width >= 1440) {
+      expect(entry.y).toBe(edit.y);
+      expect((await ongoing.getByRole("button", { name: "Leistungsliste", exact: true }).boundingBox())!.y).toBe(entry.y);
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await rows.first().screenshot({ path: test.info().outputPath(`job-actions-${width}.png`) });

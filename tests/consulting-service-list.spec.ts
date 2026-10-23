@@ -62,7 +62,9 @@ for (const width of [1440, 390]) test(`Leistungsliste bei ${width}px: Auswahl un
   expect(listBox.width).toBeLessThan(210);
   expect(historyBox.x + historyBox.width).toBeLessThanOrEqual(width);
   const actionButtons = page.locator(".consulting-primary-actions").getByRole("button");
-  await expect(actionButtons).toHaveCount(3);
+  await expect(actionButtons).toHaveCount(2);
+  await expect(page.locator(".job-row-meta .consulting-entry-button")).toHaveCount(1);
+  for (const button of await page.locator(".consulting-primary-actions > button, .job-row-meta .consulting-entry-button").all()) expect((await button.boundingBox())!.height).toBe(32);
   if (width === 1440) {
     const centers = await actionButtons.evaluateAll((elements) => elements.map((element) => { const box = element.getBoundingClientRect(); return box.top + box.height / 2; }));
     expect(Math.max(...centers) - Math.min(...centers)).toBeLessThan(2);

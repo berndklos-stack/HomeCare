@@ -16667,10 +16667,6 @@ function JobsView({
               </button>
               {!isRecurring && !["storniert", "abgerechnet"].includes(job.status) && (
                 <>
-                  <button className="ghost-button compact consulting-entry-button create-button" onClick={() => openConsultingEntry(job)} type="button">
-                    <Plus size={15} />
-                    {tt("Leistung erfassen")}
-                  </button>
                   {consultingOpenMinutes(job) > 0 && (
                     <button className="ghost-button compact consulting-bill-button" onClick={() => openConsultingBilling(job)} type="button">
                       <Euro size={15} />
@@ -16693,6 +16689,11 @@ function JobsView({
             {!isRecurring && <Badge value={tt(job.status)} />}
           </div>
           <div className="row-actions">
+            {job.consulting?.enabled && !isRecurring && !["storniert", "abgerechnet"].includes(job.status) && (
+              <button className="ghost-button compact consulting-entry-button create-button" onClick={() => openConsultingEntry(job)} type="button">
+                <Plus size={15} />{tt("Leistung erfassen")}
+              </button>
+            )}
             {isRecurring && (
               <IconAction label={`${job.title} ${tt("Teilaufträge")} ${isExpanded ? tt("Ausblenden") : tt("Anzeigen")}`} onClick={() => toggleSeries(job.id)}>
                 {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}

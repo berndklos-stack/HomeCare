@@ -1,10 +1,11 @@
 export const appVersion = {
-  version: "1.428.12",
+  version: "1.428.13",
   releaseDate: "2026-10-23",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  { version: "1.428.13", date: "2026-10-23", changes: ["Kompakte Auftragsbuttons einheitlich auf Hoehe der Leistungsliste mit proportionalen Symbolen", "Leistung erfassen direkt links neben den Aktionssymbolen laufender Auftraege", "Projekte und Objekte mit gemeinsamem Spaltenraster unabhaengig von Textlaengen und Status; mobile Darstellung und Funktionen mit 42 Browsertests geprueft"] },
   { version: "1.428.12", date: "2026-10-23", changes: ["Berichte mit zusammenhaengender Kommunikationsleiste und sauber getrennten Bearbeitungsaktionen", "Einheitliche 44-Pixel-Aktionsbuttons bei Auftraegen ohne Ueberlappung mit Status und Prioritaet", "Responsive Anordnung auf iPhone, iPad und Desktop mit 86 erfolgreichen Browser- und Regressionstests"] },
   { version: "1.428.11", date: "2026-10-22", changes: ["Einheitliche Dokumentaktionen fuer Drucken, Download, E-Mail, SMS und Teilen; PDF-/Excel-Auswahl und mobile Safari-Bedienung", "Geschuetzte Ressourcenbilder in Galerie, Kachel und Liste authentifiziert anzeigen; Projekte und Objekte innerhalb aller Statusbereiche gruppieren und alphabetisch sortieren", "Personalberichte mit sichtbarem Firmenlogo oben rechts im Druck und unabhaengigem Mitarbeiterfilter", "Benutzerverwaltung jeder Firma in den Stammdaten; zentrale Administration nur bei Kolaretorp mit expliziter Plattformfreigabe, eigener Feedbackreiter und aktive/inaktive Benutzergruppen", "Native Benutzerlimits mit mandantengeschuetzter Migration, sicheren Passwort-Reset-Links und geprueften SQL-/Auth-/Browserregressionen"] },
   { version: "1.428.10", date: "2026-10-21", changes: ["Projekt- und Objektbilder auch mit abgelaufenen Bildlinks auf iPhone und iPad authentifiziert nachladen", "Firmenlogo oben rechts in erzeugten PDF-, Druck- und Excel-Berichten statt fest hinterlegter Logos", "Administration auf Firmen, System / Branding, Rollen und Module vereinfacht; Benutzer und Kontoeinstellungen direkt bei der Firma, ohne Pilot/Test-Reiter", "Firmenbenutzerverwaltung nur fuer freigeschaltete Plattformadministratoren mit Zielmandantenpruefung, Audit und geschuetzten Serverfunktionen"] },

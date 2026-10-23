@@ -15,7 +15,7 @@ test("Typgruppen sortieren Projekte und Objekte natuerlich ohne Eingaben zu vera
   expect(JSON.stringify(entries)).toBe(before);
 });
 
-for (const width of [390, 820, 1440]) test(`Uebersicht trennt Projekte und Objekte in allen Statusgruppen bei ${width}px`, async ({ page }) => {
+for (const width of [320, 390, 820, 1024, 1440]) test(`Uebersicht trennt Projekte und Objekte in allen Statusgruppen bei ${width}px`, async ({ page }) => {
   await page.setViewportSize({ width, height: 1000 });
   await page.goto("/");
   await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true");
@@ -23,7 +23,7 @@ for (const width of [390, 820, 1440]) test(`Uebersicht trennt Projekte und Objek
     const base = { owner: "Testkunde", ownerCustomerId: "", ownerEmail: "", ownerPhone: "", ownerAddress: "", address: "Nybro", billingAddressMode: "Eigentümeradresse", billingAddress: "", region: "Nybro", sizeSqm: 0, plotSqm: 0, rooms: 0, beds: 0, bathrooms: 0, buildYear: 0, carePackage: "", customFields: {}, access: { keySafe: "", alarm: "", parking: "", notes: "" }, equipment: [], utilities: { heating: "", water: "", septic: "", internet: "" }, risks: [], media: { images: 0, documents: 0, floorPlans: 0, items: [] }, nextVisit: "", lastVisit: "" };
     const entries = ["active", "inactive", "archived"].flatMap((status, index) => [
       { ...base, id: `GROUP-O-${index}`, type: "Objekt", name: `Objekt ${index}`, status: status === "inactive" ? "inaktiv" : "aktiv", archived: status === "archived" },
-      { ...base, id: `GROUP-PB-${index}`, type: "Projekt", name: `Projekt B ${index}`, status: status === "inactive" ? "inaktiv" : "laufend", archived: status === "archived" },
+      { ...base, id: `GROUP-PB-${index}`, type: "Projekt", name: `Projekt B ${index}`, owner: "Ein laengerer Kundenname mit mehreren Bestandteilen", status: status === "inactive" ? "inaktiv" : "Dauerbetreuung", archived: status === "archived" },
       { ...base, id: `GROUP-PA-${index}`, type: "Projekt", name: `Projekt A ${index}`, status: status === "inactive" ? "inaktiv" : "laufend", archived: status === "archived" },
     ]);
     localStorage.setItem("kolaretorp-objects", JSON.stringify(entries));
@@ -39,6 +39,10 @@ for (const width of [390, 820, 1440]) test(`Uebersicht trennt Projekte und Objek
     const group = groups.nth(i);
     await expect(group.locator("h3")).toHaveText(["Projekte 2", "Objekte 1"]);
     await expect(group.locator("article strong")).toHaveText([`Projekt · Projekt A ${i}`, `Projekt · Projekt B ${i}`, `Objekt · Objekt ${i}`]);
+    const columns = await group.locator(".object-row-main").evaluateAll(rows => rows.map(row => Array.from(row.children).map(cell => cell.getBoundingClientRect().x)));
+    for (const row of columns) for (let column = 0; column < row.length; column++) expect(Math.abs(row[column] - columns[0][column])).toBeLessThan(1);
+    const bounds = await group.locator(".object-row-main > *").evaluateAll(cells => cells.map(cell => { const rect = cell.getBoundingClientRect(); return { left: rect.left, right: rect.right }; }));
+    for (const cell of bounds) { expect(cell.left).toBeGreaterThanOrEqual(0); expect(cell.right).toBeLessThanOrEqual(width); }
   }
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: test.info().outputPath(`object-groups-${width}.png`) });

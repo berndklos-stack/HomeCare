@@ -2,12 +2,13 @@
 .actions { display: flex; align-items: center; flex-wrap: nowrap; gap: 8px; }
 .actions > button, .actions > a, .downloads > summary {
   display: inline-flex; align-items: center; justify-content: center;
-  flex: 0 0 44px; width: 44px; min-width: 44px; height: 44px; min-height: 44px;
+  flex: 0 0 var(--communication-action-size, 44px); width: var(--communication-action-size, 44px); min-width: var(--communication-action-size, 44px); height: var(--communication-action-size, 44px); min-height: var(--communication-action-size, 44px);
   padding: 0; margin: 0; border: 1px solid #d1d1d6; border-radius: 8px;
   background: #fff; color: #007aff; cursor: pointer; text-decoration: none;
   list-style: none; box-sizing: border-box; touch-action: manipulation;
 }
-.downloads { position: relative; flex: 0 0 44px; }
+.actions > button > svg, .actions > a > svg, .downloads > summary > svg { width: var(--communication-icon-size, 22px); height: var(--communication-icon-size, 22px); }
+.downloads { position: relative; flex: 0 0 var(--communication-action-size, 44px); }
 .downloads > summary::-webkit-details-marker { display: none; }
 .actions > button:hover, .actions > a:hover, .downloads > summary:hover { background: #f2f7ff; }
 .actions :is(button, a, summary):focus-visible { outline: 2px solid #007aff; outline-offset: 2px; }
