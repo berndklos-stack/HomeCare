@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { readFile } from "node:fs/promises";
+import { execFileSync } from "node:child_process";
 import { stockOverviewRows } from "../lib/stockOverview";
 import { inventoryLocationPath, orderInventoryItems } from "../lib/inventoryPlan";
 test.beforeEach(async ({ page }) => { await page.addInitScript(() => {
@@ -105,8 +106,25 @@ for (const mobile of [false, true]) test(`Gesamtbestand Export und Inventur ${mo
   await dialog.getByRole("button", { name: "Schließen", exact: true }).click();
   const history = page.getByRole("table", { name: "Inventuren", exact: true });
   await expect(history).toContainText("Bernd Klos");
+  const historyActions = page.getByRole("group", { name: "Dokumentaktionen", exact: true });
+  await historyActions.getByLabel("Herunterladen", { exact: true }).click();
+  const historyDownload = page.waitForEvent("download");
+  await historyActions.getByRole("button", { name: "PDF", exact: true }).click();
+  expect((await readFile((await (await historyDownload).path())!)).toString("latin1")).toContain("Jahresinventur");
   await history.getByRole("row").filter({ hasText: "Jahresinventur" }).click();
   await expect(history).toContainText("Aktives Material"); await expect(history).toContainText("-2 Meter");
+  for (const format of ["PDF", "Excel"]) {
+    await historyActions.getByLabel("Herunterladen", { exact: true }).click();
+    const exported = page.waitForEvent("download");
+    await historyActions.getByRole("button", { name: format, exact: true }).click();
+    const file = await exported;
+    if (format === "PDF") expect((await readFile((await file.path())!)).toString("latin1")).toMatch(/\/Subtype\s*\/Image/);
+    else {
+      const xml = execFileSync("unzip", ["-p", (await file.path())!, "xl/worksheets/sheet1.xml"], { encoding: "utf8" });
+      expect(xml).toContain("-2");
+      expect(execFileSync("unzip", ["-p", (await file.path())!, "xl/sharedStrings.xml"], { encoding: "utf8" })).toContain("Meter");
+    }
+  }
   await page.getByRole("button", { name: "Inventuren", exact: true }).click();
   await page.screenshot({ path: `test-results/inventory-block-${mobile}-${testInfo.project.name}.png` });
   await page.getByRole("tab", { name: "Bestandsübersicht", exact: true }).click();

@@ -135,6 +135,7 @@ export const operationText = {
   stockTotal: ["Gesamtbestand", "Totalt lagersaldo", "Total stock"],
   stockByLocation: ["Bestand je Lagerort", "Lagersaldo per lagerplats", "Stock by location"],
   bookings: ["Buchungen", "Bokningar", "Movements"],
+  unit: ["Einheit", "Enhet", "Unit"],
   bookingDate: ["Datum", "Datum", "Date"],
   bookedAt: ["Gebucht am", "Bokad den", "Booked at"],
   bookedBy: ["Gebucht von", "Bokad av", "Booked by"],

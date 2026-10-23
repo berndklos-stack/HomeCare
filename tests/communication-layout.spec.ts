@@ -6,7 +6,7 @@ test.beforeEach(async ({ page }) => {
     const job = { id: "JOB-LAYOUT", objectId: object.id, customerId: "CUS-LAYOUT", title: "Auftrag mit vollstaendiger Kommunikationsleiste", status: "in Arbeit", priority: "hoch", dueDate: "2026-10-22", description: "Beschreibung", assignedTo: "Bernd Klos", type: "Sonstiges", schedule: { type: "einmalig" }, checklist: [], consulting: { enabled: true, hourlyRate: "800", currency: "SEK", openEnded: true, entries: [] } };
     localStorage.setItem("kolaretorp-objects", JSON.stringify([object]));
     localStorage.setItem("kolaretorp-customers", JSON.stringify([{ id: "CUS-LAYOUT", name: "Testkunde", language: "Deutsch", email: "customer@example.invalid", phone: "", contacts: [], objects: [object.id], portalLoginHistory: [] }]));
-    localStorage.setItem("kolaretorp-jobs", JSON.stringify([job, { ...job, id: "JOB-OFFER-LAYOUT", title: "Offerte mit Kommunikationsleiste", status: "offerte", consulting: undefined }]));
+    localStorage.setItem("kolaretorp-jobs", JSON.stringify([{ ...job, consulting: { ...job.consulting, entries: [{ id: "LAYOUT-TIME", date: "2026-10-22", startTime: "09:00", endTime: "10:00", minutes: 60, description: "Testleistung", billingStatus: "offen" }] } }, { ...job, id: "JOB-OFFER-LAYOUT", title: "Offerte mit Kommunikationsleiste", status: "offerte", consulting: undefined }]));
     localStorage.setItem("kolaretorp-reports", JSON.stringify([{ id: "REPORT-LAYOUT", jobId: job.id, objectId: object.id, title: "LAYOUT Bericht mit laengerer Ueberschrift", date: "2026-10-22", sentAt: "2026-10-22T10:00:00Z", summary: "Berichtstext", media: [], customerComment: "", checklistResults: [] }]));
   });
 });
@@ -66,6 +66,13 @@ for (const width of [320, 390, 820, 1024, 1440]) {
     if (width >= 1440) {
       expect(entry.y).toBe(edit.y);
       expect((await ongoing.getByRole("button", { name: "Leistungsliste", exact: true }).boundingBox())!.y).toBe(entry.y);
+      const history = (await ongoing.getByRole("button", { name: "Leistungsnachweise (1)", exact: true }).boundingBox())!;
+      const list = (await ongoing.getByRole("button", { name: "Leistungsliste", exact: true }).boundingBox())!;
+      const bill = (await ongoing.getByRole("button", { name: "Offene Leistungen abrechnen", exact: true }).boundingBox())!;
+      expect(history.width).toBeLessThan(260);
+      expect(history.y).toBe(list.y); expect(list.y).toBe(bill.y);
+      expect(history.x + history.width).toBeLessThanOrEqual(list.x);
+      expect(list.x + list.width).toBeLessThanOrEqual(bill.x);
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await rows.first().screenshot({ path: test.info().outputPath(`job-actions-${width}.png`) });

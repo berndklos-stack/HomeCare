@@ -1,10 +1,11 @@
 export const appVersion = {
-  version: "1.428.13",
+  version: "1.428.14",
   releaseDate: "2026-10-23",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  { version: "1.428.14", date: "2026-10-23", changes: ["Leistungsnachweise, Leistungsliste und offene Leistungen kompakt nebeneinander statt zusaetzlicher Zeile", "Drucken, PDF-/Excel-Download, E-Mail, SMS und Teilen in Buchungen und gebuchten Inventuren", "Gefilterte Berichte ueber alle Seiten mit Firmenlogo, numerischen Excelwerten und Abbruch bei Ladefehler oder Firmenwechsel; 46 Browser- und Regressionstests erfolgreich"] },
   { version: "1.428.13", date: "2026-10-23", changes: ["Kompakte Auftragsbuttons einheitlich auf Hoehe der Leistungsliste mit proportionalen Symbolen", "Leistung erfassen direkt links neben den Aktionssymbolen laufender Auftraege", "Projekte und Objekte mit gemeinsamem Spaltenraster unabhaengig von Textlaengen und Status; mobile Darstellung und Funktionen mit 42 Browsertests geprueft"] },
   { version: "1.428.12", date: "2026-10-23", changes: ["Berichte mit zusammenhaengender Kommunikationsleiste und sauber getrennten Bearbeitungsaktionen", "Einheitliche 44-Pixel-Aktionsbuttons bei Auftraegen ohne Ueberlappung mit Status und Prioritaet", "Responsive Anordnung auf iPhone, iPad und Desktop mit 86 erfolgreichen Browser- und Regressionstests"] },
   { version: "1.428.11", date: "2026-10-22", changes: ["Einheitliche Dokumentaktionen fuer Drucken, Download, E-Mail, SMS und Teilen; PDF-/Excel-Auswahl und mobile Safari-Bedienung", "Geschuetzte Ressourcenbilder in Galerie, Kachel und Liste authentifiziert anzeigen; Projekte und Objekte innerhalb aller Statusbereiche gruppieren und alphabetisch sortieren", "Personalberichte mit sichtbarem Firmenlogo oben rechts im Druck und unabhaengigem Mitarbeiterfilter", "Benutzerverwaltung jeder Firma in den Stammdaten; zentrale Administration nur bei Kolaretorp mit expliziter Plattformfreigabe, eigener Feedbackreiter und aktive/inaktive Benutzergruppen", "Native Benutzerlimits mit mandantengeschuetzter Migration, sicheren Passwort-Reset-Links und geprueften SQL-/Auth-/Browserregressionen"] },

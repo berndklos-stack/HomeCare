@@ -25,6 +25,15 @@ eingebunden.
 - Gesperrte Aktionen bleiben waehrend einer Ausgabe deaktiviert. Blob-URLs
   werden nach Nutzung zeitversetzt freigegeben.
 
+Buchungsuebersicht und gebuchte Inventuren verwenden
+`OperationsReportActions` mit PDF und Excel. Materialauswahl und aktive
+Spaltenfilter werden beruecksichtigt. Buchungen und Inventuruebersichten
+werden fuer die Ausgabe ueber alle Serverseiten geladen; Einzelinventuren
+geben ihre vollstaendig geladenen Positionen mit Mengen und Einheit aus.
+Unvollstaendige, inzwischen geaenderte oder beim Firmenwechsel abgebrochene
+Abrufe erzeugen keine Datei. Das Firmenlogo steht oben rechts. E-Mail und
+SMS oeffnen Entwuerfe ohne automatisch angehaengte Dateien.
+
 Ressourcenbilder verwenden denselben authentifizierten Medienabruf wie
 Projektbilder. Das gilt fuer Galerie, Kachel und Liste, auch bei abgelaufener
 Vorschau-URL oder ausschliesslich vorhandenem Speicherpfad.

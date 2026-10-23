@@ -11265,6 +11265,9 @@ dialog.sync-confirm-dialog { width: min(520px, calc(100vw - 24px)); max-width: c
   white-space: nowrap;
 }
 .job-row .consulting-entry-button svg { width: 16px; height: 16px; }
+.job-row .consulting-action-strip { flex-direction: row; align-items: center; gap: 8px; }
+.job-row .consulting-history-toggle.compact { width: max-content; max-width: 100%; justify-content: flex-start; }
+.job-row .consulting-primary-actions { display: contents; }
 @media (max-width: 1180px) {
   .job-row > .job-row-main, .job-row > .job-row-meta { grid-column: 1 / -1; }
   .job-row-meta { justify-items: start; }
