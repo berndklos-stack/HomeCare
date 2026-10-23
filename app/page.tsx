@@ -15579,19 +15579,19 @@ function ReportsView({
       {selectedReport && selectedObject && (
         <div className="modal-backdrop">
           <section className="modal send-preview-modal report-detail-modal" role="dialog" aria-modal="true" aria-labelledby="report-detail-title">
-            <header>
+            <header className="report-detail-header">
               <div>
                 <p>{selectedObject.name} · {displayAddress(selectedObject.address)}</p>
                 <h2 id="report-detail-title">{selectedReport.title}</h2>
               </div>
-              <div className="modal-header-actions">
+              <div className="report-detail-communication"><CustomerReportActions report={selectedReport} object={selectedObject} job={selectedJob} customer={selectedCustomer} language={language} onEmail={() => { onSendReport(selectedReport); setSelectedReportId(""); }} /></div>
+              <div className="report-record-actions">
                 <IconAction label={`${tt("Bericht")} ${selectedReport.title} ${tt("Bearbeiten")}`} onClick={() => { onEditInField(selectedReport); setSelectedReportId(""); }}><Pencil size={16} /></IconAction>
                 {selectedReport.sentAt && (
                   <IconAction label={`${tt("Bericht")} ${selectedReport.title} ${tt("Bericht entsperren")}`} onClick={() => void onUnlockReport(selectedReport)}>
                     <KeyRound size={16} />
                   </IconAction>
                 )}
-                <CustomerReportActions report={selectedReport} object={selectedObject} job={selectedJob} customer={selectedCustomer} language={language} onEmail={() => { onSendReport(selectedReport); setSelectedReportId(""); }} />
                 <button aria-label={`${tt("Bericht")} ${selectedReport.title} ${tt("Schließen")}`} onClick={() => setSelectedReportId("")} type="button">
                   <X size={18} />
                 </button>

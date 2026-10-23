@@ -11217,3 +11217,48 @@ dialog.sync-confirm-dialog { width: min(520px, calc(100vw - 24px)); max-width: c
 .object-type-group { min-width: 0; }
 .object-type-group-heading { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-size: 16px; }
 .object-type-group-heading small { color: var(--muted, #6e6e73); font-size: 13px; font-weight: 500; }
+
+.report-detail-modal > .report-detail-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content max-content;
+  align-items: center;
+  gap: 12px;
+}
+.report-detail-header > div:first-child { min-width: 0; overflow-wrap: anywhere; }
+.report-detail-communication { min-width: 0; }
+.report-record-actions { display: flex; flex-wrap: nowrap; align-items: center; gap: 8px; }
+.report-detail-header .report-record-actions > button {
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+  background: var(--paper);
+}
+.report-record-actions > button svg { width: 22px; height: 22px; }
+.job-row > .job-row-main, .job-row > .job-row-meta { grid-row: auto; }
+.job-row-meta { grid-template-rows: auto auto; min-width: 0; gap: 8px; }
+.job-row .row-actions { align-self: start; align-items: center; flex-wrap: wrap; gap: 8px; min-height: 44px; }
+.job-row .row-actions > .icon-button {
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+  border-radius: 8px;
+  background: var(--paper);
+}
+.job-row .row-actions > .icon-button:not(.danger) { color: var(--brand); }
+.job-row .row-actions > .icon-button svg { width: 22px; height: 22px; }
+@media (max-width: 1180px) {
+  .job-row > .job-row-main, .job-row > .job-row-meta { grid-column: 1 / -1; }
+  .job-row-meta { justify-items: start; }
+  .job-row-meta-line { flex-wrap: wrap; justify-content: flex-start; }
+  .job-row .row-actions { justify-content: flex-start; }
+  .job-row .row-actions > div:has(> [role="group"]) { order: -1; }
+}
+@media (max-width: 900px) {
+  .report-detail-modal > .report-detail-header { grid-template-columns: minmax(0, 1fr) max-content; }
+  .report-record-actions { grid-column: 2; grid-row: 1; align-self: start; }
+  .report-detail-communication { grid-column: 1 / -1; grid-row: 2; }
+}
