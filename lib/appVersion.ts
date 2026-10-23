@@ -1,10 +1,11 @@
 export const appVersion = {
-  version: "1.428.14",
+  version: "1.428.15",
   releaseDate: "2026-10-23",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  { version: "1.428.15", date: "2026-10-23", changes: ["Kundenuebersicht mit festen Spalten fuer Kundendaten, Projektzuordnung, Saldo und Status sowie buendigen Kommunikationsvorschauen", "Horizontale Ueberlaeufe durch Nachrichtenschaltflaechen beseitigt; Handy- und Tabletbedienung geprueft", "Inventuraktionen nur bei geoeffneter Einzelinventur und dort rechtsbuendig; 18 Browser- und Regressionstests erfolgreich"] },
   { version: "1.428.14", date: "2026-10-23", changes: ["Leistungsnachweise, Leistungsliste und offene Leistungen kompakt nebeneinander statt zusaetzlicher Zeile", "Drucken, PDF-/Excel-Download, E-Mail, SMS und Teilen in Buchungen und gebuchten Inventuren", "Gefilterte Berichte ueber alle Seiten mit Firmenlogo, numerischen Excelwerten und Abbruch bei Ladefehler oder Firmenwechsel; 46 Browser- und Regressionstests erfolgreich"] },
   { version: "1.428.13", date: "2026-10-23", changes: ["Kompakte Auftragsbuttons einheitlich auf Hoehe der Leistungsliste mit proportionalen Symbolen", "Leistung erfassen direkt links neben den Aktionssymbolen laufender Auftraege", "Projekte und Objekte mit gemeinsamem Spaltenraster unabhaengig von Textlaengen und Status; mobile Darstellung und Funktionen mit 42 Browsertests geprueft"] },
   { version: "1.428.12", date: "2026-10-23", changes: ["Berichte mit zusammenhaengender Kommunikationsleiste und sauber getrennten Bearbeitungsaktionen", "Einheitliche 44-Pixel-Aktionsbuttons bei Auftraegen ohne Ueberlappung mit Status und Prioritaet", "Responsive Anordnung auf iPhone, iPad und Desktop mit 86 erfolgreichen Browser- und Regressionstests"] },

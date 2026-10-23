@@ -25,14 +25,16 @@ eingebunden.
 - Gesperrte Aktionen bleiben waehrend einer Ausgabe deaktiviert. Blob-URLs
   werden nach Nutzung zeitversetzt freigegeben.
 
-Buchungsuebersicht und gebuchte Inventuren verwenden
+Buchungsuebersicht und geoeffnete gebuchte Einzelinventuren verwenden
 `OperationsReportActions` mit PDF und Excel. Materialauswahl und aktive
-Spaltenfilter werden beruecksichtigt. Buchungen und Inventuruebersichten
+Spaltenfilter werden beruecksichtigt. Buchungen
 werden fuer die Ausgabe ueber alle Serverseiten geladen; Einzelinventuren
 geben ihre vollstaendig geladenen Positionen mit Mengen und Einheit aus.
 Unvollstaendige, inzwischen geaenderte oder beim Firmenwechsel abgebrochene
 Abrufe erzeugen keine Datei. Das Firmenlogo steht oben rechts. E-Mail und
 SMS oeffnen Entwuerfe ohne automatisch angehaengte Dateien.
+In der Inventuruebersicht ist keine Aktionsleiste sichtbar; in der
+Einzelinventur steht sie rechts neben beziehungsweise unter den Kopfdaten.
 
 Ressourcenbilder verwenden denselben authentifizierten Medienabruf wie
 Projektbilder. Das gilt fuer Galerie, Kachel und Liste, auch bei abgelaufener

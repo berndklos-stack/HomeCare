@@ -107,12 +107,15 @@ for (const mobile of [false, true]) test(`Gesamtbestand Export und Inventur ${mo
   const history = page.getByRole("table", { name: "Inventuren", exact: true });
   await expect(history).toContainText("Bernd Klos");
   const historyActions = page.getByRole("group", { name: "Dokumentaktionen", exact: true });
-  await historyActions.getByLabel("Herunterladen", { exact: true }).click();
-  const historyDownload = page.waitForEvent("download");
-  await historyActions.getByRole("button", { name: "PDF", exact: true }).click();
-  expect((await readFile((await (await historyDownload).path())!)).toString("latin1")).toContain("Jahresinventur");
+  const assertHistoryActionsRight = async () => {
+    const actions = (await historyActions.boundingBox())!;
+    const toolbar = (await historyActions.locator("xpath=../..").boundingBox())!;
+    expect(Math.abs(actions.x + actions.width - toolbar.x - toolbar.width)).toBeLessThan(1);
+  };
+  await expect(historyActions).toHaveCount(0);
   await history.getByRole("row").filter({ hasText: "Jahresinventur" }).click();
   await expect(history).toContainText("Aktives Material"); await expect(history).toContainText("-2 Meter");
+  await assertHistoryActionsRight();
   for (const format of ["PDF", "Excel"]) {
     await historyActions.getByLabel("Herunterladen", { exact: true }).click();
     const exported = page.waitForEvent("download");
@@ -126,6 +129,7 @@ for (const mobile of [false, true]) test(`Gesamtbestand Export und Inventur ${mo
     }
   }
   await page.getByRole("button", { name: "Inventuren", exact: true }).click();
+  await expect(historyActions).toHaveCount(0);
   await page.screenshot({ path: `test-results/inventory-block-${mobile}-${testInfo.project.name}.png` });
   await page.getByRole("tab", { name: "Bestandsübersicht", exact: true }).click();
   await table.locator("tbody tr").filter({ hasText: "Aktives Material" }).click();

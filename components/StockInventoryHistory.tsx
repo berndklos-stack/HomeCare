@@ -4,7 +4,6 @@ import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { apiFetch } from "@/lib/apiClient";
 import { operationLabel } from "@/lib/operationsUi";
 import type { OperationsRow } from "@/lib/operationsCommands";
-import { loadOperationsReportRows } from "@/lib/operationsReport";
 import { OperationsDataTable } from "./OperationsDataTable";
 import { OperationsReportActions } from "./OperationsReportActions";
 import { TripDialog } from "./TripDialog";
@@ -53,7 +52,7 @@ export function StockInventoryHistory({ language, materials, locations, onClose,
   const reportColumns = selected ? [...columns.map(column => ["expected_quantity", "counted_quantity", "difference"].includes(column.key) ? { ...column, exportValue: (row: OperationsRow) => column.key === "difference" ? Number(row.counted_quantity) - Number(row.expected_quantity) : Number(row[column.key]) } : column), { key: "unit", label: t("unit"), value: (row: OperationsRow) => materials.find(material => material.id === row.material_id)?.unit ?? "" }] : columns;
   const content = <>
     {!inline && <header className={styles.dialogHeader}><div><h2 id="inventory-history-title">{title}</h2></div><button aria-label={t("close")} onClick={onClose}><X size={18} /></button></header>}
-    <div className={styles.reportToolbar}>{selected && <p>{subtitle}</p>}<OperationsReportActions title={title} subtitle={subtitle} language={language} scope={`inventories:${selected?.id ?? "all"}:${page}:${refreshKey}`} columns={reportColumns} filters={filters} disabled={loading || error || !rows.length} loadRows={signal => selected ? Promise.resolve(rows) : loadOperationsReportRows("stock_inventories", "", signal)} /></div>
+    {selected && <div className={styles.reportToolbar}><p>{subtitle}</p><OperationsReportActions title={title} subtitle={subtitle} language={language} scope={`inventories:${selected.id}:${refreshKey}`} columns={reportColumns} filters={filters} disabled={loading || error || !rows.length} loadRows={() => Promise.resolve(rows)} /></div>}
     {error && <p role="alert">{t("unavailable")}</p>}
     <OperationsDataTable key={selected?.id ?? "all"} rows={rows} columns={columns} label={title} filterLabel={t("filter")} emptyLabel={t(loading ? "loading" : "empty")} actionsLabel={t("actions")} onFiltersChange={setFilters} onRowActivate={selected ? undefined : (row) => { setFilters({}); setRows([]); setLoading(true); setSelected(row); }} />
     {!selected && count > 50 && <div className={styles.toolbar}><button disabled={!page || loading} aria-label={t("previous")} onClick={() => setPage((value) => value - 1)}><ChevronLeft size={18} /></button><span>{page + 1} / {Math.ceil(count / 50)}</span><button disabled={loading || (page + 1) * 50 >= count} aria-label={t("next")} onClick={() => setPage((value) => value + 1)}><ChevronRight size={18} /></button></div>}

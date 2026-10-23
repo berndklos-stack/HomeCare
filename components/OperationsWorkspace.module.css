@@ -23,6 +23,7 @@
 .stockHeading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 20px; }
 .reportToolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin: 12px 0; min-width: 0; }
 .reportToolbar p { flex: 1 1 240px; min-width: 0; margin: 0; overflow-wrap: anywhere; }
+.reportToolbar > :last-child { margin-left: auto; }
 .stockOverview .stockSummary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .stockSummary span, .stockSummary strong { overflow-wrap: anywhere; }
 .workspace .stockSummary .summaryAction { display: grid; align-content: center; justify-items: center; gap: 6px; min-height: 62px; padding: 10px 12px; background: var(--paper-soft); border: 1px solid var(--line); border-radius: 8px; color: var(--foreground); font: inherit; cursor: pointer; }
