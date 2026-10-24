@@ -11323,3 +11323,17 @@ dialog.sync-confirm-dialog { width: min(520px, calc(100vw - 24px)); max-width: c
   .report-record-actions { grid-column: 2; grid-row: 1; align-self: start; }
   .report-detail-communication { grid-column: 1 / -1; grid-row: 2; }
 }
+
+.auth-invitation-page {
+  display: grid;
+  gap: 20px;
+  width: min(640px, calc(100% - 32px));
+  margin: 40px auto;
+  min-width: 0;
+}
+.auth-invitation-page h1 { margin: 0; font-size: 28px; letter-spacing: 0; overflow-wrap: anywhere; }
+.auth-invitation-page p { margin: 0; line-height: 1.5; overflow-wrap: anywhere; }
+.auth-invitation-page form { display: grid; gap: 16px; min-width: 0; }
+.auth-invitation-page label { display: grid; gap: 8px; min-width: 0; }
+.auth-invitation-page input { width: 100%; min-width: 0; min-height: 44px; font-size: 16px; }
+.auth-invitation-page button, .auth-invitation-page > a { justify-self: start; max-width: 100%; min-height: 44px; white-space: normal; }

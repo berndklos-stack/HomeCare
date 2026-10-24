@@ -4,6 +4,12 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.428.16 - 2026-10-24
+
+- Fehlerhafte und abgelaufene Einladungslinks erkennen, technische Fehlerparameter aus der URL entfernen und neuen Anmeldelink direkt anfordern.
+- Keine ungewollte Registrierung beim erneuten Linkversand; bestehende Firmenfreigaben und Einladungsannahme bleiben unveraendert.
+- Fehlerhafte Links verwenden keine alte Browsersitzung zur Passwortvergabe. Angemeldete E-Mail und Passwortbestaetigung auf der mobilen Einladungsseite anzeigen.
+
 ## 1.427.19 - 2026-10-10
 
 - Scan-Umlagerung in Bestandsuebersicht und Buchungen: Material, Ausgangslagerort/-platz, Ziellagerort/-platz scannen, gewuenschte Teilmenge erfassen und bewusst buchen.
