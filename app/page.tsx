@@ -42,6 +42,8 @@ import { DevicePhotoSave, type DevicePhotoPolicy } from "@/components/DevicePhot
 import { TenantSwitcher } from "@/components/TenantSwitcher";
 import { AdministrationLinks } from "@/components/AdministrationLinks";
 import { CompanyUsers } from "@/components/CompanyUsers";
+import { BillingOverview } from "@/components/BillingOverview";
+import type { BillingOverviewRow } from "@/lib/billingOverview";
 import {
   ArrowDown,
   ArrowLeft,
@@ -11178,9 +11180,20 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     setRecordNotice(`Rechnung "${item.invoiceNumber || item.label}" wurde gebucht und ins Ausgangsbuch übernommen.`);
   }
 
-  function markBillingExported(item: BillingRecord) {
+  function downloadBillingAccountingFile(item: BillingRecord) {
     if (item.externalExportStatus === "gesendet") {
       setRecordNotice(`Rechnung "${item.invoiceNumber || item.label}" wurde bereits an Spiris übergeben. Für eine erneute Übergabe bitte zuerst zurücksetzen.`);
+      return;
+    }
+    if (item.lines?.some(line => line.currency !== "SEK" || ![0, 25].includes(decimalValue(line.taxRate)))) {
+      setRecordNotice("Keine SIE-Datei erstellt: Die bestehende Vorlage ist nur für SEK mit 0 % oder 25 % Umsatzsteuer freigegeben. Andere Steuer- und Währungsfälle müssen vor der Übergabe eingerichtet werden.");
+      return;
+    }
+    const totals = invoiceTotals(item);
+    const netCents = (item.lines || []).reduce((sum, line) => sum + Math.round(lineNetAmount(line) * 100), 0);
+    const taxCents = Object.values(totals.taxByRate).reduce((sum, value) => sum + Math.round(value * 100), 0);
+    if (item.lines?.length && Math.round(totals.gross * 100) !== netCents + taxCents) {
+      setRecordNotice("Keine SIE-Datei erstellt: Die Buchungszeilen sind aufgrund einer Rundungsdifferenz nicht ausgeglichen. Bitte die Rechnung prüfen.");
       return;
     }
 
@@ -11192,7 +11205,13 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     }
 
     downloadSpirisSieFile(item, object, customer, companySettings, accountingAccounts);
+    setRecordNotice(`SIE-Datei für Rechnung "${item.invoiceNumber || item.label}" erstellt. Die Übernahme in Spiris ist damit noch nicht bestätigt.`);
+  }
 
+  function markBillingExported(item: BillingRecord) {
+    if (item.externalExportStatus === "gesendet") return;
+    if (!["gebucht", "gesendet", "überfällig"].includes(effectiveInvoiceStatus(item))) return;
+    if (!window.confirm(`Wurde Rechnung "${item.invoiceNumber || item.label}" in Spiris erfolgreich importiert? Bitte nur nach der Prüfung in Spiris bestätigen.`)) return;
     const nextBilling = billing.map((entry) => (
       entry.id === item.id
         ? {
@@ -11204,7 +11223,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
         : entry
     ));
     persistBillingRelational(nextBilling);
-    setRecordNotice(`Spiris-SIE-Datei für Rechnung "${item.invoiceNumber || item.label}" wurde erstellt und die Übergabe markiert.`);
+    setRecordNotice(`Die Übernahme von Rechnung "${item.invoiceNumber || item.label}" in Spiris wurde manuell bestätigt.`);
   }
 
   function resetBillingExport(item: BillingRecord) {
@@ -14014,8 +14033,9 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
             )}
             {section === "billing" && (
               <BillingView
+                language={language}
+                notice={recordNotice}
                 companySettings={companySettings}
-                brandName={appBranding.brandName}
                 accountingAccounts={accountingAccounts}
                 billing={billing}
                 customers={customers}
@@ -14023,6 +14043,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
                 objects={activeObjects}
                 onCollectBillable={collectBillableJobs}
                 onDownloadInvoice={downloadBillingInvoice}
+                onDownloadAccountingFile={downloadBillingAccountingFile}
                 onCancelInvoice={cancelInvoice}
                 onMarkExported={markBillingExported}
                 onMarkInvoiced={markBillingInvoiced}
@@ -14031,7 +14052,6 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
                 onRemoveBillingDraft={removeBillingDraft}
                 onResetExport={resetBillingExport}
                 reports={reports}
-                services={services}
               />
             )}
             {section === "analytics" && (
@@ -18442,16 +18462,18 @@ function FieldView({
 }
 
 function BillingView({
+  language,
+  notice,
   companySettings,
   accountingAccounts,
   billing,
-  brandName,
   customers,
   jobs,
   objects,
   onCancelInvoice,
   onCollectBillable,
   onDownloadInvoice,
+  onDownloadAccountingFile,
   onMarkExported,
   onMarkInvoiced,
   onMarkPaid,
@@ -18459,18 +18481,19 @@ function BillingView({
   onRemoveBillingDraft,
   onResetExport,
   reports,
-  services,
 }: {
+  language: Language;
+  notice: string;
   accountingAccounts: AccountingAccount[];
   companySettings: CompanySettings;
   billing: BillingRecord[];
-  brandName: string;
   customers: CustomerRecord[];
   jobs: JobRecord[];
   objects: ObjectRecord[];
   onCancelInvoice: (item: BillingRecord) => void;
   onCollectBillable: () => void;
   onDownloadInvoice: (item: BillingRecord) => void;
+  onDownloadAccountingFile: (item: BillingRecord) => void;
   onMarkExported: (item: BillingRecord) => void;
   onMarkInvoiced: (item: BillingRecord) => void;
   onMarkPaid: (item: BillingRecord) => void;
@@ -18478,19 +18501,13 @@ function BillingView({
   onRemoveBillingDraft: (item: BillingRecord) => void;
   onResetExport: (item: BillingRecord) => void;
   reports: ReportRecord[];
-  services: ServiceItem[];
 }) {
   const [previewInvoiceId, setPreviewInvoiceId] = useState<string | null>(null);
-  const [billingQuery, setBillingQuery] = useState("");
-  const [billingStatusFilter, setBillingStatusFilter] = useState("entwurf");
+  const copy = (de: string, sv: string, en: string) => language === "sv" ? sv : language === "en" ? en : de;
   const billableJobs = billableCompletedJobs(jobs, billing);
   const outgoingBook = billing
     .filter((item) => item.invoicedAt || item.outgoingBookNumber)
     .sort((first, second) => (second.invoiceDate || "").localeCompare(first.invoiceDate || ""));
-  const bookedInvoices = billing.filter((item) => ["gebucht", "gesendet", "bezahlt", "überfällig"].includes(effectiveInvoiceStatus(item)));
-  const openInvoiceTotal = billing
-    .filter((item) => ["gebucht", "gesendet", "überfällig"].includes(effectiveInvoiceStatus(item)))
-    .reduce((sum, item) => sum + invoiceTotals(item).gross, 0);
   const previewInvoice = billing.find((item) => item.id === previewInvoiceId) ?? null;
   const previewObject = previewInvoice ? objects.find((entry) => entry.id === previewInvoice.objectId) : undefined;
   const previewCustomer = previewInvoice
@@ -18511,37 +18528,15 @@ function BillingView({
       }]
     : [];
   const previewTotals = previewInvoice ? invoiceTotals({ ...previewInvoice, lines: previewLines }) : null;
-  const billingStatusOptions = ["alle", "entwurf", "gebucht", "gesendet", "überfällig", "bezahlt", "storniert"];
-  const billingStatusCounts = billing.reduce<Record<string, number>>((counts, item) => {
-    const status = effectiveInvoiceStatus(item);
-    counts[status] = (counts[status] ?? 0) + 1;
-    counts.alle = (counts.alle ?? 0) + 1;
-    return counts;
-  }, { alle: 0 });
-  const billingSearchValue = billingQuery.trim().toLowerCase();
-  const billingMatchesFilter = (item: BillingRecord) => {
+  const overviewRows: BillingOverviewRow[] = billing.map((item) => {
     const object = objects.find((entry) => entry.id === item.objectId);
     const customer = customers.find((entry) => entry.id === item.customerId || entry.id === object?.ownerCustomerId || entry.name === object?.owner);
     const report = reports.find((entry) => entry.id === item.reportId);
-    const status = effectiveInvoiceStatus(item);
-    if (billingStatusFilter !== "alle" && status !== billingStatusFilter) return false;
-    if (!billingSearchValue) return true;
-    return [
-      item.invoiceNumber,
-      item.label,
-      item.outgoingBookNumber,
-      item.invoiceDate,
-      item.dueDate,
-      item.serviceDate,
-      customer?.name,
-      billingCustomerNumber(customer),
-      object?.name,
-      object?.address,
-      report?.title,
-      item.lines?.map((line) => line.name).join(" "),
-    ].filter(Boolean).join(" ").toLowerCase().includes(billingSearchValue);
-  };
-  const filteredBilling = billing.filter(billingMatchesFilter);
+    const totals = invoiceTotals(item);
+    const material = item.lines?.some(line => line.kind === "Material");
+    const service = !item.lines?.length || item.lines.some(line => line.kind === "Leistung");
+    return { id: item.id, number: item.invoiceNumber || item.label, customerNumber: billingCustomerNumber(customer), customer: customer?.name || object?.owner || copy("Kunde fehlt", "Kund saknas", "Customer missing"), project: object?.name || "—", invoiceDate: item.invoiceDate || "", dueDate: item.dueDate || "", status: effectiveInvoiceStatus(item), amount: totals.gross, currency: totals.currency, transferStatus: item.externalExportStatus || "nicht gesendet", category: material ? service ? "mixed" : "material" : "service", searchText: [item.label, item.outgoingBookNumber, item.serviceDate, object?.address, report?.title, item.lines?.map(line => line.name).join(" ")].filter(Boolean).join(" ") };
+  });
   const renderBillingRow = (item: BillingRecord) => {
     const object = objects.find((entry) => entry.id === item.objectId);
     const customer = customers.find((entry) => entry.id === item.customerId || entry.id === object?.ownerCustomerId || entry.name === object?.owner);
@@ -18603,7 +18598,10 @@ function BillingView({
               </>
             )}
             {["gebucht", "gesendet", "überfällig"].includes(invoiceStatus) && item.externalExportStatus !== "gesendet" && (
-              <IconAction label={`SIE-Datei für Rechnung ${invoiceLabel} für Spiris erstellen`} onClick={() => onMarkExported(item)}><FileOutput size={16} /></IconAction>
+              <>
+                <IconAction label={`SIE-Datei für Rechnung ${invoiceLabel} für Spiris erstellen`} onClick={() => onDownloadAccountingFile(item)}><FileOutput size={16} /></IconAction>
+                <IconAction label={`Übernahme der Rechnung ${invoiceLabel} in Spiris bestätigen`} onClick={() => onMarkExported(item)}><Check size={16} /></IconAction>
+              </>
             )}
             {item.externalExportStatus === "gesendet" && (
               <IconAction label={`Spiris-Übergabe ${invoiceLabel} zurücksetzen`} onClick={() => onResetExport(item)}><RotateCcw size={16} /></IconAction>
@@ -18620,8 +18618,7 @@ function BillingView({
           </div>
         </div>
         <footer className="message-meta">
-          <span>Spiris: {item.externalExportStatus || "nicht gesendet"} · {item.externalExportedAt ? `übergeben ${formatCreatedAt(item.externalExportedAt)}` : "noch nicht übergeben"} · Ziel: {item.externalExportSystem || "Spiris / Visma Buchhaltung"}</span>
-          <span>Preisquelle: {services.length} Leistungsstammdaten verfügbar</span>
+          <span>Spiris: {item.externalExportStatus === "gesendet" ? copy("Als übergeben markiert", "Markerad som överförd", "Marked as transferred") : item.externalExportStatus === "fehler" ? copy("Fehler", "Fel", "Error") : copy("Nicht übergeben", "Inte överförd", "Not transferred")} {item.externalExportedAt ? `· ${formatCreatedAt(item.externalExportedAt)}` : ""}</span>
         </footer>
       </article>
     );
@@ -18631,75 +18628,24 @@ function BillingView({
     <section className="panel">
       <div className="panel-title">
         <div>
-          <p>Finanzen</p>
-          <h2>Rechnungsprozess</h2>
-          <span>{brandName} erstellt Rechnung und Ausgangsbuch; Spiris / Visma erhält die vollständigen Buchhaltungsdaten.</span>
+          <p>{copy("Abrechnung", "Försäljning", "Sales")}</p>
+          <h2>{copy("Kundenrechnungen", "Kundfakturor", "Customer invoices")}</h2>
         </div>
         <button className="ghost-button outline-button" onClick={onCollectBillable} type="button">
           <Euro size={16} />
-          Erledigte Aufträge übernehmen
+          {copy("Erledigte Aufträge übernehmen", "Hämta slutförda uppdrag", "Collect completed jobs")}
         </button>
       </div>
-      <div className="billing-summary-grid">
-        <div>
-          <span>Entwürfe</span>
-          <strong>{billing.filter((item) => effectiveInvoiceStatus(item) === "entwurf").length}</strong>
-        </div>
-        <div>
-          <span>Gebucht</span>
-          <strong>{bookedInvoices.length}</strong>
-        </div>
-        <div>
-          <span>Offen</span>
-          <strong>{formatMoney(openInvoiceTotal, "SEK")}</strong>
-        </div>
-        <div>
-          <span>Spiris Übergabe</span>
-          <strong>{billing.filter((item) => item.externalExportStatus === "gesendet").length}/{billing.length}</strong>
-        </div>
-      </div>
       {billableJobs.length > 0 && (
-        <div className="warning-line">{billableJobs.length} erledigte Aufträge sind noch nicht in der Abrechnung.</div>
+        <div className="warning-line">{billableJobs.length} {copy("erledigte Aufträge sind noch nicht in der Abrechnung.", "slutförda uppdrag är ännu inte fakturerade.", "completed jobs have not yet been collected for billing.")}</div>
       )}
-      <div className="list-toolbar billing-toolbar">
-        <label>
-          <span>Rechnungen filtern</span>
-          <input
-            aria-label="Rechnungen filtern"
-            onChange={(event) => setBillingQuery(event.target.value)}
-            placeholder="Kunde, Objekt, Rechnung, Bericht..."
-            type="search"
-            value={billingQuery}
-          />
-        </label>
-        <div>
-          <span>Status</span>
-          <div className="status-filter-bar billing-status-filter" aria-label="Rechnungen nach Status filtern">
-            {billingStatusOptions.map((status) => (
-              <button
-                className={billingStatusFilter === status ? "active" : ""}
-                key={status}
-                onClick={() => setBillingStatusFilter(status)}
-                type="button"
-              >
-                {status} ({billingStatusCounts[status] ?? 0})
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-      <div className="table-list">
-        {filteredBilling.map(renderBillingRow)}
-        {billing.length === 0 && <p>Noch keine Abrechnungspositionen vorhanden.</p>}
-        {billing.length > 0 && filteredBilling.length === 0 && <p>Keine Rechnungen zum aktuellen Filter gefunden.</p>}
-      </div>
-      <div className="outgoing-book">
-        <div className="panel-title compact-title">
-          <div>
-            <p>Buchhaltung</p>
-            <h3>Rechnungsausgangsbuch</h3>
-          </div>
-        </div>
+      {notice && <p className="billing-ledger-notice" role="status">{notice}</p>}
+      <BillingOverview rows={overviewRows} language={language} onPreview={setPreviewInvoiceId} renderDetails={id => {
+        const item = billing.find(entry => entry.id === id);
+        return item ? renderBillingRow(item) : null;
+      }} />
+      <details className="outgoing-book">
+        <summary>{copy("Rechnungsausgangsbuch", "Utgående fakturajournal", "Invoice ledger")} ({outgoingBook.length})</summary>
         <div className="table-list compact-list">
           {outgoingBook.map((item) => {
             const object = objects.find((entry) => entry.id === item.objectId);
@@ -18719,7 +18665,7 @@ function BillingView({
           })}
           {outgoingBook.length === 0 && <p>Noch keine gebuchten Ausgangsrechnungen vorhanden.</p>}
         </div>
-      </div>
+      </details>
       {previewInvoice && previewTotals && (
         <div className="modal-backdrop">
           <section className="modal invoice-preview-modal" role="dialog" aria-modal="true" aria-labelledby="invoice-preview-title">
@@ -18735,18 +18681,19 @@ function BillingView({
             <div className="invoice-preview-sheet">
               <div className="invoice-preview-top">
                 <div>
-                  <strong>Kolaretorp Service AB</strong>
-                  <span>Faktura</span>
+                  <strong>{companySettings.name}</strong>
+                  <span>{copy("Rechnung", "Faktura", "Invoice")}</span>
                 </div>
                 <div>
-                  <span>Fakturanr.</span>
+                  <ReportLogo />
+                  <span>{copy("Rechnungsnr.", "Fakturanr.", "Invoice no.")}</span>
                   <strong>{previewInvoice.invoiceNumber || previewInvoice.id}</strong>
                 </div>
               </div>
               <div className="invoice-preview-addresses">
                 <section>
                   <small>Från</small>
-                  <strong>Kolaretorp Service AB</strong>
+                  <strong>{companySettings.name}</strong>
                 </section>
                 <section>
                   <small>Kund</small>

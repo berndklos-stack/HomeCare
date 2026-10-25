@@ -4,6 +4,13 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.428.17 - 2026-10-25
+
+- Kundenrechnungen als kompakte, sortierbare Uebersicht mit Entwuerfen, unbezahlten und allen Rechnungen sowie Suche, Kategorie-, Status- und Spiris-Uebergabefilter. Summen nach Waehrung getrennt, ohne Stornos.
+- Details und bestehende Rechnungsaktionen aufklappbar; mobile Darstellung ab 320 Pixel und schwedische/englische Uebersicht. Vorschau mit eigener Firma und Firmenlogo statt festem Kolaretorp-Absender.
+- SIE-Download und bestaetigte Uebernahme getrennt. Manuelle Bestaetigung ist abbrechbar; Exportvorlage sperrt nicht freigegebene Steuer-/Waehrungsfaelle und Rundungsungleichgewichte mit sichtbarer Rueckmeldung. Keine echten Rechnungen uebertragen und keine Nummern geaendert.
+- Direkte Spiris-API noch nicht implementiert/aktiviert. Entwicklerregistrierung, sichere mandantengebundene Verbindung und Sandbox-Abnahme stehen aus; dokumentierte Buchungsrichtung behaelt WorkCore als Rechnungsaussteller bei.
+
 ## 1.428.16 - 2026-10-24
 
 - Fehlerhafte und abgelaufene Einladungslinks erkennen, technische Fehlerparameter aus der URL entfernen und neuen Anmeldelink direkt anfordern.
