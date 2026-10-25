@@ -13,6 +13,25 @@ in den Umsatz der angezeigten Auswahl. Details und Aktionen bleiben aufklappbar.
 
 ## Bereits vorhandener Dateiweg
 
+### Bearbeitung von Rechnungsentwuerfen
+
+Die Bearbeitung erfolgt als eigene Ansicht innerhalb der Abrechnung, nicht als
+Popup. Kunde, Projekt/Objekt, Rechnungs-, Faelligkeits- und Leistungsdatum,
+Notizen und Rechnungspositionen verwenden ausschliesslich vorhandene native
+Spalten. Neue Positionen und Loeschungen laufen ueber die bestehende
+revisionsgesicherte Finanz-Synchronisierung. Summen werden wie in der Datenbank
+je Position centgenau gerundet. Rabattpositionen verwenden negative Preise.
+
+Bereits gebuchte oder als uebergeben markierte Rechnungen sind nicht editierbar.
+Hat sich der Entwurf waehrend der Bearbeitung geaendert, wird Speichern abgelehnt;
+die aktuelle Fassung muss erneut geoeffnet werden. Abbrechen bei Aenderungen
+fragt nach und schreibt nichts. Rechnungsnummern werden nicht neu vergeben.
+Die Ansicht ist kein neuer Rechnungsversand: Speichern stellt keine Rechnung
+aus und uebertraegt nichts an Spiris. Wiederkehrende Rechnungen, neue Referenz-
+felder und PDF-Anhaenge sind damit nicht eingefuehrt.
+
+### SIE-Dateien
+
 Die im Screenshot gezeigte Spiris-Funktion fuer SIE-Import ist ein manueller
 Dateiweg, keine bestaetigte API-Verbindung.
 

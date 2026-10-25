@@ -4,6 +4,13 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.428.18 - 2026-10-25
+
+- Rechnungsentwuerfe als eigene Bearbeitungsansicht mit Kunde, Projekt/Objekt, Rechnungs-, Faelligkeits- und Leistungsdatum, Positionen sowie Notizen.
+- Positionen hinzufuegen, aendern und entfernen; bestehende Kontierung, Rechnungsnummer und Herkunft bleiben erhalten. Centgenaue Summenberechnung entsprechend der Datenbank.
+- Gebuchte Rechnungen und zwischenzeitlich geaenderte Entwuerfe schuetzen; Abbrechen verwirft Aenderungen erst nach Bestaetigung. Bestehende native Finanz-Synchronisierung ohne neue Datenbankfelder.
+- Responsive Darstellung ab 320 Pixel und mindestens 44 Pixel hohe Aktionsbuttons. 40 Browser-, Validierungs- und Finanzregressionstests erfolgreich; direkte Spiris-API bleibt deaktiviert.
+
 ## 1.428.17 - 2026-10-25
 
 - Kundenrechnungen als kompakte, sortierbare Uebersicht mit Entwuerfen, unbezahlten und allen Rechnungen sowie Suche, Kategorie-, Status- und Spiris-Uebergabefilter. Summen nach Waehrung getrennt, ohne Stornos.

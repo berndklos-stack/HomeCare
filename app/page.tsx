@@ -43,6 +43,8 @@ import { TenantSwitcher } from "@/components/TenantSwitcher";
 import { AdministrationLinks } from "@/components/AdministrationLinks";
 import { CompanyUsers } from "@/components/CompanyUsers";
 import { BillingOverview } from "@/components/BillingOverview";
+import { BillingDraftEditor } from "@/components/BillingDraftEditor";
+import { billingDraftError, billingDraftTotals, type BillingDraftEdit } from "@/lib/billingDraft";
 import type { BillingOverviewRow } from "@/lib/billingOverview";
 import {
   ArrowDown,
@@ -5152,7 +5154,7 @@ function isStaleActiveLogbookEntry(entry: VehicleLogEntry, now = new Date()) {
 }
 
 function invoiceTotals(item: BillingRecord) {
-  if (item.lines?.length) return offerTotals(item.lines);
+  if (item.lines?.length) return billingDraftTotals(item.lines.map(line => ({ ...line, quantity: String(decimalValue(line.quantity)), unitPrice: String(decimalValue(line.unitPrice)), taxRate: String(decimalValue(line.taxRate)) })));
   const gross = decimalValue(item.amount);
   return { currency: "SEK", gross, net: gross, tax: 0, taxByRate: {} as Record<string, number> };
 }
@@ -11152,6 +11154,20 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     setRecordNotice(nextBilling.length === billing.length ? "Keine neuen erledigten Aufträge für die Abrechnung gefunden." : "Erledigte Aufträge wurden in die Abrechnung übernommen.");
   }
 
+  function saveBillingDraft(id: string, expected: string, draft: BillingDraftEdit): string | null {
+    const current = billing.find(item => item.id === id);
+    if (!current || effectiveInvoiceStatus(current) !== "entwurf" || current.invoicedAt || current.outgoingBookNumber || current.externalExportStatus === "gesendet") return "Diese Rechnung kann nicht mehr als Entwurf bearbeitet werden.";
+    if (JSON.stringify(current) !== expected) return "Die Rechnung wurde zwischenzeitlich geändert. Bitte zurückgehen und den aktuellen Entwurf erneut öffnen.";
+    if ((current.jobId || current.reportId) && (draft.customerId !== current.customerId || draft.objectId !== current.objectId)) return "Die Zuordnung eines aus Auftrag oder Bericht erstellten Entwurfs kann hier nicht geändert werden.";
+    if (billingDraftError(draft)) return "Bitte die Rechnungsdaten und Positionen prüfen.";
+    const object = objects.find(item => item.id === draft.objectId);
+    if (!customers.some(item => item.id === draft.customerId) || !object || (object.ownerCustomerId && object.ownerCustomerId !== draft.customerId)) return "Kunde und Projekt/Objekt passen nicht zusammen.";
+    const updated = { ...current, ...draft, amount: String(billingDraftTotals(draft.lines).gross) };
+    persistBillingRelational(billing.map(item => item.id === id ? updated : item));
+    setRecordNotice(`Rechnungsentwurf "${current.invoiceNumber || current.label}" gespeichert.`);
+    return null;
+  }
+
   function markBillingInvoiced(item: BillingRecord) {
     const invoiceDate = item.invoiceDate || new Date().toISOString().slice(0, 10);
     const statusUpdatedAt = new Date().toISOString();
@@ -14043,6 +14059,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
                 objects={activeObjects}
                 onCollectBillable={collectBillableJobs}
                 onDownloadInvoice={downloadBillingInvoice}
+                onSaveDraft={saveBillingDraft}
                 onDownloadAccountingFile={downloadBillingAccountingFile}
                 onCancelInvoice={cancelInvoice}
                 onMarkExported={markBillingExported}
@@ -18473,6 +18490,7 @@ function BillingView({
   onCancelInvoice,
   onCollectBillable,
   onDownloadInvoice,
+  onSaveDraft,
   onDownloadAccountingFile,
   onMarkExported,
   onMarkInvoiced,
@@ -18493,6 +18511,7 @@ function BillingView({
   onCancelInvoice: (item: BillingRecord) => void;
   onCollectBillable: () => void;
   onDownloadInvoice: (item: BillingRecord) => void;
+  onSaveDraft: (id: string, expected: string, draft: BillingDraftEdit) => string | null;
   onDownloadAccountingFile: (item: BillingRecord) => void;
   onMarkExported: (item: BillingRecord) => void;
   onMarkInvoiced: (item: BillingRecord) => void;
@@ -18503,6 +18522,7 @@ function BillingView({
   reports: ReportRecord[];
 }) {
   const [previewInvoiceId, setPreviewInvoiceId] = useState<string | null>(null);
+  const [editingInvoice, setEditingInvoice] = useState<BillingRecord | null>(null);
   const copy = (de: string, sv: string, en: string) => language === "sv" ? sv : language === "en" ? en : de;
   const billableJobs = billableCompletedJobs(jobs, billing);
   const outgoingBook = billing
@@ -18593,6 +18613,7 @@ function BillingView({
             <IconAction label={`Rechnung ${invoiceLabel} als PDF herunterladen`} onClick={() => onDownloadInvoice(item)}><FileDown size={16} /></IconAction>
             {invoiceStatus === "entwurf" && (
               <>
+                {!item.invoicedAt && !item.outgoingBookNumber && item.externalExportStatus !== "gesendet" && <IconAction label={`Rechnung ${invoiceLabel} bearbeiten`} onClick={() => setEditingInvoice(structuredClone(item))}><Pencil size={16} /></IconAction>}
                 <IconAction label={`Rechnung ${invoiceLabel} buchen`} onClick={() => onMarkInvoiced(item)}><Check size={16} /></IconAction>
                 <IconAction label={`Rechnung ${invoiceLabel} aus Abrechnung entfernen`} onClick={() => onRemoveBillingDraft(item)}><Trash2 size={16} /></IconAction>
               </>
@@ -18623,6 +18644,22 @@ function BillingView({
       </article>
     );
   };
+
+  if (editingInvoice) return <BillingDraftEditor
+    key={editingInvoice.id}
+    initial={{ customerId: editingInvoice.customerId, objectId: editingInvoice.objectId, invoiceDate: editingInvoice.invoiceDate || currentLocalDateValue(), dueDate: editingInvoice.dueDate || addDays(editingInvoice.invoiceDate || currentLocalDateValue(), 30), serviceDate: editingInvoice.serviceDate || "", notes: editingInvoice.notes || "", lines: editingInvoice.lines || [] }}
+    number={editingInvoice.invoiceNumber || editingInvoice.label}
+    defaultCurrency={companySettings.currency}
+    language={language}
+    customers={customers}
+    objects={objects}
+    onClose={() => setEditingInvoice(null)}
+    onSave={draft => {
+      const error = onSaveDraft(editingInvoice.id, JSON.stringify(editingInvoice), draft);
+      if (!error) setEditingInvoice(null);
+      return error;
+    }}
+  />;
 
   return (
     <section className="panel">

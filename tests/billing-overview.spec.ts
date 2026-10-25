@@ -1,5 +1,19 @@
 import { expect, test } from "@playwright/test";
 import { billingCurrencyTotals, billingTabCounts, selectBillingRows, type BillingOverviewRow } from "../lib/billingOverview";
+import { billingDraftError, billingDraftTotals, type BillingDraftEdit } from "../lib/billingDraft";
+
+test("Entwurfsvalidierung weist ungueltige Daten, Zahlen und gemischte Waehrungen ab", () => {
+  const draft: BillingDraftEdit = { customerId: "C", objectId: "O", invoiceDate: "2026-10-25", dueDate: "2026-11-25", serviceDate: "", notes: "", lines: [{ id: "L", kind: "Leistung", name: "Montage", quantity: "1,5", unit: "h", unitPrice: "100", taxRate: "25", currency: "SEK" }] };
+  expect(billingDraftError(draft)).toBeNull();
+  expect(billingDraftTotals(draft.lines).gross).toBe(187.5);
+  expect(billingDraftTotals([{ ...draft.lines[0], quantity: "1", unitPrice: "0.035", taxRate: "25" }])).toMatchObject({ net: 0.04, tax: 0.01, gross: 0.05 });
+  expect(billingDraftError({ ...draft, invoiceDate: "2026-02-31" })).toBe("date");
+  expect(billingDraftError({ ...draft, invoiceDate: "2026-99-99" })).toBe("date");
+  expect(billingDraftError({ ...draft, dueDate: "2026-01-01" })).toBe("date");
+  expect(billingDraftError({ ...draft, lines: [] })).toBe("lines");
+  expect(billingDraftError({ ...draft, lines: [{ ...draft.lines[0], quantity: "12abc" }] })).toBe("lines");
+  expect(billingDraftError({ ...draft, lines: [...draft.lines, { ...draft.lines[0], id: "L2", currency: "EUR" }] })).toBe("currency");
+});
 
 const base: BillingOverviewRow = { id: "a", number: "INV-2", customerNumber: "001", customer: "Alpha", project: "Terrasse", invoiceDate: "2026-10-20", dueDate: "2026-11-20", status: "entwurf", amount: 125, currency: "SEK", transferStatus: "nicht gesendet", category: "service", searchText: "Montage" };
 const rows = [base, { ...base, id: "b", number: "INV-10", status: "gebucht", amount: 250 }, { ...base, id: "c", status: "überfällig", currency: "EUR" }, { ...base, id: "d", status: "bezahlt" }, { ...base, id: "e", status: "storniert", amount: 999 }];
@@ -22,6 +36,7 @@ test("Suche, Kategorie, Status, Uebergabe und numerische Sortierung kombinieren 
 });
 
 test.beforeEach(async ({ page }) => {
+  page.on("pageerror", error => { throw error; });
   await page.route("**/api/vehicle-positions", route => route.fulfill({ json: { data: [] } }));
   await page.addInitScript(() => {
     localStorage.setItem("kolaretorp-updated-at", "2026-10-25T08:00:00Z");
@@ -41,6 +56,53 @@ test.beforeEach(async ({ page }) => {
       { ...common, id: "BILL-CANCELLED", invoiceNumber: "INV-4", invoiceStatus: "storniert", cancelledAt: "2026-10-24T08:00:00Z", amount: "125", lines: [line("LINE-6", "100")] },
     ]));
   });
+});
+
+for (const width of [320, 390, 820, 1440]) test(`Entwurf bearbeiten, Summen und Speichern bei ${width}px`, async ({ page }, info) => {
+  await page.setViewportSize({ width, height: 1000 });
+  await page.goto("/"); await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true");
+  await page.getByTestId("nav-billing").click();
+  await page.getByRole("button", { name: "Details und Aktionen INV-1", exact: true }).click();
+  await page.getByRole("button", { name: "Rechnung INV-1 bearbeiten", exact: true }).click();
+  const editor = page.getByRole("region", { name: "Rechnung bearbeiten", exact: true });
+  await expect(editor).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await editor.getByLabel("Menge", { exact: true }).fill("2,5");
+  await editor.getByLabel("Einzelpreis", { exact: true }).fill("120");
+  await editor.getByRole("textbox", { name: "Notizen", exact: true }).fill("Montage nach Absprache");
+  await expect(editor.locator(".billing-editor-totals")).toContainText("375,00 SEK");
+  await editor.getByRole("button", { name: "Position hinzufügen", exact: true }).click();
+  await expect(editor.locator("fieldset")).toHaveCount(2);
+  await editor.getByRole("button", { name: "Position entfernen 2", exact: true }).click();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  for (const button of await editor.getByRole("button").all()) { const box = (await button.boundingBox())!; expect(box.height).toBeGreaterThanOrEqual(44); }
+  await page.screenshot({ path: info.outputPath(`billing-editor-${width}.png`), fullPage: true });
+  await editor.getByRole("button", { name: "Entwurf speichern", exact: true }).click();
+  await expect(editor).toHaveCount(0);
+  const invoice = await page.evaluate(() => JSON.parse(localStorage.getItem("kolaretorp-billing") || "[]").find((row: { id: string }) => row.id === "BILL-DRAFT"));
+  expect(invoice.invoiceNumber).toBe("INV-1");
+  expect(invoice.invoiceStatus).toBe("entwurf");
+  expect(invoice.lines[0].quantity).toBe("2,5");
+  expect(invoice.lines[0].accountingAccount).toBe("3051");
+  expect(Number(invoice.amount)).toBe(375);
+  expect(invoice.notes).toBe("Montage nach Absprache");
+});
+
+test("Abbrechen behaelt Original; gebuchte Rechnung hat keine Bearbeitungsaktion", async ({ page }) => {
+  await page.goto("/"); await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true"); await page.getByTestId("nav-billing").click();
+  const original = await page.evaluate(() => localStorage.getItem("kolaretorp-billing"));
+  await page.getByRole("button", { name: "Details und Aktionen INV-1", exact: true }).click();
+  await page.getByRole("button", { name: "Rechnung INV-1 bearbeiten", exact: true }).click();
+  await page.getByRole("textbox", { name: "Notizen", exact: true }).fill("Nicht speichern");
+  page.once("dialog", dialog => dialog.dismiss());
+  await page.getByRole("button", { name: "Abbrechen", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Rechnung bearbeiten", exact: true })).toBeVisible();
+  page.once("dialog", dialog => dialog.accept());
+  await page.getByRole("button", { name: "Abbrechen", exact: true }).click();
+  expect(await page.evaluate(() => localStorage.getItem("kolaretorp-billing"))).toBe(original);
+  await page.getByRole("tab", { name: "Unbezahlte Rechnungen 2", exact: true }).click();
+  await page.getByRole("button", { name: "Details und Aktionen INV-2", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Rechnung INV-2 bearbeiten", exact: true })).toHaveCount(0);
 });
 
 for (const width of [320, 390, 820, 1440]) test(`Rechnungsuebersicht mit Filtern und Details bleibt sauber bei ${width}px`, async ({ page }, info) => {

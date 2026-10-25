@@ -1,10 +1,11 @@
 export const appVersion = {
-  version: "1.428.17",
+  version: "1.428.18",
   releaseDate: "2026-10-25",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  { version: "1.428.18", date: "2026-10-25", changes: ["Rechnungsentwuerfe in eigener Ansicht mit Kopfdaten, bearbeitbaren Positionen und Notizen nach Spiris-Vorbild", "Laufende centgenaue Summen, geschuetzte gebuchte Rechnungen und Abbruchbestaetigung ohne Datenverlust", "Touchgerechte Schaltflaechen und responsive Darstellung auf iPhone, iPad und Desktop; 40 Rechnungs- und Finanztests erfolgreich"] },
   { version: "1.428.17", date: "2026-10-25", changes: ["Kompakte Kundenrechnungsuebersicht nach Spiris-Vorbild mit Entwuerfen, unbezahlten und allen Rechnungen, Suche, Filtern und festen Spalten", "Mobile Details und Sortierung, getrennte Waehrungssummen und Firmenangaben statt festem Absender in der Vorschau", "SIE-Download setzt keinen Uebergabestatus mehr; Importbestaetigung erfolgt bewusst und unpassende Steuer-/Waehrungsfaelle werden gesperrt; direkte API bleibt ohne Verbindung inaktiv"] },
   { version: "1.428.16", date: "2026-10-24", changes: ["Abgelaufene oder ungueltige Einladungslinks mit klarer Fehlermeldung statt Sackgasse", "Neuen Anmeldelink direkt auf der Einladungsseite anfordern, ohne ungewollte Kontoanlage", "Angemeldete E-Mail vor Passwortvergabe sichtbar; Bestaetigung und Schutz vor alter Sitzung bei fehlerhaftem Link"] },
   { version: "1.428.15", date: "2026-10-23", changes: ["Kundenuebersicht mit festen Spalten fuer Kundendaten, Projektzuordnung, Saldo und Status sowie buendigen Kommunikationsvorschauen", "Horizontale Ueberlaeufe durch Nachrichtenschaltflaechen beseitigt; Handy- und Tabletbedienung geprueft", "Inventuraktionen nur bei geoeffneter Einzelinventur und dort rechtsbuendig; 18 Browser- und Regressionstests erfolgreich"] },
