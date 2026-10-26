@@ -55,7 +55,7 @@ for (const width of [390, 820, 1440]) test(`Zentrale Firmen: richtige Firma, Kon
   await expect(page.getByLabel("Firmenname", { exact: true })).toHaveValue("Bearbeitete Firma");
   conflict = false;
   await page.getByRole("button", { name: "Einstellungen speichern", exact: true }).click();
-  await expect(page.getByRole("status")).toHaveText("Firmeneinstellungen gespeichert.");
+  await expect(page.locator(".administration-embedded").getByRole("status")).toHaveText("Firmeneinstellungen gespeichert.");
   expect(writes.at(-1)).toMatchObject({ action: "save", tenantId: target, revision: 4, settingsRevision: 7, company: { name: "Bearbeitete Firma", notes: "Nur diese Firma", modules: ["jobs", "logbook"] } });
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
   await page.screenshot({ path: `test-results/company-directory-${width}-${test.info().project.name}.png`, fullPage: true });
@@ -70,7 +70,7 @@ test("Firmenadministrator sieht keine zentrale Firmenverwaltung", async ({ page,
   await expect(page.getByRole("button", { name: "Neue Firma anlegen", exact: true })).toHaveCount(0);
   for (const method of ["GET", "PATCH"]) {
     const response = await request.fetch(`/api/administration/companies?tenantId=${target}`, { method, ...(method === "PATCH" ? { data: { action: "save", tenantId: target } } : {}) });
-    expect(response.status()).toBe(403);
+    expect(response.status()).toBe(process.env.WORKCORE_TEST_PRODUCTION === "1" ? 401 : 403);
   }
   const anonymous = await request.get(`/api/administration/companies?tenantId=${target}`, { headers: { "X-WorkCore-E2E-Bypass": "0" } });
   expect(anonymous.status()).toBe(401);

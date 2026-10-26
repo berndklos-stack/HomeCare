@@ -112,6 +112,7 @@ button {
   min-height: var(--form-control-height);
   max-height: var(--form-control-height);
   padding-block: 8px;
+  padding-inline-start: var(--form-control-text-inset, 12px);
 }
 
 :root select:not([multiple]):not([size]) {
@@ -126,9 +127,13 @@ button {
 
 :root select:not([multiple]):not([size]):has(+ svg) { background-image: none; }
 :root input:is([type="date"], [type="time"], [type="datetime-local"]) { -webkit-appearance: none; appearance: none; }
+:root input[type="search"] { -webkit-appearance: none; appearance: none; }
+:root .list-toolbar input[type="search"] { border: 1px solid var(--line); border-radius: 6px; background: var(--paper); color: var(--foreground); font: inherit; font-size: 16px; }
+:root :is(.list-toolbar, .billing-ledger-filters) select { border: 1px solid var(--line); border-radius: 6px; background-color: var(--paper); color: var(--foreground); font-family: inherit; font-size: 16px; }
+.billing-ledger-search { --form-control-text-inset: 34px; }
 :root input::-webkit-date-and-time-value { min-height: 22px; text-align: left; }
 :root :is(.search, .select-field) { --form-control-height: 42px; height: 44px; min-height: 44px; }
-:root .app-toolbar-language select { padding-inline-end: 18px; background-position: right center; background-size: 14px 14px; }
+:root .app-toolbar-language select { --form-control-text-inset: 0px; padding-inline-end: 18px; background-position: right center; background-size: 14px 14px; }
 
 .app {
   background: var(--background);
@@ -11443,6 +11448,28 @@ dialog.sync-confirm-dialog { width: min(520px, calc(100vw - 24px)); max-width: c
 .billing-editor-lines { padding: 18px 0; }
 .billing-editor-line { display: grid; grid-template-columns: minmax(70px, 1fr) minmax(120px, 1fr) minmax(140px, 2.5fr) repeat(5, minmax(60px, .8fr)) minmax(100px, 1fr) 94px; gap: 8px; align-items: end; border: 0; border-bottom: 1px solid var(--line); padding: 10px 0 18px; margin: 0 0 14px; min-width: 0; }
 .billing-editor-line-actions { display: flex; gap: 6px; justify-content: flex-end; justify-self: end; }
+.billing-article-field { display: grid; gap: 6px; min-width: 0; font-size: 13px; }
+.billing-customer-control { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.billing-customer-control select { flex: 1; }
+.billing-custom-article { display: flex; align-items: end; gap: 8px; margin-top: 12px; }
+.billing-custom-article label { flex: 1; }
+dialog.billing-master-dialog { width: min(720px, calc(100vw - 24px)); max-width: calc(100vw - 24px); height: fit-content; align-content: start; }
+:root .billing-master-dialog .modal-actions button { height: 44px; min-height: 44px; }
+.billing-editor dialog.sync-confirm-dialog { height: fit-content; }
+.billing-master-dialog form { display: grid; gap: 18px; }
+.billing-master-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.billing-master-dialog :is(h2, p) { margin: 0; }
+.billing-master-dialog h2 { font-size: 20px; }
+.billing-article-search span { display: flex; align-items: center; gap: 8px; }
+.billing-article-results { display: grid; align-content: start; gap: 0; padding: 0; margin: 0; list-style: none; max-height: 50dvh; overflow: auto; }
+:root .billing-article-results button { display: grid; width: 100%; text-align: left; justify-content: stretch; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; padding: 12px; background: var(--paper); color: var(--foreground); white-space: normal; overflow-wrap: anywhere; }
+.billing-article-results button:hover, .billing-article-results button:focus-visible { background: var(--paper-soft); }
+.billing-article-results small { color: var(--muted); }
+.administration-shell.administration-embedded { width: 100%; max-width: none; margin: 0; padding: 20px; }
+.administration-embedded h1 { font-size: 24px; margin: 0 0 20px; }
+.administration-links a[aria-current="page"] { background: rgba(255, 255, 255, .12); color: #fff; border-radius: 6px; }
+.feedback-workspace form { max-width: 800px; }
+.feedback-workspace form > button { justify-self: end; width: auto; }
 :root .billing-editor-line-actions button { width: 44px; height: 44px; padding: 8px; }
 .billing-editor-line .billing-editor-comment { grid-column: 1 / -1; }
 .invoice-line-comment { display: block; white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -11473,6 +11500,8 @@ dialog.sync-confirm-dialog { width: min(520px, calc(100vw - 24px)); max-width: c
 }
 @media (max-width: 600px) {
   .billing-editor { padding: 14px; }
+  .billing-master-fields { grid-template-columns: minmax(0, 1fr); }
+  .billing-article-field { grid-column: 1 / -1; }
   .billing-editor-head { grid-template-columns: minmax(0, 1fr); }
   .billing-editor-head > label, .billing-editor-head > label:nth-child(-n+2) { grid-column: auto; }
   .billing-editor-head > label:last-child { grid-row: auto; grid-column: auto; }

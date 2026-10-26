@@ -67,3 +67,39 @@ test("Feedback-Menue navigiert intern ohne vollstaendigen Seitenneustart", async
   await expect(page.getByRole("heading", { name: "Feedback senden", exact: true })).toBeVisible();
   expect(await page.evaluate(() => (window as unknown as { workcoreNavigationMarker?: string }).workcoreNavigationMarker)).toBe("same-document");
 });
+
+for (const width of [390, 820, 1440]) test(`Administration und Feedback bleiben in derselben angemeldeten App bei ${width}px`, async ({ page }, info) => {
+  await page.setViewportSize({ width, height: 1100 });
+  await seedSession(page);
+  await page.route("**/api/layout-preferences", route => route.fulfill({ json: { preferences: {} } }));
+  await page.route("**/api/block-layouts", route => route.fulfill({ json: { orders: {} } }));
+  let checks = 0;
+  await page.route("**/api/auth/context", route => { checks++; return route.fulfill({ json: context }); });
+  await page.goto("/?workcore-auth-test=session");
+  await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true");
+  await expect(page.getByRole("link", { name: "Administration", exact: true })).toBeVisible();
+  const before = checks;
+  await page.evaluate(() => {
+    Object.assign(window, { originalShell: document.querySelector("main.app"), loginFlashes: 0 });
+    new MutationObserver(() => {
+      if (document.querySelector('input[type="password"]')) (window as unknown as { loginFlashes: number }).loginFlashes++;
+    }).observe(document.body, { childList: true, subtree: true });
+  });
+  await page.getByRole("link", { name: "Administration", exact: true }).click();
+  await expect(page).toHaveURL(/\/administration$/);
+  await expect(page.locator(".workspace .administration-embedded").getByRole("heading", { name: "Administration", exact: true })).toBeVisible();
+  await expect(page.locator(".sidebar")).toBeVisible();
+  await page.getByRole("link", { name: "Feedback senden", exact: true }).click();
+  await expect(page.locator(".workspace .feedback-workspace").getByRole("heading", { name: "Feedback senden", exact: true })).toBeVisible();
+  await expect(page.locator(".topbar")).toBeVisible();
+  await page.locator(".workspace").screenshot({ path: info.outputPath(`integrated-feedback-${width}.png`) });
+  await page.goBack();
+  await expect(page.getByRole("heading", { name: "Administration", exact: true })).toBeVisible();
+  await page.getByTestId("nav-customers").click();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole("heading", { name: "Kundenübersicht", exact: true })).toBeVisible();
+  expect(await page.evaluate(() => (window as unknown as { originalShell: Element }).originalShell === document.querySelector("main.app"))).toBe(true);
+  expect(await page.evaluate(() => (window as unknown as { loginFlashes: number }).loginFlashes)).toBe(0);
+  expect(checks).toBe(before);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});

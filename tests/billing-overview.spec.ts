@@ -72,6 +72,56 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
+for (const width of [320, 820, 1440]) test(`Kunde und Leistung direkt in Rechnung anlegen und erhalten bei ${width}px`, async ({ page }, info) => {
+  await page.setViewportSize({ width, height: 1100 });
+  page.on("dialog", () => { throw new Error("Keine Browserdialoge im Rechnungseditor erwartet"); });
+  await page.goto("/"); await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true");
+  await page.getByTestId("nav-billing").click();
+  await page.getByRole("button", { name: "Neue Rechnung", exact: true }).click();
+  const editor = page.getByRole("region", { name: "Rechnung bearbeiten", exact: true });
+  await editor.getByRole("textbox", { name: "Ihre Referenz", exact: true }).fill("Nicht verlieren");
+  await editor.getByRole("button", { name: "Neuer Kunde", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("textbox", { name: "Name", exact: true }).fill("Neue Handwerkskundin");
+  await dialog.getByRole("textbox", { name: "E-Mail", exact: true }).fill("kunde@example.invalid");
+  await dialog.getByRole("textbox", { name: "Adresse", exact: true }).fill("Musterstrasse 2, Musterort");
+  await dialog.getByRole("button", { name: "Speichern und übernehmen", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(editor.getByRole("combobox", { name: "Kunde", exact: true }).locator("option:checked")).toHaveText("Neue Handwerkskundin");
+  await expect(editor.getByRole("textbox", { name: "Ihre Referenz", exact: true })).toHaveValue("Nicht verlieren");
+  await editor.getByRole("button", { name: "Artikel wählen zu Position 1", exact: true }).click();
+  await dialog.getByRole("searchbox", { name: "Suche", exact: true }).fill("gibt es noch nicht");
+  await expect(dialog.getByRole("status")).toContainText("Keine passenden");
+  await dialog.getByRole("button", { name: "Neue Leistung", exact: true }).click();
+  await dialog.getByRole("textbox", { name: "Bezeichnung", exact: true }).fill("Fensterreinigung mit langer vollstaendiger Leistungsbezeichnung");
+  await dialog.getByRole("textbox", { name: "Kategorie", exact: true }).fill("Reinigung");
+  await dialog.getByRole("textbox", { name: "Einzelpreis", exact: true }).fill("ungültig");
+  await dialog.getByRole("button", { name: "Speichern und übernehmen", exact: true }).click();
+  await expect(dialog.getByRole("alert")).toContainText("gültigen Preis");
+  await dialog.getByRole("textbox", { name: "Einzelpreis", exact: true }).fill("396,50");
+  await dialog.getByRole("button", { name: "Speichern und übernehmen", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(editor.getByRole("textbox", { name: "Einzelpreis", exact: true })).toHaveValue("396.5");
+  await editor.getByRole("button", { name: "Artikel wählen zu Position 1", exact: true }).click();
+  await dialog.getByRole("searchbox", { name: "Suche", exact: true }).fill("Fensterreinigung mit langer");
+  const match = dialog.getByRole("button", { name: /Fensterreinigung mit langer/ });
+  await expect(match).toBeVisible();
+  expect((await dialog.boundingBox())!.height).toBeLessThan(750);
+  expect(await match.evaluate(e => e.scrollWidth <= e.clientWidth)).toBe(true);
+  await dialog.screenshot({ path: info.outputPath(`article-selection-${width}.png`) });
+  await match.click();
+  await editor.getByRole("button", { name: "Entwurf speichern", exact: true }).click();
+  await expect(editor).toHaveCount(0);
+  await page.reload(); await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true");
+  const data = await page.evaluate(() => ({ customers: JSON.parse(localStorage.getItem("kolaretorp-customers") || "[]"), services: JSON.parse(localStorage.getItem("kolaretorp-services") || "[]"), billing: JSON.parse(localStorage.getItem("kolaretorp-billing") || "[]") }));
+  const customer = data.customers.find((row: { name: string }) => row.name === "Neue Handwerkskundin");
+  const service = data.services.find((row: { name: string }) => row.name.startsWith("Fensterreinigung mit langer"));
+  expect(customer.address).toBe("Musterstrasse 2, Musterort");
+  expect(service.category).toBe("Reinigung");
+  expect(data.billing.find((row: { customerId: string }) => row.customerId === customer.id).lines[0]).toMatchObject({ articleNumber: service.id, unitPrice: "396.5" });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
 test("Artikelwahl uebernimmt Leistung und Material aus den Stammdaten ohne Kommentarverlust", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("kolaretorp-services", JSON.stringify([{ id: "ART-SERVICE", name: "Montagestunde", unit: "h", price: "80", currency: "SEK", taxRate: "25", category: "Montage", description: "", checklist: [] }]));
@@ -82,15 +132,18 @@ test("Artikelwahl uebernimmt Leistung und Material aus den Stammdaten ohne Komme
   const editor = page.getByRole("region", { name: "Rechnung bearbeiten", exact: true });
   await editor.getByRole("button", { name: "Kommentar zu Position 1", exact: true }).click();
   await editor.getByRole("textbox", { name: "Kommentar", exact: true }).fill("Bleibt erhalten");
-  await editor.getByRole("combobox", { name: "Artikel", exact: true }).fill("ART-SERVICE");
+  await editor.getByRole("button", { name: "Artikel wählen zu Position 1", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: /Montagestunde/ }).click();
   await expect(editor.getByRole("textbox", { name: "Bezeichnung", exact: true })).toHaveValue("Montagestunde");
   await expect(editor.getByRole("textbox", { name: "Einzelpreis", exact: true })).toHaveValue("80");
-  await editor.getByRole("combobox", { name: "Artikel", exact: true }).fill("WOOD-42");
+  await editor.getByRole("button", { name: "Artikel wählen zu Position 1", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: /Kantholz/ }).click();
   await expect(editor.getByRole("combobox", { name: "Art", exact: true })).toHaveValue("Material");
   await expect(editor.getByRole("textbox", { name: "Einzelpreis", exact: true })).toHaveValue("12.5");
   await expect(editor.getByRole("textbox", { name: "Kommentar", exact: true })).toHaveValue("Bleibt erhalten");
   await editor.getByRole("combobox", { name: "Währung", exact: true }).selectOption("EUR");
-  await expect(editor.locator('#billing-articles option[value="WOOD-42"]')).toHaveCount(0);
+  await editor.getByRole("button", { name: "Artikel wählen zu Position 1", exact: true }).click();
+  await expect(page.getByRole("dialog").getByRole("button", { name: /Kantholz/ })).toHaveCount(0);
 });
 
 for (const width of [320, 390, 820, 1440]) test(`Visma-Kopfdaten, Positionskommentar und Rabatt bleiben in Entwurf und PDF bei ${width}px`, async ({ page }, info) => {
@@ -102,7 +155,10 @@ for (const width of [320, 390, 820, 1440]) test(`Visma-Kopfdaten, Positionskomme
   await editor.getByRole("textbox", { name: "Ihre Referenz", exact: true }).fill("Anna Referenz");
   await editor.getByRole("textbox", { name: "Unsere Referenz", exact: true }).fill("Paul Referenz");
   await editor.getByRole("textbox", { name: "Ihre Bestellreferenz", exact: true }).fill("PO-123");
-  await editor.getByRole("combobox", { name: "Artikel", exact: true }).fill("ART-42");
+  await editor.getByRole("button", { name: "Artikel wählen zu Position 1", exact: true }).click();
+  await page.getByText("Eigene Artikelnummer", { exact: true }).click();
+  await page.getByRole("dialog").getByRole("textbox", { name: "Artikelnummer", exact: true }).fill("ART-42");
+  await page.getByRole("dialog").getByRole("button", { name: "Übernehmen", exact: true }).click();
   await editor.getByRole("textbox", { name: "Bezeichnung", exact: true }).fill("Montage Kommentar");
   await editor.getByRole("textbox", { name: "Menge", exact: true }).fill("2");
   await editor.getByRole("textbox", { name: "Einzelpreis", exact: true }).fill("150");
@@ -118,7 +174,7 @@ for (const width of [320, 390, 820, 1440]) test(`Visma-Kopfdaten, Positionskomme
   await page.getByRole("button", { name: "Rechnung Montage Kommentar bearbeiten", exact: true }).click();
   await expect(editor.getByRole("textbox", { name: "Kommentar", exact: true })).toHaveValue("Montage am Nebeneingang\nNach Kundenfreigabe");
   await expect(editor.getByRole("textbox", { name: "Unsere Referenz", exact: true })).toHaveValue("Paul Referenz");
-  await expect(editor.getByRole("combobox", { name: "Artikel", exact: true })).toHaveValue("ART-42");
+  await expect(editor.getByRole("button", { name: "Artikel wählen zu Position 1", exact: true })).toHaveAttribute("title", "Montage Kommentar (ART-42)");
   await editor.getByRole("button", { name: "Abbrechen", exact: true }).click();
   await page.getByRole("button", { name: "Details und Aktionen Montage Kommentar", exact: true }).click();
   const event = page.waitForEvent("download"); await page.getByRole("button", { name: "Rechnung Montage Kommentar als PDF herunterladen", exact: true }).click();
@@ -204,8 +260,8 @@ test("Neue manuelle Rechnung abbrechen erzeugt keinen leeren Datensatz", async (
   const before = await page.evaluate(() => localStorage.getItem("kolaretorp-billing"));
   await page.getByRole("button", { name: "Neue Rechnung", exact: true }).click();
   await page.getByRole("textbox", { name: "Bezeichnung", exact: true }).fill("Nicht speichern");
-  page.once("dialog", dialog => dialog.accept());
   await page.getByRole("button", { name: "Abbrechen", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Änderungen verwerfen", exact: true }).click();
   expect(await page.evaluate(() => localStorage.getItem("kolaretorp-billing"))).toBe(before);
 });
 
@@ -245,11 +301,11 @@ test("Abbrechen behaelt Original; gebuchte Rechnung hat keine Bearbeitungsaktion
   await page.getByRole("button", { name: "Details und Aktionen INV-1", exact: true }).click();
   await page.getByRole("button", { name: "Rechnung INV-1 bearbeiten", exact: true }).click();
   await page.getByRole("textbox", { name: "Notizen", exact: true }).fill("Nicht speichern");
-  page.once("dialog", dialog => dialog.dismiss());
   await page.getByRole("button", { name: "Abbrechen", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Weiter bearbeiten", exact: true }).click();
   await expect(page.getByRole("region", { name: "Rechnung bearbeiten", exact: true })).toBeVisible();
-  page.once("dialog", dialog => dialog.accept());
   await page.getByRole("button", { name: "Abbrechen", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Änderungen verwerfen", exact: true }).click();
   expect(await page.evaluate(() => localStorage.getItem("kolaretorp-billing"))).toBe(original);
   await page.getByRole("tab", { name: "Unbezahlte Rechnungen 2", exact: true }).click();
   await page.getByRole("button", { name: "Details und Aktionen INV-2", exact: true }).click();

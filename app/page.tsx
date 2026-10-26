@@ -43,9 +43,13 @@ import { serviceListLabels } from "@/lib/consultingServiceList";
 import { DevicePhotoSave, type DevicePhotoPolicy } from "@/components/DevicePhotoSave";
 import { TenantSwitcher } from "@/components/TenantSwitcher";
 import { AdministrationLinks } from "@/components/AdministrationLinks";
+import { AdministrationWorkspace } from "@/components/AdministrationWorkspace";
+import { FeedbackWorkspace } from "@/components/FeedbackWorkspace";
+import { usePathname } from "next/navigation";
 import { CompanyUsers } from "@/components/CompanyUsers";
 import { BillingOverview } from "@/components/BillingOverview";
 import { BillingDraftEditor, type BillingArticle } from "@/components/BillingDraftEditor";
+import type { BillingCustomerInput, BillingServiceInput, BillingCreateResult } from "@/components/BillingMasterDataDialog";
 import { billingDraftError, billingDraftTotals, billingDraftLineNet, type BillingDraftEdit } from "@/lib/billingDraft";
 import type { BillingOverviewRow } from "@/lib/billingOverview";
 import {
@@ -8954,6 +8958,8 @@ type HomePageProps = {
 };
 
 function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: HomePageProps = {}) {
+  const pathname = usePathname();
+  const auxiliary = pathname === "/administration" ? "administration" : pathname === "/feedback" ? "feedback" : null;
   const [section, setSection] = useState<Section>(initialSection);
   const [staffTimeDirty, setStaffTimeDirty] = useState(false);
   const [staffTimeBusy, setStaffTimeBusy] = useState(false);
@@ -10388,13 +10394,13 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
   }, [appBranding.brandName, companySettings.name]);
 
   const untouchedExistingInstallation = hasProductiveData && !companySettings.onboarding;
-  const onboardingVisible = onboardingOpen || (
+  const onboardingVisible = !auxiliary && (onboardingOpen || (
     appStorageReady
     && !portalOnly
     && !onboardingDeferredThisSession
     && !onboardingState.completed
     && !untouchedExistingInstallation
-  );
+  ));
 
   const activeObjects = objects.filter((object) => !object.archived);
   const archivedObjects = objects.filter((object) => object.archived);
@@ -10712,6 +10718,22 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     setOnboardingDeferredThisSession(false);
     saveOnboardingProgress({ completed: false, currentStep: "language", legacyInstallation: false });
     setOnboardingOpen(true);
+  }
+
+  function createBillingCustomer(input: BillingCustomerInput): BillingCreateResult<{ id: string; name: string }> {
+    if (!input.name.trim()) return { error: uiText("Bitte einen Namen eingeben.", language) };
+    const id = createEntityId("CUS");
+    const form = { ...emptyCustomerForm(), ...input, language: language === "sv" ? "Schwedisch" : language === "en" ? "Englisch" : "Deutsch" };
+    const saved = formToCustomer(form, id, undefined, createReadableNumber(customers.map(customer => customer.personalNumber)));
+    persistCustomersRelational([saved, ...customers]);
+    return { value: { id, name: saved.name } };
+  }
+
+  function createBillingService(input: BillingServiceInput): BillingCreateResult<BillingArticle> {
+    if (!input.name.trim() || !input.category.trim() || !input.unit.trim()) return { error: uiText("Bitte Leistung, Kategorie und Einheit ausfüllen. Diese Felder sind Pflichtfelder.", language) };
+    const saved: ServiceItem = { id: createEntityId("SVC"), name: input.name.trim(), category: input.category.trim(), unit: input.unit.trim(), price: input.price.trim(), currency: input.currency, taxRate: input.taxRate.trim(), accountingAccount: defaultAccountingAccount("Leistung", input.name), description: "", checklist: [], archived: false, showWorkTimeInReports: true };
+    persistServicesRelational([saved, ...services]);
+    return { value: { number: saved.id, name: saved.name, kind: "Leistung", unit: saved.unit, price: String(decimalValue(saved.price)), currency: saved.currency, taxRate: saved.taxRate, accountingAccount: saved.accountingAccount } };
   }
 
   function saveOnboardingCustomer(input: { email: string; name: string; phone: string }) {
@@ -13442,10 +13464,10 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
         <div className="brand">
           <CompanyBrand logoUrl={companySettings.logoUrl} name={companySettings.name} />
         </div>
-        <PersonalNavigation controller={layoutPreferences} language={language} selected={section}
-          select={(id) => { if (!leaveStaffTime()) return; setStaffTimeDirty(false); setQuickTripOpen(false); setSection(id as Section); }}
+        <PersonalNavigation controller={layoutPreferences} language={language} selected={auxiliary ? "" : section}
+          select={(id) => { if (!leaveStaffTime()) return; if (auxiliary) window.history.pushState(null, "", "/"); setStaffTimeDirty(false); setQuickTripOpen(false); setSection(id as Section); }}
           items={navItems.map((item) => ({ id: item.id, label: navLabels[language][item.id], icon: <item.icon size={17}/> }))}
-          trailing={<AdministrationLinks section={section} />}/>
+          trailing={<AdministrationLinks section={section} active={auxiliary || undefined} onNavigate={href => { if (!leaveStaffTime()) return; setStaffTimeDirty(false); setQuickTripOpen(false); window.history.pushState(null, "", href); }} />}/>
         <button className="version" onClick={() => setModal("version")} type="button">
           <span>{tx("Aktuelle Version")}</span>
           <strong>v{appVersion.version}</strong>
@@ -13899,7 +13921,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
             </div>
           </TripSurface>
       )}
-        {section === "dashboard" && !quickTripOpen && (
+        {section === "dashboard" && !quickTripOpen && !auxiliary && (
           <PersonalBlocks scope="dashboard.metrics" language={language} className="quickbar">
             {dashboardStats.map((item) => (
               <PersonalBlock key={item.section} id={item.section} title={item.label} pressable>
@@ -13912,7 +13934,8 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
           </PersonalBlocks>
         )}
 
-        {!quickTripOpen && <section className="layout full">
+        {!quickTripOpen && auxiliary && <section className="layout full"><div className="main-panel">{auxiliary === "administration" ? <AdministrationWorkspace embedded /> : <FeedbackWorkspace embedded />}</div></section>}
+        {!quickTripOpen && !auxiliary && <section className="layout full">
           <div className="main-panel">
             {section === "dashboard" && (
               <Dashboard
@@ -14110,6 +14133,8 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
                 onDownloadInvoice={downloadBillingInvoice}
                 onSaveDraft={saveBillingDraft}
                 onCreateDraft={createManualBillingDraft}
+                onCreateCustomer={createBillingCustomer}
+                onCreateService={createBillingService}
                 onDownloadAccountingFile={downloadBillingAccountingFile}
                 onCancelInvoice={cancelInvoice}
                 onMarkExported={markBillingExported}
@@ -18571,6 +18596,8 @@ function FieldView({
 
 function BillingView({
   articles,
+  onCreateCustomer,
+  onCreateService,
   language,
   notice,
   companySettings,
@@ -18599,6 +18626,8 @@ function BillingView({
   companySettings: CompanySettings;
   billing: BillingRecord[];
   articles: BillingArticle[];
+  onCreateCustomer: (input: BillingCustomerInput) => BillingCreateResult<{ id: string; name: string }>;
+  onCreateService: (input: BillingServiceInput) => BillingCreateResult<BillingArticle>;
   customers: CustomerRecord[];
   jobs: JobRecord[];
   objects: ObjectRecord[];
@@ -18743,6 +18772,8 @@ function BillingView({
 
   if (newDraft) return <BillingDraftEditor
     articles={articles}
+    onCreateCustomer={onCreateCustomer}
+    onCreateService={onCreateService}
     initial={newDraft}
     number={copy("Neue Rechnung", "Ny kundfaktura", "New invoice")}
     language={language}
@@ -18759,6 +18790,8 @@ function BillingView({
 
   if (editingInvoice) return <BillingDraftEditor
     articles={articles}
+    onCreateCustomer={onCreateCustomer}
+    onCreateService={onCreateService}
     key={editingInvoice.id}
     initial={{ customerId: editingInvoice.customerId, objectId: editingInvoice.objectId, invoiceDate: editingInvoice.invoiceDate || currentLocalDateValue(), dueDate: editingInvoice.dueDate || addDays(editingInvoice.invoiceDate || currentLocalDateValue(), 30), serviceDate: editingInvoice.serviceDate || "", notes: editingInvoice.notes || "", customerReference: editingInvoice.customerReference || "", ourReference: editingInvoice.ourReference || "", orderReference: editingInvoice.orderReference || "", lines: editingInvoice.lines || [] }}
     number={editingInvoice.invoiceNumber || editingInvoice.label}

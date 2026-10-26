@@ -22,6 +22,26 @@ test.beforeEach(async ({ page }) => {
 });
 
 for (const width of [320, 390, 820, 1440]) {
+  test(`Suchfelder und Filter mit Textabstand bei ${width}px`, async ({ page }, info) => {
+    await page.setViewportSize({ width, height: 1100 });
+    await page.goto("/"); await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true");
+    for (const [section, selector] of [["customers", ".list-toolbar"], ["communication", ".communication-toolbar"], ["billing", ".billing-ledger-filters"]]) {
+      await page.getByTestId(`nav-${section}`).click();
+      const toolbar = page.locator(selector).first();
+      await expect(toolbar).toBeVisible();
+      await expectEqualHeights(toolbar);
+      for (const control of await toolbar.locator('input[type="search"], select').all()) {
+        if (!await control.isVisible()) continue;
+        const style = await control.evaluate(e => ({ padding: parseFloat(getComputedStyle(e).paddingLeft), appearance: getComputedStyle(e).appearance }));
+        expect(style.padding).toBeGreaterThanOrEqual(12);
+        expect(style.appearance).toBe("none");
+      }
+      if (section === "billing") expect(await toolbar.locator('input[type="search"]').evaluate(e => parseFloat(getComputedStyle(e).paddingLeft))).toBeGreaterThanOrEqual(34);
+      await toolbar.screenshot({ path: info.outputPath(`${section}-filters-${width}.png`) });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    }
+  });
+
   test(`Rechnungsfelder gleich hoch und Kommentare je Position freiwillig bei ${width}px`, async ({ page }, info) => {
     await page.setViewportSize({ width, height: 1100 });
     await page.goto("/"); await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true");

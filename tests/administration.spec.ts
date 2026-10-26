@@ -198,7 +198,7 @@ for (const width of [390, 820, 1440]) {
     await expect(page.getByLabel("Deutscher Claim", { exact: true })).toHaveValue("Alles im Blick.");
     conflict = false;
     await page.getByRole("button", { name: "Branding speichern", exact: true }).click();
-    await expect(page.getByRole("status")).toHaveText("Branding gespeichert.");
+    await expect(page.getByRole("region", { name: "System / Branding", exact: true }).getByRole("status")).toHaveText("Branding gespeichert.");
     await page.screenshot({ path: `test-results/administration-branding-${width}-${test.info().project.name}.png`, fullPage: true });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.getByRole("button", { name: "Firmen", exact: true }).click();
@@ -372,7 +372,7 @@ for (const sent of [true, false]) test(`Firmenanlage öffnet zielgebundene Benut
   const directory = page.waitForRequest(request => new URL(request.url()).pathname === "/api/administration" && new URL(request.url()).searchParams.get("tenantId") === target);
   finish!(); await directory;
   await expect(page.getByRole("button", { name: "Benutzer einladen", exact: true })).toBeVisible();
-  await expect(page.getByRole("status")).toContainText(sent ? "Eigentümer eingeladen" : "Mailversand fehlgeschlagen");
+  await expect(page.locator(".administration-embedded").getByRole("status")).toContainText(sent ? "Eigentümer eingeladen" : "Mailversand fehlgeschlagen");
 });
 test("Feedback sendet ausschließlich eingegebene Nachricht und technische Seitenkategorie", async ({ page }) => {
   let body: Record<string, unknown> | undefined;
