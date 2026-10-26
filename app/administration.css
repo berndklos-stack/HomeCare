@@ -22,6 +22,28 @@
 .administration-user-actions { display: flex; gap: 8px; }
 .administration-user-group + .administration-user-group { margin-top: 28px; }
 .administration-shell.company-users-workspace { width: 100%; padding: 0; }
+.company-users-workspace .administration-section-header h2 { margin: 0; font-size: 20px; }
+.company-users-workspace .administration-section-header { gap: 8px; }
+.company-users-workspace .administration-filters { gap: 10px; margin: 12px 0; }
+.company-users-workspace label { gap: 4px; font-size: 12px; }
+.company-users-workspace input:not([type=checkbox]), .company-users-workspace select { padding: 8px 10px; }
+.company-users-workspace .administration-users { display: grid; gap: 16px; }
+.company-users-workspace .administration-user-group + .administration-user-group { margin-top: 0; }
+.company-users-workspace .administration-user-group > h3 { margin-bottom: 8px; font-size: 15px; }
+.company-users-workspace .administration-user { grid-template-columns: minmax(180px, 1.6fr) minmax(135px, 1fr) minmax(135px, 1fr) auto; gap: 12px; padding: 12px; margin-top: 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); }
+.company-users-workspace .administration-user h3 { margin: 0 0 4px; font-size: 15px; }
+.company-users-workspace .administration-user p { margin: 2px 0; font-size: 13px; }
+.company-users-workspace .administration-user small { font-size: 12px; color: var(--muted); }
+.company-users-workspace .administration-user-actions { justify-content: flex-end; gap: 6px; }
+.company-users-workspace .administration-user-actions:empty { display: none; }
+.company-users-workspace .administration-user-actions button { flex: 0 0 44px; width: 44px; max-width: 44px; min-width: 44px; height: 44px; min-height: 44px; }
+@media(max-width: 1000px) {
+  .company-users-workspace .administration-user { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .company-users-workspace .administration-user > div:first-child, .company-users-workspace .administration-user-actions { grid-column: 1 / -1; }
+}
+@media(max-width: 360px) {
+  .company-users-workspace .administration-user { grid-template-columns: minmax(0, 1fr); }
+}
 .administration-pagination { display: flex; justify-content: flex-end; gap: 12px; align-items: center; padding: 18px 0; }
 .administration-user-actions button { width: 44px; height: 44px; flex-shrink: 0; padding: 10px; }
 .administration-role-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(260px,100%),1fr)); gap: 24px; }

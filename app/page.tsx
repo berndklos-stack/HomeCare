@@ -5189,7 +5189,7 @@ function sieFiscalYear(dateString: string | undefined) {
   };
 }
 
-function createSpirisSieFile(item: BillingRecord, object: ObjectRecord, customer: CustomerRecord | undefined, settings: CompanySettings, accountingAccounts: AccountingAccount[] = defaultVismaChartOfAccounts) {
+function createSpirisSieFile(item: BillingRecord, object: ObjectRecord | undefined, customer: CustomerRecord | undefined, settings: CompanySettings, accountingAccounts: AccountingAccount[] = defaultVismaChartOfAccounts) {
   const exportBrandName = resolveAppBranding(settings, settings.countryCode === "SE" ? "sv" : "en").brandName;
   const lines = item.lines?.length
     ? item.lines
@@ -5217,7 +5217,7 @@ function createSpirisSieFile(item: BillingRecord, object: ObjectRecord, customer
     accounts.set(accounting.account, accounting.label);
   });
 
-  const heading = `${item.invoiceNumber || item.id} ${customer?.name || object.owner || object.name}`;
+  const heading = `${item.invoiceNumber || item.id} ${customer?.name || object?.owner || object?.name || item.label}`;
   const rows = [
     "#FLAGGA 0",
     `#PROGRAM "${sieText(exportBrandName)}" "1.0"`,
@@ -5246,7 +5246,7 @@ function createSpirisSieFile(item: BillingRecord, object: ObjectRecord, customer
   return `${rows.join("\r\n")}\r\n`;
 }
 
-function downloadSpirisSieFile(item: BillingRecord, object: ObjectRecord, customer: CustomerRecord | undefined, settings: CompanySettings, accountingAccounts: AccountingAccount[] = defaultVismaChartOfAccounts) {
+function downloadSpirisSieFile(item: BillingRecord, object: ObjectRecord | undefined, customer: CustomerRecord | undefined, settings: CompanySettings, accountingAccounts: AccountingAccount[] = defaultVismaChartOfAccounts) {
   const content = createSpirisSieFile(item, object, customer, settings, accountingAccounts);
   const fileName = `${safeFileName(`Spiris-SIE-${item.invoiceNumber || item.id}`)}.si`;
   downloadBlob(new Blob([content], { type: "text/plain;charset=ibm437" }), fileName);
@@ -5270,9 +5270,8 @@ function nextOutgoingBookNumber(billing: BillingRecord[], invoiceDate: string) {
   return `AR-${year}-${String(existingCount + 1).padStart(4, "0")}`;
 }
 
-function invoiceSubject(item: BillingRecord, object: ObjectRecord, customer?: CustomerRecord) {
-  void customer;
-  return `Faktura ${item.invoiceNumber || item.id} - ${object.name}`;
+function invoiceSubject(item: BillingRecord, object: ObjectRecord | undefined, customer?: CustomerRecord) {
+  return `Faktura ${item.invoiceNumber || "Entwurf"} - ${object?.name || customer?.name || item.label}`;
 }
 
 const defaultVismaChartOfAccounts: AccountingAccount[] = [
@@ -6622,7 +6621,7 @@ async function downloadOrderConfirmationPdf(job: JobRecord, object: ObjectRecord
   URL.revokeObjectURL(url);
 }
 
-async function createInvoicePdfBlob(item: BillingRecord, object: ObjectRecord, customer: CustomerRecord | undefined, companySettings: CompanySettings) {
+async function createInvoicePdfBlob(item: BillingRecord, object: ObjectRecord | undefined, customer: CustomerRecord | undefined, companySettings: CompanySettings) {
   const { jsPDF } = await import("jspdf");
   const pdf = new jsPDF({ unit: "mm", format: "a4" });
   const pageWidth = pdf.internal.pageSize.getWidth();
@@ -6661,7 +6660,7 @@ async function createInvoicePdfBlob(item: BillingRecord, object: ObjectRecord, c
   pdf.text(swedish ? "Faktura" : "Rechnung", pageWidth - margin, y + 8, { align: "right" });
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(10);
-  pdf.text(item.invoiceNumber || item.id, pageWidth - margin, y + 15, { align: "right" });
+  pdf.text(item.invoiceNumber || "Utkast", pageWidth - margin, y + 15, { align: "right" });
   y += 28;
 
   pdf.setFont("helvetica", "bold");
@@ -6670,19 +6669,19 @@ async function createInvoicePdfBlob(item: BillingRecord, object: ObjectRecord, c
   addWrapped(`${displayAddress(companySettings.address)}\n${companySettings.email}`, margin, 82, 9, 4);
 
   const recipientX = 118;
-  const recipientAddress = customer?.billingAddress || customer?.address || object.billingAddress || object.address;
+  const recipientAddress = customer?.billingAddress || customer?.address || object?.billingAddress || object?.address || "";
   pdf.setFont("helvetica", "bold");
   pdf.text(swedish ? "Kund" : "Kunde", recipientX, 44);
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(9);
-  pdf.text(pdf.splitTextToSize(`${customer?.name || object.owner}\n${displayAddress(recipientAddress)}\n${customer?.email || object.ownerEmail || ""}`, 76), recipientX, 50);
+  pdf.text(pdf.splitTextToSize(`${customer?.name || object?.owner || ""}\n${displayAddress(recipientAddress)}\n${customer?.email || object?.ownerEmail || ""}`, 76), recipientX, 50);
 
   y = 80;
   const meta = [
     `${swedish ? "Fakturadatum" : "Rechnungsdatum"}: ${item.invoiceDate || new Date().toISOString().slice(0, 10)}`,
     `${swedish ? "Förfallodatum" : "Fällig am"}: ${item.dueDate || addDays(item.invoiceDate || new Date().toISOString().slice(0, 10), 30)}`,
     `${swedish ? "Utfört datum" : "Leistungsdatum"}: ${item.serviceDate || "-"}`,
-    `Objekt: ${object.name}, ${displayAddress(object.address)}`,
+    ...(object ? [`Objekt: ${object.name}, ${displayAddress(object.address)}`] : []),
   ];
   pdf.setFontSize(9);
   meta.forEach((row) => {
@@ -6857,7 +6856,7 @@ async function createInvoicePdfBlob(item: BillingRecord, object: ObjectRecord, c
   return pdf.output("blob");
 }
 
-async function downloadInvoicePdf(item: BillingRecord, object: ObjectRecord, customer: CustomerRecord | undefined, companySettings: CompanySettings) {
+async function downloadInvoicePdf(item: BillingRecord, object: ObjectRecord | undefined, customer: CustomerRecord | undefined, companySettings: CompanySettings) {
   const pdfBlob = await createInvoicePdfBlob(item, object, customer, companySettings);
   const fileName = `${safeFileName(invoiceSubject(item, object, customer))}.pdf`;
   const url = URL.createObjectURL(pdfBlob);
@@ -11161,14 +11160,40 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     if ((current.jobId || current.reportId) && (draft.customerId !== current.customerId || draft.objectId !== current.objectId)) return "Die Zuordnung eines aus Auftrag oder Bericht erstellten Entwurfs kann hier nicht geändert werden.";
     if (billingDraftError(draft)) return "Bitte die Rechnungsdaten und Positionen prüfen.";
     const object = objects.find(item => item.id === draft.objectId);
-    if (!customers.some(item => item.id === draft.customerId) || !object || (object.ownerCustomerId && object.ownerCustomerId !== draft.customerId)) return "Kunde und Projekt/Objekt passen nicht zusammen.";
+    if (!customers.some(item => item.id === draft.customerId) || (draft.objectId && !object) || (object?.ownerCustomerId && object.ownerCustomerId !== draft.customerId)) return "Kunde und Projekt/Objekt passen nicht zusammen.";
     const updated = { ...current, ...draft, amount: String(billingDraftTotals(draft.lines).gross) };
     persistBillingRelational(billing.map(item => item.id === id ? updated : item));
     setRecordNotice(`Rechnungsentwurf "${current.invoiceNumber || current.label}" gespeichert.`);
     return null;
   }
 
+  function createManualBillingDraft(draft: BillingDraftEdit): string | null {
+    if (billingDraftError(draft)) return "Bitte die Rechnungsdaten und Positionen prüfen.";
+    const customer = customers.find(item => item.id === draft.customerId);
+    const object = objects.find(item => item.id === draft.objectId);
+    if (!customer || (draft.objectId && !object) || (object?.ownerCustomerId && object.ownerCustomerId !== customer.id)) return "Kunde und Projekt/Objekt passen nicht zusammen.";
+    const item: BillingRecord = {
+      ...draft,
+      id: `BIL-MANUAL-${crypto.randomUUID()}`,
+      label: draft.lines[0].name.trim(),
+      amount: String(billingDraftTotals(draft.lines).gross),
+      createdAt: new Date().toISOString(),
+      source: "Manuell",
+      status: "abrechenbar",
+      invoiceStatus: "entwurf",
+      externalExportStatus: "nicht gesendet",
+      externalExportSystem: "Spiris / Visma Buchhaltung",
+    };
+    persistBillingRelational([item, ...billing]);
+    setRecordNotice("Manueller Rechnungsentwurf gespeichert. Die Rechnungsnummer wird bei der Synchronisierung vergeben.");
+    return null;
+  }
+
   function markBillingInvoiced(item: BillingRecord) {
+    if (!item.invoiceNumber) {
+      setRecordNotice("Die Rechnungsnummer ist noch nicht bestätigt. Bitte zuerst synchronisieren und den Entwurf danach buchen.");
+      return;
+    }
     const invoiceDate = item.invoiceDate || new Date().toISOString().slice(0, 10);
     const statusUpdatedAt = new Date().toISOString();
     const nextBilling = billing.map((entry) => (
@@ -11215,8 +11240,8 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
 
     const object = objects.find((entry) => entry.id === item.objectId);
     const customer = customers.find((entry) => entry.id === item.customerId || entry.id === object?.ownerCustomerId || entry.name === object?.owner);
-    if (!object) {
-      setRecordNotice(`Spiris-Datei konnte nicht erstellt werden: Objekt zur Rechnung "${item.invoiceNumber || item.label}" fehlt.`);
+    if ((item.objectId && !object) || (!object && !customer)) {
+      setRecordNotice(`Spiris-Datei konnte nicht erstellt werden: Kunde oder zugeordnetes Objekt zur Rechnung "${item.invoiceNumber || item.label}" fehlt.`);
       return;
     }
 
@@ -11919,7 +11944,10 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
   async function downloadBillingInvoice(item: BillingRecord) {
     const object = objects.find((entry) => entry.id === item.objectId);
     const customer = customers.find((entry) => entry.id === item.customerId || entry.id === object?.ownerCustomerId || entry.name === object?.owner);
-    if (!object) return;
+    if ((item.objectId && !object) || (!object && !customer)) {
+      setRecordNotice("Rechnungs-PDF konnte nicht erstellt werden: Kunde oder zugeordnetes Projekt/Objekt fehlt.");
+      return;
+    }
     await downloadInvoicePdf(item, object, customer, companySettings);
   }
 
@@ -14060,6 +14088,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
                 onCollectBillable={collectBillableJobs}
                 onDownloadInvoice={downloadBillingInvoice}
                 onSaveDraft={saveBillingDraft}
+                onCreateDraft={createManualBillingDraft}
                 onDownloadAccountingFile={downloadBillingAccountingFile}
                 onCancelInvoice={cancelInvoice}
                 onMarkExported={markBillingExported}
@@ -18491,6 +18520,7 @@ function BillingView({
   onCollectBillable,
   onDownloadInvoice,
   onSaveDraft,
+  onCreateDraft,
   onDownloadAccountingFile,
   onMarkExported,
   onMarkInvoiced,
@@ -18512,6 +18542,7 @@ function BillingView({
   onCollectBillable: () => void;
   onDownloadInvoice: (item: BillingRecord) => void;
   onSaveDraft: (id: string, expected: string, draft: BillingDraftEdit) => string | null;
+  onCreateDraft: (draft: BillingDraftEdit) => string | null;
   onDownloadAccountingFile: (item: BillingRecord) => void;
   onMarkExported: (item: BillingRecord) => void;
   onMarkInvoiced: (item: BillingRecord) => void;
@@ -18523,6 +18554,7 @@ function BillingView({
 }) {
   const [previewInvoiceId, setPreviewInvoiceId] = useState<string | null>(null);
   const [editingInvoice, setEditingInvoice] = useState<BillingRecord | null>(null);
+  const [newDraft, setNewDraft] = useState<BillingDraftEdit | null>(null);
   const copy = (de: string, sv: string, en: string) => language === "sv" ? sv : language === "en" ? en : de;
   const billableJobs = billableCompletedJobs(jobs, billing);
   const outgoingBook = billing
@@ -18576,7 +18608,7 @@ function BillingView({
           <div className="billing-meta-grid">
             <span><small>Kunde</small>{customer?.name || object?.owner || "Kunde fehlt"}</span>
             <span><small>Kundennr.</small>{billingCustomerNumber(customer)}</span>
-            <span><small>Objekt</small>{object?.name || "Objekt fehlt"}</span>
+            <span><small>Objekt</small>{object?.name || (item.objectId ? "Objekt fehlt" : "—")}</span>
             <span><small>Rechnungsdatum</small>{item.invoiceDate || "-"}</span>
             <span><small>Fällig</small>{item.dueDate || "-"}</span>
             <span><small>Leistungsdatum</small>{item.serviceDate || "-"}</span>
@@ -18645,6 +18677,21 @@ function BillingView({
     );
   };
 
+  if (newDraft) return <BillingDraftEditor
+    initial={newDraft}
+    number={copy("Neue Rechnung", "Ny kundfaktura", "New invoice")}
+    language={language}
+    customers={customers}
+    objects={objects}
+    defaultCurrency={companySettings.currency}
+    onClose={() => setNewDraft(null)}
+    onSave={draft => {
+      const error = onCreateDraft(draft);
+      if (!error) setNewDraft(null);
+      return error;
+    }}
+  />;
+
   if (editingInvoice) return <BillingDraftEditor
     key={editingInvoice.id}
     initial={{ customerId: editingInvoice.customerId, objectId: editingInvoice.objectId, invoiceDate: editingInvoice.invoiceDate || currentLocalDateValue(), dueDate: editingInvoice.dueDate || addDays(editingInvoice.invoiceDate || currentLocalDateValue(), 30), serviceDate: editingInvoice.serviceDate || "", notes: editingInvoice.notes || "", lines: editingInvoice.lines || [] }}
@@ -18668,10 +18715,16 @@ function BillingView({
           <p>{copy("Abrechnung", "Försäljning", "Sales")}</p>
           <h2>{copy("Kundenrechnungen", "Kundfakturor", "Customer invoices")}</h2>
         </div>
+        <div className="row-actions">
+        <button className="primary-button" type="button" onClick={() => {
+          const invoiceDate = currentLocalDateValue();
+          setNewDraft({ customerId: "", objectId: "", invoiceDate, dueDate: addDays(invoiceDate, 30), serviceDate: "", notes: "", lines: [{ id: `LINE-${crypto.randomUUID()}`, kind: "Leistung", name: "", quantity: "1", unit: language === "sv" ? "styck" : language === "en" ? "piece" : "Stück", unitPrice: "0", currency: companySettings.currency || "SEK", taxRate: companySettings.vatRate || "25" }] });
+        }}><Plus size={18} />{copy("Neue Rechnung", "Ny kundfaktura", "New invoice")}</button>
         <button className="ghost-button outline-button" onClick={onCollectBillable} type="button">
           <Euro size={16} />
           {copy("Erledigte Aufträge übernehmen", "Hämta slutförda uppdrag", "Collect completed jobs")}
         </button>
+        </div>
       </div>
       {billableJobs.length > 0 && (
         <div className="warning-line">{billableJobs.length} {copy("erledigte Aufträge sind noch nicht in der Abrechnung.", "slutförda uppdrag är ännu inte fakturerade.", "completed jobs have not yet been collected for billing.")}</div>
@@ -18724,7 +18777,7 @@ function BillingView({
                 <div>
                   <ReportLogo />
                   <span>{copy("Rechnungsnr.", "Fakturanr.", "Invoice no.")}</span>
-                  <strong>{previewInvoice.invoiceNumber || previewInvoice.id}</strong>
+                  <strong>{previewInvoice.invoiceNumber || copy("Entwurf", "Utkast", "Draft")}</strong>
                 </div>
               </div>
               <div className="invoice-preview-addresses">
@@ -18743,7 +18796,7 @@ function BillingView({
                 <span><small>Fakturadatum</small>{previewInvoice.invoiceDate || new Date().toISOString().slice(0, 10)}</span>
                 <span><small>Förfallodatum</small>{previewInvoice.dueDate || addDays(previewInvoice.invoiceDate || new Date().toISOString().slice(0, 10), 30)}</span>
                 <span><small>Utfört datum</small>{previewInvoice.serviceDate || "-"}</span>
-                <span><small>Objekt</small>{previewObject?.name || "Objekt fehlt"}</span>
+                {previewInvoice.objectId && <span><small>Objekt</small>{previewObject?.name || "Objekt fehlt"}</span>}
               </div>
               <div className="invoice-preview-lines">
                 <div className="invoice-preview-line invoice-preview-line-head">
@@ -18773,7 +18826,7 @@ function BillingView({
             </div>
             <div className="modal-actions">
               <button className="ghost-button" onClick={() => setPreviewInvoiceId(null)} type="button">Schließen</button>
-              {previewObject && <CommunicationActions title={invoiceSubject(previewInvoice, previewObject, previewCustomer)} text={`${previewInvoice.invoiceNumber || previewInvoice.id}\n${previewObject.name}\n${formatMoney(previewTotals.gross, previewTotals.currency)}`} email={previewCustomer?.email || previewObject.ownerEmail} phone={previewCustomer?.phone} document={async () => ({ blob: await createInvoicePdfBlob(previewInvoice, previewObject, previewCustomer, companySettings), name: `${safeFileName(previewInvoice.invoiceNumber || previewInvoice.id)}.pdf` })} />}
+              {(previewObject || previewCustomer) && <CommunicationActions title={invoiceSubject(previewInvoice, previewObject, previewCustomer)} text={[previewInvoice.invoiceNumber || "Entwurf", previewObject?.name, formatMoney(previewTotals.gross, previewTotals.currency)].filter(Boolean).join("\n")} email={previewCustomer?.email || previewObject?.ownerEmail} phone={previewCustomer?.phone} document={async () => ({ blob: await createInvoicePdfBlob(previewInvoice, previewObject, previewCustomer, companySettings), name: `${safeFileName(invoiceSubject(previewInvoice, previewObject, previewCustomer))}.pdf` })} />}
             </div>
           </section>
         </div>
@@ -22545,7 +22598,7 @@ function MasterDataView({
               <span>{tt("Diese Angaben erscheinen in Offerten, Rechnungen und der späteren Übergabe an Spiris / Visma Buchhaltung.")}</span>
             </div>
           </div>
-          <div className="form-grid compact-form">
+          <div className="form-grid compact-form company-details-form">
             <div className="wide company-logo-editor">
               <span>{tt("Firmenlogo")}</span>
               <div className="company-logo-preview"><CompanyBrand logoUrl={companySettingsForm.logoUrl} name={companySettingsForm.name} /></div>
@@ -22578,10 +22631,10 @@ function MasterDataView({
             <label><span>{tt("Telefon")}</span><input type="tel" value={companySettingsForm.phone ?? ""} onChange={(event) => setCompanySettingsForm({ ...companySettingsForm, phone: event.target.value })} /></label>
             <label><span>{tt("Unternehmensland (ISO)")}</span><input maxLength={2} placeholder="SE" value={companySettingsForm.countryCode ?? ""} onChange={(event) => setCompanySettingsForm({ ...companySettingsForm, countryCode: event.target.value.toUpperCase() })} /></label>
             <label><span>{tt("Standardwährung")}</span><select value={companySettingsForm.currency ?? "SEK"} onChange={(event) => setCompanySettingsForm({ ...companySettingsForm, currency: event.target.value })}><option>SEK</option><option>EUR</option><option>GBP</option><option>USD</option></select></label>
-            <label className="wide"><span>{tt("Adresse")}</span><AddressFields label={tt("Firmenadresse")} language={language} value={companySettingsForm.address} onChange={(part, value) => setCompanySettingsForm({ ...companySettingsForm, address: updateAddressPart(companySettingsForm.address, part, value) })} /></label>
+            <label><span>{tt("Umsatzsteuer / Moms %")}</span><input inputMode="decimal" value={companySettingsForm.vatRate ?? "25"} onChange={(event) => setCompanySettingsForm({ ...companySettingsForm, vatRate: event.target.value })} /></label>
+            <div className="wide company-address-fields" role="group" aria-label={tt("Firmenadresse")}><AddressFields label={tt("Firmenadresse")} language={language} value={companySettingsForm.address} onChange={(part, value) => setCompanySettingsForm({ ...companySettingsForm, address: updateAddressPart(companySettingsForm.address, part, value) })} /></div>
             <label><span>{tt("Org.-Nummer")}</span><input value={companySettingsForm.organizationNumber} onChange={(event) => setCompanySettingsForm({ ...companySettingsForm, organizationNumber: event.target.value })} /></label>
             <label><span>{tt("Momsreg.nr / VAT")}</span><input value={companySettingsForm.vatNumber} onChange={(event) => setCompanySettingsForm({ ...companySettingsForm, vatNumber: event.target.value })} placeholder="z.B. SE559123456701" /></label>
-            <label><span>{tt("Umsatzsteuer / Moms %")}</span><input inputMode="decimal" value={companySettingsForm.vatRate ?? "25"} onChange={(event) => setCompanySettingsForm({ ...companySettingsForm, vatRate: event.target.value })} /></label>
             <label><span>{tt("Bankverbindung")}</span><input value={companySettingsForm.bank} onChange={(event) => setCompanySettingsForm({ ...companySettingsForm, bank: event.target.value })} placeholder={tt("Bankgiro / IBAN / BIC")} /></label>
             <label className="checkbox-line wide">
               <input checked={companySettingsForm.fSkattApproved} onChange={(event) => setCompanySettingsForm({ ...companySettingsForm, fSkattApproved: event.target.checked })} type="checkbox" />

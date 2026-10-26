@@ -74,6 +74,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [ready, setReady] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
   const [contextKey, setContextKey] = useState("");
   const currentIdentity = useRef("");
 
@@ -81,6 +82,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
     if (employeeAuthBypassEnabled()) {
       activateTenant("00000000-0000-0000-0000-000000000001");
       setReady(true);
+      setCheckingSession(false);
       setBusy(false);
       return;
     }
@@ -90,6 +92,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
       : providedSession;
     if (!session) {
       setReady(false);
+      setCheckingSession(false);
       setBusy(false);
       return;
     }
@@ -110,6 +113,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
     setContextKey(`${context.user.id}:${tenantId}`);
     setError("");
     setReady(true);
+    setCheckingSession(false);
     setBusy(false);
   }
 
@@ -122,6 +126,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
     function handleAuthChange(_event: AuthChangeEvent, session: Session | null) {
       if (cancelled) return;
       if (!session || session.user.id !== currentIdentity.current) setReady(false);
+      if (!session || session.user.id !== currentIdentity.current) setCheckingSession(Boolean(session));
       if (authChangeId) window.clearTimeout(authChangeId);
       authChangeId = window.setTimeout(() => {
         if (cancelled) return;
@@ -129,6 +134,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
         void establishContext(session).catch((cause) => {
           setError(cause instanceof Error ? cause.message : "Anmeldung konnte nicht geprüft werden.");
           setReady(false);
+          setCheckingSession(false);
           setBusy(false);
         });
       }, 0);
@@ -138,6 +144,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
       void Promise.resolve().then(() => establishContext()).catch((cause) => {
         if (cancelled) return;
         setError(cause instanceof Error ? cause.message : "Anmeldung konnte nicht geprüft werden.");
+        setCheckingSession(false);
         setBusy(false);
       });
     } else {
@@ -149,6 +156,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
         .catch((cause) => {
           if (cancelled) return;
           setError(cause instanceof Error ? cause.message : "Anmeldung konnte nicht geprüft werden.");
+          setCheckingSession(false);
           setBusy(false);
         });
     }
@@ -178,6 +186,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
     await establishContext(data.session).catch((cause) => {
       setError(cause instanceof Error ? cause.message : "Firmenzugriff konnte nicht geladen werden.");
       setReady(false);
+      setCheckingSession(false);
       setBusy(false);
     });
   }
@@ -215,10 +224,17 @@ export function AuthGate({ children }: { children: ReactNode }) {
     window.sessionStorage.removeItem("workcore-active-user-id");
     currentIdentity.current = "";
     setReady(false);
+    setCheckingSession(false);
     setBusy(false);
   }
 
   if (ready) return <AuthActionsContext.Provider key={contextKey} value={{ busy, signOut }}>{children}</AuthActionsContext.Provider>;
+  if (checkingSession) return <main className="app auth-app" data-ready="false" aria-busy="true">
+    <section className="auth-shell">
+      <div className="auth-brand"><Building2 size={28} /><strong>WorkCore</strong></div>
+      <p role="status">Sitzung wird geprüft …</p>
+    </section>
+  </main>;
   return (
     <main className="app auth-app" data-ready="false">
       <section className="auth-shell">

@@ -5,6 +5,8 @@ import { billingDraftError, billingDraftTotals, type BillingDraftEdit } from "..
 test("Entwurfsvalidierung weist ungueltige Daten, Zahlen und gemischte Waehrungen ab", () => {
   const draft: BillingDraftEdit = { customerId: "C", objectId: "O", invoiceDate: "2026-10-25", dueDate: "2026-11-25", serviceDate: "", notes: "", lines: [{ id: "L", kind: "Leistung", name: "Montage", quantity: "1,5", unit: "h", unitPrice: "100", taxRate: "25", currency: "SEK" }] };
   expect(billingDraftError(draft)).toBeNull();
+  expect(billingDraftError({ ...draft, objectId: "" })).toBeNull();
+  expect(billingDraftError({ ...draft, customerId: "", objectId: "" })).toBe("customer");
   expect(billingDraftTotals(draft.lines).gross).toBe(187.5);
   expect(billingDraftTotals([{ ...draft.lines[0], quantity: "1", unitPrice: "0.035", taxRate: "25" }])).toMatchObject({ net: 0.04, tax: 0.01, gross: 0.05 });
   expect(billingDraftError({ ...draft, invoiceDate: "2026-02-31" })).toBe("date");
@@ -39,6 +41,8 @@ test.beforeEach(async ({ page }) => {
   page.on("pageerror", error => { throw error; });
   await page.route("**/api/vehicle-positions", route => route.fulfill({ json: { data: [] } }));
   await page.addInitScript(() => {
+    if (localStorage.getItem("billing-overview-fixture")) return;
+    localStorage.setItem("billing-overview-fixture", "1");
     localStorage.setItem("kolaretorp-updated-at", "2026-10-25T08:00:00Z");
     localStorage.setItem("kolaretorp-field-progress", JSON.stringify({ "billing-test": {} }));
     localStorage.setItem("kolaretorp-company-settings", JSON.stringify({ name: "Musterhandwerk Demo", organizationNumber: "DEMO-001", currency: "SEK", countryCode: "SE", address: "Demo-Werkstatt", email: "firma@example.invalid", logoUrl: "", logoStoragePath: "" }));
@@ -56,6 +60,85 @@ test.beforeEach(async ({ page }) => {
       { ...common, id: "BILL-CANCELLED", invoiceNumber: "INV-4", invoiceStatus: "storniert", cancelledAt: "2026-10-24T08:00:00Z", amount: "125", lines: [line("LINE-6", "100")] },
     ]));
   });
+});
+
+for (const width of [320, 390, 820, 1440]) test(`Manuelle Rechnung ohne Auftrag oder Objekt mit PDF, Reload und Buchung bei ${width}px`, async ({ page }, info) => {
+  await page.setViewportSize({ width, height: 1100 });
+  await page.goto("/"); await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true");
+  await page.getByTestId("nav-billing").click();
+  const originalJobs = await page.evaluate(() => localStorage.getItem("kolaretorp-jobs"));
+  await page.getByRole("button", { name: "Neue Rechnung", exact: true }).click();
+  const editor = page.getByRole("region", { name: "Rechnung bearbeiten", exact: true });
+  await editor.getByRole("combobox", { name: "Kunde", exact: true }).selectOption("BILL-C");
+  await expect(editor.getByRole("combobox", { name: "Projekt / Objekt", exact: true })).toHaveValue("");
+  await editor.getByRole("textbox", { name: "Bezeichnung", exact: true }).fill("Montage manuell");
+  await editor.getByRole("textbox", { name: "Menge", exact: true }).fill("2");
+  await editor.getByRole("textbox", { name: "Einzelpreis", exact: true }).fill("150");
+  await expect(editor.locator(".billing-editor-totals")).toContainText("375,00 SEK");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await editor.screenshot({ path: info.outputPath(`manual-invoice-${width}.png`) });
+  await editor.getByRole("button", { name: "Entwurf speichern", exact: true }).click();
+  const readManual = () => page.evaluate(() => JSON.parse(localStorage.getItem("kolaretorp-billing") || "[]").find((row: { id: string }) => row.id.startsWith("BIL-MANUAL-")));
+  const created = await readManual();
+  expect(created).toMatchObject({ objectId: "", customerId: "BILL-C", invoiceStatus: "entwurf", amount: "375" });
+  expect(created.jobId).toBeUndefined(); expect(created.reportId).toBeUndefined(); expect(created.invoiceNumber).toBeUndefined();
+  const mutations = await page.evaluate(() => JSON.parse(localStorage.getItem("workcore-sync-mutations-v1") || "[]"));
+  expect(mutations.some((row: { entityType: string; entityId: string; operation: string }) => row.entityType === "invoice" && row.entityId === created.id && row.operation === "create")).toBe(true);
+  expect(mutations.some((row: { entityType: string; resourceId: string }) => row.entityType === "invoice_line" && row.resourceId === created.id)).toBe(true);
+  await page.getByRole("button", { name: "Details und Aktionen Montage manuell", exact: true }).click();
+  await page.getByRole("button", { name: "Rechnung Montage manuell buchen", exact: true }).click();
+  await expect(page.getByText("Die Rechnungsnummer ist noch nicht bestätigt. Bitte zuerst synchronisieren und den Entwurf danach buchen.", { exact: true })).toBeVisible();
+  expect((await readManual()).invoiceStatus).toBe("entwurf");
+  const pdfEvent = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Rechnung Montage manuell als PDF herunterladen", exact: true }).click();
+  const download = await pdfEvent;
+  expect(download.suggestedFilename()).toContain("Entwurf");
+  const stream = await download.createReadStream();
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream!) chunks.push(Buffer.from(chunk));
+  const pdf = Buffer.concat(chunks).toString("latin1");
+  expect(pdf.startsWith("%PDF-")).toBe(true);
+  expect(pdf).toContain("Testkunde Handwerk"); expect(pdf).toContain("Montage manuell");
+  await page.getByRole("button", { name: "Rechnungsvorschau Montage manuell", exact: true }).click();
+  await expect(page.getByRole("dialog")).toContainText("Testkunde Handwerk");
+  await expect(page.getByRole("dialog")).not.toContainText("Objekt fehlt");
+  await page.reload(); await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true");
+  await page.getByTestId("nav-billing").click();
+  expect((await readManual()).id).toBe(created.id);
+  await page.getByRole("button", { name: "Details und Aktionen Montage manuell", exact: true }).click();
+  await page.getByRole("button", { name: "Rechnung Montage manuell bearbeiten", exact: true }).click();
+  await expect(editor.getByRole("textbox", { name: "Bezeichnung", exact: true })).toHaveValue("Montage manuell");
+  await expect(editor.getByRole("combobox", { name: "Projekt / Objekt", exact: true })).toHaveValue("");
+  await editor.getByRole("button", { name: "Abbrechen", exact: true }).click();
+  // Simuliert die Nummern-Rueckmeldung der bestehenden Finanz-Synchronisierung.
+  await page.evaluate(id => {
+    const rows = JSON.parse(localStorage.getItem("kolaretorp-billing") || "[]");
+    localStorage.setItem("kolaretorp-billing", JSON.stringify(rows.map((row: { id: string }) => row.id === id ? { ...row, invoiceNumber: "INV-2026-999" } : row)));
+  }, created.id);
+  await page.reload(); await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true");
+  await page.getByTestId("nav-billing").click();
+  await page.getByRole("button", { name: "Details und Aktionen INV-2026-999", exact: true }).click();
+  await page.getByRole("button", { name: "Rechnung INV-2026-999 buchen", exact: true }).click();
+  expect((await readManual()).invoiceStatus).toBe("gebucht");
+  expect((await readManual()).outgoingBookNumber).toBeTruthy();
+  await page.getByRole("tab", { name: "Unbezahlte Rechnungen 3", exact: true }).click();
+  const details = page.getByRole("button", { name: "Details und Aktionen INV-2026-999", exact: true });
+  if (await details.getAttribute("aria-expanded") !== "true") await details.click();
+  const sieEvent = page.waitForEvent("download");
+  await page.getByRole("button", { name: "SIE-Datei für Rechnung INV-2026-999 für Spiris erstellen", exact: true }).click();
+  expect((await sieEvent).suggestedFilename()).toContain("Spiris-SIE-INV-2026-999");
+  expect((await readManual()).externalExportStatus).toBe("nicht gesendet");
+  expect(await page.evaluate(() => localStorage.getItem("kolaretorp-jobs"))).toBe(originalJobs);
+});
+
+test("Neue manuelle Rechnung abbrechen erzeugt keinen leeren Datensatz", async ({ page }) => {
+  await page.goto("/"); await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true"); await page.getByTestId("nav-billing").click();
+  const before = await page.evaluate(() => localStorage.getItem("kolaretorp-billing"));
+  await page.getByRole("button", { name: "Neue Rechnung", exact: true }).click();
+  await page.getByRole("textbox", { name: "Bezeichnung", exact: true }).fill("Nicht speichern");
+  page.once("dialog", dialog => dialog.accept());
+  await page.getByRole("button", { name: "Abbrechen", exact: true }).click();
+  expect(await page.evaluate(() => localStorage.getItem("kolaretorp-billing"))).toBe(before);
 });
 
 for (const width of [320, 390, 820, 1440]) test(`Entwurf bearbeiten, Summen und Speichern bei ${width}px`, async ({ page }, info) => {

@@ -43,7 +43,7 @@ export function billingDraftTotals(lines: BillingDraftLine[]) {
 }
 
 export function billingDraftError(draft: BillingDraftEdit): "customer" | "date" | "lines" | "currency" | null {
-  if (!draft.customerId || !draft.objectId) return "customer";
+  if (!draft.customerId) return "customer";
   const validDate = (value: string) => {
     const date = new Date(`${value}T12:00:00Z`);
     return /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;

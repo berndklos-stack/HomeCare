@@ -4,6 +4,14 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.428.19 - 2026-10-26
+
+- Neue Rechnung direkt in der Abrechnung mit Kunde, optionalem Projekt/Objekt, freien Positionen, Datum und Notizen erstellen. Abbrechen erzeugt keinen leeren Datensatz.
+- Bestehende native Finanz-Synchronisierung vergibt die Rechnungsnummer; Buchen bleibt bis zur Nummernbestaetigung gesperrt. Vorschau, PDF und SIE funktionieren auch ohne Objekt; direkte Spiris-API bleibt deaktiviert.
+- Firmenstammdaten mit kompakter Adresse und responsivem Spaltenraster; Benutzer in kompakten Bloecken mit festen Aktionsgroessen und aktiven/inaktiven Gruppen.
+- Sitzungspruefung vor Anzeige des Anmeldeformulars; Administration und Feedback mit interner Navigation ohne vollstaendigen Seitenneustart.
+- 202 Rechnungs-, Finanz-, Layout-, Logo-, Einladungs- und Authentifizierungsregressionen in Chromium und Safari erfolgreich. TypeScript, Produktionsbuild, gezielte Codepruefungen und git diff --check erfolgreich.
+
 ## 1.428.18 - 2026-10-25
 
 - Rechnungsentwuerfe als eigene Bearbeitungsansicht mit Kunde, Projekt/Objekt, Rechnungs-, Faelligkeits- und Leistungsdatum, Positionen sowie Notizen.

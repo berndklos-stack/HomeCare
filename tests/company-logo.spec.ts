@@ -46,6 +46,8 @@ test("Firmenlogo erlaubt nur sichere Bildquellen", () => {
 });
 
 for (const width of [390, 820, 1440]) test(`Firmenlogo aus Stammdaten hochladen, laden und entfernen bei ${width}px`, async ({ page }) => {
+  await page.route("**/api/layout-preferences", route => route.fulfill({ json: { preferences: {} } }));
+  await page.route("**/api/block-layouts", route => route.fulfill({ json: { orders: {} } }));
   await page.setViewportSize({ width, height: 1000 });
   await page.addInitScript(() => {
     if (!localStorage.getItem("company-logo-fixture")) {

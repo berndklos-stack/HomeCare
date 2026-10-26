@@ -15,6 +15,15 @@ in den Umsatz der angezeigten Auswahl. Details und Aktionen bleiben aufklappbar.
 
 ### Bearbeitung von Rechnungsentwuerfen
 
+"Neue Rechnung" erstellt einen manuellen Entwurf ohne Auftrag oder Bericht.
+Ein bestehender Kunde ist erforderlich; Projekt/Objekt ist optional. Oeffnen und
+Abbrechen schreiben keine leere Rechnung. Erst Speichern nutzt den vorhandenen
+nativen Rechnungs-/Positions-Schreibweg. Es werden keine Ersatzobjekte angelegt.
+Die Datenbank vergibt die Rechnungsnummer ueber den vorhandenen, mandantenbezogen
+gesperrten Nummernkreis. Ohne bestaetigte Nummer kann der Entwurf noch nicht
+gebucht werden. Kundenadresse, PDF, Vorschau und SIE-Datei funktionieren auch
+ohne Objektzuordnung; der SIE-Download bestaetigt weiterhin keinen Import.
+
 Die Bearbeitung erfolgt als eigene Ansicht innerhalb der Abrechnung, nicht als
 Popup. Kunde, Projekt/Objekt, Rechnungs-, Faelligkeits- und Leistungsdatum,
 Notizen und Rechnungspositionen verwenden ausschliesslich vorhandene native

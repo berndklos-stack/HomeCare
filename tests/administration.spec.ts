@@ -17,6 +17,43 @@ const data: AdministrationData = {
   canManageCompany: true, canManageMembers: true, canManageRoles: true, platformAdmin: true, owner: true,
 };
 
+for (const width of [320, 390, 820, 1440]) test(`Kompakte Benutzerbloecke mit Filtern und rechten Aktionen bei ${width}px`, async ({ page }, info) => {
+  await page.setViewportSize({ width, height: 1100 });
+  const members: AdministrationMember[] = [data.members[0], { ...data.members[0], id: "m2", name: "Zweiter Mitarbeiter", email: "mitarbeiter.mit.langem.namen@example.invalid", role_id: data.roles[1].id }, { ...data.members[0], id: "m3", name: "Inaktiver Benutzer", email: "inactive@example.invalid", status: "suspended" }];
+  await page.route(url => url.pathname === "/api/administration", route => {
+    const query = new URL(route.request().url()).searchParams;
+    const filtered = members.filter(member => (!query.get("search") || `${member.name} ${member.email}`.toLowerCase().includes(query.get("search")!.toLowerCase())) && (!query.get("status") || member.status === query.get("status")) && (!query.get("role") || member.role_id === query.get("role")));
+    return route.fulfill({ json: { ...data, members: filtered, memberTotal: filtered.length, userCount: 2, userLimit: 5 } });
+  });
+  await page.goto("/?masterData=users");
+  const users = page.getByRole("region", { name: "Benutzerverwaltung", exact: true });
+  await expect(users.locator(".administration-user")).toHaveCount(3);
+  await expect(users.getByRole("region", { name: "Aktive Benutzer", exact: true }).locator("article")).toHaveCount(2);
+  await expect(users.getByRole("region", { name: "Inaktive Benutzer", exact: true }).locator("article")).toHaveCount(1);
+  for (const block of await users.locator(".administration-user").all()) {
+    await expect(block).toHaveCSS("border-top-width", "1px");
+    await expect(block).toHaveCSS("border-radius", "8px");
+    const actions = block.locator(".administration-user-actions");
+    const articleBox = (await block.boundingBox())!, actionsBox = (await actions.boundingBox())!;
+    expect(Math.abs(articleBox.x + articleBox.width - actionsBox.x - actionsBox.width - 13)).toBeLessThan(2);
+    for (const button of await actions.getByRole("button").all()) {
+      const box = (await button.boundingBox())!;
+      expect(box.height).toBe(44); expect(box.width).toBe(44);
+      expect(box.x).toBeGreaterThanOrEqual(articleBox.x);
+      expect(box.x + box.width).toBeLessThanOrEqual(articleBox.x + articleBox.width);
+    }
+  }
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await users.screenshot({ path: info.outputPath(`company-users-${width}.png`) });
+  await users.getByRole("searchbox", { name: "Suche", exact: true }).fill("Zweiter");
+  await expect(users.locator(".administration-user")).toHaveCount(1);
+  await expect(users.locator(".administration-user")).toContainText("Zweiter Mitarbeiter");
+  await users.getByRole("searchbox", { name: "Suche", exact: true }).fill("");
+  await users.getByRole("combobox", { name: "Status", exact: true }).selectOption("suspended");
+  await expect(users.locator(".administration-user")).toHaveCount(1);
+  await expect(users.locator(".administration-user")).toContainText("Inaktiver Benutzer");
+});
+
 test("Firmenanlage validiert Pflichtfelder, Module, Zeitzone und Pilotdaten", () => {
   expect(validateCompany(company)).toEqual(company);
   for (const patch of [{ name: "" }, { country: "invalid" }, { locale: "xx" }, { timezone: "Europe/Unknown" }, { pilotStartDate: "" }, { pilotEndDate: "2026-10-14" }, { pilotStartDate: "2026-02-31" }, { modules: ["unknown"] }, { modules: ["jobs", "jobs"] }, { ownerEmail: "invalid" }]) {
@@ -126,10 +163,11 @@ test("Administrations-APIs lehnen anonyme Aufrufe ab", async ({ request }) => {
   }
 });
 test("UI-Testbypass darf keine echten Benutzer oder Feedbackeinträge schreiben", async ({ request }) => {
-  expect((await request.get("/api/administration/branding")).status()).toBe(503);
-  expect((await request.patch("/api/administration/branding", { data: {} })).status()).toBe(503);
+  const denied = process.env.WORKCORE_TEST_PRODUCTION === "1" ? 401 : 503;
+  expect((await request.get("/api/administration/branding")).status()).toBe(denied);
+  expect((await request.patch("/api/administration/branding", { data: {} })).status()).toBe(denied);
   for (const url of ["/api/administration", "/api/feedback"]) {
-    const response = await request.post(url, { data: {} }); expect(response.status()).toBe(503);
+    const response = await request.post(url, { data: {} }); expect(response.status()).toBe(denied);
   }
 });
 
@@ -255,10 +293,10 @@ test("Recovery-Link verlangt neues Passwort und Bestaetigung ohne Einladung anzu
   await page.goto(`/auth/accept#access_token=${token}&refresh_token=test-refresh&expires_in=3600&token_type=bearer&type=recovery`);
   await expect(page.getByRole("heading", { name: "Passwort zurücksetzen", exact: true })).toBeVisible();
   await page.getByLabel("Neues Passwort", { exact: true }).fill("Test-Password-1234");
-  await page.getByLabel("Neues Passwort bestätigen", { exact: true }).fill("Other-Password-1234");
+  await page.getByLabel("Passwort bestätigen", { exact: true }).fill("Other-Password-1234");
   await page.getByRole("button", { name: "Passwort speichern", exact: true }).click();
   await expect(page.getByRole("main").getByRole("alert")).toContainText("zweimal identisch"); expect(updates).toHaveLength(0);
-  await page.getByLabel("Neues Passwort bestätigen", { exact: true }).fill("Test-Password-1234");
+  await page.getByLabel("Passwort bestätigen", { exact: true }).fill("Test-Password-1234");
   await page.getByRole("button", { name: "Passwort speichern", exact: true }).click();
   await expect(page.getByRole("status")).toHaveText("Dein Passwort wurde geändert.");
   expect(updates).toHaveLength(1); expect(updates[0]).toMatchObject({ password: "Test-Password-1234" });

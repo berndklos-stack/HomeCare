@@ -11437,3 +11437,17 @@ dialog.sync-confirm-dialog { width: min(520px, calc(100vw - 24px)); max-width: c
   .billing-editor-line > button { justify-self: end; }
   .billing-editor-bottom { grid-template-columns: minmax(0, 1fr); gap: 18px; }
 }
+.master-data-workspace .panel > .company-details-form { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 18px; }
+.master-data-workspace .company-details-form label { gap: 5px; }
+.master-data-workspace .company-details-form :is(input, select):not([type="checkbox"]):not([type="file"]) { min-height: 44px; padding: 8px 10px; }
+.master-data-workspace .company-address-fields { display: grid; grid-template-columns: minmax(0, 2fr) minmax(90px, .7fr) minmax(0, 1.3fr); gap: 6px 18px; }
+.master-data-workspace .company-address-fields > label.wide { grid-column: auto; }
+.master-data-workspace .company-address-fields .address-group-title { margin: 0; padding: 0; }
+@media (max-width: 1000px) {
+  .master-data-workspace .panel > .company-details-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+  .master-data-workspace .panel > .company-details-form { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .master-data-workspace .company-address-fields { grid-template-columns: minmax(0, .7fr) minmax(0, 1.3fr); gap: 8px 12px; }
+  .master-data-workspace .company-address-fields > label.wide { grid-column: 1 / -1; }
+}

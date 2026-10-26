@@ -65,7 +65,7 @@ test("Portalbenutzer kann seinen Kunden-/Mandantenbereich nicht verlassen", () =
   expect(resolvePortalAccess(accesses, "tenant-b")).toEqual({ error: "PORTAL_SCOPE_FORBIDDEN" });
 });
 
-test("E2E-Admin passiert die serverseitige Rollenprüfung nur mit explizitem Testheader", async ({ request }) => {
+test("E2E-Admin bleibt produktiv gesperrt und braucht in Entwicklung einen Testheader", async ({ request }) => {
   const response = await request.post("/api/odometer", {
     data: {},
     headers: {
@@ -73,7 +73,8 @@ test("E2E-Admin passiert die serverseitige Rollenprüfung nur mit explizitem Tes
       "X-WorkCore-Tenant": "00000000-0000-0000-0000-000000000001",
     },
   });
-  expect([400, 500]).toContain(response.status());
+  if (process.env.WORKCORE_TEST_PRODUCTION === "1") expect(response.status()).toBe(401);
+  else expect([400, 500]).toContain(response.status());
 });
 
 test("Service-Role-Routen besitzen Autorisierung und explizite Mandantenbindung", () => {

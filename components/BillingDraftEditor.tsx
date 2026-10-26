@@ -39,7 +39,7 @@ export function BillingDraftEditor({ initial, number, language, customers, objec
       event.preventDefault();
       const issue = billingDraftError(draft);
       if (issue) {
-        setError(issue === "customer" ? copy("Bitte Kunde und Projekt/Objekt auswählen.", "Välj kund och projekt/objekt.", "Select a customer and project/property.") : issue === "date" ? copy("Bitte gültige Daten und eine Fälligkeit ab Rechnungsdatum eingeben.", "Kontrollera datum och förfallodatum.", "Check the dates and payment due date.") : issue === "currency" ? copy("Alle Positionen müssen dieselbe Währung haben.", "Alla rader måste ha samma valuta.", "All lines must use the same currency.") : copy("Bitte alle Positionen vollständig und mit gültigen Zahlen erfassen.", "Fyll i alla rader med giltiga värden.", "Complete every line with valid values."));
+        setError(issue === "customer" ? copy("Bitte einen Kunden auswählen.", "Välj en kund.", "Select a customer.") : issue === "date" ? copy("Bitte gültige Daten und eine Fälligkeit ab Rechnungsdatum eingeben.", "Kontrollera datum och förfallodatum.", "Check the dates and payment due date.") : issue === "currency" ? copy("Alle Positionen müssen dieselbe Währung haben.", "Alla rader måste ha samma valuta.", "All lines must use the same currency.") : copy("Bitte alle Positionen vollständig und mit gültigen Zahlen erfassen.", "Fyll i alla rader med giltiga värden.", "Complete every line with valid values."));
         return;
       }
       setError(onSave(draft) || "");
@@ -49,7 +49,7 @@ export function BillingDraftEditor({ initial, number, language, customers, objec
           const customerId = event.target.value;
           setDraft(current => ({ ...current, customerId, objectId: objects.some(object => object.id === current.objectId && (!object.ownerCustomerId || object.ownerCustomerId === customerId)) ? current.objectId : "" }));
         }}><option value="">—</option>{customers.map(customer => <option key={customer.id} value={customer.id}>{customer.name}</option>)}</select></label>
-        <label><span>{copy("Projekt / Objekt", "Projekt / objekt", "Project / property")}</span><select required value={draft.objectId} onChange={event => update("objectId", event.target.value)}><option value="">—</option>{compatibleObjects.map(object => <option key={object.id} value={object.id}>{object.name}</option>)}</select></label>
+        <label><span>{copy("Projekt / Objekt", "Projekt / objekt", "Project / property")}</span><select value={draft.objectId} onChange={event => update("objectId", event.target.value)}><option value="">{copy("Ohne Zuordnung", "Utan koppling", "No assignment")}</option>{compatibleObjects.map(object => <option key={object.id} value={object.id}>{object.name}</option>)}</select></label>
         <label><span>{copy("Rechnungsdatum", "Fakturadatum", "Invoice date")}</span><input required type="date" value={draft.invoiceDate} onChange={event => update("invoiceDate", event.target.value)} /></label>
         <label><span>{copy("Fällig am", "Förfallodatum", "Due date")}</span><input required type="date" min={draft.invoiceDate} value={draft.dueDate} onChange={event => update("dueDate", event.target.value)} /></label>
         <label><span>{copy("Leistungsdatum", "Leveransdatum", "Service date")}</span><input type="date" value={draft.serviceDate} onChange={event => update("serviceDate", event.target.value)} /></label>
