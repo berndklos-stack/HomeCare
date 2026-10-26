@@ -1,10 +1,11 @@
 export const appVersion = {
-  version: "1.428.20",
+  version: "1.428.21",
   releaseDate: "2026-10-26",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  { version: "1.428.21", date: "2026-10-26", changes: ["Einheitlich hohe einzeilige Eingabe- und Auswahlfelder auch in Safari", "Positionskommentare bei Bedarf ueber das Kommentarsymbol oeffnen statt leerer Kommentarzeilen; vorhandene Kommentare bleiben beim Bearbeiten sichtbar und beim Zuklappen erhalten"] },
   { version: "1.428.20", date: "2026-10-26", changes: ["Bilder und Dokumente direkt zu Dauerauftragsleistungen erfassen, geschuetzt oeffnen und entfernen", "Rechnungskopf nach Visma-Vorbild mit Referenzen und Artikelauswahl; Kommentar und prozentualer Rabatt je Position auch in Vorschau und PDF", "Native Datenbankspalten, mandantengebundene Anhangszuordnung und Schutz noch nicht synchronisierter Positionsaenderungen; 82 Browser- und Finanztests erfolgreich"] },
   { version: "1.428.19", date: "2026-10-26", changes: ["Rechnungen manuell ohne Auftrag oder Objekt mit Kunde, freien Positionen, Vorschau und PDF erstellen", "Rechnungsnummer aus der nativen Finanz-Synchronisierung; Buchung erst nach Nummernbestaetigung und kein leerer Datensatz bei Abbruch", "Kompakte Firmenadresse und Benutzerbloecke; Administration und Feedback ohne vorzeitig eingeblendetes Anmeldeformular"] },
   { version: "1.428.18", date: "2026-10-25", changes: ["Rechnungsentwuerfe in eigener Ansicht mit Kopfdaten, bearbeitbaren Positionen und Notizen nach Spiris-Vorbild", "Laufende centgenaue Summen, geschuetzte gebuchte Rechnungen und Abbruchbestaetigung ohne Datenverlust", "Touchgerechte Schaltflaechen und responsive Darstellung auf iPhone, iPad und Desktop; 40 Rechnungs- und Finanztests erfolgreich"] },

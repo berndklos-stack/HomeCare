@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Plus, Save, Trash2 } from "lucide-react";
+import { ArrowLeft, MessageSquare, Plus, Save, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { billingDraftError, billingDraftTotals, billingDraftLineNet, type BillingDraftEdit, type BillingDraftLine } from "@/lib/billingDraft";
 
@@ -20,6 +20,7 @@ export function BillingDraftEditor({ initial, number, language, customers, objec
 }) {
   const [draft, setDraft] = useState(initial);
   const [error, setError] = useState("");
+  const [openComments, setOpenComments] = useState(() => initial.lines.filter(line => line.comment?.trim()).map(line => line.id));
   const copy = (de: string, sv: string, en: string) => language === "sv" ? sv : language === "en" ? en : de;
   const update = <K extends keyof BillingDraftEdit>(key: K, value: BillingDraftEdit[K]) => setDraft(current => ({ ...current, [key]: value }));
   const updateLine = (id: string, patch: Partial<BillingDraftLine>) => setDraft(current => ({ ...current, lines: current.lines.map(line => line.id === id ? { ...line, ...patch } : line) }));
@@ -77,8 +78,11 @@ export function BillingDraftEditor({ initial, number, language, customers, objec
           <label><span>{copy("USt. %", "Moms %", "VAT %")}</span><input required inputMode="decimal" value={line.taxRate} onChange={event => updateLine(line.id, { taxRate: event.target.value })} /></label>
           <label><span>{copy("Rabatt %", "Rabatt %", "Discount %")}</span><input inputMode="decimal" disabled={line.kind === "Rabatt"} value={line.discountPercent || "0"} onChange={event => updateLine(line.id, { discountPercent: event.target.value })} /></label>
           <div className="billing-editor-line-sum"><small>{copy("Netto", "Summa exkl. moms", "Net")}</small><output>{money(billingDraftLineNet(line) || 0)}</output></div>
-          <button className="outline-button" type="button" title={copy("Position entfernen", "Ta bort rad", "Remove line")} aria-label={`${copy("Position entfernen", "Ta bort rad", "Remove line")} ${index + 1}`} onClick={() => update("lines", draft.lines.filter(item => item.id !== line.id))}><Trash2 size={18} /></button>
-          <label className="billing-editor-comment"><span>{copy("Kommentar", "Kommentar", "Comment")}</span><textarea rows={2} maxLength={10000} value={line.comment || ""} onChange={event => updateLine(line.id, { comment: event.target.value })} /></label>
+          <div className="billing-editor-line-actions">
+            <button className="outline-button" type="button" aria-expanded={openComments.includes(line.id)} title={copy("Kommentar", "Kommentar", "Comment")} aria-label={`${copy("Kommentar zu Position", "Kommentar till rad", "Comment for line")} ${index + 1}`} onClick={() => setOpenComments(current => current.includes(line.id) ? current.filter(id => id !== line.id) : [...current, line.id])}><MessageSquare size={18} /></button>
+            <button className="outline-button" type="button" title={copy("Position entfernen", "Ta bort rad", "Remove line")} aria-label={`${copy("Position entfernen", "Ta bort rad", "Remove line")} ${index + 1}`} onClick={() => update("lines", draft.lines.filter(item => item.id !== line.id))}><Trash2 size={18} /></button>
+          </div>
+          {openComments.includes(line.id) && <label className="billing-editor-comment"><span>{copy("Kommentar", "Kommentar", "Comment")}</span><textarea rows={2} maxLength={10000} value={line.comment || ""} onChange={event => updateLine(line.id, { comment: event.target.value })} /></label>}
         </fieldset>)}
         <button className="outline-button" type="button" onClick={() => update("lines", [...draft.lines, { id: `LINE-${crypto.randomUUID()}`, kind: "Leistung", name: "", quantity: "1", unit: draft.lines[0]?.unit || copy("Stunde", "timme", "hour"), unitPrice: "0", taxRate: draft.lines[0]?.taxRate || "25", currency }])}><Plus size={18} />{copy("Position hinzufügen", "Lägg till rad", "Add line")}</button>
       </div>

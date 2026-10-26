@@ -80,6 +80,7 @@ test("Artikelwahl uebernimmt Leistung und Material aus den Stammdaten ohne Komme
   await page.goto("/"); await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true"); await page.getByTestId("nav-billing").click();
   await page.getByRole("button", { name: "Neue Rechnung", exact: true }).click();
   const editor = page.getByRole("region", { name: "Rechnung bearbeiten", exact: true });
+  await editor.getByRole("button", { name: "Kommentar zu Position 1", exact: true }).click();
   await editor.getByRole("textbox", { name: "Kommentar", exact: true }).fill("Bleibt erhalten");
   await editor.getByRole("combobox", { name: "Artikel", exact: true }).fill("ART-SERVICE");
   await expect(editor.getByRole("textbox", { name: "Bezeichnung", exact: true })).toHaveValue("Montagestunde");
@@ -106,6 +107,7 @@ for (const width of [320, 390, 820, 1440]) test(`Visma-Kopfdaten, Positionskomme
   await editor.getByRole("textbox", { name: "Menge", exact: true }).fill("2");
   await editor.getByRole("textbox", { name: "Einzelpreis", exact: true }).fill("150");
   await editor.getByRole("textbox", { name: "Rabatt %", exact: true }).fill("10");
+  await editor.getByRole("button", { name: "Kommentar zu Position 1", exact: true }).click();
   await editor.getByRole("textbox", { name: "Kommentar", exact: true }).fill("Montage am Nebeneingang\nNach Kundenfreigabe");
   await expect(editor.locator(".billing-editor-totals")).toContainText("337,50 SEK");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
