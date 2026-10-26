@@ -31,6 +31,41 @@ Spalten. Neue Positionen und Loeschungen laufen ueber die bestehende
 revisionsgesicherte Finanz-Synchronisierung. Summen werden wie in der Datenbank
 je Position centgenau gerundet. Rabattpositionen verwenden negative Preise.
 
+### Rechnungsfelder nach Visma-Vorbild
+
+Kundenreferenz, eigene Referenz und Bestellreferenz stehen im Rechnungskopf.
+Artikel koennen frei erfasst oder aus den vorhandenen Leistungen und Materialien
+der Rechnungswaehrung uebernommen werden. Jede Position hat einen eigenen
+Kommentar und optionalen prozentualen Positionsrabatt. Artikelnummer, Kommentar
+und Rabatt erscheinen auch in Vorschau und PDF. Lange Kommentare werden im PDF
+ueber Seitengrenzen umbrochen. Ein Positionsrabatt wird vor der centgenauen
+Steuerberechnung abgezogen; die bisherigen negativen Rabattpositionen behalten
+ihre bisherige Bedeutung.
+
+Die Migration `20261026140000_consulting_attachments_invoice_fields.sql` fuehrt
+native Spalten in `homecare_billing_items` und `homecare_invoice_lines` ein.
+Die neuen Payloadfelder werden beim bestehenden revisionsgesicherten Schreibweg
+in diese Spalten projiziert und nicht nur in `record_data` aufbewahrt.
+Gebuchte Rechnungen bleiben unveraenderlich. Die Migration muss vor dem
+Anwendungsrelease angewendet werden. Es werden keine Rechnungen versendet
+und keine Spiris-Verbindungen aktiviert.
+
+### Anhaenge zu Dauerauftragsleistungen
+
+Bilder und PDF-/Office-/Textdokumente werden ueber den privaten Medienspeicher
+hochgeladen und erst beim Speichern einer Leistung atomar zugeordnet.
+`homecare_media.job_time_entry_id` ist ein mandantengebundener Fremdschluessel;
+MIME-Typ und Dateigroesse haben eigene Spalten. Maximal 20 Dateien pro Leistung;
+Dokumente maximal 4 MB, Bilder werden vorab verkleinert. Fehlerhafte Uploads
+werden angezeigt und ersetzen keine vorhandenen Anhaenge. Abgebrochene
+Formulare lassen bestehende Leistungsbuchungen unveraendert.
+
+Eine Zuordnung darf nur eigene, noch nicht geloeschte Uploads bzw. bereits
+dieser Leistung zugeordnete Dateien verwenden. Veraltete Revisionen und
+Mutation-Replays veraendern keine Anhaenge. Entfernte Anhaenge werden
+tombstoniert, nicht aus dem Speicher hart geloescht. Abgerechnete Leistungen
+zeigen ihre Anhaenge weiterhin, erlauben aber keine Aenderung der Anhangsliste.
+
 Bereits gebuchte oder als uebergeben markierte Rechnungen sind nicht editierbar.
 Hat sich der Entwurf waehrend der Bearbeitung geaendert, wird Speichern abgelehnt;
 die aktuelle Fassung muss erneut geoeffnet werden. Abbrechen bei Aenderungen

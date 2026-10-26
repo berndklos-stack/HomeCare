@@ -36,6 +36,8 @@ import { DynamicResourceFields, ResourceTypesPanel, useResourceTypes } from "@/c
 import { StaffTimeWorkspace } from "@/components/StaffTimeWorkspace";
 import { legacyResourceType, missingResourceFields, resourceIsVehicle, resourceLanguageIndex, resourceTypesText } from "@/lib/resourceTypes";
 import { ConsultingServiceList } from "@/components/ConsultingServiceList";
+import { ConsultingAttachments } from "@/components/ConsultingAttachments";
+import { consultingAttachmentAccept, consultingAttachmentAllowed, type ConsultingAttachment } from "@/lib/consultingAttachments";
 import { serviceListRecipientLanguage } from "@/lib/consultingServiceList";
 import { serviceListLabels } from "@/lib/consultingServiceList";
 import { DevicePhotoSave, type DevicePhotoPolicy } from "@/components/DevicePhotoSave";
@@ -43,8 +45,8 @@ import { TenantSwitcher } from "@/components/TenantSwitcher";
 import { AdministrationLinks } from "@/components/AdministrationLinks";
 import { CompanyUsers } from "@/components/CompanyUsers";
 import { BillingOverview } from "@/components/BillingOverview";
-import { BillingDraftEditor } from "@/components/BillingDraftEditor";
-import { billingDraftError, billingDraftTotals, type BillingDraftEdit } from "@/lib/billingDraft";
+import { BillingDraftEditor, type BillingArticle } from "@/components/BillingDraftEditor";
+import { billingDraftError, billingDraftTotals, billingDraftLineNet, type BillingDraftEdit } from "@/lib/billingDraft";
 import type { BillingOverviewRow } from "@/lib/billingOverview";
 import {
   ArrowDown,
@@ -291,6 +293,7 @@ type ConsultingTimeEntry = {
   endTime: string;
   minutes: number;
   description: string;
+  attachments?: import("@/lib/consultingAttachments").ConsultingAttachment[];
   billingStatus: "offen" | "abgerechnet";
   billedAt?: string;
   billingRecordId?: string;
@@ -498,6 +501,9 @@ type BillingRecord = {
     currency: string;
   }>;
   notes?: string;
+  customerReference?: string;
+  ourReference?: string;
+  orderReference?: string;
   outgoingBookNumber?: string;
   paidAt?: string;
   reportId?: string;
@@ -515,6 +521,9 @@ type BillingLineItem = {
   accountingAccount?: string;
   kind: "Leistung" | "Material" | "Rabatt";
   name: string;
+  articleNumber?: string;
+  comment?: string;
+  discountPercent?: string;
   quantity: string;
   unit: string;
   unitPrice: string;
@@ -5102,7 +5111,8 @@ function offerLines(job: JobRecord, services: ServiceItem[]): BillingLineItem[] 
 }
 
 function lineNetAmount(line: BillingLineItem) {
-  return decimalValue(line.quantity) * decimalValue(line.unitPrice);
+  if (!line.discountPercent) return decimalValue(line.quantity) * decimalValue(line.unitPrice);
+  return billingDraftLineNet({ ...line, quantity: String(decimalValue(line.quantity)), unitPrice: String(decimalValue(line.unitPrice)) });
 }
 
 function lineTaxAmount(line: BillingLineItem) {
@@ -6682,11 +6692,15 @@ async function createInvoicePdfBlob(item: BillingRecord, object: ObjectRecord | 
     `${swedish ? "Förfallodatum" : "Fällig am"}: ${item.dueDate || addDays(item.invoiceDate || new Date().toISOString().slice(0, 10), 30)}`,
     `${swedish ? "Utfört datum" : "Leistungsdatum"}: ${item.serviceDate || "-"}`,
     ...(object ? [`Objekt: ${object.name}, ${displayAddress(object.address)}`] : []),
+    ...(item.customerReference ? [`${swedish ? "Er referens" : "Ihre Referenz"}: ${item.customerReference}`] : []),
+    ...(item.ourReference ? [`${swedish ? "Vår referens" : "Unsere Referenz"}: ${item.ourReference}`] : []),
+    ...(item.orderReference ? [`${swedish ? "Er orderreferens" : "Ihre Bestellreferenz"}: ${item.orderReference}`] : []),
   ];
   pdf.setFontSize(9);
   meta.forEach((row) => {
-    pdf.text(row, margin, y);
-    y += 5;
+    for (const text of pdf.splitTextToSize(row, pageWidth - margin * 2)) {
+      ensureSpace(6); pdf.text(text, margin, y); y += 5;
+    }
   });
   y += 8;
 
@@ -6704,15 +6718,18 @@ async function createInvoicePdfBlob(item: BillingRecord, object: ObjectRecord | 
     ensureSpace(18);
     pdf.setFont("helvetica", line.kind === "Rabatt" ? "italic" : "normal");
     pdf.setFontSize(line.kind === "Rabatt" ? 8 : 9);
-    const nameLines = pdf.splitTextToSize(line.name, 84);
-    pdf.text(nameLines, margin, y);
+    const nameLines = pdf.splitTextToSize([line.articleNumber ? `${line.articleNumber} · ${line.name}` : line.name, line.comment, Number(line.discountPercent) > 0 ? `Rabatt ${line.discountPercent}%` : ""].filter(Boolean).join("\n"), 84);
     pdf.text(`${line.quantity} ${localizedUnit(line.unit, swedish)}`, 105, y);
     pdf.text(formatMoney(decimalValue(line.unitPrice), line.currency), 130, y);
     pdf.text(`${line.taxRate}%`, 155, y);
     pdf.text(formatMoney(lineNetAmount(line), line.currency), pageWidth - margin, y, { align: "right" });
-    y += Math.max(7, nameLines.length * 4.5 + 2);
+    for (const text of nameLines) {
+      ensureSpace(6); pdf.text(text, margin, y); y += 4.5;
+    }
+    y += 3;
   });
 
+  ensureSpace(45 + Object.keys(totals.taxByRate).length * 6);
   y += 4;
   pdf.line(118, y, pageWidth - margin, y);
   y += 7;
@@ -14077,6 +14094,10 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
             )}
             {section === "billing" && (
               <BillingView
+                articles={[
+                  ...services.filter(item => !item.archived).map(item => ({ number: item.id, name: item.name, kind: "Leistung" as const, unit: item.unit, price: String(decimalValue(item.price)), currency: item.currency, taxRate: item.taxRate, accountingAccount: item.accountingAccount })),
+                  ...materials.filter(item => !item.archived).map(item => ({ number: item.sku || item.id, name: item.name, kind: "Material" as const, unit: item.unit, price: String(decimalValue(item.price)), currency: item.currency, taxRate: item.taxRate, accountingAccount: item.accountingAccount })),
+                ]}
                 language={language}
                 notice={recordNotice}
                 companySettings={companySettings}
@@ -16546,6 +16567,9 @@ function JobsView({
   const [consultingEntryStart, setConsultingEntryStart] = useState("");
   const [consultingEntryEnd, setConsultingEntryEnd] = useState("");
   const [consultingEntryDescription, setConsultingEntryDescription] = useState("");
+  const [consultingEntryAttachments, setConsultingEntryAttachments] = useState<ConsultingAttachment[]>([]);
+  const [consultingAttachmentBusy, setConsultingAttachmentBusy] = useState(false);
+  const [consultingAttachmentError, setConsultingAttachmentError] = useState("");
   const [expandedConsultingIds, setExpandedConsultingIds] = useState<string[]>([]);
   const [serviceListJobId, setServiceListJobId] = useState("");
   const [consultingBillingJobId, setConsultingBillingJobId] = useState("");
@@ -16625,6 +16649,8 @@ function JobsView({
   }
 
   function openConsultingEntry(job: JobRecord) {
+    setConsultingEntryAttachments([]);
+    setConsultingAttachmentError("");
     setConsultingEditingEntryId("");
     setConsultingEntryJobId(job.id);
     setConsultingEntryDate(currentLocalDateValue());
@@ -16667,6 +16693,31 @@ function JobsView({
     setConsultingEntryStart(entry.startTime);
     setConsultingEntryEnd(entry.endTime);
     setConsultingEntryDescription(entry.description);
+    setConsultingEntryAttachments(entry.attachments || []);
+    setConsultingAttachmentError("");
+  }
+
+  async function addConsultingAttachments(files: File[]) {
+    if (!files.length || consultingAttachmentBusy) return;
+    const copy = (de: string, sv: string, en: string) => language === "sv" ? sv : language === "en" ? en : de;
+    if (files.length + consultingEntryAttachments.length > 20) {
+      setConsultingAttachmentError(copy("Maximal 20 Anhänge pro Buchung.", "Högst 20 bilagor per registrering.", "Up to 20 attachments per entry.")); return;
+    }
+    setConsultingAttachmentBusy(true); setConsultingAttachmentError("");
+    try {
+      for (const file of files) {
+        let upload: File = file;
+        if (/^image\/(jpeg|png|webp|heic|heif)$/.test(file.type)) {
+          const preview = await fileToFieldPhotoPreview(file);
+          upload = new File([await dataUrlToBlob(preview)], `${file.name.replace(/\.[^.]+$/, "")}.jpg`, { type: "image/jpeg" });
+        }
+        if (!consultingAttachmentAllowed(upload)) throw new Error(copy("Bitte Bilder, PDF-, Office- oder Textdateien bis 4 MB auswählen.", "Välj bilder, PDF-, Office- eller textfiler upp till 4 MB.", "Choose images, PDF, Office or text files up to 4 MB."));
+        const uploaded = await uploadMediaFile(upload, "consulting-entry-attachments", upload.name, { mediaId: `MEDIA-${crypto.randomUUID()}` });
+        if (!uploaded) throw new Error(copy(`„${file.name}“ konnte nicht hochgeladen werden. Bitte erneut auswählen.`, `Kunde inte ladda upp "${file.name}". Välj filen igen.`, `Could not upload "${file.name}". Select it again to retry.`));
+        setConsultingEntryAttachments(current => [...current, { id: uploaded.id, name: uploaded.name, contentType: uploaded.contentType, size: uploaded.size, storagePath: uploaded.path }]);
+      }
+    } catch (error) { setConsultingAttachmentError(error instanceof Error ? error.message : String(error)); }
+    finally { setConsultingAttachmentBusy(false); }
   }
 
   function saveConsultingEntry() {
@@ -16682,6 +16733,7 @@ function JobsView({
       endTime: consultingEntryEnd,
       minutes,
       description: consultingEntryDescription.trim(),
+      attachments: consultingEntryAttachments,
     };
     if (consultingEditingEntryId) {
       onUpdateConsultingEntry(job, consultingEditingEntryId, entryData);
@@ -16812,6 +16864,7 @@ function JobsView({
                       </svg>
                     </button>
                   )}
+                  {(entry.attachments?.length || 0) > 0 && <div className="consulting-history-attachments"><ConsultingAttachments files={entry.attachments || []} language={language} /></div>}
                 </div>
               )) : <span className="muted-line">{tt("Noch keine Leistungen erfasst.")}</span>}
           </div>
@@ -16942,7 +16995,7 @@ function JobsView({
                   {activeConsultingObject ? ` · ${activeConsultingObject.name}` : ""}
                 </span>
               </div>
-              <button aria-label={tt("Schließen")} onClick={() => { setConsultingEditingEntryId(""); setConsultingEntryJobId(""); }} type="button"><X size={18} /></button>
+              <button disabled={consultingAttachmentBusy} aria-label={tt("Schließen")} onClick={() => { setConsultingEditingEntryId(""); setConsultingEntryJobId(""); }} type="button"><X size={18} /></button>
             </header>
             <div className="consulting-entry-body">
               <div className="consulting-entry-grid consulting-entry-grid-top">
@@ -16958,10 +17011,19 @@ function JobsView({
                 <span>{tt("Tätigkeit")}</span>
                 <textarea autoFocus placeholder={tt("Was wurde gemacht?")} value={consultingEntryDescription} onChange={(event) => setConsultingEntryDescription(event.target.value)} />
               </label>
+              <div className="consulting-attachment-editor" aria-busy={consultingAttachmentBusy}>
+                <strong>{language === "sv" ? "Bilder och dokument" : language === "en" ? "Images and documents" : "Bilder und Dokumente"}</strong>
+                <label className="outline-button consulting-attachment-upload"><Paperclip size={18} />{language === "sv" ? "Lägg till bilagor" : language === "en" ? "Add attachments" : "Anhänge hinzufügen"}
+                  <input type="file" multiple accept={consultingAttachmentAccept} disabled={consultingAttachmentBusy} onChange={event => { const files = Array.from(event.target.files || []); event.target.value = ""; void addConsultingAttachments(files); }} />
+                </label>
+                {consultingAttachmentBusy && <p role="status">{language === "sv" ? "Laddar upp …" : language === "en" ? "Uploading …" : "Wird hochgeladen …"}</p>}
+                {consultingAttachmentError && <p role="alert">{consultingAttachmentError}</p>}
+                <ConsultingAttachments files={consultingEntryAttachments} language={language} onRemove={consultingAttachmentBusy ? undefined : id => setConsultingEntryAttachments(current => current.filter(file => file.id !== id))} />
+              </div>
             </div>
             <div className="modal-actions consulting-entry-actions">
-              <button className="ghost-button" onClick={() => { setConsultingEditingEntryId(""); setConsultingEntryJobId(""); }} type="button">{tt("Abbrechen")}</button>
-              <button className="primary-button" disabled={!consultingEntryDate || !consultingEntryStart || !consultingEntryEnd || !consultingEntryDescription.trim() || consultingEntryEnd <= consultingEntryStart} onClick={saveConsultingEntry} type="button">
+              <button className="ghost-button" disabled={consultingAttachmentBusy} onClick={() => { setConsultingEditingEntryId(""); setConsultingEntryJobId(""); }} type="button">{tt("Abbrechen")}</button>
+              <button className="primary-button" disabled={consultingAttachmentBusy || !consultingEntryDate || !consultingEntryStart || !consultingEntryEnd || !consultingEntryDescription.trim() || consultingEntryEnd <= consultingEntryStart} onClick={saveConsultingEntry} type="button">
                 <Check size={16} />
                 {tt(consultingEditingEntryId ? "Änderungen speichern" : "Leistung speichern")}
               </button>
@@ -18508,6 +18570,7 @@ function FieldView({
 }
 
 function BillingView({
+  articles,
   language,
   notice,
   companySettings,
@@ -18535,6 +18598,7 @@ function BillingView({
   accountingAccounts: AccountingAccount[];
   companySettings: CompanySettings;
   billing: BillingRecord[];
+  articles: BillingArticle[];
   customers: CustomerRecord[];
   jobs: JobRecord[];
   objects: ObjectRecord[];
@@ -18678,6 +18742,7 @@ function BillingView({
   };
 
   if (newDraft) return <BillingDraftEditor
+    articles={articles}
     initial={newDraft}
     number={copy("Neue Rechnung", "Ny kundfaktura", "New invoice")}
     language={language}
@@ -18693,8 +18758,9 @@ function BillingView({
   />;
 
   if (editingInvoice) return <BillingDraftEditor
+    articles={articles}
     key={editingInvoice.id}
-    initial={{ customerId: editingInvoice.customerId, objectId: editingInvoice.objectId, invoiceDate: editingInvoice.invoiceDate || currentLocalDateValue(), dueDate: editingInvoice.dueDate || addDays(editingInvoice.invoiceDate || currentLocalDateValue(), 30), serviceDate: editingInvoice.serviceDate || "", notes: editingInvoice.notes || "", lines: editingInvoice.lines || [] }}
+    initial={{ customerId: editingInvoice.customerId, objectId: editingInvoice.objectId, invoiceDate: editingInvoice.invoiceDate || currentLocalDateValue(), dueDate: editingInvoice.dueDate || addDays(editingInvoice.invoiceDate || currentLocalDateValue(), 30), serviceDate: editingInvoice.serviceDate || "", notes: editingInvoice.notes || "", customerReference: editingInvoice.customerReference || "", ourReference: editingInvoice.ourReference || "", orderReference: editingInvoice.orderReference || "", lines: editingInvoice.lines || [] }}
     number={editingInvoice.invoiceNumber || editingInvoice.label}
     defaultCurrency={companySettings.currency}
     language={language}
@@ -18797,6 +18863,9 @@ function BillingView({
                 <span><small>Förfallodatum</small>{previewInvoice.dueDate || addDays(previewInvoice.invoiceDate || new Date().toISOString().slice(0, 10), 30)}</span>
                 <span><small>Utfört datum</small>{previewInvoice.serviceDate || "-"}</span>
                 {previewInvoice.objectId && <span><small>Objekt</small>{previewObject?.name || "Objekt fehlt"}</span>}
+                {previewInvoice.customerReference && <span><small>{copy("Ihre Referenz", "Er referens", "Your reference")}</small>{previewInvoice.customerReference}</span>}
+                {previewInvoice.ourReference && <span><small>{copy("Unsere Referenz", "Vår referens", "Our reference")}</small>{previewInvoice.ourReference}</span>}
+                {previewInvoice.orderReference && <span><small>{copy("Ihre Bestellreferenz", "Er orderreferens", "Your order reference")}</small>{previewInvoice.orderReference}</span>}
               </div>
               <div className="invoice-preview-lines">
                 <div className="invoice-preview-line invoice-preview-line-head">
@@ -18808,7 +18877,7 @@ function BillingView({
                 </div>
                 {previewLines.map((line) => (
                   <div className="invoice-preview-line" key={line.id}>
-                    <span>{line.name}</span>
+                    <span>{line.articleNumber && <small>{line.articleNumber}</small>}{line.name}{line.comment && <small className="invoice-line-comment">{line.comment}</small>}{Number(line.discountPercent) > 0 && <small>Rabatt {line.discountPercent}%</small>}</span>
                     <span>{line.quantity} {localizedUnit(line.unit, true)}</span>
                     <span>{formatMoney(decimalValue(line.unitPrice), line.currency)}</span>
                     <span>{line.taxRate}%</span>

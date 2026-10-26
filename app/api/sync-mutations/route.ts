@@ -86,6 +86,13 @@ export async function POST(request: Request) {
     && !membershipAllows(auth.membership, "jobs.manage")) {
     return NextResponse.json({ error: "PERMISSION_DENIED" }, { status: 403 });
   }
+  if (mutation.entityType === "job_time_entry" && Object.hasOwn(mutation.payload, "attachments")) {
+    if (!membershipAllows(auth.membership, "media.manage")) return NextResponse.json({ error: "PERMISSION_DENIED" }, { status: 403 });
+    const attachments = mutation.payload.attachments;
+    if (!Array.isArray(attachments) || attachments.length > 20 || attachments.some(item => !item || typeof item !== "object" || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,89}$/.test(String(item.id)))) {
+      return NextResponse.json({ error: "INVALID_ATTACHMENTS" }, { status: 400 });
+    }
+  }
   if (["report", "portal_message", "portal_message_reply"].includes(mutation.entityType)
     && !membershipAllows(auth.membership, "jobs.manage")) {
     return NextResponse.json({ error: "PERMISSION_DENIED" }, { status: 403 });

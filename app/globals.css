@@ -11411,8 +11411,12 @@ dialog.sync-confirm-dialog { width: min(520px, calc(100vw - 24px)); max-width: c
 .billing-editor-head { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 14px; padding-bottom: 22px; border-bottom: 1px solid var(--line); }
 .billing-editor-head > label { grid-column: span 2; }
 .billing-editor-head > label:nth-child(-n+2) { grid-column: span 3; }
+.billing-editor-head > label:nth-child(2) { grid-column: span 2; }
+.billing-editor-head > label:last-child { grid-row: 1; grid-column: 6; }
 .billing-editor-lines { padding: 18px 0; }
-.billing-editor-line { display: grid; grid-template-columns: minmax(90px, 1fr) minmax(140px, 2.5fr) repeat(4, minmax(65px, .8fr)) minmax(110px, 1fr) 44px; gap: 10px; align-items: end; border: 0; border-bottom: 1px solid var(--line); padding: 10px 0 18px; margin: 0 0 14px; min-width: 0; }
+.billing-editor-line { display: grid; grid-template-columns: minmax(70px, 1fr) minmax(90px, 1fr) minmax(140px, 2.5fr) repeat(5, minmax(60px, .8fr)) minmax(100px, 1fr) 44px; gap: 8px; align-items: end; border: 0; border-bottom: 1px solid var(--line); padding: 10px 0 18px; margin: 0 0 14px; min-width: 0; }
+.billing-editor-line .billing-editor-comment { grid-column: 1 / -1; }
+.invoice-line-comment { display: block; white-space: pre-wrap; overflow-wrap: anywhere; }
 .billing-editor-line legend { color: var(--muted); font-size: 12px; }
 .billing-editor-line-sum { display: grid; align-content: center; gap: 8px; text-align: right; min-height: 66px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .billing-editor-bottom { display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, .6fr); gap: 32px; padding: 20px 0; border-top: 1px solid var(--line); }
@@ -11422,6 +11426,17 @@ dialog.sync-confirm-dialog { width: min(520px, calc(100vw - 24px)); max-width: c
 .billing-editor-totals > div:last-child { border-top: 1px solid var(--line); font-weight: 700; }
 .billing-editor-actions { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; padding-top: 16px; border-top: 1px solid var(--line); }
 .billing-editor [role="alert"] { color: var(--danger); }
+.consulting-attachment-editor { display: grid; gap: 10px; border-top: 1px solid var(--line); padding-top: 14px; }
+.consulting-attachment-upload { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 10px 12px; justify-self: start; cursor: pointer; }
+.consulting-attachment-upload input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.consulting-attachment-upload:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.consulting-attachments { list-style: none; display: grid; gap: 8px; padding: 0; margin: 0; min-width: 0; }
+.consulting-attachments li { display: flex; align-items: center; justify-content: space-between; gap: 10px; border-bottom: 1px solid var(--line); padding: 8px 0; min-width: 0; }
+.consulting-attachments li > :is(a, span) { display: flex; align-items: center; gap: 10px; min-width: 0; overflow-wrap: anywhere; }
+.consulting-attachments img { width: 60px; height: 48px; object-fit: cover; border-radius: 4px; flex-shrink: 0; }
+.consulting-attachments small { display: block; color: var(--muted); }
+.consulting-attachments button { flex: 0 0 44px; width: 44px; height: 44px; }
+.consulting-history-attachments { grid-column: 1 / -1; }
 @media (max-width: 1250px) {
   .billing-editor-line { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .billing-editor-description { grid-column: span 3; }
@@ -11431,6 +11446,7 @@ dialog.sync-confirm-dialog { width: min(520px, calc(100vw - 24px)); max-width: c
   .billing-editor { padding: 14px; }
   .billing-editor-head { grid-template-columns: minmax(0, 1fr); }
   .billing-editor-head > label, .billing-editor-head > label:nth-child(-n+2) { grid-column: auto; }
+  .billing-editor-head > label:last-child { grid-row: auto; grid-column: auto; }
   .billing-editor-line { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .billing-editor-line > label:first-of-type, .billing-editor-description { grid-column: 1 / -1; }
   .billing-editor-line-sum { grid-column: auto; text-align: left; }

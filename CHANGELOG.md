@@ -4,6 +4,13 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.428.20 - 2026-10-26
+
+- Bilder und Dokumente zu einzelnen Dauerauftragsleistungen hochladen, nach dem Speichern wieder oeffnen und bei offenen Leistungen entfernen. Geschuetzter Medienspeicher, Bildverkleinerung, Uploadfehler ohne Verlust vorhandener Anhaenge und unveraenderliche Anhangslisten abgerechneter Leistungen.
+- Kompakter Rechnungskopf nach Visma-Vorbild mit Kundenreferenz, eigener Referenz, Bestellreferenz und Waehrung. Vorhandene Leistungen und Materialien als Artikel uebernehmen; Kommentar und prozentualer Rabatt je Position mit centgenauen Summen, Vorschau und PDF einschliesslich mehrseitiger Kommentare.
+- Versionierte Migration mit eigenen Rechnungs-/Positionsspalten und mandantengebundenem Fremdschluessel fuer Leistungsanhaenge. Native Spalten sind fuehrend; widerspruechliche Altwerte stoppen die Migration zur Pruefung. Bestehende Buchungen, Mandantentrennung und direkte Spiris-API bleiben unveraendert.
+- Noch nicht synchronisierte Positionsaenderungen bleiben beim erneuten Serverabgleich erhalten. 82 Browser-, Validierungs- und Finanzregressionen in Chromium/Safari sowie lokale SQL-/RLS-Regressionen erfolgreich. TypeScript, Produktionsbuild, gezielte Codepruefungen und git diff --check erfolgreich.
+
 ## 1.428.19 - 2026-10-26
 
 - Neue Rechnung direkt in der Abrechnung mit Kunde, optionalem Projekt/Objekt, freien Positionen, Datum und Notizen erstellen. Abbrechen erzeugt keinen leeren Datensatz.

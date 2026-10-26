@@ -1,6 +1,14 @@
 import { expect, test } from "@playwright/test";
 import { billingCurrencyTotals, billingTabCounts, selectBillingRows, type BillingOverviewRow } from "../lib/billingOverview";
 import { billingDraftError, billingDraftTotals, type BillingDraftEdit } from "../lib/billingDraft";
+import { overlayPendingFinancialMutations, prepareFinancialMutations } from "../lib/financialSync";
+
+test("Positionskommentar bleibt bei erneutem Serverabgleich offline erhalten", () => {
+  const before = [{ id: "I", revision: 1, lines: [{ id: "L", revision: 1, comment: "Alt" }] }];
+  const planned = prepareFinancialMutations(before, [{ ...before[0], lines: [{ ...before[0].lines[0], comment: "Neu", articleNumber: "ART-1", discountPercent: "10" }] }]);
+  expect(planned.mutations).toHaveLength(1);
+  expect(overlayPendingFinancialMutations(before, planned.mutations)[0].lines).toMatchObject([{ comment: "Neu", articleNumber: "ART-1", discountPercent: "10" }]);
+});
 
 test("Entwurfsvalidierung weist ungueltige Daten, Zahlen und gemischte Waehrungen ab", () => {
   const draft: BillingDraftEdit = { customerId: "C", objectId: "O", invoiceDate: "2026-10-25", dueDate: "2026-11-25", serviceDate: "", notes: "", lines: [{ id: "L", kind: "Leistung", name: "Montage", quantity: "1,5", unit: "h", unitPrice: "100", taxRate: "25", currency: "SEK" }] };
@@ -15,6 +23,8 @@ test("Entwurfsvalidierung weist ungueltige Daten, Zahlen und gemischte Waehrunge
   expect(billingDraftError({ ...draft, lines: [] })).toBe("lines");
   expect(billingDraftError({ ...draft, lines: [{ ...draft.lines[0], quantity: "12abc" }] })).toBe("lines");
   expect(billingDraftError({ ...draft, lines: [...draft.lines, { ...draft.lines[0], id: "L2", currency: "EUR" }] })).toBe("currency");
+  expect(billingDraftTotals([{ ...draft.lines[0], quantity: "2", unitPrice: "150", discountPercent: "10" }])).toMatchObject({ net: 270, tax: 67.5, gross: 337.5 });
+  for (const discountPercent of ["-1", "101", "NaN", "10abc"]) expect(billingDraftError({ ...draft, lines: [{ ...draft.lines[0], discountPercent }] })).toBe("lines");
 });
 
 const base: BillingOverviewRow = { id: "a", number: "INV-2", customerNumber: "001", customer: "Alpha", project: "Terrasse", invoiceDate: "2026-10-20", dueDate: "2026-11-20", status: "entwurf", amount: 125, currency: "SEK", transferStatus: "nicht gesendet", category: "service", searchText: "Montage" };
@@ -60,6 +70,62 @@ test.beforeEach(async ({ page }) => {
       { ...common, id: "BILL-CANCELLED", invoiceNumber: "INV-4", invoiceStatus: "storniert", cancelledAt: "2026-10-24T08:00:00Z", amount: "125", lines: [line("LINE-6", "100")] },
     ]));
   });
+});
+
+test("Artikelwahl uebernimmt Leistung und Material aus den Stammdaten ohne Kommentarverlust", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("kolaretorp-services", JSON.stringify([{ id: "ART-SERVICE", name: "Montagestunde", unit: "h", price: "80", currency: "SEK", taxRate: "25", category: "Montage", description: "", checklist: [] }]));
+    localStorage.setItem("kolaretorp-materials", JSON.stringify([{ id: "MAT-ART", sku: "WOOD-42", name: "Kantholz", unit: "m", price: "12,50", currency: "SEK", taxRate: "25", category: "Holz", description: "" }]));
+  });
+  await page.goto("/"); await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true"); await page.getByTestId("nav-billing").click();
+  await page.getByRole("button", { name: "Neue Rechnung", exact: true }).click();
+  const editor = page.getByRole("region", { name: "Rechnung bearbeiten", exact: true });
+  await editor.getByRole("textbox", { name: "Kommentar", exact: true }).fill("Bleibt erhalten");
+  await editor.getByRole("combobox", { name: "Artikel", exact: true }).fill("ART-SERVICE");
+  await expect(editor.getByRole("textbox", { name: "Bezeichnung", exact: true })).toHaveValue("Montagestunde");
+  await expect(editor.getByRole("textbox", { name: "Einzelpreis", exact: true })).toHaveValue("80");
+  await editor.getByRole("combobox", { name: "Artikel", exact: true }).fill("WOOD-42");
+  await expect(editor.getByRole("combobox", { name: "Art", exact: true })).toHaveValue("Material");
+  await expect(editor.getByRole("textbox", { name: "Einzelpreis", exact: true })).toHaveValue("12.5");
+  await expect(editor.getByRole("textbox", { name: "Kommentar", exact: true })).toHaveValue("Bleibt erhalten");
+  await editor.getByRole("combobox", { name: "Währung", exact: true }).selectOption("EUR");
+  await expect(editor.locator('#billing-articles option[value="WOOD-42"]')).toHaveCount(0);
+});
+
+for (const width of [320, 390, 820, 1440]) test(`Visma-Kopfdaten, Positionskommentar und Rabatt bleiben in Entwurf und PDF bei ${width}px`, async ({ page }, info) => {
+  await page.setViewportSize({ width, height: 1100 });
+  await page.goto("/"); await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true"); await page.getByTestId("nav-billing").click();
+  await page.getByRole("button", { name: "Neue Rechnung", exact: true }).click();
+  const editor = page.getByRole("region", { name: "Rechnung bearbeiten", exact: true });
+  await editor.getByRole("combobox", { name: "Kunde", exact: true }).selectOption("BILL-C");
+  await editor.getByRole("textbox", { name: "Ihre Referenz", exact: true }).fill("Anna Referenz");
+  await editor.getByRole("textbox", { name: "Unsere Referenz", exact: true }).fill("Paul Referenz");
+  await editor.getByRole("textbox", { name: "Ihre Bestellreferenz", exact: true }).fill("PO-123");
+  await editor.getByRole("combobox", { name: "Artikel", exact: true }).fill("ART-42");
+  await editor.getByRole("textbox", { name: "Bezeichnung", exact: true }).fill("Montage Kommentar");
+  await editor.getByRole("textbox", { name: "Menge", exact: true }).fill("2");
+  await editor.getByRole("textbox", { name: "Einzelpreis", exact: true }).fill("150");
+  await editor.getByRole("textbox", { name: "Rabatt %", exact: true }).fill("10");
+  await editor.getByRole("textbox", { name: "Kommentar", exact: true }).fill("Montage am Nebeneingang\nNach Kundenfreigabe");
+  await expect(editor.locator(".billing-editor-totals")).toContainText("337,50 SEK");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await editor.screenshot({ path: info.outputPath(`invoice-fields-${width}.png`) });
+  await editor.getByRole("button", { name: "Entwurf speichern", exact: true }).click();
+  await page.reload(); await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true"); await page.getByTestId("nav-billing").click();
+  await page.getByRole("button", { name: "Details und Aktionen Montage Kommentar", exact: true }).click();
+  await page.getByRole("button", { name: "Rechnung Montage Kommentar bearbeiten", exact: true }).click();
+  await expect(editor.getByRole("textbox", { name: "Kommentar", exact: true })).toHaveValue("Montage am Nebeneingang\nNach Kundenfreigabe");
+  await expect(editor.getByRole("textbox", { name: "Unsere Referenz", exact: true })).toHaveValue("Paul Referenz");
+  await expect(editor.getByRole("combobox", { name: "Artikel", exact: true })).toHaveValue("ART-42");
+  await editor.getByRole("button", { name: "Abbrechen", exact: true }).click();
+  await page.getByRole("button", { name: "Details und Aktionen Montage Kommentar", exact: true }).click();
+  const event = page.waitForEvent("download"); await page.getByRole("button", { name: "Rechnung Montage Kommentar als PDF herunterladen", exact: true }).click();
+  const stream = await (await event).createReadStream(); const chunks: Buffer[] = [];
+  for await (const chunk of stream!) chunks.push(Buffer.from(chunk));
+  const pdf = Buffer.concat(chunks).toString("latin1");
+  for (const text of ["Montage am Nebeneingang", "Nach Kundenfreigabe", "ART-42", "Anna Referenz", "Paul Referenz", "PO-123"]) expect(pdf).toContain(text);
+  await page.getByRole("button", { name: "Rechnungsvorschau Montage Kommentar", exact: true }).click();
+  await expect(page.getByRole("dialog")).toContainText("Montage am Nebeneingang");
 });
 
 for (const width of [320, 390, 820, 1440]) test(`Manuelle Rechnung ohne Auftrag oder Objekt mit PDF, Reload und Buchung bei ${width}px`, async ({ page }, info) => {

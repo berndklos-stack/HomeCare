@@ -458,6 +458,9 @@ type ServicePackageRow = {
 };
 
 type BillingRow = {
+  customer_reference: string | null;
+  our_reference: string | null;
+  order_reference: string | null;
   amount: number | null;
   cancelled_at: string | null;
   created_at: string | null;
@@ -1052,7 +1055,9 @@ function rowToPersonnel(row: PersonnelRow) {
   };
 }
 
-function rowToJob(row: JobRow, timeRows: JobTimeEntryRow[] = []) {
+type TimeEntryMediaRow = { id: string; job_time_entry_id: string; name: string; content_type: string | null; byte_size: number | null; storage_path: string; deleted_at: string | null; updated_at: string | null };
+
+function rowToJob(row: JobRow, timeRows: JobTimeEntryRow[] = [], attachments: TimeEntryMediaRow[] = []) {
   const discount = row.discount && typeof row.discount === "object" && !Array.isArray(row.discount) ? row.discount as JsonObject : {};
   const recordData = row.record_data && typeof row.record_data === "object" && !Array.isArray(row.record_data) ? row.record_data as JsonObject : {};
   const consulting = row.consulting && typeof row.consulting === "object" && !Array.isArray(row.consulting) ? row.consulting as JsonObject : {};
@@ -1091,6 +1096,7 @@ function rowToJob(row: JobRow, timeRows: JobTimeEntryRow[] = []) {
         billingStatus: entry.billing_status,
         date: entry.entry_date,
         description: entry.description ?? "",
+        attachments: attachments.filter(file => file.job_time_entry_id === entry.id && !file.deleted_at).map(file => ({ id: file.id, name: file.name, contentType: file.content_type || "application/octet-stream", size: file.byte_size || 0, storagePath: file.storage_path })),
         endTime: entry.end_time ?? "",
         id: entry.id,
         minutes: entry.minutes,
@@ -1328,6 +1334,9 @@ function rowToBilling(row: BillingRow) {
     cancelledAt: row.cancelled_at ?? undefined,
     createdAt: row.created_at ?? undefined,
     customerId: row.customer_id ?? "",
+    customerReference: row.customer_reference ?? "",
+    ourReference: row.our_reference ?? "",
+    orderReference: row.order_reference ?? "",
     dueDate: row.due_date ?? undefined,
     externalExportStatus: row.external_export_status ?? undefined,
     externalExportSystem: row.external_export_system ?? undefined,
@@ -1682,6 +1691,14 @@ async function loadJobsSection(supabase: NonNullable<ReturnType<typeof getSupaba
   if (timeError) throw new Error(timeError.message);
   const rows = (data ?? []) as JobRow[];
   const timeRows = (timeData ?? []) as JobTimeEntryRow[];
+  const attachments: TimeEntryMediaRow[] = [];
+  for (let offset = 0; ; offset += 500) {
+    const result = await supabase.from("homecare_media").select("id,job_time_entry_id,name,content_type,byte_size,storage_path,deleted_at,updated_at")
+      .not("job_time_entry_id", "is", null).order("id").range(offset, offset + 499);
+    if (result.error) throw new Error(result.error.message);
+    attachments.push(...(result.data || []) as TimeEntryMediaRow[]);
+    if ((result.data?.length || 0) < 500) break;
+  }
   const stockRows: { id: string; job_id: string; quantity: number; source_id: string | null; billing_data: Record<string, unknown>; billing_source_id: string | null; occurred_at: string }[] = [];
   for (let offset = 0; ; offset += 500) {
     const { data: stock, error: stockError } = await supabase.from("homecare_stock_movements")
@@ -1701,8 +1718,8 @@ async function loadJobsSection(supabase: NonNullable<ReturnType<typeof getSupaba
   }
   return {
     deletedJobIds: rows.filter((row) => row.deleted_at).map((row) => row.id),
-    updatedAt: maxUpdatedAt([...rows.map((row) => row.updated_at), ...timeRows.map((row) => row.updated_at), ...stockRows.map((row) => row.occurred_at), ...reviewed.map((row) => row.review.created_at)]),
-    value: rows.filter((row) => !row.deleted_at).map((row) => ({ ...rowToJob(row, timeRows), stockMaterialItems: reviewedStockMaterials(stockMaterialLines(stockRows.filter((movement) => movement.job_id === row.id)), reviewed.filter((item) => item.review.job_id === row.id)) })),
+    updatedAt: maxUpdatedAt([...rows.map((row) => row.updated_at), ...timeRows.map((row) => row.updated_at), ...attachments.map(row => row.updated_at), ...stockRows.map((row) => row.occurred_at), ...reviewed.map((row) => row.review.created_at)]),
+    value: rows.filter((row) => !row.deleted_at).map((row) => ({ ...rowToJob(row, timeRows, attachments), stockMaterialItems: reviewedStockMaterials(stockMaterialLines(stockRows.filter((movement) => movement.job_id === row.id)), reviewed.filter((item) => item.review.job_id === row.id)) })),
   };
 }
 
@@ -1804,8 +1821,8 @@ async function loadPackagesSection(supabase: NonNullable<ReturnType<typeof getSu
 
 async function loadBillingSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
   const [{ data, error }, { data: lineData, error: lineError }, { data: paymentData, error: paymentError }, { data: exportData, error: exportError }] = await Promise.all([
-    supabase.from("homecare_billing_items").select("id, object_id, customer_id, job_id, report_id, source, label, amount, status, invoice_status, invoice_number, invoice_date, due_date, service_date, lines, notes, external_export_status, external_export_system, external_exported_at, sent_at, paid_at, cancelled_at, outgoing_book_number, invoiced_at, record_data, revision, deleted_at, created_at, updated_at").order("created_at", { ascending: true }),
-    supabase.from("homecare_invoice_lines").select("id,invoice_id,accounting_account,kind,name,quantity,unit,unit_price,currency,tax_rate,discount_type,discount_value,position,record_data,revision,deleted_at,updated_at").order("position", { ascending: true }),
+    supabase.from("homecare_billing_items").select("id, object_id, customer_id, job_id, report_id, source, label, amount, status, invoice_status, invoice_number, invoice_date, due_date, service_date, customer_reference, our_reference, order_reference, lines, notes, external_export_status, external_export_system, external_exported_at, sent_at, paid_at, cancelled_at, outgoing_book_number, invoiced_at, record_data, revision, deleted_at, created_at, updated_at").order("created_at", { ascending: true }),
+    supabase.from("homecare_invoice_lines").select("id,invoice_id,accounting_account,kind,name,article_number,comment,line_discount_percent,quantity,unit,unit_price,currency,tax_rate,discount_type,discount_value,position,record_data,revision,deleted_at,updated_at").order("position", { ascending: true }),
     supabase.from("homecare_payments").select("id,invoice_id,amount,currency,paid_at,revision,deleted_at,updated_at").order("paid_at", { ascending: false }),
     supabase.from("homecare_accounting_exports").select("id,invoice_id,system,status,exported_at,revision,deleted_at,updated_at").order("exported_at", { ascending: false }),
   ]);
@@ -1824,6 +1841,7 @@ async function loadBillingSection(supabase: NonNullable<ReturnType<typeof getSup
       lines: lines.filter((item) => item.invoice_id === row.id && !item.deleted_at).map((item) => ({
         ...(item.record_data && typeof item.record_data === "object" ? item.record_data as JsonObject : {}),
         id: item.id, accountingAccount: item.accounting_account, kind: item.kind, name: item.name,
+        articleNumber: item.article_number ?? "", comment: item.comment ?? "", discountPercent: String(item.line_discount_percent ?? 0),
         quantity: String(item.quantity ?? ""), unit: item.unit, unitPrice: String(item.unit_price ?? ""), currency: item.currency,
         taxRate: String(item.tax_rate ?? ""), discountType: item.discount_type, discountValue: String(item.discount_value ?? ""),
         revision: item.revision, updatedAt: item.updated_at,

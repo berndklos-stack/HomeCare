@@ -2,17 +2,19 @@
 
 import { ArrowLeft, Plus, Save, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { billingDraftError, billingDraftTotals, draftNumber, type BillingDraftEdit, type BillingDraftLine } from "@/lib/billingDraft";
+import { billingDraftError, billingDraftTotals, billingDraftLineNet, type BillingDraftEdit, type BillingDraftLine } from "@/lib/billingDraft";
 
 type Choice = { id: string; name: string };
+export type BillingArticle = { number: string; name: string; kind: "Leistung" | "Material"; unit: string; price: string; currency: string; taxRate?: string; accountingAccount?: string };
 
-export function BillingDraftEditor({ initial, number, language, customers, objects, defaultCurrency, onSave, onClose }: {
+export function BillingDraftEditor({ initial, number, language, customers, objects, defaultCurrency, articles = [], onSave, onClose }: {
   initial: BillingDraftEdit;
   number: string;
   language: "de" | "sv" | "en";
   defaultCurrency?: string;
   customers: Choice[];
   objects: (Choice & { ownerCustomerId?: string })[];
+  articles?: BillingArticle[];
   onSave: (value: BillingDraftEdit) => string | null;
   onClose: () => void;
 }) {
@@ -53,18 +55,30 @@ export function BillingDraftEditor({ initial, number, language, customers, objec
         <label><span>{copy("Rechnungsdatum", "Fakturadatum", "Invoice date")}</span><input required type="date" value={draft.invoiceDate} onChange={event => update("invoiceDate", event.target.value)} /></label>
         <label><span>{copy("Fällig am", "Förfallodatum", "Due date")}</span><input required type="date" min={draft.invoiceDate} value={draft.dueDate} onChange={event => update("dueDate", event.target.value)} /></label>
         <label><span>{copy("Leistungsdatum", "Leveransdatum", "Service date")}</span><input type="date" value={draft.serviceDate} onChange={event => update("serviceDate", event.target.value)} /></label>
+        <label><span>{copy("Ihre Referenz", "Er referens", "Your reference")}</span><input maxLength={250} value={draft.customerReference || ""} onChange={event => update("customerReference", event.target.value)} /></label>
+        <label><span>{copy("Unsere Referenz", "Vår referens", "Our reference")}</span><input maxLength={250} value={draft.ourReference || ""} onChange={event => update("ourReference", event.target.value)} /></label>
+        <label><span>{copy("Ihre Bestellreferenz", "Er orderreferens", "Your order reference")}</span><input maxLength={250} value={draft.orderReference || ""} onChange={event => update("orderReference", event.target.value)} /></label>
+        <label><span>{copy("Währung", "Valuta", "Currency")}</span><select value={currency} onChange={event => update("lines", draft.lines.map(line => ({ ...line, currency: event.target.value })))}>{Array.from(new Set([currency, "SEK", "EUR", "GBP", "USD"])).map(value => <option key={value}>{value}</option>)}</select></label>
       </div>
       <div className="billing-editor-lines">
+        <datalist id="billing-articles">{articles.filter(article => article.currency === currency).map((article, index) => <option key={`${article.number}-${index}`} value={article.number}>{article.name}</option>)}</datalist>
         {draft.lines.map((line, index) => <fieldset className="billing-editor-line" key={line.id}>
           <legend>{copy("Position", "Rad", "Line")} {index + 1}</legend>
+          <label><span>{copy("Artikel", "Artikel", "Article")}</span><input list="billing-articles" maxLength={100} value={line.articleNumber || ""} onChange={event => {
+            const articleNumber = event.target.value;
+            const article = articles.find(item => item.number === articleNumber && item.currency === currency);
+            updateLine(line.id, article ? { articleNumber, name: article.name, kind: article.kind, unit: article.unit, unitPrice: article.price, currency: article.currency, taxRate: article.taxRate || "25", accountingAccount: article.accountingAccount, discountPercent: "0" } : { articleNumber });
+          }} /></label>
           <label><span>{copy("Art", "Typ", "Type")}</span><select value={line.kind} onChange={event => updateLine(line.id, { kind: event.target.value as BillingDraftLine["kind"] })}><option value="Leistung">{copy("Leistung", "Tjänst", "Service")}</option><option value="Material">Material</option><option value="Rabatt">{copy("Rabatt", "Rabatt", "Discount")}</option></select></label>
           <label className="billing-editor-description"><span>{copy("Bezeichnung", "Benämning", "Description")}</span><input required value={line.name} onChange={event => updateLine(line.id, { name: event.target.value })} /></label>
           <label><span>{copy("Menge", "Antal", "Quantity")}</span><input required inputMode="decimal" value={line.quantity} onChange={event => updateLine(line.id, { quantity: event.target.value })} /></label>
           <label><span>{copy("Einheit", "Enhet", "Unit")}</span><input required value={line.unit} onChange={event => updateLine(line.id, { unit: event.target.value })} /></label>
           <label><span>{copy("Einzelpreis", "À-pris", "Unit price")}</span><input required inputMode="decimal" value={line.unitPrice} onChange={event => updateLine(line.id, { unitPrice: event.target.value })} /></label>
           <label><span>{copy("USt. %", "Moms %", "VAT %")}</span><input required inputMode="decimal" value={line.taxRate} onChange={event => updateLine(line.id, { taxRate: event.target.value })} /></label>
-          <div className="billing-editor-line-sum"><small>{copy("Netto", "Exkl. moms", "Net")}</small><output>{money(draftNumber(line.quantity) * draftNumber(line.unitPrice) || 0)}</output></div>
+          <label><span>{copy("Rabatt %", "Rabatt %", "Discount %")}</span><input inputMode="decimal" disabled={line.kind === "Rabatt"} value={line.discountPercent || "0"} onChange={event => updateLine(line.id, { discountPercent: event.target.value })} /></label>
+          <div className="billing-editor-line-sum"><small>{copy("Netto", "Summa exkl. moms", "Net")}</small><output>{money(billingDraftLineNet(line) || 0)}</output></div>
           <button className="outline-button" type="button" title={copy("Position entfernen", "Ta bort rad", "Remove line")} aria-label={`${copy("Position entfernen", "Ta bort rad", "Remove line")} ${index + 1}`} onClick={() => update("lines", draft.lines.filter(item => item.id !== line.id))}><Trash2 size={18} /></button>
+          <label className="billing-editor-comment"><span>{copy("Kommentar", "Kommentar", "Comment")}</span><textarea rows={2} maxLength={10000} value={line.comment || ""} onChange={event => updateLine(line.id, { comment: event.target.value })} /></label>
         </fieldset>)}
         <button className="outline-button" type="button" onClick={() => update("lines", [...draft.lines, { id: `LINE-${crypto.randomUUID()}`, kind: "Leistung", name: "", quantity: "1", unit: draft.lines[0]?.unit || copy("Stunde", "timme", "hour"), unitPrice: "0", taxRate: draft.lines[0]?.taxRate || "25", currency }])}><Plus size={18} />{copy("Position hinzufügen", "Lägg till rad", "Add line")}</button>
       </div>

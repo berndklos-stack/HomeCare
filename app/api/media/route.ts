@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { isAuthError, requireApiAuth } from "@/lib/server/apiAuth";
 import { hasReadablePrivateMediaReference } from "@/lib/server/privateMediaAccess";
+import { consultingAttachmentAllowed } from "@/lib/consultingAttachments";
 
 export const runtime = "nodejs";
 
@@ -63,6 +64,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Ungültige Medien-ID." }, { status: 400 });
   }
   const scope = safePathPart(String(formData.get("scope") || "uploads"));
+  if (scope === "consulting-entry-attachments" && !consultingAttachmentAllowed(file)) {
+    return NextResponse.json({ error: "Bitte ein Bild, PDF, Office- oder Textdokument bis 4 MB auswählen." }, { status: 400 });
+  }
   const name = safePathPart(file.name);
   if (requestedId && !(process.env.NEXT_PUBLIC_DISABLE_SUPABASE_SYNC === "1" && request.headers.get("x-workcore-e2e-bypass") === "1")) {
     const { data: existing, error: lookupError } = await supabase.from("homecare_media")
@@ -123,6 +127,7 @@ export async function POST(request: Request) {
     name: file.name,
     storage_path: path,
     metadata: { contentType: file.type || "application/octet-stream", size: file.size },
+    ...(scope === "consulting-entry-attachments" ? { content_type: file.type || "application/octet-stream", byte_size: file.size } : {}),
     revision: 0,
   });
   if (metadataError) {

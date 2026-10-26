@@ -60,5 +60,13 @@ export function overlayPendingFinancialMutations<T extends RevisionedInvoice>(in
     if (mutation.operation === "delete") map.delete(mutation.entityId);
     else map.set(mutation.entityId, { ...(map.get(mutation.entityId) ?? { id: mutation.entityId }), ...mutation.payload, revision: (mutation.expectedRevision ?? 0) + 1, updatedAt: mutation.updatedAt } as T);
   });
+  queue.filter(item => item.entityType === "invoice_line" && !["synced", "conflict"].includes(item.status)).forEach(mutation => {
+    const invoice = map.get(mutation.resourceId);
+    if (!invoice) return;
+    const lines = new Map((invoice.lines || []).map(line => [line.id, line]));
+    if (mutation.operation === "delete") lines.delete(mutation.entityId);
+    else lines.set(mutation.entityId, { ...(lines.get(mutation.entityId) || {}), ...mutation.payload, id: mutation.entityId, revision: (mutation.expectedRevision || 0) + 1 });
+    map.set(invoice.id, { ...invoice, lines: Array.from(lines.values()) });
+  });
   return Array.from(map.values());
 }
