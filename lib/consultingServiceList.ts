@@ -1,5 +1,6 @@
 import { excelReportLogo, reportBrandingSnapshot, stampReportLogo } from "./reportBranding";
-export type ServiceListEntry = {
+import { consultingTravelAmount, type ConsultingTravel } from "./consultingTravel";
+export type ServiceListEntry = ConsultingTravel & {
   id: string; date: string; startTime: string; endTime: string;
   minutes: number; description: string; billingStatus: "offen" | "abgerechnet";
 };
@@ -29,7 +30,13 @@ export function filterServiceList(entries: ServiceListEntry[], filter: ServiceLi
 
 export function serviceListTotals(entries: ServiceListEntry[], rate: number) {
   return { minutes: entries.reduce((sum, entry) => sum + entry.minutes, 0),
-    cents: entries.reduce((sum, entry) => sum + Math.round(entry.minutes / 60 * rate * 100), 0) };
+    cents: entries.reduce((sum, entry) => sum + Math.round(entry.minutes / 60 * rate * 100) + Math.round(consultingTravelAmount(entry) * 100), 0) };
+}
+
+export function serviceListEntryDescription(entry: ServiceListEntry, language: ServiceListExport["language"], currency: string) {
+  if (!entry.travelKilometers) return entry.description;
+  const label = language === "sv" ? "Resekostnader" : language === "en" ? "Travel costs" : "Fahrtkosten";
+  return `${entry.description}\n${label}: ${entry.travelKilometers} km x ${entry.travelRate} ${currency}/km = ${consultingTravelAmount(entry).toFixed(2)} ${currency}`;
 }
 
 export async function exportServiceListExcel(input: ServiceListExport) {
@@ -41,8 +48,8 @@ export async function exportServiceListExcel(input: ServiceListExport) {
     [],
     [labels.date, labels.time, labels.description, labels.hours, labels.rate, `${labels.amount} (${input.currency})`, labels.status].map((value) => ({ value, fontWeight: "bold", textColor: "#ffffff", backgroundColor: "#1668b8", height: 28 })),
     ...input.entries.map((entry) => [entry.date, `${entry.startTime} - ${entry.endTime}`,
-      { value: entry.description, type: String, wrap: true, height: Math.max(30, Math.ceil(entry.description.length / 75) * 15) },
-      ...[entry.minutes / 60, input.rate, Math.round(entry.minutes / 60 * input.rate * 100) / 100].map((value) => ({ value, type: Number, format: "#,##0.00" })),
+      { value: serviceListEntryDescription(entry, input.language, input.currency), type: String, wrap: true, height: Math.max(30, Math.ceil(entry.description.length / 75) * 15) + (entry.travelKilometers ? 20 : 0) },
+      ...[entry.minutes / 60, input.rate, Math.round(entry.minutes / 60 * input.rate * 100) / 100 + consultingTravelAmount(entry)].map((value) => ({ value, type: Number, format: "#,##0.00" })),
       entry.billingStatus === "offen" ? labels.open : labels.billed]),
   ];
   const totals = serviceListTotals(input.entries, input.rate);
@@ -72,7 +79,7 @@ export async function exportServiceListPdf(input: ServiceListExport) {
   };
   header();
   for (const entry of input.entries) {
-    const lines = pdf.splitTextToSize(entry.description || "-", 133) as string[];
+    const lines = pdf.splitTextToSize(serviceListEntryDescription(entry, input.language, input.currency) || "-", 133) as string[];
     let offset = 0;
     do {
       if (y > 177) { pdf.addPage(); header(); }
@@ -81,7 +88,7 @@ export async function exportServiceListPdf(input: ServiceListExport) {
       if (offset === 0) {
         pdf.text(entry.date, 14, y); pdf.text(`${entry.startTime}-${entry.endTime}`, 36, y);
         pdf.text(number(entry.minutes / 60), 221, y, { align: "right" });
-        pdf.text(number(Math.round(entry.minutes / 60 * input.rate * 100) / 100), 262, y, { align: "right" });
+        pdf.text(number(Math.round(entry.minutes / 60 * input.rate * 100) / 100 + consultingTravelAmount(entry)), 262, y, { align: "right" });
         pdf.text(entry.billingStatus === "offen" ? labels.open : labels.billed, 269, y);
       }
       pdf.text(chunk, 65, y); y += Math.max(1, chunk.length) * 4.5 + 4;

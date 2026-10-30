@@ -4,6 +4,13 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.428.24 - 2026-10-30
+
+- Optionale Fahrtkosten bei der Leistungserfassung laufender Auftraege: gefahrene Kilometer, Nettopreis pro Kilometer und berechneter Betrag. Offene Buchungen bleiben bearbeitbar; Abrechnung ueber separate Kilometerpositionen mit Leistungstext und Datum.
+- Native Datenbankspalten fuer Kilometer und Kilometersatz, gemeinsame revisionierte Speicherung mit der Leistungsbuchung, Eingabevalidierung und Schutz bereits abgerechneter Fahrtkosten. Bestehende Werte und Anhaenge bleiben erhalten.
+- Fahrtkosten in offenen Summen, Leistungsliste und PDF-/Excel-Exporten. Auftragsformular und Checkbox verwenden nur noch die Bezeichnung Laufender Auftrag statt Consulting.
+- 118 Browser-, API-, Leistungslisten-, Anhangs- und Rechnungsregressionen in Chromium/Safari erfolgreich. Neue Migration samt SQL-Regressionspruefungen und Backup-Wiederherstellung in einer lokalen Testdatenbank erfolgreich.
+
 ## 1.428.23 - 2026-10-30
 
 - Berichtsversand speichert ISO-Zeitpunkte statt deutscher Anzeigetexte. Bereits wartende Berichtsuebertragungen werden serverseitig mit expliziter Zeitzone Europe/Stockholm normalisiert; Mutationskennung, Revisionspruefung und lokale Inhalte bleiben erhalten. Erkennbare alte Datumsfehler werden einmal automatisch erneut versucht, andere Fehler und Konflikte nicht.

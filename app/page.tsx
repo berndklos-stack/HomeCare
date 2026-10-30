@@ -39,6 +39,7 @@ import { StaffTimeWorkspace } from "@/components/StaffTimeWorkspace";
 import { legacyResourceType, missingResourceFields, resourceIsVehicle, resourceLanguageIndex, resourceTypesText } from "@/lib/resourceTypes";
 import { ConsultingServiceList } from "@/components/ConsultingServiceList";
 import { ConsultingAttachments } from "@/components/ConsultingAttachments";
+import { consultingTravelAmount, consultingTravelTotal, consultingTravelValid } from "@/lib/consultingTravel";
 import { consultingAttachmentAccept, consultingAttachmentAllowed, type ConsultingAttachment } from "@/lib/consultingAttachments";
 import { serviceListRecipientLanguage } from "@/lib/consultingServiceList";
 import { serviceListLabels } from "@/lib/consultingServiceList";
@@ -293,6 +294,8 @@ type PortalLoginEntry = {
 };
 
 type ConsultingTimeEntry = {
+  travelKilometers?: string;
+  travelRate?: string;
   id: string;
   date: string;
   startTime: string;
@@ -2206,6 +2209,12 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Auftrag auswählen", sv: "Välj uppdrag", en: "Select job" },
   { de: "Auftrag schließen", sv: "Stäng uppdrag", en: "Close job" },
   { de: "Dauerauftrag / Consulting", sv: "Löpande uppdrag / konsulting", en: "Ongoing job / consulting" },
+  { de: "als laufenden Auftrag führen", sv: "hantera som löpande uppdrag", en: "manage as an ongoing job" },
+  { de: "Fahrtkosten", sv: "Resekostnader", en: "Travel costs" },
+  { de: "Gefahrene Kilometer", sv: "Körda kilometer", en: "Distance in kilometers" },
+  { de: "Preis pro km", sv: "Pris per km", en: "Price per km" },
+  { de: "Fahrtkosten netto", sv: "Resekostnader exkl. moms", en: "Net travel costs" },
+  { de: "Bitte gültige Kilometer und einen gültigen Preis pro Kilometer eingeben.", sv: "Ange giltiga kilometer och ett giltigt pris per kilometer.", en: "Enter valid kilometers and a valid price per kilometer." },
   { de: "Laufenden Auftrag ohne festes Enddatum führen und Leistungen nach Zeit erfassen.", sv: "Hantera uppdraget utan fast slutdatum och registrera arbete efter tid.", en: "Run the job without a fixed end date and record work by time." },
   { de: "als laufenden Consulting-Auftrag führen", sv: "hantera som löpande konsultuppdrag", en: "manage as an ongoing consulting job" },
   { de: "ohne Enddatum", sv: "utan slutdatum", en: "without end date" },
@@ -11114,14 +11123,14 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     }
     const totalMinutes = openEntries.reduce((sum, entry) => sum + entry.minutes, 0);
     const rate = decimalValue(consulting.hourlyRate);
-    const amountValue = Number.isFinite(rate) ? (totalMinutes / 60) * rate : 0;
+    const amountValue = (Number.isFinite(rate) ? (totalMinutes / 60) * rate : 0) + consultingTravelTotal(openEntries);
     const invoiceIndex = billing.length + 1;
     const billingId = `BIL-CONS-${job.id}-${Date.now()}`;
     const fromDate = openEntries.map((entry) => entry.date).sort()[0];
     const toDate = openEntries.map((entry) => entry.date).sort().at(-1) || fromDate;
     const hours = totalMinutes / 60;
     const consultingCustomer = customers.find((customer) => customer.id === job.customerId);
-    const defaultInvoiceText = isSwedishCustomerLanguage(consultingCustomer?.language) ? "Konsulttjänster" : "Consulting-Leistungen";
+    const defaultInvoiceText = isSwedishCustomerLanguage(consultingCustomer?.language) ? "Tjänster" : "Leistungen";
     const consultingInvoiceText = consulting.invoiceText?.trim() || defaultInvoiceText;
     const billingRecord: BillingRecord = {
       amount: `${amountValue.toLocaleString("sv-SE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${consulting.currency}`,
@@ -11136,17 +11145,22 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
       invoiceStatus: "entwurf",
       jobId: job.id,
       label: `${job.title} · ${consultingInvoiceText} ${fromDate}${toDate !== fromDate ? `–${toDate}` : ""}`,
-      lines: [{
+      lines: [...(hours > 0 ? [{
         id: `${billingId}-TIME`,
         accountingAccount: defaultAccountingAccount("Leistung", "Consulting"),
-        kind: "Leistung",
+        kind: "Leistung" as const,
         name: `${consultingInvoiceText} ${fromDate}${toDate !== fromDate ? `–${toDate}` : ""}`,
         quantity: hours.toFixed(2).replace(".", ","),
         unit: "Stunde",
         unitPrice: consulting.hourlyRate || "0",
         currency: consulting.currency || "SEK",
         taxRate: "25",
-      }],
+      }] : []), ...openEntries.filter(entry => Boolean(entry.travelKilometers) && consultingTravelValid(entry)).map(entry => ({
+        id: `${billingId}-TRAVEL-${entry.id}`, accountingAccount: defaultAccountingAccount("Leistung", "Consulting"),
+        kind: "Leistung" as const, name: `${isSwedishCustomerLanguage(consultingCustomer?.language) ? "Resekostnader" : "Fahrtkosten"} ${entry.date}`,
+        comment: entry.description, quantity: entry.travelKilometers || "0", unit: "km", unitPrice: entry.travelRate || "0",
+        currency: consulting.currency || "SEK", taxRate: "25",
+      }))],
       consultingDetails: openEntries
         .slice()
         .sort((first, second) => `${first.date} ${first.startTime}`.localeCompare(`${second.date} ${second.startTime}`))
@@ -14893,7 +14907,7 @@ function OnboardingWizard({
                   <label><span>{copy("Projekt / Objekt", "Projekt / objekt", "Project / object")}</span><select value={jobForm.objectId} onChange={(event) => setJobForm({ ...jobForm, objectId: event.target.value })}>{objects.map((object) => <option key={object.id} value={object.id}>{object.name}</option>)}</select></label>
                   <label><span>{copy("Termin", "Datum", "Date")}</span><input type="date" value={jobForm.date} onChange={(event) => setJobForm({ ...jobForm, date: event.target.value })} /></label>
                   <label><span>{copy("Verantwortlicher", "Ansvarig", "Assignee")}</span><select value={jobForm.assignedTo} onChange={(event) => setJobForm({ ...jobForm, assignedTo: event.target.value })}><option value="">{copy("Nicht zugewiesen", "Ej tilldelad", "Unassigned")}</option>{personnel.map((person) => { const name = `${person.firstName} ${person.lastName}`.trim(); return <option key={person.id} value={name}>{name}</option>; })}</select></label>
-                  <label className="onboarding-toggle wide"><input checked={jobForm.consulting} onChange={(event) => setJobForm({ ...jobForm, consulting: event.target.checked })} type="checkbox" /><span><strong>{copy("Laufender Auftrag / Consulting", "Löpande uppdrag / konsulting", "Ongoing job / consulting")}</strong><small>{copy("Ohne Enddatum und mit fortlaufender Zeiterfassung", "Utan slutdatum och med löpande tidsregistrering", "No end date with ongoing time entries")}</small></span></label>
+                  <label className="onboarding-toggle wide"><input checked={jobForm.consulting} onChange={(event) => setJobForm({ ...jobForm, consulting: event.target.checked })} type="checkbox" /><span><strong>{copy("Laufender Auftrag", "Löpande uppdrag", "Ongoing job")}</strong><small>{copy("Ohne Enddatum und mit fortlaufender Zeiterfassung", "Utan slutdatum och med löpande tidsregistrering", "No end date with ongoing time entries")}</small></span></label>
                   {jobForm.consulting && <><label><span>{copy("Stundensatz", "Timpris", "Hourly rate")}</span><input inputMode="decimal" value={jobForm.hourlyRate} onChange={(event) => setJobForm({ ...jobForm, hourlyRate: event.target.value })} /></label><label><span>{copy("Währung", "Valuta", "Currency")}</span><select value={jobForm.currency} onChange={(event) => setJobForm({ ...jobForm, currency: event.target.value })}><option>SEK</option><option>EUR</option></select></label><label className="wide"><span>{copy("Rechnungstext", "Fakturatext", "Invoice text")}</span><input value={jobForm.invoiceText} onChange={(event) => setJobForm({ ...jobForm, invoiceText: event.target.value })} /></label></>}
                 </div>
               )}
@@ -16593,6 +16607,9 @@ function JobsView({
   const [consultingEntryStart, setConsultingEntryStart] = useState("");
   const [consultingEntryEnd, setConsultingEntryEnd] = useState("");
   const [consultingEntryDescription, setConsultingEntryDescription] = useState("");
+  const [consultingEntryTravelEnabled, setConsultingEntryTravelEnabled] = useState(false);
+  const [consultingEntryKilometers, setConsultingEntryKilometers] = useState("");
+  const [consultingEntryTravelRate, setConsultingEntryTravelRate] = useState("");
   const [consultingEntryAttachments, setConsultingEntryAttachments] = useState<ConsultingAttachment[]>([]);
   const [consultingAttachmentBusy, setConsultingAttachmentBusy] = useState(false);
   const [consultingAttachmentError, setConsultingAttachmentError] = useState("");
@@ -16638,9 +16655,11 @@ function JobsView({
   const selectedConsultingBillingEntries = eligibleConsultingBillingEntries.filter((entry) => consultingBillingEntryIds.includes(entry.id));
   const selectedConsultingBillingMinutes = selectedConsultingBillingEntries.reduce((sum, entry) => sum + entry.minutes, 0);
   const selectedConsultingBillingRate = decimalValue(activeConsultingBillingJob?.consulting?.hourlyRate);
-  const selectedConsultingBillingAmount = Number.isFinite(selectedConsultingBillingRate)
+  const selectedConsultingBillingAmount = (Number.isFinite(selectedConsultingBillingRate)
     ? (selectedConsultingBillingMinutes / 60) * selectedConsultingBillingRate
-    : 0;
+    : 0) + consultingTravelTotal(selectedConsultingBillingEntries);
+  const consultingEntryTravel = { travelKilometers: consultingEntryTravelEnabled ? consultingEntryKilometers : "", travelRate: consultingEntryTravelEnabled ? consultingEntryTravelRate : "" };
+  const consultingEntryTravelValid = consultingTravelValid(consultingEntryTravel) && (!consultingEntryTravelEnabled || Boolean(consultingEntryKilometers && consultingEntryTravelRate));
   const consultingEntryMinutesPreview = (() => {
     if (!consultingEntryStart || !consultingEntryEnd) return 0;
     const [startHour, startMinute] = consultingEntryStart.split(":").map(Number);
@@ -16648,6 +16667,8 @@ function JobsView({
     const minutes = (endHour * 60 + endMinute) - (startHour * 60 + startMinute);
     return Number.isFinite(minutes) && minutes > 0 ? minutes : 0;
   })();
+
+  const consultingEntryTimeValid = consultingEntryMinutesPreview > 0 || (!consultingEntryStart && !consultingEntryEnd && consultingEntryTravelEnabled && consultingEntryTravelValid);
 
 
   function toggleSeries(id: string) {
@@ -16664,8 +16685,7 @@ function JobsView({
 
   function consultingOpenAmount(job: JobRecord) {
     const rate = decimalValue(job.consulting?.hourlyRate);
-    if (!Number.isFinite(rate)) return 0;
-    return (consultingOpenMinutes(job) / 60) * rate;
+    return (consultingOpenMinutes(job) / 60) * (Number.isFinite(rate) ? rate : 0) + consultingTravelTotal((job.consulting?.entries || []).filter(entry => entry.billingStatus === "offen"));
   }
 
   function toggleConsultingHistory(jobId: string) {
@@ -16683,6 +16703,7 @@ function JobsView({
     setConsultingEntryStart("");
     setConsultingEntryEnd("");
     setConsultingEntryDescription("");
+    setConsultingEntryTravelEnabled(false); setConsultingEntryKilometers(""); setConsultingEntryTravelRate("");
   }
 
   function openConsultingBilling(job: JobRecord) {
@@ -16719,6 +16740,8 @@ function JobsView({
     setConsultingEntryStart(entry.startTime);
     setConsultingEntryEnd(entry.endTime);
     setConsultingEntryDescription(entry.description);
+    setConsultingEntryTravelEnabled(Boolean(entry.travelKilometers));
+    setConsultingEntryKilometers(entry.travelKilometers || ""); setConsultingEntryTravelRate(entry.travelRate || "");
     setConsultingEntryAttachments(entry.attachments || []);
     setConsultingAttachmentError("");
   }
@@ -16748,11 +16771,8 @@ function JobsView({
 
   function saveConsultingEntry() {
     const job = jobs.find((item) => item.id === consultingEntryJobId);
-    if (!job || !consultingEntryDate || !consultingEntryStart || !consultingEntryEnd || !consultingEntryDescription.trim()) return;
-    const [startHour, startMinute] = consultingEntryStart.split(":").map(Number);
-    const [endHour, endMinute] = consultingEntryEnd.split(":").map(Number);
-    const minutes = (endHour * 60 + endMinute) - (startHour * 60 + startMinute);
-    if (!Number.isFinite(minutes) || minutes <= 0) return;
+    if (!job || !consultingEntryDate || !consultingEntryTimeValid || !consultingEntryTravelValid || !consultingEntryDescription.trim()) return;
+    const minutes = consultingEntryMinutesPreview;
     const entryData = {
       date: consultingEntryDate,
       startTime: consultingEntryStart,
@@ -16760,6 +16780,7 @@ function JobsView({
       minutes,
       description: consultingEntryDescription.trim(),
       attachments: consultingEntryAttachments,
+      ...consultingEntryTravel,
     };
     if (consultingEditingEntryId) {
       onUpdateConsultingEntry(job, consultingEditingEntryId, entryData);
@@ -16811,7 +16832,7 @@ function JobsView({
               </button>
               {!isRecurring && !["storniert", "abgerechnet"].includes(job.status) && (
                 <>
-                  {consultingOpenMinutes(job) > 0 && (
+                  {(consultingOpenMinutes(job) > 0 || consultingOpenAmount(job) > 0) && (
                     <button className="ghost-button compact consulting-bill-button" onClick={() => openConsultingBilling(job)} type="button">
                       <Euro size={15} />
                       {tt("Offene Leistungen abrechnen")}
@@ -16874,7 +16895,7 @@ function JobsView({
                 <div className="consulting-entry-history-row" key={entry.id}>
                   <span><strong>{entry.date}</strong> · {entry.startTime}–{entry.endTime}</span>
                   <span>{(entry.minutes / 60).toLocaleString(language === "sv" ? "sv-SE" : "de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} h</span>
-                  <span className="consulting-entry-description">{entry.description}</span>
+                  <span className="consulting-entry-description">{entry.description}{entry.travelKilometers && <small>{tt("Fahrtkosten")}: {entry.travelKilometers} km × {entry.travelRate} {job.consulting?.currency}/km · {formatMoney(consultingTravelAmount(entry), job.consulting?.currency || "SEK")}</small>}</span>
                   <Badge value={tt(entry.billingStatus === "offen" ? "offen" : "abgerechnet")} />
                   {entry.billingStatus === "offen" && (
                     <button
@@ -17014,7 +17035,7 @@ function JobsView({
           <section className="modal consulting-entry-modal" role="dialog" aria-modal="true" aria-labelledby="consulting-entry-title">
             <header>
               <div className="consulting-entry-header-copy">
-                <p>{tt("Consulting")}</p>
+                <p>{tt("Laufender Auftrag")}</p>
                 <h2 id="consulting-entry-title">{tt(consultingEditingEntryId ? "Leistung bearbeiten" : "Leistung erfassen")}</h2>
                 <span className="consulting-entry-subtitle">
                   {activeConsultingJob?.title}
@@ -17037,6 +17058,15 @@ function JobsView({
                 <span>{tt("Tätigkeit")}</span>
                 <textarea autoFocus placeholder={tt("Was wurde gemacht?")} value={consultingEntryDescription} onChange={(event) => setConsultingEntryDescription(event.target.value)} />
               </label>
+              <label className="checkbox-line"><input type="checkbox" checked={consultingEntryTravelEnabled} onChange={event => setConsultingEntryTravelEnabled(event.target.checked)} /><span>{tt("Fahrtkosten")}</span></label>
+              {consultingEntryTravelEnabled && <div className="consulting-entry-travel">
+                <div className="consulting-entry-grid">
+                  <label><span>{tt("Gefahrene Kilometer")}</span><input inputMode="decimal" value={consultingEntryKilometers} onChange={event => setConsultingEntryKilometers(event.target.value)} /></label>
+                  <label><span>{tt("Preis pro km")} ({activeConsultingJob?.consulting?.currency || "SEK"})</span><input inputMode="decimal" value={consultingEntryTravelRate} onChange={event => setConsultingEntryTravelRate(event.target.value)} /></label>
+                </div>
+                <div className="consulting-entry-helper"><span>{tt("Fahrtkosten netto")}</span><strong>{formatMoney(consultingTravelAmount(consultingEntryTravel), activeConsultingJob?.consulting?.currency || "SEK")}</strong></div>
+                {!consultingEntryTravelValid && (consultingEntryKilometers || consultingEntryTravelRate) && <p role="alert">{tt("Bitte gültige Kilometer und einen gültigen Preis pro Kilometer eingeben.")}</p>}
+              </div>}
               <div className="consulting-attachment-editor" aria-busy={consultingAttachmentBusy}>
                 <strong>{language === "sv" ? "Bilder och dokument" : language === "en" ? "Images and documents" : "Bilder und Dokumente"}</strong>
                 <label className="outline-button consulting-attachment-upload"><Paperclip size={18} />{language === "sv" ? "Lägg till bilagor" : language === "en" ? "Add attachments" : "Anhänge hinzufügen"}
@@ -17049,7 +17079,7 @@ function JobsView({
             </div>
             <div className="modal-actions consulting-entry-actions">
               <button className="ghost-button" disabled={consultingAttachmentBusy} onClick={() => { setConsultingEditingEntryId(""); setConsultingEntryJobId(""); }} type="button">{tt("Abbrechen")}</button>
-              <button className="primary-button" disabled={consultingAttachmentBusy || !consultingEntryDate || !consultingEntryStart || !consultingEntryEnd || !consultingEntryDescription.trim() || consultingEntryEnd <= consultingEntryStart} onClick={saveConsultingEntry} type="button">
+              <button className="primary-button" disabled={consultingAttachmentBusy || !consultingEntryDate || !consultingEntryTimeValid || !consultingEntryTravelValid || !consultingEntryDescription.trim()} onClick={saveConsultingEntry} type="button">
                 <Check size={16} />
                 {tt(consultingEditingEntryId ? "Änderungen speichern" : "Leistung speichern")}
               </button>
@@ -17097,7 +17127,7 @@ function JobsView({
                         type="checkbox"
                       />
                       <span><strong>{entry.date}</strong><small>{entry.startTime}–{entry.endTime}</small></span>
-                      <span className="consulting-billing-description">{entry.description}</span>
+                      <span className="consulting-billing-description">{entry.description}{entry.travelKilometers && <small>{tt("Fahrtkosten")}: {entry.travelKilometers} km · {formatMoney(consultingTravelAmount(entry), activeConsultingBillingJob.consulting?.currency || "SEK")}</small>}</span>
                       <strong>{(entry.minutes / 60).toLocaleString(language === "sv" ? "sv-SE" : "de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} h</strong>
                     </label>
                   );
@@ -17341,13 +17371,13 @@ function PlanningView({
       .filter((entry) => entry.billingStatus === "offen")
       .reduce((sum, entry) => sum + entry.minutes, 0);
     const hourlyRate = decimalValue(job.consulting?.hourlyRate);
-    const openAmount = Number.isFinite(hourlyRate) ? (openMinutes / 60) * hourlyRate : 0;
+    const openAmount = (Number.isFinite(hourlyRate) ? (openMinutes / 60) * hourlyRate : 0) + consultingTravelTotal((job.consulting?.entries || []).filter(entry => entry.billingStatus === "offen"));
     const locale = language === "sv" ? "sv-SE" : language === "en" ? "en-GB" : "de-DE";
 
     return (
       <article className="dispatch-ongoing-card" key={job.id}>
         <button className="dispatch-ongoing-main" onClick={() => onEdit(job)} type="button">
-          <span>{tt("Dauerauftrag / Consulting")}</span>
+          <span>{tt("Laufender Auftrag")}</span>
           <strong>{job.title}</strong>
           <small>{object?.name ?? tt("Objekt unbekannt")} · {customer?.company || customer?.name || tt("Kunde offen")}</small>
         </button>
@@ -26228,12 +26258,12 @@ function JobForm({
         <section className={`job-consulting-compact ${newJob.consultingEnabled ? "active" : ""}`}>
           <div className="job-consulting-heading">
             <div>
-              <strong>{tt("Dauerauftrag / Consulting")}</strong>
+              <strong>{tt("Laufender Auftrag")}</strong>
               <span>{tt("Laufenden Auftrag ohne festes Enddatum führen und Leistungen nach Zeit erfassen.")}</span>
             </div>
             <label className="checkbox-line">
               <input checked={newJob.consultingEnabled} onChange={(event) => setNewJob({ ...newJob, consultingEnabled: event.target.checked, consultingOpenEnded: event.target.checked ? true : newJob.consultingOpenEnded, status: event.target.checked && newJob.status === "geplant" ? "in Arbeit" : newJob.status })} type="checkbox" />
-              <span>{tt("als laufenden Consulting-Auftrag führen")}</span>
+              <span>{tt("als laufenden Auftrag führen")}</span>
             </label>
           </div>
           {newJob.consultingEnabled && (

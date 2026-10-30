@@ -11,9 +11,12 @@ assert(Object.hasOwn(projects, environment), "Explicit --project staging|product
 const project = projects[environment];
 const inspect = process.argv.includes("--inspect");
 if (!inspect && environment === "production") assert(process.argv.includes("--apply-production"), "Production approval required");
-const version = "20261026140000";
-const source = readFileSync(`supabase/migrations/${version}_consulting_attachments_invoice_fields.sql`, "utf8");
-const tests = readFileSync("supabase/tests/consulting_attachments_invoice_fields.sql", "utf8");
+const feature = option("--feature") || "invoice";
+assert(["invoice", "travel"].includes(feature), "Explicit supported feature required");
+const version = feature === "travel" ? "20261030100000" : "20261026140000";
+const migrationName = feature === "travel" ? "consulting_travel_costs" : "consulting_attachments_invoice_fields";
+const source = readFileSync(`supabase/migrations/${version}_${migrationName}.sql`, "utf8");
+const tests = readFileSync(`supabase/tests/${migrationName}.sql`, "utf8");
 const digest = value => createHash("sha256").update(value).digest("hex");
 const quote = value => "'" + value.replaceAll("'", "''") + "'";
 const directory = mkdtempSync(`/private/tmp/workcore-invoice-release-${environment}-`);
@@ -63,11 +66,11 @@ const fingerprint = `select jsonb_object_agg(name,value) as value from (values $
   return `(${quote(row.table_name)},(select md5(coalesce(jsonb_agg(to_jsonb(t) order by to_jsonb(t)::text)::text,'')) from (select ${row.columns.map(name => `"${name}"`).join(",")} from public.${row.table_name}) t))`;
 }).join(",")}) x(name,value)`;
 save("columns-before.json", columns);
-save("functions-before.json", await query("select p.proname,pg_get_functiondef(p.oid) as definition from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname in('homecare_apply_job_operation_mutation','homecare_refresh_invoice_totals')"));
+save("functions-before.json", await query("select p.proname,pg_get_functiondef(p.oid) as definition from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname in('homecare_apply_job_operation_mutation','homecare_apply_job_operation_before_picking','homecare_refresh_invoice_totals')"));
 const backups = [];
 if (environment === "production") {
   for (const { id } of await query("select id from public.homecare_tenants")) {
-    const backup = (await query(`select public.homecare_create_relational_backup(${quote(id)}::uuid,'before-consulting-invoice-20261026') as backup`))[0].backup;
+    const backup = (await query(`select public.homecare_create_relational_backup(${quote(id)}::uuid,${quote(`before-${migrationName}-${version}`)}) as backup`))[0].backup;
     assert((await query(`select checksum=encode(extensions.digest(payload::text,'sha256'),'hex') as valid from public.homecare_relational_backups where id=${quote(backup.id)}::uuid`))[0].valid, "Backup checksum mismatch");
     backups.push({ id: backup.id, checksumVerified: true });
   }
@@ -85,7 +88,7 @@ if (state.applied) {
     ${ending}`;
   save("dry-run.sql", transaction("rollback; select true as dry_run_passed;"));
   await query(transaction("rollback; select true as dry_run_passed;"));
-  const apply = transaction(`insert into supabase_migrations.schema_migrations(version,name,statements) values(${quote(version)},'consulting_attachments_invoice_fields',array[${quote(source)}]); notify pgrst,'reload schema'; commit; select true as applied;`);
+  const apply = transaction(`insert into supabase_migrations.schema_migrations(version,name,statements) values(${quote(version)},${quote(migrationName)},array[${quote(source)}]); notify pgrst,'reload schema'; commit; select true as applied;`);
   save("apply.sql", apply); await query(apply);
 }
 let sqlRlsTestsPassed = false;
@@ -102,10 +105,20 @@ const security = (await query(`select
   has_function_privilege('service_role','public.homecare_apply_job_operation_mutation(uuid,text,text,text,text,uuid,jsonb,bigint,uuid)','execute') as server_allowed,
   exists(select 1 from pg_constraint where conname='homecare_media_time_entry_fk' and convalidated) as tenant_fk_validated`))[0];
 assert(Object.values(security).every(Boolean), "Security verification failed");
+if (feature === "travel") {
+  const travel = (await query(`select
+    (select count(*)=2 from information_schema.columns where table_schema='public' and table_name='homecare_job_time_entries' and column_name in('travel_kilometers','travel_rate') and data_type='numeric') as native_columns,
+    exists(select 1 from pg_constraint where conname='homecare_time_entry_travel_valid' and convalidated) as validated_values,
+    exists(select 1 from pg_trigger where tgrelid='public.homecare_job_time_entries'::regclass and tgname='protect_billed_travel_costs' and tgenabled='O') as billed_entry_protected,
+    (select relrowsecurity from pg_class where oid='public.homecare_job_time_entries'::regclass) as entries_rls,
+    not has_function_privilege('anon','public.homecare_apply_job_operation_before_picking(uuid,text,text,text,text,uuid,jsonb,bigint)','execute') and not has_function_privilege('authenticated','public.homecare_apply_job_operation_before_picking(uuid,text,text,text,text,uuid,jsonb,bigint)','execute') as internal_rpc_blocked`))[0];
+  assert(Object.values(travel).every(Boolean), "Travel schema/security verification failed");
+  Object.assign(security, travel);
+}
 const afterAdvisor = await advisor(); save("advisors-after.json", afterAdvisor);
 assert(!counts(afterAdvisor).ERROR, "Post-migration security error");
 const warningKey = item => JSON.stringify([item.name, item.metadata]);
 const oldWarnings = new Set(beforeAdvisor.filter(row => row.level === "WARN").map(warningKey));
 assert(!afterAdvisor.some(row => row.level === "WARN" && !oldWarnings.has(warningKey(row))), "New advisor warning requires review");
-const proof = { project, environment, migrationDigest: digest(source), testDigest: digest(tests), recordsUnchanged: true, sqlRlsTestsPassed, verifiedBackups: backups.length, security, beforeCounts: counts(beforeAdvisor), afterCounts: counts(afterAdvisor), capturedAt: new Date().toISOString() };
+const proof = { project, environment, feature, migrationDigest: digest(source), testDigest: digest(tests), recordsUnchanged: true, sqlRlsTestsPassed, verifiedBackups: backups.length, security, beforeCounts: counts(beforeAdvisor), afterCounts: counts(afterAdvisor), capturedAt: new Date().toISOString() };
 save("verification.json", proof); console.log(JSON.stringify({ directory, ...proof }));

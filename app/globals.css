@@ -11484,6 +11484,10 @@ dialog.billing-master-dialog { width: min(720px, calc(100vw - 24px)); max-width:
 dialog.billing-preview-dialog { width: min(1100px, calc(100vw - 24px)); max-width: calc(100vw - 24px); height: fit-content; align-content: start; }
 .invoice-draft-label { display: block; text-transform: uppercase; color: var(--muted); padding-bottom: 12px; }
 .invoice-preview-notes { white-space: pre-wrap; overflow-wrap: anywhere; }
+.consulting-entry-travel { display: grid; gap: 8px; }
+.consulting-entry-travel .consulting-entry-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.service-list-description { white-space: pre-line; }
+@media (max-width: 480px) { .consulting-entry-travel .consulting-entry-grid { grid-template-columns: minmax(0, 1fr); } }
 .billing-preview-dialog .invoice-preview-top > div { display: grid; align-content: start; gap: 6px; min-width: 0; overflow-wrap: anywhere; }
 .billing-preview-dialog .invoice-preview-line > span { min-width: 0; overflow-wrap: anywhere; }
 .invoice-preview-actions { align-items: center; flex-wrap: wrap; }

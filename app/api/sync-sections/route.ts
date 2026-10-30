@@ -327,6 +327,8 @@ type JobRow = {
 };
 
 type JobTimeEntryRow = {
+  travel_kilometers: number | null;
+  travel_rate: number | null;
   billed_at: string | null;
   billing_record_id: string | null;
   billing_status: string;
@@ -1100,6 +1102,8 @@ function rowToJob(row: JobRow, timeRows: JobTimeEntryRow[] = [], attachments: Ti
         endTime: entry.end_time ?? "",
         id: entry.id,
         minutes: entry.minutes,
+        travelKilometers: entry.travel_kilometers == null ? "" : String(entry.travel_kilometers),
+        travelRate: entry.travel_rate == null ? "" : String(entry.travel_rate),
         revision: entry.revision,
         startTime: entry.start_time ?? "",
         updatedAt: entry.updated_at ?? undefined,
@@ -1684,7 +1688,7 @@ async function loadJobsSection(supabase: NonNullable<ReturnType<typeof getSupaba
       .select("id, series_master_id, series_occurrence_date, title, object_id, customer_id, type, status, status_updated_at, priority, due_date, start_date, end_date, execution_date, assigned_to, description, internal_notes, billable, material, work_minutes, resource_ids, material_items, checklist, service_ids, service_quantities, service_discounts, custom_service, discount, schedule, execution_log, offer_number, offer_sent_at, order_confirmation_number, order_confirmation_sent_at, series_excluded_dates, record_data, scan_code, consulting, revision, deleted_at, updated_at")
       .order("due_date", { ascending: true }),
     supabase.from("homecare_job_time_entries")
-      .select("id,job_id,entry_date,start_time,end_time,minutes,description,billing_status,billed_at,billing_record_id,revision,deleted_at,updated_at")
+      .select("id,job_id,entry_date,start_time,end_time,minutes,description,travel_kilometers,travel_rate,billing_status,billed_at,billing_record_id,revision,deleted_at,updated_at")
       .order("entry_date", { ascending: true }),
   ]);
   if (error) throw new Error(error.message);

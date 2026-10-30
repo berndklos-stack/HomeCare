@@ -4,7 +4,8 @@ import { useState } from "react";
 import { X } from "lucide-react";
 import { CommunicationActions } from "./CommunicationActions";
 import { TripDialog } from "./TripDialog";
-import { exportServiceListExcel, exportServiceListPdf, filterServiceList, serviceListLabels, serviceListTotals, type ServiceListEntry, type ServiceListExport } from "@/lib/consultingServiceList";
+import { exportServiceListExcel, exportServiceListPdf, filterServiceList, serviceListEntryDescription, serviceListLabels, serviceListTotals, type ServiceListEntry, type ServiceListExport } from "@/lib/consultingServiceList";
+import { consultingTravelAmount } from "@/lib/consultingTravel";
 
 export function ConsultingServiceList({ entries, title, company, currency, rate, language, exportLanguage = language, onClose }: ServiceListExport & { exportLanguage?: ServiceListExport["language"]; onClose: () => void }) {
   const labels = serviceListLabels[language];
@@ -56,13 +57,13 @@ export function ConsultingServiceList({ entries, title, company, currency, rate,
     </div>
     <div className="service-list-table-wrap">
       <table className="service-list-table"><thead><tr><th></th><th>{labels.date}</th><th>{labels.time}</th><th>{labels.description}</th><th>{labels.hours}</th><th>{labels.amount} ({currency})</th><th>{labels.status}</th></tr></thead>
-        <tbody>{visible.map((entry) => <tr key={entry.id} data-testid="service-list-row"><td><input type="checkbox" aria-label={`${entry.date} ${entry.startTime} ${entry.description}`} checked={!excluded.includes(entry.id)} onChange={() => toggle(entry)} /></td><td>{entry.date}</td><td>{entry.startTime}–{entry.endTime}</td><td>{entry.description}</td><td>{number(entry.minutes / 60)}</td><td>{number(Math.round(entry.minutes / 60 * rate * 100) / 100)}</td><td>{entry.billingStatus === "offen" ? labels.open : labels.billed}</td></tr>)}</tbody>
+        <tbody>{visible.map((entry) => <tr key={entry.id} data-testid="service-list-row"><td><input type="checkbox" aria-label={`${entry.date} ${entry.startTime} ${entry.description}`} checked={!excluded.includes(entry.id)} onChange={() => toggle(entry)} /></td><td>{entry.date}</td><td>{entry.startTime}–{entry.endTime}</td><td className="service-list-description">{serviceListEntryDescription(entry, language, currency)}</td><td>{number(entry.minutes / 60)}</td><td>{number(Math.round(entry.minutes / 60 * rate * 100) / 100 + consultingTravelAmount(entry))}</td><td>{entry.billingStatus === "offen" ? labels.open : labels.billed}</td></tr>)}</tbody>
       </table>
       {!visible.length && <p>{labels.empty}</p>}
     </div>
     <footer className="service-list-footer">
       <strong>{labels.total}: {number(totals.minutes / 60)} h · {number(totals.cents / 100)} {currency}</strong>
-      <CommunicationActions title={`${labels.title} ${title}`} text={selected.map(entry => `${entry.date} · ${entry.startTime}–${entry.endTime} · ${entry.description} · ${number(entry.minutes / 60)} h`).join("\n")} language={language} disabled={!selected.length || exporting} document={async () => { const bytes = await exportServiceListPdf({ entries: selected, title, company, currency, rate, language: exportLanguage }); return { blob: new Blob([bytes.buffer as ArrayBuffer], { type: "application/pdf" }), name: `${labels.title}.pdf` }; }} downloads={[{ label: "PDF", run: () => download("pdf") }, { label: "Excel", run: () => download("xlsx") }]} />
+      <CommunicationActions title={`${labels.title} ${title}`} text={selected.map(entry => `${entry.date} · ${entry.startTime}–${entry.endTime} · ${serviceListEntryDescription(entry, language, currency)} · ${number(entry.minutes / 60)} h`).join("\n")} language={language} disabled={!selected.length || exporting} document={async () => { const bytes = await exportServiceListPdf({ entries: selected, title, company, currency, rate, language: exportLanguage }); return { blob: new Blob([bytes.buffer as ArrayBuffer], { type: "application/pdf" }), name: `${labels.title}.pdf` }; }} downloads={[{ label: "PDF", run: () => download("pdf") }, { label: "Excel", run: () => download("xlsx") }]} />
     </footer>
     {error && <p role="alert">{error}</p>}
   </TripDialog>;

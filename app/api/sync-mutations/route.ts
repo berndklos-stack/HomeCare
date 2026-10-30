@@ -4,6 +4,7 @@ import type { SyncMutation, SyncMutationResult } from "@/lib/syncQueue";
 import { membershipAllows } from "@/lib/authModel";
 import { normalizeObjectDatePayload } from "@/lib/objectSync";
 import { normalizeReportTimestampPayload } from "@/lib/reportTimestamp";
+import { consultingTravelValid } from "@/lib/consultingTravel";
 import { requiredOperationsPermission, validateOperationsMutation } from "@/lib/operationsCommands";
 import { validateResourceType } from "@/lib/resourceTypes";
 import { hasUnfinishedProgressPhotos } from "@/lib/jobOperationsSync";
@@ -92,6 +93,12 @@ export async function POST(request: Request) {
     const attachments = mutation.payload.attachments;
     if (!Array.isArray(attachments) || attachments.length > 20 || attachments.some(item => !item || typeof item !== "object" || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,89}$/.test(String(item.id)))) {
       return NextResponse.json({ error: "INVALID_ATTACHMENTS" }, { status: 400 });
+    }
+  }
+  if (mutation.entityType === "job_time_entry" && ["travelKilometers", "travelRate"].some(key => Object.hasOwn(mutation.payload, key))) {
+    const { travelKilometers, travelRate } = mutation.payload;
+    if (typeof travelKilometers !== "string" || typeof travelRate !== "string" || !consultingTravelValid({ travelKilometers, travelRate })) {
+      return NextResponse.json({ error: "Bitte gültige Kilometer und einen gültigen Preis pro Kilometer eingeben." }, { status: 400 });
     }
   }
   if (["report", "portal_message", "portal_message_reply"].includes(mutation.entityType)

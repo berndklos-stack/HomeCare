@@ -32,6 +32,7 @@ try {
     }
     sql("supabase/tests/company_administration.sql");
     if (!through || through >= "20261026140000") sql("supabase/tests/consulting_attachments_invoice_fields.sql");
+    if (!through || through >= "20261030100000") sql("supabase/tests/consulting_travel_costs.sql");
     sql("supabase/tests/company_logo.sql");
     if (!through || through >= "20261020150000") sql("supabase/tests/platform_company_editor.sql");
     if (!through || through >= "20261021100000") sql("supabase/tests/staff_time_and_leave.sql");
