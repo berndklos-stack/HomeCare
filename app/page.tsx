@@ -9750,6 +9750,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
             resources: overlayPendingResourceMutations(
               remoteSnapshotWithSectionsBase.resources,
               readSyncQueue(window.localStorage),
+              currentSnapshotRef.current().resources,
             ),
           };
           const pendingKeys = readPendingSyncKeys();
@@ -9946,6 +9947,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
         resources: overlayPendingResourceMutations(
           remoteSnapshotWithSectionsBase.resources,
           readSyncQueue(window.localStorage),
+          localSnapshot.resources,
         ),
       };
 
@@ -10203,7 +10205,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     nextResources: ResourceRecord[],
     options: { serverRevisionBumpResourceId?: string } = {},
   ) {
-    const prepared = prepareResourceMutations(resources, nextResources);
+    const prepared = prepareResourceMutations(currentSnapshotRef.current().resources, nextResources);
     const adjustedMutations = prepared.mutations.map((mutation) => (
       mutation.entityId === options.serverRevisionBumpResourceId && mutation.expectedRevision !== undefined
         ? { ...mutation, expectedRevision: mutation.expectedRevision + 1 }
@@ -12372,6 +12374,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
       const freshResources = overlayPendingResourceMutations(
         syncedResources as ResourceRecord[],
         readSyncQueue(window.localStorage),
+        currentSnapshotRef.current().resources,
       );
       if (JSON.stringify(freshResources) !== JSON.stringify(resources)) {
         skipNextAutoSaveRef.current = true;
@@ -12772,7 +12775,8 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
 
   function updateActiveQuickTripEntry(form = quickTripForm) {
     if (!form.activeLogbookEntryId) return;
-    const vehicle = resources.find((resource) => resource.id === form.resourceId && resourceIsVehicle(resource));
+    const sourceResources = currentSnapshotRef.current().resources;
+    const vehicle = sourceResources.find((resource) => resource.id === form.resourceId && resourceIsVehicle(resource));
     if (!vehicle) return;
     const existingEntry = vehicle.logbook.find((entry) => entry.id === form.activeLogbookEntryId);
     if (!existingEntry || existingEntry.status !== "laufend" || vehicle.deletedLogbookEntryIds?.includes(existingEntry.id)) {
@@ -12782,7 +12786,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     if (form.endOdometer.trim() && !calculatedTripKilometers(form.startOdometer, form.endOdometer)) return false;
     const expectedRevision = existingEntry.revision ?? 1;
     const mutationTime = new Date().toISOString();
-    const nextResources = resources.map((resource) => (
+    const nextResources = sourceResources.map((resource) => (
       resource.id === vehicle.id
         ? {
             ...resource,
@@ -12843,7 +12847,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
   }
 
   async function startQuickTrip() {
-    const vehicle = resources.find((resource) => resource.id === quickTripForm.resourceId && resourceIsVehicle(resource));
+    let vehicle = resources.find((resource) => resource.id === quickTripForm.resourceId && resourceIsVehicle(resource));
     if (!vehicle) {
       setRecordNotice("Bitte zuerst ein Fahrzeug für die Fahrt auswählen.");
       return;
@@ -12866,6 +12870,12 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
           startAddress = normalizeKnownGpsAddress(await reverseGeocode(coordinates.latitude, coordinates.longitude), quickTripAddressOptions);
         }
       }
+    }
+    const sourceResources = currentSnapshotRef.current().resources;
+    vehicle = sourceResources.find((resource) => resource.id === quickTripForm.resourceId && resourceIsVehicle(resource));
+    if (!vehicle || activeLogbookEntry(vehicle)) {
+      setRecordNotice("Der Fahrzeugstand hat sich inzwischen geändert. Bitte die Fahrt erneut öffnen.");
+      return;
     }
     const requiredFields = [quickTripForm.date, quickTripForm.driverId, startAddress, quickTripForm.startOdometer];
     if (requiredFields.some((field) => !field.trim())) {
@@ -12919,7 +12929,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
       visited: quickTripForm.tripType === "Dienstfahrt" ? quickTripForm.visited.trim() : "",
       waypoints: quickTripForm.waypoints,
     };
-    const nextResources = resources.map((resource) => (
+    const nextResources = sourceResources.map((resource) => (
       resource.id === vehicle.id
         ? {
             ...resource,
@@ -13021,7 +13031,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
   }
 
   async function saveQuickTrip() {
-    const vehicle = resources.find((resource) => resource.id === quickTripForm.resourceId && resourceIsVehicle(resource));
+    let vehicle = resources.find((resource) => resource.id === quickTripForm.resourceId && resourceIsVehicle(resource));
     if (!vehicle) {
       setRecordNotice("Bitte zuerst ein Fahrzeug für die Fahrt auswählen.");
       return;
@@ -13038,6 +13048,12 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
       }
     }
 
+    const sourceResources = currentSnapshotRef.current().resources;
+    vehicle = sourceResources.find((resource) => resource.id === quickTripForm.resourceId && resourceIsVehicle(resource));
+    if (!vehicle) {
+      setRecordNotice("Das Fahrzeug ist nicht mehr verfügbar. Bitte die Fahrt erneut öffnen.");
+      return;
+    }
     const kilometers = calculatedTripKilometers(quickTripForm.startOdometer, quickTripForm.endOdometer);
     const startKm = numericValue(quickTripForm.startOdometer);
     const endKm = numericValue(quickTripForm.endOdometer);
@@ -13112,7 +13128,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
         .map((waypoint) => ({ ...waypoint, address: waypoint.address.trim(), note: waypoint.note.trim(), odometer: (waypoint.odometer ?? "").trim() }))
         .filter((waypoint) => waypoint.address || waypoint.photo?.previewUrl),
     };
-    const nextResources = resources.map((resource) => (
+    const nextResources = sourceResources.map((resource) => (
       resource.id === vehicle.id
         ? {
             ...resource,

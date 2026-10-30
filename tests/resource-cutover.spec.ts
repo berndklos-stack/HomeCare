@@ -6,7 +6,7 @@ import {
   overlayPendingVehiclePositionMutations,
   prepareResourceMutations,
 } from "../lib/resourceSync";
-import { createSyncMutation, normalizeSyncQueue } from "../lib/syncQueue";
+import { createSyncMutation, normalizeSyncQueue, settleSyncMutation } from "../lib/syncQueue";
 
 type TestResource = Record<string, unknown> & {
   id: string;
@@ -73,6 +73,70 @@ test("lokaler Delete-Tombstone verhindert Wiederauferstehung aus einem gelesenen
     resourceId: "resource-1",
   });
   expect(overlayPendingResourceMutations([resource()], [deletion])).toEqual([]);
+});
+
+function confirmedResourceUpdate() {
+  const mutation = createSyncMutation({
+    entityId: "resource-1", entityType: "resource", operation: "update",
+    expectedRevision: 83, payload: { currentOdometer: "203712" }, resourceId: "resource-1",
+  });
+  return settleSyncMutation([mutation], mutation.id, {
+    mutationId: mutation.id, record: { revision: 84 }, status: "synced",
+  });
+}
+
+test("verspaeteter Abruf setzt eine bestaetigte Ressourcenrevision nicht zurueck", () => {
+  const queue = normalizeSyncQueue(confirmedResourceUpdate());
+  expect(queue[0].serverRecord).toBeUndefined();
+  const latest = resource({ revision: 84, currentOdometer: "203712", media: [{ id: "photo-1" }] });
+  const refreshed = overlayPendingResourceMutations([
+    resource({ revision: 83, currentOdometer: "203162", media: [] }),
+  ], queue, [latest]);
+  expect(refreshed).toEqual([latest]);
+  const next = prepareResourceMutations(refreshed, [{ ...refreshed[0], currentOdometer: "203715" }]);
+  expect(next.mutations).toMatchObject([{ expectedRevision: 84, payload: { currentOdometer: "203715" } }]);
+});
+
+test("Cache und optimistische Revisionen allein koennen den Serverstand nicht verdraengen", () => {
+  const remote = resource({ revision: 83, currentOdometer: "203162" });
+  const cached = resource({ revision: 100, currentOdometer: "999999" });
+  expect(overlayPendingResourceMutations([remote], [], [cached])).toEqual([remote]);
+  expect(overlayPendingResourceMutations([remote], confirmedResourceUpdate(), [cached])).toEqual([remote]);
+  expect(overlayPendingResourceMutations([remote], confirmedResourceUpdate(), [remote])).toEqual([remote]);
+});
+
+test("aktuelle Serverdaten und Loeschungen bleiben massgeblich", () => {
+  const latest = resource({ revision: 84, currentOdometer: "203712" });
+  const newer = resource({ revision: 85, currentOdometer: "203800" });
+  expect(overlayPendingResourceMutations([newer], confirmedResourceUpdate(), [latest])).toEqual([newer]);
+  expect(overlayPendingResourceMutations([], confirmedResourceUpdate(), [latest])).toEqual([]);
+});
+
+test("ausstehende Aenderungen bleiben erhalten, echte Konflikte werden nicht versteckt", () => {
+  const pending = createSyncMutation({
+    entityId: "resource-1", entityType: "resource", operation: "update",
+    expectedRevision: 84, payload: { currentOdometer: "203715" }, resourceId: "resource-1",
+  });
+  const remote = resource({ revision: 83, currentOdometer: "203162" });
+  const latest = resource({ revision: 84, currentOdometer: "203712" });
+  const queue = [...confirmedResourceUpdate(), pending];
+  expect(overlayPendingResourceMutations([remote], queue, [latest])).toMatchObject([
+    { revision: 85, currentOdometer: "203715" },
+  ]);
+  const conflictQueue = settleSyncMutation(queue, pending.id, { mutationId: pending.id, status: "conflict" });
+  expect(overlayPendingResourceMutations([remote], conflictQueue, [latest])).toEqual([remote]);
+  expect(conflictQueue.find((item) => item.id === pending.id)?.payload.currentOdometer).toBe("203715");
+});
+
+test("Quick-Fahrten planen nach GPS-Wartezeit mit dem aktuellen Ressourcenstand", () => {
+  const page = readFileSync(path.join(process.cwd(), "app/page.tsx"), "utf8");
+  for (const name of ["startQuickTrip", "saveQuickTrip"]) {
+    const body = page.slice(page.indexOf(`async function ${name}()`));
+    const functionBody = body.slice(0, body.indexOf("\n  }"));
+    expect(functionBody.indexOf("const sourceResources = currentSnapshotRef.current().resources"))
+      .toBeGreaterThan(functionBody.indexOf("await currentDeviceCoordinates()"));
+    expect(functionBody).toContain("sourceResources.map(");
+  }
 });
 
 test("Fahrzeugpositionen nutzen dieselbe dauerhafte Queue und Revisionen", () => {

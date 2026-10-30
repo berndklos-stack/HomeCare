@@ -1,10 +1,11 @@
 export const appVersion = {
-  version: "1.428.24",
+  version: "1.428.25",
   releaseDate: "2026-10-30",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  { version: "1.428.25", date: "2026-10-30", changes: ["Verspaetete Ressourcenabrufe setzen eine bereits serverbestaetigte Revision nicht mehr zurueck", "Quick-Fahrten verwenden nach GPS-Wartezeiten und beim Speichern den aktuellen Fahrzeugstand", "Bestehende Konflikte und lokale Eingaben bleiben erhalten; 92 Synchronisations- und Fahrtenbuchtests in Chromium und Safari erfolgreich"] },
   { version: "1.428.24", date: "2026-10-30", changes: ["Fahrtkosten optional je Leistung mit gefahrenen Kilometern und Nettopreis pro Kilometer erfassen, bearbeiten und als eigene Rechnungsposition abrechnen", "Native Spalten fuer Kilometer und Kilometersatz, gemeinsame Synchronisationsrevision und Schutz abgerechneter Fahrtkosten", "Fahrtkosten in Leistungslisten und PDF-/Excel-Exporten beruecksichtigt; Bezeichnung einheitlich Laufender Auftrag statt Consulting", "118 Browser-, API- und Finanzregressionen in Chromium und Safari sowie lokale Datenbanktests erfolgreich"] },
   { version: "1.428.23", date: "2026-10-30", changes: ["Berichtsversand speichert ISO-Zeitpunkte; wartende Uebertragungen mit deutschem Datumsformat werden unter Erhalt ihrer Identitaet und Revisionspruefung normalisiert", "Rechnungen vor dem Speichern ansehen und drucken; Entwuerfe erneut bearbeiten und nach Bestaetigung loeschen", "Bestehende Rechnungen als unabhaengigen neuen Entwurf kopieren, ohne Rechnungsnummern, Zahlungen oder Buchungsdaten zu uebernehmen", "Mobile Rechnungsvorschau mit lesbaren Positionswerten und einheitlichen Dokumentaktionen"] },
   { version: "1.428.22", date: "2026-10-26", changes: ["Kunden und Leistungen direkt aus der Rechnung anlegen und ueber die bestehende Stammdatensynchronisierung speichern", "Lesbare Artikelsuche, optionale eigene Artikelnummer und WorkCore-Dialog zum Verwerfen von Rechnungsentwuerfen", "Einheitliche Such- und Filterfelder mit passenden Textabstaenden; Administration und Feedback bleiben ohne erneute Anmeldung im App-Rahmen", "180 Regressionstests und zehn abschliessende Dialogpruefungen in Chrome und Safari erfolgreich"] },

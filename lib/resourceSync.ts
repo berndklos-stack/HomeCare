@@ -98,8 +98,28 @@ export function prepareResourceMutations<T extends RevisionedResource>(
 export function overlayPendingResourceMutations<T extends RevisionedResource>(
   resources: T[],
   queue: SyncMutation[],
+  latestResources: T[] = [],
 ) {
-  const resourcesById = new Map(resources.map((resource) => [resource.id, resource]));
+  const latestById = new Map(latestResources.map((resource) => [resource.id, resource]));
+  const confirmedRevisions = new Map<string, number>();
+  queue.forEach((mutation) => {
+    if (mutation.entityType !== "resource" || mutation.status !== "synced" || mutation.operation === "delete") return;
+    const revision = typeof mutation.serverRecord?.revision === "number"
+      ? mutation.serverRecord.revision : (mutation.expectedRevision ?? 0) + 1;
+    confirmedRevisions.set(mutation.entityId, Math.max(confirmedRevisions.get(mutation.entityId) ?? 0, revision));
+  });
+  // A GET may have read revision 83 before our write confirmed revision 84.
+  // Only a durable acknowledgement, never a cached/optimistic revision alone,
+  // may protect the current record from that delayed response.
+  const resourcesById = new Map(resources.map((resource) => {
+    const latest = latestById.get(resource.id);
+    const confirmed = confirmedRevisions.get(resource.id);
+    const conflicted = queue.some((mutation) => mutation.entityType === "resource"
+      && mutation.entityId === resource.id && mutation.status === "conflict");
+    return [resource.id, latest && confirmed !== undefined && !conflicted
+      && latest.revision === confirmed && (resource.revision ?? 0) < confirmed
+      ? latest : resource];
+  }));
   queue
     .filter((mutation) => mutation.entityType === "resource" && mutation.status !== "synced" && mutation.status !== "conflict")
     .forEach((mutation) => {

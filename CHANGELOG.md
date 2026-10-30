@@ -4,6 +4,13 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.428.25 - 2026-10-30
+
+- Bereits serverbestaetigte Ressourcenrevisionen gegen verspaetete Ladeantworten schuetzen. Die Bestaetigung aus der dauerhaften Synchronisationswarteschlange ist massgeblich; Cachewerte allein koennen neuere Serverdaten nicht verdraengen.
+- Quick-Fahrten greifen nach GPS-Wartezeiten und beim Vormerken einer Ressourcenmutation auf den aktuellen Fahrzeugstand zu. Laufende Fahrten werden nach dem Warten erneut geprueft.
+- Bestehende Konflikte und lokale Eingaben werden nicht verworfen oder automatisch ueberschrieben. Keine Datenbankmigration oder Aenderung produktiver Datensaetze.
+- 92 Synchronisations- und Fahrtenbuchtests in Chromium und Safari/WebKit sowie isolierter Produktionsbuild mit TypeScript-Pruefung erfolgreich. Zehn separate Online-Tests wurden im lokalen Offline-Testlauf uebersprungen.
+
 ## 1.428.24 - 2026-10-30
 
 - Optionale Fahrtkosten bei der Leistungserfassung laufender Auftraege: gefahrene Kilometer, Nettopreis pro Kilometer und berechneter Betrag. Offene Buchungen bleiben bearbeitbar; Abrechnung ueber separate Kilometerpositionen mit Leistungstext und Datum.
