@@ -4,6 +4,13 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.428.26 - 2026-10-30
+
+- Ungespeicherte Materialeingaben in Mobil vor Ort gegen das Zuruecksetzen durch allgemeine Auftragsaktualisierungen schuetzen. Feldwechsel speichert weiterhin ueber die vorhandene Auftragssynchronisierung; Materialtext und Einsatznotiz bleiben nach Neuladen erhalten.
+- Ausgewaehlte Berichtsanhaenge nur beim Wechsel des Auftrags-, Tages- oder Berichtskontexts zuruecksetzen, nicht bei jeder Aktualisierung der Auftragsliste.
+- Nach Abschluss oder Nachbearbeitung eines Berichts wieder die Hauptuebersicht Mobil vor Ort statt der Projekt-/Objektuebersicht anzeigen. Tagesberichte noch laufender mehrtaegiger Auftraege behalten ihren bisherigen Ablauf.
+- 42 Eingabe-, Materialverbrauchs-, Abschluss- und Berichtsnachbearbeitungsregressionen in Chromium und Safari/WebKit sowie isolierter Build mit TypeScript-Pruefung erfolgreich. Keine Datenbankmigration erforderlich.
+
 ## 1.428.25 - 2026-10-30
 
 - Bereits serverbestaetigte Ressourcenrevisionen gegen verspaetete Ladeantworten schuetzen. Die Bestaetigung aus der dauerhaften Synchronisationswarteschlange ist massgeblich; Cachewerte allein koennen neuere Serverdaten nicht verdraengen.

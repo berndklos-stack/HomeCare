@@ -11857,7 +11857,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
       setSection("field");
       setRecordNotice(`Tagesbericht ${executionDate} gespeichert.`);
     } else {
-      setSection("objects");
+      setSection("field");
       if (!isReportEdit) setCompletedReportPromptId(reportId);
       if (isReportEdit) {
         setRecordNotice(options.markSentAgain ? tx("Bericht wurde gespeichert und wieder als gesendet markiert.") : tx("Bericht wurde nachbearbeitet."));
@@ -17671,6 +17671,8 @@ function FieldView({
   const [showSentReports, setShowSentReports] = useState(false);
   const [closeStatusPrompt, setCloseStatusPrompt] = useState(false);
   const [materialDraft, setMaterialDraft] = useState("");
+  const materialDraftRef = useRef({ jobId: activeJobId, dirty: false, value: "" });
+  const storedMaterial = allJobs.find((job) => job.id === activeJobId)?.material ?? "";
   const [pendingReportAttachments, setPendingReportAttachments] = useState<ReportAttachment[]>([]);
   const [pendingAttachmentNotice, setPendingAttachmentNotice] = useState("");
   const [completionNotice, setCompletionNotice] = useState("");
@@ -17715,11 +17717,19 @@ function FieldView({
   }, [photoContext]);
 
   useEffect(() => {
-    const active = activeJobId ? allJobs.find((job) => job.id === activeJobId) : undefined;
-    setMaterialDraft(active?.material?.trim() === "-" ? "" : active?.material ?? "");
+    const value = storedMaterial.trim() === "-" ? "" : storedMaterial;
+    const draft = materialDraftRef.current;
+    // Background job refreshes must not replace text that has not been saved yet.
+    if (draft.jobId !== activeJobId || !draft.dirty || value.trim() === draft.value.trim()) {
+      materialDraftRef.current = { jobId: activeJobId, dirty: false, value };
+      setMaterialDraft(value);
+    }
+  }, [activeJobId, storedMaterial]);
+
+  useEffect(() => {
     setPendingReportAttachments([]);
     setPendingAttachmentNotice("");
-  }, [activeJobId, allJobs]);
+  }, [activeJobId, selectedWorkDate, editingReportId]);
 
   const fieldOpenJobs = dashboardWorkJobs(allJobs);
   const fieldInProgressJobs = fieldOpenJobs.filter((job) => job.status === "in Arbeit");
@@ -18529,7 +18539,10 @@ function FieldView({
             disabled={reportLocked}
             value={materialDraft}
             onBlur={(event) => onUpdateJobMaterial(activeJob, event.currentTarget.value)}
-            onChange={(event) => setMaterialDraft(event.target.value)}
+            onChange={(event) => {
+              materialDraftRef.current = { jobId: activeJobId, dirty: true, value: event.target.value };
+              setMaterialDraft(event.target.value);
+            }}
             placeholder="Verbrauchtes Material oder Besonderheiten"
           />
         </label>

@@ -102,6 +102,11 @@ for (const width of [1440, 390]) test(`Teilverbrauch, Zusatzmaterial und Wiederh
   expect(job.stockMaterialItems.map((line: { quantity: string }) => line.quantity)).toEqual(["2", "3"]);
   const billing = await page.evaluate(() => JSON.parse(localStorage.getItem("kolaretorp-billing") ?? "[]").find((bill: { jobId: string }) => bill.jobId === "REVIEW-JOB"));
   expect(billing.lines.filter((line: { kind: string }) => line.kind === "Material").map((line: { quantity: string }) => line.quantity)).toEqual(["2", "3"]);
+  const completed = page.getByRole("dialog", { name: "Bericht wurde erzeugt", exact: true });
+  await completed.getByRole("button", { name: "Später", exact: true }).click();
+  await expect(page.locator(".field-shell .field-job-picker").filter({ hasText: "Offene Aufträge" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Abgeschlossene Berichte/ })).toBeVisible();
+  await expect(page.getByPlaceholder("Verbrauchtes Material oder Besonderheiten")).toHaveCount(0);
 });
 
 test("Materialprüfung abbrechen lässt Auftrag und Bestände unverändert", async ({ page }) => {

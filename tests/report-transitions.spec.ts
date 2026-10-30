@@ -36,6 +36,8 @@ test("Passwortfreigabe entsperrt den Bericht dauerhaft und erlaubt Nachbearbeitu
   await expect(page.getByRole("textbox", { name: /^Hinweis / }).first()).toHaveValue("Gestern dokumentiert");
   await note.fill("Nachbearbeitet");
   await page.getByRole("button", { name: "Bericht speichern", exact: true }).click();
+  await expect(page.getByRole("button", { name: /^Abgeschlossene Berichte/ })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Einsatznotiz", exact: true })).toHaveCount(0);
   await page.reload();
   await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true");
   const persisted = await page.evaluate(() => ({
@@ -137,7 +139,9 @@ for (const mode of ["overview", "field"] as const) test(`fünf Berichte ohne Fot
   for (let index = 0; index < 5; index++) {
     if (mode === "field") {
       await page.getByTestId("nav-field").click();
-      await page.getByRole("button", { name: /^Abgeschlossene Berichte/ }).click();
+      if (!await page.getByRole("button", { name: new RegExp(`Wechselbericht ${index}`) }).first().isVisible()) {
+        await page.getByRole("button", { name: /^Abgeschlossene Berichte/ }).click();
+      }
     }
     await page.getByRole("button", { name: new RegExp(`Wechselbericht ${index}`) }).first().click();
     if (mode === "field") {
@@ -176,7 +180,9 @@ for (const mode of ["overview", "field"] as const) test(`fünf Berichte ohne Fot
   expect(snapshots.at(-1)!.appTimers).toBeLessThanOrEqual(snapshots[1].appTimers + 1);
   if (mode === "field") {
     await page.getByTestId("nav-field").click();
-    await page.getByRole("button", { name: /^Abgeschlossene Berichte/ }).click();
+    if (!await page.getByRole("button", { name: /Wechselbericht 0/ }).first().isVisible()) {
+      await page.getByRole("button", { name: /^Abgeschlossene Berichte/ }).click();
+    }
     await page.getByRole("button", { name: /Wechselbericht 0/ }).first().click();
     await page.getByRole("textbox", { name: "Einsatznotiz", exact: true }).fill("Noch nicht abgeschlossener Entwurf");
     await page.reload();

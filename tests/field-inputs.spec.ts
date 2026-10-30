@@ -48,6 +48,10 @@ for (const width of [390, 820]) for (const days of [1, 3]) for (const photoQuota
   await expect(checkbox).toBeChecked();
   await expect(task.getByRole('spinbutton', { name: 'Minuten Tuer pruefen', exact: true })).toHaveValue('25');
   await expect(task.getByRole('textbox', { name: 'Hinweis Tuer pruefen', exact: true })).toHaveValue('Tuer eingestellt');
+  const material = page.getByPlaceholder('Verbrauchtes Material oder Besonderheiten');
+  await material.fill('2 Schrauben und 1 Liter Reiniger');
+  await page.getByRole('textbox', { name: 'Einsatznotiz', exact: true }).fill('Laubblaeser verwendet');
+  await expect(material).toHaveValue('2 Schrauben und 1 Liter Reiniger');
   if (photoQuota) await expect(page.locator('.captured-photo-card')).toHaveCount(1);
   await page.reload();
   await expect(page.locator('main.app')).toHaveAttribute('data-ready', 'true', { timeout: 30_000 });
@@ -55,5 +59,47 @@ for (const width of [390, 820]) for (const days of [1, 3]) for (const photoQuota
   await expect(checkbox).toBeChecked();
   await expect(task.getByRole('spinbutton', { name: 'Minuten Tuer pruefen', exact: true })).toHaveValue('25');
   await expect(task.getByRole('textbox', { name: 'Hinweis Tuer pruefen', exact: true })).toHaveValue('Tuer eingestellt');
+  await expect(material).toHaveValue('2 Schrauben und 1 Liter Reiniger');
+  await expect(page.getByRole('textbox', { name: 'Einsatznotiz', exact: true })).toHaveValue('Laubblaeser verwendet');
   expect(errors).toEqual([]);
+});
+
+test('Materialentwurf uebersteht eine Auftragsaktualisierung waehrend der Eingabe', async ({ page }) => {
+  const job = {
+    id: 'FIELD-MATERIAL', title: 'Materialeingabe', objectId: 'OBJ-1001', status: 'in Arbeit',
+    priority: 'normal', assignedTo: 'Test', dueDate: new Date().toISOString().slice(0, 10),
+    type: 'Kontrolle', checklist: ['Tuer pruefen'], serviceIds: [], revision: 1,
+    schedule: { type: 'einmalig' }, material: '-',
+  };
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.addInitScript(job => {
+    localStorage.setItem('kolaretorp-jobs', JSON.stringify([job]));
+    localStorage.setItem('kolaretorp-field-progress', JSON.stringify({ [job.id]: {} }));
+    localStorage.setItem('kolaretorp-active-job-id', JSON.stringify(job.id));
+  }, job);
+  await page.goto('/');
+  await expect(page.locator('main.app')).toHaveAttribute('data-ready', 'true');
+  await page.getByTestId('nav-field').tap();
+  if (!await page.getByPlaceholder('Verbrauchtes Material oder Besonderheiten').isVisible()) {
+    await page.getByRole('button', { name: /^Materialeingabe/ }).first().tap();
+  }
+  const material = page.getByPlaceholder('Verbrauchtes Material oder Besonderheiten');
+  await material.fill('5 Meter Kabel');
+  await page.route('**/api/**', async route => {
+    const path = new URL(route.request().url()).pathname;
+    if (route.request().method() !== 'GET') {
+      await route.fulfill({ status: 503, json: { error: 'Test: Aenderungen bleiben lokal' } });
+      return;
+    }
+    await route.fulfill({ json: { data: path === '/api/sync-sections'
+      ? { jobs: { value: [{ ...job, revision: 2, notes: 'Aktualisierter Auftrag' }] } } : [] } });
+  });
+  // Trigger the asynchronous refresh without blurring/saving the textarea.
+  await page.getByRole('button', { name: 'Aktualisieren', exact: true }).evaluate(button => (button as HTMLButtonElement).click());
+  await expect(page.getByRole('button', { name: 'Aktualisieren', exact: true })).toBeEnabled();
+  await expect(material).toHaveValue('5 Meter Kabel');
+  await page.getByRole('textbox', { name: 'Einsatznotiz', exact: true }).tap();
+  await expect(material).toHaveValue('5 Meter Kabel');
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('workcore-sync-mutations-v1') || '[]')
+    .some((mutation: { entityId: string; payload: { material?: string } }) => mutation.entityId === 'FIELD-MATERIAL' && mutation.payload.material === '5 Meter Kabel'))).toBe(true);
 });
