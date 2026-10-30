@@ -29,6 +29,19 @@ export type BillingDraftEdit = {
   lines: BillingDraftLine[];
 };
 
+export function copyBillingDraft(source: BillingDraftEdit, invoiceDate: string, dueDate: string): BillingDraftEdit {
+  return {
+    customerId: source.customerId, objectId: source.objectId, invoiceDate, dueDate, serviceDate: "", notes: source.notes,
+    customerReference: source.customerReference, ourReference: source.ourReference, orderReference: source.orderReference,
+    lines: source.lines.map(line => ({
+      id: `LINE-${crypto.randomUUID()}`, kind: line.kind, name: line.name, articleNumber: line.articleNumber,
+      comment: line.comment, quantity: line.quantity, unit: line.unit, unitPrice: line.unitPrice,
+      currency: line.currency, taxRate: line.taxRate, accountingAccount: line.accountingAccount,
+      discountPercent: line.discountPercent, discountType: line.discountType, discountValue: line.discountValue,
+    })),
+  };
+}
+
 export function draftNumber(value: string) {
   return /^[+-]?\d+(?:[.,]\d+)?$/.test(value.trim()) ? Number(value.trim().replace(",", ".")) : NaN;
 }

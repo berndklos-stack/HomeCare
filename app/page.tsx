@@ -15,6 +15,8 @@ import { companyLogoSource, maxCompanyLogoLength } from "@/lib/companyLogo";
 import { SyncStatus } from "@/components/SyncStatus";
 import { AppleRemindersBridge } from "@/components/AppleRemindersBridge";
 import { TripSurface } from "@/components/TripSurface";
+import { TripDialog } from "@/components/TripDialog";
+import { Copy, Save } from "lucide-react";
 import { StandardTripsEditor } from "@/components/StandardTripsEditor";
 import { PersonalNavigation, PersonalVehicleBlocks } from "@/components/PersonalLayout";
 import { PersonalBlock, PersonalBlocks, PersonalBlocksProvider } from "@/components/PersonalBlocks";
@@ -50,7 +52,7 @@ import { CompanyUsers } from "@/components/CompanyUsers";
 import { BillingOverview } from "@/components/BillingOverview";
 import { BillingDraftEditor, type BillingArticle } from "@/components/BillingDraftEditor";
 import type { BillingCustomerInput, BillingServiceInput, BillingCreateResult } from "@/components/BillingMasterDataDialog";
-import { billingDraftError, billingDraftTotals, billingDraftLineNet, type BillingDraftEdit } from "@/lib/billingDraft";
+import { billingDraftError, billingDraftTotals, billingDraftLineNet, copyBillingDraft, type BillingDraftEdit } from "@/lib/billingDraft";
 import type { BillingOverviewRow } from "@/lib/billingOverview";
 import {
   ArrowDown,
@@ -6674,7 +6676,7 @@ async function createInvoicePdfBlob(item: BillingRecord, object: ObjectRecord | 
   pdf.text(swedish ? "Faktura" : "Rechnung", pageWidth - margin, y + 8, { align: "right" });
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(10);
-  pdf.text(item.invoiceNumber || "Utkast", pageWidth - margin, y + 15, { align: "right" });
+  pdf.text(effectiveInvoiceStatus(item) === "entwurf" ? `Utkast / Entwurf${item.invoiceNumber ? ` - ${item.invoiceNumber}` : ""}` : item.invoiceNumber || "-", pageWidth - margin, y + 15, { align: "right" });
   y += 28;
 
   pdf.setFont("helvetica", "bold");
@@ -11369,10 +11371,11 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     setRecordNotice(`Rechnung "${item.invoiceNumber || item.label}" wurde storniert.`);
   }
 
-  function removeBillingDraft(item: BillingRecord) {
-    if (effectiveInvoiceStatus(item) !== "entwurf") {
-      setRecordNotice("Nur noch nicht gebuchte Abrechnungseinträge können direkt entfernt werden. Gebuchte Rechnungen bitte stornieren.");
-      return;
+  function removeBillingDraft(item: BillingRecord): string | null {
+    const current = billing.find(entry => entry.id === item.id);
+    if (!current || JSON.stringify(current) !== JSON.stringify(item)) return "Der Entwurf wurde zwischenzeitlich geändert. Bitte den aktuellen Stand erneut öffnen.";
+    if (effectiveInvoiceStatus(current) !== "entwurf" || current.invoicedAt || current.outgoingBookNumber || current.externalExportStatus === "gesendet") {
+      return "Nur ungebuchte Entwürfe können gelöscht werden. Gebuchte Rechnungen bitte stornieren.";
     }
 
     const relatedJobId = item.jobId || item.source.split(" · ")[0];
@@ -11399,7 +11402,8 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     const relatedJob = relatedJobId ? jobs.find((job) => job.id === relatedJobId) : undefined;
     setRecordNotice(relatedJob?.consulting?.enabled
       ? `"${item.invoiceNumber || item.label}" wurde entfernt. Die enthaltenen Consulting-Leistungen sind wieder offen.`
-      : `"${item.invoiceNumber || item.label}" wurde aus der Abrechnung entfernt und der Auftrag ist nicht mehr abrechenbar.`);
+      : relatedJob ? `"${item.invoiceNumber || item.label}" wurde aus der Abrechnung entfernt und der Auftrag ist nicht mehr abrechenbar.` : `Rechnungsentwurf "${item.invoiceNumber || item.label}" wurde gelöscht.`);
+    return null;
   }
 
   function saveJob() {
@@ -13226,10 +13230,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     }
     setSendPreviewReportNotice("");
     setRecordNotice(`Bericht "${preparedReport.title}" wird gesendet...`);
-    const timestamp = new Date().toLocaleString("de-DE", {
-      dateStyle: "medium",
-      timeStyle: "short",
-    });
+    const timestamp = new Date().toISOString();
     const nextReport = { ...preparedReport, sentAt: preparedReport.sentAt ?? timestamp, updatedAt: new Date().toISOString() };
 
     try {
@@ -18641,11 +18642,15 @@ function BillingView({
   onMarkInvoiced: (item: BillingRecord) => void;
   onMarkPaid: (item: BillingRecord) => void;
   onMarkSent: (item: BillingRecord) => void;
-  onRemoveBillingDraft: (item: BillingRecord) => void;
+  onRemoveBillingDraft: (item: BillingRecord) => string | null;
   onResetExport: (item: BillingRecord) => void;
   reports: ReportRecord[];
 }) {
   const [previewInvoiceId, setPreviewInvoiceId] = useState<string | null>(null);
+  const [previewDraft, setPreviewDraft] = useState<BillingDraftEdit | null>(null);
+  const [previewError, setPreviewError] = useState("");
+  const [deletingInvoice, setDeletingInvoice] = useState<BillingRecord | null>(null);
+  const [deleteError, setDeleteError] = useState("");
   const [editingInvoice, setEditingInvoice] = useState<BillingRecord | null>(null);
   const [newDraft, setNewDraft] = useState<BillingDraftEdit | null>(null);
   const copy = (de: string, sv: string, en: string) => language === "sv" ? sv : language === "en" ? en : de;
@@ -18653,7 +18658,9 @@ function BillingView({
   const outgoingBook = billing
     .filter((item) => item.invoicedAt || item.outgoingBookNumber)
     .sort((first, second) => (second.invoiceDate || "").localeCompare(first.invoiceDate || ""));
-  const previewInvoice = billing.find((item) => item.id === previewInvoiceId) ?? null;
+  const previewInvoice: BillingRecord | null = previewDraft
+    ? { ...(editingInvoice || { id: "UNSAVED-PREVIEW", source: "Manuell", status: "abrechenbar" as const, invoiceStatus: "entwurf" as const, label: previewDraft.lines[0]?.name || "" }), ...previewDraft, amount: String(billingDraftTotals(previewDraft.lines).gross) }
+    : billing.find((item) => item.id === previewInvoiceId) ?? null;
   const previewObject = previewInvoice ? objects.find((entry) => entry.id === previewInvoice.objectId) : undefined;
   const previewCustomer = previewInvoice
     ? customers.find((entry) => entry.id === previewInvoice.customerId || entry.id === previewObject?.ownerCustomerId || entry.name === previewObject?.owner)
@@ -18673,6 +18680,20 @@ function BillingView({
       }]
     : [];
   const previewTotals = previewInvoice ? invoiceTotals({ ...previewInvoice, lines: previewLines }) : null;
+  const closePreview = () => { setPreviewInvoiceId(null); setPreviewDraft(null); setPreviewError(""); };
+  const editableDraft = (item: BillingRecord) => effectiveInvoiceStatus(item) === "entwurf" && !item.invoicedAt && !item.outgoingBookNumber && item.externalExportStatus !== "gesendet";
+  const saveEditorDraft = (draft: BillingDraftEdit) => {
+    const error = editingInvoice ? onSaveDraft(editingInvoice.id, JSON.stringify(editingInvoice), draft) : onCreateDraft(draft);
+    if (!error) { setNewDraft(null); setEditingInvoice(null); closePreview(); }
+    return error;
+  };
+  const requestDelete = (item: BillingRecord) => { closePreview(); setDeleteError(""); setDeletingInvoice(structuredClone(item)); };
+  const copyInvoice = (item: BillingRecord) => {
+    const invoiceDate = currentLocalDateValue();
+    const lines = item.lines?.length ? item.lines : [{ id: "source", kind: "Leistung" as const, name: item.label, quantity: "1", unit: "Position", unitPrice: String(decimalValue(item.amount)), taxRate: "0", currency: companySettings.currency || "SEK" }];
+    const draft = copyBillingDraft({ customerId: item.customerId, objectId: objects.some(object => object.id === item.objectId && (!object.ownerCustomerId || object.ownerCustomerId === item.customerId)) ? item.objectId : "", invoiceDate: item.invoiceDate || "", dueDate: item.dueDate || "", serviceDate: "", notes: item.notes || "", customerReference: item.customerReference, ourReference: item.ourReference, orderReference: item.orderReference, lines }, invoiceDate, addDays(invoiceDate, 30));
+    closePreview(); setEditingInvoice(null); setNewDraft(draft);
+  };
   const overviewRows: BillingOverviewRow[] = billing.map((item) => {
     const object = objects.find((entry) => entry.id === item.objectId);
     const customer = customers.find((entry) => entry.id === item.customerId || entry.id === object?.ownerCustomerId || entry.name === object?.owner);
@@ -18734,13 +18755,14 @@ function BillingView({
             <span>{formatMoney(totals.tax, totals.currency)} Moms</span>
           </div>
           <div className="row-actions billing-actions">
+            <IconAction label={`Rechnung ${invoiceLabel} kopieren`} onClick={() => copyInvoice(item)}><Copy size={16} /></IconAction>
             <IconAction label={`Rechnungsvorschau ${invoiceLabel} öffnen`} onClick={() => setPreviewInvoiceId(item.id)}><FileText size={16} /></IconAction>
             <IconAction label={`Rechnung ${invoiceLabel} als PDF herunterladen`} onClick={() => onDownloadInvoice(item)}><FileDown size={16} /></IconAction>
             {invoiceStatus === "entwurf" && (
               <>
                 {!item.invoicedAt && !item.outgoingBookNumber && item.externalExportStatus !== "gesendet" && <IconAction label={`Rechnung ${invoiceLabel} bearbeiten`} onClick={() => setEditingInvoice(structuredClone(item))}><Pencil size={16} /></IconAction>}
                 <IconAction label={`Rechnung ${invoiceLabel} buchen`} onClick={() => onMarkInvoiced(item)}><Check size={16} /></IconAction>
-                <IconAction label={`Rechnung ${invoiceLabel} aus Abrechnung entfernen`} onClick={() => onRemoveBillingDraft(item)}><Trash2 size={16} /></IconAction>
+                {editableDraft(item) && <IconAction label={`Rechnung ${invoiceLabel} aus Abrechnung entfernen`} onClick={() => requestDelete(item)}><Trash2 size={16} /></IconAction>}
               </>
             )}
             {["gebucht", "gesendet", "überfällig"].includes(invoiceStatus) && item.externalExportStatus !== "gesendet" && (
@@ -18770,7 +18792,98 @@ function BillingView({
     );
   };
 
-  if (newDraft) return <BillingDraftEditor
+  const invoicePreview = previewInvoice && previewTotals && (
+        <TripDialog className="invoice-preview-modal billing-preview-dialog" labelledBy="invoice-preview-title" onClose={closePreview}>
+            <header>
+              <div>
+                <p>Rechnungsvorschau</p>
+                <h2 id="invoice-preview-title">{copy("Rechnung", "Faktura", "Invoice")} {previewInvoice.invoiceNumber || copy("Entwurf", "Utkast", "Draft")}</h2>
+              </div>
+              <button aria-label="Rechnungsvorschau schließen" onClick={() => closePreview()} type="button">
+                <X size={18} />
+              </button>
+            </header>
+            <div className="invoice-preview-sheet">
+              {effectiveInvoiceStatus(previewInvoice) === "entwurf" && <strong className="invoice-draft-label">{copy("Entwurf", "Utkast", "Draft")}</strong>}
+              <div className="invoice-preview-top">
+                <div>
+                  <strong>{companySettings.name}</strong>
+                  <span>{copy("Rechnung", "Faktura", "Invoice")}</span>
+                </div>
+                <div>
+                  <ReportLogo />
+                  <span>{copy("Rechnungsnr.", "Fakturanr.", "Invoice no.")}</span>
+                  <strong>{previewInvoice.invoiceNumber || copy("Entwurf", "Utkast", "Draft")}</strong>
+                </div>
+              </div>
+              <div className="invoice-preview-addresses">
+                <section>
+                  <small>{copy("Von", "Från", "From")}</small>
+                  <strong>{companySettings.name}</strong>
+                </section>
+                <section>
+                  <small>{copy("Kunde", "Kund", "Customer")}</small>
+                  <strong>{previewCustomer?.name || previewObject?.owner || "Kunde fehlt"}</strong>
+                  <span>{displayAddress(previewCustomer?.billingAddress || previewCustomer?.address || previewObject?.billingAddress || previewObject?.address || "")}</span>
+                  <span>{previewCustomer?.email || previewObject?.ownerEmail || ""}</span>
+                </section>
+              </div>
+              <div className="invoice-preview-meta">
+                <span><small>{copy("Rechnungsdatum", "Fakturadatum", "Invoice date")}</small>{previewInvoice.invoiceDate || new Date().toISOString().slice(0, 10)}</span>
+                <span><small>{copy("Fällig am", "Förfallodatum", "Due date")}</small>{previewInvoice.dueDate || addDays(previewInvoice.invoiceDate || new Date().toISOString().slice(0, 10), 30)}</span>
+                <span><small>{copy("Leistungsdatum", "Utfört datum", "Service date")}</small>{previewInvoice.serviceDate || "-"}</span>
+                {previewInvoice.objectId && <span><small>Objekt</small>{previewObject?.name || "Objekt fehlt"}</span>}
+                {previewInvoice.customerReference && <span><small>{copy("Ihre Referenz", "Er referens", "Your reference")}</small>{previewInvoice.customerReference}</span>}
+                {previewInvoice.ourReference && <span><small>{copy("Unsere Referenz", "Vår referens", "Our reference")}</small>{previewInvoice.ourReference}</span>}
+                {previewInvoice.orderReference && <span><small>{copy("Ihre Bestellreferenz", "Er orderreferens", "Your order reference")}</small>{previewInvoice.orderReference}</span>}
+              </div>
+              <div className="invoice-preview-lines">
+                <div className="invoice-preview-line invoice-preview-line-head">
+                  <span>{copy("Position", "Rad", "Line")}</span>
+                  <span>{copy("Menge", "Antal", "Quantity")}</span>
+                  <span>{copy("Preis", "Pris", "Price")}</span>
+                  <span>{copy("USt.", "Moms", "VAT")}</span>
+                  <span>Netto</span>
+                </div>
+                {previewLines.map((line) => (
+                  <div className="invoice-preview-line" key={line.id}>
+                    <span>{line.articleNumber && <small>{line.articleNumber}</small>}{line.name}{line.comment && <small className="invoice-line-comment">{line.comment}</small>}{Number(line.discountPercent) > 0 && <small>Rabatt {line.discountPercent}%</small>}</span>
+                    <span data-label={copy("Menge", "Antal", "Quantity")}>{line.quantity} {localizedUnit(line.unit, true)}</span>
+                    <span data-label={copy("Preis", "Pris", "Price")}>{formatMoney(decimalValue(line.unitPrice), line.currency)}</span>
+                    <span data-label={copy("USt.", "Moms", "VAT")}>{line.taxRate}%</span>
+                    <span data-label="Netto">{formatMoney(lineNetAmount(line), line.currency)}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="invoice-preview-totals">
+                <span><small>Netto</small>{formatMoney(previewTotals.net, previewTotals.currency)}</span>
+                {Object.entries(previewTotals.taxByRate).map(([rate, value]) => (
+                  <span key={rate}><small>Moms {rate}%</small>{formatMoney(value, previewTotals.currency)}</span>
+                ))}
+                <strong><small>Brutto</small>{formatMoney(previewTotals.gross, previewTotals.currency)}</strong>
+              </div>
+            </div>
+            {previewInvoice.notes && <p className="invoice-preview-notes">{previewInvoice.notes}</p>}
+            {previewError && <p role="alert">{previewError}</p>}
+            <div className="modal-actions invoice-preview-actions">
+              <button className="outline-button" onClick={closePreview} type="button">{previewDraft ? copy("Weiter bearbeiten", "Fortsätt redigera", "Keep editing") : copy("Schließen", "Stäng", "Close")}</button>
+              {previewDraft ? <button className="primary-button" type="button" onClick={() => setPreviewError(saveEditorDraft(previewDraft) || "")}><Save size={18} />{copy("Als Entwurf speichern", "Spara utkast", "Save draft")}</button> : <>
+                {editableDraft(previewInvoice) && <><button className="outline-button" type="button" onClick={() => { closePreview(); setEditingInvoice(structuredClone(previewInvoice)); }}><Pencil size={18} />{copy("Entwurf bearbeiten", "Redigera utkast", "Edit draft")}</button><button className="outline-button danger-action" type="button" onClick={() => requestDelete(previewInvoice)}><Trash2 size={18} />{copy("Entwurf löschen", "Ta bort utkast", "Delete draft")}</button></>}
+                <button className="outline-button" type="button" onClick={() => copyInvoice(previewInvoice)}><Copy size={18} />{copy("Als neue Rechnung kopieren", "Kopiera till ny faktura", "Copy as new invoice")}</button>
+              </>}
+              {(previewObject || previewCustomer) && <CommunicationActions language={language} title={invoiceSubject(previewInvoice, previewObject, previewCustomer)} text={[previewInvoice.invoiceNumber || "Entwurf", previewObject?.name, formatMoney(previewTotals.gross, previewTotals.currency)].filter(Boolean).join("\n")} email={previewCustomer?.email || previewObject?.ownerEmail} phone={previewCustomer?.phone} document={async () => ({ blob: await createInvoicePdfBlob(previewInvoice, previewObject, previewCustomer, companySettings), name: `${safeFileName(invoiceSubject(previewInvoice, previewObject, previewCustomer))}.pdf` })} />}
+            </div>
+          </TripDialog>
+      );
+  const deleteDialog = deletingInvoice && <TripDialog className="sync-confirm-dialog billing-delete-dialog" labelledBy="billing-delete-title" onClose={() => setDeletingInvoice(null)}>
+    <header><h2 id="billing-delete-title">{copy("Entwurf löschen?", "Ta bort utkast?", "Delete draft?")}</h2></header>
+    <p>{deletingInvoice.invoiceNumber || deletingInvoice.label}</p>
+    <p>{copy("Diesen Rechnungsentwurf mit seinen Positionen löschen?", "Ta bort detta fakturautkast och dess rader?", "Delete this invoice draft and its lines?")}</p>
+    {deleteError && <p role="alert">{deleteError}</p>}
+    <div className="modal-actions"><button autoFocus type="button" className="outline-button" onClick={() => setDeletingInvoice(null)}>{copy("Abbrechen", "Avbryt", "Cancel")}</button><button className="outline-button danger-action" type="button" onClick={() => { const error = onRemoveBillingDraft(deletingInvoice); if (error) setDeleteError(error); else setDeletingInvoice(null); }}><Trash2 size={18} />{copy("Entwurf löschen", "Ta bort utkast", "Delete draft")}</button></div>
+  </TripDialog>;
+
+  if (newDraft) return <><BillingDraftEditor
     articles={articles}
     onCreateCustomer={onCreateCustomer}
     onCreateService={onCreateService}
@@ -18781,14 +18894,11 @@ function BillingView({
     objects={objects}
     defaultCurrency={companySettings.currency}
     onClose={() => setNewDraft(null)}
-    onSave={draft => {
-      const error = onCreateDraft(draft);
-      if (!error) setNewDraft(null);
-      return error;
-    }}
-  />;
+    onSave={saveEditorDraft}
+    onPreview={setPreviewDraft}
+  />{invoicePreview}</>;
 
-  if (editingInvoice) return <BillingDraftEditor
+  if (editingInvoice) return <><BillingDraftEditor
     articles={articles}
     onCreateCustomer={onCreateCustomer}
     onCreateService={onCreateService}
@@ -18800,12 +18910,9 @@ function BillingView({
     customers={customers}
     objects={objects}
     onClose={() => setEditingInvoice(null)}
-    onSave={draft => {
-      const error = onSaveDraft(editingInvoice.id, JSON.stringify(editingInvoice), draft);
-      if (!error) setEditingInvoice(null);
-      return error;
-    }}
-  />;
+    onSave={saveEditorDraft}
+    onPreview={setPreviewDraft}
+  />{invoicePreview}</>;
 
   return (
     <section className="panel">
@@ -18855,84 +18962,8 @@ function BillingView({
           {outgoingBook.length === 0 && <p>Noch keine gebuchten Ausgangsrechnungen vorhanden.</p>}
         </div>
       </details>
-      {previewInvoice && previewTotals && (
-        <div className="modal-backdrop">
-          <section className="modal invoice-preview-modal" role="dialog" aria-modal="true" aria-labelledby="invoice-preview-title">
-            <header>
-              <div>
-                <p>Rechnungsvorschau</p>
-                <h2 id="invoice-preview-title">Faktura {previewInvoice.invoiceNumber || previewInvoice.id}</h2>
-              </div>
-              <button aria-label="Rechnungsvorschau schließen" onClick={() => setPreviewInvoiceId(null)} type="button">
-                <X size={18} />
-              </button>
-            </header>
-            <div className="invoice-preview-sheet">
-              <div className="invoice-preview-top">
-                <div>
-                  <strong>{companySettings.name}</strong>
-                  <span>{copy("Rechnung", "Faktura", "Invoice")}</span>
-                </div>
-                <div>
-                  <ReportLogo />
-                  <span>{copy("Rechnungsnr.", "Fakturanr.", "Invoice no.")}</span>
-                  <strong>{previewInvoice.invoiceNumber || copy("Entwurf", "Utkast", "Draft")}</strong>
-                </div>
-              </div>
-              <div className="invoice-preview-addresses">
-                <section>
-                  <small>Från</small>
-                  <strong>{companySettings.name}</strong>
-                </section>
-                <section>
-                  <small>Kund</small>
-                  <strong>{previewCustomer?.name || previewObject?.owner || "Kunde fehlt"}</strong>
-                  <span>{displayAddress(previewCustomer?.billingAddress || previewCustomer?.address || previewObject?.billingAddress || previewObject?.address || "")}</span>
-                  <span>{previewCustomer?.email || previewObject?.ownerEmail || ""}</span>
-                </section>
-              </div>
-              <div className="invoice-preview-meta">
-                <span><small>Fakturadatum</small>{previewInvoice.invoiceDate || new Date().toISOString().slice(0, 10)}</span>
-                <span><small>Förfallodatum</small>{previewInvoice.dueDate || addDays(previewInvoice.invoiceDate || new Date().toISOString().slice(0, 10), 30)}</span>
-                <span><small>Utfört datum</small>{previewInvoice.serviceDate || "-"}</span>
-                {previewInvoice.objectId && <span><small>Objekt</small>{previewObject?.name || "Objekt fehlt"}</span>}
-                {previewInvoice.customerReference && <span><small>{copy("Ihre Referenz", "Er referens", "Your reference")}</small>{previewInvoice.customerReference}</span>}
-                {previewInvoice.ourReference && <span><small>{copy("Unsere Referenz", "Vår referens", "Our reference")}</small>{previewInvoice.ourReference}</span>}
-                {previewInvoice.orderReference && <span><small>{copy("Ihre Bestellreferenz", "Er orderreferens", "Your order reference")}</small>{previewInvoice.orderReference}</span>}
-              </div>
-              <div className="invoice-preview-lines">
-                <div className="invoice-preview-line invoice-preview-line-head">
-                  <span>Rad</span>
-                  <span>Antal</span>
-                  <span>Pris</span>
-                  <span>Moms</span>
-                  <span>Netto</span>
-                </div>
-                {previewLines.map((line) => (
-                  <div className="invoice-preview-line" key={line.id}>
-                    <span>{line.articleNumber && <small>{line.articleNumber}</small>}{line.name}{line.comment && <small className="invoice-line-comment">{line.comment}</small>}{Number(line.discountPercent) > 0 && <small>Rabatt {line.discountPercent}%</small>}</span>
-                    <span>{line.quantity} {localizedUnit(line.unit, true)}</span>
-                    <span>{formatMoney(decimalValue(line.unitPrice), line.currency)}</span>
-                    <span>{line.taxRate}%</span>
-                    <span>{formatMoney(lineNetAmount(line), line.currency)}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="invoice-preview-totals">
-                <span><small>Netto</small>{formatMoney(previewTotals.net, previewTotals.currency)}</span>
-                {Object.entries(previewTotals.taxByRate).map(([rate, value]) => (
-                  <span key={rate}><small>Moms {rate}%</small>{formatMoney(value, previewTotals.currency)}</span>
-                ))}
-                <strong><small>Brutto</small>{formatMoney(previewTotals.gross, previewTotals.currency)}</strong>
-              </div>
-            </div>
-            <div className="modal-actions">
-              <button className="ghost-button" onClick={() => setPreviewInvoiceId(null)} type="button">Schließen</button>
-              {(previewObject || previewCustomer) && <CommunicationActions title={invoiceSubject(previewInvoice, previewObject, previewCustomer)} text={[previewInvoice.invoiceNumber || "Entwurf", previewObject?.name, formatMoney(previewTotals.gross, previewTotals.currency)].filter(Boolean).join("\n")} email={previewCustomer?.email || previewObject?.ownerEmail} phone={previewCustomer?.phone} document={async () => ({ blob: await createInvoicePdfBlob(previewInvoice, previewObject, previewCustomer, companySettings), name: `${safeFileName(invoiceSubject(previewInvoice, previewObject, previewCustomer))}.pdf` })} />}
-            </div>
-          </section>
-        </div>
-      )}
+      {invoicePreview}
+      {deleteDialog}
     </section>
   );
 }

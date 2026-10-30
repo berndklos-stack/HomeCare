@@ -4,6 +4,13 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.428.23 - 2026-10-30
+
+- Berichtsversand speichert ISO-Zeitpunkte statt deutscher Anzeigetexte. Bereits wartende Berichtsuebertragungen werden serverseitig mit expliziter Zeitzone Europe/Stockholm normalisiert; Mutationskennung, Revisionspruefung und lokale Inhalte bleiben erhalten. Erkennbare alte Datumsfehler werden einmal automatisch erneut versucht, andere Fehler und Konflikte nicht.
+- Rechnungsvorschau vor dem Speichern mit Drucken/PDF und Entwurfsspeicherung. Vorschau und Druck legen keinen Datensatz an und buchen keine Rechnung. Gespeicherte Entwuerfe wieder bearbeiten oder nach Bestaetigung loeschen; gebuchte und zwischenzeitlich geaenderte Datensaetze bleiben geschuetzt.
+- Bestehende Rechnungen als neue Entwuerfe mit frischen Positionskennungen kopieren, ohne Originalaenderung und ohne alte Rechnungsnummern, Zahlungen, Buchungs- oder Exportdaten.
+- Mobile Rechnungsvorschau mit lesbaren Positionswerten und Dokumentaktionen. Keine Datenbankmigration und keine Aenderung von Produktivdatensaetzen erforderlich.
+
 ## 1.428.20 - 2026-10-26
 
 - Bilder und Dokumente zu einzelnen Dauerauftragsleistungen hochladen, nach dem Speichern wieder oeffnen und bei offenen Leistungen entfernen. Geschuetzter Medienspeicher, Bildverkleinerung, Uploadfehler ohne Verlust vorhandener Anhaenge und unveraenderliche Anhangslisten abgerechneter Leistungen.

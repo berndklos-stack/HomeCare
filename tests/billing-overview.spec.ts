@@ -1,6 +1,17 @@
 import { expect, test } from "@playwright/test";
 import { billingCurrencyTotals, billingTabCounts, selectBillingRows, type BillingOverviewRow } from "../lib/billingOverview";
-import { billingDraftError, billingDraftTotals, type BillingDraftEdit } from "../lib/billingDraft";
+import { billingDraftError, billingDraftTotals, copyBillingDraft, type BillingDraftEdit } from "../lib/billingDraft";
+
+test("Rechnungskopie uebernimmt nur Entwurfsfelder und erzeugt frische Positionskennungen", () => {
+  const source = { customerId: "C", objectId: "O", invoiceDate: "2025-01-01", dueDate: "2025-02-01", serviceDate: "2025-01-01", notes: "Hinweis", invoiceNumber: "ALT-123", invoiceStatus: "bezahlt", paidAt: "2025-02-01", jobId: "JOB-ALT", revision: 9, lines: [{ id: "ALT-L", revision: 8, kind: "Leistung" as const, name: "Montage", quantity: "2", unit: "h", unitPrice: "100", taxRate: "25", currency: "SEK", articleNumber: "SVC-1", comment: "Kommentar", discountPercent: "10" }] };
+  const before = JSON.stringify(source);
+  const result = copyBillingDraft(source, "2026-10-29", "2026-11-28");
+  expect(result).toMatchObject({ customerId: "C", invoiceDate: "2026-10-29", dueDate: "2026-11-28", serviceDate: "" });
+  for (const key of ["invoiceNumber", "invoiceStatus", "paidAt", "jobId", "revision"]) expect(result).not.toHaveProperty(key);
+  expect(result.lines[0]).toMatchObject({ articleNumber: "SVC-1", comment: "Kommentar", discountPercent: "10" });
+  expect(result.lines[0].id).not.toBe("ALT-L"); expect(result.lines[0]).not.toHaveProperty("revision");
+  expect(JSON.stringify(source)).toBe(before);
+});
 import { overlayPendingFinancialMutations, prepareFinancialMutations } from "../lib/financialSync";
 
 test("Positionskommentar bleibt bei erneutem Serverabgleich offline erhalten", () => {
@@ -70,6 +81,81 @@ test.beforeEach(async ({ page }) => {
       { ...common, id: "BILL-CANCELLED", invoiceNumber: "INV-4", invoiceStatus: "storniert", cancelledAt: "2026-10-24T08:00:00Z", amount: "125", lines: [line("LINE-6", "100")] },
     ]));
   });
+});
+
+for (const width of [320, 390, 820, 1440]) test(`Neue Rechnung vorschauen drucken speichern bearbeiten und loeschen bei ${width}px`, async ({ page }, info) => {
+  await page.setViewportSize({ width, height: 1100 });
+  await page.goto("/"); await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true");
+  await page.getByTestId("nav-billing").click();
+  const before = await page.evaluate(() => ({ billing: localStorage.getItem("kolaretorp-billing"), queue: localStorage.getItem("workcore-sync-mutations-v1") }));
+  await page.getByRole("button", { name: "Neue Rechnung", exact: true }).click();
+  const editor = page.getByRole("region", { name: "Rechnung bearbeiten", exact: true });
+  await editor.getByRole("button", { name: "Vorschau", exact: true }).click();
+  await expect(editor.getByRole("alert")).toBeVisible(); await expect(page.getByRole("dialog")).toHaveCount(0);
+  await editor.getByRole("combobox", { name: "Kunde", exact: true }).selectOption("BILL-C");
+  await editor.getByRole("textbox", { name: "Bezeichnung", exact: true }).fill("Neue Vorschau-Montage");
+  await editor.getByRole("textbox", { name: "Einzelpreis", exact: true }).fill("100");
+  await editor.getByRole("button", { name: "Kommentar zu Position 1", exact: true }).click();
+  await editor.getByRole("textbox", { name: "Kommentar", exact: true }).fill("Vorschau-Kommentar");
+  await editor.getByRole("button", { name: "Vorschau", exact: true }).click();
+  const preview = page.getByRole("dialog", { name: "Rechnung Entwurf", exact: true });
+  await expect(preview).toContainText("Neue Vorschau-Montage"); await expect(preview).toContainText("Vorschau-Kommentar");
+  await expect(preview.locator(".invoice-draft-label")).toHaveText("Entwurf");
+  await preview.screenshot({ path: info.outputPath(`invoice-unsaved-preview-${width}.png`) });
+  expect(await page.evaluate(() => localStorage.getItem("kolaretorp-billing"))).toBe(before.billing);
+  expect(await page.evaluate(() => localStorage.getItem("workcore-sync-mutations-v1"))).toBe(before.queue);
+  const download = page.waitForEvent("download"); await preview.getByRole("button", { name: "Herunterladen", exact: true }).click();
+  const stream = await (await download).createReadStream(); const chunks: Buffer[] = [];
+  for await (const chunk of stream!) chunks.push(Buffer.from(chunk));
+  const pdf = Buffer.concat(chunks).toString("latin1");
+  expect(pdf).toContain("Utkast / Entwurf"); expect(pdf).toContain("Neue Vorschau-Montage");
+  const popup = page.waitForEvent("popup"); await preview.getByRole("button", { name: "Drucken / PDF", exact: true }).click();
+  await (await popup).close();
+  await expect(preview.getByRole("group", { name: "Dokumentaktionen", exact: true })).toHaveAttribute("aria-busy", "false");
+  expect(await page.evaluate(() => localStorage.getItem("kolaretorp-billing"))).toBe(before.billing);
+  await preview.getByRole("button", { name: "Weiter bearbeiten", exact: true }).click();
+  await expect(editor.getByRole("textbox", { name: "Kommentar", exact: true })).toHaveValue("Vorschau-Kommentar");
+  await editor.getByRole("textbox", { name: "Einzelpreis", exact: true }).fill("200");
+  await editor.getByRole("button", { name: "Vorschau", exact: true }).click();
+  await expect(preview.locator(".invoice-preview-totals")).toContainText("250 SEK");
+  await preview.getByRole("button", { name: "Als Entwurf speichern", exact: true }).click();
+  await expect(preview).toHaveCount(0); await expect(editor).toHaveCount(0);
+  const read = () => page.evaluate(() => JSON.parse(localStorage.getItem("kolaretorp-billing") || "[]").find((r: { label: string }) => r.label === "Neue Vorschau-Montage"));
+  const saved = await read(); expect(saved.invoiceStatus).toBe("entwurf"); expect(saved.invoicedAt).toBeUndefined();
+  await page.reload(); await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true"); await page.getByTestId("nav-billing").click();
+  await page.getByRole("button", { name: "Rechnungsvorschau Neue Vorschau-Montage", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Entwurf bearbeiten", exact: true }).click();
+  await editor.getByRole("textbox", { name: "Menge", exact: true }).fill("2");
+  await editor.getByRole("button", { name: "Entwurf speichern", exact: true }).click();
+  expect((await read()).amount).toBe("500");
+  await page.getByRole("button", { name: "Rechnungsvorschau Neue Vorschau-Montage", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Entwurf löschen", exact: true }).click();
+  const confirmation = page.getByRole("dialog", { name: "Entwurf löschen?", exact: true });
+  await confirmation.getByRole("button", { name: "Abbrechen", exact: true }).click(); expect(await read()).toBeTruthy();
+  await page.getByRole("button", { name: "Rechnungsvorschau Neue Vorschau-Montage", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Entwurf löschen", exact: true }).click();
+  await confirmation.getByRole("button", { name: "Entwurf löschen", exact: true }).click();
+  await expect(confirmation).toHaveCount(0); expect(await read()).toBeUndefined();
+  const queue = await page.evaluate(() => JSON.parse(localStorage.getItem("workcore-sync-mutations-v1") || "[]"));
+  expect(queue.some((r: { entityType: string; entityId: string; operation: string }) => r.entityType === "invoice" && r.entityId === saved.id && r.operation === "delete")).toBe(true);
+});
+
+for (const invoice of ["INV-1", "INV-2", "INV-3", "INV-4"]) test(`Bestehende Rechnung ${invoice} als unabhaengigen Entwurf kopieren`, async ({ page }) => {
+  await page.goto("/"); await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true"); await page.getByTestId("nav-billing").click();
+  await page.getByRole("tab", { name: "Alle Rechnungen 5", exact: true }).click();
+  const original = await page.evaluate((number) => JSON.parse(localStorage.getItem("kolaretorp-billing") || "[]").find((r: { invoiceNumber: string }) => r.invoiceNumber === number), invoice);
+  await page.getByRole("button", { name: `Details und Aktionen ${invoice}`, exact: true }).click();
+  await page.getByRole("button", { name: `Rechnung ${invoice} kopieren`, exact: true }).click();
+  const editor = page.getByRole("region", { name: "Rechnung bearbeiten", exact: true });
+  await expect(editor.getByRole("textbox", { name: "Einzelpreis", exact: true })).toHaveValue(original.lines[0].unitPrice);
+  await editor.getByRole("textbox", { name: "Bezeichnung", exact: true }).fill(`Kopie ${invoice}`);
+  await editor.getByRole("button", { name: "Entwurf speichern", exact: true }).click();
+  const rows = await page.evaluate(() => JSON.parse(localStorage.getItem("kolaretorp-billing") || "[]"));
+  const copied = rows.find((r: { label: string }) => r.label === `Kopie ${invoice}`);
+  expect(copied.id).not.toBe(original.id); expect(copied.lines[0].id).not.toBe(original.lines[0].id);
+  expect(copied).toMatchObject({ invoiceStatus: "entwurf", source: "Manuell", serviceDate: "", customerId: original.customerId });
+  for (const key of ["invoiceNumber", "paidAt", "invoicedAt", "outgoingBookNumber", "cancelledAt", "jobId", "reportId"]) expect(copied[key]).toBeUndefined();
+  expect(rows.find((r: { id: string }) => r.id === original.id)).toEqual(original);
 });
 
 for (const width of [320, 820, 1440]) test(`Kunde und Leistung direkt in Rechnung anlegen und erhalten bei ${width}px`, async ({ page }, info) => {
@@ -331,7 +417,7 @@ for (const width of [320, 390, 820, 1440]) test(`Rechnungsuebersicht mit Filtern
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: info.outputPath(`billing-${width}.png`), fullPage: true });
   await page.getByRole("button", { name: "Rechnungsvorschau INV-2", exact: true }).click();
-  const preview = page.getByRole("dialog", { name: "Faktura INV-2", exact: true });
+  const preview = page.getByRole("dialog", { name: "Rechnung INV-2", exact: true });
   await expect(preview).toContainText("Musterhandwerk Demo");
   await expect(preview).not.toContainText("Kolaretorp Service AB");
 });

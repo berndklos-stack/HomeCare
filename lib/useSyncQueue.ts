@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { apiFetch, getActiveTenantId } from "@/lib/apiClient";
 import { isLegacyTripValidationConflict, overlappingLegacyTripConflict } from "@/lib/legacyTripConflict";
 import { reviewConflictSequence, type ConflictReview } from "@/lib/conflictReview";
+import { retryLegacyReportTimestampFailures } from "@/lib/reportTimestamp";
 import {
   createSyncMutation,
   discardConflictingMutations,
@@ -59,6 +60,7 @@ export function useSyncQueue({ disabled = false, onApplied }: UseSyncQueueOption
   const reviewRequests = useRef(new Set<AbortController>());
   const automaticReviewSignature = useRef("");
   const networkRetries = useRef(new Set<string>());
+  const reportTimestampRetries = useRef(new Set<string>());
   const legacyTripRetries = useRef(new Set<string>());
   const [connectionEpoch, setConnectionEpoch] = useState(0);
   const onAppliedRef = useRef(onApplied);
@@ -140,6 +142,14 @@ export function useSyncQueue({ disabled = false, onApplied }: UseSyncQueueOption
     }, automaticFlushDelayMs);
     return () => window.clearTimeout(timer);
   }, [connectionEpoch, disabled, hydrated, online, queue, setQueue]);
+
+  useEffect(() => {
+    if (!hydrated || disabled || !online) return;
+    const next = retryLegacyReportTimestampFailures(queueRef.current, reportTimestampRetries.current);
+    if (!next.some((mutation, index) => mutation !== queueRef.current[index])) return;
+    writeSyncQueue(window.localStorage, next);
+    setQueue(next);
+  }, [disabled, hydrated, online, queue, setQueue]);
 
   const enqueueMany = useCallback((inputs: Parameters<typeof createSyncMutation>[0][]) => {
     const mutations = inputs.map((input) => createSyncMutation(input));

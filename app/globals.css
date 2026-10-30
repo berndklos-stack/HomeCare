@@ -11481,6 +11481,20 @@ dialog.billing-master-dialog { width: min(720px, calc(100vw - 24px)); max-width:
 .billing-editor-totals dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
 .billing-editor-totals > div:last-child { border-top: 1px solid var(--line); font-weight: 700; }
 .billing-editor-actions { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; padding-top: 16px; border-top: 1px solid var(--line); }
+dialog.billing-preview-dialog { width: min(1100px, calc(100vw - 24px)); max-width: calc(100vw - 24px); height: fit-content; align-content: start; }
+.invoice-draft-label { display: block; text-transform: uppercase; color: var(--muted); padding-bottom: 12px; }
+.invoice-preview-notes { white-space: pre-wrap; overflow-wrap: anywhere; }
+.billing-preview-dialog .invoice-preview-top > div { display: grid; align-content: start; gap: 6px; min-width: 0; overflow-wrap: anywhere; }
+.billing-preview-dialog .invoice-preview-line > span { min-width: 0; overflow-wrap: anywhere; }
+.invoice-preview-actions { align-items: center; flex-wrap: wrap; }
+.invoice-preview-actions > button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; }
+dialog.billing-delete-dialog { height: fit-content; }
+@media (max-width: 700px) {
+  .billing-preview-dialog .invoice-preview-sheet { padding: 12px; gap: 16px; }
+  .billing-preview-dialog .invoice-preview-line-head { display: none; }
+  .billing-preview-dialog .invoice-preview-line > span[data-label] { display: flex; justify-content: space-between; gap: 12px; text-align: right; }
+  .billing-preview-dialog .invoice-preview-line > span[data-label]::before { content: attr(data-label); color: var(--muted); text-align: left; }
+}
 .billing-editor [role="alert"] { color: var(--danger); }
 .consulting-attachment-editor { display: grid; gap: 10px; border-top: 1px solid var(--line); padding-top: 14px; }
 .consulting-attachment-upload { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 10px 12px; justify-self: start; cursor: pointer; }

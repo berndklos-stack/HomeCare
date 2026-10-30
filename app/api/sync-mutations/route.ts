@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import type { SyncMutation, SyncMutationResult } from "@/lib/syncQueue";
 import { membershipAllows } from "@/lib/authModel";
 import { normalizeObjectDatePayload } from "@/lib/objectSync";
+import { normalizeReportTimestampPayload } from "@/lib/reportTimestamp";
 import { requiredOperationsPermission, validateOperationsMutation } from "@/lib/operationsCommands";
 import { validateResourceType } from "@/lib/resourceTypes";
 import { hasUnfinishedProgressPhotos } from "@/lib/jobOperationsSync";
@@ -135,6 +136,11 @@ export async function POST(request: Request) {
     : ["resource", "vehicle_position"].includes(mutation.entityType)
       ? "homecare_apply_resource_mutation"
       : mutation.entityType === "vehicle_trip" ? "homecare_apply_trip_sync_mutation" : "homecare_apply_sync_mutation";
+  let payload = mutation.entityType === "object" ? normalizeObjectDatePayload(mutation.payload) : mutation.payload;
+  if (mutation.entityType === "report") {
+    try { payload = normalizeReportTimestampPayload(payload); }
+    catch { return NextResponse.json({ error: "Der Versandzeitpunkt des Berichts ist ungültig. Die lokale Änderung bleibt erhalten." }, { status: 422 }); }
+  }
   const { data, error } = await supabase.rpc(rpcName, {
     ...(["operations", "job", "job_time_entry", "job_note", "field_progress"].includes(mutation.entityType) ? { p_actor_id: auth.user.id } : {}),
     p_entity_id: mutation.entityId,
@@ -142,7 +148,7 @@ export async function POST(request: Request) {
     p_expected_revision: mutation.expectedRevision ?? null,
     p_mutation_id: mutation.id,
     p_operation: mutation.operation,
-    p_payload: mutation.entityType === "object" ? normalizeObjectDatePayload(mutation.payload) : mutation.payload,
+    p_payload: payload,
     p_resource_id: mutation.resourceId,
     p_tenant_id: auth.tenantId,
   });

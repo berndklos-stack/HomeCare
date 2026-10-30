@@ -1,10 +1,11 @@
 export const appVersion = {
-  version: "1.428.22",
-  releaseDate: "2026-10-26",
+  version: "1.428.23",
+  releaseDate: "2026-10-30",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  { version: "1.428.23", date: "2026-10-30", changes: ["Berichtsversand speichert ISO-Zeitpunkte; wartende Uebertragungen mit deutschem Datumsformat werden unter Erhalt ihrer Identitaet und Revisionspruefung normalisiert", "Rechnungen vor dem Speichern ansehen und drucken; Entwuerfe erneut bearbeiten und nach Bestaetigung loeschen", "Bestehende Rechnungen als unabhaengigen neuen Entwurf kopieren, ohne Rechnungsnummern, Zahlungen oder Buchungsdaten zu uebernehmen", "Mobile Rechnungsvorschau mit lesbaren Positionswerten und einheitlichen Dokumentaktionen"] },
   { version: "1.428.22", date: "2026-10-26", changes: ["Kunden und Leistungen direkt aus der Rechnung anlegen und ueber die bestehende Stammdatensynchronisierung speichern", "Lesbare Artikelsuche, optionale eigene Artikelnummer und WorkCore-Dialog zum Verwerfen von Rechnungsentwuerfen", "Einheitliche Such- und Filterfelder mit passenden Textabstaenden; Administration und Feedback bleiben ohne erneute Anmeldung im App-Rahmen", "180 Regressionstests und zehn abschliessende Dialogpruefungen in Chrome und Safari erfolgreich"] },
   { version: "1.428.21", date: "2026-10-26", changes: ["Einheitlich hohe einzeilige Eingabe- und Auswahlfelder auch in Safari", "Positionskommentare bei Bedarf ueber das Kommentarsymbol oeffnen statt leerer Kommentarzeilen; vorhandene Kommentare bleiben beim Bearbeiten sichtbar und beim Zuklappen erhalten"] },
   { version: "1.428.20", date: "2026-10-26", changes: ["Bilder und Dokumente direkt zu Dauerauftragsleistungen erfassen, geschuetzt oeffnen und entfernen", "Rechnungskopf nach Visma-Vorbild mit Referenzen und Artikelauswahl; Kommentar und prozentualer Rabatt je Position auch in Vorschau und PDF", "Native Datenbankspalten, mandantengebundene Anhangszuordnung und Schutz noch nicht synchronisierter Positionsaenderungen; 82 Browser- und Finanztests erfolgreich"] },

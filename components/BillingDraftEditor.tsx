@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, MessageSquare, Plus, Save, Search, Trash2 } from "lucide-react";
+import { ArrowLeft, Eye, MessageSquare, Plus, Save, Search, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { billingDraftError, billingDraftTotals, billingDraftLineNet, type BillingDraftEdit, type BillingDraftLine } from "@/lib/billingDraft";
 import { BillingMasterDataDialog, type BillingCustomerInput, type BillingServiceInput, type BillingCreateResult } from "./BillingMasterDataDialog";
@@ -10,7 +10,7 @@ import { TripDialog } from "./TripDialog";
 type Choice = { id: string; name: string };
 export type BillingArticle = { number: string; name: string; kind: "Leistung" | "Material"; unit: string; price: string; currency: string; taxRate?: string; accountingAccount?: string };
 
-export function BillingDraftEditor({ initial, number, language, customers, objects, defaultCurrency, articles = [], onCreateCustomer, onCreateService, onSave, onClose }: {
+export function BillingDraftEditor({ initial, number, language, customers, objects, defaultCurrency, articles = [], onCreateCustomer, onCreateService, onPreview, onSave, onClose }: {
   initial: BillingDraftEdit;
   number: string;
   language: "de" | "sv" | "en";
@@ -21,6 +21,7 @@ export function BillingDraftEditor({ initial, number, language, customers, objec
   onCreateCustomer?: (input: BillingCustomerInput) => BillingCreateResult<Choice>;
   onCreateService?: (input: BillingServiceInput) => BillingCreateResult<BillingArticle>;
   onSave: (value: BillingDraftEdit) => string | null;
+  onPreview: (value: BillingDraftEdit) => void;
   onClose: () => void;
 }) {
   const [draft, setDraft] = useState(initial);
@@ -54,7 +55,8 @@ export function BillingDraftEditor({ initial, number, language, customers, objec
         setError(issue === "customer" ? copy("Bitte einen Kunden auswählen.", "Välj en kund.", "Select a customer.") : issue === "date" ? copy("Bitte gültige Daten und eine Fälligkeit ab Rechnungsdatum eingeben.", "Kontrollera datum och förfallodatum.", "Check the dates and payment due date.") : issue === "currency" ? copy("Alle Positionen müssen dieselbe Währung haben.", "Alla rader måste ha samma valuta.", "All lines must use the same currency.") : copy("Bitte alle Positionen vollständig und mit gültigen Zahlen erfassen.", "Fyll i alla rader med giltiga värden.", "Complete every line with valid values."));
         return;
       }
-      setError(onSave(draft) || "");
+      if ((event.nativeEvent as SubmitEvent).submitter?.getAttribute("value") === "preview") { setError(""); onPreview(structuredClone(draft)); }
+      else setError(onSave(draft) || "");
     }}>
       <div className="billing-editor-head">
         <label><span>{copy("Kunde", "Kund", "Customer")}</span><span className="billing-customer-control"><select aria-label={copy("Kunde", "Kund", "Customer")} required value={draft.customerId} onChange={event => {
@@ -95,7 +97,7 @@ export function BillingDraftEditor({ initial, number, language, customers, objec
         <dl className="billing-editor-totals"><div><dt>{copy("Netto", "Summa", "Net")}</dt><dd>{money(net)}</dd></div><div><dt>{copy("Umsatzsteuer", "Moms", "VAT")}</dt><dd>{money(tax)}</dd></div><div><dt>{copy("Gesamt", "Totalt", "Total")}</dt><dd><output>{money(net + tax)}</output></dd></div></dl>
       </div>
       {error && <p role="alert">{error}</p>}
-      <footer className="billing-editor-actions"><button type="button" className="outline-button" onClick={close}>{copy("Abbrechen", "Avbryt", "Cancel")}</button><button type="submit" className="primary-button"><Save size={18} />{copy("Entwurf speichern", "Spara utkast", "Save draft")}</button></footer>
+      <footer className="billing-editor-actions"><button type="button" className="outline-button" onClick={close}>{copy("Abbrechen", "Avbryt", "Cancel")}</button><button type="submit" value="preview" formNoValidate className="outline-button"><Eye size={18} />{copy("Vorschau", "Förhandsgranska", "Preview")}</button><button type="submit" className="primary-button"><Save size={18} />{copy("Entwurf speichern", "Spara utkast", "Save draft")}</button></footer>
     </form>
     {pickingLine && <BillingArticleDialog articles={articles} currency={currency} language={language} initialNumber={draft.lines.find(line => line.id === pickingLine)?.articleNumber || ""} onNumberSelect={articleNumber => { updateLine(pickingLine, { articleNumber }); setPickingLine(null); }} onClose={() => setPickingLine(null)} onSelect={article => { selectArticle(pickingLine, article); setPickingLine(null); }} onCreate={onCreateService ? () => { setCreating({ kind: "service", lineId: pickingLine }); setPickingLine(null); } : undefined} />}
     {creating && <BillingMasterDataDialog kind={creating.kind} language={language} currency={currency} initialName={creating.kind === "service" ? draft.lines.find(line => line.id === creating.lineId)?.name : ""} onClose={() => setCreating(null)} onCustomer={input => {
