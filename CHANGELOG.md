@@ -4,6 +4,13 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.428.27 - 2026-10-31
+
+- Doppelte Dashboard-Einstiege zu vier Kennzahlen-Schaltflaechen fuer Einsaetze, Projekte/Objekte, Berichte und Abrechnung zusammenfassen. Persoenliche Sortierung bleibt erhalten; mobile Darstellung als kompaktes 2x2-Raster.
+- Rechnungsreiter, Filter, Summen, Tabelle und Rechnungsausgangsbuch deutlicher abgrenzen. Kontrastreicher aktiver Reiter, kraeftigere Trennlinien und Tabellenkoepfe, dezente Zeilenflaechen sowie nebeneinanderliegende Aktionssymbole auch auf schmaleren Desktopfenstern.
+- Firmenlogobereich rechts neben der Firmenueberschrift, auf dem Handy rechtsbuendig darunter. Vorschau auf maximal 240 x 64 Pixel begrenzen; Upload und Entfernen bleiben mindestens 44 Pixel hoch.
+- Isolierte Builds mit TypeScript-Pruefung sowie 26 Dashboard-, 32 Abrechnungs-/Dashboard- und abschliessend 72 Logo-/Formularpruefungen in Chromium und Safari/WebKit erfolgreich. Keine Datenbankmigration erforderlich.
+
 ## 1.428.26 - 2026-10-30
 
 - Ungespeicherte Materialeingaben in Mobil vor Ort gegen das Zuruecksetzen durch allgemeine Auftragsaktualisierungen schuetzen. Feldwechsel speichert weiterhin ueber die vorhandene Auftragssynchronisierung; Materialtext und Einsatznotiz bleiben nach Neuladen erhalten.

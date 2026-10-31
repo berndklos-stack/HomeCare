@@ -10444,8 +10444,8 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     ? fieldProgressKey(currentFieldJob, currentFieldWorkDate)
     : currentFieldJobId;
   const dashboardStats: Array<{ label: string; value: number; section: Section }> = [
-    { label: tx("aktive Projekte & Objekte"), value: activeObjects.filter((object) => !isInactiveObject(object)).length, section: "objects" },
     { label: tx("offene Einsätze"), value: upcomingOperationalJobs.filter((job) => !["offerte", "erledigt", "abgerechnet", "storniert"].includes(job.status)).length, section: "planning" },
+    { label: tx("aktive Projekte & Objekte"), value: activeObjects.filter((object) => !isInactiveObject(object)).length, section: "objects" },
     { label: tx("Berichte"), value: reports.length, section: "reports" },
     { label: tx("abrechenbar"), value: billing.filter((item) => item.status === "abrechenbar").length, section: "billing" },
   ];
@@ -13952,19 +13952,6 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
             </div>
           </TripSurface>
       )}
-        {section === "dashboard" && !quickTripOpen && !auxiliary && (
-          <PersonalBlocks scope="dashboard.metrics" language={language} className="quickbar">
-            {dashboardStats.map((item) => (
-              <PersonalBlock key={item.section} id={item.section} title={item.label} pressable>
-              <button className="quickbar-card" onClick={() => setSection(item.section)} type="button">
-                <strong>{item.value}</strong>
-                <span>{item.label}</span>
-              </button>
-              </PersonalBlock>
-            ))}
-          </PersonalBlocks>
-        )}
-
         {!quickTripOpen && auxiliary && <section className="layout full"><div className="main-panel">{auxiliary === "administration" ? <AdministrationWorkspace embedded /> : <FeedbackWorkspace embedded />}</div></section>}
         {!quickTripOpen && !auxiliary && <section className="layout full">
           <div className="main-panel">
@@ -13985,8 +13972,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
                   allJobs={jobs}
                   onOpenJob={openEditJob}
                   language={language}
-                  objects={activeObjects}
-                  reports={reports}
+                  shortcuts={dashboardStats}
                   setSection={setSection}
                   warnings={<OperationsWarnings language={language} onOpen={() => setSection("inventory")} />}
                 />
@@ -15015,8 +15001,7 @@ function Dashboard({
   firstSteps,
   onOpenJob,
   language,
-  objects,
-  reports,
+  shortcuts,
   setSection,
   warnings,
 }: {
@@ -15024,18 +15009,13 @@ function Dashboard({
   firstSteps: ReactNode;
   onOpenJob: (job: JobRecord) => void;
   language: Language;
-  objects: ObjectRecord[];
-  reports: ReportRecord[];
+  shortcuts: Array<{ label: string; value: number; section: Section }>;
   setSection: (section: Section) => void;
   warnings: ReactNode;
 }) {
   const tt = (value: string) => uiText(value, language);
   const openDashboardJobs = dashboardWorkJobs(allJobs);
-  const workBlocks = [
-    { label: tt("Heute steuern"), value: openDashboardJobs.filter((job) => job.status === "in Arbeit").length, text: tt("laufende Einsätze"), section: "planning" as Section },
-    { label: tt("Projekte & Objekte pflegen"), value: objects.length, text: tt("vollständige Projekt- und Objektakten"), section: "objects" as Section },
-    { label: tt("Berichte prüfen"), value: reports.length, text: tt("in Listenform"), section: "reports" as Section },
-  ];
+  const shortcutIcons = { planning: CalendarDays, objects: Home, reports: FileText, billing: Euro };
 
   return (
     <PersonalBlocks scope="dashboard.content" language={language}>
@@ -15043,16 +15023,18 @@ function Dashboard({
         {firstSteps}
       </PersonalBlock>}
       <PersonalBlock id="workboard" title={tt("Arbeitsübersicht")}>
-      <PersonalBlocks scope="dashboard.shortcuts" language={language} className="workboard">
-        {workBlocks.map((block) => (
+      <PersonalBlocks scope="dashboard.shortcuts" language={language} className="workboard quickbar">
+        {shortcuts.map((block) => {
+          const Icon = shortcutIcons[block.section as keyof typeof shortcutIcons];
+          return (
           <PersonalBlock key={block.section} id={block.section} title={block.label} pressable>
-          <button className="workboard-card" onClick={() => setSection(block.section)} type="button">
-            <span>{block.label}</span>
+          <button className="workboard-card quickbar-card" onClick={() => setSection(block.section)} type="button">
             <strong>{block.value}</strong>
-            <small>{block.text}</small>
+            <span>{Icon && <Icon aria-hidden="true" size={16} />}{block.label}</span>
           </button>
           </PersonalBlock>
-        ))}
+          );
+        })}
       </PersonalBlocks>
       </PersonalBlock>
       <PersonalBlock id="upcomingJobs" title={tt("Nächste Einsätze")}>
@@ -22783,15 +22765,13 @@ function MasterDataView({
 
       {masterDataTab === "company" && (
         <section className="panel">
-          <div className="panel-title">
+          <div className="panel-title company-details-head">
             <div>
               <p>{tt("Stammdaten")}</p>
               <h2>{tt("Firma")}</h2>
               <span>{tt("Diese Angaben erscheinen in Offerten, Rechnungen und der späteren Übergabe an Spiris / Visma Buchhaltung.")}</span>
             </div>
-          </div>
-          <div className="form-grid compact-form company-details-form">
-            <div className="wide company-logo-editor">
+            <div className="company-logo-editor">
               <span>{tt("Firmenlogo")}</span>
               <div className="company-logo-preview"><CompanyBrand logoUrl={companySettingsForm.logoUrl} name={companySettingsForm.name} /></div>
               <div className="row-actions">
@@ -22818,6 +22798,8 @@ function MasterDataView({
                 {companySettingsForm.logoUrl && <button className="ghost-button icon-button" aria-label={tt("Firmenlogo entfernen")} disabled={companyLogoBusy} title={tt("Firmenlogo entfernen")} onClick={() => setCompanySettingsForm(current => ({ ...current, logoUrl: "", logoStoragePath: "" }))} type="button"><Trash2 size={16} /></button>}
               </div>
             </div>
+          </div>
+          <div className="form-grid compact-form company-details-form">
             <label><span>{tt("Firmenname")}</span><input value={companySettingsForm.name} onChange={(event) => setCompanySettingsForm({ ...companySettingsForm, name: event.target.value })} /></label>
             <label><span>{tt("E-Mail")}</span><input type="email" value={companySettingsForm.email} onChange={(event) => setCompanySettingsForm({ ...companySettingsForm, email: event.target.value })} /></label>
             <label><span>{tt("Telefon")}</span><input type="tel" value={companySettingsForm.phone ?? ""} onChange={(event) => setCompanySettingsForm({ ...companySettingsForm, phone: event.target.value })} /></label>

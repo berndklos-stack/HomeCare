@@ -140,6 +140,44 @@ for (const width of [320, 390, 820, 1440]) test(`Neue Rechnung vorschauen drucke
   expect(queue.some((r: { entityType: string; entityId: string; operation: string }) => r.entityType === "invoice" && r.entityId === saved.id && r.operation === "delete")).toBe(true);
 });
 
+for (const width of [390, 1440]) for (const dark of [false, true]) test(`Abrechnungsbereiche klar getrennt bei ${width}px ${dark ? "dunkel" : "hell"}`, async ({ page }, info) => {
+  await page.setViewportSize({ width, height: 1100 });
+  await page.route("**/api/block-layouts", route => route.fulfill({ json: { orders: {} } }));
+  await page.route("**/api/layout-preferences", route => route.fulfill({ json: { preferences: {} } }));
+  await page.goto("/");
+  await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true");
+  if (dark) await page.getByRole("button", { name: "Dunkelmodus", exact: true }).click();
+  await page.getByTestId("nav-billing").click();
+  const active = page.getByRole("tab", { name: "Entwürfe 1", exact: true });
+  await expect(active).toHaveCSS("color", "rgb(255, 255, 255)");
+  await expect(active).toHaveCSS("background-color", "rgb(0, 102, 204)");
+  const filters = page.locator(".billing-ledger-filters");
+  await expect(filters).toHaveCSS("border-bottom-style", "solid");
+  await expect(filters).toHaveCSS("border-bottom-width", "1px");
+  const table = page.locator(".billing-ledger-table");
+  await expect(table).toHaveCSS("border-left-width", "1px");
+  const styles = await filters.evaluate(element => ({
+    label: getComputedStyle(element.querySelector("label")!).color,
+    background: getComputedStyle(element).backgroundColor,
+  }));
+  expect(styles.label).toBe(dark ? "rgb(241, 243, 244)" : "rgb(29, 29, 31)");
+  expect(styles.background).not.toBe("rgba(0, 0, 0, 0)");
+  await expect(page.locator(".outgoing-book")).toHaveCSS("border-top-width", "2px");
+  const actionPositions = await page.locator(".billing-ledger-actions").first().locator("button").evaluateAll(buttons => buttons.map(button => button.getBoundingClientRect().top));
+  expect(Math.max(...actionPositions) - Math.min(...actionPositions)).toBeLessThanOrEqual(1);
+  if (width > 1200) {
+    await expect(table.locator("th").first()).toHaveCSS("border-bottom-width", "2px");
+    await expect(table.locator("th").first()).toHaveCSS("color", styles.label);
+  }
+  await active.focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(page.getByRole("tab", { name: "Unbezahlte Rechnungen 2", exact: true })).toHaveAttribute("aria-selected", "true");
+  await active.click();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: info.outputPath(`billing-contrast-${width}-${dark ? "dark" : "light"}.png`), fullPage: true });
+  await page.locator(".billing-ledger").screenshot({ path: info.outputPath("ledger.png") });
+});
+
 for (const invoice of ["INV-1", "INV-2", "INV-3", "INV-4"]) test(`Bestehende Rechnung ${invoice} als unabhaengigen Entwurf kopieren`, async ({ page }) => {
   await page.goto("/"); await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true"); await page.getByTestId("nav-billing").click();
   await page.getByRole("tab", { name: "Alle Rechnungen 5", exact: true }).click();

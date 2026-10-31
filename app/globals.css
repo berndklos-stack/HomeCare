@@ -175,17 +175,19 @@ button {
 .brand .company-brand-image-invert { filter: invert(1); }
 @media (max-width: 1180px) { .sidebar .brand .company-brand-image { max-height: 32px; max-width: min(280px, 100%); } }
 @media (max-width: 600px) { .sidebar .brand .company-brand-image { max-height: 26px; max-width: min(190px, 100%); } }
-.company-logo-editor { display: grid; grid-template-columns: minmax(0, 300px) max-content; align-items: center; justify-content: start; gap: 10px 16px; min-width: 0; }
-.company-logo-editor > span { grid-column: 1 / -1; }
-.company-logo-editor > .row-actions { display: flex; flex-direction: row; justify-content: flex-start; align-self: center; flex-wrap: wrap; width: max-content; max-width: 100%; }
-.company-logo-preview { display: flex; align-items: center; width: min(100%, 300px); height: 84px; padding: 10px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: #111; }
-.company-logo-preview img { max-width: 100%; height: auto; max-height: 64px; object-fit: contain; object-position: left; }
-.company-logo-editor > .row-actions > .company-logo-upload { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 8px; flex: 0 1 auto; width: max-content; max-width: 100%; min-height: 44px; margin: 0; cursor: pointer; }
-.company-logo-editor > .row-actions > .icon-button { flex: 0 0 44px; width: 44px; min-width: 44px; height: 44px; min-height: 44px; }
+.master-data-workspace .panel > .panel-title.company-details-head { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 240px); gap: 16px 24px; align-items: start; }
+.company-logo-editor { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; width: min(100%, 240px); min-width: 0; justify-self: end; }
+.master-data-workspace .company-details-head .company-logo-editor > span { margin: 0; font-size: 12px; font-weight: 600; }
+.company-details-head .company-logo-editor > .row-actions { display: flex; flex-direction: row; justify-content: flex-end; align-self: center; flex-wrap: nowrap; width: 100%; gap: 8px; }
+.company-logo-preview { display: flex; align-items: center; width: 100%; height: 64px; padding: 8px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: #111; overflow: hidden; }
+.company-logo-preview img { max-width: 100%; height: auto; max-height: 46px; object-fit: contain; object-position: center; }
+.company-logo-preview .company-brand-name { font-size: 14px; line-height: 1.3; }
+.company-details-head .company-logo-editor > .row-actions > .company-logo-upload { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 8px; flex: 0 1 auto; width: max-content; max-width: 100%; min-height: 44px; margin: 0; padding: 8px 10px; font-size: 13px; cursor: pointer; }
+.company-details-head .company-logo-editor > .row-actions > .icon-button { flex: 0 0 44px; width: 44px; min-width: 44px; height: 44px; min-height: 44px; }
 .company-logo-upload > svg { flex: none; }
 .company-logo-upload input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
 .company-logo-upload:focus-within { outline: 2px solid #0074e8; outline-offset: 2px; }
-@media (max-width: 600px) { .company-logo-editor { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 600px) { .master-data-workspace .panel > .panel-title.company-details-head { grid-template-columns: minmax(0, 1fr); } }
 
 .sidebar nav {
   display: grid;
@@ -889,7 +891,7 @@ button {
 .workboard {
   display: grid;
   gap: 10px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .workboard .workboard-card {
@@ -901,18 +903,29 @@ button {
   display: grid;
   gap: 6px;
   justify-items: center;
-  min-height: 118px;
-  padding: 18px;
+  min-height: 96px;
+  padding: 14px;
   text-align: center;
 }
 
 .workboard strong {
-  font-size: 38px;
+  color: var(--brand);
+  font-size: 28px;
   line-height: 1;
 }
 
-.workboard small {
+.workboard .workboard-card > span {
+  align-items: center;
   color: var(--muted);
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.workboard .workboard-card > span svg { flex-shrink: 0; }
+@media (max-width: 1000px) {
+  .workboard.quickbar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 .workboard .workboard-card { width: 100%; height: 100%; }
 .personal-blocks .personal-block-controls { min-width: 0; }
@@ -11370,49 +11383,57 @@ dialog.sync-confirm-dialog { width: min(520px, calc(100vw - 24px)); max-width: c
 .auth-invitation-page input { width: 100%; min-width: 0; min-height: 44px; font-size: 16px; }
 .auth-invitation-page button, .auth-invitation-page > a { justify-self: start; max-width: 100%; min-height: 44px; white-space: normal; }
 
-.billing-ledger { --text: var(--foreground); --surface: var(--paper-soft); --accent: var(--brand); min-width: 0; }
-.billing-ledger-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 18px 0; border-bottom: 1px solid var(--line); }
-.billing-ledger-tabs button { display: flex; justify-content: center; align-items: center; gap: 8px; min-height: 48px; padding: 10px; border: 0; border-radius: 0; border-bottom: 3px solid transparent; background: transparent; color: var(--muted); font-weight: 600; min-width: 0; white-space: normal; }
-.billing-ledger-tabs button[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); background: color-mix(in srgb, var(--accent) 6%, transparent); }
+.billing-ledger { --text: var(--foreground); --surface: var(--paper-soft); --accent: var(--brand); --ledger-line: color-mix(in srgb, var(--foreground) 28%, var(--paper)); --ledger-band: color-mix(in srgb, var(--foreground) 5%, var(--paper)); --ledger-heading: color-mix(in srgb, var(--foreground) 10%, var(--paper)); min-width: 0; }
+.billing-ledger-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 18px 0 0; border: 1px solid var(--ledger-line); }
+.billing-ledger-tabs button { display: flex; justify-content: center; align-items: center; gap: 8px; min-height: 48px; padding: 10px; border: 0; border-radius: 0; border-bottom: 3px solid transparent; background: var(--surface); color: var(--text); font-weight: 600; min-width: 0; white-space: normal; }
+.billing-ledger-tabs button + button { border-left: 1px solid var(--ledger-line); }
+.billing-ledger-tabs button:hover:not([aria-selected="true"]) { background: var(--ledger-heading); }
+.billing-ledger-tabs button[aria-selected="true"] { color: #fff; border-bottom-color: #004c99; background: #0066cc; }
+.billing-ledger-tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; position: relative; z-index: 1; }
 .billing-ledger-tabs button span { font-size: 12px; min-width: 24px; padding: 1px 5px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--text); }
-.billing-ledger-filters { display: grid; grid-template-columns: minmax(180px, 1.5fr) repeat(3, minmax(130px, 1fr)); gap: 12px; align-items: end; }
-.billing-ledger-filters label { display: grid; gap: 6px; min-width: 0; font-size: 12px; font-weight: 600; color: var(--muted); }
+.billing-ledger-tabs button[aria-selected="true"] span { color: #fff; background: #0052a3; border-color: #80bfff; }
+.billing-ledger-filters { display: grid; grid-template-columns: minmax(180px, 1.5fr) repeat(3, minmax(130px, 1fr)); gap: 12px; align-items: end; padding: 14px 12px; background: var(--ledger-band); border: 1px solid var(--ledger-line); border-top: 0; }
+.billing-ledger-filters label { display: grid; gap: 6px; min-width: 0; font-size: 12px; font-weight: 600; color: var(--text); }
 .billing-ledger-filters .billing-ledger-sort { display: none; }
 .billing-ledger-filters input, .billing-ledger-filters select { min-width: 0; width: 100%; min-height: 44px; font-size: 14px; font-weight: 400; color: var(--text); }
 .billing-ledger-search > div { position: relative; }
 .billing-ledger-search svg { position: absolute; top: 14px; left: 10px; pointer-events: none; }
 .billing-ledger-search input { padding-left: 34px; }
 .billing-ledger .billing-ledger-search input[type="search"] { appearance: none; padding: 10px 10px 10px 34px; min-height: 44px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); line-height: 22px; }
-.billing-ledger-totals { display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; margin: 16px 0 10px; color: var(--muted); font-size: 13px; }
+.billing-ledger-totals { display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; margin: 0; padding: 12px; color: var(--text); font-size: 13px; }
 .billing-ledger-totals > div { display: flex; gap: 14px; flex-wrap: wrap; color: var(--text); }
-.billing-ledger-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 13px; }
+.billing-ledger-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 13px; border: 1px solid var(--ledger-line); }
 .billing-ledger-table > caption { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-.billing-ledger-table th, .billing-ledger-table td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--line); vertical-align: middle; overflow-wrap: anywhere; }
-.billing-ledger-table th { color: var(--muted); font-size: 12px; background: var(--surface); }
+.billing-ledger-table th, .billing-ledger-table td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--ledger-line); vertical-align: middle; overflow-wrap: anywhere; }
+.billing-ledger-table th { color: var(--text); font-size: 12px; background: var(--ledger-heading); border-bottom-width: 2px; }
+.billing-ledger-table tbody > tr:not(.billing-ledger-detail):nth-child(even) { background: var(--ledger-band); }
+.billing-ledger-table tbody > tr:not(.billing-ledger-detail):hover { background: color-mix(in srgb, var(--accent) 7%, var(--paper)); }
 .billing-ledger-table th:nth-child(1) { width: 12%; }
 .billing-ledger-table th:nth-child(2) { width: 7%; }
 .billing-ledger-table th:nth-child(3), .billing-ledger-table th:nth-child(4) { width: 15%; }
 .billing-ledger-table th:nth-child(5), .billing-ledger-table th:nth-child(6) { width: 10%; }
 .billing-ledger-table th:nth-child(7) { width: 12%; }
 .billing-ledger-table th:nth-child(8) { width: 9%; }
-.billing-ledger-table th:nth-child(9) { width: 108px; }
+.billing-ledger-table th:nth-child(9) { width: 112px; }
 .billing-ledger-table th button { display: inline-flex; align-items: center; gap: 4px; padding: 0; min-height: 32px; border: 0; border-radius: 0; background: none; color: inherit; font-size: inherit; font-weight: 700; text-align: left; }
 .billing-ledger-table th svg { flex-shrink: 0; }
 .billing-invoice-link { color: var(--accent); background: none; border: 0; border-radius: 0; padding: 0; min-height: 44px; font-weight: 600; text-align: left; overflow-wrap: anywhere; }
 .billing-ledger-table .billing-ledger-amount { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+.billing-ledger-actions { white-space: nowrap; }
 .billing-ledger-actions > button { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 0; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--accent); }
 .billing-ledger-actions > button + button { margin-left: 4px; }
 .billing-ledger-status { display: inline-block; font-size: 12px; font-weight: 600; }
 .billing-ledger-status.status-overdue { color: var(--danger); }
 .billing-ledger-status.status-bezahlt { color: var(--good); }
-.billing-ledger-table .is-expanded { background: color-mix(in srgb, var(--accent) 5%, transparent); }
+.billing-ledger-table tbody > tr.is-expanded { background: color-mix(in srgb, var(--accent) 10%, var(--paper)); }
 .billing-ledger-detail > td { padding: 0; background: var(--surface); }
 .billing-ledger-detail .billing-row { display: grid; border: 0; border-radius: 0; box-shadow: none; background: transparent; }
 .billing-ledger-detail .billing-row > footer { grid-column: 1 / -1; }
 .billing-ledger-detail .billing-detail-strip { padding: 12px 0; border: 0; border-radius: 0; background: transparent; }
 .billing-ledger-empty { padding: 24px 8px; color: var(--muted); }
 .billing-ledger-notice { margin: 12px 0; padding: 10px 12px; border-left: 3px solid var(--brand); background: var(--paper-soft); overflow-wrap: anywhere; }
-.outgoing-book > summary { cursor: pointer; font-weight: 600; padding: 14px 0; }
+.outgoing-book { border-top: 2px solid color-mix(in srgb, var(--foreground) 28%, var(--paper)); margin-top: 20px; padding-top: 0; }
+.outgoing-book > summary { cursor: pointer; font-weight: 600; padding: 14px 12px; background: color-mix(in srgb, var(--foreground) 5%, var(--paper)); border-bottom: 1px solid var(--line); }
 .invoice-preview-top .report-company-logo { position: static; display: block; margin-left: auto; max-width: 180px; max-height: 48px; object-fit: contain; }
 @media (max-width: 1200px) {
   .billing-ledger-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -11420,7 +11441,7 @@ dialog.sync-confirm-dialog { width: min(520px, calc(100vw - 24px)); max-width: c
   .billing-ledger-table thead { display: none; }
   .billing-ledger-table, .billing-ledger-table tbody { display: block; width: 100%; }
   .billing-ledger-table { font-size: 14px; }
-  .billing-ledger-table tbody > tr:not(.billing-ledger-detail) { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .billing-ledger-table tbody > tr:not(.billing-ledger-detail) { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 12px 0; border-bottom: 1px solid var(--ledger-line); }
   .billing-ledger-table td { display: block; border: 0; min-width: 0; padding: 6px 8px; }
   .billing-ledger-table td[data-label]::before { display: block; content: attr(data-label); color: var(--muted); font-size: 11px; font-weight: 400; margin-bottom: 3px; }
   .billing-ledger-table td:first-child { grid-column: 1 / -1; }

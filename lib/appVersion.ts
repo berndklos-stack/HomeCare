@@ -1,10 +1,11 @@
 export const appVersion = {
-  version: "1.428.26",
-  releaseDate: "2026-10-30",
+  version: "1.428.27",
+  releaseDate: "2026-10-31",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  { version: "1.428.27", date: "2026-10-31", changes: ["Startuebersicht auf vier eindeutige Einstiege mit Kennzahlen reduzieren; persoenliche Sortierung und mobiles 2x2-Raster erhalten", "Rechnungsbereiche mit klareren Rahmen, abgesetzten Filtern und Tabellenkoepfen sowie kontrastreichem aktivem Reiter in Hell und Dunkel", "Kompakter Firmenlogobereich rechts im Seitenkopf mit kleiner Vorschau und weiterhin touchgerechten Upload- und Entfernenaktionen", "Dashboard-, Rechnungs-, Logo- und Formularpruefungen in Chromium und Safari sowie isolierte Builds erfolgreich"] },
   { version: "1.428.26", date: "2026-10-30", changes: ["Materialeingaben in Mobil vor Ort bleiben bei Auftragsaktualisierungen, Feldwechsel und Neuladen erhalten", "Ausgewaehlte Berichtsanhaenge werden nicht mehr durch allgemeine Auftragsaktualisierungen zurueckgesetzt", "Nach Berichtabschluss und Nachbearbeitung zur Hauptuebersicht Mobil vor Ort zurueckkehren; 42 Browserregressionen in Chromium und Safari erfolgreich"] },
   { version: "1.428.25", date: "2026-10-30", changes: ["Verspaetete Ressourcenabrufe setzen eine bereits serverbestaetigte Revision nicht mehr zurueck", "Quick-Fahrten verwenden nach GPS-Wartezeiten und beim Speichern den aktuellen Fahrzeugstand", "Bestehende Konflikte und lokale Eingaben bleiben erhalten; 92 Synchronisations- und Fahrtenbuchtests in Chromium und Safari erfolgreich"] },
   { version: "1.428.24", date: "2026-10-30", changes: ["Fahrtkosten optional je Leistung mit gefahrenen Kilometern und Nettopreis pro Kilometer erfassen, bearbeiten und als eigene Rechnungsposition abrechnen", "Native Spalten fuer Kilometer und Kilometersatz, gemeinsame Synchronisationsrevision und Schutz abgerechneter Fahrtkosten", "Fahrtkosten in Leistungslisten und PDF-/Excel-Exporten beruecksichtigt; Bezeichnung einheitlich Laufender Auftrag statt Consulting", "118 Browser-, API- und Finanzregressionen in Chromium und Safari sowie lokale Datenbanktests erfolgreich"] },

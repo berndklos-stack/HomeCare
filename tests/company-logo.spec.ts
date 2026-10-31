@@ -45,7 +45,7 @@ test("Firmenlogo erlaubt nur sichere Bildquellen", () => {
   expect(companyLogoSource("data:image/png;base64,AAAA")).toBe("data:image/png;base64,AAAA");
 });
 
-for (const width of [390, 820, 1440]) test(`Firmenlogo aus Stammdaten hochladen, laden und entfernen bei ${width}px`, async ({ page }) => {
+for (const width of [320, 390, 820, 1440]) test(`Firmenlogo aus Stammdaten hochladen, laden und entfernen bei ${width}px`, async ({ page }) => {
   await page.route("**/api/layout-preferences", route => route.fulfill({ json: { preferences: {} } }));
   await page.route("**/api/block-layouts", route => route.fulfill({ json: { orders: {} } }));
   await page.setViewportSize({ width, height: 1000 });
@@ -83,14 +83,17 @@ for (const width of [390, 820, 1440]) test(`Firmenlogo aus Stammdaten hochladen,
   expect(remove.width).toBe(44);
   expect(remove.height).toBe(44);
   expect(remove.x).toBeGreaterThanOrEqual((await upload.boundingBox())!.x + (await upload.boundingBox())!.width);
-  if (width > 600) {
-    expect(Math.abs(preview.y + preview.height / 2 - actions.y - actions.height / 2)).toBeLessThan(2);
-    expect(actions.x - preview.x - preview.width).toBeGreaterThanOrEqual(12);
-    expect(actions.x - preview.x - preview.width).toBeLessThanOrEqual(20);
-  } else {
-    expect(actions.y).toBeGreaterThanOrEqual(preview.y + preview.height);
-    expect(Math.abs(actions.x - preview.x)).toBeLessThan(2);
-  }
+  const header = (await page.locator(".company-details-head").boundingBox())!;
+  const editorBox = (await editor.boundingBox())!;
+  expect(editorBox.width).toBeLessThanOrEqual(240);
+  expect(preview.height).toBe(64);
+  expect(Math.abs(editorBox.x + editorBox.width - header.x - header.width)).toBeLessThan(2);
+  expect(actions.y).toBeGreaterThanOrEqual(preview.y + preview.height);
+  expect(Math.abs(actions.x - preview.x)).toBeLessThan(2);
+  const title = (await page.getByRole("heading", { name: "Firma", exact: true }).boundingBox())!;
+  if (width > 600) expect(editorBox.x).toBeGreaterThan(title.x + title.width);
+  const companyName = (await page.getByRole("textbox", { name: "Firmenname", exact: true }).boundingBox())!;
+  expect(companyName.y).toBeGreaterThanOrEqual(editorBox.y + editorBox.height);
   await editor.scrollIntoViewIfNeeded();
   await editor.screenshot({ path: `test-results/company-logo-editor-${width}-${test.info().project.name}.png` });
   await expect(brand.locator("img")).toHaveCount(0);
