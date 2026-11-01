@@ -1,0 +1,56 @@
+import { expect, test } from "@playwright/test";
+
+for (const width of [320, 390, 820, 1440]) {
+  test(`Konten per Zeile ohne Popup bearbeiten und verwalten ${width}px`, async ({ page }, info) => {
+    await page.setViewportSize({ width, height: 1000 });
+    await page.goto("/");
+    await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true");
+    await page.getByTestId("nav-masterData").click();
+    const tabs = page.getByRole("navigation", { name: "Stammdaten", exact: true });
+    await tabs.getByRole("button", { name: "Buchhaltung", exact: true }).click();
+    const list = page.locator(".chart-of-accounts-list:not(.account-archive-list)");
+    await expect(list).toBeVisible();
+    const columns = await list.locator("article > .row-actions").evaluateAll(elements => elements.map(element => element.getBoundingClientRect().x));
+    expect(columns.length).toBeGreaterThan(1);
+    expect(columns.every(x => Math.abs(x - columns[0]) < 1)).toBe(true);
+    await page.getByRole("button", { name: "Konto 3041 öffnen", exact: true }).focus();
+    await page.keyboard.press("Enter");
+    const editor = page.locator(".account-editor-workspace");
+    await expect(editor).toBeVisible();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(list).toHaveCount(0);
+    await expect(editor.getByRole("textbox", { name: "Konto", exact: true })).toHaveValue("3041");
+    await editor.getByRole("textbox", { name: "Bezeichnung", exact: true }).fill("Nicht speichern");
+    await editor.getByRole("button", { name: "Abbrechen", exact: true }).click();
+    await expect(list).not.toContainText("Nicht speichern");
+    await page.getByRole("button", { name: "Konto 3041 archivieren", exact: true }).click();
+    await expect(editor).toHaveCount(0);
+    await expect(list.getByRole("button", { name: "Konto 3041 öffnen", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Neues Konto anlegen", exact: true }).click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await editor.getByRole("textbox", { name: "Konto", exact: true }).fill("3991");
+    await editor.getByRole("textbox", { name: "Bezeichnung", exact: true }).fill("Neues Testkonto");
+    await editor.getByRole("button", { name: "Konto anlegen", exact: true }).click();
+    await page.getByRole("button", { name: "Konto 3991 bearbeiten", exact: true }).click();
+    await editor.getByRole("textbox", { name: "Bezeichnung", exact: true }).fill("Montage und Service");
+    await editor.getByRole("button", { name: "Konto speichern", exact: true }).click();
+    await expect(list).toContainText("3991 · Montage und Service");
+    await page.getByRole("button", { name: "Konto 3991 archivieren", exact: true }).click();
+    await expect(editor).toHaveCount(0);
+    await page.getByRole("button", { name: "Archiviertes Konto 3991 öffnen", exact: true }).click();
+    await expect(editor.getByRole("textbox", { name: "Bezeichnung", exact: true })).toHaveValue("Montage und Service");
+    await editor.getByRole("button", { name: "Zurück", exact: true }).click();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: info.outputPath("accounts.png") });
+    await page.getByRole("button", { name: "Konto 3991 reaktivieren", exact: true }).click();
+    await expect(list.getByRole("button", { name: "Konto 3991 öffnen", exact: true })).toBeVisible();
+    await page.reload();
+    await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true");
+    await page.getByTestId("nav-masterData").click();
+    await tabs.getByRole("button", { name: "Buchhaltung", exact: true }).click();
+    await expect(list).toContainText("3991 · Montage und Service");
+    await page.getByRole("button", { name: "Konto 3991 archivieren", exact: true }).click();
+    await page.getByRole("button", { name: "Konto 3991 löschen", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Archiviertes Konto 3991 öffnen", exact: true })).toHaveCount(0);
+  });
+}

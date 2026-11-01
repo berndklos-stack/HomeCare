@@ -4,6 +4,12 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.428.31 - 2026-11-01
+
+- Aktive und archivierte Konten per Zeilenklick oder Tastatur in einer eigenen Bearbeitungsansicht statt im Popup oeffnen. Neuanlage und Zurueck-Navigation verwenden dieselbe Ansicht; bestehende Speicher- und Archivierungsregeln bleiben erhalten.
+- Feste Aktionsspalten auf Desktop und Handy. 24 Browserpruefungen in Chromium und Safari/WebKit sowie isolierter Produktionsbuild mit TypeScript-Pruefung erfolgreich.
+- Keine Datenbankmigration oder Aenderung produktiver Datensaetze erforderlich.
+
 ## 1.428.30 - 2026-11-01
 
 - Leistungs- und Ressourcenlisten kompakter mit festen Aktionsspalten darstellen. Zeilen per Maus und Tastatur in einer eigenen Bearbeitungsansicht statt im Popup oeffnen; Speichern, Abbrechen, Fotoverwaltung und Fahrtenbuch behalten ihre bisherigen Datenwege.

@@ -1,10 +1,11 @@
 export const appVersion = {
-  version: "1.428.30",
+  version: "1.428.31",
   releaseDate: "2026-11-01",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  { version: "1.428.31", date: "2026-11-01", changes: ["Aktive und archivierte Konten per Zeilenklick oder Tastatur in eigener Bearbeitungsansicht statt Popup oeffnen", "Feste Aktionsspalten und Zurueck-Navigation bei unveraenderten Kontenregeln; 24 Browserpruefungen und isolierter Produktionsbuild erfolgreich"] },
   { version: "1.428.30", date: "2026-11-01", changes: ["Kompakte Leistungs- und Ressourcenlisten mit fester Aktionsspalte und per Zeile erreichbarer eigener Bearbeitungsansicht statt Popup", "Objektbild im Basisdatenblock und klar getrennte Stammdatenabschnitte mit dezenten Flaechen und Trennlinien", "Verpflichtende Passwortvergabe bei Einladung und Wiederherstellung mit sichtbaren Vorgaben von 12 bis 128 Zeichen und identischer Bestaetigung"] },
   { version: "1.428.29", date: "2026-11-01", changes: ["Benutzer-Aktionsbuttons auf gleicher Hoehe wie die Auswahlfelder Rolle und Mitarbeiter ausrichten", "Mobile Anordnung und touchgerechte Schaltflaechen erhalten; zehn Browserpruefungen in Chromium und Safari sowie isolierter Build erfolgreich"] },
   { version: "1.428.28", date: "2026-11-01", changes: ["Drei getrennt umrahmte Rechnungsreiter mit einzeiliger Beschriftung und Anzahl statt blauer Vollflaeche", "Datumsauswahl mit flachen Rahmen und gleich hohen, nebeneinanderliegenden Datumsfeldern und Pfeilen", "34 Abrechnungs- und acht Zeitraumpruefungen in Chromium und Safari sowie isolierter Build erfolgreich; keine Datenbankmigration"] },

@@ -24007,7 +24007,7 @@ function MasterDataView({
         </section>
       )}
 
-      {masterDataTab === "accounting" && (
+      {masterDataTab === "accounting" && !accountEditorOpen && (
           <section className="panel">
             <div className="panel-title">
               <div>
@@ -24023,10 +24023,10 @@ function MasterDataView({
             <div className="table-list compact-list chart-of-accounts-list">
               {activeAccountingAccountList.map((account) => (
                 <article key={account.account}>
-                  <div>
+                  <button className="master-row-open account-row-open" aria-label={`Konto ${account.account} öffnen`} onClick={() => editAccountingAccount(account)} type="button">
                     <strong>{account.account} · {account.label}</strong>
                     <span>{account.category}</span>
-                  </div>
+                  </button>
                   <div className="row-actions">
                     <IconAction label={`Konto ${account.account} bearbeiten`} onClick={() => editAccountingAccount(account)}><Pencil size={16} /></IconAction>
                     <IconAction danger label={`Konto ${account.account} archivieren`} onClick={() => archiveAccountingAccount(account)}><Archive size={16} /></IconAction>
@@ -24037,13 +24037,13 @@ function MasterDataView({
             {archivedAccountingAccountList.length > 0 && (
               <div className="archive-section">
                 <h3>{tt("Archivierte Konten")}</h3>
-                <div className="table-list compact-list archive-list">
+                <div className="table-list compact-list archive-list chart-of-accounts-list account-archive-list">
                   {archivedAccountingAccountList.map((account) => (
                     <article key={account.account}>
-                      <div>
+                      <button className="master-row-open account-row-open" aria-label={`Archiviertes Konto ${account.account} öffnen`} onClick={() => editAccountingAccount(account)} type="button">
                         <strong>{account.account} · {account.label}</strong>
                         <span>{account.category}</span>
-                      </div>
+                      </button>
                       <Badge value="archiviert" />
                       <div className="row-actions">
                         <IconAction label={`Konto ${account.account} bearbeiten`} onClick={() => editAccountingAccount(account)}><Pencil size={16} /></IconAction>
@@ -24371,15 +24371,14 @@ function MasterDataView({
         </div>
       )}
       {accountEditorOpen && masterDataTab === "accounting" && (
-        <div className="modal-backdrop nested-backdrop">
-          <section aria-labelledby="account-editor-title" aria-modal="true" className="modal send-preview-modal account-editor-modal" role="dialog">
+        <TripSurface inline onClose={resetAccountForm} labelledBy="account-editor-title" className="catalog-editor-workspace account-editor-workspace">
             <header>
               <div>
                 <p>{tt("Buchhaltung")}</p>
                 <h2 id="account-editor-title">{editingAccountId ? tt("Konto bearbeiten") : tt("Neues Konto anlegen")}</h2>
               </div>
-              <button aria-label={tt("Konto-Dialog schließen")} onClick={resetAccountForm} type="button">
-                <X size={18} />
+              <button className="ghost-button" aria-label={tt("Zurück")} onClick={resetAccountForm} type="button">
+                <ArrowLeft size={18} />{tt("Zurück")}
               </button>
             </header>
             <div className="form-grid compact-form">
@@ -24401,8 +24400,7 @@ function MasterDataView({
                 {editingAccountId ? tt("Konto speichern") : tt("Konto anlegen")}
               </button>
             </div>
-          </section>
-        </div>
+        </TripSurface>
       )}
       {servicePickerOpen && masterDataTab === "services" && (
         <div className="modal-backdrop nested-backdrop">
