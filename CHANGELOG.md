@@ -4,6 +4,11 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.428.29 - 2026-11-01
+
+- Aktionsbuttons der Firmenbenutzer mit den Auswahlfeldern Rolle und Mitarbeiter buendig auf einer Hoehe ausrichten, statt sie neben dem gesamten Feldblock samt Beschriftung zu zentrieren.
+- Mobile Anordnung und 44-Pixel-Schaltflaechen erhalten. Zehn Browserpruefungen auf fuenf Bildschirmbreiten in Chromium und Safari/WebKit sowie isolierter Build mit TypeScript-Pruefung erfolgreich. Keine Datenbankmigration erforderlich.
+
 ## 1.428.28 - 2026-11-01
 
 - Drei separate, dezent umrahmte Rechnungsreiter mit Abstand, einzeiliger Beschriftung und Anzahl; aktiven Bereich nur durch blauen Rahmen hervorheben.

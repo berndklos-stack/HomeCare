@@ -35,6 +35,8 @@
 .company-users-workspace .administration-user p { margin: 2px 0; font-size: 13px; }
 .company-users-workspace .administration-user small { font-size: 12px; color: var(--muted); }
 .company-users-workspace .administration-user-actions { justify-content: flex-end; gap: 6px; }
+.company-users-workspace .administration-user > label,
+.company-users-workspace .administration-user-actions { align-self: end; }
 .company-users-workspace .administration-user-actions:empty { display: none; }
 .company-users-workspace .administration-user-actions button { flex: 0 0 44px; width: 44px; max-width: 44px; min-width: 44px; height: 44px; min-height: 44px; }
 @media(max-width: 1000px) {

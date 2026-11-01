@@ -17,7 +17,7 @@ const data: AdministrationData = {
   canManageCompany: true, canManageMembers: true, canManageRoles: true, platformAdmin: true, owner: true,
 };
 
-for (const width of [320, 390, 820, 1440]) test(`Kompakte Benutzerbloecke mit Filtern und rechten Aktionen bei ${width}px`, async ({ page }, info) => {
+for (const width of [320, 390, 820, 1180, 1440]) test(`Kompakte Benutzerbloecke mit Filtern und rechten Aktionen bei ${width}px`, async ({ page }, info) => {
   await page.setViewportSize({ width, height: 1100 });
   const members: AdministrationMember[] = [data.members[0], { ...data.members[0], id: "m2", name: "Zweiter Mitarbeiter", email: "mitarbeiter.mit.langem.namen@example.invalid", role_id: data.roles[1].id }, { ...data.members[0], id: "m3", name: "Inaktiver Benutzer", email: "inactive@example.invalid", status: "suspended" }];
   await page.route(url => url.pathname === "/api/administration", route => {
@@ -39,6 +39,13 @@ for (const width of [320, 390, 820, 1440]) test(`Kompakte Benutzerbloecke mit Fi
     for (const button of await actions.getByRole("button").all()) {
       const box = (await button.boundingBox())!;
       expect(box.height).toBe(44); expect(box.width).toBe(44);
+      if (width > 1000) {
+        for (const field of await block.getByRole("combobox").all()) {
+          const fieldBox = (await field.boundingBox())!;
+          expect(Math.abs(box.y - fieldBox.y)).toBeLessThan(1);
+          expect(Math.abs(box.y + box.height - fieldBox.y - fieldBox.height)).toBeLessThan(1);
+        }
+      }
       expect(box.x).toBeGreaterThanOrEqual(articleBox.x);
       expect(box.x + box.width).toBeLessThanOrEqual(articleBox.x + articleBox.width);
     }

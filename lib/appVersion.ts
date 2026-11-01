@@ -1,10 +1,11 @@
 export const appVersion = {
-  version: "1.428.28",
+  version: "1.428.29",
   releaseDate: "2026-11-01",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  { version: "1.428.29", date: "2026-11-01", changes: ["Benutzer-Aktionsbuttons auf gleicher Hoehe wie die Auswahlfelder Rolle und Mitarbeiter ausrichten", "Mobile Anordnung und touchgerechte Schaltflaechen erhalten; zehn Browserpruefungen in Chromium und Safari sowie isolierter Build erfolgreich"] },
   { version: "1.428.28", date: "2026-11-01", changes: ["Drei getrennt umrahmte Rechnungsreiter mit einzeiliger Beschriftung und Anzahl statt blauer Vollflaeche", "Datumsauswahl mit flachen Rahmen und gleich hohen, nebeneinanderliegenden Datumsfeldern und Pfeilen", "34 Abrechnungs- und acht Zeitraumpruefungen in Chromium und Safari sowie isolierter Build erfolgreich; keine Datenbankmigration"] },
   { version: "1.428.27", date: "2026-10-31", changes: ["Startuebersicht auf vier eindeutige Einstiege mit Kennzahlen reduzieren; persoenliche Sortierung und mobiles 2x2-Raster erhalten", "Rechnungsbereiche mit klareren Rahmen, abgesetzten Filtern und Tabellenkoepfen sowie kontrastreichem aktivem Reiter in Hell und Dunkel", "Kompakter Firmenlogobereich rechts im Seitenkopf mit kleiner Vorschau und weiterhin touchgerechten Upload- und Entfernenaktionen", "Dashboard-, Rechnungs-, Logo- und Formularpruefungen in Chromium und Safari sowie isolierte Builds erfolgreich"] },
   { version: "1.428.26", date: "2026-10-30", changes: ["Materialeingaben in Mobil vor Ort bleiben bei Auftragsaktualisierungen, Feldwechsel und Neuladen erhalten", "Ausgewaehlte Berichtsanhaenge werden nicht mehr durch allgemeine Auftragsaktualisierungen zurueckgesetzt", "Nach Berichtabschluss und Nachbearbeitung zur Hauptuebersicht Mobil vor Ort zurueckkehren; 42 Browserregressionen in Chromium und Safari erfolgreich"] },
