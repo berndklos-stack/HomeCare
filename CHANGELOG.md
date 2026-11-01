@@ -4,6 +4,14 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.428.30 - 2026-11-01
+
+- Leistungs- und Ressourcenlisten kompakter mit festen Aktionsspalten darstellen. Zeilen per Maus und Tastatur in einer eigenen Bearbeitungsansicht statt im Popup oeffnen; Speichern, Abbrechen, Fotoverwaltung und Fahrtenbuch behalten ihre bisherigen Datenwege.
+- Objektbild aus dem uebergrossen Kopfbereich in den Basisdatenblock verschieben. Stammdatenabschnitte durch dezente Flaechen, kraeftigere Trennlinien und Abstaende abgrenzen; mobile Anordnung und persoenliche Blockreihenfolge erhalten.
+- Passwortvergabe bei Einladung und Wiederherstellung verpflichtend machen. 12 bis 128 Zeichen und identische Bestaetigung direkt am Feld anzeigen, leere oder unpassende Eingaben auch in der Formularlogik sperren.
+- 124 Browser- und Regressionstests in Chromium und Safari/WebKit erfolgreich. Zehn separate Onlinefaelle und zwei Chromium-spezifische Touchfaelle unter WebKit planmaessig uebersprungen; isolierte Builds mit TypeScript-Pruefung erfolgreich.
+- Keine Datenbankmigration oder Aenderung produktiver Datensaetze erforderlich.
+
 ## 1.428.29 - 2026-11-01
 
 - Aktionsbuttons der Firmenbenutzer mit den Auswahlfeldern Rolle und Mitarbeiter buendig auf einer Hoehe ausrichten, statt sie neben dem gesamten Feldblock samt Beschriftung zu zentrieren.

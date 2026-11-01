@@ -29,7 +29,7 @@ for (const device of [
     await page.getByTestId('nav-masterData').click();
     await page.getByRole('button', { name: 'Ressourcen', exact: true }).click();
     await page.getByRole('button', { name: 'Ressource Servicebil Kolaretorp bearbeiten', exact: true }).click();
-    const dialog = page.getByRole('dialog');
+    const dialog = page.locator('.resource-editor-workspace');
     const name = dialog.getByLabel('Name', { exact: true });
     await name.fill('iPad Bearbeitung');
     await page.setViewportSize(device.landscape);

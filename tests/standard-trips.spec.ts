@@ -76,7 +76,7 @@ test('Standardfahrt kann zusammen mit einem neuen Fahrzeug ohne echte Fahrt ange
   const existing = await openVehicleStandardTrips(page);
   await existing.dialog.getByRole('button', { name: 'Ressource schließen', exact: true }).click();
   await page.getByRole('button', { name: 'Neue Ressource anlegen', exact: true }).click();
-  const dialog = page.getByRole('dialog');
+  const dialog = page.locator('.resource-editor-workspace');
   await dialog.getByLabel('Ressourcentyp', { exact: true }).selectOption(defaultResourceTypes[2].id);
   await expect(dialog.getByRole('region', { name: 'Standardfahrten', exact: true })).toHaveCount(0);
   await dialog.getByLabel('Ressourcentyp', { exact: true }).selectOption(defaultResourceTypes[0].id);

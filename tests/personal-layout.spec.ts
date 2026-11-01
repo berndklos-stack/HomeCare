@@ -55,7 +55,7 @@ for (const size of [{ width: 1440, height: 1000 }, { width: 820, height: 1180 },
     await page.getByTestId('nav-masterData').click();
     await page.getByRole('button', { name: 'Ressourcen', exact: true }).click();
     await page.getByRole('button', { name: 'Ressource Servicebil Kolaretorp bearbeiten', exact: true }).click();
-    const dialog = page.getByRole('dialog');
+    const dialog = page.locator('.resource-editor-workspace');
     const blocks = dialog.locator('.personal-vehicle-blocks');
     expect(await blocks.locator('.vehicle-disclosure').first().evaluate((element) => ({ display: getComputedStyle(element).display, border: getComputedStyle(element).borderTopWidth }))).toEqual({ display: 'flex', border: '0px' });
     expect(await blocks.locator('.vehicle-disclosure > span').first().evaluate((element) => parseFloat(getComputedStyle(element).fontSize))).toBeGreaterThanOrEqual(16);
@@ -147,7 +147,7 @@ for (const width of [1440, 820, 390]) {
     await page.getByTestId('nav-masterData').click();
     await page.getByRole('button', { name: 'Ressourcen', exact: true }).click();
     await page.getByRole('button', { name: 'Ressource Servicebil Kolaretorp bearbeiten', exact: true }).click();
-    const blocks = page.getByRole('dialog').locator('.personal-vehicle-blocks');
+    const blocks = page.locator('.resource-editor-workspace .personal-vehicle-blocks');
     const source = blocks.locator('[data-block-id="maintenance"] .vehicle-disclosure');
     const target = blocks.locator('[data-block-id="standardTrips"] .vehicle-disclosure');
     await dragByHold(page, source, target, blocks);
@@ -223,7 +223,7 @@ for (const width of [390, 820]) test(`Echte Touchgeste verschiebt Fahrzeugbloeck
     await page.getByTestId('nav-masterData').click();
     await page.getByRole('button', { name: 'Ressourcen', exact: true }).click();
     await page.getByRole('button', { name: 'Ressource Servicebil Kolaretorp bearbeiten', exact: true }).click();
-    const blocks = page.getByRole('dialog').locator('.personal-vehicle-blocks');
+    const blocks = page.locator('.resource-editor-workspace .personal-vehicle-blocks');
     const source = blocks.locator('[data-block-id="maintenance"] .vehicle-disclosure');
     await source.scrollIntoViewIfNeeded();
     const from = (await source.boundingBox())!;

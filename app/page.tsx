@@ -23223,7 +23223,7 @@ function MasterDataView({
 
       {masterDataTab === "resources" && resourceSection === "overview" && (
         <section className="panel">
-          {!(resourceEditorOpen && resourceModalView === "logbook") && <>
+          {!resourceEditorOpen && <>
           <div className="panel-title">
             <div>
               <p>{tt("Stammdaten")}</p>
@@ -23234,11 +23234,11 @@ function MasterDataView({
               {tt("Neue Ressource anlegen")}
             </button>
           </div>
-          <button className="ghost-button" onClick={() => setResourceOperationsOpen((current) => !current)} type="button"><Wrench size={16}/>{language === "de" ? "Zuweisungen, Ausstattung & Wartung" : language === "sv" ? "Tilldelningar, utrustning och underhåll" : "Assignments, equipment & maintenance"}</button>
+          <button className="ghost-button resource-operations-toggle" onClick={() => setResourceOperationsOpen((current) => !current)} type="button"><Wrench size={16}/>{language === "de" ? "Zuweisungen, Ausstattung & Wartung" : language === "sv" ? "Tilldelningar, utrustning och underhåll" : "Assignments, equipment & maintenance"}</button>
           {resourceOperationsOpen && resourceOperations}
           </>}
           {resourceEditorOpen && (
-            <TripSurface inline={resourceModalView === "logbook"} onClose={resetResourceForm} labelledBy="resource-editor-title" className={resourceModalView === "logbook" ? "resource-editor-workspace resource-logbook-modal" : "resource-editor-modal"}>
+            <TripSurface inline onClose={resetResourceForm} labelledBy="resource-editor-title" className={resourceModalView === "logbook" ? "resource-editor-workspace resource-logbook-modal" : "resource-editor-workspace resource-editor-modal"}>
                 <header>
                   <div>
                     <p>{resourceModalView === "logbook" ? lt("Fahrtenbuch") : tt("Ressourcen")}</p>
@@ -23265,8 +23265,8 @@ function MasterDataView({
                         {resourceModalView === "logbook" ? lt("Stammdaten") : tt("Fahrtenbuch")}
                       </button>
                     )}
-                    <button aria-label={resourceModalView === "logbook" ? lt("Ressource schließen") : tt("Ressource schließen")} onClick={resetResourceForm} type="button">
-                      {resourceModalView === "logbook" ? <ArrowLeft size={18} /> : <X size={18} />}
+                    <button className="ghost-button" aria-label={resourceModalView === "logbook" ? lt("Ressource schließen") : tt("Ressource schließen")} onClick={resetResourceForm} type="button">
+                      <ArrowLeft size={18} />{tt("Zurück")}
                     </button>
                   </div>
                 </header>
@@ -23688,7 +23688,7 @@ function MasterDataView({
           ) : null}
             </TripSurface>
           )}
-          {!(resourceEditorOpen && resourceModalView === "logbook") && <>
+          {!resourceEditorOpen && <>
           <div className="master-list-toolbar">
             <div className="segmented-control master-view-toggle">
               <button aria-label={tt("Ressourcen als Kacheln anzeigen")} className={resourceViewMode === "cards" ? "active" : ""} data-tooltip={tt("Kacheln")} onClick={() => setResourceViewMode("cards")} type="button">
@@ -23722,11 +23722,12 @@ function MasterDataView({
               {activeResources.length === 0 && <p>{tt("Noch keine aktiven Ressourcen angelegt.")}</p>}
             </div>
           ) : (
-            <div className="table-list compact-list master-table-list">
+            <div className="table-list compact-list master-table-list resource-master-rows">
               {activeResources.map((resource) => {
                 const previewImage = primaryResourceImage(resource);
                 return (
-                  <article className="resource-table-row clickable-master-card" key={resource.id} onClick={() => editResource(resource)}>
+                  <article className="resource-table-row" key={resource.id}>
+                    <button className="master-row-open resource-row-open" aria-label={`Ressource ${resource.name} öffnen`} onClick={() => editResource(resource)} type="button">
                     <ResourceImage item={previewImage} label={`Vorschaubild ${resource.name}`} className="resource-table-preview" />
                     <div>
                       <strong>{resource.name}</strong>
@@ -23734,7 +23735,8 @@ function MasterDataView({
                       <span>{resourceIsVehicle(resource) ? `${resource.logbook.length} ${tt("Fahrten")} · ${resource.logbookYear}` : resource.notes || tt("Keine Notizen hinterlegt.")}</span>
                     </div>
                     <Badge value={resource.status} />
-                    <div className="row-actions" onClick={(event) => event.stopPropagation()}>
+                    </button>
+                    <div className="row-actions">
                       <IconAction label={`Ressource ${resource.name} bearbeiten`} onClick={() => editResource(resource)}><Pencil size={16} /></IconAction>
                       <IconAction danger label={`Ressource ${resource.name} archivieren`} onClick={() => archiveResource(resource)}><Archive size={16} /></IconAction>
                     </div>
@@ -24056,7 +24058,7 @@ function MasterDataView({
           </section>
       )}
 
-      {masterDataTab === "services" && (
+      {masterDataTab === "services" && !serviceEditorOpen && (
         <PersonalBlocks scope="masterData.services" language={language}>
           <PersonalBlock id="services" title={tt("Leistungen einzeln erfassen")}>
           <section className="panel">
@@ -24070,19 +24072,21 @@ function MasterDataView({
             {tt("Neue Leistung anlegen")}
           </button>
         </div>
-        <div className="table-list compact-list service-master-list">
+        <div className="table-list compact-list service-master-list service-master-rows">
           {activeServices.map((service) => (
             <article key={service.id}>
-              <div className="service-master-side">
+              <button className="master-row-open service-row-open" aria-label={`Leistung ${service.name} öffnen`} onClick={() => editService(service)} type="button">
+              <span className="service-master-side">
                 <span className="service-master-category">{service.category}</span>
                 <small>{tt("Konto")} {service.accountingAccount || defaultAccountingAccount("Leistung", service.name)}</small>
-              </div>
-              <div className="service-master-main">
+                <small className="service-master-checklist">{service.checklist?.length ?? 0} {tt("Checklistenpunkte")}</small>
+              </span>
+              <span className="service-master-main">
                 <strong>{service.name}</strong>
                 <small>{service.description}</small>
-              </div>
+              </span>
               <span className="service-master-price">{serviceRate(service)}</span>
-              <span className="service-master-checklist">{service.checklist?.length ?? 0} {tt("Checklistenpunkte")}</span>
+              </button>
               <div className="row-actions">
                 <IconAction label={`Leistung ${service.name} bearbeiten`} onClick={() => editService(service)}><Pencil size={16} /></IconAction>
                 <IconAction danger label={`Leistung ${service.name} archivieren`} onClick={() => archiveService(service)}><Archive size={16} /></IconAction>
@@ -24238,15 +24242,14 @@ function MasterDataView({
         </div>
       )}
       {serviceEditorOpen && masterDataTab === "services" && (
-        <div className="modal-backdrop nested-backdrop">
-          <section aria-labelledby="service-editor-title" aria-modal="true" className="modal send-preview-modal catalog-editor-modal" role="dialog">
+        <TripSurface inline onClose={resetServiceForm} labelledBy="service-editor-title" className="catalog-editor-workspace service-editor-workspace">
             <header>
               <div>
                 <p>{tt("Leistung")}</p>
                 <h2 id="service-editor-title">{editingServiceId ? tt("Leistung bearbeiten") : tt("Neue Leistung anlegen")}</h2>
               </div>
-              <button aria-label={tt("Leistungs-Dialog schließen")} onClick={resetServiceForm} type="button">
-                <X size={18} />
+              <button className="ghost-button" aria-label={tt("Zurück")} onClick={resetServiceForm} type="button">
+                <ArrowLeft size={18} />{tt("Zurück")}
               </button>
             </header>
             <div className="form-grid compact-form">
@@ -24326,8 +24329,7 @@ function MasterDataView({
                 {editingServiceId ? tt("Leistung speichern") : tt("Leistung anlegen")}
               </button>
             </div>
-          </section>
-        </div>
+        </TripSurface>
       )}
       {packageEditorOpen && masterDataTab === "services" && (
         <div className="modal-backdrop nested-backdrop">
@@ -24506,12 +24508,9 @@ function ObjectEditorPage({
 }) {
   const tt = (value: string) => uiText(value, language);
   const entityName = objectTypeName(objectTypeDefinitions, newObject.type, language);
-  const entityImageLabel = objectTypeContextLabel(entityName, language, "image");
   const dynamicSubmitLabel = object
     ? objectTypeActionLabel(entityName, language, "save")
     : objectTypeActionLabel(entityName, language, "create");
-  const primaryImage = newObject.mediaItems.find((item) => item.type === "Bild" && item.isPrimary && (item.previewUrl || item.storagePath))
-    ?? newObject.mediaItems.find((item) => item.type === "Bild" && (item.previewUrl || item.storagePath));
 
   return (
     <div className="object-editor-page">
@@ -24523,20 +24522,6 @@ function ObjectEditorPage({
               {tt("Zurück zu Projekte & Objekte")}
             </button>
           </div>
-          {primaryImage ? (
-            <div
-              aria-label={`${language === "de" ? "Aktuelles" : language === "sv" ? "Aktuell" : "Current"} ${entityImageLabel}`}
-              className="object-editor-image"
-              role="img"
-            >
-              <ObjectPhotoImage item={primaryImage} key={`${primaryImage.id}:${primaryImage.previewUrl}:${primaryImage.storagePath}`} language={language} />
-            </div>
-          ) : (
-            <div className="object-editor-image object-editor-image-empty">
-              <Home size={26} />
-              <span>{language === "de" ? `Noch kein ${entityImageLabel} definiert` : language === "sv" ? `Ingen bild har angetts för ${entityName}` : `No ${entityImageLabel.toLowerCase()} defined`}</span>
-            </div>
-          )}
         </div>
         {object && (
           <div className="record-dialog-actions">
@@ -24847,6 +24832,8 @@ function ObjectForm({
 }) {
   const tt = (value: string) => uiText(value, language);
   const photoItems = newObject.mediaItems.filter((item) => item.type === "Bild");
+  const primaryImage = photoItems.find((item) => item.isPrimary && (item.previewUrl || item.storagePath))
+    ?? photoItems.find((item) => item.previewUrl || item.storagePath);
   const fileItems = newObject.mediaItems.filter((item) => item.type !== "Bild");
   const [previewDocument, setPreviewDocument] = useState<MediaItem | null>(null);
   const [previewPhoto, setPreviewPhoto] = useState<MediaItem | null>(null);
@@ -25055,8 +25042,9 @@ function ObjectForm({
   return (
     <div className="form-grid" onBlurCapture={autosaveField}>
       <PersonalBlocks scope="object.form" language={language} className="wide form-grid">
-      <PersonalBlock id="basics" title={tt("Basisdaten")} className="wide personal-form-block">
+      <PersonalBlock id="basics" title={tt("Basisdaten")} className="wide personal-form-block object-basics-block">
       <h3>{tt("Basisdaten")}</h3>
+      <div className="object-basics-fields">
       <label><span>{tt("Typ")}</span>
         <select value={newObject.type} onChange={(event) => setNewObject({ ...newObject, type: event.target.value })}>
           {availableObjectTypes.map((definition) => (
@@ -25073,6 +25061,17 @@ function ObjectForm({
           {resolvedStatusOptions.map((status) => <option key={status} value={status}>{status}</option>)}
         </select>
       </label>
+      </div>
+      {primaryImage ? (
+        <div aria-label={`${language === "de" ? "Aktuelles" : language === "sv" ? "Aktuell" : "Current"} ${entityImageLabel}`} className="object-editor-image" role="img">
+          <ObjectPhotoImage item={primaryImage} key={`${primaryImage.id}:${primaryImage.previewUrl}:${primaryImage.storagePath}`} language={language} />
+        </div>
+      ) : (
+        <div className="object-editor-image object-editor-image-empty">
+          <Home size={26} />
+          <span>{language === "de" ? `Noch kein ${entityImageLabel} definiert` : language === "sv" ? `Ingen bild har angetts för ${entityName}` : `No ${entityImageLabel.toLowerCase()} defined`}</span>
+        </div>
+      )}
       </PersonalBlock>
       {hasFieldGroup("customer") && <PersonalBlock id="customer" title={tt("Kunde / Eigentümer")} className="wide personal-form-block">
         <h3>{tt("Kunde / Eigentümer")}</h3>

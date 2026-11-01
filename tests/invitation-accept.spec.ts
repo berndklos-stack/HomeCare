@@ -23,7 +23,7 @@ for (const width of [390, 820]) test(`Abgelaufene Einladung bietet neuen Link un
   });
   await page.goto("/auth/accept#error=access_denied&error_code=otp_expired&error_description=private-token");
   await expect(page.locator("main").getByRole("alert")).toContainText("abgelaufen oder wurde bereits verwendet");
-  await expect(page.getByLabel("Passwort festlegen (optional)")).toHaveCount(0);
+  await expect(page.getByLabel("Passwort festlegen", { exact: true })).toHaveCount(0);
   await expect.poll(() => new URL(page.url()).hash).toBe("");
   await expect(page.locator("body")).not.toContainText("private-token");
   await page.getByLabel("E-Mail-Adresse", { exact: true }).fill("demo@example.invalid");
@@ -51,10 +51,11 @@ test("Fehlerlink darf trotz vorhandener Sitzung kein Passwortformular freischalt
   await page.goto("/auth/accept?error=access_denied&error_code=otp_expired");
   await expect(page.locator("main").getByRole("alert")).toContainText("abgelaufen");
   await expect(page.getByRole("button", { name: "Firmenzugang aktivieren" })).toHaveCount(0);
-  await expect(page.getByLabel("Passwort festlegen (optional)")).toHaveCount(0);
+  await expect(page.getByLabel("Passwort festlegen", { exact: true })).toHaveCount(0);
 });
 
-for(const recovery of [false,true])test(`Gueltiger Link erlaubt bestaetigte Passwortvergabe: ${recovery?"Recovery":"Einladung"}`,async({page})=>{
+for (const width of [390, 1440]) for(const recovery of [false,true])test(`Gueltiger Link erlaubt bestaetigte Passwortvergabe: ${recovery?"Recovery":"Einladung"} ${width}px`,async({page})=>{
+  await page.setViewportSize({ width, height: 1000 });
   let updates=0,contexts=0;
   await page.route("**/auth/v1/**",async route=>{
     if(route.request().method()==="OPTIONS")return route.fulfill({status:200,headers:{"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"*","Access-Control-Allow-Methods":"GET,PUT,POST,OPTIONS"}});
@@ -66,10 +67,31 @@ for(const recovery of [false,true])test(`Gueltiger Link erlaubt bestaetigte Pass
   await page.route(url=>url.pathname==="/",route=>route.fulfill({contentType:"text/html",body:"<h1>Demo-Firma</h1>"}));
   await page.goto(`/auth/accept#access_token=${fakeToken()}&refresh_token=test-refresh&expires_in=3600&token_type=bearer&type=${recovery?"recovery":"invite"}`);
   await expect(page.getByText("Angemeldet als demo@example.invalid")).toBeVisible();
-  await page.getByLabel(recovery?"Neues Passwort":"Passwort festlegen (optional)",{exact:true}).fill("Test-Passwort-123!");
+  const password = page.getByLabel(recovery ? "Neues Passwort" : "Passwort festlegen", { exact: true });
+  const confirmation = page.getByLabel("Passwort bestätigen", { exact: true });
+  await expect(password).toHaveAttribute("required", "");
+  await expect(confirmation).toHaveAttribute("required", "");
+  await expect(password).toHaveAttribute("minlength", "12");
+  await expect(password).toHaveAttribute("maxlength", "128");
+  await expect(password).toHaveAccessibleDescription("12 bis 128 Zeichen. Beide Passworteingaben müssen identisch sein.");
+  await expect(confirmation).toHaveAccessibleDescription("12 bis 128 Zeichen. Beide Passworteingaben müssen identisch sein.");
+  await expect(page.locator("main")).not.toContainText("optional");
+  const submit = page.getByRole("button", { name: recovery ? "Passwort speichern" : "Firmenzugang aktivieren" });
+  await submit.click();
+  expect(updates).toBe(0); expect(contexts).toBe(0);
+  await password.fill("zu-kurz");
+  await confirmation.fill("zu-kurz");
+  await submit.click();
+  expect(updates).toBe(0); expect(contexts).toBe(0);
+  await page.locator("form").evaluate(form => form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
+  await expect(page.locator("main").getByRole("alert")).toContainText("12 bis 128 Zeichen");
+  expect(updates).toBe(0); expect(contexts).toBe(0);
+  await password.fill("Test-Passwort-123!");
   await page.getByLabel("Passwort bestätigen",{exact:true}).fill("Anderes-Passwort-123!");
   await page.getByRole("button",{name:recovery?"Passwort speichern":"Firmenzugang aktivieren"}).click();
   await expect(page.locator("main").getByRole("alert")).toContainText("zweimal identisch");expect(updates).toBe(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: test.info().outputPath("password-requirements.png"), fullPage: true });
   await page.getByLabel("Passwort bestätigen",{exact:true}).fill("Test-Passwort-123!");
   await page.getByRole("button",{name:recovery?"Passwort speichern":"Firmenzugang aktivieren"}).click();
   if(recovery){await expect(page.getByRole("status")).toHaveText("Dein Passwort wurde geändert.");expect(contexts).toBe(0);}

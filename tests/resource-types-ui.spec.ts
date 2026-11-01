@@ -28,11 +28,11 @@ for (const width of [390, 820]) test(`Ressourcenfoto erscheint nach Upload in Ga
   await openMaster(page);
   await page.getByRole("button", { name: "Ressourcen", exact: true }).click();
   await page.getByRole("button", { name: "Neue Ressource anlegen", exact: true }).click();
-  const dialog = page.getByRole("dialog");
+  const dialog = page.locator(".resource-editor-workspace");
   await dialog.getByLabel("Ressourcentyp", { exact: true }).selectOption(defaultResourceTypes[2].id);
   await dialog.getByLabel("Name", { exact: true }).fill("Foto Rasenmäher");
   await dialog.getByRole("button", { name: "Ressource anlegen", exact: true }).click();
-  await expect(dialog.getByRole("status")).toContainText("wurde gespeichert");
+  await expect(dialog.locator('p[role="status"]')).toContainText("wurde gespeichert");
   await dialog.getByLabel("Bild zur Ressource hinzufügen", { exact: true }).setInputFiles({ name: "mower.png", mimeType: "image/png", buffer: Buffer.from(pixel, "base64") });
   await expect(dialog.getByRole("img", { name: "Ressourcenbild mower.png", exact: true })).toHaveCSS("background-image", /blob:/);
   await page.screenshot({ path: test.info().outputPath(`resource-photo-${width}.png`) });
@@ -65,8 +65,9 @@ for (const mobile of [false, true]) {
     await openMaster(page);
     await page.getByRole("button", { name: "Ressourcen", exact: true }).click();
     await page.getByRole("button", { name: "Neue Ressource anlegen", exact: true }).click();
-    const dialog = page.getByRole("dialog");
-    expect(await dialog.evaluate((element) => element.matches(":modal"))).toBe(true);
+    const dialog = page.locator(".resource-editor-workspace");
+    expect(await dialog.evaluate((element) => element.matches(":modal"))).toBe(false);
+    await expect(page.getByRole("dialog")).toHaveCount(0);
     await expect(dialog.getByLabel("Name", { exact: true })).toHaveCount(0);
     await dialog.getByLabel("Ressourcentyp", { exact: true }).selectOption(defaultResourceTypes[0].id);
     await dialog.getByLabel("Name", { exact: true }).fill("Test Mower");
@@ -82,7 +83,7 @@ for (const mobile of [false, true]) {
     await dialog.getByLabel("Ressourcentyp", { exact: true }).selectOption(defaultResourceTypes[2].id);
     await expect(dialog.getByLabel("Betriebsstunden", { exact: true })).toHaveValue("125");
     await dialog.getByRole("button", { name: "Ressource anlegen", exact: true }).click();
-    await expect(dialog.getByRole("status")).toContainText("wurde gespeichert");
+    await expect(dialog.locator('p[role="status"]')).toContainText("wurde gespeichert");
     const read = () => page.evaluate(() => JSON.parse(localStorage.getItem("workcore-sync-mutations-v1") ?? "[]").filter((m: { entityType: string; payload: { name?: string } }) => m.entityType === "resource" && m.payload.name === "Test Mower"));
     await expect.poll(async () => (await read()).length).toBe(1);
     expect((await read())[0].payload).toMatchObject({ resourceTypeId: defaultResourceTypes[2].id, serialNumber: "MOWER-SN", operatingHours: "125", licensePlate: "HIDDEN-123" });
@@ -129,13 +130,14 @@ test("Eigener Ressourcentyp konfiguriert Pflichtfelder und überlebt Reload offl
   await page.getByRole("button", { name: "Stammdaten", exact: true }).click();
   await page.getByRole("button", { name: "Ressourcen", exact: true }).click();
   await page.getByRole("button", { name: "Neue Ressource anlegen", exact: true }).click();
-  await dialog.getByLabel("Ressourcentyp", { exact: true }).selectOption(mutation.entityId);
-  await dialog.getByLabel("Name", { exact: true }).fill("Messgerät A");
-  await dialog.getByRole("button", { name: "Ressource anlegen", exact: true }).click();
-  await expect(dialog.getByRole("status")).toContainText("Pflichtfeld: Seriennummer");
-  await dialog.getByLabel("Seriennummer", { exact: true }).fill("ME-1");
-  await dialog.getByRole("button", { name: "Ressource anlegen", exact: true }).click();
-  await expect(dialog.getByRole("status")).toContainText("wurde gespeichert");
+  const resource = page.locator(".resource-editor-workspace");
+  await resource.getByLabel("Ressourcentyp", { exact: true }).selectOption(mutation.entityId);
+  await resource.getByLabel("Name", { exact: true }).fill("Messgerät A");
+  await resource.getByRole("button", { name: "Ressource anlegen", exact: true }).click();
+  await expect(resource.locator('p[role="status"]')).toContainText("Pflichtfeld: Seriennummer");
+  await resource.getByLabel("Seriennummer", { exact: true }).fill("ME-1");
+  await resource.getByRole("button", { name: "Ressource anlegen", exact: true }).click();
+  await expect(resource.locator('p[role="status"]')).toContainText("wurde gespeichert");
 });
 
 test("Materialstammdaten bleiben ausschließlich im Lagermodul", async ({ page }) => {
