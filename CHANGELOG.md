@@ -4,6 +4,12 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.428.28 - 2026-11-01
+
+- Drei separate, dezent umrahmte Rechnungsreiter mit Abstand, einzeiliger Beschriftung und Anzahl; aktiven Bereich nur durch blauen Rahmen hervorheben.
+- Zeitraum-Pfeile und Datumsfelder auf einer gemeinsamen Hoehe anordnen. Flache App-Rahmen statt nativer dreidimensionaler Felder; mobile Datumsteile und Innenabstaende vereinheitlichen.
+- 34 Abrechnungs- und acht Zeitraumpruefungen in Chromium und Safari/WebKit sowie isolierter Build mit TypeScript-Pruefung erfolgreich. Keine Datenbankmigration erforderlich.
+
 ## 1.428.27 - 2026-10-31
 
 - Doppelte Dashboard-Einstiege zu vier Kennzahlen-Schaltflaechen fuer Einsaetze, Projekte/Objekte, Berichte und Abrechnung zusammenfassen. Persoenliche Sortierung bleibt erhalten; mobile Darstellung als kompaktes 2x2-Raster.

@@ -140,7 +140,7 @@ for (const width of [320, 390, 820, 1440]) test(`Neue Rechnung vorschauen drucke
   expect(queue.some((r: { entityType: string; entityId: string; operation: string }) => r.entityType === "invoice" && r.entityId === saved.id && r.operation === "delete")).toBe(true);
 });
 
-for (const width of [390, 1440]) for (const dark of [false, true]) test(`Abrechnungsbereiche klar getrennt bei ${width}px ${dark ? "dunkel" : "hell"}`, async ({ page }, info) => {
+for (const width of [320, 390, 820, 1440]) for (const dark of [false, true]) test(`Abrechnungsbereiche klar getrennt bei ${width}px ${dark ? "dunkel" : "hell"}`, async ({ page }, info) => {
   await page.setViewportSize({ width, height: 1100 });
   await page.route("**/api/block-layouts", route => route.fulfill({ json: { orders: {} } }));
   await page.route("**/api/layout-preferences", route => route.fulfill({ json: { preferences: {} } }));
@@ -149,8 +149,20 @@ for (const width of [390, 1440]) for (const dark of [false, true]) test(`Abrechn
   if (dark) await page.getByRole("button", { name: "Dunkelmodus", exact: true }).click();
   await page.getByTestId("nav-billing").click();
   const active = page.getByRole("tab", { name: "Entwürfe 1", exact: true });
-  await expect(active).toHaveCSS("color", "rgb(255, 255, 255)");
-  await expect(active).toHaveCSS("background-color", "rgb(0, 102, 204)");
+  await expect(active).toHaveCSS("color", dark ? "rgb(41, 151, 255)" : "rgb(0, 113, 227)");
+  await expect(active).toHaveCSS("background-color", dark ? "rgb(50, 53, 58)" : "rgb(249, 249, 251)");
+  const tabs = page.getByRole("tablist", { name: "Rechnungsübersicht", exact: true }).getByRole("tab");
+  await expect(tabs).toHaveCount(3);
+  for (const tab of await tabs.all()) {
+    await expect(tab).toHaveCSS("border-radius", "8px");
+    await expect(tab).toHaveCSS("border-top-style", "solid");
+    await expect(tab).toHaveCSS("flex-direction", "row");
+    await expect(tab).toHaveCSS("white-space", "nowrap");
+    await expect(tab).toHaveCSS("height", "56px");
+    expect(await tab.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+  }
+  const tabBoxes = await tabs.evaluateAll(elements => elements.map(element => element.getBoundingClientRect().top));
+  expect(new Set(tabBoxes.map(top => Math.round(top))).size).toBe(width > 700 ? 1 : 3);
   const filters = page.locator(".billing-ledger-filters");
   await expect(filters).toHaveCSS("border-bottom-style", "solid");
   await expect(filters).toHaveCSS("border-bottom-width", "1px");

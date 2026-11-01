@@ -1048,7 +1048,8 @@ button {
 }
 
 .analytics-period-fields {
-  align-items: center;
+  --analytics-date-font-size: 16px;
+  align-items: end;
   display: grid;
   gap: 8px;
   grid-template-columns: 44px minmax(190px, 230px) 44px;
@@ -1075,10 +1076,36 @@ button {
 }
 
 .analytics-period-fields input {
-  font-weight: 650;
-  min-height: 38px;
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  box-shadow: none;
+  color: var(--foreground);
+  font-size: var(--analytics-date-font-size);
+  font-weight: 500;
+  min-width: 0;
   text-align: center;
   width: 100%;
+}
+
+.analytics-period-fields input::-webkit-datetime-edit,
+.analytics-period-fields input::-webkit-datetime-edit-fields-wrapper,
+.analytics-period-fields input::-webkit-datetime-edit-day-field,
+.analytics-period-fields input::-webkit-datetime-edit-month-field,
+.analytics-period-fields input::-webkit-datetime-edit-year-field,
+.analytics-period-fields input::-webkit-datetime-edit-text {
+  padding: 0;
+  font: inherit;
+  font-size: var(--analytics-date-font-size);
+  font-weight: 500;
+}
+
+.analytics-period-fields input::-webkit-date-and-time-value {
+  font: inherit;
+  font-size: var(--analytics-date-font-size);
+  min-width: 0;
 }
 
 .analytics-period-fields .icon-button {
@@ -9081,11 +9108,32 @@ button.media-thumb {
     width: 100%;
   }
 
-  .analytics-period-controls,
-  .analytics-period-fields {
+  .analytics-period-controls {
     align-items: stretch;
     display: grid;
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .analytics-period-fields {
+    --analytics-date-font-size: 14px;
+    grid-template-columns: 44px minmax(0, 1fr) 44px;
+    width: 100%;
+  }
+
+  .analytics-period-fields.custom {
+    grid-template-columns: 44px minmax(0, 1fr) minmax(0, 1fr) 44px;
+    gap: 6px;
+  }
+
+  :root .analytics-period-fields input {
+    font-size: var(--analytics-date-font-size);
+    padding-inline: 2px;
+  }
+
+  .analytics-period-fields input::-webkit-calendar-picker-indicator {
+    margin: 0;
+    padding: 0;
+    width: 12px;
   }
 
   .analytics-period-controls button,
@@ -9264,6 +9312,11 @@ button.media-thumb {
     grid-column: 1 / -1;
     justify-content: flex-start;
   }
+}
+
+@media (max-width: 380px) {
+  .analytics-period-fields { --analytics-date-font-size: 12px; }
+  .analytics-period-fields.custom { gap: 4px; }
 }
 
 @media print {
@@ -11384,15 +11437,14 @@ dialog.sync-confirm-dialog { width: min(520px, calc(100vw - 24px)); max-width: c
 .auth-invitation-page button, .auth-invitation-page > a { justify-self: start; max-width: 100%; min-height: 44px; white-space: normal; }
 
 .billing-ledger { --text: var(--foreground); --surface: var(--paper-soft); --accent: var(--brand); --ledger-line: color-mix(in srgb, var(--foreground) 28%, var(--paper)); --ledger-band: color-mix(in srgb, var(--foreground) 5%, var(--paper)); --ledger-heading: color-mix(in srgb, var(--foreground) 10%, var(--paper)); min-width: 0; }
-.billing-ledger-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 18px 0 0; border: 1px solid var(--ledger-line); }
-.billing-ledger-tabs button { display: flex; justify-content: center; align-items: center; gap: 8px; min-height: 48px; padding: 10px; border: 0; border-radius: 0; border-bottom: 3px solid transparent; background: var(--surface); color: var(--text); font-weight: 600; min-width: 0; white-space: normal; }
-.billing-ledger-tabs button + button { border-left: 1px solid var(--ledger-line); }
+.billing-ledger-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 18px 0 12px; }
+.billing-ledger-tabs button { display: flex; flex-direction: row; justify-content: center; align-items: center; gap: 8px; height: 56px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--accent); font-size: 14px; font-weight: 600; min-width: 0; white-space: nowrap; }
 .billing-ledger-tabs button:hover:not([aria-selected="true"]) { background: var(--ledger-heading); }
-.billing-ledger-tabs button[aria-selected="true"] { color: #fff; border-bottom-color: #004c99; background: #0066cc; }
+.billing-ledger-tabs button[aria-selected="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 .billing-ledger-tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; position: relative; z-index: 1; }
 .billing-ledger-tabs button span { font-size: 12px; min-width: 24px; padding: 1px 5px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--text); }
-.billing-ledger-tabs button[aria-selected="true"] span { color: #fff; background: #0052a3; border-color: #80bfff; }
-.billing-ledger-filters { display: grid; grid-template-columns: minmax(180px, 1.5fr) repeat(3, minmax(130px, 1fr)); gap: 12px; align-items: end; padding: 14px 12px; background: var(--ledger-band); border: 1px solid var(--ledger-line); border-top: 0; }
+.billing-ledger-tabs button[aria-selected="true"] span { border-color: var(--accent); }
+.billing-ledger-filters { display: grid; grid-template-columns: minmax(180px, 1.5fr) repeat(3, minmax(130px, 1fr)); gap: 12px; align-items: end; padding: 14px 12px; background: var(--ledger-band); border: 1px solid var(--ledger-line); }
 .billing-ledger-filters label { display: grid; gap: 6px; min-width: 0; font-size: 12px; font-weight: 600; color: var(--text); }
 .billing-ledger-filters .billing-ledger-sort { display: none; }
 .billing-ledger-filters input, .billing-ledger-filters select { min-width: 0; width: 100%; min-height: 44px; font-size: 14px; font-weight: 400; color: var(--text); }
@@ -11450,8 +11502,10 @@ dialog.sync-confirm-dialog { width: min(520px, calc(100vw - 24px)); max-width: c
   .billing-ledger-detail, .billing-ledger-detail > td { display: block; width: 100%; }
   .billing-ledger-detail .billing-row { grid-template-columns: minmax(0, 1fr); padding: 12px 8px; }
 }
+@media (max-width: 700px) {
+  .billing-ledger-tabs { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+}
 @media (max-width: 480px) {
-  .billing-ledger-tabs button { flex-direction: column; font-size: 12px; }
   .billing-ledger-filters { grid-template-columns: minmax(0, 1fr); }
   .billing-ledger-filters input, .billing-ledger-filters select { font-size: 16px; }
 }
