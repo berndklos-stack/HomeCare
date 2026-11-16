@@ -5,6 +5,7 @@ import { Download, FileText, ImageIcon, X } from "lucide-react";
 import Image from "next/image";
 import { useAuthenticatedMedia } from "@/lib/useAuthenticatedMedia";
 import { apiFetch } from "@/lib/apiClient";
+import { loadCustomerDownloads } from "@/lib/customerFileDownloads";
 import { customerArchivePaths, safeArchiveName, uniqueCustomerFiles, type CustomerFile } from "@/lib/customerFiles";
 
 const limit = 100 * 1024 * 1024;
@@ -21,24 +22,6 @@ function FileThumbnail({ file }: { file: CustomerFile }) {
   return <span className="customer-file-thumbnail-slot" ref={slot}>{media.url ? <Image unoptimized loading="eager" src={media.url} alt={file.name} width={48} height={48} className="customer-file-thumbnail" /> : <ImageIcon size={20} />}</span>;
 }
 
-async function readDownload(file: CustomerFile, signal: AbortSignal, remaining: number) {
-  const response = file.source.startsWith("/api/") ? await apiFetch(file.source, { signal, cache: "no-store" }) : await fetch(file.source, { signal });
-  if (!response.ok) throw Error(`„${file.name}“ konnte nicht geladen werden (${response.status}).`);
-  if (Number(response.headers.get("Content-Length")) > remaining) throw Error("Die Auswahl überschreitet 100 MB. Bitte weniger Dateien auswählen.");
-  const reader = response.body?.getReader();
-  if (!reader) throw Error(`„${file.name}“ konnte nicht gelesen werden.`);
-  const chunks: Uint8Array[] = []; let length = 0;
-  try {
-    while (true) { const next = await reader.read(); if (next.done) break; length += next.value.length;
-      if (length > remaining) throw Error("Die Auswahl überschreitet 100 MB. Bitte weniger Dateien auswählen.");
-      chunks.push(next.value);
-    }
-  } finally { await reader.cancel().catch(() => {}); reader.releaseLock(); }
-  const bytes = new Uint8Array(length); let offset = 0;
-  for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }
-  return bytes;
-}
-
 function saveDownload(blob: Blob, name: string) {
   const url = URL.createObjectURL(blob), link = document.createElement("a");
   link.href = url; link.download = name; document.body.appendChild(link); link.click(); link.remove();
@@ -50,6 +33,7 @@ export function CustomerFileOverview({ files: inputFiles, name, language = "de" 
   const copy = (de: string, sv: string, en: string) => language === "sv" ? sv : language === "en" ? en : de;
   const [selected, setSelected] = useState<string[]>([]), [category, setCategory] = useState("all"), [job, setJob] = useState("all");
   const [busy, setBusy] = useState(false), [notice, setNotice] = useState("");
+  const [progress, setProgress] = useState({ completed: 0, total: 0 });
   const controller = useRef<AbortController | null>(null);
   useEffect(() => () => controller.current?.abort(), []);
   const visible = files.filter(file => (category === "all" || file.category === category) && (job === "all" || file.jobId === job));
@@ -58,13 +42,12 @@ export function CustomerFileOverview({ files: inputFiles, name, language = "de" 
   async function download(chosen: CustomerFile[], archive: boolean) {
     if (!chosen.length || busy || controller.current) return;
     const active = new AbortController(); controller.current = active; setBusy(true); setNotice("");
+    setProgress({ completed: 0, total: chosen.length });
     try {
       if (chosen.length > 500 || chosen.reduce((sum, file) => sum + (file.size || 0), 0) > limit) throw Error("Bitte höchstens 500 Dateien und 100 MB pro Download auswählen.");
-      const entries: Record<string, Uint8Array> = Object.create(null), paths = customerArchivePaths(chosen); let total = 0;
-      for (let index = 0; index < chosen.length; index++) {
-        setNotice(`${index + 1} / ${chosen.length}`);
-        const bytes = await readDownload(chosen[index], active.signal, limit - total); total += bytes.length; entries[paths[index]] = bytes;
-      }
+      const entries: Record<string, Uint8Array> = Object.create(null), paths = customerArchivePaths(chosen);
+      const downloads = await loadCustomerDownloads(chosen, active, (file, signal) => file.source.startsWith("/api/") ? apiFetch(file.source, { signal, cache: "no-store" }) : fetch(file.source, { signal }), completed => setProgress({ completed, total: chosen.length }));
+      downloads.forEach((bytes, index) => { entries[paths[index]] = bytes; });
       if (active.signal.aborted) return;
       if (archive) {
         const { zipSync } = await import("fflate");
@@ -73,7 +56,7 @@ export function CustomerFileOverview({ files: inputFiles, name, language = "de" 
         if (!active.signal.aborted) saveDownload(new Blob([new Uint8Array(bytes)], { type: "application/zip" }), `${safeArchiveName(name)}.zip`);
       } else saveDownload(new Blob([new Uint8Array(Object.values(entries)[0])]), safeArchiveName(chosen[0].name));
       setNotice(copy("Download vorbereitet.", "Nedladdningen är klar.", "Download ready."));
-    } catch (error) { setNotice(active.signal.aborted ? copy("Download abgebrochen.", "Nedladdningen avbröts.", "Download cancelled.") : error instanceof Error ? error.message : "Download fehlgeschlagen."); }
+    } catch (error) { setNotice(error instanceof Error && error.name === "AbortError" ? copy("Download abgebrochen.", "Nedladdningen avbröts.", "Download cancelled.") : error instanceof Error ? error.message : copy("Download fehlgeschlagen.", "Nedladdningen misslyckades.", "Download failed.")); }
     finally { setBusy(false); controller.current = null; }
   }
   return <section className="customer-file-overview" aria-label={copy("Bilder und Dokumente", "Bilder och dokument", "Images and documents")}>
@@ -87,7 +70,8 @@ export function CustomerFileOverview({ files: inputFiles, name, language = "de" 
       <label><span>{copy("Auftrag / Objekt", "Uppdrag / objekt", "Job / object")}</span><select aria-label={copy("Auftrag / Objekt", "Uppdrag / objekt", "Job / object")} value={job} disabled={busy} onChange={event => setJob(event.target.value)}><option value="all">{copy("Alle", "Alla", "All")}</option>{groups.map(([id, title]) => <option key={id} value={id}>{title}</option>)}</select></label>
       <label className="checkbox-line"><input type="checkbox" disabled={busy || !available.length} checked={available.length > 0 && available.every(file => selected.includes(file.id))} onChange={event => setSelected(current => event.target.checked ? [...new Set([...current, ...available.map(file => file.id)])] : current.filter(id => !available.some(file => file.id === id)))} /><span>{copy("Alle angezeigten auswählen", "Välj alla visade", "Select all shown")}</span></label>
     </div>
-    {notice && <p role="status">{notice}</p>}
+    {busy && <div className="customer-download-progress" role="status"><span>{copy("Download wird vorbereitet", "Nedladdningen förbereds", "Preparing download")} · {progress.completed} / {progress.total} {copy("Dateien geladen", "filer hämtade", "files loaded")}</span><progress aria-label={copy("Dateien geladen", "Filer hämtade", "Files loaded")} value={progress.completed} max={progress.total} /></div>}
+    {!busy && notice && <p role="status">{notice}</p>}
     {!visible.length && <p>{copy("Keine Dateien vorhanden.", "Inga filer finns.", "No files available.")}</p>}
     {visible.some(file => file.unavailable) && <p role="status">{visible.filter(file => file.unavailable).length} {copy("Originaldateien nicht verfügbar; vom Download ausgeschlossen.", "originalfiler saknas; ingår inte i nedladdningen.", "original files unavailable; excluded from download.")}</p>}
     {(["report", "image", "document"] as const).map(type => {

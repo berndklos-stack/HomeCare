@@ -1,10 +1,11 @@
 export const appVersion = {
-  version: "1.428.33",
+  version: "1.428.34",
   releaseDate: "2026-11-16",
   label: "WorkCore",
 };
 
 export const versionHistory = [
+  { version: "1.428.34", date: "2026-11-16", changes: ["Sammeldownloads mit drei parallelen Abrufen und sichtbarem Fortschritt beschleunigen", "Gemeinsames Groessenlimit, Abbruch und Zeitlimit je Datei erhalten unvollstaendige ZIP-Dateien nicht als Ergebnis", "Portal-Kopfzeile bei langen Dateilisten ausreichend Platz geben, damit Downloadbuttons erreichbar bleiben"] },
   { version: "1.428.33", date: "2026-11-16", changes: ["Dateikopien anhand ihres Inhalts zusammenfassen und alte Originaldateien ueber berechtigte Medienreferenzen wieder laden", "Einsatzberichte, Bilder und Dokumente als getrennte, nach Datum sortierte Gruppen mit kompakten Zeilen und ZIP-Download", "Kunden auf einer eigenen Seite statt im Popup bearbeiten und Preis-Autospeichern gegen veraltete Feldspeicherungen absichern"] },
   { version: "1.428.32", date: "2026-11-16", changes: ["Kundenberichte mit Vorschau und Anhaengen direkt aus Leistungsbuchungen vorbereiten", "Leistungen und eigene Kundenpreise zuordnen; neue Stammdatenleistung direkt beim Kunden anlegen", "Bilder und Dokumente nach Auftrag gruppiert beim Kunden und im Kundenportal einzeln oder als ZIP herunterladen", "Stornierte Serien nicht erneut planen und widerspruechliche Kilometerstaende nicht als nachtragbare Luecke anzeigen"] },
   { version: "1.428.31", date: "2026-11-01", changes: ["Aktive und archivierte Konten per Zeilenklick oder Tastatur in eigener Bearbeitungsansicht statt Popup oeffnen", "Feste Aktionsspalten und Zurueck-Navigation bei unveraenderten Kontenregeln; 24 Browserpruefungen und isolierter Produktionsbuild erfolgreich"] },

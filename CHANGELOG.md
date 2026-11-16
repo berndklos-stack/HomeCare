@@ -4,6 +4,13 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.428.34 - 2026-11-16
+
+- Sammeldownloads laden bis zu drei Originaldateien gleichzeitig statt alle Dateien nacheinander. Dateinamen und Zuordnung im ZIP bleiben erhalten.
+- Fortschrittsbalken zeigt die Zahl vollstaendig geladener Dateien. Gemeinsames 100-MB-Limit auch ohne Groessenangaben, Abbruch und Zeitlimit je Datei; Fehler stoppen die Vorbereitung ohne unvollstaendiges ZIP.
+- Portal-Kopfzeile belegt auch bei langen Dateilisten ihre volle Hoehe und ueberlagert die Downloadbuttons nicht mehr.
+- 31 Download- und Kundenregressionstests einschliesslich Chrome und Safari auf Mobil- und Desktopgroesse sowie Produktionsbuild erfolgreich. Keine Datenbankmigration.
+
 ## 1.428.33 - 2026-11-16
 
 - Dateikopien anhand des Originalinhalts statt nur des Speicherpfades pro Auftrag zusammenfassen. Unterschiedliche Dateien mit gleichem Namen bleiben erhalten; keine Originale oder Datensaetze werden geloescht.

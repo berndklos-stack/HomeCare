@@ -73,18 +73,30 @@ for (const width of [390, 1440]) test(`Kundenportal zeigt freigegebene Downloads
   });
   await page.route("**/api/auth/context", route => route.fulfill({ json: { portalAccess: [{ tenantId: "T" }] } }));
   await page.route("**/api/portal/context", route => route.fulfill({ json: { customer: { id: "C", name: "Portalkunde" }, tenant: { id: "T", name: "Testfirma" }, objects: [], jobs: [], reports: [], messages: [], billing: [] } }));
-  await page.route("**/api/portal/files**", route => {
+  let activeDownloads = 0, maximumDownloads = 0;
+  await page.route("**/api/portal/files**", async route => {
     const id = new URL(route.request().url()).searchParams.get("id");
-    return id ? route.fulfill({ contentType: "application/pdf", body: "%PDF-1.4 portal" }) : route.fulfill({ json: { files: [{ id: "F", name: "Freigegebener Plan.pdf", category: "document", jobId: "J", jobTitle: "Montage", source: "/api/portal/files?id=F" }] } });
+    if (!id) return route.fulfill({ json: { files: Array.from({ length: 12 }, (_, index) => ({ id: `F${index}`, name: index ? `Plan ${index}.pdf` : "Freigegebener Plan.pdf", category: "document", jobId: "J", jobTitle: "Montage", source: `/api/portal/files?id=F${index}` })) } });
+    activeDownloads++;
+    maximumDownloads = Math.max(maximumDownloads, activeDownloads);
+    await new Promise(resolve => setTimeout(resolve, 150));
+    activeDownloads--;
+    return route.fulfill({ contentType: "application/pdf", body: `%PDF-1.4 portal ${id}` });
   });
   await page.goto("/portal");
   const files = page.getByRole("region", { name: "Bilder und Dokumente", exact: true });
   await expect(files.getByText("Freigegebener Plan.pdf", { exact: true })).toBeVisible({ timeout: 20000 });
+  const downloadButton = files.getByRole("button", { name: "Alle angezeigten als ZIP", exact: true });
   const downloaded = page.waitForEvent("download");
-  await files.getByRole("button", { name: "Alle angezeigten als ZIP", exact: true }).click();
+  await downloadButton.click();
+  await expect(files.getByRole("progressbar", { name: "Dateien geladen", exact: true })).toBeVisible();
+  await page.screenshot({ path: info.outputPath("portal-download-progress.png") });
   const result = await downloaded;
   expect(result.suggestedFilename()).toBe("Portalkunde.zip");
-    expect(Object.keys(unzipSync(readFileSync((await result.path())!)))).toEqual(["Dokumente/Montage-J/Freigegebener Plan.pdf"]);
+  const archive = unzipSync(readFileSync((await result.path())!));
+  expect(Object.keys(archive)).toHaveLength(12);
+  expect(new TextDecoder().decode(archive["Dokumente/Montage-J/Freigegebener Plan.pdf"])).toBe("%PDF-1.4 portal F0");
+  expect(maximumDownloads).toBe(3);
   await page.screenshot({ path: info.outputPath("portal-downloads.png") });
   expect(await files.evaluate(element => [element, ...element.querySelectorAll("*")].filter(item => item.scrollWidth > item.clientWidth + 1).map(item => ({ tag: item.tagName, class: item.className, width: item.clientWidth, scroll: item.scrollWidth })))).toEqual([]);
 });
