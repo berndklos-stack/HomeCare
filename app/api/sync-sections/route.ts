@@ -1617,8 +1617,22 @@ async function loadResourceMediaRows(supabase: NonNullable<ReturnType<typeof get
   return (data ?? []) as MediaRow[];
 }
 
+type CustomerServiceConditionRow = { id: string; customer_id: string; service_id: string; unit_price: number | null; currency: string | null; revision: number; deleted_at: string | null; updated_at: string };
+
+async function loadCustomerConditionRows(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
+  const rows: CustomerServiceConditionRow[] = [];
+  for (let offset = 0; ; offset += 500) {
+    const result = await supabase.from("homecare_customer_service_conditions")
+      .select("id,customer_id,service_id,unit_price,currency,revision,deleted_at,updated_at").order("id").range(offset, offset + 499);
+    if (result.error) throw new Error(result.error.message);
+    rows.push(...(result.data ?? []) as CustomerServiceConditionRow[]);
+    if ((result.data?.length ?? 0) < 500) break;
+  }
+  return rows;
+}
+
 async function loadCustomersSection(supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>) {
-  const [{ data, error }, { data: contactData, error: contactError }, objectRows] = await Promise.all([
+  const [{ data, error }, { data: contactData, error: contactError }, objectRows, conditionData] = await Promise.all([
     supabase
       .from("homecare_customers")
       .select("id, personal_number, company_name, name, address, billing_address, billing_address_mode, language, portal_login_email, portal_status, balance, notes, report_mail_body, weekly_report_mail_body, offer_mail_body, order_confirmation_mail_body, work_time_visibility, billable, archived, portal_login_history, revision, deleted_at, created_at, updated_at")
@@ -1628,6 +1642,7 @@ async function loadCustomersSection(supabase: NonNullable<ReturnType<typeof getS
       .select("id, customer_id, name, role, email, phone, phone2, notes, is_primary, revision, deleted_at, created_at, updated_at")
       .order("created_at", { ascending: true }),
     loadObjectsRows(supabase).catch(() => []),
+    loadCustomerConditionRows(supabase),
   ]);
   if (error) throw new Error(error.message);
   if (contactError) throw new Error(contactError.message);
@@ -1638,8 +1653,15 @@ async function loadCustomersSection(supabase: NonNullable<ReturnType<typeof getS
     updatedAt: maxUpdatedAt([
       ...customerRows.map((row) => row.updated_at),
       ...contactRows.map((row) => row.updated_at),
+      ...(conditionData ?? []).map((row) => row.updated_at),
     ]),
-    value: customerRows.filter((row) => !row.deleted_at).map((row) => rowToCustomer(row, objectRows, contactRows)),
+    value: customerRows.filter((row) => !row.deleted_at).map((row) => ({
+      ...rowToCustomer(row, objectRows, contactRows),
+      serviceConditions: (conditionData ?? []).filter((item) => item.customer_id === row.id && !item.deleted_at).map((item) => ({
+        id: item.id, serviceId: item.service_id, unitPrice: item.unit_price === null ? "" : String(item.unit_price),
+        currency: item.currency ?? "", revision: item.revision, updatedAt: item.updated_at,
+      })),
+    })),
   };
 }
 

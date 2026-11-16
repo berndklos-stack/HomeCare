@@ -6,11 +6,12 @@ import { billingDraftError, billingDraftTotals, billingDraftLineNet, type Billin
 import { BillingMasterDataDialog, type BillingCustomerInput, type BillingServiceInput, type BillingCreateResult } from "./BillingMasterDataDialog";
 import { BillingArticleDialog } from "./BillingArticleDialog";
 import { TripDialog } from "./TripDialog";
+import { customerServicePrice, type CustomerServiceCondition } from "@/lib/customerServiceConditions";
 
 type Choice = { id: string; name: string };
 export type BillingArticle = { number: string; name: string; kind: "Leistung" | "Material"; unit: string; price: string; currency: string; taxRate?: string; accountingAccount?: string };
 
-export function BillingDraftEditor({ initial, number, language, customers, objects, defaultCurrency, articles = [], onCreateCustomer, onCreateService, onPreview, onSave, onClose }: {
+export function BillingDraftEditor({ initial, number, language, customers, objects, defaultCurrency, articles = [], customerConditions = {}, onCreateCustomer, onCreateService, onPreview, onSave, onClose }: {
   initial: BillingDraftEdit;
   number: string;
   language: "de" | "sv" | "en";
@@ -18,6 +19,7 @@ export function BillingDraftEditor({ initial, number, language, customers, objec
   customers: Choice[];
   objects: (Choice & { ownerCustomerId?: string })[];
   articles?: BillingArticle[];
+  customerConditions?: Record<string, CustomerServiceCondition[]>;
   onCreateCustomer?: (input: BillingCustomerInput) => BillingCreateResult<Choice>;
   onCreateService?: (input: BillingServiceInput) => BillingCreateResult<BillingArticle>;
   onSave: (value: BillingDraftEdit) => string | null;
@@ -34,6 +36,9 @@ export function BillingDraftEditor({ initial, number, language, customers, objec
   const update = <K extends keyof BillingDraftEdit>(key: K, value: BillingDraftEdit[K]) => setDraft(current => ({ ...current, [key]: value }));
   const updateLine = (id: string, patch: Partial<BillingDraftLine>) => setDraft(current => ({ ...current, lines: current.lines.map(line => line.id === id ? { ...line, ...patch } : line) }));
   const compatibleObjects = objects.filter(object => !object.ownerCustomerId || object.ownerCustomerId === draft.customerId);
+  const pricedArticles = articles.map(article => article.kind === "Leistung"
+    ? { ...article, ...customerServicePrice({ ...article, id: article.number }, customerConditions[draft.customerId]) }
+    : article);
   const { net, tax } = billingDraftTotals(draft.lines);
   const currency = draft.lines[0]?.currency || defaultCurrency || "SEK";
   const money = (value: number) => `${Number.isFinite(value) ? value.toLocaleString(language === "de" ? "de-DE" : language === "sv" ? "sv-SE" : "en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—"} ${currency}`;
@@ -99,7 +104,7 @@ export function BillingDraftEditor({ initial, number, language, customers, objec
       {error && <p role="alert">{error}</p>}
       <footer className="billing-editor-actions"><button type="button" className="outline-button" onClick={close}>{copy("Abbrechen", "Avbryt", "Cancel")}</button><button type="submit" value="preview" formNoValidate className="outline-button"><Eye size={18} />{copy("Vorschau", "Förhandsgranska", "Preview")}</button><button type="submit" className="primary-button"><Save size={18} />{copy("Entwurf speichern", "Spara utkast", "Save draft")}</button></footer>
     </form>
-    {pickingLine && <BillingArticleDialog articles={articles} currency={currency} language={language} initialNumber={draft.lines.find(line => line.id === pickingLine)?.articleNumber || ""} onNumberSelect={articleNumber => { updateLine(pickingLine, { articleNumber }); setPickingLine(null); }} onClose={() => setPickingLine(null)} onSelect={article => { selectArticle(pickingLine, article); setPickingLine(null); }} onCreate={onCreateService ? () => { setCreating({ kind: "service", lineId: pickingLine }); setPickingLine(null); } : undefined} />}
+    {pickingLine && <BillingArticleDialog articles={pricedArticles} currency={currency} language={language} initialNumber={draft.lines.find(line => line.id === pickingLine)?.articleNumber || ""} onNumberSelect={articleNumber => { updateLine(pickingLine, { articleNumber }); setPickingLine(null); }} onClose={() => setPickingLine(null)} onSelect={article => { selectArticle(pickingLine, article); setPickingLine(null); }} onCreate={onCreateService ? () => { setCreating({ kind: "service", lineId: pickingLine }); setPickingLine(null); } : undefined} />}
     {creating && <BillingMasterDataDialog kind={creating.kind} language={language} currency={currency} initialName={creating.kind === "service" ? draft.lines.find(line => line.id === creating.lineId)?.name : ""} onClose={() => setCreating(null)} onCustomer={input => {
       if (!onCreateCustomer) return copy("Anlage nicht verfügbar.", "Kan inte skapa.", "Creation unavailable.");
       const result = onCreateCustomer(input);

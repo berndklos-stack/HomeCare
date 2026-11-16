@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Building2, FileText, LogIn, LogOut, MessageSquare } from "lucide-react";
 import { activateTenant, activeTenantStorageKey, apiFetch } from "@/lib/apiClient";
 import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
+import { PortalFileOverview } from "@/components/PortalFileOverview";
 
 type PortalData = {
   billing: Array<{ due_date?: string; invoice_number?: string; invoice_status?: string; label: string }>;
@@ -100,6 +101,7 @@ export default function PortalPage() {
     <section className="workspace portal-workspace">
       <header className="topbar portal-topbar"><div><p>Kundenportal</p><h1>{data.tenant.name}</h1><span>{data.customer.name}</span></div><button className="ghost-button" onClick={() => void signOut()} type="button"><LogOut size={16} />Abmelden</button></header>
       <section className="layout full"><div className="main-panel portal-grid">
+        <section className="panel portal-wide"><PortalFileOverview name={data.customer.name} /></section>
         <section className="panel"><div className="panel-title"><div><p>Objekte</p><h2>Deine Standorte</h2></div></div><div className="table-list">{data.objects.map((item) => <article key={item.id}><div><strong>{item.name}</strong><span>{item.address || "Keine Adresse"}</span></div></article>)}</div></section>
         <section className="panel"><div className="panel-title"><div><p>Aufträge</p><h2>Aktueller Stand</h2></div></div><div className="table-list">{data.jobs.map((item) => <article key={item.id}><div><strong>{item.title}</strong><span>{item.status} · {item.due_date || "ohne Termin"}</span></div></article>)}</div></section>
         <section className="panel"><div className="panel-title"><div><p>Dokumentation</p><h2>Freigegebene Berichte</h2></div></div><div className="table-list">{data.reports.map((item) => <article key={item.id}><FileText size={17} /><div><strong>{item.title}</strong><span>{item.report_date || ""}</span><small>{item.summary || ""}</small></div></article>)}</div></section>

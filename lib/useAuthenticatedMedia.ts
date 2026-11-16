@@ -5,7 +5,7 @@ import { apiFetch } from "@/lib/apiClient";
 
 export function useAuthenticatedMedia(source: string) {
   const [resolved, setResolved] = useState<{ source: string; url: string; failed: boolean } | null>(null);
-  const requiresAuth = /^\/api\/(?:private-media|media)\?/.test(source);
+  const requiresAuth = /^\/api\/(?:private-media|media|portal\/files)\?/.test(source);
 
   useEffect(() => {
     if (!requiresAuth) return;

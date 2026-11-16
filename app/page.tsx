@@ -106,7 +106,11 @@ import {
 import { type CSSProperties, type DragEvent, type MouseEvent, type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { appVersion, versionHistory } from "@/lib/appVersion";
 import { prepareCompanyLogoFile } from "@/lib/companyLogoUpload";
-import { sortTripChronology, latestCompletedTripForDate, maximumTripEndForDate, localTripDate, localTripTime, tripStartAt, tripNeighbors, tripMileageGaps, tripChronologyWarnings, tripOdometerAfterAcknowledgement } from "@/lib/tripChronology";
+import { mergeCustomerConditionEdits, validCustomerServiceCondition, type CustomerServiceCondition } from "@/lib/customerServiceConditions";
+import { CustomerServiceConditionsEditor } from "@/components/CustomerServiceConditionsEditor";
+import { CustomerFileOverview } from "@/components/CustomerFileOverview";
+import { collectCustomerFiles, type CustomerFile } from "@/lib/customerFiles";
+import { sortTripChronology, latestCompletedTripForDate, maximumTripEndForDate, localTripDate, localTripTime, tripStartAt, tripNeighbors, tripMileageTimeline, tripChronologyWarnings, tripOdometerAfterAcknowledgement } from "@/lib/tripChronology";
 import { apiFetch, apiRequestHeaders, getActiveTenantId, tenantScopedStorageKey } from "@/lib/apiClient";
 import { useAuthenticatedMedia } from "@/lib/useAuthenticatedMedia";
 import { defaultAppBranding, resolveAppBranding } from "@/lib/branding";
@@ -281,6 +285,7 @@ type CustomerRecord = {
   billable?: boolean;
   archived?: boolean;
   contacts?: CustomerContactRecord[];
+  serviceConditions?: CustomerServiceCondition[];
   deletedAt?: string;
   revision?: number;
   updatedAt?: string;
@@ -1314,6 +1319,7 @@ type JobQuickMasterDataInput = {
 };
 
 type CustomerFormState = {
+  serviceConditions?: CustomerServiceCondition[];
   personalNumber: string;
   createdAt: string;
   company: string;
@@ -2262,6 +2268,8 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Bericht noch nicht gefunden", sv: "Rapporten hittades inte ännu", en: "Report not found yet" },
   { de: "Bericht entsperren", sv: "Lås upp rapport", en: "Unlock report" },
   { de: "Bericht senden", sv: "Skicka rapport", en: "Send report" },
+  { de: "Bericht vorbereiten", sv: "Förbered rapport", en: "Prepare report" },
+  { de: "Speichern und Bericht vorbereiten", sv: "Spara och förbered rapport", en: "Save and prepare report" },
   { de: "Bericht wurde erzeugt", sv: "Rapporten skapades", en: "Report was created" },
   { de: "Bericht nachbearbeiten", sv: "Efterredigera rapport", en: "Edit report afterwards" },
   { de: "Bericht konnte nicht entsperrt werden.", sv: "Rapporten kunde inte låsas upp.", en: "Report could not be unlocked." },
@@ -2594,6 +2602,8 @@ const appFieldTranslations: Array<{ de: string; en: string; sv: string }> = [
   { de: "Standardfahrt", sv: "Standardresa", en: "Standard trip" },
   { de: "Als Standardfahrt speichern", sv: "Spara som standardresa", en: "Save as standard trip" },
   { de: "Offene Kilometerluecken", sv: "Kilometerluckor", en: "Mileage gaps" },
+  { de: "Widersprüchliche Kilometerstände", sv: "Motstridiga mätarställningar", en: "Conflicting odometer readings" },
+  { de: "Bitte Datum und Kilometerstände der vorhandenen Fahrten prüfen. Diese Bereiche sind keine nachtragbaren Lücken.", sv: "Kontrollera datum och mätarställningar för befintliga resor. Dessa intervall är inte kilometerluckor.", en: "Check dates and odometer readings of existing trips. These ranges are not mileage gaps to fill." },
   { de: "bis", sv: "till", en: "to" },
   { de: "Zweck / Anlass", sv: "Syfte / ärende", en: "Purpose / matter" },
   { de: "z.B. Diesel 42 l, Laden 18 kWh", sv: "t.ex. diesel 42 l, laddning 18 kWh", en: "e.g. diesel 42 l, charging 18 kWh" },
@@ -3987,7 +3997,7 @@ function reportAttachmentsLabel(report: ReportRecord) {
 
 function reportPhotos(report: ReportRecord) {
   const seenSources = new Set<string>();
-  return report.checklistResults.flatMap((item) => {
+  const photos = report.checklistResults.flatMap((item) => {
     const photos = Array.isArray(item.photos) ? item.photos : [];
     return photos
       .filter((photo) => fieldPhotoHasSource(photo))
@@ -3999,6 +4009,17 @@ function reportPhotos(report: ReportRecord) {
       })
       .map((photo) => ({ ...photo, taskTitle: item.title }));
   });
+  if (report.id.startsWith("CONSULTING-REPORT-")) {
+    for (const attachment of report.attachments ?? []) {
+      if (!attachment.type.startsWith("image/")) continue;
+      const source = attachment.storagePath || attachment.dataUrl || attachment.storageUrl;
+      if (!source || seenSources.has(source)) continue;
+      seenSources.add(source);
+      photos.push({ id: attachment.id, name: attachment.name, accepted: true, storagePath: attachment.storagePath,
+        previewUrl: attachment.dataUrl || attachment.storageUrl, taskTitle: report.title });
+    }
+  }
+  return photos;
 }
 
 function reportPhotoCount(report: ReportRecord) {
@@ -6575,12 +6596,14 @@ async function createReportCommunicationMessage(report: ReportRecord, object: Ob
     type: uploadedPdf?.contentType || "application/pdf",
   };
 
+  const messageId = `MSG-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   return {
-    attachments: [pdfAttachment, ...(report.attachments ?? [])],
+    attachments: [pdfAttachment, ...(report.attachments ?? []).map(attachment => report.id.startsWith("CONSULTING-REPORT-")
+      ? { ...attachment, id: `${messageId}:${attachment.id}`, revision: undefined } : attachment)],
     createdAt: now,
     customerId: customer?.id ?? object.ownerCustomerId ?? "",
     deliveryStatus: "gesendet",
-    id: `MSG-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    id: messageId,
     message: body.trim() || customerReportSendBody(customer, report),
     objectId: object.id,
     origin: "office",
@@ -7418,6 +7441,7 @@ function emptyCustomerForm(): CustomerFormState {
 
 function customerToForm(customer: CustomerRecord): CustomerFormState {
   return {
+    serviceConditions: customer.serviceConditions ?? [],
     personalNumber: normalizeReadableNumber(customer.personalNumber),
     createdAt: customer.createdAt || "",
     company: customer.company || "",
@@ -7458,6 +7482,7 @@ function formToCustomer(form: CustomerFormState, id: string, existingCustomer?: 
   return {
     id,
     personalNumber: normalizeReadableNumber(form.personalNumber) || normalizeReadableNumber(existingCustomer?.personalNumber) || generatedPersonalNumber || "001",
+    serviceConditions: form.serviceConditions ?? existingCustomer?.serviceConditions ?? [],
     createdAt,
     company: form.company.trim(),
     name: form.name.trim() || "Neuer Kunde",
@@ -8194,6 +8219,7 @@ function normalizeReportDate(value: string) {
 }
 
 function reportDedupeKey(report: ReportRecord) {
+  if (report.id.startsWith("CONSULTING-REPORT-")) return report.id;
   const reportType = report.id.startsWith("WEEK-") ? "week" : "day";
   return [
     reportType,
@@ -8529,7 +8555,7 @@ function isSeriesMaster(job: JobRecord) {
 }
 
 function openSeriesDates(master: JobRecord, reports: ReportRecord[]) {
-  if (!isSeriesMaster(master)) return [];
+  if (!isSeriesMaster(master) || master.status === "storniert") return [];
   if (master.schedule.frequency === "wöchentlich" && master.schedule.weekdays.length > 0) {
     return weeklySeriesDates(master, reports);
   }
@@ -8610,6 +8636,8 @@ function syncSeriesOccurrenceFromMaster(master: JobRecord, occurrence: JobRecord
   if (["erledigt", "abgerechnet", "storniert"].includes(occurrence.status)) {
     return occurrence.billable === master.billable ? occurrence : { ...occurrence, billable: master.billable };
   }
+
+  if (master.status === "storniert") return { ...occurrence, status: "storniert" as const };
 
   return {
     ...occurrence,
@@ -9197,6 +9225,15 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
           phone: primary?.phone ?? "",
           phone2: primary?.phone2 ?? "",
         };
+      }));
+      setAppUpdatedAt(updatedAt);
+      return;
+    }
+    if (mutation.entityType === "customer_service_condition") {
+      setCustomers((current) => current.map((customer) => customer.id !== mutation.resourceId ? customer : {
+        ...customer,
+        serviceConditions: deletedAt ? (customer.serviceConditions ?? []).filter(item => item.id !== mutation.entityId)
+          : (customer.serviceConditions ?? []).map(item => item.id === mutation.entityId ? { ...item, revision: Number.isFinite(revision) ? revision : item.revision, updatedAt } : item),
       }));
       setAppUpdatedAt(updatedAt);
       return;
@@ -10656,10 +10693,12 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
   }
 
   function saveCustomer() {
+    if (!(newCustomer.serviceConditions ?? []).every(validCustomerServiceCondition)) { setRecordNotice("Bitte die Kundenpreise prüfen."); return; }
     const id = editingCustomerId ?? createEntityId("CUS");
     const existingCustomer = customers.find((customer) => customer.id === editingCustomerId);
     const generatedPersonalNumber = createReadableNumber(customers.filter((customer) => customer !== existingCustomer).map((customer) => customer.personalNumber));
-    const saved = { ...formToCustomer(newCustomer, id, existingCustomer, generatedPersonalNumber), archived: existingCustomer?.archived };
+    const saved = { ...formToCustomer(newCustomer, id, existingCustomer, generatedPersonalNumber),
+      serviceConditions: existingCustomer ? existingCustomer.serviceConditions ?? [] : newCustomer.serviceConditions ?? [], archived: existingCustomer?.archived };
     const nextCustomers = editingCustomerId
       ? customers.map((customer) => (customer.id === editingCustomerId ? saved : customer))
       : [saved, ...customers];
@@ -10690,13 +10729,15 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
   }
 
   function autosaveCustomer(form: CustomerFormState) {
+    if (!(form.serviceConditions ?? []).every(validCustomerServiceCondition)) return;
     if (!editingCustomerId) return;
 
     const existingCustomer = customers.find((customer) => customer.id === editingCustomerId);
     if (!existingCustomer) return;
 
     const generatedPersonalNumber = createReadableNumber(customers.filter((customer) => customer !== existingCustomer).map((customer) => customer.personalNumber));
-    const saved = { ...formToCustomer(form, editingCustomerId, existingCustomer, generatedPersonalNumber), archived: existingCustomer.archived };
+    const saved = { ...formToCustomer(form, editingCustomerId, existingCustomer, generatedPersonalNumber),
+      serviceConditions: existingCustomer.serviceConditions ?? [], archived: existingCustomer.archived };
     const nextCustomers = customers.map((customer) => (customer.id === editingCustomerId ? saved : customer));
     const nextObjects = objects.map((object) => {
       if (saved.objects.includes(object.id)) {
@@ -10719,6 +10760,16 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
 
     persistCustomersRelational(nextCustomers);
     persistObjectsRelational(nextObjects);
+  }
+
+  function saveCustomerServiceConditions(before: CustomerServiceCondition[], next: CustomerServiceCondition[]) {
+    const current = customers.find(customer => customer.id === editingCustomerId);
+    if (!current) return "Kunde wurde nicht gefunden. Bitte erneut öffnen.";
+    try {
+      const serviceConditions = mergeCustomerConditionEdits(current.serviceConditions ?? [], before, next);
+      persistCustomersRelational(customers.map(customer => customer.id === current.id ? { ...customer, serviceConditions } : customer));
+      return null;
+    } catch (error) { return error instanceof Error ? error.message : "Kundenkonditionen konnten nicht gespeichert werden."; }
   }
 
   function saveOnboardingProgress(patch: Partial<OnboardingState>, companyPatch: Partial<CompanySettings> = {}) {
@@ -11086,6 +11137,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     ));
     persistJobsRelational(nextJobs);
     setRecordNotice(`Leistung zu "${job.title}" wurde erfasst.`);
+    return savedEntry;
   }
 
   function updateConsultingEntry(job: JobRecord, entryId: string, entry: Omit<ConsultingTimeEntry, "id" | "billingStatus">) {
@@ -11108,6 +11160,40 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     ));
     persistJobsRelational(nextJobs);
     setRecordNotice(`Leistung zu "${job.title}" wurde aktualisiert.`);
+    return { ...currentEntry, ...entry };
+  }
+
+  function prepareConsultingReport(job: JobRecord, entry: ConsultingTimeEntry) {
+    const object = objects.find((item) => item.id === job.objectId);
+    if (!object) {
+      setRecordNotice("Kundenbericht konnte nicht erstellt werden: Bitte dem Auftrag ein Projekt oder Objekt zuordnen.");
+      return;
+    }
+    const reportId = `CONSULTING-REPORT-${entry.id}`;
+    const customer = customers.find(item => item.id === object.ownerCustomerId || item.name === object.owner);
+    const showWorkTime = customer?.workTimeVisibility !== "hide";
+    const existing = reportsRef.current.find((item) => item.id === reportId && !item.deletedAt);
+    const report: ReportRecord = existing ?? {
+      id: reportId, jobId: job.id, objectId: object.id,
+      title: `Leistungsbericht - ${job.title}`, date: entry.date,
+      visibleToCustomer: false, summary: entry.description, internalNotes: "", customerComment: "",
+      media: [],
+      checklistResults: [{
+        id: `WORK-${entry.id}`, title: entry.description, description: "",
+        meta: [showWorkTime && entry.startTime && entry.endTime ? `${entry.startTime}–${entry.endTime}` : "", entry.travelKilometers ? `${entry.travelKilometers} km` : ""].filter(Boolean).join(" · "),
+        minutes: entry.minutes, showWorkTimeInReport: showWorkTime, completed: true, note: "", photos: [],
+      }],
+      attachments: (entry.attachments ?? []).map((file) => ({
+        id: `${reportId}:attachment:${file.id}`, name: file.name, type: file.contentType,
+        size: file.size, storagePath: file.storagePath, createdAt: new Date().toISOString(),
+      })),
+      updatedAt: new Date().toISOString(),
+    };
+    if (!existing) persistReportRelational(report);
+    sendReportToCustomer(report);
+    if (existing) setSendPreviewReportNotice(existing.sentAt
+      ? "Dieser Leistungsbericht wurde bereits gesendet und bleibt unverändert."
+      : "Der bereits vorbereitete Leistungsbericht wurde geöffnet. Seine bisherige Anhangsauswahl bleibt erhalten.");
   }
 
   function billConsultingEntries(job: JobRecord, selectedEntryIds: string[]) {
@@ -11869,7 +11955,9 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     const baseReports = reportsRef.current.length ? reportsRef.current : reports;
     const existingReport = baseReports.find((item) => item.id === report.id || reportDedupeKey(item) === reportDedupeKey(report));
     const protectedReport = existingReport ? mergeReportPair(existingReport, report) : report;
-    const stampedReport = { ...protectedReport, updatedAt: new Date().toISOString() };
+    const stampedReport = { ...protectedReport,
+      ...(report.id.startsWith("CONSULTING-REPORT-") && !existingReport?.sentAt ? { attachments: report.attachments ?? [] } : {}),
+      updatedAt: new Date().toISOString() };
     persistReportRelational(stampedReport);
   }
 
@@ -13261,7 +13349,9 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
     setSendPreviewReportNotice("");
     setRecordNotice(`Bericht "${preparedReport.title}" wird gesendet...`);
     const timestamp = new Date().toISOString();
-    const nextReport = { ...preparedReport, sentAt: preparedReport.sentAt ?? timestamp, updatedAt: new Date().toISOString() };
+    const nextReport = { ...preparedReport,
+      ...(preparedReport.id.startsWith("CONSULTING-REPORT-") ? { visibleToCustomer: true } : {}),
+      sentAt: preparedReport.sentAt ?? timestamp, updatedAt: new Date().toISOString() };
 
     try {
       await sendCustomerReportMail(nextReport, reportObject, reportJob, reportCustomer, sendPreviewReportBody, sendKey);
@@ -14048,6 +14138,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
                 onEdit={openEditJob}
                 onMoveToBilling={moveJobToBilling}
                 onAddConsultingEntry={addConsultingEntry}
+                onPrepareConsultingReport={prepareConsultingReport}
                 onUpdateConsultingEntry={updateConsultingEntry}
                 onBillConsultingEntries={billConsultingEntries}
                 onRestore={restoreJob}
@@ -14558,6 +14649,9 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
             )}
             {modal === "customer" && (
               <CustomerForm
+                services={services}
+                onCreateService={createBillingService}
+                files={editingCustomerId ? collectCustomerFiles(editingCustomerId, objects, jobs, reports, false, portalMessages) : []}
                 customer={newCustomer}
                 customerId={editingCustomerId ?? undefined}
                 language={language}
@@ -14565,6 +14659,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
                 objects={activeObjects}
                 isArchived={Boolean(editingCustomer?.archived)}
                 onAutoSave={editingCustomerId ? autosaveCustomer : undefined}
+                onSaveConditions={editingCustomerId ? saveCustomerServiceConditions : undefined}
                 onArchive={editingCustomer ? () => {
                   if (archiveCustomer(editingCustomer)) {
                     setEditingCustomerId(null);
@@ -16561,6 +16656,7 @@ function JobsView({
   onEdit,
   onMoveToBilling,
   onAddConsultingEntry,
+  onPrepareConsultingReport,
   onUpdateConsultingEntry,
   onBillConsultingEntries,
   onRestore,
@@ -16584,8 +16680,9 @@ function JobsView({
   onDownloadOrderConfirmation: (job: JobRecord) => Promise<void>;
   onEdit: (job: JobRecord) => void;
   onMoveToBilling: (job: JobRecord) => void;
-  onAddConsultingEntry: (job: JobRecord, entry: Omit<ConsultingTimeEntry, "id" | "billingStatus">) => void;
-  onUpdateConsultingEntry: (job: JobRecord, entryId: string, entry: Omit<ConsultingTimeEntry, "id" | "billingStatus">) => void;
+  onAddConsultingEntry: (job: JobRecord, entry: Omit<ConsultingTimeEntry, "id" | "billingStatus">) => ConsultingTimeEntry | undefined;
+  onUpdateConsultingEntry: (job: JobRecord, entryId: string, entry: Omit<ConsultingTimeEntry, "id" | "billingStatus">) => ConsultingTimeEntry | undefined;
+  onPrepareConsultingReport: (job: JobRecord, entry: ConsultingTimeEntry) => void;
   onBillConsultingEntries: (job: JobRecord, selectedEntryIds: string[]) => void;
   onRestore: (job: JobRecord) => void;
   onSendOrderConfirmation: (job: JobRecord) => void;
@@ -16767,7 +16864,7 @@ function JobsView({
     finally { setConsultingAttachmentBusy(false); }
   }
 
-  function saveConsultingEntry() {
+  function saveConsultingEntry(prepareReport = false) {
     const job = jobs.find((item) => item.id === consultingEntryJobId);
     if (!job || !consultingEntryDate || !consultingEntryTimeValid || !consultingEntryTravelValid || !consultingEntryDescription.trim()) return;
     const minutes = consultingEntryMinutesPreview;
@@ -16780,13 +16877,13 @@ function JobsView({
       attachments: consultingEntryAttachments,
       ...consultingEntryTravel,
     };
-    if (consultingEditingEntryId) {
-      onUpdateConsultingEntry(job, consultingEditingEntryId, entryData);
-    } else {
-      onAddConsultingEntry(job, entryData);
-    }
+    const savedEntry = consultingEditingEntryId
+      ? onUpdateConsultingEntry(job, consultingEditingEntryId, entryData)
+      : onAddConsultingEntry(job, entryData);
+    if (!savedEntry) return;
     setConsultingEditingEntryId("");
     setConsultingEntryJobId("");
+    if (prepareReport) onPrepareConsultingReport(job, savedEntry);
   }
 
   function renderJobRow(job: JobRecord) {
@@ -16895,6 +16992,8 @@ function JobsView({
                   <span>{(entry.minutes / 60).toLocaleString(language === "sv" ? "sv-SE" : "de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} h</span>
                   <span className="consulting-entry-description">{entry.description}{entry.travelKilometers && <small>{tt("Fahrtkosten")}: {entry.travelKilometers} km × {entry.travelRate} {job.consulting?.currency}/km · {formatMoney(consultingTravelAmount(entry), job.consulting?.currency || "SEK")}</small>}</span>
                   <Badge value={tt(entry.billingStatus === "offen" ? "offen" : "abgerechnet")} />
+                  <div className="consulting-entry-row-actions">
+                  <IconAction label={`${tt("Bericht vorbereiten")} ${entry.date}`} onClick={() => onPrepareConsultingReport(job, entry)}><FileText size={16} /></IconAction>
                   {entry.billingStatus === "offen" && (
                     <button
                       aria-label={`${tt("Leistung bearbeiten")} ${entry.date}`}
@@ -16903,12 +17002,10 @@ function JobsView({
                       onClick={() => openEditConsultingEntry(job, entry)}
                       type="button"
                     >
-                      <svg aria-hidden="true" className="consulting-entry-inline-edit-icon" viewBox="0 0 24 24">
-                        <path d="M12 20h9" />
-                        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
-                      </svg>
+                      <Pencil size={16} />
                     </button>
                   )}
+                  </div>
                   {(entry.attachments?.length || 0) > 0 && <div className="consulting-history-attachments"><ConsultingAttachments files={entry.attachments || []} language={language} /></div>}
                 </div>
               )) : <span className="muted-line">{tt("Noch keine Leistungen erfasst.")}</span>}
@@ -17077,7 +17174,8 @@ function JobsView({
             </div>
             <div className="modal-actions consulting-entry-actions">
               <button className="ghost-button" disabled={consultingAttachmentBusy} onClick={() => { setConsultingEditingEntryId(""); setConsultingEntryJobId(""); }} type="button">{tt("Abbrechen")}</button>
-              <button className="primary-button" disabled={consultingAttachmentBusy || !consultingEntryDate || !consultingEntryTimeValid || !consultingEntryTravelValid || !consultingEntryDescription.trim()} onClick={saveConsultingEntry} type="button">
+              <button className="ghost-button" disabled={consultingAttachmentBusy || !activeConsultingObject || !consultingEntryDate || !consultingEntryTimeValid || !consultingEntryTravelValid || !consultingEntryDescription.trim()} onClick={() => saveConsultingEntry(true)} type="button"><FileText size={16} />{tt("Speichern und Bericht vorbereiten")}</button>
+              <button className="primary-button" disabled={consultingAttachmentBusy || !consultingEntryDate || !consultingEntryTimeValid || !consultingEntryTravelValid || !consultingEntryDescription.trim()} onClick={() => saveConsultingEntry()} type="button">
                 <Check size={16} />
                 {tt(consultingEditingEntryId ? "Änderungen speichern" : "Leistung speichern")}
               </button>
@@ -18925,6 +19023,7 @@ function BillingView({
   </TripDialog>;
 
   if (newDraft) return <><BillingDraftEditor
+    customerConditions={Object.fromEntries(customers.map(customer => [customer.id, customer.serviceConditions ?? []]))}
     articles={articles}
     onCreateCustomer={onCreateCustomer}
     onCreateService={onCreateService}
@@ -18940,6 +19039,7 @@ function BillingView({
   />{invoicePreview}</>;
 
   if (editingInvoice) return <><BillingDraftEditor
+    customerConditions={Object.fromEntries(customers.map(customer => [customer.id, customer.serviceConditions ?? []]))}
     articles={articles}
     onCreateCustomer={onCreateCustomer}
     onCreateService={onCreateService}
@@ -20545,6 +20645,9 @@ function CustomerPortalView({
         </section>
 
         <section className="panel portal-wide">
+          <CustomerFileOverview files={collectCustomerFiles(customer.id, objects, jobs, reports, true, messages)} name={customer.name} />
+        </section>
+        <section className="panel portal-wide">
           <div className="panel-title">
             <div>
               <p>Objekte</p>
@@ -21151,6 +21254,7 @@ function MasterDataView({
   const selectedLogbookLanguage = language;
   const lt = (value: string) => uiTextWithOverrides(value, selectedLogbookLanguage, translationOverrides);
   const selectedResourceLogbook = resourceIsVehicle(selectedResource) ? sortVehicleLogbook(selectedResource.logbook) : [];
+  const logbookMileage = tripMileageTimeline(selectedResourceLogbook);
   const logbookEndLimit = maximumTripEndForDate(selectedResource?.logbook ?? [], logbookForm.date, selectedResource?.deletedLogbookEntryIds);
   const selectedResourceRegulation = resourceIsVehicle(selectedResource) ? drivingLogRegulationForCountry(selectedResource.taxCountry) : undefined;
   const selectedResourceNeedsOdometerCheck = resourceIsVehicle(selectedResource) ? needsCurrentMonthOdometerCheck(selectedResource) : false;
@@ -23606,10 +23710,19 @@ function MasterDataView({
                 <span><strong>{logbookStats.privateKm}</strong> {lt("km privat")}</span>
                 <span><strong>{logbookStats.privateTrips}</strong> {lt("Privatfahrten")}</span>
               </div>
-              {tripMileageGaps(selectedResourceLogbook).length > 0 && <section className="logbook-warning" aria-label={lt("Offene Kilometerluecken")}>
+              {logbookMileage.overlaps.length > 0 && <section className="logbook-warning" aria-label={lt("Widersprüchliche Kilometerstände")}>
+                <div className="logbook-warning-copy">
+                  <strong>{lt("Widersprüchliche Kilometerstände")}</strong>
+                  <span>{lt("Bitte Datum und Kilometerstände der vorhandenen Fahrten prüfen. Diese Bereiche sind keine nachtragbaren Lücken.")}</span>
+                  {logbookMileage.overlaps.map(({ previous, next }) => <span key={`${previous.id}-${next.id}`}>
+                    {previous.date}: {previous.startOdometer} → {previous.endOdometer} km · {next.date}: {next.startOdometer} → {next.endOdometer} km
+                  </span>)}
+                </div>
+              </section>}
+              {logbookMileage.gaps.length > 0 && <section className="logbook-warning" aria-label={lt("Offene Kilometerluecken")}>
                 <div className="logbook-warning-copy">
                   <strong>{lt("Offene Kilometerluecken")}</strong>
-                  {tripMileageGaps(selectedResourceLogbook).map((gap) => <span key={`${gap.previous.id}-${gap.next.id}`}>
+                  {logbookMileage.gaps.map((gap) => <span key={`${gap.previous.id}-${gap.next.id}`}>
                     {gap.previous.date} {localTripTime(gap.previous.startedAt)} {lt("bis")} {gap.next.date} {localTripTime(gap.next.startedAt)}: {gap.kilometers} km
                   </span>)}
                 </div>
@@ -25362,6 +25475,9 @@ function DocumentPreview({ item, language = "de" }: { item: MediaItem; language?
 }
 
 function CustomerForm({
+  services,
+  onCreateService,
+  files,
   customer,
   customerId,
   isArchived = false,
@@ -25371,11 +25487,15 @@ function CustomerForm({
   objects,
   onArchive,
   onAutoSave,
+  onSaveConditions,
   onDelete,
   onRestore,
   onSubmit,
   submitLabel,
 }: {
+  services: ServiceItem[];
+  onCreateService: (input: BillingServiceInput) => BillingCreateResult<BillingArticle>;
+  files: CustomerFile[];
   customer: CustomerFormState;
   customerId?: string;
   isArchived?: boolean;
@@ -25385,6 +25505,7 @@ function CustomerForm({
   objects: ObjectRecord[];
   onArchive?: () => void;
   onAutoSave?: (value: CustomerFormState) => void;
+  onSaveConditions?: (before: CustomerServiceCondition[], next: CustomerServiceCondition[]) => string | null;
   onDelete?: () => void;
   onRestore?: () => void;
   onSubmit: () => void;
@@ -25397,6 +25518,8 @@ function CustomerForm({
   const [portalInviteNotice, setPortalInviteNotice] = useState("");
   const [portalInviteSending, setPortalInviteSending] = useState(false);
   const customerFormRef = useRef(customer);
+  const conditionBaselineRef = useRef(customer.serviceConditions ?? []);
+  const [conditionNotice, setConditionNotice] = useState("");
 
   useEffect(() => {
     customerFormRef.current = customer;
@@ -25545,6 +25668,18 @@ function CustomerForm({
       </label>
       </PersonalBlock>
       <PersonalBlock id="billingPreference" title={tt("Abrechnung")} className="wide personal-form-block">
+      <CustomerServiceConditionsEditor conditions={customer.serviceConditions ?? []} services={services} language={language} onCreateService={onCreateService} onChange={serviceConditions => {
+        if (serviceConditions.every(validCustomerServiceCondition)) {
+          const error = onSaveConditions?.(conditionBaselineRef.current, serviceConditions);
+          if (error) { setConditionNotice(error); return; }
+          conditionBaselineRef.current = serviceConditions;
+          setConditionNotice("");
+        }
+        const next = { ...customer, serviceConditions };
+        customerFormRef.current = next;
+        setCustomer(next);
+      }} />
+      {conditionNotice && <p className="wide" role="alert">{conditionNotice}</p>}
       <section className="wide customer-preference-card">
         <div>
           <strong>{tt("Abrechnung")}</strong>
@@ -25559,6 +25694,9 @@ function CustomerForm({
           <span>{tt("Neue Aufträge in Abrechnung übernehmen")}</span>
         </label>
       </section>
+      </PersonalBlock>
+      <PersonalBlock id="customerFiles" title={tt("Bilder und Dokumente")} className="wide personal-form-block">
+        <CustomerFileOverview files={files} name={customer.name || customer.company || "Kunde"} language={language} />
       </PersonalBlock>
       <PersonalBlock id="portalAccess" title={tt("Portalzugang")} className="wide personal-form-block">
       <h3>{tt("Portalzugang")}</h3>

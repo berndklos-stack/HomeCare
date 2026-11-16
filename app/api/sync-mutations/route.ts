@@ -5,6 +5,8 @@ import { membershipAllows } from "@/lib/authModel";
 import { normalizeObjectDatePayload } from "@/lib/objectSync";
 import { normalizeReportTimestampPayload } from "@/lib/reportTimestamp";
 import { consultingTravelValid } from "@/lib/consultingTravel";
+import { validCustomerServiceCondition } from "@/lib/customerServiceConditions";
+import { removeUnreferencedPrivateMedia } from "@/lib/server/privateMediaAccess";
 import { requiredOperationsPermission, validateOperationsMutation } from "@/lib/operationsCommands";
 import { validateResourceType } from "@/lib/resourceTypes";
 import { hasUnfinishedProgressPhotos } from "@/lib/jobOperationsSync";
@@ -27,7 +29,7 @@ function validMutation(value: unknown): value is SyncMutation {
     mutation.id
     && mutation.entityId
     && mutation.resourceId
-    && ["resource_type", "operations", "accounting_account", "accounting_export", "communication_media", "customer", "customer_contact", "field_progress", "inventory_location", "invoice", "invoice_line", "job", "job_note", "job_time_entry", "material", "object", "object_media", "payment", "personnel", "portal_message", "portal_message_reply", "report", "report_media", "resource", "service", "service_package", "setting", "tenant_settings", "translation", "vehicle_media", "vehicle_position", "vehicle_trip"].includes(String(mutation.entityType))
+    && ["resource_type", "operations", "accounting_account", "accounting_export", "communication_media", "customer", "customer_contact", "customer_service_condition", "field_progress", "inventory_location", "invoice", "invoice_line", "job", "job_note", "job_time_entry", "material", "object", "object_media", "payment", "personnel", "portal_message", "portal_message_reply", "report", "report_media", "resource", "service", "service_package", "setting", "tenant_settings", "translation", "vehicle_media", "vehicle_position", "vehicle_trip"].includes(String(mutation.entityType))
     && ["create", "update", "delete", "restore"].includes(String(mutation.operation)),
   );
 }
@@ -73,8 +75,13 @@ export async function POST(request: Request) {
     } catch { return NextResponse.json({ error: "INVALID_RESOURCE_TYPE" }, { status: 400 }); }
   }
   if (mutation.entityType === "resource" && !membershipAllows(auth.membership, "resources.manage")) return NextResponse.json({ error: "PERMISSION_DENIED" }, { status: 403 });
-  if (["customer", "customer_contact"].includes(mutation.entityType) && !membershipAllows(auth.membership, "customers.manage")) {
+  if (["customer", "customer_contact", "customer_service_condition"].includes(mutation.entityType) && !membershipAllows(auth.membership, "customers.manage")) {
     return NextResponse.json({ error: "PERMISSION_DENIED" }, { status: 403 });
+  }
+  if (mutation.entityType === "customer_service_condition" &&
+    (!["create", "update", "delete"].includes(mutation.operation) ||
+      (mutation.operation !== "delete" && !validCustomerServiceCondition(mutation.payload)))) {
+    return NextResponse.json({ error: "Ungültige Kundenkondition." }, { status: 422 });
   }
   if (mutation.entityType === "object" && !membershipAllows(auth.membership, "objects.manage")) {
     return NextResponse.json({ error: "PERMISSION_DENIED" }, { status: 403 });
@@ -125,7 +132,7 @@ export async function POST(request: Request) {
     if (!previous) return NextResponse.json({ error: "Unfertige Foto-Uploads bleiben lokal erhalten. Bitte Foto-Upload abschließen; gespeicherte Fotos wurden nicht ersetzt." }, { status: 422 });
   }
 
-  const rpcName = mutation.entityType === "resource_type" ? "homecare_apply_resource_type_mutation" : mutation.entityType === "operations"
+  const rpcName = mutation.entityType === "customer_service_condition" ? "homecare_apply_customer_service_condition" : mutation.entityType === "resource_type" ? "homecare_apply_resource_type_mutation" : mutation.entityType === "operations"
     ? mutation.payload.kind === "receive_batch" ? "homecare_apply_purchase_receipt_batch" : "homecare_apply_operations_mutation" : ["customer", "customer_contact"].includes(mutation.entityType)
     ? "homecare_apply_customer_mutation"
     : ["object", "object_media"].includes(mutation.entityType)
@@ -176,8 +183,9 @@ export async function POST(request: Request) {
   if (result.status === "synced" && mutation.operation === "delete" && ["communication_media", "object_media", "report_media"].includes(mutation.entityType)) {
     const storagePath = typeof result.record?.storage_path === "string" ? result.record.storage_path : "";
     if (storagePath) {
-      const { error: storageError } = await supabase.storage.from(privateMediaBucket).remove([storagePath]);
-      if (storageError) {
+      try {
+        await removeUnreferencedPrivateMedia(supabase, auth.tenantId, storagePath);
+      } catch {
         return NextResponse.json({ error: "Das Medium wurde vorgemerkt, die private Datei konnte aber noch nicht gelöscht werden." }, { status: 503 });
       }
     }

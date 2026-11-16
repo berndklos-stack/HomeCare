@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { sortTripChronology, compareTripChronology, tripNeighbors, tripMileageGaps, tripChronologyWarnings, tripStartAt, localTripTime, type ChronologicalTrip } from "../lib/tripChronology";
+import { sortTripChronology, compareTripChronology, tripNeighbors, tripMileageGaps, tripMileageTimeline, tripChronologyWarnings, tripStartAt, localTripTime, type ChronologicalTrip } from "../lib/tripChronology";
 import { applyVehicleMutation, type VehicleMutationState, type VersionedVehicleTrip } from "../lib/vehicleSync";
 import { createSyncMutation } from "../lib/syncQueue";
 
@@ -8,6 +8,17 @@ const trip = (id: string, date: string, time: string, start: string, end: string
 });
 const previous = trip("A", "2026-10-01", "09:00", "202900", "202947");
 const next = trip("B", "2026-10-03", "10:00", "203132", "203200");
+
+test("Zurueckspringender Septemberstand erzeugt keine bereits abgedeckte Kilometerluecke", () => {
+  const entries = [trip("A", "2026-09-11", "", "202449", "202485"), trip("B", "2026-09-12", "", "202485", "202488"), trip("C", "2026-09-12", "", "202488", "202490"), trip("D", "2026-09-13", "16:32", "202473", "202476"), trip("E", "2026-09-13", "", "202490", "202526")];
+  const original = JSON.stringify(entries);
+  expect(tripMileageGaps(entries)).toEqual([]);
+  expect(tripMileageTimeline(entries).overlaps.map(item => item.next.id)).toEqual(["D"]);
+  const later = trip("LATER", "2026-09-14", "", "202530", "202540");
+  expect(tripMileageGaps([...entries, later])).toEqual([{ previous: entries[4], next: later, kilometers: 4 }]);
+  expect(tripChronologyWarnings(entries, trip("PENDING", "2026-09-13", "", "202476", "202483"))).toContain("Start-Kilometerstand liegt unter dem Endstand der vorherigen Fahrt (202490 km).");
+  expect(JSON.stringify(entries)).toBe(original);
+});
 
 test("2. September: lueckenlose Fahrten ohne Uhrzeit nach KM statt Kennung", () => {
   const before = trip("BEFORE", "2026-09-01", "", "202345", "202348");

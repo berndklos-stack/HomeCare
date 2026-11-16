@@ -2,6 +2,33 @@ import { test, expect } from "@playwright/test";
 import { defaultResourceTypes } from "../lib/resourceTypes";
 import { latestCompletedTripForDate, maximumTripEndForDate } from "../lib/tripChronology";
 
+for (const width of [390, 820]) test(`Widerspruechliche Septemberfahrt ist keine nachtragbare Luecke ${width}px`, async ({ page }, info) => {
+  await page.setViewportSize({ width, height: 1100 });
+  await page.addInitScript(() => {
+    localStorage.setItem("kolaretorp-field-progress", JSON.stringify({ fixture: {} }));
+    const base = { driverId: "PER-1", tripType: "Dienstfahrt", status: "abgeschlossen", startAddress: "Start", endAddress: "Ziel", purpose: "Test", visited: "", fuelOrCharge: "", notes: "", odometerPhotos: [] };
+    localStorage.setItem("kolaretorp-resources", JSON.stringify([{ id: "RES-1", type: "Fahrzeug", name: "Konfliktfahrzeug", identifier: "TEST", status: "aktiv", responsiblePersonId: "PER-1", location: "", notes: "", media: [], logbookYear: "2026", deletedLogbookEntryIds: [], logbook: [
+      { ...base, id: "PRIOR", date: "2026-09-12", startOdometer: "202485", endOdometer: "202490", kilometers: "5" },
+      { ...base, id: "BACKWARD", date: "2026-09-13", startedAt: "2026-09-13T14:32:00Z", startOdometer: "202473", endOdometer: "202476", kilometers: "3" },
+      { ...base, id: "LATER", date: "2026-09-13", startOdometer: "202490", endOdometer: "202526", kilometers: "36" },
+    ] }]));
+  });
+  await page.route("**/api/resource-types", route => route.fulfill({ json: { types: defaultResourceTypes.map(type => ({ ...type, revision: 1 })) } }));
+  await page.goto("/"); await expect(page.locator("main.app")).toHaveAttribute("data-ready", "true");
+  await page.getByTestId("nav-masterData").click();
+  await page.getByRole("button", { name: "Ressourcen", exact: true }).click();
+  await page.locator("article").filter({ hasText: "Konfliktfahrzeug" }).first().click();
+  const resource = page.locator(".resource-editor-modal, .resource-editor-workspace");
+  await resource.getByRole("button", { name: "Fahrtenbuch", exact: true }).click();
+  await expect(resource.getByLabel("Offene Kilometerluecken")).toHaveCount(0);
+  const warning = resource.getByRole("region", { name: "Widersprüchliche Kilometerstände", exact: true });
+  await expect(warning).toContainText("202473 → 202476 km");
+  await expect(warning.getByRole("button", { name: "Fahrt nachtragen", exact: true })).toHaveCount(0);
+  await expect(resource.locator('.logbook-table td[data-label="KM-Stand"]')).toHaveText(["202485 → 202490", "202473 → 202476", "202490 → 202526"]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await warning.screenshot({ path: info.outputPath(`trip-conflict-${width}.png`) });
+});
+
 for (const width of [390, 820]) test(`Septemberfahrten ohne Uhrzeit werden lueckenlos angezeigt ${width}px`, async ({ page }) => {
   await page.setViewportSize({ width, height: 1100 });
   await page.addInitScript(() => {

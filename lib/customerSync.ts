@@ -1,4 +1,5 @@
 import type { SyncMutation, SyncMutationOperation } from "@/lib/syncQueue";
+import type { CustomerServiceCondition } from "./customerServiceConditions";
 
 export type RevisionedCustomerContact = Record<string, unknown> & {
   customerId: string;
@@ -16,6 +17,7 @@ export type RevisionedCustomerContact = Record<string, unknown> & {
 export type RevisionedCustomer = Record<string, unknown> & {
   contact: string;
   contacts?: RevisionedCustomerContact[];
+  serviceConditions?: CustomerServiceCondition[];
   deletedAt?: string;
   email: string;
   id: string;
@@ -28,7 +30,7 @@ export type RevisionedCustomer = Record<string, unknown> & {
 
 export type PlannedCustomerMutation = {
   entityId: string;
-  entityType: "customer" | "customer_contact";
+  entityType: "customer" | "customer_contact" | "customer_service_condition";
   expectedRevision?: number;
   operation: SyncMutationOperation;
   payload: Record<string, unknown>;
@@ -38,6 +40,7 @@ export type PlannedCustomerMutation = {
 const customerTransientFields = new Set([
   "contact",
   "contacts",
+  "serviceConditions",
   "deletedAt",
   "email",
   "objects",
@@ -187,7 +190,23 @@ export function prepareCustomerMutations<T extends RevisionedCustomer>(
 
     const preparedContacts = prepareContactMutations(customer.id, currentContacts, nextContacts, now);
     mutations.push(...preparedContacts.mutations);
-    return { ...customer, contacts: preparedContacts.contacts, revision, updatedAt } as T;
+    const oldConditions = current?.serviceConditions ?? [];
+    const nextConditions = customer.serviceConditions ?? oldConditions;
+    const serviceConditions = nextConditions.map((condition) => {
+      const old = oldConditions.find((item) => item.id === condition.id);
+      const unitPrice = condition.unitPrice === "" ? "" : String(Number(condition.unitPrice.replace(",", ".")));
+      const oldPrice = !old || old.unitPrice === "" ? "" : String(Number(old.unitPrice.replace(",", ".")));
+      if (old && old.serviceId === condition.serviceId && oldPrice === unitPrice && old.currency === condition.currency) return old;
+      mutations.push({ entityId: condition.id, entityType: "customer_service_condition", resourceId: customer.id,
+        operation: old ? "update" : "create", expectedRevision: old ? old.revision ?? 1 : undefined,
+        payload: { serviceId: condition.serviceId, unitPrice, currency: condition.currency } });
+      return { ...condition, unitPrice, revision: (old?.revision ?? 0) + 1, updatedAt: now };
+    });
+    for (const old of oldConditions) if (!nextConditions.some((item) => item.id === old.id)) mutations.push({
+      entityId: old.id, entityType: "customer_service_condition", resourceId: customer.id,
+      operation: "delete", expectedRevision: old.revision ?? 1, payload: {},
+    });
+    return { ...customer, contacts: preparedContacts.contacts, serviceConditions, revision, updatedAt } as T;
   });
 
   currentCustomers.forEach((customer) => {
@@ -250,6 +269,17 @@ export function overlayPendingCustomerMutations<T extends RevisionedCustomer>(cu
       phone: primary?.phone ?? "",
       phone2: primary?.phone2 ?? "",
     });
+  });
+  pending(queue, "customer_service_condition").forEach((mutation) => {
+    const customer = byId.get(mutation.resourceId);
+    if (!customer) return;
+    const conditions = new Map((customer.serviceConditions ?? []).map((item) => [item.id, item]));
+    if (mutation.operation === "delete") conditions.delete(mutation.entityId);
+    else conditions.set(mutation.entityId, {
+      ...conditions.get(mutation.entityId), ...mutation.payload, id: mutation.entityId,
+      revision: (mutation.expectedRevision ?? 0) + 1, updatedAt: mutation.updatedAt,
+    } as CustomerServiceCondition);
+    byId.set(customer.id, { ...customer, serviceConditions: [...conditions.values()] });
   });
   return Array.from(byId.values());
 }

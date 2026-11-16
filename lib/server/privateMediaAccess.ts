@@ -1,4 +1,15 @@
 import { legacyObjectMediaReferencePath } from "@/lib/server/legacyObjectMediaPath";
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+export async function removeUnreferencedPrivateMedia(client: SupabaseClient, tenantId: string, storagePath: string) {
+  if (!storagePath.startsWith(`${tenantId}/`) || storagePath.includes("..")) throw new Error("Dateipfad gehört nicht zum Mandanten.");
+  const references = await client.from("homecare_media").select("id", { count: "exact", head: true })
+    .eq("tenant_id", tenantId).eq("storage_path", storagePath).is("deleted_at", null);
+  if (references.error || references.count === null) throw new Error("Dateiverweise konnten nicht geprüft werden.");
+  if (references.count > 0) return;
+  const removed = await client.storage.from("homecare-private-media").remove([storagePath]);
+  if (removed.error) throw new Error("Private Datei konnte nicht gelöscht werden.");
+}
 
 type MediaReference = { owner_type: string; deleted_at: string | null };
 

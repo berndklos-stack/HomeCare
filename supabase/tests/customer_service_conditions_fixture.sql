@@ -1,0 +1,12 @@
+create role anon;
+create role authenticated;
+create role service_role bypassrls;
+create table public.homecare_tenants(id uuid primary key);
+create table public.homecare_customers(id text primary key,tenant_id uuid not null references public.homecare_tenants,deleted_at timestamptz,unique(tenant_id,id));
+create table public.homecare_services(id text primary key,tenant_id uuid not null references public.homecare_tenants,deleted_at timestamptz,archived boolean default false,unique(tenant_id,id));
+create table public.homecare_sync_mutations(mutation_id uuid,tenant_id uuid,entity_type text,entity_id text,operation text,status text,expected_revision bigint,request_payload jsonb,response_payload jsonb,error text,applied_at timestamptz,primary key(tenant_id,mutation_id));
+create function public.set_homecare_updated_at() returns trigger language plpgsql as $$begin new.updated_at:=now();return new;end$$;
+create function public.homecare_bump_revision() returns trigger language plpgsql as $$begin if new.revision<=old.revision then new.revision:=old.revision+1;end if;return new;end$$;
+create function public.homecare_request_tenant() returns uuid language sql stable as $$select nullif(current_setting('test.tenant',true),'')::uuid$$;
+create function public.homecare_has_permission(uuid,text) returns boolean language sql stable as $$select coalesce(current_setting('test.permission',true),'')='yes'$$;
+create function public.homecare_relational_backup_tables() returns text[] language sql immutable as $$select array['homecare_customers','homecare_services']$$;

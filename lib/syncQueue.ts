@@ -7,7 +7,7 @@ export type SyncMutationOperation = "create" | "update" | "delete" | "restore";
 export type SyncMutation = {
   id: string;
   entityId: string;
-  entityType: "resource_type" | "operations" | "accounting_account" | "accounting_export" | "communication_media" | "customer" | "customer_contact" | "field_progress" | "inventory_location" | "invoice" | "invoice_line" | "job" | "job_note" | "job_time_entry" | "material" | "object" | "object_media" | "payment" | "personnel" | "portal_message" | "portal_message_reply" | "report" | "report_media" | "resource" | "service" | "service_package" | "setting" | "tenant_settings" | "translation" | "vehicle_media" | "vehicle_position" | "vehicle_trip";
+  entityType: "resource_type" | "operations" | "accounting_account" | "accounting_export" | "communication_media" | "customer" | "customer_contact" | "customer_service_condition" | "field_progress" | "inventory_location" | "invoice" | "invoice_line" | "job" | "job_note" | "job_time_entry" | "material" | "object" | "object_media" | "payment" | "personnel" | "portal_message" | "portal_message_reply" | "report" | "report_media" | "resource" | "service" | "service_package" | "setting" | "tenant_settings" | "translation" | "vehicle_media" | "vehicle_position" | "vehicle_trip";
   operation: SyncMutationOperation;
   resourceId: string;
   payload: Record<string, unknown>;
@@ -95,7 +95,7 @@ export function normalizeSyncQueue(value: unknown): SyncMutation[] {
       mutation.id
       && mutation.entityId
       && mutation.resourceId
-      && ["resource_type", "operations", "accounting_account", "accounting_export", "communication_media", "customer", "customer_contact", "field_progress", "inventory_location", "invoice", "invoice_line", "job", "job_note", "job_time_entry", "material", "object", "object_media", "payment", "personnel", "portal_message", "portal_message_reply", "report", "report_media", "resource", "service", "service_package", "setting", "tenant_settings", "translation", "vehicle_media", "vehicle_position", "vehicle_trip"].includes(String(mutation.entityType))
+      && ["resource_type", "operations", "accounting_account", "accounting_export", "communication_media", "customer", "customer_contact", "customer_service_condition", "field_progress", "inventory_location", "invoice", "invoice_line", "job", "job_note", "job_time_entry", "material", "object", "object_media", "payment", "personnel", "portal_message", "portal_message_reply", "report", "report_media", "resource", "service", "service_package", "setting", "tenant_settings", "translation", "vehicle_media", "vehicle_position", "vehicle_trip"].includes(String(mutation.entityType))
       && ["create", "update", "delete", "restore"].includes(String(mutation.operation))
       && ["pending", "syncing", "synced", "failed", "conflict"].includes(String(mutation.status)),
     );
@@ -197,6 +197,10 @@ export function nextPendingMutation(queue: SyncMutation[]) {
       position < index && previous.entityType === "resource_type" && previous.entityId === mutation.payload.resourceTypeId && previous.status !== "synced")) return false;
     if (mutation.entityType === "object_media" && queue.some((previous) => previous.entityType === "object"
       && previous.entityId === mutation.resourceId && previous.operation === "create" && previous.status !== "synced")) return false;
+    if (mutation.entityType === "customer_service_condition" && queue.some(previous => previous.operation === "create" && previous.status !== "synced" && (
+      (previous.entityType === "customer" && previous.entityId === mutation.resourceId) ||
+      (previous.entityType === "service" && previous.entityId === mutation.payload.serviceId)
+    ))) return false;
     return true;
   });
 }

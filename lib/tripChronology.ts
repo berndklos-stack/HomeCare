@@ -137,15 +137,27 @@ export function tripChronologyWarnings(trips: ChronologicalTrip[], candidate: Ch
   return warnings;
 }
 
-export function tripMileageGaps<T extends ChronologicalTrip>(trips: T[]) {
+export function tripMileageTimeline<T extends ChronologicalTrip>(trips: T[]) {
   const ordered = sortTripChronology(trips.filter((trip) => !trip.deletedAt && trip.status !== "laufend"));
-  const lastByVehicle = new Map<string, T>();
-  return ordered.flatMap((next) => {
-    const previous = lastByVehicle.get(next.resourceId ?? "");
-    lastByVehicle.set(next.resourceId ?? "", next);
-    if (!previous) return [];
-    const end = odometer(previous.endOdometer);
+  const highestByVehicle = new Map<string, T>();
+  const gaps: { previous: T; next: T; kilometers: number }[] = [];
+  const overlaps: { previous: T; next: T; kilometers: number }[] = [];
+  for (const next of ordered) {
+    const key = next.resourceId ?? "";
+    const previous = highestByVehicle.get(key);
+    const nextEnd = odometer(next.endOdometer);
+    const end = odometer(previous?.endOdometer);
+    // An overlapping legacy entry must not rewind the covered mileage range.
+    if (nextEnd !== undefined && (end === undefined || nextEnd > end)) highestByVehicle.set(key, next);
+    if (!previous) continue;
     const start = odometer(next.startOdometer);
-    return end !== undefined && start !== undefined && start > end ? [{ previous, next, kilometers: start - end }] : [];
-  });
+    if (end === undefined || start === undefined) continue;
+    if (start > end) gaps.push({ previous, next, kilometers: start - end });
+    if (start < end) overlaps.push({ previous, next, kilometers: end - start });
+  }
+  return { gaps, overlaps };
+}
+
+export function tripMileageGaps<T extends ChronologicalTrip>(trips: T[]) {
+  return tripMileageTimeline(trips).gaps;
 }

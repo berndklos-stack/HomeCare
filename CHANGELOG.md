@@ -4,6 +4,14 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.428.32 - 2026-11-16
+
+- Kundenberichte aus Leistungsbuchungen laufender Auftraege mit Vorschau, waehlbaren Anhaengen und bestehendem Versandablauf vorbereiten. Originaldateien bei gemeinsam genutzten Medien erhalten.
+- Kundenleistungen mit eigenen Nettopreisen und Stammdatenpreis als Vorgabe; neue Leistung direkt im Kundenformular anlegen. Native, versionierte Tabelle mit mandantengebundenen Fremdschluesseln, Revisionsschutz und Backupregistrierung.
+- Bilder und Dokumente beim Kunden und im Kundenportal nach Auftrag und Dateityp gruppieren, einzeln oder gesammelt als ZIP herunterladen. Kunden sehen ausschliesslich freigegebene Dateien; Berechtigung bei jedem Download erneut pruefen.
+- Stornierte Serien nicht erneut generieren. Rueckwaertige Kilometerstaende als Widerspruch statt als nachtragbare Luecke kennzeichnen.
+- Unvollstaendige Kontosicherheits-/Passwortwechselentwicklung bleibt unveroeffentlicht und wird nicht als Produktionsmigration eingespielt.
+
 ## 1.428.31 - 2026-11-01
 
 - Aktive und archivierte Konten per Zeilenklick oder Tastatur in einer eigenen Bearbeitungsansicht statt im Popup oeffnen. Neuanlage und Zurueck-Navigation verwenden dieselbe Ansicht; bestehende Speicher- und Archivierungsregeln bleiben erhalten.
