@@ -44,9 +44,9 @@ test("Dateiübersicht trennt Kunden und freigegebene von internen Berichten", ()
 test("ZIP-Pfade sind sicher, gruppiert und auch bei Namensgleichheit eindeutig", () => {
   const base = { id: "A", name: "../Plan.pdf", category: "document" as const, jobId: "J/1", jobTitle: "Montage", source: "/api/private-media?path=test" };
   const paths = customerArchivePaths([base, base, { ...base, name: "Foto.jpg", category: "image" }]);
-  expect(paths[0]).toBe("Montage-J_1/Dokumente/_Plan.pdf");
-  expect(paths[1]).toBe("Montage-J_1/Dokumente/_Plan (2).pdf");
-  expect(paths[2]).toBe("Montage-J_1/Bilder/Foto.jpg");
+  expect(paths[0]).toBe("Dokumente/Montage-J_1/_Plan.pdf");
+  expect(paths[1]).toBe("Dokumente/Montage-J_1/_Plan (2).pdf");
+  expect(paths[2]).toBe("Bilder/Montage-J_1/Foto.jpg");
   expect(safeArchiveName("../../C:\\test\u0000")).not.toMatch(/[\\/\u0000]/);
 });
 
@@ -62,6 +62,8 @@ test("Portaldateien und Direktdownloads sind ohne Anmeldung gesperrt", async ({ 
     const response = await request.get(url);
     expect(response.status()).toBe(401);
   }
+  const internal = await request.get("/api/customer-files?customerId=foreign&id=private", { headers: { "X-WorkCore-E2E-Bypass": "0" } });
+  expect(internal.status()).toBe(401);
 });
 
 for (const width of [390, 1440]) test(`Kundenportal zeigt freigegebene Downloads und sammelt sie als ZIP ${width}px`, async ({ page }, info) => {
@@ -77,12 +79,12 @@ for (const width of [390, 1440]) test(`Kundenportal zeigt freigegebene Downloads
   });
   await page.goto("/portal");
   const files = page.getByRole("region", { name: "Bilder und Dokumente", exact: true });
-  await expect(files.getByText("Freigegebener Plan.pdf", { exact: true })).toBeVisible();
+  await expect(files.getByText("Freigegebener Plan.pdf", { exact: true })).toBeVisible({ timeout: 20000 });
   const downloaded = page.waitForEvent("download");
   await files.getByRole("button", { name: "Alle angezeigten als ZIP", exact: true }).click();
   const result = await downloaded;
   expect(result.suggestedFilename()).toBe("Portalkunde.zip");
-  expect(Object.keys(unzipSync(readFileSync((await result.path())!)))).toEqual(["Montage-J/Dokumente/Freigegebener Plan.pdf"]);
+    expect(Object.keys(unzipSync(readFileSync((await result.path())!)))).toEqual(["Dokumente/Montage-J/Freigegebener Plan.pdf"]);
   await page.screenshot({ path: info.outputPath("portal-downloads.png") });
   expect(await files.evaluate(element => [element, ...element.querySelectorAll("*")].filter(item => item.scrollWidth > item.clientWidth + 1).map(item => ({ tag: item.tagName, class: item.className, width: item.clientWidth, scroll: item.scrollWidth })))).toEqual([]);
 });

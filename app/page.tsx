@@ -109,7 +109,8 @@ import { prepareCompanyLogoFile } from "@/lib/companyLogoUpload";
 import { mergeCustomerConditionEdits, validCustomerServiceCondition, type CustomerServiceCondition } from "@/lib/customerServiceConditions";
 import { CustomerServiceConditionsEditor } from "@/components/CustomerServiceConditionsEditor";
 import { CustomerFileOverview } from "@/components/CustomerFileOverview";
-import { collectCustomerFiles, type CustomerFile } from "@/lib/customerFiles";
+import { CustomerFilesPanel } from "@/components/CustomerFilesPanel";
+import { type CustomerFile } from "@/lib/customerFiles";
 import { sortTripChronology, latestCompletedTripForDate, maximumTripEndForDate, localTripDate, localTripTime, tripStartAt, tripNeighbors, tripMileageTimeline, tripChronologyWarnings, tripOdometerAfterAcknowledgement } from "@/lib/tripChronology";
 import { apiFetch, apiRequestHeaders, getActiveTenantId, tenantScopedStorageKey } from "@/lib/apiClient";
 import { useAuthenticatedMedia } from "@/lib/useAuthenticatedMedia";
@@ -10617,12 +10618,14 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
   }
 
   function openCreateCustomer() {
+    setSection("customers");
     setEditingCustomerId(null);
     setNewCustomer(emptyCustomerForm());
     setModal("customer");
   }
 
   function openEditCustomer(customer: CustomerRecord) {
+    setSection("customers");
     setEditingCustomerId(customer.id);
     setNewCustomer(customerToForm(customer));
     setModal("customer");
@@ -13586,9 +13589,9 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
           <CompanyBrand logoUrl={companySettings.logoUrl} name={companySettings.name} />
         </div>
         <PersonalNavigation controller={layoutPreferences} language={language} selected={auxiliary ? "" : section}
-          select={(id) => { if (!leaveStaffTime()) return; if (auxiliary) window.history.pushState(null, "", "/"); setStaffTimeDirty(false); setQuickTripOpen(false); setSection(id as Section); }}
+          select={(id) => { if (!leaveStaffTime()) return; if (auxiliary) window.history.pushState(null, "", "/"); if (modal === "customer") setModal(null); setStaffTimeDirty(false); setQuickTripOpen(false); setSection(id as Section); }}
           items={navItems.map((item) => ({ id: item.id, label: navLabels[language][item.id], icon: <item.icon size={17}/> }))}
-          trailing={<AdministrationLinks section={section} active={auxiliary || undefined} onNavigate={href => { if (!leaveStaffTime()) return; setStaffTimeDirty(false); setQuickTripOpen(false); window.history.pushState(null, "", href); }} />}/>
+          trailing={<AdministrationLinks section={section} active={auxiliary || undefined} onNavigate={href => { if (!leaveStaffTime()) return; if (modal === "customer") setModal(null); setStaffTimeDirty(false); setQuickTripOpen(false); window.history.pushState(null, "", href); }} />}/>
         <button className="version" onClick={() => setModal("version")} type="button">
           <span>{tx("Aktuelle Version")}</span>
           <strong>v{appVersion.version}</strong>
@@ -14045,6 +14048,19 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
         {!quickTripOpen && auxiliary && <section className="layout full"><div className="main-panel">{auxiliary === "administration" ? <AdministrationWorkspace embedded /> : <FeedbackWorkspace embedded />}</div></section>}
         {!quickTripOpen && !auxiliary && <section className="layout full">
           <div className="main-panel">
+            {modal === "customer" ? <section className="customer-editor-workspace" aria-labelledby="customer-editor-title">
+              <header className="customer-editor-header"><div><button type="button" className="ghost-button" onClick={() => setModal(null)}><ArrowLeft size={16} />{language === "sv" ? "Tillbaka till kunder" : language === "en" ? "Back to customers" : "Zurück zur Kundenübersicht"}</button><h2 id="customer-editor-title">{editingCustomerId ? t.editCustomer : t.newCustomer}</h2></div>{editingCustomer && <button className="ghost-button" onClick={() => openCustomerMessage(editingCustomer)} type="button"><Mail size={16} />{language === "sv" ? "Meddelande till kund" : language === "en" ? "Message customer" : "Nachricht an Kunde"}</button>}</header>
+              <CustomerForm services={services} onCreateService={createBillingService}
+                files={[]} customer={newCustomer} customerId={editingCustomerId ?? undefined}
+                language={language} languageOptions={customerLanguageOptions} objects={activeObjects}
+                isArchived={Boolean(editingCustomer?.archived)} onAutoSave={editingCustomerId ? autosaveCustomer : undefined}
+                onSaveConditions={editingCustomerId ? saveCustomerServiceConditions : undefined}
+                onArchive={editingCustomer ? () => { if (archiveCustomer(editingCustomer)) { setEditingCustomerId(null); setModal(null); } } : undefined}
+                onDelete={editingCustomer?.archived ? () => { if (deleteCustomer(editingCustomer)) { setEditingCustomerId(null); setModal(null); } } : undefined}
+                onRestore={editingCustomer?.archived ? () => { if (restoreCustomer(editingCustomer)) { setEditingCustomerId(null); setModal(null); } } : undefined}
+                setCustomer={setNewCustomer} onSubmit={saveCustomer} submitLabel={editingCustomerId ? t.saveCustomer : t.createCustomer}
+              />
+            </section> : <>
             {section === "dashboard" && (
               <Dashboard
                 firstSteps={(!onboardingState.firstStepsDismissed || !companySettings.onboarding) ? (
@@ -14310,6 +14326,7 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
               />
             )}
             {section === "masterData" && masterDataView}
+            </>}
           </div>
         </section>}
       </section>
@@ -14604,21 +14621,15 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
         </div>
       )}
 
-      {modal && (
+      {modal && modal !== "customer" && (
         <div className="modal-backdrop">
           <section className={modal === "job" ? "modal job-editor-modal" : "modal"} role="dialog" aria-modal="true">
             <header>
               <div>
-                <p>{modal === "customer" ? "Kundenstammdaten" : modal === "job" ? "Auftrag" : "Änderungsverlauf"}</p>
-                <h2>{modal === "customer" ? (editingCustomerId ? t.editCustomer : t.newCustomer) : modal === "job" ? (editingJobId ? "Auftrag bearbeiten" : t.newJob) : `v${appVersion.version}`}</h2>
+                <p>{modal === "job" ? "Auftrag" : "Änderungsverlauf"}</p>
+                <h2>{modal === "job" ? (editingJobId ? "Auftrag bearbeiten" : t.newJob) : `v${appVersion.version}`}</h2>
               </div>
               <div className="modal-header-actions">
-                {modal === "customer" && editingCustomer && (
-                  <button className="ghost-button compact" onClick={() => openCustomerMessage(editingCustomer)} type="button">
-                    <Mail size={16} />
-                    Nachricht an Kunde
-                  </button>
-                )}
                 <button aria-label={t.close} onClick={() => setModal(null)} type="button">
                   <X size={18} />
                 </button>
@@ -14645,42 +14656,6 @@ function WorkCoreHomePage({ initialSection = "dashboard", portalOnly = false }: 
                 setSelectedObjectId={selectJobObject}
                 onSubmit={saveJob}
                 submitLabel={editingJobId ? t.saveJob : t.createJob}
-              />
-            )}
-            {modal === "customer" && (
-              <CustomerForm
-                services={services}
-                onCreateService={createBillingService}
-                files={editingCustomerId ? collectCustomerFiles(editingCustomerId, objects, jobs, reports, false, portalMessages) : []}
-                customer={newCustomer}
-                customerId={editingCustomerId ?? undefined}
-                language={language}
-                languageOptions={customerLanguageOptions}
-                objects={activeObjects}
-                isArchived={Boolean(editingCustomer?.archived)}
-                onAutoSave={editingCustomerId ? autosaveCustomer : undefined}
-                onSaveConditions={editingCustomerId ? saveCustomerServiceConditions : undefined}
-                onArchive={editingCustomer ? () => {
-                  if (archiveCustomer(editingCustomer)) {
-                    setEditingCustomerId(null);
-                    setModal(null);
-                  }
-                } : undefined}
-                onDelete={editingCustomer?.archived ? () => {
-                  if (deleteCustomer(editingCustomer)) {
-                    setEditingCustomerId(null);
-                    setModal(null);
-                  }
-                } : undefined}
-                onRestore={editingCustomer?.archived ? () => {
-                  if (restoreCustomer(editingCustomer)) {
-                    setEditingCustomerId(null);
-                    setModal(null);
-                  }
-                } : undefined}
-                setCustomer={setNewCustomer}
-                onSubmit={saveCustomer}
-                submitLabel={editingCustomerId ? t.saveCustomer : t.createCustomer}
               />
             )}
             {modal === "version" && (
@@ -20645,7 +20620,7 @@ function CustomerPortalView({
         </section>
 
         <section className="panel portal-wide">
-          <CustomerFileOverview files={collectCustomerFiles(customer.id, objects, jobs, reports, true, messages)} name={customer.name} />
+          <CustomerFilesPanel customerId={customer.id} name={customer.name} portalPreview />
         </section>
         <section className="panel portal-wide">
           <div className="panel-title">
@@ -25525,7 +25500,9 @@ function CustomerForm({
     customerFormRef.current = customer;
   }, [customer]);
 
-  function autosaveField() {
+  function autosaveField(event: { target: EventTarget }) {
+    // Conditions persist independently; a delayed general save must not replay an older price.
+    if (event.target instanceof Element && event.target.closest(".customer-service-conditions, .customer-file-overview")) return;
     if (!onAutoSave) return;
     window.setTimeout(() => onAutoSave(customerFormRef.current), 0);
   }
@@ -25696,7 +25673,7 @@ function CustomerForm({
       </section>
       </PersonalBlock>
       <PersonalBlock id="customerFiles" title={tt("Bilder und Dokumente")} className="wide personal-form-block">
-        <CustomerFileOverview files={files} name={customer.name || customer.company || "Kunde"} language={language} />
+        {customerId ? <CustomerFilesPanel customerId={customerId} name={customer.name || customer.company || "Kunde"} language={language} /> : <CustomerFileOverview files={files} name={customer.name || customer.company || "Kunde"} language={language} />}
       </PersonalBlock>
       <PersonalBlock id="portalAccess" title={tt("Portalzugang")} className="wide personal-form-block">
       <h3>{tt("Portalzugang")}</h3>

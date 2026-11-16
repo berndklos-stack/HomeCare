@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Building2, FileText, LogIn, LogOut, MessageSquare } from "lucide-react";
+import { Building2, LogIn, LogOut, MessageSquare } from "lucide-react";
 import { activateTenant, activeTenantStorageKey, apiFetch } from "@/lib/apiClient";
 import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
 import { PortalFileOverview } from "@/components/PortalFileOverview";
@@ -104,7 +104,6 @@ export default function PortalPage() {
         <section className="panel portal-wide"><PortalFileOverview name={data.customer.name} /></section>
         <section className="panel"><div className="panel-title"><div><p>Objekte</p><h2>Deine Standorte</h2></div></div><div className="table-list">{data.objects.map((item) => <article key={item.id}><div><strong>{item.name}</strong><span>{item.address || "Keine Adresse"}</span></div></article>)}</div></section>
         <section className="panel"><div className="panel-title"><div><p>Aufträge</p><h2>Aktueller Stand</h2></div></div><div className="table-list">{data.jobs.map((item) => <article key={item.id}><div><strong>{item.title}</strong><span>{item.status} · {item.due_date || "ohne Termin"}</span></div></article>)}</div></section>
-        <section className="panel"><div className="panel-title"><div><p>Dokumentation</p><h2>Freigegebene Berichte</h2></div></div><div className="table-list">{data.reports.map((item) => <article key={item.id}><FileText size={17} /><div><strong>{item.title}</strong><span>{item.report_date || ""}</span><small>{item.summary || ""}</small></div></article>)}</div></section>
         <section className="panel"><div className="panel-title"><div><p>Kommunikation</p><h2>Nachrichten</h2></div></div><div className="table-list">{data.messages.map((item) => <article key={item.id}><MessageSquare size={17} /><div><strong>{item.subject}</strong><span>{item.created_at || ""}</span><small>{item.message}</small></div></article>)}</div></section>
       </div></section>
     </section>

@@ -4,6 +4,14 @@ Alle nennenswerten Änderungen an der Kolaretorp Service App werden hier
 protokolliert. Die App zeigt die aktuelle Version zusätzlich direkt in der
 Oberfläche an.
 
+## 1.428.33 - 2026-11-16
+
+- Dateikopien anhand des Originalinhalts statt nur des Speicherpfades pro Auftrag zusammenfassen. Unterschiedliche Dateien mit gleichem Namen bleiben erhalten; keine Originale oder Datensaetze werden geloescht.
+- Alte Bilder aus dem passenden privaten Storage-Bucket ueber ihre berechtigte Medienkennung laden. Mandant, Kunde, Objekt, Berichtsfreigabe und lebende Referenzen bei jedem Abruf pruefen; keine frei waehlbaren Speicherpfade freigeben.
+- Separate Gruppen Einsatzberichte, Bilder und Dokumente mit neuestem Datum zuerst, Auftragsbezeichnung je Datei und kompakten Zeilen ohne Checkbox-Rahmen. Gespeicherte Berichts-PDFs bevorzugen, sonst kundenbezogenen Berichtsexport ohne interne Notizen und Preise anbieten. Fehlende Originale markieren und aus Sammeldownloads ausschliessen.
+- Kundeneditor und Neuanlage als eigene Seitenansicht mit Zurueck-Navigation. Eigenstaendige Konditionenspeicherung vom allgemeinen Feld-Autospeichern trennen, damit verzogerte Feldspeicherungen keinen Kundenpreis zuruecksetzen.
+- Rein lesende Originalpruefung: Alle 154 besonders betroffenen Bilder vorhanden, 144 zusaetzliche Kopien bestaetigt. Neuer Leser reduziert die gesamten 166 Dateiverweise des betroffenen Kunden auf 16 unterschiedliche gespeicherte Dateien, ohne Daten zu veraendern. Keine Datenbankmigration erforderlich.
+
 ## 1.428.32 - 2026-11-16
 
 - Kundenberichte aus Leistungsbuchungen laufender Auftraege mit Vorschau, waehlbaren Anhaengen und bestehendem Versandablauf vorbereiten. Originaldateien bei gemeinsam genutzten Medien erhalten.

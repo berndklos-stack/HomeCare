@@ -41,9 +41,28 @@ nur freigegebene Berichte und deren versendete Kommunikation.
 
 `/api/portal/files` prueft Kundenzugang, Mandant, aktuelle Objektzuordnung,
 Berichtsfreigabe und Tombstones bei jedem Abruf erneut. Downloads adressieren
-eine Medienkennung, keinen frei uebergebenen Speicherpfad. Es werden nur
-mandantengebundene private Speicherpfade ausgegeben. Globale Legacy-Pfade oder
-beliebige externe URLs werden nicht ueber den Portal-Endpunkt freigegeben.
+eine Medienkennung, keinen frei uebergebenen Speicherpfad. Die interne Ansicht
+verwendet denselben Leser unter `/api/customer-files`, mit eigener Mitarbeiter-
+Authentifizierung und expliziter Kundenzuordnung. Native private Pfade bleiben
+mandantengebunden. Alte Dateien duerfen ausschliesslich ueber eine bestehende,
+lebende Medienzeile des berechtigten Kunden aus derselben Supabase-Installation
+geladen werden. Externe URLs, fremde Mandanten, Pfadnavigation und nicht
+freigegebene Berichte autorisieren keinen Download.
+
+Die Uebersicht hat die Gruppen Einsatzberichte, Bilder und Dokumente, jeweils
+neueste zuerst; Auftrag und Datum stehen an jeder Datei. Gespeicherte versendete
+Berichts-PDFs werden bevorzugt. Fuer andere berechtigte Berichte entsteht beim
+Download ein PDF aus Titel, Datum, Zusammenfassung und Checklisten, ohne interne
+Notizen oder Abrechnungssaetze. Die separat gelisteten Bilder werden dabei nicht
+erneut eingebettet. Kundeneditor und Neuanlage verwenden eine eigene Seitenansicht.
+
+Die Inhaltspruefung verwendet Storage-ETags fuer einfache MD5-Objekte, andernfalls
+den Hash heruntergeladener Originalbytes. Gleiche Namen allein sind kein
+Duplikatnachweis. Gleiche Inhalte werden pro Auftrag zusammengefasst, ohne
+Originale oder Datenbankzeilen zu loeschen. Die technische Inhaltskennung wird
+nicht in fachlichen Sammelfeldern persistiert. Fehlende Dateien bleiben sichtbar,
+sind aber nicht auswaehlbar; der Sammeldownload nennt dann ausdruecklich nur
+verfuegbare Dateien.
 
 ZIP-Dateien werden lokal im Browser mit fflate erzeugt. Bereits komprimierte
 Bilder und PDFs werden ohne erneute Kompression gruppiert. Grenzen: 500 Dateien

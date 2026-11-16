@@ -1,12 +1,14 @@
 export type CustomerFile = {
   id: string;
   name: string;
-  category: "image" | "document";
+  category: "image" | "document" | "report";
   jobId: string;
   jobTitle: string;
   source: string;
   size?: number;
   date?: string;
+  contentKey?: string;
+  unavailable?: boolean;
 };
 
 export function fileCategory(name: string, contentType = ""): CustomerFile["category"] {
@@ -20,12 +22,21 @@ export function safeArchiveName(name: string) {
 export function customerArchivePaths(files: CustomerFile[]) {
   const used = new Set<string>();
   return files.map(file => {
-    const group = `${safeArchiveName(file.jobTitle)}-${safeArchiveName(file.jobId)}/${file.category === "image" ? "Bilder" : "Dokumente"}`;
+    const group = `${file.category === "report" ? "Einsatzberichte" : file.category === "image" ? "Bilder" : "Dokumente"}/${safeArchiveName(file.jobTitle)}-${safeArchiveName(file.jobId)}`;
     const name = safeArchiveName(file.name);
     let path = `${group}/${name}`, count = 1;
     while (used.has(path.toLocaleLowerCase())) { count++; const dot = name.lastIndexOf("."); path = `${group}/${dot > 0 ? `${name.slice(0, dot)} (${count})${name.slice(dot)}` : `${name} (${count})`}`; }
     used.add(path.toLocaleLowerCase());
     return path;
+  });
+}
+
+export function uniqueCustomerFiles(files: CustomerFile[]) {
+  const seen = new Set<string>();
+  return [...files].sort((a, b) => Number(b.category === "report") - Number(a.category === "report") || (b.date || "").localeCompare(a.date || "") || a.name.localeCompare(b.name) || a.id.localeCompare(b.id)).filter(file => {
+    const key = `${file.jobId}|${file.contentKey || file.source}`;
+    if (seen.has(key)) return false;
+    seen.add(key); return true;
   });
 }
 
