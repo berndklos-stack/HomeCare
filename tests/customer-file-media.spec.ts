@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { customerMediaTarget, customerReportPdf, describeCustomerMedia, loadCustomerMedia, type CustomerMediaRow } from "../lib/server/customerFileMedia";
 import { uniqueCustomerFiles } from "../lib/customerFiles";
+import { platformTenantId } from "../lib/administration";
 
 const origin = "https://tenant.supabase.co";
 const media = (id: string, path = `T/${id}.jpg`, extra = {}): CustomerMediaRow => ({ id, owner_type: "report", owner_id: "R1", name: "image.jpg", kind: "checklist_photo", storage_path: path, preview_url: null, metadata: null, ...extra });
@@ -12,11 +13,13 @@ test("Alte Originale nur ueber exakt referenzierte Storage-Objekte derselben Ins
   expect(customerMediaTarget(media("A", "OTHER/A.jpg", { preview_url: `${origin}/storage/v1/object/public/homecare-media/OTHER/A.jpg` }), "T", origin)).toBeNull();
   const path = "field-photos/2026-08-13/abc-IMG_1523.jpg";
   const old = media("A", path, { preview_url: `${origin}/storage/v1/object/public/homecare-media/${path}` });
-  expect(customerMediaTarget(old, "T", origin)).toEqual({ bucket: "homecare-media", path });
-  expect(customerMediaTarget({ ...old, preview_url: `https://foreign.invalid/storage/v1/object/public/homecare-media/${path}` }, "T", origin)).toBeNull();
-  expect(customerMediaTarget({ ...old, preview_url: `${origin}/storage/v1/object/public/homecare-media/other.jpg` }, "T", origin)).toBeNull();
+  expect(customerMediaTarget(old, platformTenantId, origin)).toEqual({ bucket: "homecare-media", path });
+  expect(customerMediaTarget(old, "T", origin)).toBeNull();
+  expect(customerMediaTarget({ ...old, preview_url: `https://foreign.invalid/storage/v1/object/public/homecare-media/${path}` }, platformTenantId, origin)).toBeNull();
+  expect(customerMediaTarget({ ...old, preview_url: `${origin}/storage/v1/object/public/homecare-media/other.jpg` }, platformTenantId, origin)).toBeNull();
   const migrated = media("A", "", { storage_path: null, preview_url: "/api/private-media?path=migrated-app-state%2Farchive%2Fphoto.jpg" });
-  expect(customerMediaTarget(migrated, "T", origin)).toEqual({ bucket: "homecare-private-media", path: "migrated-app-state/archive/photo.jpg" });
+  expect(customerMediaTarget(migrated, platformTenantId, origin)).toEqual({ bucket: "homecare-private-media", path: "migrated-app-state/archive/photo.jpg" });
+  expect(customerMediaTarget(migrated, "T", origin)).toBeNull();
   expect(customerMediaTarget({ ...migrated, preview_url: "/api/private-media?path=T%2Fphoto.jpg" }, "T", origin)).toEqual({ bucket: "homecare-private-media", path: "T/photo.jpg" });
   expect(customerMediaTarget({ ...migrated, preview_url: "/api/private-media?path=OTHER%2Fphoto.jpg" }, "T", origin)).toBeNull();
   expect(customerMediaTarget(media("A", "T/../OTHER/a.jpg"), "T", origin)).toBeNull();

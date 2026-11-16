@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { fileCategory, uniqueCustomerFiles, type CustomerFile } from "@/lib/customerFiles";
 import { legacyObjectMediaReferencePath } from "./legacyObjectMediaPath";
+import { platformTenantId } from "@/lib/administration";
 
 export type CustomerMediaRow = { id: string; owner_type: string; owner_id: string; name: string; kind: string; storage_path: string | null; preview_url: string | null; metadata: Record<string, unknown> | null; created_at?: string };
 type Owner = { jobId: string; jobTitle: string; date?: string; reportPdfName?: string; reportId?: string };
@@ -21,7 +22,7 @@ export function customerMediaTarget(row: CustomerMediaRow, tenant: string, origi
   };
   if (path?.startsWith(`${tenant}/`) && safe(path)) return { bucket: "homecare-private-media", path };
   const migrated = legacyObjectMediaReferencePath(row, origin);
-  if (!path && migrated && safe(migrated)) return { bucket: "homecare-private-media", path: migrated };
+  if (!path && migrated && safe(migrated) && tenant === platformTenantId) return { bucket: "homecare-private-media", path: migrated };
   if (!path && row.preview_url) {
     try {
       const url = new URL(row.preview_url, origin || "https://workcore.local");
@@ -31,7 +32,8 @@ export function customerMediaTarget(row: CustomerMediaRow, tenant: string, origi
       if (candidate?.startsWith(`${tenant}/`) && safe(candidate)) return { bucket: "homecare-private-media", path: candidate };
     } catch { return null; }
   }
-  if (!path?.startsWith("field-photos/") || !safe(path) || !origin) return null;
+  // Global pre-tenant originals belong exclusively to the original migrated tenant.
+  if (tenant !== platformTenantId || !path?.startsWith("field-photos/") || !safe(path) || !origin) return null;
   try {
     const url = new URL(row.preview_url || "", origin);
     const prefixes = ["public", "sign", "authenticated"].map(access => `/storage/v1/object/${access}/homecare-media/`);

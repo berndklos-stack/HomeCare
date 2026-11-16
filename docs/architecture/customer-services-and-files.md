@@ -48,6 +48,9 @@ mandantengebunden. Alte Dateien duerfen ausschliesslich ueber eine bestehende,
 lebende Medienzeile des berechtigten Kunden aus derselben Supabase-Installation
 geladen werden. Externe URLs, fremde Mandanten, Pfadnavigation und nicht
 freigegebene Berichte autorisieren keinen Download.
+Globale Dateien aus der Zeit vor der Mandantentrennung sind zusaetzlich auf den
+urspruenglichen Migrationsmandanten begrenzt. Eine neu angelegte Medienreferenz
+einer anderen Firma kann dadurch keine globalen Altdateien freischalten.
 
 Die Uebersicht hat die Gruppen Einsatzberichte, Bilder und Dokumente, jeweils
 neueste zuerst; Auftrag und Datum stehen an jeder Datei. Gespeicherte versendete
